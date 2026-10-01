@@ -9,6 +9,194 @@
     "url" : "/"
   } ],
   "paths" : {
+    "/api/v1/auth/csrf" : {
+      "get" : {
+        "description" : "Answers 204 and sets the XSRF-TOKEN cookie. A browser page reads that cookie and sends its value in the X-XSRF-TOKEN header with every state-changing request, which the server compares with the cookie.",
+        "operationId" : "getCsrfToken",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Receive the forgery-protection cookie",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/me" : {
+      "get" : {
+        "description" : "The signed-in user. 401 UNAUTHENTICATED without a valid token. Says nothing about what the user may do: permissions are decided elsewhere, per organization.",
+        "operationId" : "getCurrentUser",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCurrentUser"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Who the caller is",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/password" : {
+      "post" : {
+        "description" : "Needs the current password and a new one that meets the password policy. Ends every session of the user, including this one: sign in again afterwards.",
+        "operationId" : "changePassword",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change the password of the signed-in user",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/refresh" : {
+      "post" : {
+        "description" : "Uses the refresh cookie. Answers 204 with new cookies, or 401 UNAUTHENTICATED with the cookies removed when the refresh token is unknown, expired, revoked or was already used.",
+        "operationId" : "refreshSession",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Replace the session tokens",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/sign-in" : {
+      "post" : {
+        "description" : "On success answers 204 and sets the short-lived login cookie; the browser then continues with the sign-in page navigation (/api/v1/auth/start) to receive its session cookies. Every kind of failure (unknown address, wrong password, locked, disabled, not yet verified) answers the same 401 UNAUTHENTICATED; too many attempts answer 429 RATE_LIMITED.",
+        "operationId" : "signIn",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SignInRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Check an email address and a password",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/sign-out" : {
+      "post" : {
+        "description" : "Revokes the tokens the browser presents and removes the cookies. Always answers 204: signing out when not signed in is not an error.",
+        "operationId" : "signOut",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "End the current sign-in",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/sign-out-all" : {
+      "post" : {
+        "description" : "Revokes every session and token of the signed-in user, on every device and instance, at once.",
+        "operationId" : "signOutEverywhere",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "End every sign-in of the user",
+        "tags" : [ "Authentication" ]
+      }
+    },
     "/api/v1/platform/status" : {
       "get" : {
         "description" : "Succeeds when the API is running and its database answered a query.",
@@ -108,6 +296,15 @@
         },
         "required" : [ "error" ]
       },
+      "ApiResponseCurrentUser" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CurrentUser"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponsePlatformStatus" : {
         "type" : "object",
         "properties" : {
@@ -125,6 +322,37 @@
           }
         },
         "required" : [ "data" ]
+      },
+      "ChangePasswordRequest" : {
+        "type" : "object",
+        "properties" : {
+          "currentPassword" : {
+            "type" : "string",
+            "maxLength" : 1024,
+            "minLength" : 0
+          },
+          "newPassword" : {
+            "type" : "string",
+            "maxLength" : 1024,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "currentPassword", "newPassword" ]
+      },
+      "CurrentUser" : {
+        "type" : "object",
+        "properties" : {
+          "displayName" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "displayName", "email", "id" ]
       },
       "ErrorCode" : {
         "type" : "string",
@@ -166,6 +394,22 @@
           }
         },
         "required" : [ "apiVersion", "databaseTime", "serverTime", "service" ]
+      },
+      "SignInRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "maxLength" : 320,
+            "minLength" : 0
+          },
+          "password" : {
+            "type" : "string",
+            "maxLength" : 1024,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "email", "password" ]
       },
       "TenantSummary" : {
         "type" : "object",

@@ -1,12 +1,13 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { OrganizationName } from "./OrganizationName";
+import { UserMenu } from "./UserMenu";
 
 /**
  * The stable frame of every page: header (product, organization and user context), navigation and the content
- * area. The organization name is what the API reports for the address of the page (Sprint 2); the user is still a
- * placeholder (sign-in is Sprint 3). Later sprints add the organization switcher (Sprint 5) and build the navigation
- * from application metadata (Sprint 18); the frame itself stays.
+ * area. The organization name is what the API reports for the address of the page (Sprint 2); the signed-in user is
+ * what the API reports about the caller (Sprint 3). Later sprints add the organization switcher (Sprint 5) and build
+ * the navigation from application metadata (Sprint 18); the frame itself stays.
  */
 export function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -18,7 +19,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <span className="shell-brand">Platform</span>
         <div className="shell-context" aria-label="Session">
           <OrganizationName />
-          <span>Not signed in</span>
+          <UserMenu />
         </div>
       </header>
       <nav className="shell-nav" aria-label="Main">

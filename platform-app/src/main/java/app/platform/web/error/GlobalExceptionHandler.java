@@ -18,6 +18,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
@@ -40,10 +42,11 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  * the rejected value) are replaced by the generic text of the error code. Unexpected failures are reported
  * through the error tracking hook and answered with {@link ErrorCode#INTERNAL_ERROR}.
  *
- * <p><strong>Sprint 3 must extend this class:</strong> the catch-all handler below would turn Spring Security's
- * authentication and access-denied exceptions into 500 errors. Add explicit handlers that answer
- * {@link ErrorCode#UNAUTHENTICATED} (401) and {@link ErrorCode#FORBIDDEN} (403) in the same model, with a test for
- * each, before any endpoint is protected.
+ * <p>Spring Security's authentication and access-denied exceptions are answered here too ({@link
+ * ErrorCode#UNAUTHENTICATED} 401 and {@link ErrorCode#FORBIDDEN} 403), whether they are thrown by a method guard
+ * inside a controller or handed over by the security filter chain's entry point and denied handler. Without these
+ * handlers the catch-all below would turn them into 500 errors. Like every other message, the exception's own text is
+ * never forwarded: a failed authentication always reads the same.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
@@ -67,7 +70,32 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         if (exception.code().httpStatus() >= 500) {
             track(exception, request);
         }
-        return responses.of(exception.code(), exception.getMessage(), exception.fields());
+        ResponseEntity<Object> response = responses.of(exception.code(), exception.getMessage(), exception.fields());
+        if (exception.retryAfterSeconds() > 0) {
+            return ResponseEntity.status(response.getStatusCode())
+                    .headers(response.getHeaders())
+                    .header(HttpHeaders.RETRY_AFTER, Long.toString(exception.retryAfterSeconds()))
+                    .body(response.getBody());
+        }
+        return response;
+    }
+
+    // ---- failures raised by Spring Security ----
+
+    /** No valid authentication: always the same answer, whatever the reason (expired, revoked, malformed, missing). */
+    @ExceptionHandler(AuthenticationException.class)
+    ResponseEntity<Object> handleAuthentication() {
+        ResponseEntity<Object> response = responses.of(ErrorCode.UNAUTHENTICATED);
+        return ResponseEntity.status(response.getStatusCode())
+                .headers(response.getHeaders())
+                .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+                .body(response.getBody());
+    }
+
+    /** Authenticated but not allowed. */
+    @ExceptionHandler(AccessDeniedException.class)
+    ResponseEntity<Object> handleAccessDenied() {
+        return responses.of(ErrorCode.FORBIDDEN);
     }
 
     @ExceptionHandler(OptimisticLockingFailureException.class)

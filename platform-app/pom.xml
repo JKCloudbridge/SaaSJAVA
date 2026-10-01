@@ -76,6 +76,26 @@
       <artifactId>datasource-micrometer-spring-boot</artifactId>
     </dependency>
 
+    <!-- Sprint 3 (ADR-0005, ADR-0018): authorization server that issues and revokes the user tokens, the resource-server
+         side that checks them on every request, Redis for the rate limits shared across instances, and the library that
+         provides the Argon2id password hash. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security-oauth2-authorization-server</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-redis</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcprov-jdk18on</artifactId>
+    </dependency>
+
     <!-- OpenAPI document generated from the controllers; the interactive documentation page is not included. -->
     <dependency>
       <groupId>org.springdoc</groupId>
@@ -91,6 +111,11 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-webmvc-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security-test</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

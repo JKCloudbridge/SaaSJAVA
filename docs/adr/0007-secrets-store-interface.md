@@ -26,6 +26,8 @@ couple to one secrets product.
 ## Consequences
 
 - Integration code can be written against the interface long before a store exists.
+- Sprint 3 added a key provider for the token signing keys that reads files supplied by the deployment (never the repository or a table); a
+  secrets-store implementation of it comes with Sprint 27 ([ADR-0019](0019-authentication-implementation.md)).
 - Contract rules are documented on the interface; Sprint 27 turns them into a reusable test suite that every
   implementation must pass.
 - In Sprint 0 only value-type behaviour is tested (`SecretsContractTest`); there is no implementation to test.

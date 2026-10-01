@@ -15,6 +15,7 @@ public final class ApiException extends RuntimeException {
 
     private final ErrorCode code;
     private final transient Map<String, List<String>> fields;
+    private final long retryAfterSeconds;
 
     /** Fails with the code's default message. */
     public ApiException(ErrorCode code) {
@@ -28,9 +29,31 @@ public final class ApiException extends RuntimeException {
 
     /** Fails with a client-facing message and the invalid fields. */
     public ApiException(ErrorCode code, String message, Map<String, List<String>> fields) {
+        this(code, message, fields, 0);
+    }
+
+    private ApiException(ErrorCode code, String message, Map<String, List<String>> fields, long retryAfterSeconds) {
         super(message);
         this.code = Objects.requireNonNull(code, "code");
         this.fields = Map.copyOf(fields);
+        this.retryAfterSeconds = Math.max(0, retryAfterSeconds);
+    }
+
+    /**
+     * The caller sent too many requests: {@link ErrorCode#RATE_LIMITED}, and the response carries a
+     * {@code Retry-After} header with the number of seconds to wait.
+     */
+    public static ApiException rateLimited(long retryAfterSeconds) {
+        return new ApiException(ErrorCode.RATE_LIMITED, ErrorCode.RATE_LIMITED.defaultMessage(), Map.of(),
+                retryAfterSeconds);
+    }
+
+    /**
+     * A dependency is unavailable for now: {@link ErrorCode#SERVICE_UNAVAILABLE}, with a {@code Retry-After} header.
+     */
+    public static ApiException unavailable(long retryAfterSeconds) {
+        return new ApiException(ErrorCode.SERVICE_UNAVAILABLE, ErrorCode.SERVICE_UNAVAILABLE.defaultMessage(),
+                Map.of(), retryAfterSeconds);
     }
 
     /** A validation error for the given fields. */
@@ -51,6 +74,11 @@ public final class ApiException extends RuntimeException {
     /** The error code of this failure. */
     public ErrorCode code() {
         return code;
+    }
+
+    /** Seconds the caller should wait before retrying (the {@code Retry-After} header), zero when none is advised. */
+    public long retryAfterSeconds() {
+        return retryAfterSeconds;
     }
 
     /** The invalid fields, empty when none apply. */

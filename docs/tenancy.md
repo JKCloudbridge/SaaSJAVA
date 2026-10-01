@@ -72,6 +72,19 @@ A handler's database changes happen once however often the event is delivered. A
 database must use `event.eventId()` as that call's idempotency key. A thrown exception retries the event with a growing
 delay and, after the limit, sets it aside as a dead letter.
 
+## Users and the tenant context (Sprint 3)
+
+- A **user is a global identity**, not a tenant's data: the identity tables (`platform_user`, `user_credential`, `login_session`,
+  `oauth2_authorization`, `audit_record`) are **platform-level** on purpose ([ADR-0022](adr/0022-platform-level-identity-tables-and-audit-v0.md)).
+  Their tenant-related columns are called `bound_tenant_id` and `context_tenant_id`, never `tenant_id`.
+- `TenantContext.userId` is filled in from the authenticated token (a filter after the token check). The tenant is **still read only from
+  the host name**; a header, parameter or body cannot change it, and a token works only on the host it was issued on. On the platform host
+  there is no tenant, so there is no context there; the caller is visible through `GET /api/v1/auth/me`. `membershipId` is still empty
+  until Sprint 5.
+- A new endpoint is **protected by default**: every `/api/v1` path needs a valid token unless it is on the short list in
+  `SecurityConfiguration`; a test walks every controller mapping and fails for one that is public without being listed.
+- Write the authorization test (allowed, denied, cross-tenant) with `TestBrowser` and `TestSignIn` (`testsupport`), which sign in for real.
+
 ## Configuration of this sprint
 
 | Variable | Meaning |

@@ -28,10 +28,14 @@ public final class TestDatabase {
     private static final String DATABASE = "platform";
     private static final String OWNER_PASSWORD = UUID.randomUUID().toString();
     private static final String APP_PASSWORD = UUID.randomUUID().toString();
+    // Every distinct test configuration keeps its own application context, and each context keeps a pool of connections
+    // open until the run ends; the tests of Sprint 3 added several such contexts (and a second running instance), which
+    // passed the server's default of 100 connections. A throw-away test server can allow many more.
     private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18")
             .withDatabaseName(DATABASE)
             .withUsername(OWNER_USER)
-            .withPassword(OWNER_PASSWORD);
+            .withPassword(OWNER_PASSWORD)
+            .withCommand("postgres", "-c", "max_connections=500");
 
     static {
         POSTGRES.start();

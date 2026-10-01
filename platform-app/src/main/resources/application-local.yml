@@ -12,6 +12,11 @@ spring:
     url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/${POSTGRES_DB:platform}
     username: ${APP_DB_USER:platform_app}
     password: ${APP_DB_PASSWORD}
+  data:
+    redis:
+      host: localhost
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
   flyway:
     url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/${POSTGRES_DB:platform}
     user: ${POSTGRES_USER:platform}
@@ -48,3 +53,11 @@ platform:
     base-domain: localhost
     # The development proxy of the web app rewrites the Host header and passes the original in X-Forwarded-Host.
     trust-forwarded-host: true
+  identity:
+    # A developer machine uses plain HTTP, so cookies cannot be Secure; the signing key lives only in memory; the
+    # development proxy passes the caller's address in X-Forwarded-For.
+    trust-forwarded-for: true
+    cookies:
+      secure: false
+    signing:
+      ephemeral: true

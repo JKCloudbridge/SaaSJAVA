@@ -67,21 +67,28 @@ Image names and versions are in [docker-compose.yml](docker-compose.yml) (the on
 ## Connecting the application
 
 Since Sprint 1 the application uses PostgreSQL (and exports traces to the trace viewer); since Sprint 2 it connects as its
-own role (`APP_DB_USER` in `.env`, created by `./init-app-role.ps1`) and runs the outbox relay. Redis, object storage and the
-mail catcher are not used yet. Three ways to run it, all against these services:
+own role (`APP_DB_USER` in `.env`, created by `./init-app-role.ps1`) and runs the outbox relay; since Sprint 3 it also uses Redis
+(sign-in rate limits shared across instances: `REDIS_PORT` and `REDIS_PASSWORD` in `.env`) and signs users in. Object storage and
+the mail catcher are not used yet. Three ways to run it, all against these services:
 
 1. **As a jar or from the IDE** (the usual loop). Build once with `./mvnw -DskipTests package` in the repository root, then
    `java -jar platform-app/target/platform-app-0.1.0-SNAPSHOT.jar --spring.profiles.active=local`. The `local` profile reads
    `infra/local/.env` directly (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`, `APP_DB_USER`, `APP_DB_PASSWORD`,
-   `TRACING_COLLECTOR_PORT`),
+   `TRACING_COLLECTOR_PORT`, `REDIS_PORT`, `REDIS_PASSWORD`, `LOCAL_SEED_PASSWORD`),
    so nothing needs to be exported; real environment variables win over the file. The first start migrates the database.
 2. **As the container image**, closest to a deployment: build the jar as above, then
    `docker build -t platform-app:local platform-app` and `docker compose --profile app up -d` here. It runs the `prod`
-   profile with the settings passed in the compose file.
+   profile with the settings passed in the compose file, plus Redis and, for this local container only, cookies without the Secure
+   flag and a token signing key generated in memory (`PLATFORM_IDENTITY_COOKIES_SECURE=false`, `PLATFORM_IDENTITY_SIGNING_EPHEMERAL=true`;
+   a deployment supplies real signing keys and never sets either).
 3. **With the web frontend**: `cd ../../platform-web; npm ci; npm run dev`, then open `http://tenant-a.localhost:3000` (or
    `tenant-b`; any name ending in `.localhost` reaches this machine in a browser). The `local` profile creates both
    organizations at start-up, and the page header shows the organization the address belongs to; `http://localhost:3000`
-   addresses none. The browser talks only to that address; the dev server forwards `/api` to the application (passing the
+   addresses none. **To sign in**, use the two local users the `local` profile creates at start-up: `user-a@example.test` and
+   `admin-a@example.test`, both with the password `LOCAL_SEED_PASSWORD` from `.env` (`./init-env.ps1` generates it; it is never in a
+   file of the repository). Open the **Sign in** link in the header. A signed-in session lives in cookies the page cannot read;
+   `tenant-a` and `tenant-b` are separate sessions, and `http://localhost:3000` is the platform host (signing in works there too, with no
+   organization). The browser talks only to that address; the dev server forwards `/api` to the application (passing the
    original host name, which the `local` profile trusts) and `/telemetry` to the trace viewer.
 
 Open the trace viewer at `http://localhost:16686` after loading the home page: one trace shows the browser, the API and the

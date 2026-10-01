@@ -195,6 +195,54 @@ code,
   cursor: progress;
 }
 
+.user-menu {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.link-button {
+  font: inherit;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.form {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 24rem;
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.field label {
+  font-weight: 600;
+}
+
+.field input {
+  font: inherit;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: var(--border-width) solid var(--color-border);
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+.form-message {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+
 @media (max-width: 40rem) {
   .shell {
     grid-template-columns: 1fr;

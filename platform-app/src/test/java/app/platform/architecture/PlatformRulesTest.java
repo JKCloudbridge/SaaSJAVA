@@ -113,6 +113,33 @@ class PlatformRulesTest {
     }
 
     @Test
+    void passwordHashingAndTheAuthorizationServerStayInsideTheIdentityModule() {
+        // Credentials are handled in one place: no other module hashes passwords, knows the hashing library or builds
+        // tokens with the authorization server (ADR-0019, ADR-0020).
+        noClasses().that().resideOutsideOfPackages("app.platform.identity..")
+                .should().dependOnClassesThat().resideInAnyPackage("org.bouncycastle..",
+                        "org.springframework.security.crypto..",
+                        "org.springframework.security.oauth2.server.authorization..")
+                .because("password hashes and tokens are the identity module's alone")
+                .allowEmptyShould(true)
+                .check(platform);
+    }
+
+    @Test
+    void onlyTheIdentityModuleAndTheRequestLevelWebModulesKnowTheSecurityFrameworkTypes() {
+        // Business modules ask who the caller is through the tenant context and the identity module's public types,
+        // never through the framework's security context (so authorization stays platform-owned, ADR-0005).
+        noClasses().that().resideInAnyPackage("app.platform.tenant..", "app.platform.metadata..",
+                        "app.platform.data..", "app.platform.application..", "app.platform.workflow..",
+                        "app.platform.approval..", "app.platform.notification..", "app.platform.integration..",
+                        "app.platform.licensing..", "app.platform.platformadmin..", "app.platform.audit..")
+                .should().dependOnClassesThat().resideInAnyPackage("org.springframework.security.core.context..")
+                .because("the caller is read from the tenant context, not from the framework's static holder")
+                .allowEmptyShould(true)
+                .check(platform);
+    }
+
+    @Test
     void controllerEndpointsReturnTheApiEnvelopeOrAResponseEntity() {
         // Clients can rely on {"data": ...}, {"data": [...], "pagination": ...} and {"error": ...} everywhere.
         DescribedPredicate<JavaMethod> endpoints = DescribedPredicate.describe(

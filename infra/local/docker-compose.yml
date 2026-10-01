@@ -98,6 +98,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       tracing:
         condition: service_started
     environment:
@@ -112,6 +114,13 @@ services:
       PLATFORM_DB_APP_PASSWORD: ${APP_DB_PASSWORD:?run init-env.ps1 first}
       # Organizations live at <slug>.localhost; the API is reached directly here, so the forwarded host is not trusted.
       PLATFORM_BASE_DOMAIN: localhost
+      # Redis holds the sign-in rate limits (Sprint 3).
+      PLATFORM_REDIS_HOST: redis
+      PLATFORM_REDIS_PASSWORD: ${REDIS_PASSWORD:?run init-env.ps1 first}
+      # This container is reached over plain HTTP on a developer machine, so, unlike every deployment, its cookies have
+      # no Secure flag and its token signing key is generated in memory. A deployment supplies real keys (ADR-0019).
+      PLATFORM_IDENTITY_COOKIES_SECURE: "false"
+      PLATFORM_IDENTITY_SIGNING_EPHEMERAL: "true"
       PLATFORM_TRACE_EXPORT: "true"
       PLATFORM_TRACE_SAMPLING: "1.0"
       PLATFORM_TRACE_ENDPOINT: http://tracing:4318/v1/traces

@@ -22,3 +22,16 @@ platform:
   outbox:
     # Tests drive the relay themselves, or switch it on for the one context that wants it to poll.
     enabled: false
+  identity:
+    # Tests come from made-up sources named in X-Forwarded-For, so that every test has its own rate-limit allowance.
+    trust-forwarded-for: true
+    cleanup:
+      enabled: false
+    password:
+      # Cheap hashing keeps the suite fast; the tests of the hash itself build their own hasher with real parameters.
+      memory-kib: 1024
+      iterations: 1
+    cookies:
+      secure: false
+    signing:
+      ephemeral: true
