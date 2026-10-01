@@ -42,8 +42,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  *
  * <p><strong>Sprint 3 must extend this class:</strong> the catch-all handler below would turn Spring Security's
  * authentication and access-denied exceptions into 500 errors. Add explicit handlers that answer
- * {@link ErrorCode#UNAUTHENTICATED} (401) and {@link ErrorCode#FORBIDDEN} (403) in the same model, with a test for each,
- * before any endpoint is protected.
+ * {@link ErrorCode#UNAUTHENTICATED} (401) and {@link ErrorCode#FORBIDDEN} (403) in the same model, with a test for
+ * each, before any endpoint is protected.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
