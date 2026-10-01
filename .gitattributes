@@ -1,0 +1,10 @@
+# Normalise line endings so scripts work on every platform.
+* text=auto
+mvnw text eol=lf
+*.sh text eol=lf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.java text eol=lf
+*.xml text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
