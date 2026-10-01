@@ -14,10 +14,17 @@ public final class TestHttp {
 
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     private final String baseUrl;
+    private final String[] defaultHeaders;
 
-    /** A client for a server on localhost. */
-    public TestHttp(int port) {
+    /**
+     * A client for a server on localhost.
+     *
+     * @param port the server's port
+     * @param defaultHeaders name/value pairs sent with every request (for example a bearer token)
+     */
+    public TestHttp(int port, String... defaultHeaders) {
         this.baseUrl = "http://localhost:" + port;
+        this.defaultHeaders = defaultHeaders.clone();
     }
 
     /** Sends a GET request. {@code headers} are name/value pairs. */
@@ -31,7 +38,17 @@ public final class TestHttp {
                 .POST(HttpRequest.BodyPublishers.ofString(body)), headers);
     }
 
+    /** Sends a request with any method (for walking every mapping of the application). */
+    public Response request(String method, String path, String body, String... headers) {
+        HttpRequest.BodyPublisher publisher = body == null || body.isEmpty()
+                ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(body);
+        return send(HttpRequest.newBuilder(URI.create(baseUrl + path)).method(method, publisher), headers);
+    }
+
     private Response send(HttpRequest.Builder builder, String... headers) {
+        for (int i = 0; i + 1 < defaultHeaders.length; i += 2) {
+            builder.header(defaultHeaders[i], defaultHeaders[i + 1]);
+        }
         for (int i = 0; i + 1 < headers.length; i += 2) {
             builder.header(headers[i], headers[i + 1]);
         }

@@ -4,7 +4,10 @@ import org.springframework.boot.test.util.TestPropertyValues;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 
-/** Points the application at the shared test database: migrations as the owner, runtime as the application role. */
+/**
+ * Points the application at the shared test database (migrations as the owner, runtime as the application role) and
+ * the shared test Redis.
+ */
 public class TestDatabaseInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
 
     @Override
@@ -15,7 +18,10 @@ public class TestDatabaseInitializer implements ApplicationContextInitializer<Co
                         "spring.datasource.password=" + TestDatabase.appPassword(),
                         "spring.flyway.url=" + TestDatabase.jdbcUrl(),
                         "spring.flyway.user=" + TestDatabase.ownerUser(),
-                        "spring.flyway.password=" + TestDatabase.ownerPassword())
+                        "spring.flyway.password=" + TestDatabase.ownerPassword(),
+                        "spring.data.redis.host=" + TestRedis.host(),
+                        "spring.data.redis.port=" + TestRedis.port(),
+                        "spring.data.redis.password=" + TestRedis.password())
                 .applyTo(context);
     }
 }

@@ -33,6 +33,15 @@ spring:
     baseline-on-migrate: false
     clean-disabled: true
     placeholder-replacement: false
+  data:
+    redis:
+      # Redis holds the rate limits that must be shared by every instance (ADR-0021). A short timeout, because a slow
+      # Redis must never slow a sign-in down: after one failure the instance counts for itself for a few seconds.
+      host: ${PLATFORM_REDIS_HOST}
+      port: ${PLATFORM_REDIS_PORT:6379}
+      password: ${PLATFORM_REDIS_PASSWORD:}
+      timeout: 250ms
+      connect-timeout: 250ms
   lifecycle:
     timeout-per-shutdown-phase: 20s
 
@@ -137,3 +146,19 @@ platform:
   outbox:
     # Every instance may run the relay; they coordinate through the database (ADR-0016).
     enabled: ${PLATFORM_OUTBOX_ENABLED:true}
+  identity:
+    # Behind a trusted proxy that overwrites X-Forwarded-For (the source address of rate limits and audit records);
+    # with the API reachable directly a caller could choose its own address, which is why the default is off.
+    trust-forwarded-for: ${PLATFORM_TRUST_FORWARDED_FOR:false}
+    # Cookies carry the Secure flag everywhere except a developer machine (profile local).
+    cookies:
+      secure: true
+    signing:
+      # The keys that sign ID tokens, newest first (ADR-0019): a deployment supplies the files; there is no default.
+      # An entry without an identifier is ignored, so a deployment that forgot them gets one clear start-up message.
+      keys:
+        - id: ${PLATFORM_SIGNING_KEY_ID:}
+          private-key-file: ${PLATFORM_SIGNING_PRIVATE_KEY_FILE:}
+          public-key-file: ${PLATFORM_SIGNING_PUBLIC_KEY_FILE:}
+    seed:
+      password: ${LOCAL_SEED_PASSWORD:}

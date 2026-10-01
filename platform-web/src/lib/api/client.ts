@@ -1,5 +1,6 @@
 import createClient, { type Middleware } from "openapi-fetch";
 import { log } from "../log";
+import { forgeryProtectionMiddleware } from "./forgery";
 import type { paths } from "./generated/schema";
 
 /** Header that identifies one request across the browser, the API and the database log. */
@@ -71,6 +72,7 @@ export function createApiClient(options: ApiClientOptions = {}) {
     fetch: options.fetch ?? ((request) => globalThis.fetch(request)),
   });
   client.use(correlationMiddleware);
+  client.use(forgeryProtectionMiddleware);
   return client;
 }
 

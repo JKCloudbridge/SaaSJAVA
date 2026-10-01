@@ -23,3 +23,8 @@ A decision that is still open has status **Proposed** and names the gate or spri
 | [0015](0015-row-level-security-implementation.md) | Row level security: roles, policies, system scope and what was verified | Accepted (implements 0003) | — |
 | [0016](0016-transactional-outbox-and-idempotent-consumers.md) | Transactional outbox, polling relay and idempotent consumers | Accepted for the outbox and relay (processor and broker close in Sprint 22) | D3 |
 | [0017](0017-tenant-resolution-by-hostname.md) | Tenant resolution by host name | Accepted | — |
+| [0018](0018-persistence-access-jdbc-now-jpa-open.md) | Persistence access: plain JDBC for platform tables now, JPA adoption left open | Accepted for current code (JPA decision open, closes by Sprint 14) | — |
+| [0019](0019-authentication-implementation.md) | Authentication implementation: sign-in, sessions, tokens, revocation and keys | Accepted (implements 0005) | D2 |
+| [0020](0020-passwords-and-hashing.md) | Passwords: policy, Argon2id hashing and its measured parameters | Accepted | — |
+| [0021](0021-brute-force-protection-and-rate-limits.md) | Brute-force protection: uniform answers, constant work, the lock, rate limits and the outage rule | Accepted | — |
+| [0022](0022-platform-level-identity-tables-and-audit-v0.md) | Identity tables are platform-level; audit version 0 and authentication events without a tenant | Accepted | — |

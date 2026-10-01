@@ -46,6 +46,8 @@
     <archunit.version>1.5.1</archunit.version>
     <springdoc.version>3.1.1</springdoc.version>
     <datasource-micrometer.version>2.3.0</datasource-micrometer.version>
+    <!-- Sprint 3: the cryptography library behind the Argon2id password hash (Spring's encoder needs it; the JDK has none). -->
+    <bouncycastle.version>1.86</bouncycastle.version>
 
     <!-- Build plugin versions. -->
     <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
@@ -84,6 +86,12 @@
         <groupId>net.ttddyy.observation</groupId>
         <artifactId>datasource-micrometer-spring-boot</artifactId>
         <version>${datasource-micrometer.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.bouncycastle</groupId>
+        <artifactId>bcprov-jdk18on</artifactId>
+        <version>${bouncycastle.version}</version>
       </dependency>
 
       <!-- Platform modules. -->

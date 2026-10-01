@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import app.platform.sharedkernel.logging.LogContext;
 import app.platform.testsupport.PlatformIntegrationTest;
+import app.platform.identity.Users;
 import app.platform.testsupport.TestHttp;
+import app.platform.testsupport.TestSignIn;
 import app.platform.testsupport.tenancy.TenantFixtures;
 import app.platform.testsupport.tenancy.TenantFixtures.TestTenant;
 import app.platformapi.ApiHeaders;
@@ -21,6 +23,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
@@ -42,6 +45,19 @@ class StructuredLoggingIT {
 
     @LocalServerPort
     private int port;
+
+    @Autowired
+    private Users users;
+
+    private String bearer;
+
+    /** A caller signed in on the platform host; the test endpoints need one since Sprint 3. */
+    private TestHttp signedIn() {
+        if (bearer == null) {
+            bearer = TestSignIn.bearerOnPlatformHost(port, users);
+        }
+        return new TestHttp(port, "Authorization", bearer);
+    }
 
     @BeforeAll
     static void startWithAnEmptyLogFile() throws IOException {
@@ -70,7 +86,7 @@ class StructuredLoggingIT {
 
     @Test
     void anUnexpectedErrorIsLoggedAsAStructuredRecordWithoutTheQuotedData() throws IOException {
-        new TestHttp(port).get("/api/v1/test/sql", ApiHeaders.REQUEST_ID, "client-req-log-2",
+        signedIn().get("/api/v1/test/sql", ApiHeaders.REQUEST_ID, "client-req-log-2",
                 "traceparent", "00-" + TRACE_ID + "-00f067aa0ba902b7-01");
 
         Map<String, Object> record = lineWhere("$.log.logger", "platform.error", "$.requestId", "client-req-log-2");

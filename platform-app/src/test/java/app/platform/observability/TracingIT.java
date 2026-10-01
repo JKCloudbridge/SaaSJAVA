@@ -3,7 +3,9 @@ package app.platform.observability;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.platform.testsupport.PlatformIntegrationTest;
+import app.platform.identity.Users;
 import app.platform.testsupport.TestHttp;
+import app.platform.testsupport.TestSignIn;
 import app.platformapi.ApiHeaders;
 import app.webtest.ConventionsTestController;
 import app.webtest.DatabaseTestController;
@@ -58,6 +60,19 @@ class TracingIT {
     private int port;
 
     @Autowired
+    private Users users;
+
+    private String bearer;
+
+    /** A caller signed in on the platform host; the test endpoints need one since Sprint 3. */
+    private TestHttp signedIn() {
+        if (bearer == null) {
+            bearer = TestSignIn.bearerOnPlatformHost(port, users);
+        }
+        return new TestHttp(port, "Authorization", bearer);
+    }
+
+    @Autowired
     private InMemorySpanExporter exporter;
 
     @BeforeEach
@@ -83,10 +98,25 @@ class TracingIT {
 
         List<SpanData> queries = spans.stream().filter(span -> span.getName().equals("query")).toList();
         assertThat(queries).as("database statements are spans of the same trace").hasSizeGreaterThanOrEqualTo(2);
-        assertThat(queries).allSatisfy(query -> assertThat(query.getParentSpanId()).isEqualTo(server.getSpanId()));
+        // The security filter chain adds spans of its own between the server span and the statements it runs (the
+        // token check), so a statement is a descendant of the server span, not necessarily its direct child.
+        assertThat(queries).allSatisfy(query -> assertThat(descendsFrom(query, server, spans)).isTrue());
         assertThat(queries.stream().map(TracingIT::statement))
                 .anyMatch(statement -> statement.contains("select now()"));
         assertThat(response.header(ApiHeaders.TRACE_ID)).contains(traceId);
+    }
+
+    private static boolean descendsFrom(SpanData span, SpanData ancestor, List<SpanData> all) {
+        String parent = span.getParentSpanId();
+        for (int depth = 0; depth < 20 && parent != null && !parent.equals("0000000000000000"); depth++) {
+            if (parent.equals(ancestor.getSpanId())) {
+                return true;
+            }
+            String next = parent;
+            parent = all.stream().filter(candidate -> candidate.getSpanId().equals(next)).findFirst()
+                    .map(SpanData::getParentSpanId).orElse(null);
+        }
+        return false;
     }
 
     @Test
@@ -94,7 +124,7 @@ class TracingIT {
         String traceId = newTraceId();
         String secret = "SECRET-BIND-VALUE-user-a@example.test";
 
-        new TestHttp(port).get("/api/v1/test/db/bind?value=" + secret, "traceparent",
+        signedIn().get("/api/v1/test/db/bind?value=" + secret, "traceparent",
                 "00-" + traceId + "-00f067aa0ba902b7-01");
 
         List<SpanData> spans = spansOf(traceId);
@@ -106,7 +136,7 @@ class TracingIT {
     void theDatabaseConnectionIsStampedWithTheTraceAndRequestOfTheTransaction() {
         String traceId = newTraceId();
 
-        TestHttp.Response response = new TestHttp(port).get("/api/v1/test/db/application-name",
+        TestHttp.Response response = signedIn().get("/api/v1/test/db/application-name",
                 "traceparent", "00-" + traceId + "-00f067aa0ba902b7-01", ApiHeaders.REQUEST_ID, "client-req-stamp1");
 
         assertThat(JsonPath.<String>read(response.body(), "$.data[0]"))
@@ -126,7 +156,7 @@ class TracingIT {
                 String traceId = newTraceId();
                 String requestId = "client-req-" + String.format("%04d", i);
                 calls.add(() -> {
-                    TestHttp.Response response = new TestHttp(port).get("/api/v1/test/db/application-name",
+                    TestHttp.Response response = signedIn().get("/api/v1/test/db/application-name",
                             "traceparent", "00-" + traceId + "-00f067aa0ba902b7-01", ApiHeaders.REQUEST_ID, requestId);
                     String inside = JsonPath.read(response.body(), "$.data[0]");
                     String outside = JsonPath.read(response.body(), "$.data[1]");

@@ -2,8 +2,11 @@ package app.platform;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.platform.identity.Users;
 import app.platform.testsupport.PlatformIntegrationTest;
+import app.platform.testsupport.TestSignIn;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalManagementPort;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.web.client.RestClient;
@@ -20,6 +23,9 @@ class PlatformApplicationIT {
 
     @LocalManagementPort
     private int managementPort;
+
+    @Autowired
+    private Users users;
 
     @Test
     void healthLivenessAndReadinessAreUpOnTheManagementPort() {
@@ -43,8 +49,10 @@ class PlatformApplicationIT {
 
     @Test
     void probesAreNotServedOnTheApiPort() {
+        // Signed in, so that the answer is about the path, not about the missing sign-in (without one it is 401).
         RestClient client = RestClient.builder()
                 .baseUrl("http://localhost:" + apiPort)
+                .defaultHeader("Authorization", TestSignIn.bearerOnPlatformHost(apiPort, users))
                 .defaultStatusHandler(status -> true, (request, response) -> { })
                 .build();
 

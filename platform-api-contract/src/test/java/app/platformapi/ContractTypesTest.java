@@ -75,6 +75,23 @@ class ContractTypesTest {
     }
 
     @Test
+    void aRateLimitAndAnOutageCarryTheirRetryAdvice() {
+        assertThat(ApiException.rateLimited(30).retryAfterSeconds()).isEqualTo(30);
+        assertThat(ApiException.rateLimited(30).code()).isEqualTo(ErrorCode.RATE_LIMITED);
+        assertThat(ApiException.unavailable(5).code()).isEqualTo(ErrorCode.SERVICE_UNAVAILABLE);
+        assertThat(ApiException.rateLimited(-3).retryAfterSeconds()).isZero();
+        assertThat(new ApiException(ErrorCode.CONFLICT).retryAfterSeconds()).isZero();
+    }
+
+    @Test
+    void theRequestTypesNeverShowASecretInTheirTextForm() {
+        assertThat(new SignInRequest("user-a@example.test", "a-secret-password").toString())
+                .doesNotContain("a-secret-password").doesNotContain("user-a");
+        assertThat(new ChangePasswordRequest("old-secret-1", "new-secret-2").toString())
+                .doesNotContain("old-secret-1").doesNotContain("new-secret-2");
+    }
+
+    @Test
     void everyEnvelopeIsAnApiEnvelope() {
         assertThat(ApiEnvelope.class.getPermittedSubclasses())
                 .containsExactlyInAnyOrder(ApiResponse.class, ApiPageResponse.class, ApiErrorResponse.class);

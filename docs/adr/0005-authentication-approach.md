@@ -37,6 +37,9 @@ you do), which is always owned by the platform and evaluated in the active tenan
 - The spike produced the list of security stories Sprint 3 must deliver: hashing, enumeration and brute-force
   protection, token revocation (spike doc, section "Stories for Sprint 3").
 - Spike code is **not** production code and is not part of the build. Sprint 3 writes the real implementation.
+- **Implemented in Sprint 3:** the open questions below were closed in [ADR-0019](0019-authentication-implementation.md) (flow, tokens,
+  revocation, keys), [ADR-0020](0020-passwords-and-hashing.md) (hashing parameters, measured), [ADR-0021](0021-brute-force-protection-and-rate-limits.md)
+  (lock and rate limits) and [ADR-0022](0022-platform-level-identity-tables-and-audit-v0.md) (platform-level tables, audit v0).
 - Open for Sprint 3 design: access-token format for user sessions (self-contained JWT with a security-version
   check, or opaque reference tokens), authorization-record storage (database, with indexes by user for
   "sign out everywhere"), password-hash parameters tuned on production-like hardware.

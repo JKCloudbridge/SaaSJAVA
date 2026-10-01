@@ -2,7 +2,9 @@ package app.platform.tenant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.platform.identity.Users;
 import app.platform.testsupport.PlatformIntegrationTest;
+import app.platform.testsupport.TestSignIn;
 import app.platform.testsupport.TestHttp;
 import app.platform.testsupport.TestHttp.Response;
 import app.platform.testsupport.tenancy.TenantFixtures;
@@ -15,6 +17,7 @@ import java.sql.PreparedStatement;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
 /**
@@ -32,6 +35,9 @@ class TenantResolutionIT {
 
     @LocalServerPort
     private int port;
+
+    @Autowired
+    private Users users;
 
     @BeforeAll
     static void createTenants() {
@@ -191,8 +197,9 @@ class TenantResolutionIT {
     void aQueryParameterOrBodyNamingAnotherTenantChangesNothing() {
         Response query = new TestHttp(port).get(PATH + "?tenant=" + tenantB.slug() + "&tenantId=" + tenantB.id(),
                 "Host", tenantA.host());
+        String bearer = TestSignIn.bearer(port, users, tenantA.host());
         Response body = new TestHttp(port).post(PATH, "{\"tenantId\":\"" + tenantB.id() + "\"}", "Host", tenantA.host(),
-                "Content-Type", "application/json");
+                "Content-Type", "application/json", "Authorization", bearer);
 
         assertThat(JsonPath.<String>read(query.body(), "$.data.slug")).isEqualTo(tenantA.slug());
         assertThat(body.status()).as("the endpoint takes no body").isEqualTo(405);

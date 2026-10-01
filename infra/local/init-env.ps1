@@ -17,7 +17,7 @@ function New-RandomSecret([int]$bytes = 24) {
 }
 
 # Which variables hold credentials, and how long a random value each gets.
-$secrets = @{ POSTGRES_PASSWORD = 24; REDIS_PASSWORD = 24; S3_ACCESS_KEY = 12; S3_SECRET_KEY = 30; APP_DB_PASSWORD = 24 }
+$secrets = @{ POSTGRES_PASSWORD = 24; REDIS_PASSWORD = 24; S3_ACCESS_KEY = 12; S3_SECRET_KEY = 30; APP_DB_PASSWORD = 24; LOCAL_SEED_PASSWORD = 24 }
 
 if ((Test-Path $target) -and -not $Force) {
     $existing = @{}

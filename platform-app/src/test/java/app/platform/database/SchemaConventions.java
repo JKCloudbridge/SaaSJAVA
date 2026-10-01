@@ -29,8 +29,14 @@ final class SchemaConventions {
      * Platform-level tables: they have no {@code tenant_id} and no row level security because they are the thing
      * tenants are defined by, or platform infrastructure. Adding a name here is a security decision (ADR-0015): every
      * other table must belong to a tenant.
+     *
+     * <p>Sprint 3 added the identity tables and audit v0 (ADR-0022): a user is a global identity (one person, several
+     * organizations), so users, credentials, login sessions and authorization records cannot belong to one tenant,
+     * and an authentication event can happen where there is no tenant at all. Their tenant-related column is named
+     * {@code bound_tenant_id} or {@code context_tenant_id} so that nobody mistakes them for tenant-scoped data.
      */
-    static final Set<String> PLATFORM_TABLES = Set.of("tenant");
+    static final Set<String> PLATFORM_TABLES = Set.of("tenant", "platform_user", "user_credential", "login_session",
+            "oauth2_authorization", "audit_record");
 
     /** Tables whose policies may admit a system scope next to the tenant, and the scopes they may name. */
     static final Set<String> SYSTEM_SCOPE_TABLES = Set.of("outbox_event", "processed_event");

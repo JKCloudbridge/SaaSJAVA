@@ -2,7 +2,9 @@ package app.platform.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.platform.identity.Users;
 import app.platform.testsupport.PlatformIntegrationTest;
+import app.platform.testsupport.TestSignIn;
 import app.platform.testsupport.TestHttp;
 import app.platformapi.ApiHeaders;
 import app.webtest.ConventionsTestController;
@@ -13,6 +15,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalManagementPort;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
@@ -34,8 +37,17 @@ class ApiOverHttpIT {
     @LocalManagementPort
     private int managementPort;
 
+    @Autowired
+    private Users users;
+
+    private String bearer;
+
+    /** The API as a signed-in caller: everything outside the public list needs one since Sprint 3. */
     private TestHttp api() {
-        return new TestHttp(apiPort);
+        if (bearer == null) {
+            bearer = TestSignIn.bearerOnPlatformHost(apiPort, users);
+        }
+        return new TestHttp(apiPort, "Authorization", bearer);
     }
 
     // ---- the status endpoint ----
