@@ -39,6 +39,11 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  * {@link ApiException}. Framework and library messages (they name classes, fields, parse positions and sometimes
  * the rejected value) are replaced by the generic text of the error code. Unexpected failures are reported
  * through the error tracking hook and answered with {@link ErrorCode#INTERNAL_ERROR}.
+ *
+ * <p><strong>Sprint 3 must extend this class:</strong> the catch-all handler below would turn Spring Security's
+ * authentication and access-denied exceptions into 500 errors. Add explicit handlers that answer
+ * {@link ErrorCode#UNAUTHENTICATED} (401) and {@link ErrorCode#FORBIDDEN} (403) in the same model, with a test for each,
+ * before any endpoint is protected.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {

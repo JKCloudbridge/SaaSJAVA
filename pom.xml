@@ -115,18 +115,20 @@
           <version>3.22.0</version>
         </plugin>
         <plugin>
-          <!-- Tests always run in UTC: deterministic across machines, and PostgreSQL rejects some legacy zone aliases the JVM may report. -->
+          <!-- Tests always run in UTC: deterministic across machines, and PostgreSQL rejects some legacy zone aliases the JVM may report.
+               The mock library is loaded as a Java agent instead of attaching itself at run time, which a future JDK will no longer
+               allow (the library's own advice). The jar is the one the test dependencies already resolved into the local repository. -->
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
           <configuration>
-            <argLine>-Duser.timezone=UTC</argLine>
+            <argLine>-Duser.timezone=UTC -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
           </configuration>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-failsafe-plugin</artifactId>
           <configuration>
-            <argLine>-Duser.timezone=UTC</argLine>
+            <argLine>-Duser.timezone=UTC -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
           </configuration>
         </plugin>
         <plugin>
