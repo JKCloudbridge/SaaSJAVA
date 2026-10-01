@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: platform
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
