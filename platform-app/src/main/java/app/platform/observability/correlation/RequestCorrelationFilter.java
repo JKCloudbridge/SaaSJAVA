@@ -79,11 +79,20 @@ class RequestCorrelationFilter extends OncePerRequestFilter {
     private void logCompletion(HttpServletRequest request, HttpServletResponse response, long startedAt) {
         int status = response.getStatus();
         var event = status >= 500 ? ACCESS.atWarn() : ACCESS.atInfo();
-        event.addKeyValue("http_method", request.getMethod())
-                .addKeyValue("http_path", abbreviate(request.getRequestURI()))
-                .addKeyValue("http_status", status)
-                .addKeyValue("duration_ms", (System.nanoTime() - startedAt) / 1_000_000)
-                .log("request completed");
+        // The tenant filter sits inside this one and has already closed its scope; it leaves the tenant on the
+        // request so that this record, the last line of the request, still names it.
+        Object tenant = request.getAttribute(LogContext.TENANT_ID_ATTRIBUTE);
+        LogContext.Scope tenantScope = tenant instanceof String id
+                ? LogContext.with(LogContext.TENANT_ID, id) : () -> { };
+        try {
+            event.addKeyValue("http_method", request.getMethod())
+                    .addKeyValue("http_path", abbreviate(request.getRequestURI()))
+                    .addKeyValue("http_status", status)
+                    .addKeyValue("duration_ms", (System.nanoTime() - startedAt) / 1_000_000)
+                    .log("request completed");
+        } finally {
+            tenantScope.close();
+        }
     }
 
     private static String abbreviate(String path) {

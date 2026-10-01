@@ -38,6 +38,36 @@
         "summary" : "Platform status",
         "tags" : [ "Platform" ]
       }
+    },
+    "/api/v1/tenant/current" : {
+      "get" : {
+        "description" : "Answers with the organization the request's host name addresses. A host that addresses no organization, or an unknown one, is NOT_FOUND; a suspended, deactivated or not yet open one is TENANT_UNAVAILABLE. The organization can never be chosen by a header, parameter or body.",
+        "operationId" : "getCurrentTenant",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTenantSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The organization of this host name",
+        "tags" : [ "Tenant" ]
+      }
     }
   },
   "components" : {
@@ -87,10 +117,19 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseTenantSummary" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/TenantSummary"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ErrorCode" : {
         "type" : "string",
         "description" : "Stable machine-readable error code. Branch on this, never on the message.",
-        "enum" : [ "VALIDATION_ERROR", "MALFORMED_REQUEST", "UNAUTHENTICATED", "FORBIDDEN", "NOT_FOUND", "METHOD_NOT_ALLOWED", "NOT_ACCEPTABLE", "CONFLICT", "CONCURRENT_MODIFICATION", "PAYLOAD_TOO_LARGE", "UNSUPPORTED_MEDIA_TYPE", "RATE_LIMITED", "INTERNAL_ERROR", "SERVICE_UNAVAILABLE" ]
+        "enum" : [ "VALIDATION_ERROR", "MALFORMED_REQUEST", "UNAUTHENTICATED", "FORBIDDEN", "NOT_FOUND", "METHOD_NOT_ALLOWED", "NOT_ACCEPTABLE", "CONFLICT", "CONCURRENT_MODIFICATION", "PAYLOAD_TOO_LARGE", "UNSUPPORTED_MEDIA_TYPE", "RATE_LIMITED", "INTERNAL_ERROR", "SERVICE_UNAVAILABLE", "TENANT_UNAVAILABLE" ]
       },
       "Pagination" : {
         "type" : "object",
@@ -127,6 +166,18 @@
           }
         },
         "required" : [ "apiVersion", "databaseTime", "serverTime", "service" ]
+      },
+      "TenantSummary" : {
+        "type" : "object",
+        "properties" : {
+          "displayName" : {
+            "type" : "string"
+          },
+          "slug" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "displayName", "slug" ]
       }
     }
   }

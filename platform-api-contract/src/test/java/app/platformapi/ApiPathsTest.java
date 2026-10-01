@@ -16,6 +16,7 @@ class ApiPathsTest {
         assertThat(ApiPaths.OPENAPI).startsWith(ApiPaths.V1 + "/");
         assertThat(ApiPaths.PLATFORM).startsWith(ApiPaths.V1 + "/");
         assertThat(ApiPaths.PLATFORM_STATUS).startsWith(ApiPaths.PLATFORM + "/");
+        assertThat(ApiPaths.TENANT_CURRENT).startsWith(ApiPaths.TENANT + "/").startsWith(ApiPaths.V1 + "/");
     }
 
     @Test

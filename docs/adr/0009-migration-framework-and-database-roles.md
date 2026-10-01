@@ -71,3 +71,10 @@ owns the tables nor can change them, and Sprint 2 introduces exactly that role.
 - `platform-app/src/main/resources/db/migration/`
 - `platform-app/src/test/java/app/platform/database/` (`MigrationNamingTest`, `MigrationIT`, `DatabaseRolesIT`)
 - `infra/local/.env.example`, `scripts/sync-migrations.ps1`
+
+## Update (Sprint 2)
+
+The application role anticipated in point 3 now exists: manual migration M001 creates it and
+[ADR-0015](0015-row-level-security-implementation.md) records its rights and the grant pattern (default privileges). The
+`local` profile and the local compose file use it too (`infra/local/init-app-role.ps1`); the sentence that both roles are the
+local database user no longer holds. The decisions above are unchanged.

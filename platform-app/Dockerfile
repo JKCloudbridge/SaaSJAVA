@@ -5,8 +5,9 @@
 # The image takes all of its settings from environment variables and runs the production profile. It needs a
 # PostgreSQL to start (the readiness probe only turns UP once the migrations ran and the database answers):
 #   PLATFORM_DB_URL, PLATFORM_DB_OWNER_USER, PLATFORM_DB_OWNER_PASSWORD,
-#   PLATFORM_DB_APP_USER, PLATFORM_DB_APP_PASSWORD
-# Optional: PLATFORM_ENVIRONMENT, PLATFORM_TRACE_EXPORT, PLATFORM_TRACE_ENDPOINT, PLATFORM_TRACE_SAMPLING.
+#   PLATFORM_DB_APP_USER, PLATFORM_DB_APP_PASSWORD (the role manual migration M001 creates; run it before the first start),
+#   PLATFORM_BASE_DOMAIN (the platform domain; organizations live at <slug>.<domain>)
+# Optional: PLATFORM_TRUST_FORWARDED_HOST (only behind a trusted proxy), PLATFORM_OUTBOX_ENABLED, PLATFORM_ENVIRONMENT, PLATFORM_TRACE_EXPORT, PLATFORM_TRACE_ENDPOINT, PLATFORM_TRACE_SAMPLING.
 # Local run with everything wired: `docker compose --profile app up -d` in infra/local.
 
 # Stage 1: split the executable jar into layers so dependency layers are cached between builds.

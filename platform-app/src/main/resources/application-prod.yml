@@ -2,7 +2,8 @@
 # and the trace destination come from environment variables, set by the deployment (Sprint 33 defines how).
 #   Required: PLATFORM_DB_URL, PLATFORM_DB_APP_USER, PLATFORM_DB_APP_PASSWORD,
 #             PLATFORM_DB_OWNER_USER, PLATFORM_DB_OWNER_PASSWORD
-#   Optional: PLATFORM_ENVIRONMENT, PLATFORM_TRACE_EXPORT, PLATFORM_TRACE_ENDPOINT, PLATFORM_TRACE_SAMPLING
+#             PLATFORM_BASE_DOMAIN (the platform domain; organizations live at <slug>.<domain>)
+#   Optional: PLATFORM_TRUST_FORWARDED_HOST (only behind a trusted proxy), PLATFORM_OUTBOX_ENABLED, PLATFORM_ENVIRONMENT, PLATFORM_TRACE_EXPORT, PLATFORM_TRACE_ENDPOINT, PLATFORM_TRACE_SAMPLING
 springdoc:
   api-docs:
     # The API description is published deliberately (developer portal, Sprint 30), not by accident.

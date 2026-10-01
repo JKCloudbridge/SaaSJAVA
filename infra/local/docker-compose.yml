@@ -103,12 +103,15 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       PLATFORM_ENVIRONMENT: local-container
-      # One database user does both jobs locally until Sprint 2 introduces the separate application role.
+      # Two database roles, as in a deployment: the owner migrates, the application role (created by init-app-role.ps1)
+      # runs the application and is subject to row level security.
       PLATFORM_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?run init-env.ps1 first}
       PLATFORM_DB_OWNER_USER: ${POSTGRES_USER:?run init-env.ps1 first}
       PLATFORM_DB_OWNER_PASSWORD: ${POSTGRES_PASSWORD:?run init-env.ps1 first}
-      PLATFORM_DB_APP_USER: ${POSTGRES_USER:?run init-env.ps1 first}
-      PLATFORM_DB_APP_PASSWORD: ${POSTGRES_PASSWORD:?run init-env.ps1 first}
+      PLATFORM_DB_APP_USER: ${APP_DB_USER:?run init-env.ps1 first}
+      PLATFORM_DB_APP_PASSWORD: ${APP_DB_PASSWORD:?run init-env.ps1 first}
+      # Organizations live at <slug>.localhost; the API is reached directly here, so the forwarded host is not trusted.
+      PLATFORM_BASE_DOMAIN: localhost
       PLATFORM_TRACE_EXPORT: "true"
       PLATFORM_TRACE_SAMPLING: "1.0"
       PLATFORM_TRACE_ENDPOINT: http://tracing:4318/v1/traces

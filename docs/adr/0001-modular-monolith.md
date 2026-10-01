@@ -1,6 +1,6 @@
 # ADR-0001: Modular monolith with Spring Modulith
 
-- **Status:** Accepted (module list extended by ADR-0011 and ADR-0012: `web`, `observability`)
+- **Status:** Accepted (module list extended by ADR-0011 and ADR-0012: `web`, `observability`; and by ADR-0016: `outbox`)
 - **Date:** 2026-10-01
 - **Sprint:** S0
 
@@ -57,3 +57,10 @@ internal boundaries are enforced by the build, so modules can be extracted later
 - Delivery plan, Sprint S0 and "Standing architecture rules".
 - Code: `platform-app/src/main/java/app/platform/*/package-info.java`,
   `platform-app/src/test/java/app/platform/architecture/`.
+
+## Update (Sprint 2)
+
+The module list gains one infrastructure module, `outbox` (transactional outbox and relay, allowed dependencies `tenant` and
+`observability`; [ADR-0016](0016-transactional-outbox-and-idempotent-consumers.md)). The `tenant` module is built
+([ADR-0014](0014-tenancy-model-and-tenant-context.md)). Business modules use the event contracts of the shared kernel and
+never depend on `outbox`. The edge is recorded in `docs/modules.md`.

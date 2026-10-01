@@ -15,3 +15,10 @@ logging:
     format:
       # Plain text in tests unless a test turns structured output on to inspect it.
       console: ""
+
+platform:
+  tenancy:
+    base-domain: platform.example.test
+  outbox:
+    # Tests drive the relay themselves, or switch it on for the one context that wants it to poll.
+    enabled: false

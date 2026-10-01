@@ -39,6 +39,7 @@ const KNOWN_CODES: Record<ErrorCode, true> = {
   RATE_LIMITED: true,
   INTERNAL_ERROR: true,
   SERVICE_UNAVAILABLE: true,
+  TENANT_UNAVAILABLE: true,
 };
 
 function isErrorCode(value: unknown): value is ErrorCode {

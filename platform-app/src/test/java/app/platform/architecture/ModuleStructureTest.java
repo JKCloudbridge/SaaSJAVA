@@ -21,7 +21,7 @@ class ModuleStructureTest {
     static final Set<String> EXPECTED_MODULES = Set.of(
             "tenant", "identity", "licensing", "security", "metadata", "data", "application",
             "workflow", "approval", "notification", "integration", "audit", "platformadmin",
-            "web", "observability", "sharedkernel");
+            "web", "observability", "outbox", "sharedkernel");
 
     private final ApplicationModules modules = ApplicationModules.of(PlatformApplication.class);
 

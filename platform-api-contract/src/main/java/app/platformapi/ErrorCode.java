@@ -47,7 +47,13 @@ public enum ErrorCode {
     INTERNAL_ERROR(500, "An unexpected error occurred."),
 
     /** A dependency of the service is unavailable. Retrying later may succeed. */
-    SERVICE_UNAVAILABLE(503, "The service is temporarily unavailable.");
+    SERVICE_UNAVAILABLE(503, "The service is temporarily unavailable."),
+
+    /**
+     * The organization addressed by the host exists but is not open for use (suspended, deactivated or still being
+     * set up). The message never says which, so the answer reveals no more than the host name already does.
+     */
+    TENANT_UNAVAILABLE(403, "This organization is not available.");
 
     private final int httpStatus;
     private final String defaultMessage;

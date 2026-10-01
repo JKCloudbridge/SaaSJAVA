@@ -15,6 +15,12 @@ public final class ApiPaths {
     /** Reports that the API is up and can reach its database. */
     public static final String PLATFORM_STATUS = PLATFORM + "/status";
 
+    /** Information about the organization (tenant) that the host name addresses. */
+    public static final String TENANT = V1 + "/tenant";
+
+    /** The organization the request's host name resolves to. */
+    public static final String TENANT_CURRENT = TENANT + "/current";
+
     private ApiPaths() {
     }
 }
