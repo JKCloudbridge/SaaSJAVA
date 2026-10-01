@@ -16,3 +16,17 @@ updates:
     directory: "/platform-app"
     schedule:
       interval: weekly
+  - package-ecosystem: npm
+    directory: "/platform-web"
+    schedule:
+      interval: weekly
+    groups:
+      next-and-react:
+        patterns:
+          - "next"
+          - "react"
+          - "react-dom"
+          - "eslint-config-next"
+      telemetry:
+        patterns:
+          - "@opentelemetry/*"

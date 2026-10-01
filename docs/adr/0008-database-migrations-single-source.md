@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-01
-- **Sprint:** S0 (convention and tooling); the migration framework itself arrives in Sprint 1
+- **Sprint:** S0 (convention and tooling); the migration framework itself arrived in Sprint 1 ([ADR-0009](0009-migration-framework-and-database-roles.md))
 
 ## Context
 

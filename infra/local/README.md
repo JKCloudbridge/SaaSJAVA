@@ -1,6 +1,7 @@
 # Local development environment
 
-Four containers that stand in for the platform's runtime dependencies. Everything binds to `127.0.0.1` only.
+Five containers that stand in for the platform's runtime dependencies (plus an optional sixth, the application itself).
+Everything binds to `127.0.0.1` only.
 
 | Service | Purpose | Host address (default) |
 |---------|---------|------------------------|
@@ -8,6 +9,8 @@ Four containers that stand in for the platform's runtime dependencies. Everythin
 | `redis` | Redis 8 cache (password protected) | `localhost:6379` |
 | `object-storage` | S3-compatible object storage | `http://localhost:8333` |
 | `mail-catcher` | Receives all outgoing mail; nothing leaves your machine | SMTP `localhost:1025`, web UI `http://localhost:8025` |
+| `tracing` | Trace viewer: receives the traces of the browser app and the API and shows them (in memory, forgotten on restart) | collector `http://localhost:4318`, web UI `http://localhost:16686` |
+| `app` (profile `app`, optional) | The platform application from its container image, wired to the services above | API `http://localhost:8080`, probes and metrics `http://localhost:8081` |
 
 Image names and versions are in [docker-compose.yml](docker-compose.yml) (the only place they appear).
 
@@ -20,7 +23,7 @@ Image names and versions are in [docker-compose.yml](docker-compose.yml) (the on
    ./init-env.ps1
    ```
 
-3. Start everything and wait until all four report `healthy`:
+3. Start everything and wait until the services report `healthy` (the trace viewer has no health check, it is up when its logs say so):
 
    ```powershell
    docker compose up -d
@@ -51,9 +54,23 @@ Image names and versions are in [docker-compose.yml](docker-compose.yml) (the on
 
 ## Connecting the application
 
-The application does not use these services yet (the empty application needs none). From Sprint 1 it reads
-connection settings from environment variables whose values come from `.env`:
-`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `REDIS_PASSWORD`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`.
+Since Sprint 1 the application uses PostgreSQL (and exports traces to the trace viewer). Redis, object storage and the
+mail catcher are not used yet. Three ways to run it, all against these services:
+
+1. **As a jar or from the IDE** (the usual loop). Build once with `./mvnw -DskipTests package` in the repository root, then
+   `java -jar platform-app/target/platform-app-0.1.0-SNAPSHOT.jar --spring.profiles.active=local`. The `local` profile reads
+   `infra/local/.env` directly (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`, `TRACING_COLLECTOR_PORT`),
+   so nothing needs to be exported; real environment variables win over the file. The first start migrates the database.
+2. **As the container image**, closest to a deployment: build the jar as above, then
+   `docker build -t platform-app:local platform-app` and `docker compose --profile app up -d` here. It runs the `prod`
+   profile with the settings passed in the compose file.
+3. **With the web frontend**: `cd ../../platform-web; npm ci; npm run dev`, then open `http://localhost:3000`. The browser
+   talks only to that address; the dev server forwards `/api` to the application and `/telemetry` to the trace viewer.
+
+Open the trace viewer at `http://localhost:16686` after loading the home page: one trace shows the browser, the API and the
+database statements. To see the same identifiers in the database log, set `POSTGRES_LOG_MIN_DURATION_MS=0` in `.env`
+and run `docker compose up -d postgres`, then `docker compose logs postgres`: every statement of a request carries
+`app=t=<trace id> r=<request id>`. (The default logs only statements slower than 500 ms.)
 
 ## Troubleshooting
 

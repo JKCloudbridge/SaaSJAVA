@@ -7,6 +7,15 @@ services:
   postgres:
     image: postgres:18
     restart: unless-stopped
+    # The log line prefix shows the application name: the platform stamps every transaction with the trace ID and
+    # request ID there, so a slow or failing statement in this log can be tied back to one request (ADR-0012).
+    # Statements slower than the threshold are logged; set POSTGRES_LOG_MIN_DURATION_MS=0 in .env to log them all.
+    command:
+      - postgres
+      - -c
+      - "log_line_prefix=%m [%p] app=%a "
+      - -c
+      - log_min_duration_statement=${POSTGRES_LOG_MIN_DURATION_MS:-500}
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?run init-env.ps1 first}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run init-env.ps1 first}
@@ -69,6 +78,43 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+
+  # Receives traces from the browser and the API over HTTP on 4318 and shows them in a web UI on 16686.
+  # Traces are kept in memory only: restarting the service forgets them.
+  tracing:
+    image: jaegertracing/jaeger:2.21.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${TRACING_COLLECTOR_PORT:-4318}:4318"
+      - "127.0.0.1:${TRACING_UI_PORT:-16686}:16686"
+
+  # The platform application from its container image, wired to the services above. Optional: start it with
+  #   docker compose --profile app up -d
+  # after building the image (docker build -t platform-app:local platform-app, see README.md). Developers usually
+  # run the application from the IDE or as a jar instead (profile "local"); this is the closest to a deployment.
+  app:
+    profiles: ["app"]
+    image: platform-app:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      tracing:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      PLATFORM_ENVIRONMENT: local-container
+      # One database user does both jobs locally until Sprint 2 introduces the separate application role.
+      PLATFORM_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?run init-env.ps1 first}
+      PLATFORM_DB_OWNER_USER: ${POSTGRES_USER:?run init-env.ps1 first}
+      PLATFORM_DB_OWNER_PASSWORD: ${POSTGRES_PASSWORD:?run init-env.ps1 first}
+      PLATFORM_DB_APP_USER: ${POSTGRES_USER:?run init-env.ps1 first}
+      PLATFORM_DB_APP_PASSWORD: ${POSTGRES_PASSWORD:?run init-env.ps1 first}
+      PLATFORM_TRACE_EXPORT: "true"
+      PLATFORM_TRACE_SAMPLING: "1.0"
+      PLATFORM_TRACE_ENDPOINT: http://tracing:4318/v1/traces
+    ports:
+      - "127.0.0.1:${APP_HTTP_PORT:-8080}:8080"
+      - "127.0.0.1:${APP_MANAGEMENT_PORT:-8081}:8081"
 
 volumes:
   postgres-data:

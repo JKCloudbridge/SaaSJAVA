@@ -5,4 +5,13 @@
   <Match>
     <Package name="~app\.archfixture\..*"/>
   </Match>
+
+  <!-- "May expose internal representation" for the application modules. Constructor injection stores collaborators
+       (a metrics registry, services) by reference on purpose, and an error report carries the live throwable to the
+       error trackers; neither is a leak of a value object's state. The check stays on for the shared kernel and the
+       API contract (packages app.platform.sharedkernel and app.platformapi), where immutable value types must copy. -->
+  <Match>
+    <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    <Package name="~app\.platform\.(?!sharedkernel\b).*"/>
+  </Match>
 </FindBugsFilter>

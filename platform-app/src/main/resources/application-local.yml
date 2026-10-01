@@ -1,0 +1,43 @@
+# Developer machine. Start with:  --spring.profiles.active=local   (see docs/engineering-guide.md)
+# The database settings use the variable names of infra/local/.env. The file is read directly when it exists
+# (the application is started from the repository root or from platform-app), and real environment variables
+# win over it. The owner and the application role are both the local database user until Sprint 2 introduces the
+# separate application role.
+spring:
+  config:
+    import:
+      - optional:file:./infra/local/.env[.properties]
+      - optional:file:../infra/local/.env[.properties]
+  datasource:
+    url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/${POSTGRES_DB:platform}
+    username: ${POSTGRES_USER:platform}
+    password: ${POSTGRES_PASSWORD}
+  flyway:
+    url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/${POSTGRES_DB:platform}
+    user: ${POSTGRES_USER:platform}
+    password: ${POSTGRES_PASSWORD}
+
+management:
+  metrics:
+    tags:
+      environment: local
+  otlp:
+    tracing:
+      export:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: http://localhost:${TRACING_COLLECTOR_PORT:4318}/v1/traces
+
+logging:
+  structured:
+    format:
+      # Readable lines for a human at a terminal; set to ecs to see exactly what a deployment would log.
+      console: ${PLATFORM_LOG_FORMAT:}
+  pattern:
+    correlation: "[trace=%X{traceId:-} request=%X{requestId:-} tenant=%X{tenantId:-}] "

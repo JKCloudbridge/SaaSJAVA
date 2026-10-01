@@ -1,0 +1,133 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "description" : "HTTP API of the multi-tenant application platform. Every successful body is {\"data\": ...} (collections add \"pagination\"); every failure is {\"error\": {code, message, fields?, requestId, traceId?}}.",
+    "title" : "Platform API",
+    "version" : "v1"
+  },
+  "servers" : [ {
+    "url" : "/"
+  } ],
+  "paths" : {
+    "/api/v1/platform/status" : {
+      "get" : {
+        "description" : "Succeeds when the API is running and its database answered a query.",
+        "operationId" : "getPlatformStatus",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePlatformStatus"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Platform status",
+        "tags" : [ "Platform" ]
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "ApiError" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "$ref" : "#/components/schemas/ErrorCode"
+          },
+          "fields" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            }
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "requestId" : {
+            "type" : "string"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "message", "requestId" ]
+      },
+      "ApiErrorResponse" : {
+        "type" : "object",
+        "properties" : {
+          "error" : {
+            "$ref" : "#/components/schemas/ApiError"
+          }
+        },
+        "required" : [ "error" ]
+      },
+      "ApiResponsePlatformStatus" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PlatformStatus"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ErrorCode" : {
+        "type" : "string",
+        "description" : "Stable machine-readable error code. Branch on this, never on the message.",
+        "enum" : [ "VALIDATION_ERROR", "MALFORMED_REQUEST", "UNAUTHENTICATED", "FORBIDDEN", "NOT_FOUND", "METHOD_NOT_ALLOWED", "NOT_ACCEPTABLE", "CONFLICT", "CONCURRENT_MODIFICATION", "PAYLOAD_TOO_LARGE", "UNSUPPORTED_MEDIA_TYPE", "RATE_LIMITED", "INTERNAL_ERROR", "SERVICE_UNAVAILABLE" ]
+      },
+      "Pagination" : {
+        "type" : "object",
+        "properties" : {
+          "hasMore" : {
+            "type" : "boolean"
+          },
+          "limit" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "nextCursor" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "hasMore", "limit" ]
+      },
+      "PlatformStatus" : {
+        "type" : "object",
+        "properties" : {
+          "apiVersion" : {
+            "type" : "string"
+          },
+          "databaseTime" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "serverTime" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "service" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "apiVersion", "databaseTime", "serverTime", "service" ]
+      }
+    }
+  }
+}

@@ -1,6 +1,7 @@
 # Continuous integration. Every stage of the Definition of Done that can be automated runs here.
 # Stages: build, unit tests, architecture tests, integration tests (real PostgreSQL in a container),
-# static analysis, dependency vulnerability scan, container image build and scan.
+# static analysis, frontend (lint, types, tests, generated-client check, build, audit), dependency vulnerability
+# scan, container image build with a database-backed smoke test and image scan.
 name: CI
 
 on:
@@ -44,7 +45,8 @@ jobs:
       - name: Architecture tests
         run: ./mvnw -B -ntp test -Dgroups=architecture
 
-      # Integration tests start containers (PostgreSQL) through the runner's container daemon.
+      # Integration tests start containers (PostgreSQL) through the runner's container daemon. They include the
+      # contract check: the committed OpenAPI document must equal what the application generates.
       - name: Integration tests
         run: ./mvnw -B -ntp verify -Pintegration-only
 
@@ -82,6 +84,46 @@ jobs:
       # Style checks and bug-pattern analysis (profile "quality"); compiler warnings are already errors.
       - name: Style and bug-pattern analysis
         run: ./mvnw -B -ntp -Pquality -DskipTests -DskipITs verify
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: platform-web
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: platform-web/.nvmrc
+          cache: npm
+          cache-dependency-path: platform-web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      # Regenerates the TypeScript client from the committed OpenAPI document and fails when the committed
+      # client differs: a contract change cannot be merged without its client, and the document itself is checked
+      # against the running application by the integration tests above.
+      - name: Generated API client is current
+        run: npm run api:check
+
+      - name: Build
+        run: npm run build
+
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=high
 
   dependency-scan:
     name: Dependency vulnerability scan
@@ -122,11 +164,36 @@ jobs:
       - name: Build image
         run: docker build -t platform-app:${{ github.sha }} platform-app
 
+      # Starts the image the way a deployment does: production profile, settings from environment variables, a real
+      # database. Readiness only turns UP when the migrations ran and the database answers, and the status
+      # endpoint proves the API port works. The database passwords are random and live only for this job.
       - name: Smoke test image
         run: |
-          docker run -d --name smoke -p 8080:8080 platform-app:${{ github.sha }}
+          owner_password="$(openssl rand -hex 16)"
+          app_password="$(openssl rand -hex 16)"
+          docker network create smoke
+          docker run -d --name smoke-db --network smoke \
+            -e POSTGRES_USER=platform_owner -e POSTGRES_PASSWORD="$owner_password" -e POSTGRES_DB=platform \
+            postgres:18
           for _ in $(seq 1 30); do
-            if curl -fsS http://localhost:8080/actuator/health/readiness; then exit 0; fi
+            if docker exec smoke-db pg_isready -U platform_owner -d platform; then break; fi
+            sleep 2
+          done
+          docker exec smoke-db psql -U platform_owner -d platform -v ON_ERROR_STOP=1 -c \
+            "create role platform_app login password '$app_password' nosuperuser nocreatedb nocreaterole nobypassrls" \
+            -c "grant connect on database platform to platform_app" -c "grant usage on schema public to platform_app"
+          docker run -d --name smoke --network smoke -p 8080:8080 -p 8081:8081 \
+            -e PLATFORM_DB_URL=jdbc:postgresql://smoke-db:5432/platform \
+            -e PLATFORM_DB_OWNER_USER=platform_owner -e PLATFORM_DB_OWNER_PASSWORD="$owner_password" \
+            -e PLATFORM_DB_APP_USER=platform_app -e PLATFORM_DB_APP_PASSWORD="$app_password" \
+            platform-app:${{ github.sha }}
+          for _ in $(seq 1 40); do
+            if curl -fsS http://localhost:8081/actuator/health/readiness; then
+              echo
+              curl -fsS -H "X-Request-ID: ci-smoke-request-1" -i http://localhost:8080/api/v1/platform/status
+              echo
+              exit 0
+            fi
             sleep 2
           done
           docker logs smoke

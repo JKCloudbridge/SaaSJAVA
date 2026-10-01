@@ -1,13 +1,127 @@
+# Base configuration shared by every environment (ADR-0009, ADR-0011, ADR-0012).
+# It contains no secrets and no host names. Anything that differs per environment comes from environment
+# variables; a variable without a default is mandatory, so a missing one stops the start-up with a clear message
+# instead of silently connecting somewhere unintended. Profiles: local (developer machine), test (automated tests),
+# prod (every deployed environment; the container image runs it).
 spring:
   application:
     name: platform
+  jackson:
+    # A null field is left out of the JSON; the generated client types such fields as optional.
+    default-property-inclusion: non_null
+  datasource:
+    # Runtime connection: the application role. It must never own tables or run schema changes (ADR-0009).
+    url: ${PLATFORM_DB_URL}
+    username: ${PLATFORM_DB_APP_USER}
+    password: ${PLATFORM_DB_APP_PASSWORD}
+    hikari:
+      pool-name: platform
+      maximum-pool-size: ${PLATFORM_DB_POOL_SIZE:10}
+      # Fail fast: a readiness probe must not wait half a minute for a database that is not there.
+      connection-timeout: 5000
+      data-source-properties:
+        ApplicationName: platform
+  flyway:
+    # Migration connection: the owner role, used only while migrating. Separate credentials so the runtime role
+    # can stay without schema privileges (ADR-0009). Migrations are forward-only: there is nothing to undo or clean.
+    url: ${PLATFORM_DB_URL}
+    user: ${PLATFORM_DB_OWNER_USER}
+    password: ${PLATFORM_DB_OWNER_PASSWORD}
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    out-of-order: false
+    baseline-on-migrate: false
+    clean-disabled: true
+    placeholder-replacement: false
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+server:
+  port: ${PLATFORM_HTTP_PORT:8080}
+  shutdown: graceful
+  error:
+    # Error bodies come from the platform's own error model, never from the container's defaults.
+    whitelabel:
+      enabled: false
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: never
 
 management:
+  server:
+    # Probes and metrics are served on their own port so that routing only the API port to the outside is enough
+    # to keep them private.
+    port: ${PLATFORM_MANAGEMENT_PORT:8081}
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       probes:
         enabled: true
+      show-details: never
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      environment: ${PLATFORM_ENVIRONMENT:unknown}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  otlp:
+    metrics:
+      export:
+        # Metrics are pulled from the management port; the push exporter that comes with the tracing starter is off.
+        enabled: false
+    tracing:
+      export:
+        # Whether spans are shipped to the trace collector (PLATFORM_TRACE_EXPORT=true). Independent of the
+        # propagation switch below, so a deployment without a collector still correlates logs by trace ID.
+        enabled: ${PLATFORM_TRACE_EXPORT:false}
+  tracing:
+    sampling:
+      probability: ${PLATFORM_TRACE_SAMPLING:0.1}
+    export:
+      # Keep this on. In Spring Boot 4.1 it also switches on W3C trace context propagation: with it off the
+      # application neither continues an incoming trace nor passes one on, and the browser to API to database
+      # correlation silently breaks.
+      enabled: true
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${PLATFORM_TRACE_ENDPOINT:http://localhost:4318/v1/traces}
+          transport: http
+
+# One span per SQL statement and per connection checkout, so a trace reaches the database (ADR-0012).
+jdbc:
+  includes: connection, query
+  datasource-proxy:
+    # Bind values can be personal data: spans and logs show the statement with its placeholders only.
+    include-parameter-values: false
+
+logging:
+  # Structured JSON on standard output is the default so a deployment that forgets its profile is still parseable.
+  # Every line carries the request ID and trace ID (and the tenant ID once Sprint 2 sets it).
+  structured:
+    format:
+      console: ecs
+  level:
+    root: INFO
+
+springdoc:
+  # The OpenAPI document is the contract's source of truth (ADR-0011); the interactive documentation page is not served.
+  api-docs:
+    path: /api/v1/openapi
+  swagger-ui:
+    enabled: false
+  paths-to-match: /api/v1/**
+  default-produces-media-type: application/json
+  writer-with-order-by-keys: true
+  writer-with-default-pretty-printer: true

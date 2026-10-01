@@ -19,6 +19,11 @@
       <groupId>org.springframework.modulith</groupId>
       <artifactId>spring-modulith-api</artifactId>
     </dependency>
+    <dependency>
+      <!-- Only for the per-request logging context keys (LogContext); no logging backend is imposed. -->
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
 
     <dependency>
       <groupId>org.springframework.boot</groupId>

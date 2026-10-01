@@ -1,7 +1,7 @@
 # Platform
 
 A multi-tenant, metadata-driven application platform. Backend: Java 25, Spring Boot, Spring Modulith (modular
-monolith), PostgreSQL, Redis, S3-compatible object storage. Frontend (from Sprint 1): Next.js.
+monolith), PostgreSQL, Redis, S3-compatible object storage. Frontend: Next.js (`platform-web`).
 
 Planning documents live outside this repository (delivery plan and traceability). Decisions are recorded in
 [docs/adr](docs/adr/README.md).
@@ -13,6 +13,7 @@ Planning documents live outside this repository (delivery plan and traceability)
 | JDK | 25 (`JAVA_HOME` set) | `java -version` |
 | Container runtime with Compose | any recent | `docker compose version` |
 | Maven | not needed, the wrapper downloads 3.9.16 | `./mvnw -v` |
+| Node.js and npm | Node 22.12 or newer (24 recommended, see `platform-web/.nvmrc`) | `node -v` |
 
 ## Build and test
 
@@ -27,9 +28,14 @@ Planning documents live outside this repository (delivery plan and traceability)
 Run the packaged application:
 
 ```bash
-java -jar platform-app/target/platform-app-0.1.0-SNAPSHOT.jar
-curl http://localhost:8080/actuator/health
+# local services first: cd infra/local && ./init-env.ps1 && docker compose up -d
+java -jar platform-app/target/platform-app-0.1.0-SNAPSHOT.jar --spring.profiles.active=local
+curl http://localhost:8080/api/v1/platform/status        # the API
+curl http://localhost:8081/actuator/health/readiness     # probes and metrics, on their own port
 ```
+
+Run the frontend (needs the application above): `cd platform-web && npm ci && npm run dev`, then open
+`http://localhost:3000`.
 
 ## Local services
 
@@ -42,7 +48,8 @@ See [infra/local/README.md](infra/local/README.md).
 |------|----------|
 | `platform-app/` | The Spring Boot application; every logical module is a package under `app.platform` |
 | `platform-shared-kernel/` | Identifiers and cross-cutting interfaces (secrets store) |
-| `platform-api-contract/` | The published HTTP contract |
+| `platform-api-contract/` | The published HTTP contract: paths, envelope, errors, paging and the committed OpenAPI document |
+| `platform-web/` | The Next.js frontend, with the TypeScript API client generated from the OpenAPI document |
 | `docs/` | ADRs (`docs/adr`), module map (`docs/modules.md`), spike findings (`docs/spikes`) |
 | `infra/local/` | Local container environment |
 | `config/` | Static-analysis configuration |
