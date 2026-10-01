@@ -1,0 +1,14 @@
+/**
+ * Tenant module: organizations, tenant lifecycle, tenant context.
+ *
+ * <p>Other modules may use only the types in this package (its public API). Everything in sub-packages is
+ * internal. Allowed outgoing dependencies are declared below and verified by the architecture tests.
+ */
+@ApplicationModule(
+        displayName = "Tenant",
+        allowedDependencies = {
+            "sharedkernel"
+        })
+package app.platform.tenant;
+
+import org.springframework.modulith.ApplicationModule;

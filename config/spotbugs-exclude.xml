@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Bug-pattern analysis exclusions. Every entry needs a comment saying why it is a false positive. -->
+<FindBugsFilter>
+  <!-- Test fixtures under app.archfixture are intentionally broken code used to prove architecture checks fail. -->
+  <Match>
+    <Package name="~app\.archfixture\..*"/>
+  </Match>
+</FindBugsFilter>

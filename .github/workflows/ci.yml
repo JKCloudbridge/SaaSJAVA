@@ -1,0 +1,144 @@
+# Continuous integration. Every stage of the Definition of Done that can be automated runs here.
+# Stages: build, unit tests, architecture tests, integration tests (real PostgreSQL in a container),
+# static analysis, dependency vulnerability scan, container image build and scan.
+name: CI
+
+on:
+  push:
+    branches: [main, "M*S*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "25"
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      # Compile everything and package the application. Enforcer rules run here.
+      - name: Build
+        run: ./mvnw -B -ntp -DskipTests package
+
+      # Fast tests without containers.
+      - name: Unit tests
+        run: ./mvnw -B -ntp test -DexcludedGroups=architecture
+
+      # Module boundaries. This stage fails the build on any illegal module dependency.
+      - name: Architecture tests
+        run: ./mvnw -B -ntp test -Dgroups=architecture
+
+      # Integration tests start containers (PostgreSQL) through the runner's container daemon.
+      - name: Integration tests
+        run: ./mvnw -B -ntp verify -Pintegration-only
+
+      - name: Upload application jar
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: platform-app-jar
+          path: platform-app/target/platform-app-*.jar
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: test-reports
+          path: |
+            **/target/surefire-reports/**
+            **/target/failsafe-reports/**
+          retention-days: 7
+
+  static-analysis:
+    name: Static analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      # Style checks and bug-pattern analysis (profile "quality"); compiler warnings are already errors.
+      - name: Style and bug-pattern analysis
+        run: ./mvnw -B -ntp -Pquality -DskipTests -DskipITs verify
+
+  dependency-scan:
+    name: Dependency vulnerability scan
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: platform-app-jar
+          path: scan
+
+      # Scans the resolved dependency set inside the built jar (exactly what ships), failing on any
+      # fixable HIGH or CRITICAL finding.
+      - name: Scan dependencies
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: rootfs
+          scan-ref: scan
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  container-image:
+    name: Container image
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: platform-app-jar
+          path: platform-app/target
+
+      - name: Build image
+        run: docker build -t platform-app:${{ github.sha }} platform-app
+
+      - name: Smoke test image
+        run: |
+          docker run -d --name smoke -p 8080:8080 platform-app:${{ github.sha }}
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/actuator/health/readiness; then exit 0; fi
+            sleep 2
+          done
+          docker logs smoke
+          exit 1
+
+      - name: Scan image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: platform-app:${{ github.sha }}
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      # Publishing the image to a registry is added with the deployment work (Sprint 33).

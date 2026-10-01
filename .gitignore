@@ -1,0 +1,27 @@
+target/
+.idea/
+*.iml
+.vscode/
+.env
+*.log
+.DS_Store
+infra/local/.env
+
+# AI assistant files and local assistant settings: never committed
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+AGENTS.md
+GEMINI.md
+.cursor/
+.cursorrules
+.windsurf/
+.windsurfrules
+.aider*
+.continue/
+.codeium/
+.copilot/
+.github/copilot-instructions.md
+.gemini/
+.clinerules
+.roo/
