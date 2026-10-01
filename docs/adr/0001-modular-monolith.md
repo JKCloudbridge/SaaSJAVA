@@ -1,6 +1,6 @@
 # ADR-0001: Modular monolith with Spring Modulith
 
-- **Status:** Accepted
+- **Status:** Accepted (module list extended by ADR-0011 and ADR-0012: `web`, `observability`)
 - **Date:** 2026-10-01
 - **Sprint:** S0
 

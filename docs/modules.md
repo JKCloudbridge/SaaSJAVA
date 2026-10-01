@@ -22,6 +22,8 @@ Module identifiers are package names, so the platform-admin module is `platforma
 | `integration` | Connector framework and adapters; the only module that knows external systems | S26 | tenant, metadata, security, data |
 | `workflow` | Workflow definitions, triggers, actions, execution | S22 | tenant, metadata, security, data, approval, notification, integration |
 | `audit` | Append-only audit records | S9 | nothing |
+| `observability` | Request correlation, error tracking hook, database correlation stamp (infrastructure) | S1 | nothing |
+| `web` | HTTP conventions: error model handling, paging binding, OpenAPI, platform status endpoint (infrastructure) | S1 | observability |
 | `platformadmin` | Platform-level administration, separate from tenant administration | S6 | tenant, identity, licensing, security, audit |
 
 ```mermaid
@@ -37,6 +39,7 @@ graph TD
   licensing --> identity & tenant
   notification --> identity & tenant
   identity --> tenant
+  web --> observability
 ```
 
 ## Rules
@@ -49,3 +52,7 @@ graph TD
 5. The graph must stay acyclic. A needed edge that would create a cycle means a missing event or a missing
    module, not a cycle.
 6. Adding an edge: edit the module's `package-info.java`, edit this file, note it in the pull request.
+7. `web` and `observability` are infrastructure modules ([ADR-0011](adr/0011-api-conventions.md),
+   [ADR-0012](adr/0012-observability.md)). Business modules never depend on `web` (an architecture test enforces it):
+   their controllers use the types of the API contract and throw `ApiException`. A business module that needs to
+   report an unexpected error may depend on `observability` through the process in rule 6.

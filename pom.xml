@@ -37,10 +37,15 @@
          Remove each override as soon as the Spring Boot BOM ships the same or a newer version. -->
     <tomcat.version>11.0.26</tomcat.version>
     <jackson-bom.version>3.1.7</jackson-bom.version>
+    <!-- Sprint 1: the OpenAPI generator brings the previous Jackson line (2.x). The scan of the built jar found three
+         fixable HIGH issues in 2.21.5 (databind: unbounded numeric parsing, two deserializer flaws), fixed in 2.21.7. -->
+    <jackson-2-bom.version>2.21.7</jackson-2-bom.version>
 
     <!-- Versions not managed by the Spring Boot BOM. -->
     <spring-modulith.version>2.1.1</spring-modulith.version>
     <archunit.version>1.4.2</archunit.version>
+    <springdoc.version>3.1.1</springdoc.version>
+    <datasource-micrometer.version>2.3.0</datasource-micrometer.version>
 
     <!-- Build plugin versions. -->
     <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
@@ -67,6 +72,18 @@
         <groupId>com.tngtech.archunit</groupId>
         <artifactId>archunit</artifactId>
         <version>${archunit.version}</version>
+      </dependency>
+      <dependency>
+        <!-- Generates the OpenAPI document from the controllers (ADR-0011). -->
+        <groupId>org.springdoc</groupId>
+        <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
+        <version>${springdoc.version}</version>
+      </dependency>
+      <dependency>
+        <!-- One span per SQL statement, so a trace reaches the database (ADR-0012). -->
+        <groupId>net.ttddyy.observation</groupId>
+        <artifactId>datasource-micrometer-spring-boot</artifactId>
+        <version>${datasource-micrometer.version}</version>
       </dependency>
 
       <!-- Platform modules. -->

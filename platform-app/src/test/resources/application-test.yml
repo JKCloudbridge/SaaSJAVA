@@ -1,0 +1,17 @@
+# Automated tests. The database settings are supplied by TestDatabaseInitializer (a real PostgreSQL container).
+management:
+  server:
+    # A random port, so tests can reach the probes and metrics exactly as a deployment does.
+    port: 0
+  metrics:
+    tags:
+      environment: test
+  tracing:
+    sampling:
+      probability: 1.0
+
+logging:
+  structured:
+    format:
+      # Plain text in tests unless a test turns structured output on to inspect it.
+      console: ""

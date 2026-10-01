@@ -25,6 +25,12 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# The default paths contain "..": normalise them, or the expected names would never equal the names the file system
+# reports and a freshly mirrored file would be called stale.
+$Source = [System.IO.Path]::GetFullPath($Source)
+$ManualSource = [System.IO.Path]::GetFullPath($ManualSource)
+$Target = [System.IO.Path]::GetFullPath($Target)
+
 function Get-Expected([string]$sourceDir, [string]$pattern, [string]$targetDir) {
     $map = @{}
     if (-not (Test-Path $sourceDir)) { return $map }

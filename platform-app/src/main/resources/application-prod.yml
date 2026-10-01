@@ -1,0 +1,9 @@
+# Every deployed environment (and the container image). Nothing here is environment specific: hosts, credentials
+# and the trace destination come from environment variables, set by the deployment (Sprint 33 defines how).
+#   Required: PLATFORM_DB_URL, PLATFORM_DB_APP_USER, PLATFORM_DB_APP_PASSWORD,
+#             PLATFORM_DB_OWNER_USER, PLATFORM_DB_OWNER_PASSWORD
+#   Optional: PLATFORM_ENVIRONMENT, PLATFORM_TRACE_EXPORT, PLATFORM_TRACE_ENDPOINT, PLATFORM_TRACE_SAMPLING
+springdoc:
+  api-docs:
+    # The API description is published deliberately (developer portal, Sprint 30), not by accident.
+    enabled: false

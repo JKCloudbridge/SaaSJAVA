@@ -4,6 +4,7 @@
    Redis       - authenticates and round-trips a key
    Object store- creates a bucket, uploads and downloads an object through the S3 API
    Mail catcher- sends a message over SMTP and reads it back through the API
+   Trace viewer- the collector accepts a trace payload and the UI answers
  Run after `docker compose up -d`. Exit code is non-zero if anything fails.
 #>
 $ErrorActionPreference = 'Continue'  # native tools write progress to stderr; failures are thrown explicitly
@@ -59,6 +60,14 @@ Step 'Mail catcher receives and exposes a message' {
     Start-Sleep -Seconds 1
     $messages = Invoke-RestMethod "http://127.0.0.1:$($envMap.MAIL_UI_PORT)/api/v1/messages"
     if (-not ($messages.messages | Where-Object { $_.Subject -eq $subject })) { throw 'message not found in catcher' }
+}
+
+Step 'Trace viewer accepts traces and answers queries' {
+    $payload = '{"resourceSpans":[]}'
+    $ingest = Invoke-WebRequest -Uri "http://127.0.0.1:$($envMap.TRACING_COLLECTOR_PORT)/v1/traces" -Method Post -ContentType 'application/json' -Body $payload -UseBasicParsing
+    if ($ingest.StatusCode -ne 200) { throw "collector answered $($ingest.StatusCode)" }
+    $ui = Invoke-WebRequest -Uri "http://127.0.0.1:$($envMap.TRACING_UI_PORT)/" -UseBasicParsing
+    if ($ui.StatusCode -ne 200) { throw "UI answered $($ui.StatusCode)" }
 }
 
 if ($failures.Count -gt 0) {

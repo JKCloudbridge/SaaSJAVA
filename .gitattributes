@@ -1,4 +1,5 @@
-# Normalise line endings so scripts work on every platform.
+# Normalise line endings so scripts work on every platform. Migration files must be byte-identical everywhere
+# (the migration tool checksums them), and the generated client and OpenAPI document are compared in CI.
 * text=auto
 mvnw text eol=lf
 *.sh text eol=lf
@@ -8,3 +9,10 @@ mvnw text eol=lf
 *.xml text eol=lf
 *.yml text eol=lf
 *.md text eol=lf
+*.sql text eol=lf
+*.json text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.mts text eol=lf
+*.mjs text eol=lf
+*.css text eol=lf
