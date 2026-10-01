@@ -16,6 +16,11 @@ updates:
     directory: "/platform-app"
     schedule:
       interval: weekly
+    ignore:
+      # The platform runs on Java 25 (long-term support), and the build and every test run on it. A new major
+      # runtime would make the image differ from what was tested; it is a deliberate decision, not an automatic update.
+      - dependency-name: "eclipse-temurin"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: npm
     directory: "/platform-web"
     schedule:
@@ -30,3 +35,11 @@ updates:
       telemetry:
         patterns:
           - "@opentelemetry/*"
+    ignore:
+      # Major upgrades that break the build today, proven in Sprint 1. Revisit each one deliberately:
+      # ESLint 10 fails at run time with the Next.js lint configuration's React plugin; TypeScript 7 is outside what
+      # the lint tooling and the API client generator support (both require a 5.x or 6.0 compiler).
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
