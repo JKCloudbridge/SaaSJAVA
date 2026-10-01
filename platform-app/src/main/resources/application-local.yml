@@ -1,8 +1,8 @@
-# Developer machine. Start with:  --spring.profiles.active=local   (see docs/engineering-guide.md)
+# Developer machine. Start with:  --spring.profiles.active=local   (see README.md)
 # The database settings use the variable names of infra/local/.env. The file is read directly when it exists
 # (the application is started from the repository root or from platform-app), and real environment variables
-# win over it. The owner and the application role are both the local database user until Sprint 2 introduces the
-# separate application role.
+# win over it. Migrations run as the owner (the local database user); the application runs as its own role, the one
+# manual migration M001 creates (infra/local/init-app-role.ps1 runs it and sets the password from the same file).
 spring:
   config:
     import:
@@ -10,8 +10,8 @@ spring:
       - optional:file:../infra/local/.env[.properties]
   datasource:
     url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/${POSTGRES_DB:platform}
-    username: ${POSTGRES_USER:platform}
-    password: ${POSTGRES_PASSWORD}
+    username: ${APP_DB_USER:platform_app}
+    password: ${APP_DB_PASSWORD}
   flyway:
     url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/${POSTGRES_DB:platform}
     user: ${POSTGRES_USER:platform}
@@ -41,3 +41,10 @@ logging:
       console: ${PLATFORM_LOG_FORMAT:}
   pattern:
     correlation: "[trace=%X{traceId:-} request=%X{requestId:-} tenant=%X{tenantId:-}] "
+
+platform:
+  tenancy:
+    # Browsers resolve every *.localhost name to this machine: open http://tenant-a.localhost:3000
+    base-domain: localhost
+    # The development proxy of the web app rewrites the Host header and passes the original in X-Forwarded-Host.
+    trust-forwarded-host: true

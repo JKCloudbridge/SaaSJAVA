@@ -19,3 +19,7 @@ A decision that is still open has status **Proposed** and names the gate or spri
 | [0011](0011-api-conventions.md) | API conventions: versioning, envelope, errors, paging, contract | Accepted | — |
 | [0012](0012-observability.md) | Observability: logs, metrics, traces, error tracking, correlation | Accepted | — |
 | [0013](0013-local-deployment-approach.md) | Deployment target for local development | Accepted for local (production part open until Sprint 33) | D5 |
+| [0014](0014-tenancy-model-and-tenant-context.md) | Tenancy model, tenant lifecycle and the tenant context | Accepted | — |
+| [0015](0015-row-level-security-implementation.md) | Row level security: roles, policies, system scope and what was verified | Accepted (implements 0003) | — |
+| [0016](0016-transactional-outbox-and-idempotent-consumers.md) | Transactional outbox, polling relay and idempotent consumers | Accepted for the outbox and relay (processor and broker close in Sprint 22) | D3 |
+| [0017](0017-tenant-resolution-by-hostname.md) | Tenant resolution by host name | Accepted | — |

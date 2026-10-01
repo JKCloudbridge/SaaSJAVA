@@ -125,3 +125,15 @@ springdoc:
   default-produces-media-type: application/json
   writer-with-order-by-keys: true
   writer-with-default-pretty-printer: true
+
+platform:
+  tenancy:
+    # The platform domain: an organization lives at <slug>.<base-domain> (ADR-0017). No default on purpose; the local
+    # and test profiles set one, every deployment must (PLATFORM_BASE_DOMAIN).
+    base-domain: ${PLATFORM_BASE_DOMAIN}
+    # Take the host name from X-Forwarded-Host instead of Host. Only behind a trusted proxy that overwrites the header
+    # on every request; with the API reachable directly a caller could name any organization host.
+    trust-forwarded-host: ${PLATFORM_TRUST_FORWARDED_HOST:false}
+  outbox:
+    # Every instance may run the relay; they coordinate through the database (ADR-0016).
+    enabled: ${PLATFORM_OUTBOX_ENABLED:true}

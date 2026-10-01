@@ -51,3 +51,9 @@ Isolation is enforced in **two independent layers**; neither is assumed sufficie
 - Delivery plan, Sprint S2; Definition of Done items 3 and 4; architecture notes 1 (tenant context, isolation).
 - Evidence in S0: `PostgresContainerIT` confirms RLS can be enabled on a real PostgreSQL 18 container.
   Policies, roles and the leak suite are Sprint 2 work and are **not yet verified**.
+
+## Update (Sprint 2)
+
+Implemented and verified in [ADR-0015](0015-row-level-security-implementation.md) (roles, policies, system scope, the leak
+harness and what was proven) and [ADR-0014](0014-tenancy-model-and-tenant-context.md) (the application layer). The evidence
+sentence above ("not yet verified") is superseded by the table in ADR-0015.

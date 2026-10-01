@@ -85,6 +85,34 @@ class PlatformRulesTest {
     }
 
     @Test
+    void businessModulesUseTheEventContractsOfTheSharedKernelNotTheOutboxModule() {
+        // They announce events through EventPublisher and react through EventHandler beans (ADR-0016), so no module
+        // needs, or may have, an edge to the outbox.
+        noClasses().that().resideInAnyPackage(BUSINESS_MODULES)
+                .should().dependOnClassesThat().resideInAPackage("app.platform.outbox..")
+                .allowEmptyShould(true)
+                .check(platform);
+    }
+
+    @Test
+    void onlyTheTenantAndOutboxModulesEnterASystemScope() {
+        // Working across tenants is the one deliberate exception to tenant isolation (ADR-0015); it must stay
+        // visible in one or two places, never spread through the business modules.
+        noClasses().that().resideOutsideOfPackages("app.platform.tenant..", "app.platform.outbox..")
+                .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.tenant.SystemScope")
+                .because("system scopes are platform infrastructure")
+                .allowEmptyShould(true)
+                .check(platform);
+    }
+
+    @Test
+    void theTenantModuleDoesNotReachIntoTheOutboxOrAnyBusinessModule() {
+        noClasses().that().resideInAPackage("app.platform.tenant..")
+                .should().dependOnClassesThat().resideInAnyPackage("app.platform.outbox..", "app.platform.web..")
+                .check(platform);
+    }
+
+    @Test
     void controllerEndpointsReturnTheApiEnvelopeOrAResponseEntity() {
         // Clients can rely on {"data": ...}, {"data": [...], "pagination": ...} and {"error": ...} everywhere.
         DescribedPredicate<JavaMethod> endpoints = DescribedPredicate.describe(

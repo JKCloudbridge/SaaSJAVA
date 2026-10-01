@@ -165,8 +165,11 @@ jobs:
         run: docker build -t platform-app:${{ github.sha }} platform-app
 
       # Starts the image the way a deployment does: production profile, settings from environment variables, a real
-      # database. Readiness only turns UP when the migrations ran and the database answers, and the status
-      # endpoint proves the API port works. The database passwords are random and live only for this job.
+      # database with two roles. The application role is created by the real manual migration M001 (run as the owner,
+      # password set separately), so this proves the grants, default privileges and row level security work for the role
+      # the image runs as. Readiness only turns UP when the migrations ran and the database answers; the status endpoint
+      # proves the API port works; the tenant endpoint proves host-name resolution on the image (an open organization,
+      # an unknown one, a closed one). The database passwords are random and live only for this job.
       - name: Smoke test image
         run: |
           owner_password="$(openssl rand -hex 16)"
@@ -179,19 +182,22 @@ jobs:
             if docker exec smoke-db pg_isready -U platform_owner -d platform; then break; fi
             sleep 2
           done
-          docker exec smoke-db psql -U platform_owner -d platform -v ON_ERROR_STOP=1 -c \
-            "create role platform_app login password '$app_password' nosuperuser nocreatedb nocreaterole nobypassrls" \
-            -c "grant connect on database platform to platform_app" -c "grant usage on schema public to platform_app"
+          docker exec -i smoke-db psql -U platform_owner -d platform -v ON_ERROR_STOP=1 \
+            < db/manual/M001__create_application_role.sql
+          echo "alter role platform_app password '$app_password';" \
+            | docker exec -i smoke-db psql -U platform_owner -d platform -v ON_ERROR_STOP=1
           docker run -d --name smoke --network smoke -p 8080:8080 -p 8081:8081 \
             -e PLATFORM_DB_URL=jdbc:postgresql://smoke-db:5432/platform \
             -e PLATFORM_DB_OWNER_USER=platform_owner -e PLATFORM_DB_OWNER_PASSWORD="$owner_password" \
             -e PLATFORM_DB_APP_USER=platform_app -e PLATFORM_DB_APP_PASSWORD="$app_password" \
+            -e PLATFORM_BASE_DOMAIN=platform.example.test \
             platform-app:${{ github.sha }}
           for _ in $(seq 1 40); do
             if curl -fsS http://localhost:8081/actuator/health/readiness; then
               echo
               curl -fsS -H "X-Request-ID: ci-smoke-request-1" -i http://localhost:8080/api/v1/platform/status
               echo
+              bash ./scripts/ci-smoke-tenants.sh smoke-db "$app_password"
               exit 0
             fi
             sleep 2

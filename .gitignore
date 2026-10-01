@@ -25,3 +25,6 @@ GEMINI.md
 .gemini/
 .clinerules
 .roo/
+
+# Local engineering guide: kept on this machine only
+docs/engineering-guide.md

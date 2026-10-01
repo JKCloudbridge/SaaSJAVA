@@ -7,8 +7,8 @@ import org.slf4j.MDC;
  * The keys of the per-request logging context and small helpers to read and set them. Every structured log line
  * carries whatever of these is present, so one request can be followed across modules (ADR-0012).
  *
- * <p>{@link #TENANT_ID} is reserved: nothing sets it before Sprint 2, when the tenant context is derived from
- * the authenticated identity. The tenant is never taken from client input.
+ * <p>{@link #TENANT_ID} is set in one place only, the tenant module, whenever a tenant context is opened (a request,
+ * an asynchronous job, an event being handled). Nothing else sets it, and it is never taken from client input.
  */
 public final class LogContext {
 
@@ -21,8 +21,14 @@ public final class LogContext {
     /** Identifier of the current span, set by the tracing integration. */
     public static final String SPAN_ID = "spanId";
 
-    /** Tenant the current work runs for. Not populated yet (Sprint 2). */
+    /** Tenant the current work runs for. */
     public static final String TENANT_ID = "tenantId";
+
+    /**
+     * Name of the servlet request attribute that keeps the tenant ID after the tenant filter has finished, so the
+     * access record, which is written by an outer filter, still names the tenant.
+     */
+    public static final String TENANT_ID_ATTRIBUTE = "app.platform.tenantId";
 
     /**
      * Name of the servlet request attribute that keeps the request ID after the correlation filter has finished,

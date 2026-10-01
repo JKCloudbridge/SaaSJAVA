@@ -5,7 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import app.platform.sharedkernel.logging.LogContext;
 import app.platform.testsupport.PlatformIntegrationTest;
 import app.platform.testsupport.TestHttp;
+import app.platform.testsupport.tenancy.TenantFixtures;
+import app.platform.testsupport.tenancy.TenantFixtures.TestTenant;
 import app.platformapi.ApiHeaders;
+import app.platformapi.ApiPaths;
 import app.webtest.ConventionsTestController;
 import com.jayway.jsonpath.JsonPath;
 import java.io.IOException;
@@ -62,7 +65,7 @@ class StructuredLoggingIT {
                 .containsKey("@timestamp");
         assertThat(JsonPath.<String>read(record, "$.log.level")).isEqualTo("INFO");
         assertThat(JsonPath.<String>read(record, "$.log.logger")).isEqualTo("platform.http");
-        assertThat(record).as("no tenant is known before Sprint 2").doesNotContainKey("tenantId");
+        assertThat(record).as("a platform host has no tenant").doesNotContainKey("tenantId");
     }
 
     @Test
@@ -100,6 +103,30 @@ class StructuredLoggingIT {
 
         assertThat(lineContaining("marker-tenant-1")).containsEntry("tenantId", "tenant-a");
         assertThat(lineContaining("marker-tenant-2")).doesNotContainKey("tenantId");
+    }
+
+    @Test
+    void everyLineOfARequestToAnOrganizationHostCarriesItsTenantIncludingTheAccessRecord() throws IOException {
+        TestTenant tenant = TenantFixtures.createActiveTenant();
+
+        new TestHttp(port).get(ApiPaths.TENANT_CURRENT, ApiHeaders.REQUEST_ID, "client-req-log-tenant",
+                "Host", tenant.host());
+
+        Map<String, Object> access = lineWhere("$.requestId", "client-req-log-tenant", "$.message",
+                "request completed");
+        assertThat(access).containsEntry("tenantId", tenant.id().toString()).containsEntry("http_status", 200);
+    }
+
+    @Test
+    void aRefusedHostIsLoggedWithoutATenantAndWithoutTheHostName() throws IOException {
+        new TestHttp(port).get(ApiPaths.TENANT_CURRENT, ApiHeaders.REQUEST_ID, "client-req-log-refused",
+                "Host", "no-such-organization.platform.example.test");
+
+        Map<String, Object> access = lineWhere("$.requestId", "client-req-log-refused", "$.message",
+                "request completed");
+        assertThat(access).containsEntry("http_status", 404).doesNotContainKey("tenantId");
+        assertThat(Files.readString(Path.of(LOG_FILE), StandardCharsets.UTF_8))
+                .as("the host name is client input and is not logged").doesNotContain("no-such-organization");
     }
 
     @Test
