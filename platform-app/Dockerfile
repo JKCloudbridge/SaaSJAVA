@@ -10,13 +10,13 @@
 # Local run with everything wired: `docker compose --profile app up -d` in infra/local.
 
 # Stage 1: split the executable jar into layers so dependency layers are cached between builds.
-FROM eclipse-temurin:25.0.4_7-jre-alpine AS extract
+FROM eclipse-temurin:26.0.2.1_1-jre-alpine AS extract
 WORKDIR /build
 COPY target/platform-app-*.jar app.jar
 RUN java -Djarmode=tools -jar app.jar extract --layers --destination extracted
 
 # Stage 2: runtime image. Non-root user, UTC, container-aware memory settings.
-FROM eclipse-temurin:25.0.4_7-jre-alpine
+FROM eclipse-temurin:26.0.2.1_1-jre-alpine
 # Pick up operating-system security fixes published after the base image was built.
 RUN apk upgrade --no-cache \
  && addgroup -S platform && adduser -S -G platform platform
