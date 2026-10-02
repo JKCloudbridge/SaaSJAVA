@@ -155,3 +155,9 @@ and run `docker compose up -d postgres`, then `docker compose logs postgres`: ev
 
 - These credentials are for local use only. Never reuse them anywhere else and never commit `.env`.
 - Use only the `example.test` domain for test email addresses.
+
+## Sample objects for the permission editors (Sprint 8)
+
+Objects do not exist before Sprint 10. The `local` profile lists two sample objects (`object-a` with three fields and `object-b`) from
+`platform.security.sample-objects` in `application-local.yml`, so the matrix editors at `/setup/profiles` and `/setup/access-policies` have something to show.
+A deployment lists none.

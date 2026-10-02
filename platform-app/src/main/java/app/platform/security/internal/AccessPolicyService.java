@@ -29,8 +29,11 @@ class AccessPolicyService {
     private final AccessStore store;
     private final Licences licences;
     private final AccessAudit audit;
+    private final DataAccessStore dataStore;
 
-    AccessPolicyService(AccessGate gate, AccessStore store, Licences licences, AccessAudit audit) {
+    AccessPolicyService(AccessGate gate, AccessStore store, Licences licences, AccessAudit audit,
+            DataAccessStore dataStore) {
+        this.dataStore = dataStore;
         this.gate = gate;
         this.store = store;
         this.licences = licences;
@@ -68,9 +71,11 @@ class AccessPolicyService {
             store.lockAccessChanges();
             AccessStore.PolicyRow policy = store.policyForUpdate(id)
                     .orElseThrow(() -> ApiException.notFound("This access policy does not exist."));
-            if (policy.members() > 0 && !java.util.Objects.equals(policy.requiredLicenceTypeId(), typeId)) {
+            if ((policy.members() > 0 || policy.groups() > 0)
+                    && !java.util.Objects.equals(policy.requiredLicenceTypeId(), typeId)) {
                 throw new ApiException(ErrorCode.CONFLICT,
-                        "An access policy that members hold keeps its licence type. Take it from them first.");
+                        "An access policy that members or groups hold keeps its licence type. "
+                                + "Take it from them first.");
             }
             try {
                 store.updatePolicy(id, Names.name(request.name()), Names.description(request.description()),
@@ -95,7 +100,12 @@ class AccessPolicyService {
                 throw new ApiException(ErrorCode.CONFLICT,
                         "Members still hold this access policy. Take it from them first.");
             }
+            if (policy.groups() > 0) {
+                throw new ApiException(ErrorCode.CONFLICT,
+                        "Groups still use this access policy. Take it from them first.");
+            }
             store.deletePolicy(id, new ActorId(caller.userId()));
+            dataStore.deleteAll(DataAccessStore.Holder.POLICY, id, new ActorId(caller.userId()));
             audit.policyDeleted(caller.userId(), id, policy.name());
             return null;
         });
@@ -105,7 +115,7 @@ class AccessPolicyService {
         return new AccessPolicyView(policy.id(), policy.name(), policy.description(),
                 Ability.keysOf(Ability.knownAmong(policy.abilities())),
                 policy.requiredLicenceTypeId() == null ? null : typeKeys.get(policy.requiredLicenceTypeId()),
-                policy.members());
+                policy.members(), policy.groups());
     }
 
     /** The licence type a policy needs; empty text means none. */

@@ -206,4 +206,29 @@ class PlatformRulesTest {
     void productionCodeDoesNotWriteToStandardStreams() {
         NO_CLASSES_SHOULD_ACCESS_STANDARD_STREAMS.check(platform);
     }
+
+    @Test
+    void everyEndpointOfThePlatformConsoleDeclaresItsPlatformFunction() {
+        // ADR-0052: no platform endpoint exists without a rule; the one rule is the PlatformAuthorizationManager.
+        // The organization side of support access is decided by an ability of the organization, not a platform role.
+        for (Class<? extends Annotation> annotation : ENDPOINT_ANNOTATIONS) {
+            methods().that().areDeclaredInClassesThat().resideInAPackage("app.platform.platformadmin..")
+                    .and().areDeclaredInClassesThat().doNotHaveSimpleName("OrganizationSupportAccessController")
+                    .and().areAnnotatedWith(annotation)
+                    .should().beAnnotatedWith("app.platform.platformadmin.internal.PlatformFunction")
+                    .because("a platform endpoint without a platform function would be open to every signed-in person")
+                    .allowEmptyShould(true)
+                    .check(platform);
+        }
+    }
+
+    @Test
+    void thePlatformRoleCheckIsMadeInOnePlaceOnly() {
+        noClasses().that().resideInAPackage("app.platform.platformadmin..")
+                .and().doNotHaveSimpleName("PlatformAuthorizationManager")
+                .should().callMethod(app.platform.identity.PlatformRoles.class, "require", java.util.UUID.class,
+                        app.platform.identity.PlatformRole[].class)
+                .because("the platform console asks the platform roles through PlatformAuthorizationManager only")
+                .check(platform);
+    }
 }

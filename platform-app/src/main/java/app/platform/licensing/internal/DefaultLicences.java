@@ -1,5 +1,6 @@
 package app.platform.licensing.internal;
 
+import app.platform.licensing.LicenceHolding;
 import app.platform.licensing.LicenceTypeView;
 import app.platform.licensing.Licences;
 import app.platform.licensing.PoolView;
@@ -61,6 +62,11 @@ class DefaultLicences implements Licences {
     @Override
     public Optional<String> profileLicenceOf(UUID membershipId) {
         return work.inCurrent(() -> store.profileLicenceOf(membershipId));
+    }
+
+    @Override
+    public LicenceHolding holdingOf(UUID membershipId) {
+        return work.inCurrent(() -> store.holdingOf(membershipId));
     }
 
     @Override

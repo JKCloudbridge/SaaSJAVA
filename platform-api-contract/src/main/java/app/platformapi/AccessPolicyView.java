@@ -13,9 +13,10 @@ import java.util.UUID;
  * @param abilities the ability keys it adds
  * @param requiredLicenceType the key of the licence type that assigning it uses, or absent when it needs none
  * @param members how many members it is assigned to
+ * @param groups how many groups it is given to (a policy that needs a licence cannot be given to a group)
  */
 public record AccessPolicyView(@NotNull UUID id, @NotNull String name, @NotNull String description,
-        @NotNull List<String> abilities, String requiredLicenceType, int members) {
+        @NotNull List<String> abilities, String requiredLicenceType, int members, int groups) {
 
     public AccessPolicyView {
         abilities = abilities == null ? List.of() : List.copyOf(abilities);

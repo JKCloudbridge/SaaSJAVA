@@ -42,7 +42,7 @@ class AccessStore {
 
     /** An access policy with the number of members who hold it. */
     record PolicyRow(UUID id, String name, String description, List<String> abilities, UUID requiredLicenceTypeId,
-            int members) {
+            int members, int groups) {
 
         PolicyRow {
             abilities = List.copyOf(abilities);
@@ -82,7 +82,9 @@ class AccessStore {
     private static final String POLICY_COLUMNS = "a.id, a.name, a.description, a.abilities, "
             + "a.required_licence_type_id, "
             + "(select count(*) from member_access_policy mp where mp.access_policy_id = a.id "
-            + "and mp.deleted_at is null) as members";
+            + "and mp.deleted_at is null) as members, "
+            + "(select count(*) from public_group_access_policy gp where gp.access_policy_id = a.id "
+            + "and gp.deleted_at is null) as groups";
 
     private static final String ROLE_COLUMNS = "r.id, r.name, r.description, r.parent_id, "
             + "(select count(*) from member_access ma where ma.role_id = r.id and ma.deleted_at is null) as members";
@@ -366,7 +368,8 @@ class AccessStore {
 
     private static PolicyRow policy(ResultSet rs, int row) throws SQLException {
         return new PolicyRow(rs.getObject("id", UUID.class), rs.getString("name"), rs.getString("description"),
-                strings(rs, "abilities"), rs.getObject("required_licence_type_id", UUID.class), rs.getInt("members"));
+                strings(rs, "abilities"), rs.getObject("required_licence_type_id", UUID.class), rs.getInt("members"),
+                rs.getInt("groups"));
     }
 
     private static RoleRow role(ResultSet rs, int row) throws SQLException {
@@ -379,12 +382,12 @@ class AccessStore {
                 rs.getObject("profile_id", UUID.class), rs.getObject("role_id", UUID.class));
     }
 
-    private static AssignedPolicy assignedPolicy(ResultSet rs, int row) throws SQLException {
+    static AssignedPolicy assignedPolicy(ResultSet rs, int row) throws SQLException {
         return new AssignedPolicy(rs.getObject("membership_id", UUID.class), rs.getObject("id", UUID.class),
                 rs.getString("name"), rs.getObject("required_licence_type_id", UUID.class), strings(rs, "abilities"));
     }
 
-    private static List<String> strings(ResultSet rs, String column) throws SQLException {
+    static List<String> strings(ResultSet rs, String column) throws SQLException {
         java.sql.Array array = rs.getArray(column);
         if (array == null) {
             return List.of();

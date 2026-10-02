@@ -145,7 +145,8 @@ class MigrationIT {
             }
 
             MigrateResult result = Flyway.configure().dataSource(ownUrl, role, password)
-                    .locations("classpath:db/migration").cleanDisabled(true).placeholderReplacement(false).load()
+                    .locations("classpath:db/migration").target("23").cleanDisabled(true)
+                    .placeholderReplacement(false).load()
                     .migrate();
 
             assertThat(result.success).isTrue();
@@ -379,6 +380,137 @@ class MigrationIT {
                     assertThat(scalar(statement, "select count(*) from member_access")).isZero();
                     for (String table : List.of("profile", "member_access", "licence_pool", "licence_assignment",
                             "membership")) {
+                        assertThat(scalar(statement, "select count(*) from pg_class where relname = '" + table
+                                + "' and relrowsecurity and relforcerowsecurity")).as(table + " is forced again")
+                                .isEqualTo(1L);
+                    }
+                }
+            }
+        } finally {
+            try (Connection admin = TestDatabase.ownerConnection(); Statement statement = admin.createStatement()) {
+                statement.execute("drop database if exists " + database + " with (force)");
+                statement.execute("drop role if exists " + role);
+            }
+        }
+    }
+
+    @Test
+    void theSprintEightMigrationsWorkOnADatabaseWithDataAsANonSuperuserOwner() throws Exception {
+        // A database as Sprint 7 left it, owned by a role that is NOT a superuser (forced row level security binds it):
+        // an organization with two members, a policy licence that the licence of the profile already covers and one
+        // that it does not, and three open invitations. V024 releases the first, V027 turns the old marker invitation
+        // into one that names the administrator profile and drops both marker columns.
+        String suffix = UUID.randomUUID().toString().replace("-", "");
+        String role = "migrator_" + suffix;
+        String password = "pw-" + UUID.randomUUID();
+        String database = "sprint8_" + suffix;
+        try (Connection admin = TestDatabase.ownerConnection(); Statement statement = admin.createStatement()) {
+            statement.execute("create role " + role + " login password '" + password + "'");
+            statement.execute("create database " + database + " owner " + role);
+        }
+        String ownUrl = TestDatabase.jdbcUrl().replace("/platform?", "/" + database + "?");
+        try {
+            Flyway.configure().dataSource(ownUrl, role, password).locations("classpath:db/migration").target("23")
+                    .cleanDisabled(true).placeholderReplacement(false).load().migrate();
+            UUID system = new UUID(0L, 0L);
+            UUID tenant = UUID.randomUUID();
+            UUID userA = UUID.randomUUID();
+            UUID userB = UUID.randomUUID();
+            UUID memberA = UUID.randomUUID();
+            UUID memberB = UUID.randomUUID();
+            UUID policyUser = UUID.randomUUID();
+            UUID policyAdmin = UUID.randomUUID();
+            String actor = "'" + system + "', '" + system + "'";
+            try (Connection connection = DriverManager.getConnection(ownUrl, role, password)) {
+                connection.setAutoCommit(false);
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("insert into tenant (id, slug, display_name, created_by, updated_by) values ('"
+                            + tenant + "', 'org-sprint8', 'Org', " + actor + ")");
+                    statement.execute("update tenant set status = 'ACTIVE', version = version + 1 where id = '"
+                            + tenant + "'");
+                    for (UUID user : List.of(userA, userB)) {
+                        statement.execute("insert into platform_user (id, email, display_name, created_by, "
+                                + "updated_by) values ('" + user + "', '" + user + "@example.test', 'Person', "
+                                + actor + ")");
+                    }
+                    statement.execute("select set_config('app.current_tenant', '" + tenant + "', true)");
+                    statement.execute("insert into membership (id, tenant_id, user_id, created_by, updated_by) "
+                            + "values ('" + memberA + "', '" + tenant + "', '" + userA + "', " + actor + "), ('"
+                            + memberB + "', '" + tenant + "', '" + userB + "', " + actor + ")");
+                    statement.execute("insert into profile (tenant_id, name, licence_type_id, system_key, "
+                            + "full_access, created_by, updated_by) select '" + tenant + "', 'Administrator', id, "
+                            + "'administrator', true, " + actor + " from licence_type where key = 'admin'");
+                    statement.execute("insert into profile (tenant_id, name, licence_type_id, system_key, "
+                            + "is_default, created_by, updated_by) select '" + tenant + "', 'Member', id, 'member', "
+                            + "true, " + actor + " from licence_type where key = 'user'");
+                    statement.execute("insert into member_access (tenant_id, membership_id, profile_id, created_by, "
+                            + "updated_by) select '" + tenant + "', v.m, p.id, " + actor + " from profile p, "
+                            + "(values ('" + memberA + "'::uuid), ('" + memberB + "'::uuid)) as v(m) "
+                            + "where p.system_key = 'member'");
+                    statement.execute("insert into licence_pool (tenant_id, licence_type_id, quantity, created_by, "
+                            + "updated_by) select '" + tenant + "', id, 5, " + actor + " from licence_type "
+                            + "where key in ('user', 'admin')");
+                    statement.execute("insert into licence_assignment (tenant_id, membership_id, licence_type_id, "
+                            + "created_by, updated_by) select '" + tenant + "', v.m, t.id, " + actor
+                            + " from licence_type t, (values ('" + memberA + "'::uuid), ('" + memberB
+                            + "'::uuid)) as v(m) where t.key = 'user'");
+                    statement.execute("insert into access_policy (id, tenant_id, name, required_licence_type_id, "
+                            + "created_by, updated_by) select '" + policyUser + "', '" + tenant + "', 'policy-a', id, "
+                            + actor + " from licence_type where key = 'user'");
+                    statement.execute("insert into access_policy (id, tenant_id, name, required_licence_type_id, "
+                            + "created_by, updated_by) select '" + policyAdmin + "', '" + tenant + "', 'policy-b', "
+                            + "id, " + actor + " from licence_type where key = 'admin'");
+                    statement.execute("insert into member_access_policy (tenant_id, membership_id, access_policy_id, "
+                            + "created_by, updated_by) values ('" + tenant + "', '" + memberA + "', '" + policyUser
+                            + "', " + actor + "), ('" + tenant + "', '" + memberB + "', '" + policyAdmin + "', "
+                            + actor + ")");
+                    statement.execute("insert into licence_assignment (tenant_id, membership_id, licence_type_id, "
+                            + "purpose, source_id, created_by, updated_by) select '" + tenant + "', '" + memberA
+                            + "', id, 'ACCESS_POLICY', '" + policyUser + "', " + actor + " from licence_type "
+                            + "where key = 'user'");
+                    statement.execute("insert into licence_assignment (tenant_id, membership_id, licence_type_id, "
+                            + "purpose, source_id, created_by, updated_by) select '" + tenant + "', '" + memberB
+                            + "', id, 'ACCESS_POLICY', '" + policyAdmin + "', " + actor + " from licence_type "
+                            + "where key = 'admin'");
+                    statement.execute("insert into invitation (tenant_id, email, administrator, "
+                            + "invited_by_platform, expires_at, created_by, updated_by) values "
+                            + "('" + tenant + "', 'old-marker@example.test', true, false, now() + interval '1 day', "
+                            + actor + "), ('" + tenant + "', 'platform@example.test', true, true, "
+                            + "now() + interval '1 day', " + actor + "), ('" + tenant + "', 'plain@example.test', "
+                            + "false, false, now() + interval '1 day', " + actor + ")");
+                }
+                connection.commit();
+            }
+
+            MigrateResult result = Flyway.configure().dataSource(ownUrl, role, password)
+                    .locations("classpath:db/migration").cleanDisabled(true).placeholderReplacement(false).load()
+                    .migrate();
+
+            assertThat(result.success).isTrue();
+            try (Connection connection = DriverManager.getConnection(ownUrl, role, password)) {
+                connection.setAutoCommit(false);
+                try (Statement statement = connection.createStatement()) {
+                    assertThat(scalar(statement, "select count(*) from licence_type where kind = 'SEAT' "
+                            + "and key in ('user', 'admin')")).as("the first two are seats").isEqualTo(2L);
+                    statement.execute("select set_config('app.current_tenant', '" + tenant + "', true)");
+                    assertThat(scalar(statement, "select count(*) from licence_assignment "
+                            + "where purpose = 'ACCESS_POLICY' and source_id = '" + policyUser + "' "
+                            + "and deleted_at is null")).as("the licence of the profile covers a policy of its type")
+                            .isZero();
+                    assertThat(scalar(statement, "select count(*) from licence_assignment "
+                            + "where purpose = 'ACCESS_POLICY' and source_id = '" + policyAdmin + "' "
+                            + "and deleted_at is null")).as("a policy of another type keeps its own licence")
+                            .isEqualTo(1L);
+                    assertThat(scalar(statement, "select count(*) from invitation i join profile p on "
+                            + "p.id = i.profile_id where i.email = 'old-marker@example.test' "
+                            + "and p.system_key = 'administrator'"))
+                            .as("the old marker invitation names the administrator profile").isEqualTo(1L);
+                    assertThat(scalar(statement, "select count(*) from invitation where profile_id is not null"))
+                            .as("the platform invitation and the plain one carry no profile").isEqualTo(1L);
+                    assertThat(scalar(statement, "select count(*) from information_schema.columns where "
+                            + "column_name = 'administrator' and table_name in ('membership', 'invitation')"))
+                            .as("the marker columns are gone").isZero();
+                    for (String table : List.of("invitation", "profile", "licence_assignment", "membership")) {
                         assertThat(scalar(statement, "select count(*) from pg_class where relname = '" + table
                                 + "' and relrowsecurity and relforcerowsecurity")).as(table + " is forced again")
                                 .isEqualTo(1L);

@@ -43,16 +43,17 @@ class PlatformPeopleController {
         this.roles = roles;
     }
 
+    @PlatformFunction({PLATFORM_ADMIN})
     @GetMapping(ApiPaths.PLATFORM_PEOPLE)
     @Operation(
             operationId = "listPlatformPeople",
             summary = "Who holds a platform role",
             description = "For platform administrators. Platform host only.")
     ApiResponse<List<PlatformPersonView>> list(Principal principal) {
-        caller.require(principal, PLATFORM_ADMIN);
         return ApiResponse.of(roles.people().stream().map(PlatformPeopleController::view).toList());
     }
 
+    @PlatformFunction({PLATFORM_ADMIN})
     @PostMapping(ApiPaths.PLATFORM_PEOPLE)
     @Operation(
             operationId = "grantPlatformRole",
@@ -61,7 +62,7 @@ class PlatformPeopleController {
                     + "the address, CONFLICT when the person holds the role. Audited. For platform administrators.")
     ResponseEntity<ApiResponse<PlatformPersonView>> grant(@Valid @RequestBody GrantPlatformRoleRequest body,
             Principal principal) {
-        UUID actor = caller.require(principal, PLATFORM_ADMIN);
+        UUID actor = caller.person(principal);
         PlatformRole role;
         try {
             role = PlatformRole.valueOf(body.role());
@@ -72,13 +73,14 @@ class PlatformPeopleController {
                 .body(ApiResponse.of(view(roles.grant(actor, body.email(), role))));
     }
 
+    @PlatformFunction({PLATFORM_ADMIN})
     @DeleteMapping(ApiPaths.PLATFORM_PEOPLE + "/{assignmentId}")
     @Operation(
             operationId = "revokePlatformRole",
             summary = "Take a platform role away",
             description = "CONFLICT for the last platform administrator. Audited. For platform administrators.")
     ResponseEntity<Void> revoke(@PathVariable UUID assignmentId, Principal principal) {
-        roles.revoke(caller.require(principal, PLATFORM_ADMIN), assignmentId);
+        roles.revoke(caller.person(principal), assignmentId);
         return ResponseEntity.noContent().header(HttpHeaders.CACHE_CONTROL, "no-store").build();
     }
 

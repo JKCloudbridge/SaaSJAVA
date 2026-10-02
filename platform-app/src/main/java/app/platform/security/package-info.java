@@ -1,7 +1,8 @@
 /**
  * Security module: profiles, roles, access policies, individual grants, the effective-permission calculator and the
  * read contract that every other module uses to ask what a member may do (Sprint 7, ADR-0039 to ADR-0045). Public
- * groups and object and field permissions arrive in Sprint 8, the cache and the security audit in Sprint 9.
+ * groups, object and field permissions and the decision API arrived in Sprint 8 (ADR-0046 to ADR-0050); the cache and
+ * the security audit come in Sprint 9.
  *
  * <p>Other modules may use only the types in this package (its public API): {@link app.platform.security.Permissions}
  * (what may this member do), {@link app.platform.security.MemberAccess} (what the identity module changes when members

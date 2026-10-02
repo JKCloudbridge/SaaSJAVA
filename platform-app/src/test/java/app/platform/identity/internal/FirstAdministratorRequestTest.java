@@ -69,8 +69,8 @@ class FirstAdministratorRequestTest {
                 new TenantSlug("client-a"), "Client A", TenantStatus.PROVISIONING, NOW, 0)));
         when(contexts.call(any(TenantContext.class), any())).thenAnswer(call ->
                 ((Supplier<?>) call.getArgument(1)).get());
-        when(invitations.openOrRenew(any(), eq(true), eq(true), eq(true), any(), any())).thenReturn(
-                new InvitationRepository.Invitation(INVITATION, "person-a@example.test", true, true, "OPEN",
+        when(invitations.openOrRenew(any(), eq(true), eq(true), any(), any())).thenReturn(
+                new InvitationRepository.Invitation(INVITATION, "person-a@example.test", true, "OPEN",
                         NOW.plus(Duration.ofDays(7)), 1, NOW, true, null, null, null));
     }
 
@@ -79,7 +79,7 @@ class FirstAdministratorRequestTest {
         service.inviteFirstAdministrator(ORGANIZATION, "  Person-A@Example.TEST ", PLATFORM_ADMIN);
 
         verify(limiter).admitInvitation(ORGANIZATION.value(), PLATFORM_ADMIN, "person-a@example.test");
-        verify(invitations).openOrRenew(eq("person-a@example.test"), eq(true), eq(true), eq(true), any(), any());
+        verify(invitations).openOrRenew(eq("person-a@example.test"), eq(true), eq(true), any(), any());
         ArgumentCaptor<MailRequest> queued = ArgumentCaptor.forClass(MailRequest.class);
         verify(mail).enqueue(queued.capture());
         assertThat(queued.getValue().template()).isEqualTo(MailTemplate.INVITATION);

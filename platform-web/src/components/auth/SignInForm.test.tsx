@@ -36,6 +36,17 @@ function fakeApi(signIn: Handler) {
   return calls;
 }
 
+describe("SignInForm without its script", () => {
+  it("is a post form, so a submit before the script has loaded never puts the password in the address", () => {
+    fakeApi(() => new Response(null, { status: 204 }));
+    const { container } = renderForm();
+
+    const form = container.querySelector("form");
+    expect(form?.getAttribute("method")).toBe("post");
+    expect(form?.getAttribute("action")).toBe("/sign-in");
+  });
+});
+
 function renderForm(returnTo = "/", problem?: string) {
   return render(
     <SessionProvider>
