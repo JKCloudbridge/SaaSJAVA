@@ -85,6 +85,11 @@ class IdentityConfiguration {
         return new SignInLimiter(counters, properties.rateLimit());
     }
 
+    @Bean
+    AccountLimiter accountLimiter(Counters counters, IdentityProperties properties) {
+        return new AccountLimiter(counters, properties.account());
+    }
+
     // ---- sign-in ----
 
     @Bean

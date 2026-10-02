@@ -39,7 +39,13 @@ class EndpointExposureIT {
             "GET /api/v1/auth/callback",          // checks its own state cookie; refuses without it
             "POST /api/v1/auth/sign-in",          // checks the password itself
             "POST /api/v1/auth/refresh",          // authenticates by the refresh cookie
-            "POST /api/v1/auth/sign-out");        // works from whatever the browser holds; idempotent
+            "POST /api/v1/auth/sign-out",         // works from whatever the browser holds; idempotent
+            // Sprint 4: for people without a session. The request steps answer the same for every address and only
+            // queue a mail; the completing steps are authorized by the one-time token of the e-mailed link.
+            "POST /api/v1/auth/sign-up",
+            "POST /api/v1/auth/sign-up/complete",
+            "POST /api/v1/auth/password/forgot",
+            "POST /api/v1/auth/password/reset");
 
     @LocalServerPort
     private int port;

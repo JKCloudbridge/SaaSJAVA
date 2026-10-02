@@ -102,6 +102,8 @@ services:
         condition: service_healthy
       tracing:
         condition: service_started
+      mail-catcher:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
       PLATFORM_ENVIRONMENT: local-container
@@ -117,6 +119,14 @@ services:
       # Redis holds the sign-in rate limits (Sprint 3).
       PLATFORM_REDIS_HOST: redis
       PLATFORM_REDIS_PASSWORD: ${REDIS_PASSWORD:?run init-env.ps1 first}
+      # Mail goes to the catcher (Sprint 4): no login and no encryption, which a deployment never does. Links in mails
+      # point at the web app's development server, which is where the pages of sign-up and reset are.
+      PLATFORM_SMTP_HOST: mail-catcher
+      PLATFORM_SMTP_PORT: "1025"
+      PLATFORM_SMTP_AUTH: "false"
+      PLATFORM_SMTP_STARTTLS_REQUIRED: "false"
+      PLATFORM_MAIL_SENDER: no-reply@example.test
+      PLATFORM_PUBLIC_BASE_URL: http://localhost:3000
       # This container is reached over plain HTTP on a developer machine, so, unlike every deployment, its cookies have
       # no Secure flag and its token signing key is generated in memory. A deployment supplies real keys (ADR-0019).
       PLATFORM_IDENTITY_COOKIES_SECURE: "false"

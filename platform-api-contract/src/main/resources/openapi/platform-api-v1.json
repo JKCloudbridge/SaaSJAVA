@@ -95,6 +95,79 @@
         "tags" : [ "Authentication" ]
       }
     },
+    "/api/v1/auth/password/forgot" : {
+      "post" : {
+        "description" : "Always answers 202 with the same text, whether or not the address has an account: if it has an active one, an e-mail with a link follows. Only on the platform host. A locked account can be reset. Too many requests answer 429 RATE_LIMITED.",
+        "operationId" : "requestPasswordReset",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRequestAccepted"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Ask for a password-reset link",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/password/reset" : {
+      "post" : {
+        "description" : "Answers 204 and ends every session of the user, on every device; the person signs in again. A link that is unknown, used, replaced or expired is a VALIDATION_ERROR on the field token. A password that breaks the policy is a VALIDATION_ERROR on the field newPassword and leaves the link usable.",
+        "operationId" : "completePasswordReset",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Set a new password with the token from the e-mailed link",
+        "tags" : [ "Authentication" ]
+      }
+    },
     "/api/v1/auth/refresh" : {
       "post" : {
         "description" : "Uses the refresh cookie. Answers 204 with new cookies, or 401 UNAUTHENTICATED with the cookies removed when the refresh token is unknown, expired, revoked or was already used.",
@@ -195,6 +268,119 @@
         },
         "summary" : "End every sign-in of the user",
         "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/sign-up" : {
+      "post" : {
+        "description" : "Always answers 202 with the same text, whether or not the address already has an account: if it may sign up, an e-mail with a link follows. Only on the platform host. Asking again is the way to have the e-mail sent again; a newer link replaces the older one. Too many requests answer 429 RATE_LIMITED.",
+        "operationId" : "requestSignUp",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SignUpRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRequestAccepted"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Start a sign-up with an e-mail address",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/sign-up/complete" : {
+      "post" : {
+        "description" : "Answers 204 when the account was created; the person then signs in. A link that is unknown, used, replaced or expired is a VALIDATION_ERROR on the field token, always with the same message. A password that breaks the policy is a VALIDATION_ERROR on the field password and leaves the link usable.",
+        "operationId" : "completeSignUp",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CompleteSignUpRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Create the account with the token from the e-mailed link",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/organizations" : {
+      "post" : {
+        "description" : "The signed-in person creates an organization and becomes its founding administrator. The short name (slug) becomes the first label of the organization's host name. Answers 201 with the host to sign in at. A name or slug that is not acceptable or not free is a VALIDATION_ERROR on its field; a person who already founded as many organizations as allowed is FORBIDDEN. Only on the platform host.",
+        "operationId" : "createOrganization",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateOrganizationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrganizationCreated"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Found an organization",
+        "tags" : [ "Organizations" ]
       }
     },
     "/api/v1/platform/status" : {
@@ -305,11 +491,29 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseOrganizationCreated" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/OrganizationCreated"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponsePlatformStatus" : {
         "type" : "object",
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/PlatformStatus"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseRequestAccepted" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/RequestAccepted"
           }
         },
         "required" : [ "data" ]
@@ -339,6 +543,43 @@
         },
         "required" : [ "currentPassword", "newPassword" ]
       },
+      "CompleteSignUpRequest" : {
+        "type" : "object",
+        "properties" : {
+          "displayName" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "password" : {
+            "type" : "string",
+            "maxLength" : 1024,
+            "minLength" : 0
+          },
+          "token" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "displayName", "password", "token" ]
+      },
+      "CreateOrganizationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "displayName" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "slug" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "displayName", "slug" ]
+      },
       "CurrentUser" : {
         "type" : "object",
         "properties" : {
@@ -358,6 +599,32 @@
         "type" : "string",
         "description" : "Stable machine-readable error code. Branch on this, never on the message.",
         "enum" : [ "VALIDATION_ERROR", "MALFORMED_REQUEST", "UNAUTHENTICATED", "FORBIDDEN", "NOT_FOUND", "METHOD_NOT_ALLOWED", "NOT_ACCEPTABLE", "CONFLICT", "CONCURRENT_MODIFICATION", "PAYLOAD_TOO_LARGE", "UNSUPPORTED_MEDIA_TYPE", "RATE_LIMITED", "INTERNAL_ERROR", "SERVICE_UNAVAILABLE", "TENANT_UNAVAILABLE" ]
+      },
+      "ForgotPasswordRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "maxLength" : 320,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "email" ]
+      },
+      "OrganizationCreated" : {
+        "type" : "object",
+        "properties" : {
+          "displayName" : {
+            "type" : "string"
+          },
+          "host" : {
+            "type" : "string"
+          },
+          "slug" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "displayName", "host", "slug" ]
       },
       "Pagination" : {
         "type" : "object",
@@ -395,6 +662,31 @@
         },
         "required" : [ "apiVersion", "databaseTime", "serverTime", "service" ]
       },
+      "RequestAccepted" : {
+        "type" : "object",
+        "properties" : {
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "message" ]
+      },
+      "ResetPasswordRequest" : {
+        "type" : "object",
+        "properties" : {
+          "newPassword" : {
+            "type" : "string",
+            "maxLength" : 1024,
+            "minLength" : 0
+          },
+          "token" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "newPassword", "token" ]
+      },
       "SignInRequest" : {
         "type" : "object",
         "properties" : {
@@ -410,6 +702,17 @@
           }
         },
         "required" : [ "email", "password" ]
+      },
+      "SignUpRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "maxLength" : 320,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "email" ]
       },
       "TenantSummary" : {
         "type" : "object",

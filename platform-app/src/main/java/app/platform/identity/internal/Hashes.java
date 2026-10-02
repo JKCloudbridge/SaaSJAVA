@@ -33,6 +33,14 @@ final class Hashes {
         return secret.startsWith(HASH_PREFIX) ? secret : HASH_PREFIX + sha256Hex(secret);
     }
 
+    /**
+     * The stored form of a secret that a caller presented: always hashed, even when the text looks like a stored hash.
+     * (A copy of the table must not become usable by presenting the stored values.)
+     */
+    static String hashed(String secret) {
+        return HASH_PREFIX + sha256Hex(secret);
+    }
+
     /** A new random secret of 32 bytes, URL-safe, for cookies. */
     static String randomSecret() {
         byte[] bytes = new byte[32];

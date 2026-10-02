@@ -1,3 +1,4 @@
+import { HomeActions } from "@/components/account/HomeActions";
 import { PlatformStatusCard } from "@/components/PlatformStatusCard";
 
 export default function HomePage() {
@@ -8,6 +9,7 @@ export default function HomePage() {
         This is the web frontend of the platform. It shows what the platform API tells it; the API decides everything
         else. The panel below asks the API for its status.
       </p>
+      <HomeActions />
       <PlatformStatusCard />
     </>
   );

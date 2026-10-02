@@ -60,9 +60,13 @@ class SecurityConfiguration {
 
     /**
      * Public POST paths. Sign-in checks the password itself; refresh and sign-out work from the refresh cookie, so they
-     * must be reachable when the access token has already expired. All three are still protected by CSRF.
+     * must be reachable when the access token has already expired. Sign-up and password reset (Sprint 4) are for people
+     * who have no session: the request steps are anonymous by nature, and the completing steps are authorized by the
+     * one-time token from the e-mailed link. All of them are still protected by CSRF.
      */
-    static final String[] PUBLIC_POST = {ApiPaths.AUTH_SIGN_IN, ApiPaths.AUTH_REFRESH, ApiPaths.AUTH_SIGN_OUT};
+    static final String[] PUBLIC_POST = {ApiPaths.AUTH_SIGN_IN, ApiPaths.AUTH_REFRESH, ApiPaths.AUTH_SIGN_OUT,
+        ApiPaths.AUTH_SIGN_UP, ApiPaths.AUTH_SIGN_UP_COMPLETE, ApiPaths.AUTH_PASSWORD_FORGOT,
+        ApiPaths.AUTH_PASSWORD_RESET};
 
     /** Whether the request is for one of the public endpoints (by method and path). */
     static boolean isPublic(HttpServletRequest request) {

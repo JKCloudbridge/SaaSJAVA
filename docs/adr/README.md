@@ -28,3 +28,6 @@ A decision that is still open has status **Proposed** and names the gate or spri
 | [0020](0020-passwords-and-hashing.md) | Passwords: policy, Argon2id hashing and its measured parameters | Accepted | — |
 | [0021](0021-brute-force-protection-and-rate-limits.md) | Brute-force protection: uniform answers, constant work, the lock, rate limits and the outage rule | Accepted | — |
 | [0022](0022-platform-level-identity-tables-and-audit-v0.md) | Identity tables are platform-level; audit version 0 and authentication events without a tenant | Accepted | — |
+| [0023](0023-sign-up-verification-and-password-reset.md) | Sign-up, e-mail verification and password reset: address first, one answer for every address, one-time links | Accepted | — |
+| [0024](0024-mail-queue-and-notification-v0.md) | The mail queue and notification v0: a platform-level queue, a relay with retries, no secret at rest | Accepted | — |
+| [0025](0025-founding-an-organization-and-the-minimal-membership.md) | A signed-in person founds an organization; the minimal membership | Accepted | — |

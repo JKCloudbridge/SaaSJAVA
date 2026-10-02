@@ -21,7 +21,9 @@ public class TestDatabaseInitializer implements ApplicationContextInitializer<Co
                         "spring.flyway.password=" + TestDatabase.ownerPassword(),
                         "spring.data.redis.host=" + TestRedis.host(),
                         "spring.data.redis.port=" + TestRedis.port(),
-                        "spring.data.redis.password=" + TestRedis.password())
+                        "spring.data.redis.password=" + TestRedis.password(),
+                        "spring.mail.host=" + TestMail.host(),
+                        "spring.mail.port=" + TestMail.smtpPort())
                 .applyTo(context);
     }
 }

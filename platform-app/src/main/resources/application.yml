@@ -42,6 +42,24 @@ spring:
       password: ${PLATFORM_REDIS_PASSWORD:}
       timeout: 250ms
       connect-timeout: 250ms
+  mail:
+    # The SMTP server of the notification module (ADR-0024). A deployment names its own; a developer machine uses the
+    # mail catcher (profile local). Timeouts are short: a slow server must never hold a relay thread for long.
+    host: ${PLATFORM_SMTP_HOST}
+    port: ${PLATFORM_SMTP_PORT:587}
+    username: ${PLATFORM_SMTP_USER:}
+    password: ${PLATFORM_SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${PLATFORM_SMTP_AUTH:true}
+          starttls:
+            enable: true
+            # No unencrypted submission outside a developer machine.
+            required: ${PLATFORM_SMTP_STARTTLS_REQUIRED:true}
+          connectiontimeout: 5000
+          timeout: 10000
+          writetimeout: 10000
   lifecycle:
     timeout-per-shutdown-phase: 20s
 
@@ -123,6 +141,9 @@ logging:
       console: ecs
   level:
     root: INFO
+    # The mail library prints the recipients of every message when it is switched to debug. An address is personal
+    # data and never goes to a log (ADR-0012), so it stays at warnings whatever else is switched on.
+    org.eclipse.angus.mail: WARN
 
 springdoc:
   # The OpenAPI document is the contract's source of truth (ADR-0011); the interactive documentation page is not served.
@@ -146,6 +167,13 @@ platform:
   outbox:
     # Every instance may run the relay; they coordinate through the database (ADR-0016).
     enabled: ${PLATFORM_OUTBOX_ENABLED:true}
+  notification:
+    # Every instance may run the mail relay; they coordinate through the database (ADR-0024).
+    enabled: ${PLATFORM_MAIL_RELAY_ENABLED:true}
+    # The address mails come from, and where the platform's pages live (links in mails point there). No defaults:
+    # a deployment names its own.
+    sender-address: ${PLATFORM_MAIL_SENDER}
+    public-base-url: ${PLATFORM_PUBLIC_BASE_URL}
   identity:
     # Behind a trusted proxy that overwrites X-Forwarded-For (the source address of rate limits and audit records);
     # with the API reachable directly a caller could choose its own address, which is why the default is off.

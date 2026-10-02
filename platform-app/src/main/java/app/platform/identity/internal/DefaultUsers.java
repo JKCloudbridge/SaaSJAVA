@@ -40,10 +40,12 @@ class DefaultUsers implements Users {
     private final TransactionTemplate transaction;
     private final Counters counters;
     private final IdentityProperties.RateLimit limits;
+    private final AccountTokenRepository accountTokens;
 
     DefaultUsers(UserRepository users, CredentialRepository credentials, PasswordHasher hasher,
             PasswordPolicy policy, SessionRevocation revocation, AuthAudit audit, TransactionTemplate transaction,
-            Counters counters, IdentityProperties properties) {
+            Counters counters, IdentityProperties properties, AccountTokenRepository accountTokens) {
+        this.accountTokens = accountTokens;
         this.users = users;
         this.credentials = credentials;
         this.hasher = hasher;
@@ -185,6 +187,8 @@ class DefaultUsers implements Users {
             }
             users.bumpSecurityVersion(user.id(), actor);
             revocation.revokeAll(user.id(), reason, actor);
+            // Links sent before the password changed must not work any more.
+            accountTokens.cancelOpenResetsOf(user.id());
             audit.passwordChanged(user.id(), how);
             return null;
         });

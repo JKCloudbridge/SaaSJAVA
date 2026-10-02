@@ -16,9 +16,29 @@ logging:
       # Plain text in tests unless a test turns structured output on to inspect it.
       console: ""
 
+spring:
+  mail:
+    # The mail catcher container: no login, no encryption. TestDatabaseInitializer supplies the host and the port.
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+            required: false
+          # Short, so a test that pauses the mail server does not wait ten seconds for every attempt.
+          connectiontimeout: 2000
+          timeout: 3000
+          writetimeout: 3000
+
 platform:
   tenancy:
     base-domain: platform.example.test
+  notification:
+    # Tests drive the relay themselves (pollOnce), or switch it on for the one context that wants it to poll.
+    enabled: false
+    sender-address: no-reply@example.test
+    public-base-url: http://localhost:3000
   outbox:
     # Tests drive the relay themselves, or switch it on for the one context that wants it to poll.
     enabled: false

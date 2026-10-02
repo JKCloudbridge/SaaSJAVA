@@ -17,7 +17,7 @@ Module identifiers are package names, so the platform-admin module is `platforma
 | `metadata` | Object, field, layout, application definitions; versioning | S10 | tenant, security |
 | `data` | Tenant business records, queries, record-level security | S14 | tenant, metadata, security |
 | `application` | Tenant-created applications and navigation | S12 | tenant, metadata, security |
-| `notification` | Email and in-app notifications | S4 | tenant, identity |
+| `notification` | E-mail (S4: queue, relay with retries, SMTP, texts; [ADR-0024](adr/0024-mail-queue-and-notification-v0.md)); in-app notifications later | S4 | tenant, identity, observability |
 | `approval` | Approval definitions, instances, history | S24 | tenant, metadata, security, data, notification |
 | `integration` | Connector framework and adapters; the only module that knows external systems | S26 | tenant, metadata, security, data |
 | `workflow` | Workflow definitions, triggers, actions, execution | S22 | tenant, metadata, security, data, approval, notification, integration |
@@ -38,7 +38,7 @@ graph TD
   metadata --> security & tenant
   security --> identity & tenant
   licensing --> identity & tenant
-  notification --> identity & tenant
+  notification --> identity & tenant & observability
   identity --> tenant
   web --> observability
   outbox --> tenant & observability
