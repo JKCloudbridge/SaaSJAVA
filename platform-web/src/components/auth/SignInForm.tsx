@@ -68,7 +68,9 @@ export function SignInForm({ returnTo, problem }: { returnTo: string; problem?: 
   }
 
   return (
-    <form className="form" onSubmit={(event) => void submit(event)} noValidate>
+    // method="post": if the browser submits the form before this page's script has loaded, the password travels in the
+    // request body and never in the address (a plain form would put it in the address, the history and the logs).
+    <form className="form" method="post" action="/sign-in" onSubmit={(event) => void submit(event)} noValidate>
       {message ? (
         <p className="form-message" role="alert" data-testid="sign-in-message">
           {message}

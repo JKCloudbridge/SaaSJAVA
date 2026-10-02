@@ -1,6 +1,7 @@
 package app.platform.licensing.internal;
 
 import app.platform.licensing.FeatureView;
+import app.platform.licensing.LicenceHolding;
 import app.platform.licensing.LicenceTypeView;
 import app.platform.licensing.PoolView;
 import app.platform.licensing.SubscriptionView;
@@ -65,13 +66,15 @@ class LicensingStore {
     }
 
     List<LicenceTypeView> licenceTypes() {
-        return jdbc.sql("select key, name from licence_type where deleted_at is null order by key")
-                .query((rs, row) -> new LicenceTypeView(rs.getString("key"), rs.getString("name"))).list();
+        return jdbc.sql("select key, name, kind from licence_type where deleted_at is null order by key")
+                .query((rs, row) -> new LicenceTypeView(rs.getString("key"), rs.getString("name"),
+                        rs.getString("kind"))).list();
     }
 
-    void insertLicenceType(String key, String name, ActorId actor) {
-        jdbc.sql("insert into licence_type (key, name, created_by, updated_by) values (:key, :name, :actor, :actor)")
-                .param("key", key).param("name", name).param("actor", actor.value()).update();
+    void insertLicenceType(String key, String name, String kind, ActorId actor) {
+        jdbc.sql("insert into licence_type (key, name, kind, created_by, updated_by) "
+                        + "values (:key, :name, :kind, :actor, :actor)")
+                .param("key", key).param("name", name).param("kind", kind).param("actor", actor.value()).update();
     }
 
     Optional<UUID> featureId(String key) {
@@ -310,6 +313,27 @@ class LicensingStore {
         return jdbc.sql("select t.key from licence_assignment a join licence_type t on t.id = a.licence_type_id "
                         + "where a.membership_id = :membership and a.purpose = 'PROFILE' and a.deleted_at is null")
                 .param("membership", membershipId).query(String.class).optional();
+    }
+
+    /** Every licence the member holds: the profile's type, every type, and the policies with a licence of their own. */
+    LicenceHolding holdingOf(UUID membershipId) {
+        String[] profileType = new String[1];
+        Set<String> types = new HashSet<>();
+        Set<UUID> policies = new HashSet<>();
+        jdbc.sql("select a.purpose, a.source_id, t.key from licence_assignment a "
+                        + "join licence_type t on t.id = a.licence_type_id "
+                        + "where a.membership_id = :membership and a.deleted_at is null")
+                .param("membership", membershipId)
+                .query((rs, row) -> {
+                    types.add(rs.getString("key"));
+                    if ("PROFILE".equals(rs.getString("purpose"))) {
+                        profileType[0] = rs.getString("key");
+                    } else {
+                        policies.add(rs.getObject("source_id", UUID.class));
+                    }
+                    return row;
+                }).list();
+        return new LicenceHolding(profileType[0], types, policies);
     }
 
     /** How many members hold a licence for each access policy. */

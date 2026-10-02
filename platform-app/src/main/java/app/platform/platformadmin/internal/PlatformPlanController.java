@@ -10,9 +10,11 @@ import app.platform.licensing.PlanView;
 import app.platform.licensing.Plans;
 import app.platform.sharedkernel.ActorId;
 import app.platformapi.AddCatalogueItemRequest;
+import app.platformapi.AddLicenceTypeRequest;
 import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
 import app.platformapi.CatalogueItem;
+import app.platformapi.LicenceTypeItem;
 import app.platformapi.PlanInfo;
 import app.platformapi.SavePlanRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -50,6 +52,7 @@ class PlatformPlanController {
         this.audit = audit;
     }
 
+    @PlatformFunction({PLATFORM_ADMIN, PLATFORM_BILLING, PLATFORM_SUPPORT})
     @GetMapping(ApiPaths.PLATFORM_PLANS)
     @Operation(
             operationId = "listPlans",
@@ -57,10 +60,10 @@ class PlatformPlanController {
             description = "Default licence quantities and included features. For platform administrators, billing and "
                     + "support.")
     ApiResponse<List<PlanInfo>> list(Principal principal) {
-        caller.require(principal, PLATFORM_ADMIN, PLATFORM_BILLING, PLATFORM_SUPPORT);
         return ApiResponse.of(plans.plans().stream().map(PlatformPlanController::info).toList());
     }
 
+    @PlatformFunction({PLATFORM_ADMIN, PLATFORM_BILLING})
     @PutMapping(ApiPaths.PLATFORM_PLANS + "/{key}")
     @Operation(
             operationId = "savePlan",
@@ -69,47 +72,51 @@ class PlatformPlanController {
                     + "administrators and billing.")
     ApiResponse<PlanInfo> save(@PathVariable String key, @Valid @RequestBody SavePlanRequest body,
             Principal principal) {
-        UUID actor = caller.require(principal, PLATFORM_ADMIN, PLATFORM_BILLING);
+        UUID actor = caller.person(principal);
         PlanView saved = plans.save(key, body.name(), body.trialDays(), body.licences(), new HashSet<>(body.features()),
                 new ActorId(actor));
         audit.done("platform.plan.saved", actor, null, null, "plan", key);
         return ApiResponse.of(info(saved));
     }
 
+    @PlatformFunction({PLATFORM_ADMIN, PLATFORM_BILLING, PLATFORM_SUPPORT})
     @GetMapping(ApiPaths.PLATFORM_LICENCE_TYPES)
     @Operation(
             operationId = "listLicenceTypes",
             summary = "The licence types",
             description = "For platform administrators, billing and support.")
-    ApiResponse<List<CatalogueItem>> licenceTypes(Principal principal) {
-        caller.require(principal, PLATFORM_ADMIN, PLATFORM_BILLING, PLATFORM_SUPPORT);
-        return ApiResponse.of(plans.licenceTypes().stream().map(PlatformPlanController::item).toList());
+    ApiResponse<List<LicenceTypeItem>> licenceTypes(Principal principal) {
+        return ApiResponse.of(plans.licenceTypes().stream().map(PlatformPlanController::licenceItem).toList());
     }
 
+    @PlatformFunction({PLATFORM_ADMIN, PLATFORM_BILLING})
     @PostMapping(ApiPaths.PLATFORM_LICENCE_TYPES)
     @Operation(
             operationId = "addLicenceType",
             summary = "Add a licence type",
-            description = "CONFLICT when the key exists. For platform administrators and billing.")
-    ResponseEntity<ApiResponse<CatalogueItem>> addLicenceType(@Valid @RequestBody AddCatalogueItemRequest body,
+            description = "A SEAT (the right to occupy a seat; profiles belong to one) or an ADD_ON (sold on top, for "
+                    + "example the licence of a standard access policy); SEAT when not given. CONFLICT when the key "
+                    + "exists. For platform administrators and billing.")
+    ResponseEntity<ApiResponse<LicenceTypeItem>> addLicenceType(@Valid @RequestBody AddLicenceTypeRequest body,
             Principal principal) {
-        UUID actor = caller.require(principal, PLATFORM_ADMIN, PLATFORM_BILLING);
-        LicenceTypeView added = plans.addLicenceType(body.key(), body.name(), new ActorId(actor));
+        UUID actor = caller.person(principal);
+        String kind = body.kind() == null || body.kind().isBlank() ? LicenceTypeView.SEAT : body.kind().strip();
+        LicenceTypeView added = plans.addLicenceType(body.key(), body.name(), kind, new ActorId(actor));
         audit.done("platform.licence_type.added", actor, null, null, "licence_type", body.key());
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(new CatalogueItem(added.key(),
-                added.name())));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(licenceItem(added)));
     }
 
+    @PlatformFunction({PLATFORM_ADMIN, PLATFORM_BILLING, PLATFORM_SUPPORT})
     @GetMapping(ApiPaths.PLATFORM_FEATURES)
     @Operation(
             operationId = "listFeatures",
             summary = "The feature keys",
             description = "For platform administrators, billing and support.")
     ApiResponse<List<CatalogueItem>> features(Principal principal) {
-        caller.require(principal, PLATFORM_ADMIN, PLATFORM_BILLING, PLATFORM_SUPPORT);
         return ApiResponse.of(plans.features().stream().map(PlatformPlanController::item).toList());
     }
 
+    @PlatformFunction({PLATFORM_ADMIN, PLATFORM_BILLING})
     @PostMapping(ApiPaths.PLATFORM_FEATURES)
     @Operation(
             operationId = "addFeature",
@@ -117,7 +124,7 @@ class PlatformPlanController {
             description = "CONFLICT when the key exists. For platform administrators and billing.")
     ResponseEntity<ApiResponse<CatalogueItem>> addFeature(@Valid @RequestBody AddCatalogueItemRequest body,
             Principal principal) {
-        UUID actor = caller.require(principal, PLATFORM_ADMIN, PLATFORM_BILLING);
+        UUID actor = caller.person(principal);
         FeatureView added = plans.addFeature(body.key(), body.name(), new ActorId(actor));
         audit.done("platform.feature.added", actor, null, null, "feature", body.key());
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(new CatalogueItem(added.key(),
@@ -129,8 +136,8 @@ class PlatformPlanController {
                 plan.features().stream().sorted().toList());
     }
 
-    private static CatalogueItem item(LicenceTypeView type) {
-        return new CatalogueItem(type.key(), type.name());
+    private static LicenceTypeItem licenceItem(LicenceTypeView type) {
+        return new LicenceTypeItem(type.key(), type.name(), type.kind());
     }
 
     private static CatalogueItem item(FeatureView feature) {

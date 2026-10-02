@@ -8,10 +8,11 @@ import { ActionMessages, failureText, useAction } from "./useAction";
 
 type Plan = components["schemas"]["PlanInfo"];
 type Item = components["schemas"]["CatalogueItem"];
+type LicenceType = components["schemas"]["LicenceTypeItem"];
 
 type Loaded =
   | { kind: "loading" }
-  | { kind: "ok"; plans: Plan[]; licenceTypes: Item[]; features: Item[] }
+  | { kind: "ok"; plans: Plan[]; licenceTypes: LicenceType[]; features: Item[] }
   | { kind: "failed"; message: string };
 
 /**
@@ -26,7 +27,7 @@ export function PlansPanel() {
   const [trialDays, setTrialDays] = useState("");
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [chosen, setChosen] = useState<Record<string, boolean>>({});
-  const [newType, setNewType] = useState({ key: "", name: "" });
+  const [newType, setNewType] = useState({ key: "", name: "", kind: "SEAT" });
   const [newFeature, setNewFeature] = useState({ key: "", name: "" });
 
   const reload = useCallback(async () => {
@@ -88,7 +89,7 @@ export function PlansPanel() {
     });
   }
 
-  const addItem = (kind: "licence-types" | "features", item: { key: string; name: string }) =>
+  const addItem = (kind: "licence-types" | "features", item: { key: string; name: string; kind?: string }) =>
     act(async () => {
       const { error, response } =
         kind === "licence-types"
@@ -183,11 +184,11 @@ export function PlansPanel() {
         onSubmit={(event) => {
           event.preventDefault();
           void addItem("licence-types", newType);
-          setNewType({ key: "", name: "" });
+          setNewType({ key: "", name: "", kind: "SEAT" });
         }}
       >
         <h3>Licence types</h3>
-        <p>{licenceTypes.map((type) => type.name).join(", ")}</p>
+        <p>{licenceTypes.map((type) => `${type.name} (${type.kind === "ADD_ON" ? "add-on" : "seat"})`).join(", ")}</p>
         <div className="field">
           <label htmlFor="type-key">Key</label>
           <input
@@ -205,6 +206,17 @@ export function PlansPanel() {
             value={newType.name}
             onChange={(event) => setNewType({ ...newType, name: event.target.value })}
           />
+        </div>
+        <div className="field">
+          <label htmlFor="type-kind">Kind</label>
+          <select
+            id="type-kind"
+            value={newType.kind}
+            onChange={(event) => setNewType({ ...newType, kind: event.target.value })}
+          >
+            <option value="SEAT">Seat (a profile can belong to it)</option>
+            <option value="ADD_ON">Add-on (sold on top, for example for an access policy)</option>
+          </select>
         </div>
         <button type="submit" className="button" disabled={busy}>
           Add the licence type

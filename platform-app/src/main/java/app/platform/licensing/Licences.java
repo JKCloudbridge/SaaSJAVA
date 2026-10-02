@@ -9,7 +9,8 @@ import java.util.UUID;
 /**
  * The licences of the organization of the current tenant context (ADR-0032, ADR-0039): pools by licence type and the
  * assignments that use them. A member holds at most one licence <em>for their profile</em> (of the profile's licence
- * type) and at most one licence for each licence-bound access policy assigned to them. Every method works for the
+ * type) and at most one licence for each licence-bound access policy assigned to them whose licence type differs from
+ * the profile's (a policy of the same type is covered by the profile's licence, ADR-0046). Every method works for the
  * organization the thread's tenant context names, never one named by a caller; row level security and the database
  * guards back that up.
  *
@@ -45,6 +46,12 @@ public interface Licences {
 
     /** How many members hold a licence for each access policy, by policy identifier. Policies with none are absent. */
     Map<UUID, Integer> policyUses();
+
+    /**
+     * Every licence the member holds now (ADR-0046): one read, so the permission calculation sees one consistent
+     * answer. An access policy that needs a licence counts for the member while {@link LicenceHolding#holds} the type.
+     */
+    LicenceHolding holdingOf(UUID membershipId);
 
     /**
      * Gives an active member the licence for their profile, moving them from another type if they hold one. The pool

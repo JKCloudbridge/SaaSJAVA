@@ -6,10 +6,11 @@ import { ActionMessages, failureText, useAction } from "@/components/console/use
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
 import { AbilityPicker } from "./AbilityPicker";
+import { DataAccessEditor } from "./DataAccessEditor";
 
 type Policy = components["schemas"]["AccessPolicyView"];
 type Ability = components["schemas"]["AbilityInfo"];
-type LicenceType = components["schemas"]["CatalogueItem"];
+type LicenceType = components["schemas"]["LicenceTypeItem"];
 type Pool = components["schemas"]["LicencePoolView"];
 
 interface Loaded {
@@ -38,6 +39,7 @@ export function AccessPoliciesPanel() {
   const [loaded, setLoaded] = useState<Loaded | undefined>();
   const [failure, setFailure] = useState<string | undefined>();
   const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [permissionsOf, setPermissionsOf] = useState<Policy | undefined>();
 
   const reload = useCallback(async () => {
     try {
@@ -151,6 +153,7 @@ export function AccessPoliciesPanel() {
               {loaded.licenceTypes.map((type) => (
                 <option key={type.key} value={type.key}>
                   {type.name}
+                  {type.kind === "ADD_ON" ? " (add-on)" : ""}
                 </option>
               ))}
             </select>
@@ -202,8 +205,14 @@ export function AccessPoliciesPanel() {
                       {policy.requiredLicenceType ?? "none needed"}
                       {pool ? ` (${pool.available} of ${pool.quantity} free)` : ""}
                     </td>
-                    <td>{policy.members}</td>
                     <td>
+                      {policy.members}
+                      {(policy.groups ?? 0) > 0 ? ` (and ${policy.groups} group${policy.groups === 1 ? "" : "s"})` : ""}
+                    </td>
+                    <td>
+                      <button type="button" className="link-button" onClick={() => setPermissionsOf(policy)}>
+                        Permissions on data
+                      </button>{" "}
                       <button
                         type="button"
                         className="link-button"
@@ -231,6 +240,14 @@ export function AccessPoliciesPanel() {
           </table>
         ) : null}
       </section>
+
+      {permissionsOf ? (
+        <DataAccessEditor
+          key={permissionsOf.id}
+          target={{ kind: "policy", id: permissionsOf.id }}
+          title={`Permissions on data: ${permissionsOf.name}`}
+        />
+      ) : null}
     </div>
   );
 }

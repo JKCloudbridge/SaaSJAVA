@@ -108,6 +108,15 @@ public final class ApiPaths {
     /** The licence types a profile or access policy can use (the platform catalogue), for the setup screens. */
     public static final String LICENCE_TYPES = V1 + "/licence-types";
 
+    /** The public groups of the organization the host names: list, create, change, remove, members, policies (S8). */
+    public static final String GROUPS = V1 + "/groups";
+
+    /** What a permission matrix can be about: the objects with their fields and the actions (Sprint 8). */
+    public static final String DATA_CATALOGUE = V1 + "/data-catalogue";
+
+    /** What the signed-in member may do with data: their own permission matrix (Sprint 8). */
+    public static final String DATA_ACCESS_MINE = V1 + "/data-access/mine";
+
     /** The caller leaves the organization the host names (Sprint 7). */
     public static final String ORGANIZATION_LEAVE = V1 + "/organization/leave";
 

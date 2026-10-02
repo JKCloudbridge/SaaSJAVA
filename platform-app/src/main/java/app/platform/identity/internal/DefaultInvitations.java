@@ -104,8 +104,8 @@ class DefaultInvitations implements Invitations {
         boolean provisioning = tenant.status() == TenantStatus.PROVISIONING;
         inOrganization(organization, () -> {
             // Identical work for every address: no look at accounts or memberships (ADR-0028, ADR-0037).
-            InvitationRepository.Invitation invitation = invitations.openOrRenew(email, true, provisioning, true,
-                    expiry(), new ActorId(platformActor));
+            InvitationRepository.Invitation invitation = invitations.openOrRenew(email, provisioning, true, expiry(),
+                    new ActorId(platformActor));
             enqueue(organization, invitation.id(), email);
             audit.firstAdministratorInvited(platformActor, invitation.id(), email);
             return null;

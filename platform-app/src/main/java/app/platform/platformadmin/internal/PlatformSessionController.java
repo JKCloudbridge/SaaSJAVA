@@ -38,6 +38,7 @@ class PlatformSessionController {
         this.sessions = sessions;
     }
 
+    @PlatformFunction({PLATFORM_ADMIN, PLATFORM_SUPPORT})
     @PostMapping(ApiPaths.PLATFORM_SESSIONS + "/lookup")
     @Operation(
             operationId = "lookUpSessions",
@@ -45,13 +46,14 @@ class PlatformSessionController {
             description = "When each began and ends and which host it works on; never a token or a secret. An "
                     + "unknown address gives an empty list. For platform administrators and support.")
     ApiResponse<List<SessionInfo>> lookup(@Valid @RequestBody SessionLookupRequest body, Principal principal) {
-        UUID actor = caller.require(principal, PLATFORM_ADMIN, PLATFORM_SUPPORT);
+        UUID actor = caller.person(principal);
         return ApiResponse.of(sessions.sessionsOf(body.email(), actor).stream()
                 .map(session -> new SessionInfo(session.kind(), session.organization(), session.started(),
                         session.expires()))
                 .toList());
     }
 
+    @PlatformFunction({PLATFORM_ADMIN, PLATFORM_SUPPORT})
     @PostMapping(ApiPaths.PLATFORM_SESSIONS + "/sign-out")
     @Operation(
             operationId = "signOutPersonEverywhere",
@@ -59,7 +61,7 @@ class PlatformSessionController {
             description = "Ends every session and token of the person on every host. Answers 204 whether or not the "
                     + "address has an account. For platform administrators and support.")
     ResponseEntity<Void> signOut(@Valid @RequestBody SessionLookupRequest body, Principal principal) {
-        sessions.signOutEverywhere(body.email(), caller.require(principal, PLATFORM_ADMIN, PLATFORM_SUPPORT));
+        sessions.signOutEverywhere(body.email(), caller.person(principal));
         return ResponseEntity.noContent().header(HttpHeaders.CACHE_CONTROL, "no-store").build();
     }
 }

@@ -6,10 +6,11 @@ import { ActionMessages, failureText, useAction } from "@/components/console/use
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
 import { AbilityPicker } from "./AbilityPicker";
+import { DataAccessEditor } from "./DataAccessEditor";
 
 type Profile = components["schemas"]["ProfileView"];
 type Ability = components["schemas"]["AbilityInfo"];
-type LicenceType = components["schemas"]["CatalogueItem"];
+type LicenceType = components["schemas"]["LicenceTypeItem"];
 
 interface Loaded {
   profiles: Profile[];
@@ -36,6 +37,7 @@ export function ProfilesPanel() {
   const [loaded, setLoaded] = useState<Loaded | undefined>();
   const [failure, setFailure] = useState<string | undefined>();
   const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [permissionsOf, setPermissionsOf] = useState<Profile | undefined>();
 
   const reload = useCallback(async () => {
     try {
@@ -150,11 +152,13 @@ export function ProfilesPanel() {
               value={draft.licenceType}
               onChange={(event) => setDraft({ ...draft, licenceType: event.target.value })}
             >
-              {loaded.licenceTypes.map((type) => (
-                <option key={type.key} value={type.key}>
-                  {type.name}
-                </option>
-              ))}
+              {loaded.licenceTypes
+                .filter((type) => type.kind === "SEAT")
+                .map((type) => (
+                  <option key={type.key} value={type.key}>
+                    {type.name}
+                  </option>
+                ))}
             </select>
           </div>
           <AbilityPicker
@@ -201,6 +205,9 @@ export function ProfilesPanel() {
                 <td>{profile.abilities.length === 0 ? "none" : profile.abilities.map(nameOf).join(", ")}</td>
                 <td>{profile.members}</td>
                 <td>
+                  <button type="button" className="link-button" onClick={() => setPermissionsOf(profile)}>
+                    Permissions on data
+                  </button>{" "}
                   {profile.fullAccess ? null : (
                     <button
                       type="button"
@@ -235,6 +242,14 @@ export function ProfilesPanel() {
           </tbody>
         </table>
       </section>
+
+      {permissionsOf ? (
+        <DataAccessEditor
+          key={permissionsOf.id}
+          target={{ kind: "profile", id: permissionsOf.id }}
+          title={`Permissions on data: ${permissionsOf.name}`}
+        />
+      ) : null}
     </div>
   );
 }

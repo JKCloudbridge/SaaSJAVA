@@ -51,3 +51,10 @@ A decision that is still open has status **Proposed** and names the gate or spri
 | [0043](0043-replacing-the-administrator-marker.md) | Replacing the administrator marker; creating a member by invitation; leaving | Accepted | ADR-0026 in part |
 | [0044](0044-the-last-member-who-can-manage-access.md) | The last member who can manage access stays (database and service) | Accepted | — |
 | [0045](0045-system-profiles-seeding-backfill-and-licence-consequences.md) | System profiles, seeding, the backfill, and what licences mean for abilities | Accepted | — |
+| [0046](0046-licence-kinds-and-the-licence-rule-of-access-policies.md) | Licence kinds (seat, add-on) and the licence rule of access policies | Accepted | ADR-0039 point 3 in part |
+| [0047](0047-public-groups.md) | Public groups: nesting, access policies, loops | Accepted | — |
+| [0048](0048-groups-and-the-last-holder.md) | Groups and the last member who can manage access | Accepted | — |
+| [0049](0049-object-and-field-permissions.md) | Object and field permissions: keys, containers, union, implications, no deny | Accepted | — |
+| [0050](0050-the-permission-decision-api.md) | The permission decision API | Accepted | — |
+| [0051](0051-dropping-the-administrator-marker.md) | Dropping the administrator marker (contract migration) | Accepted | — |
+| [0052](0052-platform-authorization-manager-and-method-security.md) | PlatformAuthorizationManager and method security | Accepted | — |

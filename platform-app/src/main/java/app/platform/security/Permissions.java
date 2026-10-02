@@ -17,8 +17,19 @@ import java.util.UUID;
  */
 public interface Permissions {
 
-    /** The abilities the member has now: profile (while licensed) plus access policies plus individual grants. */
+    /**
+     * The abilities the member has now: profile (while licensed) plus access policies (also those given to their
+     * groups,
+     * a licence-bound one while they hold its licence) plus individual grants.
+     */
     Set<Ability> effective(UUID membershipId);
+
+    /**
+     * What the member may do with data now (permissions on objects and fields): the same union as {@link #effective}
+     * (ADR-0049). The decision API ({@link Decisions}) is the way to ask about one object or field; this is the whole
+     * matrix, for the screens that show it.
+     */
+    DataAccess data(UUID membershipId);
 
     /** Whether the member has the ability now. */
     default boolean has(UUID membershipId, Ability ability) {

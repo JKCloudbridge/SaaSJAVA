@@ -33,24 +33,18 @@ class MembershipGuardIT {
         return id;
     }
 
-    private static UUID member(TenantId tenant, boolean administrator) throws SQLException {
+    private static UUID member(TenantId tenant) throws SQLException {
         UUID user = user();
         UUID id = UUID.randomUUID();
         TenantFixtures.asTenant(tenant, connection -> TenantFixtures.update(connection,
-                "insert into membership (id, tenant_id, user_id, administrator, created_by, updated_by) "
-                        + "values (?, ?, ?, ?, ?, ?)", id, tenant.value(), user, administrator, SYSTEM, SYSTEM));
+                "insert into membership (id, tenant_id, user_id, created_by, updated_by) "
+                        + "values (?, ?, ?, ?, ?)", id, tenant.value(), user, SYSTEM, SYSTEM));
         return id;
     }
 
     private static int setStatus(TenantId tenant, UUID membership, String status) throws SQLException {
         return TenantFixtures.asTenant(tenant, connection -> TenantFixtures.update(connection,
                 "update membership set status = ?, version = version + 1, updated_by = ? where id = ?", status,
-                SYSTEM, membership));
-    }
-
-    private static int setAdministrator(TenantId tenant, UUID membership, boolean value) throws SQLException {
-        return TenantFixtures.asTenant(tenant, connection -> TenantFixtures.update(connection,
-                "update membership set administrator = ?, version = version + 1, updated_by = ? where id = ?", value,
                 SYSTEM, membership));
     }
 
@@ -66,24 +60,13 @@ class MembershipGuardIT {
         });
     }
 
-    private static boolean administratorOf(TenantId tenant, UUID membership) throws SQLException {
-        return TenantFixtures.asTenant(tenant, connection -> {
-            try (var statement = connection.prepareStatement("select administrator from membership where id = ?")) {
-                statement.setObject(1, membership);
-                try (var rs = statement.executeQuery()) {
-                    rs.next();
-                    return rs.getBoolean(1);
-                }
-            }
-        });
-    }
 
     // ---- membership: the lifecycle ----
 
     @Test
     void aMembershipMovesBetweenActiveAndDeactivatedOnly() throws SQLException {
         TenantId tenant = TenantFixtures.createActiveTenant().id();
-        UUID membership = member(tenant, false);
+        UUID membership = member(tenant);
 
         assertThatThrownBy(() -> setStatus(tenant, membership, "INVITED"))
                 .as("a status the table does not know").hasMessageContaining("not a legal transition");
@@ -101,19 +84,6 @@ class MembershipGuardIT {
                         + "'DEACTIVATED', ?, ?)", tenant.value(), user(), SYSTEM, SYSTEM)))
                 .hasMessageContaining("starts as ACTIVE");
     }
-
-    @Test
-    void leavingTheActiveStateEndsTheAdministratorMarker() throws SQLException {
-        TenantId tenant = TenantFixtures.createActiveTenant().id();
-        member(tenant, true);
-        UUID second = member(tenant, true);
-
-        setStatus(tenant, second, "DEACTIVATED");
-        setStatus(tenant, second, "ACTIVE");
-
-        assertThat(administratorOf(tenant, second)).as("a returning member is named again on purpose").isFalse();
-    }
-
 
     @Test
     void aPersonIsAMemberOfAnOrganizationOnce() throws SQLException {
@@ -146,7 +116,7 @@ class MembershipGuardIT {
             TenantFixtures.setting(connection, "app.system_scope", "membership_lookup");
             assertThat(TenantFixtures.count(connection, "select count(*) from membership where user_id = ?", person))
                     .isEqualTo(2L);
-            assertThat(TenantFixtures.update(connection, "update membership set administrator = true, "
+            assertThat(TenantFixtures.update(connection, "update membership set status = 'DEACTIVATED', "
                     + "version = version + 1 where user_id = ?", person)).as("no update across organizations").isZero();
             assertThat(TenantFixtures.update(connection, "delete from membership where user_id = ?", person))
                     .as("no delete").isZero();
@@ -196,7 +166,8 @@ class MembershipGuardIT {
                         + "version = version + 1, updated_by = ? where id = ?", SYSTEM, invitation)))
                 .hasMessageContaining("not a legal transition");
         assertThatThrownBy(() -> TenantFixtures.asTenant(tenant, connection -> TenantFixtures.update(connection,
-                "update invitation set administrator = true, version = version + 1, updated_by = ? where id = ?",
+                "update invitation set founding_administrator = true, version = version + 1, "
+                        + "updated_by = ? where id = ?",
                 SYSTEM, invitation))).hasMessageContaining("read-only");
     }
 

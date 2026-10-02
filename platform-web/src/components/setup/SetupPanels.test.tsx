@@ -24,8 +24,9 @@ const ABILITIES = {
 };
 const TYPES = {
   data: [
-    { key: "admin", name: "Administrator" },
-    { key: "user", name: "User" },
+    { key: "admin", name: "Administrator", kind: "SEAT" },
+    { key: "user", name: "User", kind: "SEAT" },
+    { key: "addon-a", name: "Add-on A", kind: "ADD_ON" },
   ],
 };
 const ADMIN_PROFILE = {
@@ -74,7 +75,8 @@ describe("ProfilesPanel", () => {
     const rows = await screen.findAllByTestId("profile-row");
     expect(rows).toHaveLength(3);
     expect(rows[0]).toHaveTextContent("Organization administrator (system)");
-    expect(within(rows[0] as HTMLElement).queryByRole("button")).toBeNull();
+    expect(within(rows[0] as HTMLElement).queryByRole("button", { name: "Change" })).toBeNull();
+    expect(within(rows[0] as HTMLElement).queryByRole("button", { name: "Remove" })).toBeNull();
     expect(rows[1]).toHaveTextContent("(default for new members)");
     expect(within(rows[1] as HTMLElement).queryByRole("button", { name: "Remove" })).toBeNull();
     expect(rows[2]).toHaveTextContent("Invite members");

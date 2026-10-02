@@ -92,15 +92,18 @@ class DefaultPlans implements Plans {
     }
 
     @Override
-    public LicenceTypeView addLicenceType(String key, String name, ActorId actor) {
+    public LicenceTypeView addLicenceType(String key, String name, String kind, ActorId actor) {
         validKey("key", key);
         validName(name);
+        if (!LicenceTypeView.SEAT.equals(kind) && !LicenceTypeView.ADD_ON.equals(kind)) {
+            throw ApiException.validation("kind", "Must be SEAT or ADD_ON.");
+        }
         try {
-            store.insertLicenceType(key, name, actor);
+            store.insertLicenceType(key, name, kind, actor);
         } catch (DuplicateKeyException e) {
             throw new ApiException(ErrorCode.CONFLICT, "A licence type with this key already exists.");
         }
-        return new LicenceTypeView(key, name);
+        return new LicenceTypeView(key, name, kind);
     }
 
     @Override

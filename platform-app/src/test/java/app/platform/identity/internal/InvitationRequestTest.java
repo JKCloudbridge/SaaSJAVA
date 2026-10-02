@@ -74,7 +74,7 @@ class InvitationRequestTest {
         when(permissions.has(MEMBERSHIP, Ability.MEMBERS_INVITE)).thenReturn(true);
         when(access.checkInvitation(eq(MEMBERSHIP), any(), any())).thenReturn(PROFILE);
         when(invitations.openOrRenew(any(), any(), any(), any(), eq(true), any(), any()))
-                .thenReturn(new InvitationRepository.Invitation(INVITATION, "person-a@example.test", false, false,
+                .thenReturn(new InvitationRepository.Invitation(INVITATION, "person-a@example.test", false,
                         "OPEN", Instant.parse("2026-10-09T10:00:00Z"), 1, Instant.parse("2026-10-02T10:00:00Z"),
                         false, PROFILE, null, null));
     }
@@ -105,7 +105,7 @@ class InvitationRequestTest {
     @Test
     void aSavedButNotSentInvitationQueuesNoMail() {
         when(invitations.openOrRenew(any(), any(), any(), any(), eq(false), any(), any()))
-                .thenReturn(new InvitationRepository.Invitation(INVITATION, "person-a@example.test", false, false,
+                .thenReturn(new InvitationRepository.Invitation(INVITATION, "person-a@example.test", false,
                         "OPEN", Instant.parse("2026-10-09T10:00:00Z"), 0, Instant.parse("2026-10-02T10:00:00Z"),
                         false, PROFILE, null, null));
 

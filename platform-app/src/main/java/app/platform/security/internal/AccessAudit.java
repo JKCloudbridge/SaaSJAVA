@@ -93,6 +93,56 @@ class AccessAudit {
                 .with("role", role.toString()).with("name", name));
     }
 
+    // ---- groups and permissions on data ----
+
+    void groupCreated(UUID actor, UUID group, String name) {
+        write(AuditRecord.of("access.group.created", AuditOutcome.SUCCESS).forUser(actor)
+                .with("group", group.toString()).with("name", name));
+    }
+
+    void groupUpdated(UUID actor, UUID group, String name) {
+        write(AuditRecord.of("access.group.updated", AuditOutcome.SUCCESS).forUser(actor)
+                .with("group", group.toString()).with("name", name));
+    }
+
+    void groupDeleted(UUID actor, UUID group, String name, int linksEnded) {
+        write(AuditRecord.of("access.group.deleted", AuditOutcome.SUCCESS).forUser(actor)
+                .with("group", group.toString()).with("name", name).with("links_ended", Integer.toString(linksEnded)));
+    }
+
+    /** A person or a group went into a group ({@code kind} is {@code person} or {@code group}). */
+    void groupMemberAdded(UUID actor, UUID group, String kind, UUID target) {
+        write(AuditRecord.of("access.group.member_added", AuditOutcome.SUCCESS).forUser(actor)
+                .with("group", group.toString()).with("kind", kind).with("target", target.toString()));
+    }
+
+    void groupMemberRemoved(UUID actorOrNull, UUID group, String kind, UUID target, String why) {
+        write(AuditRecord.of("access.group.member_removed", AuditOutcome.SUCCESS).forUser(actorOrNull).because(why)
+                .with("group", group.toString()).with("kind", kind).with("target", target.toString()));
+    }
+
+    void groupPolicyGiven(UUID actor, UUID group, UUID policy) {
+        write(AuditRecord.of("access.group.policy_given", AuditOutcome.SUCCESS).forUser(actor)
+                .with("group", group.toString()).with("policy", policy.toString()));
+    }
+
+    void groupPolicyTaken(UUID actorOrNull, UUID group, UUID policy, String why) {
+        write(AuditRecord.of("access.group.policy_taken", AuditOutcome.SUCCESS).forUser(actorOrNull).because(why)
+                .with("group", group.toString()).with("policy", policy.toString()));
+    }
+
+    /** The permission matrix of a profile, an access policy or a member was replaced (counts of lines only). */
+    void dataAccessChanged(UUID actor, String holderKind, UUID holder, DataAccessStore.Changes changes) {
+        write(AuditRecord.of("access.data.changed", AuditOutcome.SUCCESS).forUser(actor)
+                .with("holder_kind", holderKind).with("holder", holder.toString())
+                .with("objects_added", Integer.toString(changes.objectsAdded()))
+                .with("objects_changed", Integer.toString(changes.objectsChanged()))
+                .with("objects_removed", Integer.toString(changes.objectsRemoved()))
+                .with("fields_added", Integer.toString(changes.fieldsAdded()))
+                .with("fields_changed", Integer.toString(changes.fieldsChanged()))
+                .with("fields_removed", Integer.toString(changes.fieldsRemoved())));
+    }
+
     // ---- what members hold ----
 
     void memberProfileSet(UUID actorOrNull, UUID membership, UUID profile, String how, boolean licensed) {

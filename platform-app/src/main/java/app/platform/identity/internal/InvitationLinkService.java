@@ -158,13 +158,12 @@ class InvitationLinkService {
                     openProvisioned(tenantId, actor, person.id());
                 }
                 // The person gets the profile and the role the administrator chose (the administrator profile for an
-                // invitation made by a platform administrator or before profiles existed, the default profile
-                // otherwise) and the licence of the profile's type when one is free. Never a reason to refuse them:
+                // invitation made by a platform administrator, the default profile otherwise) and the licence of the
+                // profile's type when one is free. Never a reason to refuse them:
                 // without a licence they join without the profile's abilities until one is free (ADR-0039). The
                 // first administrator of a platform-provisioned organization always gets an administrator licence.
                 access.join(membership, invitation.profileId(), invitation.roleId(),
-                        invitation.administrator() || invitation.invitedByPlatform(), invitation.invitedByPlatform(),
-                        actor);
+                        invitation.invitedByPlatform(), invitation.invitedByPlatform(), actor);
                 outcome[0] = resolved;
             }));
         } catch (LinkRefusal e) {

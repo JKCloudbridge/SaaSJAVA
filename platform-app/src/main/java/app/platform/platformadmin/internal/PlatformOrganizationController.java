@@ -54,6 +54,7 @@ class PlatformOrganizationController {
         this.organizations = organizations;
     }
 
+    @PlatformFunction({PLATFORM_ADMIN, PLATFORM_SUPPORT, PLATFORM_BILLING})
     @GetMapping(ApiPaths.PLATFORM_ORGANIZATIONS)
     @Operation(
             operationId = "listPlatformOrganizations",
@@ -62,10 +63,10 @@ class PlatformOrganizationController {
                     + "shows members or business data. Platform host only.")
     ApiPageResponse<PlatformOrganizationSummary> list(@ParameterObject PageRequest page,
             @RequestParam(name = "search", required = false) String search, Principal principal) {
-        caller.require(principal, PLATFORM_ADMIN, PLATFORM_SUPPORT, PLATFORM_BILLING);
         return organizations.list(page, search);
     }
 
+    @PlatformFunction({PLATFORM_ADMIN, PLATFORM_SUPPORT, PLATFORM_BILLING})
     @GetMapping(ApiPaths.PLATFORM_ORGANIZATIONS + "/{organizationId}")
     @Operation(
             operationId = "getPlatformOrganization",
@@ -73,10 +74,10 @@ class PlatformOrganizationController {
             description = "Status, subscription, licence pools, features and the state of the first-administrator "
                     + "invitation (never its address). For platform administrators, support and billing.")
     ApiResponse<PlatformOrganizationDetail> get(@PathVariable UUID organizationId, Principal principal) {
-        caller.require(principal, PLATFORM_ADMIN, PLATFORM_SUPPORT, PLATFORM_BILLING);
         return ApiResponse.of(organizations.detail(organizationId));
     }
 
+    @PlatformFunction({PLATFORM_ADMIN})
     @PostMapping(ApiPaths.PLATFORM_ORGANIZATIONS)
     @Operation(
             operationId = "provisionOrganization",
@@ -86,10 +87,11 @@ class PlatformOrganizationController {
                     + "answer is the same whether or not the address has an account. For platform administrators.")
     ResponseEntity<ApiResponse<PlatformOrganizationSummary>> provision(
             @Valid @RequestBody ProvisionOrganizationRequest body, Principal principal) {
-        UUID actor = caller.require(principal, PLATFORM_ADMIN);
+        UUID actor = caller.person(principal);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(organizations.provision(actor, body)));
     }
 
+    @PlatformFunction({PLATFORM_ADMIN})
     @PostMapping(ApiPaths.PLATFORM_ORGANIZATIONS + "/{organizationId}/suspend")
     @Operation(
             operationId = "suspendOrganization",
@@ -98,10 +100,11 @@ class PlatformOrganizationController {
                     + "reason (kept in the audit trail only). For platform administrators.")
     ResponseEntity<Void> suspend(@PathVariable UUID organizationId, @Valid @RequestBody LifecycleRequest body,
             Principal principal) {
-        organizations.suspend(caller.require(principal, PLATFORM_ADMIN), organizationId, body.reason());
+        organizations.suspend(caller.person(principal), organizationId, body.reason());
         return noContent();
     }
 
+    @PlatformFunction({PLATFORM_ADMIN})
     @PostMapping(ApiPaths.PLATFORM_ORGANIZATIONS + "/{organizationId}/reinstate")
     @Operation(
             operationId = "reinstateOrganization",
@@ -110,10 +113,11 @@ class PlatformOrganizationController {
                     + "administrators.")
     ResponseEntity<Void> reinstate(@PathVariable UUID organizationId, @Valid @RequestBody LifecycleRequest body,
             Principal principal) {
-        organizations.reinstate(caller.require(principal, PLATFORM_ADMIN), organizationId, body.reason());
+        organizations.reinstate(caller.person(principal), organizationId, body.reason());
         return noContent();
     }
 
+    @PlatformFunction({PLATFORM_ADMIN})
     @PostMapping(ApiPaths.PLATFORM_ORGANIZATIONS + "/{organizationId}/deactivate")
     @Operation(
             operationId = "deactivateOrganization",
@@ -123,11 +127,12 @@ class PlatformOrganizationController {
                     + "being set up. For platform administrators.")
     ResponseEntity<Void> deactivate(@PathVariable UUID organizationId, @Valid @RequestBody LifecycleRequest body,
             Principal principal) {
-        organizations.deactivate(caller.require(principal, PLATFORM_ADMIN), organizationId, body.reason(),
+        organizations.deactivate(caller.person(principal), organizationId, body.reason(),
                 body.confirm());
         return noContent();
     }
 
+    @PlatformFunction({PLATFORM_ADMIN})
     @PostMapping(ApiPaths.PLATFORM_ORGANIZATIONS + "/{organizationId}/first-administrator")
     @Operation(
             operationId = "inviteFirstAdministrator",
@@ -136,12 +141,13 @@ class PlatformOrganizationController {
                     + "202 with the same text whether or not the address has an account. For platform administrators.")
     ResponseEntity<ApiResponse<RequestAccepted>> inviteFirstAdministrator(@PathVariable UUID organizationId,
             @Valid @RequestBody FirstAdministratorRequest body, Principal principal) {
-        organizations.inviteFirstAdministrator(caller.require(principal, PLATFORM_ADMIN), organizationId,
+        organizations.inviteFirstAdministrator(caller.person(principal), organizationId,
                 body.email());
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .header(HttpHeaders.CACHE_CONTROL, "no-store").body(ApiResponse.of(RequestAccepted.INVITATION));
     }
 
+    @PlatformFunction({PLATFORM_ADMIN, PLATFORM_SUPPORT})
     @PostMapping(ApiPaths.PLATFORM_ORGANIZATIONS + "/{organizationId}/first-administrator/resend")
     @Operation(
             operationId = "resendFirstAdministratorInvitation",
@@ -150,12 +156,13 @@ class PlatformOrganizationController {
                     + "open. For platform administrators and support.")
     ResponseEntity<ApiResponse<RequestAccepted>> resendFirstAdministrator(@PathVariable UUID organizationId,
             Principal principal) {
-        organizations.resendFirstAdministrator(caller.require(principal, PLATFORM_ADMIN, PLATFORM_SUPPORT),
+        organizations.resendFirstAdministrator(caller.person(principal),
                 organizationId);
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .header(HttpHeaders.CACHE_CONTROL, "no-store").body(ApiResponse.of(RequestAccepted.INVITATION));
     }
 
+    @PlatformFunction({PLATFORM_ADMIN, PLATFORM_BILLING})
     @PutMapping(ApiPaths.PLATFORM_ORGANIZATIONS + "/{organizationId}/subscription")
     @Operation(
             operationId = "changeOrganizationSubscription",
@@ -165,10 +172,11 @@ class PlatformOrganizationController {
                     + "For platform administrators and billing.")
     ApiResponse<PlatformOrganizationDetail> changeSubscription(@PathVariable UUID organizationId,
             @Valid @RequestBody ChangeSubscriptionRequest body, Principal principal) {
-        UUID actor = caller.require(principal, PLATFORM_ADMIN, PLATFORM_BILLING);
+        UUID actor = caller.person(principal);
         return ApiResponse.of(organizations.changeSubscription(actor, organizationId, body));
     }
 
+    @PlatformFunction({PLATFORM_ADMIN})
     @PutMapping(ApiPaths.PLATFORM_ORGANIZATIONS + "/{organizationId}/pools/{licenceType}")
     @Operation(
             operationId = "setOrganizationLicencePool",
@@ -176,10 +184,11 @@ class PlatformOrganizationController {
             description = "Not below the licences in use (CONFLICT). For platform administrators.")
     ApiResponse<PlatformOrganizationDetail> setPool(@PathVariable UUID organizationId,
             @PathVariable String licenceType, @Valid @RequestBody SetPoolRequest body, Principal principal) {
-        UUID actor = caller.require(principal, PLATFORM_ADMIN);
+        UUID actor = caller.person(principal);
         return ApiResponse.of(organizations.setPool(actor, organizationId, licenceType, body));
     }
 
+    @PlatformFunction({PLATFORM_ADMIN})
     @PutMapping(ApiPaths.PLATFORM_ORGANIZATIONS + "/{organizationId}/entitlements/{feature}")
     @Operation(
             operationId = "setOrganizationEntitlement",
@@ -187,10 +196,11 @@ class PlatformOrganizationController {
             description = "Over the plan default; an absent value removes the override. For platform administrators.")
     ApiResponse<PlatformOrganizationDetail> setEntitlement(@PathVariable UUID organizationId,
             @PathVariable String feature, @Valid @RequestBody SetEntitlementRequest body, Principal principal) {
-        UUID actor = caller.require(principal, PLATFORM_ADMIN);
+        UUID actor = caller.person(principal);
         return ApiResponse.of(organizations.setEntitlement(actor, organizationId, feature, body));
     }
 
+    @PlatformFunction({PLATFORM_ADMIN, PLATFORM_SUPPORT})
     @PostMapping(ApiPaths.PLATFORM_ORGANIZATIONS + "/{organizationId}/sign-out-all")
     @Operation(
             operationId = "signOutOrganizationEverywhere",
@@ -199,7 +209,7 @@ class PlatformOrganizationController {
                     + "administrators and support.")
     ResponseEntity<Void> signOutAll(@PathVariable UUID organizationId, @Valid @RequestBody ReasonRequest body,
             Principal principal) {
-        organizations.signOutOrganization(caller.require(principal, PLATFORM_ADMIN, PLATFORM_SUPPORT),
+        organizations.signOutOrganization(caller.person(principal),
                 organizationId, body.reason());
         return noContent();
     }

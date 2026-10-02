@@ -72,6 +72,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/access-policies/{policyId}/data-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The permission matrix of an access policy
+         * @description For members who manage access. NOT_FOUND for a policy of another organization.
+         */
+        get: operations["getAccessPolicyDataAccess"];
+        /**
+         * Replace the permission matrix of an access policy
+         * @description What is not listed is not allowed. Takes effect at once for everyone who holds the policy, also through a group. VALIDATION_ERROR for an unknown object, field or action. Audited.
+         */
+        put: operations["replaceAccessPolicyDataAccess"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/csrf": {
         parameters: {
             query?: never;
@@ -392,6 +416,198 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/data-access/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the signed-in member may do with data
+         * @description Their effective permissions on objects and fields (profile while licensed, access policies, the access policies of their groups, individual grants), with implied actions written out. Presentation only: every request is decided again by the server. NOT_FOUND on the platform host.
+         */
+        get: operations["getMyDataAccess"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/data-catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The objects and fields a permission matrix can be about, and the actions
+         * @description Objects arrive with the metadata engine (Sprint 10); until then a deployment lists none. For members who manage access. NOT_FOUND on the platform host, FORBIDDEN without the ability.
+         */
+        get: operations["getDataCatalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the public groups of the organization
+         * @description With their people, nested groups and access policies. For members who manage access. NOT_FOUND on the platform host, FORBIDDEN without the ability.
+         */
+        get: operations["listGroups"];
+        put?: never;
+        /**
+         * Create a public group
+         * @description A named set of people and groups. VALIDATION_ERROR for a name in use. Audited.
+         */
+        post: operations["createGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/groups/{groupId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read one public group
+         * @description NOT_FOUND for a group of another organization.
+         */
+        get: operations["getGroup"];
+        /**
+         * Rename a public group
+         * @description VALIDATION_ERROR for a name in use. NOT_FOUND for a group of another organization. Audited.
+         */
+        put: operations["updateGroup"];
+        post?: never;
+        /**
+         * Remove a public group
+         * @description Everyone who held something through the group loses it at once. CONFLICT when that would leave nobody who can manage access. Audited.
+         */
+        delete: operations["deleteGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/groups/{groupId}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a person or another group into a group
+         * @description Name exactly one of membershipId and groupId. CONFLICT when the group would contain itself, directly or through other groups, or when the person is not an active member. Audited.
+         */
+        post: operations["addGroupMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/groups/{groupId}/members/groups/{innerGroupId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Take a nested group out of a group
+         * @description Takes effect at once. CONFLICT when that would leave nobody who can manage access. Audited.
+         */
+        delete: operations["removeGroupGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/groups/{groupId}/members/people/{membershipId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Take a person out of a group
+         * @description Takes effect at once. CONFLICT when that would leave nobody who can manage access. Audited.
+         */
+        delete: operations["removeGroupPerson"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/groups/{groupId}/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give an access policy to a group
+         * @description Everyone in the group, directly or through nested groups, holds what the policy gives. CONFLICT for a policy that needs a licence (a licence belongs to a person). Audited.
+         */
+        post: operations["giveGroupPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/groups/{groupId}/policies/{policyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Take an access policy from a group
+         * @description Takes effect at once. CONFLICT when that would leave nobody who can manage access. Audited.
+         */
+        delete: operations["takeGroupPolicy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invitations": {
         parameters: {
             query?: never;
@@ -529,6 +745,30 @@ export interface paths {
          */
         get: operations["getMemberAccess"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/members/{membershipId}/data-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The permissions on data granted to one member directly
+         * @description For members who manage access. NOT_FOUND for a member of another organization.
+         */
+        get: operations["getMemberDataAccess"];
+        /**
+         * Replace the permissions on data granted to one member directly
+         * @description What is not listed is not granted. VALIDATION_ERROR for an unknown object, field or action; CONFLICT for a member who is not active. Audited.
+         */
+        put: operations["replaceMemberDataAccess"];
         post?: never;
         delete?: never;
         options?: never;
@@ -823,7 +1063,7 @@ export interface paths {
         put?: never;
         /**
          * Add a licence type
-         * @description CONFLICT when the key exists. For platform administrators and billing.
+         * @description A SEAT (the right to occupy a seat; profiles belong to one) or an ADD_ON (sold on top, for example the licence of a standard access policy); SEAT when not given. CONFLICT when the key exists. For platform administrators and billing.
          */
         post: operations["addLicenceType"];
         delete?: never;
@@ -1292,6 +1532,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/profiles/{profileId}/data-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The permission matrix of a profile
+         * @description For members who manage access. The administrator profile answers everything. NOT_FOUND for a profile of another organization.
+         */
+        get: operations["getProfileDataAccess"];
+        /**
+         * Replace the permission matrix of a profile
+         * @description What is not listed is not allowed. Counts for its members while they hold the licence of the profile. VALIDATION_ERROR for an unknown object, field or action; CONFLICT for the administrator profile. Audited.
+         */
+        put: operations["replaceProfileDataAccess"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/profiles/{profileId}/default": {
         parameters: {
             query?: never;
@@ -1483,6 +1747,8 @@ export interface components {
         AccessPolicyView: {
             abilities: string[];
             description: string;
+            /** Format: int32 */
+            groups?: number;
             /** Format: uuid */
             id: string;
             /** Format: int32 */
@@ -1492,6 +1758,17 @@ export interface components {
         };
         AddCatalogueItemRequest: {
             key: string;
+            name: string;
+        };
+        AddGroupMemberRequest: {
+            /** Format: uuid */
+            groupId?: string;
+            /** Format: uuid */
+            membershipId?: string;
+        };
+        AddLicenceTypeRequest: {
+            key: string;
+            kind?: string;
             name: string;
         };
         ApiError: {
@@ -1519,11 +1796,23 @@ export interface components {
         ApiResponseCurrentUser: {
             data: components["schemas"]["CurrentUser"];
         };
+        ApiResponseDataAccessView: {
+            data: components["schemas"]["DataAccessView"];
+        };
+        ApiResponseDataCatalogue: {
+            data: components["schemas"]["DataCatalogue"];
+        };
+        ApiResponseGroupView: {
+            data: components["schemas"]["GroupView"];
+        };
         ApiResponseInvitationAccepted: {
             data: components["schemas"]["InvitationAccepted"];
         };
         ApiResponseInvitationPreview: {
             data: components["schemas"]["InvitationPreview"];
+        };
+        ApiResponseLicenceTypeItem: {
+            data: components["schemas"]["LicenceTypeItem"];
         };
         ApiResponseListAbilityInfo: {
             data: components["schemas"]["AbilityInfo"][];
@@ -1534,11 +1823,17 @@ export interface components {
         ApiResponseListCatalogueItem: {
             data: components["schemas"]["CatalogueItem"][];
         };
+        ApiResponseListGroupView: {
+            data: components["schemas"]["GroupView"][];
+        };
         ApiResponseListInvitationView: {
             data: components["schemas"]["InvitationView"][];
         };
         ApiResponseListLicencePoolView: {
             data: components["schemas"]["LicencePoolView"][];
+        };
+        ApiResponseListLicenceTypeItem: {
+            data: components["schemas"]["LicenceTypeItem"][];
         };
         ApiResponseListMemberView: {
             data: components["schemas"]["MemberView"][];
@@ -1652,6 +1947,30 @@ export interface components {
             id: string;
             platformRoles: string[];
         };
+        DataAccessView: {
+            everything?: boolean;
+            fields: components["schemas"]["PermissionEntry"][];
+            objects: components["schemas"]["PermissionEntry"][];
+        };
+        DataAction: {
+            implies: string[];
+            key: string;
+            title: string;
+        };
+        DataCatalogue: {
+            fieldActions: components["schemas"]["DataAction"][];
+            objectActions: components["schemas"]["DataAction"][];
+            objects: components["schemas"]["DataObject"][];
+        };
+        DataField: {
+            key: string;
+            label: string;
+        };
+        DataObject: {
+            fields: components["schemas"]["DataField"][];
+            key: string;
+            label: string;
+        };
         EntitlementInfo: {
             enabled?: boolean;
             inPlan?: boolean;
@@ -1692,6 +2011,21 @@ export interface components {
             reason: string;
             /** Format: date-time */
             since: string;
+        };
+        GroupRef: {
+            direct?: boolean;
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        GroupView: {
+            description: string;
+            groups: components["schemas"]["GroupRef"][];
+            /** Format: uuid */
+            id: string;
+            name: string;
+            people: string[];
+            policies: components["schemas"]["AccessPolicyRef"][];
         };
         InvitationAccepted: {
             displayName: string;
@@ -1743,13 +2077,20 @@ export interface components {
             /** Format: int32 */
             quantity?: number;
         };
+        LicenceTypeItem: {
+            key: string;
+            kind: string;
+            name: string;
+        };
         LifecycleRequest: {
             confirm?: string;
             reason: string;
         };
         MemberAccessView: {
             abilities: string[];
+            data: components["schemas"]["DataAccessView"];
             grants: components["schemas"]["GrantView"][];
+            groups: components["schemas"]["GroupRef"][];
             licenceHeld?: boolean;
             /** Format: uuid */
             membershipId: string;
@@ -1797,6 +2138,10 @@ export interface components {
             /** Format: int32 */
             limit: number;
             nextCursor?: string;
+        };
+        PermissionEntry: {
+            actions: string[];
+            key: string;
         };
         PlanInfo: {
             features: string[];
@@ -1894,6 +2239,14 @@ export interface components {
             description?: string;
             name: string;
             requiredLicenceType?: string;
+        };
+        SaveDataAccessRequest: {
+            fields: components["schemas"]["PermissionEntry"][];
+            objects: components["schemas"]["PermissionEntry"][];
+        };
+        SaveGroupRequest: {
+            description?: string;
+            name: string;
         };
         SavePlanRequest: {
             features: string[];
@@ -2138,6 +2491,72 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getAccessPolicyDataAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDataAccessView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    replaceAccessPolicyDataAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveDataAccessRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDataAccessView"];
+                };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {
@@ -2640,6 +3059,387 @@ export interface operations {
             };
         };
     };
+    getMyDataAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDataAccessView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getDataCatalogue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDataCatalogue"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listGroups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListGroupView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveGroupRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseGroupView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseGroupView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveGroupRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseGroupView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    addGroupMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddGroupMemberRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseGroupView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    removeGroupGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: string;
+                innerGroupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseGroupView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    removeGroupPerson: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: string;
+                membershipId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseGroupView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    giveGroupPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignPolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseGroupView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    takeGroupPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: string;
+                policyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseGroupView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     listInvitations: {
         parameters: {
             query?: never;
@@ -2777,7 +3577,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiResponseListCatalogueItem"];
+                    "application/json": components["schemas"]["ApiResponseListLicenceTypeItem"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -2867,6 +3667,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseMemberAccessView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getMemberDataAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                membershipId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDataAccessView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    replaceMemberDataAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                membershipId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveDataAccessRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDataAccessView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -3381,7 +4247,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiResponseListCatalogueItem"];
+                    "application/json": components["schemas"]["ApiResponseListLicenceTypeItem"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -3404,7 +4270,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AddCatalogueItemRequest"];
+                "application/json": components["schemas"]["AddLicenceTypeRequest"];
             };
         };
         responses: {
@@ -3414,7 +4280,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiResponseCatalogueItem"];
+                    "application/json": components["schemas"]["ApiResponseLicenceTypeItem"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -4286,6 +5152,72 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getProfileDataAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDataAccessView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    replaceProfileDataAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveDataAccessRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDataAccessView"];
+                };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {
