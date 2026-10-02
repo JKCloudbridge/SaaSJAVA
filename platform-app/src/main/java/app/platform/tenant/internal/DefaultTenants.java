@@ -106,6 +106,11 @@ class DefaultTenants implements Tenants {
     }
 
     @Override
+    public java.util.List<Tenant> list(String afterSlug, String search, int limit) {
+        return repository.list(afterSlug, search, limit);
+    }
+
+    @Override
     public long countFoundedBy(ActorId actor) {
         return repository.countFoundedBy(actor);
     }

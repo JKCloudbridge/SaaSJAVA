@@ -6,6 +6,7 @@ import app.platform.sharedkernel.audit.AuditRecord;
 import app.platform.sharedkernel.audit.AuditRecorder;
 import app.platform.tenant.TenantContext;
 import app.platform.tenant.TenantContexts;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
@@ -163,6 +164,12 @@ class AuthAudit {
                 .with("new_account", Boolean.toString(newAccount)));
     }
 
+    /** The first administrator accepted and so opened an organization that a platform administrator had set up. */
+    void organizationOpened(UUID user) {
+        write(AuditRecord.of("tenant.organization.opened", AuditOutcome.SUCCESS).forUser(user)
+                .with("how", "first_administrator_accepted"));
+    }
+
     void membershipDeactivated(UUID actor, UUID subject, UUID membershipId, int sessionsEnded) {
         write(AuditRecord.of("membership.deactivated", AuditOutcome.SUCCESS).forUser(subject)
                 .with("actor", actor.toString()).with("membership", membershipId.toString())
@@ -178,6 +185,17 @@ class AuthAudit {
         write(AuditRecord.of(granted ? "membership.administrator.granted" : "membership.administrator.revoked",
                 AuditOutcome.SUCCESS).forUser(subject).with("actor", actor.toString())
                 .with("membership", membershipId.toString()));
+    }
+
+    void licenceAssigned(UUID actor, UUID subject, UUID membershipId, String licenceType) {
+        write(AuditRecord.of("membership.licence.assigned", AuditOutcome.SUCCESS).forUser(subject)
+                .with("actor", actor.toString()).with("membership", membershipId.toString())
+                .with("licence_type", licenceType));
+    }
+
+    void licenceReleased(UUID actor, UUID subject, UUID membershipId, String why) {
+        write(AuditRecord.of("membership.licence.released", AuditOutcome.SUCCESS).forUser(subject).because(why)
+                .with("actor", actor.toString()).with("membership", membershipId.toString()));
     }
 
     /** An administrative action was refused (not an administrator, last administrator, ...). */
@@ -203,6 +221,69 @@ class AuthAudit {
     void bindingRefused(UUID userId, String what) {
         write(AuditRecord.of("auth.token.refused", AuditOutcome.DENIED).forUser(userId).because("wrong_host")
                 .with("what", what));
+    }
+
+    // ---- platform roles, first administrators and administrative sessions (Sprint 6, ADR-0030, ADR-0036) ----
+
+    void platformRoleGranted(UUID actor, UUID subject, String role) {
+        write(AuditRecord.of("platform.role.granted", AuditOutcome.SUCCESS).forUser(actor)
+                .with("subject", subject.toString()).with("role", role).with("how", "console"));
+    }
+
+    void platformRoleRevoked(UUID actor, UUID subject, String role) {
+        write(AuditRecord.of("platform.role.revoked", AuditOutcome.SUCCESS).forUser(actor)
+                .with("subject", subject.toString()).with("role", role));
+    }
+
+    /** A caller without the needed platform role asked for a platform action. */
+    void platformActionRefused(UUID user, List<String> required) {
+        write(AuditRecord.of("platform.action.refused", AuditOutcome.DENIED).forUser(user)
+                .because("no_platform_role").with("required", String.join(",", required)));
+    }
+
+    void platformActionRefusedWith(UUID actor, String action, String reason) {
+        write(AuditRecord.of("platform.action.refused", AuditOutcome.DENIED).forUser(actor).because(reason)
+                .with("action", action));
+    }
+
+    /** A person who holds platform roles signed in on the platform host: recorded loudly, on purpose. */
+    void platformSignIn(UUID user, List<String> roles, String source) {
+        write(AuditRecord.of("platform.sign_in.succeeded", AuditOutcome.SUCCESS).forUser(user)
+                .with("roles", String.join(",", roles)).with("source", source));
+    }
+
+    /** A platform administrator invited (or re-invited) the first administrator of an organization. */
+    void firstAdministratorInvited(UUID actor, UUID invitationId, String email) {
+        write(AuditRecord.of("platform.organization.first_administrator.invited", AuditOutcome.SUCCESS).forUser(actor)
+                .with("invitation", invitationId.toString()).with("identifier_hash", Hashes.sha256Hex(email)));
+    }
+
+    void firstAdministratorResent(UUID actor, UUID invitationId) {
+        write(AuditRecord.of("platform.organization.first_administrator.resent", AuditOutcome.SUCCESS).forUser(actor)
+                .with("invitation", invitationId.toString()));
+    }
+
+    void invitationsRevokedByPlatform(UUID actor, int count) {
+        write(AuditRecord.of("platform.organization.invitations.revoked", AuditOutcome.SUCCESS).forUser(actor)
+                .with("count", Integer.toString(count)));
+    }
+
+    /** Somebody with a platform role looked at the sessions of a person (the address is kept only as a hash). */
+    void sessionsListed(UUID actor, String email) {
+        write(AuditRecord.of("platform.sessions.listed", AuditOutcome.SUCCESS).forUser(actor)
+                .with("identifier_hash", Hashes.sha256Hex(email)));
+    }
+
+    void signedOutEverywhereByPlatform(UUID actor, String email, int count) {
+        write(AuditRecord.of("platform.sessions.signed_out_everywhere", AuditOutcome.SUCCESS).forUser(actor)
+                .with("identifier_hash", Hashes.sha256Hex(email)).with("count", Integer.toString(count)));
+    }
+
+    /** Everyone of an organization was signed out, by a platform person or by the organization's administrator. */
+    void organizationSignedOut(UUID actor, UUID organization, int count, boolean byPlatform) {
+        write(AuditRecord.of("auth.organization.signed_out_all", AuditOutcome.SUCCESS).forUser(actor)
+                .with("target_tenant", organization.toString()).with("count", Integer.toString(count))
+                .with("by", byPlatform ? "platform" : "administrator"));
     }
 
     private void write(AuditRecord record) {

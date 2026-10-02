@@ -30,7 +30,7 @@ class InvitationRepository {
      *        shown as expired by the caller
      */
     record Invitation(UUID id, String email, boolean administrator, boolean founding, String status, Instant expiresAt,
-            int sentCount, Instant createdAt) {
+            int sentCount, Instant createdAt, boolean invitedByPlatform) {
 
         boolean open(Instant now) {
             return OPEN.equals(status) && expiresAt.isAfter(now);
@@ -44,7 +44,7 @@ class InvitationRepository {
     }
 
     private static final String COLUMNS = "id, email, administrator, founding_administrator, status, expires_at, "
-            + "sent_count, created_at";
+            + "sent_count, created_at, invited_by_platform";
 
     private final JdbcClient jdbc;
 
@@ -59,19 +59,55 @@ class InvitationRepository {
      * @return the invitation, with the expiry it now has
      */
     Invitation openOrRenew(String email, boolean administrator, Instant expiresAt, ActorId actor) {
-        return jdbc.sql("insert into invitation (email, administrator, expires_at, created_by, updated_by) "
-                        + "values (:email, :administrator, :expires, :actor, :actor) "
+        return openOrRenew(email, administrator, false, false, expiresAt, actor);
+    }
+
+    /**
+     * Like the three-argument form, for the invitation a platform administrator makes (the founding flag and the
+     * platform mark). Renewing an open invitation never takes those away, and a platform invitation stays one for an
+     * administrator.
+     */
+    Invitation openOrRenew(String email, boolean administrator, boolean founding, boolean invitedByPlatform,
+            Instant expiresAt, ActorId actor) {
+        return jdbc.sql("insert into invitation (email, administrator, founding_administrator, invited_by_platform, "
+                        + "expires_at, created_by, updated_by) "
+                        + "values (:email, :administrator, :founding, :platform, :expires, :actor, :actor) "
                         + "on conflict (tenant_id, email) where status = 'OPEN' and deleted_at is null do update "
-                        + "set administrator = excluded.administrator, expires_at = excluded.expires_at, "
+                        + "set administrator = case when invitation.invited_by_platform then true "
+                        + "else excluded.administrator end, "
+                        + "founding_administrator = invitation.founding_administrator "
+                        + "or excluded.founding_administrator, "
+                        + "invited_by_platform = invitation.invited_by_platform or excluded.invited_by_platform, "
+                        + "expires_at = excluded.expires_at, "
                         + "sent_count = invitation.sent_count + 1, version = invitation.version + 1, "
                         + "updated_by = excluded.updated_by "
                         + "returning " + COLUMNS)
                 .param("email", email)
                 .param("administrator", administrator)
+                .param("founding", founding)
+                .param("platform", invitedByPlatform)
                 .param("expires", Timestamp.from(expiresAt))
                 .param("actor", actor.value())
                 .query(InvitationRepository::invitation)
                 .single();
+    }
+
+    /** The newest invitation a platform administrator made in the current organization. */
+    Optional<Invitation> latestByPlatform() {
+        return jdbc.sql("select " + COLUMNS + " from invitation where invited_by_platform and deleted_at is null "
+                        + "order by created_at desc, id limit 1")
+                .query(InvitationRepository::invitation)
+                .optional();
+    }
+
+    /** Closes every open invitation of the current organization as revoked. @return the identifiers closed */
+    List<UUID> revokeAllOpen(ActorId actor) {
+        return jdbc.sql("update invitation set status = 'REVOKED', resolved_at = now(), resolved_by = :actor, "
+                        + "version = version + 1, updated_by = :actor "
+                        + "where status = 'OPEN' and deleted_at is null returning id")
+                .param("actor", actor.value())
+                .query(UUID.class)
+                .list();
     }
 
     /** The invitations of the current organization, newest first. */
@@ -133,6 +169,6 @@ class InvitationRepository {
         return new Invitation(rs.getObject("id", UUID.class), rs.getString("email"), rs.getBoolean("administrator"),
                 rs.getBoolean("founding_administrator"), rs.getString("status"),
                 rs.getTimestamp("expires_at").toInstant(), rs.getInt("sent_count"),
-                rs.getTimestamp("created_at").toInstant());
+                rs.getTimestamp("created_at").toInstant(), rs.getBoolean("invited_by_platform"));
     }
 }

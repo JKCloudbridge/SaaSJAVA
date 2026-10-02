@@ -2,6 +2,8 @@ package app.platform.identity.internal;
 
 import app.platform.identity.User;
 import app.platform.identity.UserStatus;
+import app.platform.licensing.Licences;
+import app.platform.licensing.Subscriptions;
 import app.platform.sharedkernel.ActorId;
 import app.platform.sharedkernel.TenantId;
 import app.platform.tenant.TenantContext;
@@ -32,14 +34,19 @@ class OrganizationService {
     private final TenantContexts contexts;
     private final UserRepository users;
     private final MembershipRepository memberships;
+    private final Subscriptions subscriptions;
+    private final Licences licences;
     private final AccountLimiter limiter;
     private final AuthAudit audit;
     private final TransactionTemplate transaction;
     private final IdentityProperties.Account limits;
 
     OrganizationService(Tenants tenants, TenantContexts contexts, UserRepository users,
-            MembershipRepository memberships, AccountLimiter limiter, AuthAudit audit,
-            TransactionTemplate transaction, IdentityProperties properties) {
+            MembershipRepository memberships, Subscriptions subscriptions, Licences licences,
+            AccountLimiter limiter, AuthAudit audit, TransactionTemplate transaction,
+            IdentityProperties properties) {
+        this.subscriptions = subscriptions;
+        this.licences = licences;
         this.tenants = tenants;
         this.contexts = contexts;
         this.users = users;
@@ -79,7 +86,11 @@ class OrganizationService {
                 }
                 tenants.provision(id, slug, displayName, actor);
                 tenants.activate(id, actor);
-                memberships.insertFounder(userId, actor);
+                UUID founder = memberships.insertFounder(userId, actor);
+                // "Try for free": the organization starts on the default plan (a trial) with its pools, and the
+                // founder holds the default licence (ADR-0033). Neither can fail the founding for lack of a licence.
+                subscriptions.startDefault(id, actor);
+                licences.assignDefault(founder, actor);
                 audit.organizationFounded(userId, slug.value());
             }));
         } catch (ApiException e) {

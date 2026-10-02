@@ -14,6 +14,9 @@ export function ShellNav() {
   const platform = usePlatformAddress();
   const pathname = usePathname();
   const showMembers = state.status === "signedIn" && platform.isPlatformHost === false;
+  // The console link is a convenience for a person the API lists a platform role for; the API refuses the rest.
+  const showConsole =
+    state.status === "signedIn" && platform.isPlatformHost === true && state.user.platformRoles.length > 0;
   return (
     <ul>
       <li>
@@ -21,6 +24,13 @@ export function ShellNav() {
           Home
         </Link>
       </li>
+      {showConsole ? (
+        <li>
+          <Link href="/console" aria-current={pathname.startsWith("/console") ? "page" : undefined}>
+            Console
+          </Link>
+        </li>
+      ) : null}
       {showMembers ? (
         <li>
           <Link href="/members" aria-current={pathname === "/members" ? "page" : undefined}>

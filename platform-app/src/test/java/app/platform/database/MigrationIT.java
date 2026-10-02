@@ -183,6 +183,108 @@ class MigrationIT {
     }
 
     @Test
+    void organizationsThatExistBeforeLicensingGetATrialPoolsAndLicencesForTheirActiveMembers() throws Exception {
+        // Run as a database owner that is NOT a superuser, like a real deployment: forced row level security binds it,
+        // and the backfill (V018) switches the force off for its statements and back on in the same transaction.
+        String suffix = UUID.randomUUID().toString().replace("-", "");
+        String role = "migrator_" + suffix;
+        String password = "pw-" + UUID.randomUUID();
+        String database = "licensing_" + suffix;
+        try (Connection admin = TestDatabase.ownerConnection(); Statement statement = admin.createStatement()) {
+            statement.execute("create role " + role + " login password '" + password + "'");
+            statement.execute("create database " + database + " owner " + role);
+        }
+        String ownUrl = TestDatabase.jdbcUrl().replace("/platform?", "/" + database + "?");
+        try {
+            Flyway.configure().dataSource(ownUrl, role, password).locations("classpath:db/migration").target("17")
+                    .cleanDisabled(true).placeholderReplacement(false).load().migrate();
+            // A database as Sprint 5 left it: an open organization with 7 active members and one deactivated, one
+            // organization still being set up, and one closed for good.
+            UUID system = new UUID(0L, 0L);
+            UUID open = UUID.randomUUID();
+            UUID setUp = UUID.randomUUID();
+            UUID closed = UUID.randomUUID();
+            List<UUID> members = new java.util.ArrayList<>();
+            for (int i = 0; i < 8; i++) {
+                members.add(UUID.randomUUID());
+            }
+            try (Connection connection = DriverManager.getConnection(ownUrl, role, password)) {
+                connection.setAutoCommit(false);
+                try (Statement statement = connection.createStatement()) {
+                    for (UUID tenant : List.of(open, setUp, closed)) {
+                        statement.execute("insert into tenant (id, slug, display_name, created_by, updated_by) "
+                                + "values ('" + tenant + "', 'org-" + tenant.toString().substring(0, 8)
+                                + "', 'Org', '" + system + "', '" + system + "')");
+                    }
+                    statement.execute("update tenant set status = 'ACTIVE', version = version + 1 where id = '"
+                            + open + "'");
+                    statement.execute("update tenant set status = 'DEACTIVATED', version = version + 1 where id = '"
+                            + closed + "'");
+                    for (UUID user : members) {
+                        statement.execute("insert into platform_user (id, email, display_name, created_by, "
+                                + "updated_by) values ('" + user + "', '" + user + "@example.test', 'Person', '"
+                                + system + "', '" + system + "')");
+                    }
+                    statement.execute("select set_config('app.current_tenant', '" + open + "', true)");
+                    for (UUID user : members) {
+                        statement.execute("insert into membership (tenant_id, user_id, created_by, updated_by) "
+                                + "values ('" + open + "', '" + user + "', '" + system + "', '" + system + "')");
+                    }
+                    statement.execute("update membership set status = 'DEACTIVATED', version = version + 1 "
+                            + "where user_id = '" + members.get(7) + "'");
+                }
+                connection.commit();
+            }
+
+            MigrateResult result = Flyway.configure().dataSource(ownUrl, role, password)
+                    .locations("classpath:db/migration").cleanDisabled(true).placeholderReplacement(false).load()
+                    .migrate();
+
+            assertThat(result.success).isTrue();
+            try (Connection connection = DriverManager.getConnection(ownUrl, role, password)) {
+                connection.setAutoCommit(false);
+                try (Statement statement = connection.createStatement()) {
+                    assertThat(scalar(statement, "select count(*) from subscription where status = 'TRIAL'"))
+                            .as("the open and the set-up organization start a trial").isEqualTo(2L);
+                    assertThat(scalar(statement, "select count(*) from subscription where bound_tenant_id = '" + closed
+                            + "'")).as("a closed organization gets none").isZero();
+                    assertThat(scalar(statement, "select count(*) from subscription where trial_ends_at "
+                            + "between now() + interval '29 days' and now() + interval '31 days'")).isEqualTo(2L);
+                    statement.execute("select set_config('app.current_tenant', '" + open + "', true)");
+                    assertThat(scalar(statement, "select quantity from licence_pool p join licence_type t on t.id = "
+                            + "p.licence_type_id where t.key = 'user'")).as("the larger of the plan and the members")
+                            .isEqualTo(7L);
+                    assertThat(scalar(statement, "select quantity from licence_pool p join licence_type t on t.id = "
+                            + "p.licence_type_id where t.key = 'admin'")).isEqualTo(2L);
+                    assertThat(scalar(statement, "select count(*) from licence_assignment where deleted_at is null"))
+                            .as("every active member holds a licence, the deactivated one does not").isEqualTo(7L);
+                    statement.execute("select set_config('app.current_tenant', '" + setUp + "', true)");
+                    assertThat(scalar(statement, "select quantity from licence_pool p join licence_type t on t.id = "
+                            + "p.licence_type_id where t.key = 'user'")).isEqualTo(5L);
+                    assertThat(scalar(statement, "select count(*) from licence_assignment")).isZero();
+                    for (String table : List.of("licence_pool", "licence_assignment", "membership")) {
+                        assertThat(scalar(statement, "select count(*) from pg_class where relname = '" + table
+                                + "' and relrowsecurity and relforcerowsecurity")).as(table + " is forced again")
+                                .isEqualTo(1L);
+                    }
+                }
+            }
+        } finally {
+            try (Connection admin = TestDatabase.ownerConnection(); Statement statement = admin.createStatement()) {
+                statement.execute("drop database if exists " + database + " with (force)");
+                statement.execute("drop role if exists " + role);
+            }
+        }
+    }
+
+    private static long scalar(Statement statement, String sql) throws SQLException {
+        try (ResultSet rs = statement.executeQuery(sql)) {
+            assertThat(rs.next()).isTrue();
+            return rs.getLong(1);
+        }
+    }
+
+    @Test
     void aMigrationEditedAfterItRanIsRefused(@org.junit.jupiter.api.io.TempDir Path folder) throws IOException {
         Path migration = folder.resolve("V001__create_probe.sql");
         Files.writeString(migration, "create table probe (id int);\n");

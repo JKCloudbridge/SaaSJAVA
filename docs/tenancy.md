@@ -125,6 +125,36 @@ Decisions in [ADR-0026](adr/0026-membership-lifecycle-and-the-administrator-mark
   `SwitchOrganizationIT`, `MembershipGuardIT` (database rules), `MembershipFlowsLogsAreCleanIT`. Limit tests must tolerate one split
   count (Redis answered late, ADR-0021): assert that the limit arrives within twice the number.
 
+## Licensing, platform roles and platform administration (Sprint 6)
+
+Decisions in [ADR-0030](adr/0030-platform-roles-and-the-first-platform-administrator.md) to
+[ADR-0038](adr/0038-organization-lifecycle-by-platform-administrators.md). What a contributor needs:
+
+- **Where each new table lives** ([ADR-0031](adr/0031-where-the-platform-tables-live-and-how-an-organization-is-reached.md)).
+  Platform-level (no tenant column, listed in `SchemaConventions.PLATFORM_TABLES`): `platform_role_assignment`, `licence_type`,
+  `feature`, `plan`, `plan_licence`, `plan_feature`, `subscription`, `entitlement_override` (the last two name the organization
+  in `bound_tenant_id`). Tenant-scoped (registered in `TenantScopedTables`): `licence_pool`, `licence_assignment`,
+  `support_access_grant`.
+- **A platform person never gets a privileged connection or a new system scope.** To read or write one organization's
+  tenant-scoped records, open **that one organization's context before the transaction** (`OrganizationScope` in `platformadmin`,
+  `OrganizationWork` in `licensing`); row level security then limits the work to it. A list across organizations comes from the
+  platform-level tables only. An endpoint that names an organization names a destination chosen by an authorized platform person,
+  never "the tenant of the request" (a test forges a tenant header and nothing changes).
+- **Platform endpoints** are under `/api/v1/platform/...`, answered on the **platform host only** (`NOT_FOUND` on an organization
+  host) and only for the roles each needs (`PlatformCaller.require(principal, roles...)`). Organization endpoints stay on
+  organization hosts and ask `Administration`. A platform role gives no organization authority and the reverse.
+- **Licences** are asked through the public `Licences` contract of the `licensing` module: the identity module assigns the default
+  licence when a membership becomes active and releases it when it ends, in the same transaction. A licence counts assignments
+  only; features are asked with `Entitlements.enabled(feature)`; permissions are a third, separate mechanism.
+- **Support access:** before any read or change of an organization's data on behalf of a platform person, call
+  `SupportAccess.require(organization, platformUser)` (shared kernel contract); it refuses without an approved, unexpired,
+  unrevoked grant of that person for that organization.
+- **Tests:** `TestPlatform` (platform people and plans), `PlatformRolesIT` (role against every endpoint), `LicencesIT`,
+  `ProvisioningIT`, `OrganizationLifecycleIT`, `SupportAccessIT`, `SessionAdministrationIT`, `SubscriptionsAndEntitlementsIT`,
+  `PlatformFlowsLogsAreCleanIT`, `FirstPlatformAdministratorScriptIT` (the manual step run with the real command line tool).
+- **Settings:** `platform.licensing.default-plan` (`trial`), `platform.licensing.default-licence-type` (`user`),
+  `platform.identity.tokens.platform-session-max` (`4h`).
+
 ## Configuration of this sprint
 
 | Variable | Meaning |

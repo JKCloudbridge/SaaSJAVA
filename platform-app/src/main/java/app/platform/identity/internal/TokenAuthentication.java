@@ -6,6 +6,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.LinkedHashSet;
@@ -147,11 +149,18 @@ final class TokenAuthentication {
         private final AuthorizationStore store;
         private final MembershipGate gate;
         private final AuthAudit audit;
+        private final PlatformRoleRepository platformRoles;
+        private final Clock clock;
+        private final Duration platformSessionMax;
 
-        Introspector(AuthorizationStore store, MembershipGate gate, AuthAudit audit) {
+        Introspector(AuthorizationStore store, MembershipGate gate, AuthAudit audit,
+                PlatformRoleRepository platformRoles, Clock clock, Duration platformSessionMax) {
             this.store = store;
             this.gate = gate;
             this.audit = audit;
+            this.platformRoles = platformRoles;
+            this.clock = clock;
+            this.platformSessionMax = platformSessionMax;
         }
 
         @Override
@@ -170,6 +179,12 @@ final class TokenAuthentication {
                     throw new BadOpaqueTokenException("The token is not valid.");
                 }
                 attributes.put(MEMBERSHIP_ATTRIBUTE, own.id().toString());
+            } else if (found.startedAt().plus(platformSessionMax).isBefore(clock.instant())
+                    && !platformRoles.rolesOf(found.userId()).isEmpty()) {
+                // The platform host with a platform role: a short session (ADR-0030). The person signs in again;
+                // nothing says why to the caller.
+                audit.bindingRefused(found.userId(), "platform_session_too_old");
+                throw new BadOpaqueTokenException("The token is not valid.");
             }
             return new DefaultOAuth2AuthenticatedPrincipal(found.userId().toString(), attributes, none);
         }

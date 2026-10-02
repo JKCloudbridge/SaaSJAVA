@@ -2,8 +2,10 @@ package app.platform.identity.internal;
 
 import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
+import app.platformapi.LicencePoolView;
 import app.platformapi.MemberView;
 import app.platformapi.SetAdministratorRequest;
+import app.platformapi.SetLicenceRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -11,6 +13,7 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -75,6 +78,50 @@ class MemberController {
     ResponseEntity<Void> setAdministrator(@PathVariable UUID membershipId,
             @Valid @RequestBody SetAdministratorRequest body) {
         members.setAdministrator(membershipId, body.administrator());
+        return noContent();
+    }
+
+    @GetMapping(ApiPaths.LICENCES)
+    @Operation(
+            operationId = "listLicencePools",
+            summary = "The licence pools of the organization",
+            description = "Per licence type: how many licences the organization holds, how many are assigned and how "
+                    + "many are free. For the administrators of the organization of the host. NOT_FOUND on the "
+                    + "platform host.")
+    ApiResponse<List<LicencePoolView>> pools() {
+        return ApiResponse.of(members.pools());
+    }
+
+    @PutMapping(ApiPaths.MEMBERS + "/{membershipId}/licence")
+    @Operation(
+            operationId = "assignMemberLicence",
+            summary = "Give a member a licence",
+            description = "Moves the member from the licence type they hold, if any. CONFLICT when none is free of "
+                    + "that type or the member is not active; two administrators asking for the last free licence "
+                    + "have one winner. A licence counts assignments only: it grants no permission.")
+    ResponseEntity<Void> assignLicence(@PathVariable UUID membershipId, @Valid @RequestBody SetLicenceRequest body) {
+        members.assignLicence(membershipId, body.licenceType());
+        return noContent();
+    }
+
+    @DeleteMapping(ApiPaths.MEMBERS + "/{membershipId}/licence")
+    @Operation(
+            operationId = "releaseMemberLicence",
+            summary = "Take a member licence back",
+            description = "The licence returns to the pool. Nothing happens when the member holds none.")
+    ResponseEntity<Void> releaseLicence(@PathVariable UUID membershipId) {
+        members.releaseLicence(membershipId);
+        return noContent();
+    }
+
+    @PostMapping(ApiPaths.ORGANIZATION_SIGN_OUT_ALL)
+    @Operation(
+            operationId = "signOutEveryoneElse",
+            summary = "Sign everybody else out of the organization",
+            description = "Ends every session and token bound to this organization host except the caller own. For "
+                    + "the administrators of the organization of the host; audited.")
+    ResponseEntity<Void> signOutEveryoneElse() {
+        members.signOutEveryoneElse();
         return noContent();
     }
 

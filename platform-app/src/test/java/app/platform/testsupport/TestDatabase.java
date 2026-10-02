@@ -71,6 +71,36 @@ public final class TestDatabase {
         return DriverManager.getConnection(jdbcUrl(), OWNER_USER, OWNER_PASSWORD);
     }
 
+    /** What running a script with the PostgreSQL command line tool printed, and how it ended. */
+    public record ScriptResult(int exitCode, String output) {
+    }
+
+    /**
+     * Runs a script file with the PostgreSQL command line tool inside the test database's container, as the owner role
+     * and with {@code ON_ERROR_STOP}, the way a person runs a manual migration. Needed for scripts that use the tool's
+     * own commands (variables, conditions), which a JDBC statement cannot run.
+     *
+     * @param script the script file
+     * @param variables the {@code -v name=value} variables of the run
+     */
+    public static ScriptResult runScript(Path script, java.util.Map<String, String> variables) {
+        String target = "/tmp/" + script.getFileName();
+        POSTGRES.copyFileToContainer(org.testcontainers.utility.MountableFile.forHostPath(script), target);
+        StringBuilder command = new StringBuilder("PGPASSWORD='" + OWNER_PASSWORD + "' psql -h localhost -U "
+                + OWNER_USER + " -d " + DATABASE + " -v ON_ERROR_STOP=1");
+        variables.forEach((name, value) -> command.append(" -v ").append(name).append("='").append(value).append("'"));
+        command.append(" -f ").append(target);
+        try {
+            var result = POSTGRES.execInContainer("sh", "-c", command.toString());
+            return new ScriptResult(result.getExitCode(), result.getStdout() + result.getStderr());
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not run the script", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted", e);
+        }
+    }
+
     /** A new connection as the application role; the caller closes it. */
     public static Connection appConnection() throws SQLException {
         return DriverManager.getConnection(jdbcUrl(), APP_USER, APP_PASSWORD);

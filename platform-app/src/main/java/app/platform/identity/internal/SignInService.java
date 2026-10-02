@@ -7,6 +7,7 @@ import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,11 +41,13 @@ class SignInService {
     private final AuthAudit audit;
     private final TenantContexts contexts;
     private final MembershipGate gate;
+    private final PlatformRoleRepository platformRoles;
     private final Duration sessionLifetime;
 
     SignInService(SignInLimiter limiter, PlatformProviderAdapter adapter, UserRepository users,
             LoginSessions loginSessions, AuthAudit audit, TenantContexts contexts, MembershipGate gate,
-            IdentityProperties properties) {
+            PlatformRoleRepository platformRoles, IdentityProperties properties) {
+        this.platformRoles = platformRoles;
         this.limiter = limiter;
         // The manager is private to this class: the adapter is the only way a sign-in reaches a provider.
         this.authentication = new ProviderManager(adapter);
@@ -98,6 +101,13 @@ class SignInService {
             UUID boundTenant = contexts.current().map(TenantContext::tenantId).map(tenant -> tenant.value())
                     .orElse(null);
             LOG.info("Sign-in succeeded");
+            if (boundTenant == null) {
+                // The platform host: a person who holds platform roles is recorded loudly (ADR-0030).
+                List<String> roles = platformRoles.rolesOf(userId).stream().map(Enum::name).sorted().toList();
+                if (!roles.isEmpty()) {
+                    audit.platformSignIn(userId, roles, source);
+                }
+            }
             return loginSessions.create(userId, boundTenant, version, sessionLifetime);
         } finally {
             Arrays.fill(password, '\0');

@@ -1,5 +1,6 @@
 package app.platform.identity.internal;
 
+import app.platform.identity.OrganizationAdministration;
 import app.platform.tenant.TenantContext;
 import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiException;
@@ -17,7 +18,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * (never a name taken from the request), in the organization the host names (never one named by the client).
  */
 @Component
-class Administration {
+class Administration implements OrganizationAdministration {
 
     private final MembershipRepository memberships;
     private final TenantContexts contexts;
@@ -30,6 +31,11 @@ class Administration {
         this.contexts = contexts;
         this.transaction = transaction;
         this.audit = audit;
+    }
+
+    @Override
+    public <T> T asAdministrator(String action, Function<Caller, T> work) {
+        return run(action, own -> work.apply(new Caller(own.userId(), own.id())));
     }
 
     /**

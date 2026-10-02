@@ -2,6 +2,7 @@ package app.platform.tenant;
 
 import app.platform.sharedkernel.ActorId;
 import app.platform.sharedkernel.TenantId;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -13,8 +14,8 @@ import java.util.Optional;
  * tenant context of the operation is the tenant it changes, opened by the service itself: a caller that already runs
  * a transaction must have opened the same tenant context before starting it (see {@link TenantContexts}).
  *
- * <p>The service performs no authorization. There is no HTTP entry point yet; the authenticated ones arrive with
- * sign-up (Sprint 4) and platform administration (Sprint 6), and each of them decides who may call.
+ * <p>The service performs no authorization. Its callers decide who may call: founding an organization (Sprint 4)
+ * and the platform console (Sprint 6, platform administrators only, ADR-0038).
  */
 public interface Tenants {
 
@@ -56,6 +57,15 @@ public interface Tenants {
 
     /** The tenant with this slug, whatever its status. */
     Optional<Tenant> findBySlug(TenantSlug slug);
+
+    /**
+     * One page of organizations, ordered by short name, for platform administration (the caller checks who may ask).
+     *
+     * @param afterSlug only organizations whose short name sorts after this one (the previous page), or null
+     * @param search only organizations whose name or short name contains this text, or null
+     * @param limit the page size
+     */
+    List<Tenant> list(String afterSlug, String search, int limit);
 
     /**
      * How many organizations that are not deactivated were provisioned by this actor. Lets the code that lets a person

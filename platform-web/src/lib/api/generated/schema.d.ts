@@ -93,7 +93,7 @@ export interface paths {
         };
         /**
          * Who the caller is
-         * @description The signed-in user. 401 UNAUTHENTICATED without a valid token. Says nothing about what the user may do: permissions are decided elsewhere, per organization.
+         * @description The signed-in user. 401 UNAUTHENTICATED without a valid token. Says nothing about what the user may do in an organization: permissions are decided elsewhere, per organization. On the platform host it also lists the platform roles, for presentation only.
          */
         get: operations["getCurrentUser"];
         put?: never;
@@ -388,6 +388,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/licences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The licence pools of the organization
+         * @description Per licence type: how many licences the organization holds, how many are assigned and how many are free. For the administrators of the organization of the host. NOT_FOUND on the platform host.
+         */
+        get: operations["listLicencePools"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/members": {
         parameters: {
             query?: never;
@@ -448,6 +468,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/members/{membershipId}/licence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Give a member a licence
+         * @description Moves the member from the licence type they hold, if any. CONFLICT when none is free of that type or the member is not active; two administrators asking for the last free licence have one winner. A licence counts assignments only: it grants no permission.
+         */
+        put: operations["assignMemberLicence"];
+        post?: never;
+        /**
+         * Take a member licence back
+         * @description The licence returns to the pool. Nothing happens when the member holds none.
+         */
+        delete: operations["releaseMemberLicence"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/members/{membershipId}/reactivate": {
         parameters: {
             query?: never;
@@ -462,6 +506,26 @@ export interface paths {
          * @description The person can sign in again; sessions that ended do not come back and the administrator marker is not restored. CONFLICT when the member is not deactivated.
          */
         post: operations["reactivateMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organization/sign-out-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign everybody else out of the organization
+         * @description Ends every session and token bound to this organization host except the caller own. For the administrators of the organization of the host; audited.
+         */
+        post: operations["signOutEveryoneElse"];
         delete?: never;
         options?: never;
         head?: never;
@@ -492,6 +556,446 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The feature keys
+         * @description For platform administrators, billing and support.
+         */
+        get: operations["listFeatures"];
+        put?: never;
+        /**
+         * Add a feature key
+         * @description CONFLICT when the key exists. For platform administrators and billing.
+         */
+        post: operations["addFeature"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/licence-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The licence types
+         * @description For platform administrators, billing and support.
+         */
+        get: operations["listLicenceTypes"];
+        put?: never;
+        /**
+         * Add a licence type
+         * @description CONFLICT when the key exists. For platform administrators and billing.
+         */
+        post: operations["addLicenceType"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the organizations (platform console)
+         * @description By short name, one page at a time. For platform administrators, support and billing. Never shows members or business data. Platform host only.
+         */
+        get: operations["listPlatformOrganizations"];
+        put?: never;
+        /**
+         * Set up an organization for a client
+         * @description Creates the organization on a plan and invites its first administrator. The organization stays closed (its host answers not available) until that person accepts, which opens it. The answer is the same whether or not the address has an account. For platform administrators.
+         */
+        post: operations["provisionOrganization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/organizations/{organizationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One organization (platform console)
+         * @description Status, subscription, licence pools, features and the state of the first-administrator invitation (never its address). For platform administrators, support and billing.
+         */
+        get: operations["getPlatformOrganization"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/organizations/{organizationId}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close an organization for good
+         * @description Final. Needs a reason and the short name of the organization typed again as confirmation. Open invitations are withdrawn and sessions end. Also cancels an organization that was still being set up. For platform administrators.
+         */
+        post: operations["deactivateOrganization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/organizations/{organizationId}/entitlements/{feature}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Switch a feature on or off for an organization
+         * @description Over the plan default; an absent value removes the override. For platform administrators.
+         */
+        put: operations["setOrganizationEntitlement"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/organizations/{organizationId}/first-administrator": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invite a new first administrator
+         * @description For an organization that is being set up, or that lost every administrator. Always answers 202 with the same text whether or not the address has an account. For platform administrators.
+         */
+        post: operations["inviteFirstAdministrator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/organizations/{organizationId}/first-administrator/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the first-administrator invitation again
+         * @description A new link replaces the old one and the time starts again. CONFLICT when it is no longer open. For platform administrators and support.
+         */
+        post: operations["resendFirstAdministratorInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/organizations/{organizationId}/pools/{licenceType}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the size of a licence pool of an organization
+         * @description Not below the licences in use (CONFLICT). For platform administrators.
+         */
+        put: operations["setOrganizationLicencePool"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/organizations/{organizationId}/reinstate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reinstate a suspended organization
+         * @description People sign in again; sessions that ended do not come back. Needs a reason. For platform administrators.
+         */
+        post: operations["reinstateOrganization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/organizations/{organizationId}/sign-out-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign everybody out of an organization
+         * @description Ends every session and token bound to the organization host. Needs a reason. For platform administrators and support.
+         */
+        post: operations["signOutOrganizationEverywhere"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/organizations/{organizationId}/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change the subscription of an organization
+         * @description Plan, status and dates; also puts an organization without a plan on one. A plan that would leave a licence pool below the licences in use is refused (CONFLICT). No payment is involved. For platform administrators and billing.
+         */
+        put: operations["changeOrganizationSubscription"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/organizations/{organizationId}/support-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The support-access requests of an organization
+         * @description For platform administrators and support.
+         */
+        get: operations["listOrganizationSupportAccess"];
+        put?: never;
+        /**
+         * Ask an organization for support access
+         * @description A reason and 15 to 240 minutes. Nothing is granted until an administrator of the organization approves it. One open request per person and organization (CONFLICT). For platform administrators and support.
+         */
+        post: operations["requestSupportAccess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/organizations/{organizationId}/support-access/{grantId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw your own open request
+         * @description Only the person who asked can. CONFLICT when it is no longer open.
+         */
+        post: operations["cancelSupportAccessRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/organizations/{organizationId}/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suspend an organization
+         * @description Its host answers not available at once and everybody signed in loses access. Needs a reason (kept in the audit trail only). For platform administrators.
+         */
+        post: operations["suspendOrganization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who holds a platform role
+         * @description For platform administrators. Platform host only.
+         */
+        get: operations["listPlatformPeople"];
+        put?: never;
+        /**
+         * Give a platform role to a person
+         * @description The person must already have an active account. VALIDATION_ERROR when no active account has the address, CONFLICT when the person holds the role. Audited. For platform administrators.
+         */
+        post: operations["grantPlatformRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/people/{assignmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Take a platform role away
+         * @description CONFLICT for the last platform administrator. Audited. For platform administrators.
+         */
+        delete: operations["revokePlatformRole"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The plans
+         * @description Default licence quantities and included features. For platform administrators, billing and support.
+         */
+        get: operations["listPlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/plans/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Create a plan, or replace the one with this key
+         * @description Organizations keep their pools until their subscription changes plan. For platform administrators and billing.
+         */
+        put: operations["savePlan"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/sessions/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The live sign-ins of a person
+         * @description When each began and ends and which host it works on; never a token or a secret. An unknown address gives an empty list. For platform administrators and support.
+         */
+        post: operations["lookUpSessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/sessions/sign-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign a person out everywhere
+         * @description Ends every session and token of the person on every host. Answers 204 whether or not the address has an account. For platform administrators and support.
+         */
+        post: operations["signOutPersonEverywhere"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/status": {
         parameters: {
             query?: never;
@@ -506,6 +1010,86 @@ export interface paths {
         get: operations["getPlatformStatus"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Support-access requests of the organization
+         * @description Who asked, why, and what became of it. For the administrators of the organization of the host. NOT_FOUND on the platform host.
+         */
+        get: operations["listSupportAccess"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support-access/{grantId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a support-access request
+         * @description Opens a window of at most the minutes asked for and four hours; it ends by itself. CONFLICT when the request is no longer open.
+         */
+        post: operations["approveSupportAccess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support-access/{grantId}/deny": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deny a support-access request
+         * @description CONFLICT when the request is no longer open.
+         */
+        post: operations["denySupportAccess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support-access/{grantId}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End an approved support access now
+         * @description CONFLICT when the access is not approved.
+         */
+        post: operations["revokeSupportAccess"];
         delete?: never;
         options?: never;
         head?: never;
@@ -541,6 +1125,10 @@ export interface components {
             password: string;
             token: string;
         };
+        AddCatalogueItemRequest: {
+            key: string;
+            name: string;
+        };
         ApiError: {
             code: components["schemas"]["ErrorCode"];
             fields?: {
@@ -553,6 +1141,13 @@ export interface components {
         ApiErrorResponse: {
             error: components["schemas"]["ApiError"];
         };
+        ApiPageResponsePlatformOrganizationSummary: {
+            data: components["schemas"]["PlatformOrganizationSummary"][];
+            pagination: components["schemas"]["Pagination"];
+        };
+        ApiResponseCatalogueItem: {
+            data: components["schemas"]["CatalogueItem"];
+        };
         ApiResponseCurrentUser: {
             data: components["schemas"]["CurrentUser"];
         };
@@ -562,8 +1157,14 @@ export interface components {
         ApiResponseInvitationPreview: {
             data: components["schemas"]["InvitationPreview"];
         };
+        ApiResponseListCatalogueItem: {
+            data: components["schemas"]["CatalogueItem"][];
+        };
         ApiResponseListInvitationView: {
             data: components["schemas"]["InvitationView"][];
+        };
+        ApiResponseListLicencePoolView: {
+            data: components["schemas"]["LicencePoolView"][];
         };
         ApiResponseListMemberView: {
             data: components["schemas"]["MemberView"][];
@@ -571,8 +1172,32 @@ export interface components {
         ApiResponseListOrganizationSummary: {
             data: components["schemas"]["OrganizationSummary"][];
         };
+        ApiResponseListPlanInfo: {
+            data: components["schemas"]["PlanInfo"][];
+        };
+        ApiResponseListPlatformPersonView: {
+            data: components["schemas"]["PlatformPersonView"][];
+        };
+        ApiResponseListSessionInfo: {
+            data: components["schemas"]["SessionInfo"][];
+        };
+        ApiResponseListSupportAccessView: {
+            data: components["schemas"]["SupportAccessView"][];
+        };
         ApiResponseOrganizationCreated: {
             data: components["schemas"]["OrganizationCreated"];
+        };
+        ApiResponsePlanInfo: {
+            data: components["schemas"]["PlanInfo"];
+        };
+        ApiResponsePlatformOrganizationDetail: {
+            data: components["schemas"]["PlatformOrganizationDetail"];
+        };
+        ApiResponsePlatformOrganizationSummary: {
+            data: components["schemas"]["PlatformOrganizationSummary"];
+        };
+        ApiResponsePlatformPersonView: {
+            data: components["schemas"]["PlatformPersonView"];
         };
         ApiResponsePlatformStatus: {
             data: components["schemas"]["PlatformStatus"];
@@ -586,9 +1211,26 @@ export interface components {
         ApiResponseTenantSummary: {
             data: components["schemas"]["TenantSummary"];
         };
+        ApproveSupportAccessRequest: {
+            /** Format: int32 */
+            minutes?: number;
+        };
+        CatalogueItem: {
+            key: string;
+            name: string;
+        };
         ChangePasswordRequest: {
             currentPassword: string;
             newPassword: string;
+        };
+        ChangeSubscriptionRequest: {
+            /** Format: date-time */
+            periodEndsAt?: string;
+            planKey?: string;
+            reason: string;
+            status?: string;
+            /** Format: date-time */
+            trialEndsAt?: string;
         };
         CompleteSignUpRequest: {
             displayName: string;
@@ -606,14 +1248,38 @@ export interface components {
             displayName: string;
             email: string;
             id: string;
+            platformRoles: string[];
+        };
+        EntitlementInfo: {
+            enabled?: boolean;
+            inPlan?: boolean;
+            key: string;
+            name: string;
+            override?: boolean;
         };
         /**
          * @description Stable machine-readable error code. Branch on this, never on the message.
          * @enum {string}
          */
         ErrorCode: "VALIDATION_ERROR" | "MALFORMED_REQUEST" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "NOT_ACCEPTABLE" | "CONFLICT" | "CONCURRENT_MODIFICATION" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "TENANT_UNAVAILABLE";
+        FirstAdministratorInfo: {
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: int32 */
+            sentCount?: number;
+            status: string;
+        };
+        FirstAdministratorRequest: {
+            email: string;
+        };
         ForgotPasswordRequest: {
             email: string;
+        };
+        GrantPlatformRoleRequest: {
+            email: string;
+            role: string;
         };
         InvitationAccepted: {
             displayName: string;
@@ -645,6 +1311,20 @@ export interface components {
             administrator?: boolean;
             email: string;
         };
+        LicencePoolView: {
+            /** Format: int32 */
+            assigned?: number;
+            /** Format: int32 */
+            available?: number;
+            licenceType: string;
+            name: string;
+            /** Format: int32 */
+            quantity?: number;
+        };
+        LifecycleRequest: {
+            confirm?: string;
+            reason: string;
+        };
         MemberView: {
             administrator?: boolean;
             displayName: string;
@@ -652,6 +1332,7 @@ export interface components {
             foundingAdministrator?: boolean;
             /** Format: uuid */
             id: string;
+            licence?: string;
             /** Format: date-time */
             since: string;
             status: string;
@@ -674,6 +1355,50 @@ export interface components {
             limit: number;
             nextCursor?: string;
         };
+        PlanInfo: {
+            features: string[];
+            key: string;
+            licences: {
+                [key: string]: number;
+            };
+            name: string;
+            /** Format: int32 */
+            trialDays?: number;
+        };
+        PlatformOrganizationDetail: {
+            displayName: string;
+            entitlements: components["schemas"]["EntitlementInfo"][];
+            firstAdministrator?: components["schemas"]["FirstAdministratorInfo"];
+            /** Format: uuid */
+            id: string;
+            pools: components["schemas"]["LicencePoolView"][];
+            slug: string;
+            status: string;
+            /** Format: date-time */
+            statusChangedAt: string;
+            subscription?: components["schemas"]["SubscriptionInfo"];
+        };
+        PlatformOrganizationSummary: {
+            displayName: string;
+            /** Format: uuid */
+            id: string;
+            plan?: string;
+            slug: string;
+            status: string;
+            subscriptionStatus?: string;
+            /** Format: date-time */
+            trialEndsAt?: string;
+            trialExpired?: boolean;
+        };
+        PlatformPersonView: {
+            displayName: string;
+            email: string;
+            /** Format: uuid */
+            id: string;
+            role: string;
+            /** Format: date-time */
+            since: string;
+        };
         PlatformStatus: {
             apiVersion: string;
             /** Format: date-time */
@@ -682,6 +1407,15 @@ export interface components {
             serverTime: string;
             service: string;
         };
+        ProvisionOrganizationRequest: {
+            displayName: string;
+            email: string;
+            planKey: string;
+            slug: string;
+        };
+        ReasonRequest: {
+            reason: string;
+        };
         RequestAccepted: {
             message: string;
         };
@@ -689,8 +1423,41 @@ export interface components {
             newPassword: string;
             token: string;
         };
+        SavePlanRequest: {
+            features: string[];
+            licences: {
+                [key: string]: number;
+            };
+            name: string;
+            /** Format: int32 */
+            trialDays?: number;
+        };
+        SessionInfo: {
+            /** Format: date-time */
+            expires: string;
+            kind: string;
+            organization?: string;
+            /** Format: date-time */
+            started: string;
+        };
+        SessionLookupRequest: {
+            email: string;
+            reason: string;
+        };
         SetAdministratorRequest: {
             administrator: boolean;
+        };
+        SetEntitlementRequest: {
+            enabled?: boolean;
+            reason: string;
+        };
+        SetLicenceRequest: {
+            licenceType: string;
+        };
+        SetPoolRequest: {
+            /** Format: int32 */
+            quantity: number;
+            reason: string;
         };
         SignInRequest: {
             email: string;
@@ -698,6 +1465,37 @@ export interface components {
         };
         SignUpRequest: {
             email: string;
+        };
+        SubscriptionInfo: {
+            /** Format: date-time */
+            periodEndsAt?: string;
+            planKey: string;
+            planName: string;
+            /** Format: date-time */
+            startedAt: string;
+            status: string;
+            /** Format: date-time */
+            trialEndsAt?: string;
+            trialExpired?: boolean;
+        };
+        SupportAccessRequestBody: {
+            /** Format: int32 */
+            minutes: number;
+            reason: string;
+        };
+        SupportAccessView: {
+            /** Format: date-time */
+            accessExpiresAt?: string;
+            active?: boolean;
+            /** Format: uuid */
+            id: string;
+            reason: string;
+            /** Format: date-time */
+            requestedAt: string;
+            /** Format: int32 */
+            requestedMinutes?: number;
+            requester: string;
+            status: string;
         };
         SwitchOrganizationRequest: {
             slug: string;
@@ -1331,6 +2129,35 @@ export interface operations {
             };
         };
     };
+    listLicencePools: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListLicencePoolView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     listMembers: {
         parameters: {
             query?: never;
@@ -1422,6 +2249,68 @@ export interface operations {
             };
         };
     };
+    assignMemberLicence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                membershipId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetLicenceRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    releaseMemberLicence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                membershipId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     reactivateMember: {
         parameters: {
             query?: never;
@@ -1429,6 +2318,33 @@ export interface operations {
             path: {
                 membershipId: string;
             };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    signOutEveryoneElse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -1513,6 +2429,845 @@ export interface operations {
             };
         };
     };
+    listFeatures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListCatalogueItem"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    addFeature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddCatalogueItemRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCatalogueItem"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listLicenceTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListCatalogueItem"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    addLicenceType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddCatalogueItemRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCatalogueItem"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listPlatformOrganizations: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiPageResponsePlatformOrganizationSummary"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    provisionOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProvisionOrganizationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponsePlatformOrganizationSummary"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getPlatformOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponsePlatformOrganizationDetail"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deactivateOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LifecycleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    setOrganizationEntitlement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+                feature: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetEntitlementRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponsePlatformOrganizationDetail"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    inviteFirstAdministrator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FirstAdministratorRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRequestAccepted"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    resendFirstAdministratorInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRequestAccepted"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    setOrganizationLicencePool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+                licenceType: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPoolRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponsePlatformOrganizationDetail"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    reinstateOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LifecycleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    signOutOrganizationEverywhere: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    changeOrganizationSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeSubscriptionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponsePlatformOrganizationDetail"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listOrganizationSupportAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListSupportAccessView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    requestSupportAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupportAccessRequestBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    cancelSupportAccessRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+                grantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    suspendOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LifecycleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listPlatformPeople: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListPlatformPersonView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    grantPlatformRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantPlatformRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponsePlatformPersonView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    revokePlatformRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assignmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listPlans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListPlanInfo"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    savePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavePlanRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponsePlanInfo"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    lookUpSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionLookupRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListSessionInfo"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    signOutPersonEverywhere: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionLookupRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     getPlatformStatus: {
         parameters: {
             query?: never;
@@ -1530,6 +3285,126 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiResponsePlatformStatus"];
                 };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listSupportAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListSupportAccessView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    approveSupportAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                grantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ApproveSupportAccessRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    denySupportAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                grantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    revokeSupportAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                grantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {

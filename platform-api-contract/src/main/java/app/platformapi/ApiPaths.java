@@ -87,6 +87,33 @@ public final class ApiPaths {
     /** Completes a switch on the target host with the one-time handoff (public: the token is the proof). */
     public static final String AUTH_SWITCH_COMPLETE = AUTH_SWITCH + "/complete";
 
+    /** The licence pools of the organization the host names: numbers per licence type (Sprint 6). */
+    public static final String LICENCES = V1 + "/licences";
+
+    /** Signs everyone else of the organization the host names out (Sprint 6). */
+    public static final String ORGANIZATION_SIGN_OUT_ALL = V1 + "/organization/sign-out-all";
+
+    /** Requests for support access to the organization the host names: list, approve, deny, revoke (Sprint 6). */
+    public static final String SUPPORT_ACCESS = V1 + "/support-access";
+
+    /** The platform console: platform roles held by people. */
+    public static final String PLATFORM_PEOPLE = PLATFORM + "/people";
+
+    /** The platform console: organizations, their lifecycle, subscription, pools and entitlements. */
+    public static final String PLATFORM_ORGANIZATIONS = PLATFORM + "/organizations";
+
+    /** The platform console: plans. */
+    public static final String PLATFORM_PLANS = PLATFORM + "/plans";
+
+    /** The platform console: licence types. */
+    public static final String PLATFORM_LICENCE_TYPES = PLATFORM + "/licence-types";
+
+    /** The platform console: feature keys. */
+    public static final String PLATFORM_FEATURES = PLATFORM + "/features";
+
+    /** The platform console: sessions of a person (lookup and sign-out everywhere). */
+    public static final String PLATFORM_SESSIONS = PLATFORM + "/sessions";
+
     /** The authorization server's endpoints (Sprint 3). */
     public static final String OAUTH2 = V1 + "/oauth2";
 

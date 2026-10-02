@@ -1,8 +1,10 @@
 package app.platform.identity.internal;
 
+import app.platform.identity.PlatformRoles;
 import app.platform.identity.User;
 import app.platform.identity.Users;
 import app.platform.sharedkernel.ActorId;
+import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiException;
 import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
@@ -16,6 +18,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.security.Principal;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.HttpHeaders;
@@ -42,9 +45,13 @@ class AuthController {
     private final Users users;
     private final AuthCookies cookies;
     private final IdentityProperties properties;
+    private final PlatformRoles platformRoles;
+    private final TenantContexts contexts;
 
     AuthController(SignInService signIn, AuthFlow flow, Users users, AuthCookies cookies,
-            IdentityProperties properties) {
+            IdentityProperties properties, PlatformRoles platformRoles, TenantContexts contexts) {
+        this.platformRoles = platformRoles;
+        this.contexts = contexts;
         this.signIn = signIn;
         this.flow = flow;
         this.users = users;
@@ -155,10 +162,14 @@ class AuthController {
             operationId = "getCurrentUser",
             summary = "Who the caller is",
             description = "The signed-in user. 401 UNAUTHENTICATED without a valid token. Says nothing about what the "
-                    + "user may do: permissions are decided elsewhere, per organization.")
+                    + "user may do in an organization: permissions are decided elsewhere, per organization. On the "
+                    + "platform host it also lists the platform roles, for presentation only.")
     ApiResponse<CurrentUser> me(Principal principal) {
         User user = users.findById(userOf(principal)).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED));
-        return ApiResponse.of(new CurrentUser(user.id().toString(), user.email(), user.displayName()));
+        // Platform roles are shown on the platform host only: on an organization host the person is an ordinary member.
+        List<String> roles = contexts.current().isPresent() ? List.of()
+                : platformRoles.of(user.id()).stream().map(Enum::name).sorted().toList();
+        return ApiResponse.of(new CurrentUser(user.id().toString(), user.email(), user.displayName(), roles));
     }
 
     private static UUID userOf(Principal principal) {

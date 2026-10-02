@@ -43,9 +43,18 @@ final class SchemaConventions {
      * organization's host, ADR-0029): it exists so that a session can be started on a different host, and it names the
      * target organization in {@code bound_tenant_id}. It also let {@code membership} admit the read-only
      * {@code membership_lookup} system scope (ADR-0027).
+     *
+     * <p>Sprint 6 added the platform's own records (ADR-0030, ADR-0031): {@code platform_role_assignment} (who holds a
+     * platform role: a person, not an organization), the catalogue the vendor sells from ({@code licence_type},
+     * {@code feature}, {@code plan}, {@code plan_licence}, {@code plan_feature}: the same for every organization) and
+     * the vendor's commercial facts about an organization ({@code subscription}, {@code entitlement_override}, which
+     * name it in {@code bound_tenant_id}). The last two are listed across organizations by the console, which is why
+     * they are not tenant-scoped; the organization's own records (pools, assignments, support-access grants) are.
      */
     static final Set<String> PLATFORM_TABLES = Set.of("tenant", "platform_user", "user_credential", "login_session",
-            "oauth2_authorization", "audit_record", "account_token", "mail_queue", "organization_handoff");
+            "oauth2_authorization", "audit_record", "account_token", "mail_queue", "organization_handoff",
+            "platform_role_assignment", "licence_type", "feature", "plan", "plan_licence", "plan_feature",
+            "subscription", "entitlement_override");
 
     /** Tables whose policies may admit a system scope next to the tenant, and the scopes they may name. */
     static final Set<String> SYSTEM_SCOPE_TABLES = Set.of("outbox_event", "processed_event", "membership");

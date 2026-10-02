@@ -96,8 +96,10 @@ class AuthorizationStore implements OAuth2AuthorizationService {
      * @param userId the user
      * @param scopes the granted scopes
      * @param expiresAt when the access token ends
+     * @param startedAt when the grant (the sign-in) began; it does not move when tokens are refreshed
      */
-    record Introspected(UUID authorizationId, UUID userId, Set<String> scopes, Instant expiresAt) {
+    record Introspected(UUID authorizationId, UUID userId, Set<String> scopes, Instant expiresAt,
+            Instant startedAt) {
     }
 
     private final JdbcClient jdbc;
@@ -232,7 +234,7 @@ class AuthorizationStore implements OAuth2AuthorizationService {
     /** The valid access token behind a presented value, for the check made on every API request. */
     Optional<Introspected> introspect(String accessToken) {
         Optional<Introspected> found = jdbc.sql("select a.id, a.user_id, a.bound_tenant_id, a.access_token_scopes, "
-                        + "a.access_token_expires_at from oauth2_authorization a "
+                        + "a.access_token_expires_at, a.created_at from oauth2_authorization a "
                         + "join platform_user u on u.id = a.user_id "
                         + "where a.access_token_value = :value and a.access_token_expires_at > now() and " + ALIVE)
                 .param("value", Hashes.stored(accessToken))
@@ -241,7 +243,8 @@ class AuthorizationStore implements OAuth2AuthorizationService {
                         rs.getObject("id", UUID.class),
                         rs.getObject("user_id", UUID.class),
                         scopes(rs.getString("access_token_scopes")),
-                        rs.getObject("access_token_expires_at", OffsetDateTime.class).toInstant()))
+                        rs.getObject("access_token_expires_at", OffsetDateTime.class).toInstant(),
+                        rs.getObject("created_at", OffsetDateTime.class).toInstant()))
                 .optional();
         if (found.isEmpty()) {
             return found;
@@ -282,6 +285,42 @@ class AuthorizationStore implements OAuth2AuthorizationService {
                 .param("actor", actor)
                 .param("user", userId)
                 .param("tenant", boundTenantId)
+                .update();
+    }
+
+    /** One live grant of a user, without any token: when it began, how long it can last, which host it is bound to. */
+    record GrantSummary(Instant started, Instant lastsUntil, UUID boundTenantId) {
+    }
+
+    /** The live grants of a user (no token, no hash), newest first. */
+    List<GrantSummary> liveGrantsOf(UUID userId) {
+        return jdbc.sql("select a.created_at, a.bound_tenant_id from oauth2_authorization a "
+                        + "join platform_user u on u.id = a.user_id where a.user_id = :user and " + ALIVE
+                        + " order by a.created_at desc")
+                .param("user", userId)
+                .param("absolute", (double) tokens.refreshAbsolute().toSeconds())
+                .query((rs, row) -> {
+                    Instant started = rs.getObject("created_at", OffsetDateTime.class).toInstant();
+                    return new GrantSummary(started, started.plus(tokens.refreshAbsolute()),
+                            rs.getObject("bound_tenant_id", UUID.class));
+                })
+                .list();
+    }
+
+    /**
+     * Revokes every grant bound to one organization's host, except those of {@code keepUser} (may be null).
+     *
+     * @return how many grants were alive
+     */
+    int revokeAllOfOrganization(UUID boundTenantId, UUID keepUser, String reason, UUID actor) {
+        return jdbc.sql("update oauth2_authorization set revoked_at = now(), revoked_reason = :reason, "
+                        + "updated_by = :actor, version = version + 1 "
+                        + "where bound_tenant_id = :tenant and revoked_at is null and deleted_at is null "
+                        + "and (cast(:keep as uuid) is null or user_id <> cast(:keep as uuid))")
+                .param("reason", reason)
+                .param("actor", actor)
+                .param("tenant", boundTenantId)
+                .param("keep", keepUser, java.sql.Types.OTHER)
                 .update();
     }
 

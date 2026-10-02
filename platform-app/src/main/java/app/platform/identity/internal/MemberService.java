@@ -1,11 +1,15 @@
 package app.platform.identity.internal;
 
+import app.platform.identity.SessionAdministration;
+import app.platform.licensing.Licences;
 import app.platform.sharedkernel.ActorId;
 import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
+import app.platformapi.LicencePoolView;
 import app.platformapi.MemberView;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
@@ -29,9 +33,13 @@ class MemberService {
     private final SessionRevocation revocation;
     private final TenantContexts contexts;
     private final AuthAudit audit;
+    private final Licences licences;
+    private final SessionAdministration sessions;
 
     MemberService(Administration administration, MembershipRepository memberships, SessionRevocation revocation,
-            TenantContexts contexts, AuthAudit audit) {
+            TenantContexts contexts, AuthAudit audit, Licences licences, SessionAdministration sessions) {
+        this.licences = licences;
+        this.sessions = sessions;
         this.administration = administration;
         this.memberships = memberships;
         this.revocation = revocation;
@@ -40,11 +48,63 @@ class MemberService {
     }
 
     List<MemberView> list() {
-        return administration.run("member.list", caller -> memberships.list().stream()
-                .map(member -> new MemberView(member.id(), member.email(), member.displayName(), member.status(),
-                        member.administrator(), member.founding(), member.since(),
-                        member.userId().equals(caller.userId())))
+        return administration.run("member.list", caller -> {
+            Map<UUID, String> held = licences.assigned();
+            return memberships.list().stream()
+                    .map(member -> new MemberView(member.id(), member.email(), member.displayName(), member.status(),
+                            member.administrator(), member.founding(), member.since(),
+                            member.userId().equals(caller.userId()), held.get(member.id())))
+                    .toList();
+        });
+    }
+
+    /** The licence pools of the organization with their numbers (ADR-0032). */
+    List<LicencePoolView> pools() {
+        return administration.run("licence.pools", caller -> licences.pools().stream()
+                .map(pool -> new LicencePoolView(pool.licenceType(), pool.name(), pool.quantity(), pool.assigned(),
+                        pool.available()))
                 .toList());
+    }
+
+    /**
+     * Gives an active member a licence of the type (moving them from the type they hold), or refuses.
+     *
+     * @throws ApiException {@code NOT_FOUND} for a member of another organization or an unknown type,
+     *         {@code CONFLICT} when none is free or the member is not active
+     */
+    void assignLicence(UUID membershipId, String licenceType) {
+        administration.run("licence.assign", caller -> {
+            MembershipRepository.Member member = memberships.findForUpdate(membershipId)
+                    .orElseThrow(() -> ApiException.notFound("This member does not exist."));
+            if (!MembershipRepository.ACTIVE.equals(member.status())) {
+                throw new ApiException(ErrorCode.CONFLICT, "Only an active member can hold a licence.");
+            }
+            licences.assign(membershipId, licenceType, new ActorId(caller.userId()));
+            audit.licenceAssigned(caller.userId(), member.userId(), membershipId, licenceType);
+            return null;
+        });
+    }
+
+    /** Takes a member's licence back; nothing happens when they hold none. */
+    void releaseLicence(UUID membershipId) {
+        administration.run("licence.release", caller -> {
+            MembershipRepository.Member member = memberships.findForUpdate(membershipId)
+                    .orElseThrow(() -> ApiException.notFound("This member does not exist."));
+            if (licences.release(membershipId, new ActorId(caller.userId()))) {
+                audit.licenceReleased(caller.userId(), member.userId(), membershipId, "released_by_administrator");
+            }
+            return null;
+        });
+    }
+
+    /**
+     * Signs everybody else out of the organization: every session and grant bound to its host, except the caller own.
+     *
+     * @return how many were alive
+     */
+    int signOutEveryoneElse() {
+        return administration.run("organization.sign_out_all", caller ->
+                sessions.signOutOrganization(contexts.require().tenantId(), caller.userId(), caller.userId()));
     }
 
     /**
@@ -66,6 +126,10 @@ class MemberService {
             }
             ActorId actor = new ActorId(caller.userId());
             memberships.setStatus(membershipId, MembershipRepository.DEACTIVATED, actor);
+            // The licence goes back to the pool in the same transaction (ADR-0032).
+            if (licences.release(membershipId, actor)) {
+                audit.licenceReleased(caller.userId(), member.userId(), membershipId, "membership_deactivated");
+            }
             int ended = revocation.revokeAllIn(member.userId(), contexts.require().tenantId().value(),
                     "membership_deactivated", actor);
             audit.membershipDeactivated(caller.userId(), member.userId(), membershipId, ended);
@@ -84,8 +148,11 @@ class MemberService {
             if (!MembershipRepository.DEACTIVATED.equals(member.status())) {
                 throw new ApiException(ErrorCode.CONFLICT, "This member is not deactivated.");
             }
-            memberships.setStatus(membershipId, MembershipRepository.ACTIVE, new ActorId(caller.userId()));
+            ActorId actor = new ActorId(caller.userId());
+            memberships.setStatus(membershipId, MembershipRepository.ACTIVE, actor);
             audit.membershipReactivated(caller.userId(), member.userId(), membershipId);
+            // The member returns with the default licence when one is free, and unlicensed otherwise (ADR-0032).
+            licences.assignDefault(membershipId, actor);
             return null;
         });
     }

@@ -12,8 +12,12 @@
 # on the platform host, completing the link creates the account and the person signs in. It then runs one invitation
 # round trip (Sprint 5): the person founds an organization, invites a second address as an administrator of it, the
 # invitation e-mail arrives with a link on the platform host, accepting it once creates the account and the membership
-# (twice does not), and the invited person signs in on the organization's host. The owner's role name can be set
-# with OWNER_USER.
+# (twice does not), and the invited person signs in on the organization's host. Finally (Sprint 6) it creates the first
+# platform administrator the documented way (manual migration M002, run as the owner, for the first person's account),
+# provisions an organization for a client as that administrator, reads the first-administrator e-mail, accepts it, and
+# checks that the organization was closed until then, that an ordinary person reaches no platform endpoint and that no
+# token is stored in clear. Run it from the repository root (it reads db/manual/M002...). The owner's role name can be
+# set with OWNER_USER.
 set -euo pipefail
 
 db="${1:?database container name}"
@@ -177,10 +181,11 @@ if [ -n "$mail" ]; then
   # host; accepting creates the account and the membership once; the invited person signs in on the organization's host.
   founder_token="$(sign_in_token "$host" "$address" "$password")"
   [ -n "$founder_token" ] || fail "the founder has no access token"
+  org_slug="smoke-org-$(date +%s)"
   status="$(call -X POST -H "Authorization: Bearer $founder_token" -H 'Content-Type: application/json' \
-    -d '{"displayName":"Smoke Organization","slug":"smoke-org"}' "$base/api/v1/organizations")"
+    -d "{\"displayName\":\"Smoke Organization\",\"slug\":\"$org_slug\"}" "$base/api/v1/organizations")"
   [ "$status" = "201" ] || fail "founding an organization answered $status: $(cat "$body")"
-  org_host="smoke-org.$host"
+  org_host="$org_slug.$host"
   org_token="$(sign_in_token "$org_host" "$address" "$password")"
   [ -n "$org_token" ] || fail "the founder could not sign in on the organization's host"
   echo "ok: a person founds an organization and signs in on its host as its member"
@@ -227,7 +232,7 @@ if [ -n "$mail" ]; then
   [ -n "$invitee_token" ] || fail "the invited person could not sign in on the organization's host"
   status="$(call_host="$org_host" call -H "Authorization: Bearer $invitee_token" "$base/api/v1/members")"
   [ "$status" = "200" ] || fail "the invited administrator could not list the members ($status)"
-  [ "$(owner_sql -c "select count(*) from membership m join tenant t on t.id = m.tenant_id where t.slug = 'smoke-org'")" = "2" ] \
+  [ "$(owner_sql -c "select count(*) from membership m join tenant t on t.id = m.tenant_id where t.slug = '$org_slug'")" = "2" ] \
     || fail "the organization does not have exactly two members"
   echo "ok: the invited person signs in on the organization's host and is its second member"
 
@@ -240,4 +245,96 @@ if [ -n "$mail" ]; then
     fail "a password reached a table"
   fi
   echo "ok: no invitation token or password is stored in clear"
+
+  # 12. Provisioning an organization for a client (Sprint 6). The first platform administrator is created the documented
+  # way: manual migration M002, run as the owner, for the account of the first person. They sign in on the platform
+  # host, set an organization up for a client with a plan and the address of its first administrator, and the
+  # organization stays closed until that person accepts the mailed invitation, which opens it.
+  m002_output="$(docker exec -i "$db" psql -U "${OWNER_USER:-platform_owner}" -d "${OWNER_DB:-platform}" \
+    -v ON_ERROR_STOP=1 -v admin_email="$address" < db/manual/M002__grant_first_platform_administrator.sql 2>&1)" \
+    || fail "the manual step that creates the first platform administrator failed: $m002_output"
+  case "$m002_output" in
+    *"M002 done"*) ;;
+    *"already exists"*)
+      # Only on a database that an earlier run of this script used: the documented repair path adds this person as well.
+      m002_output="$(docker exec -i "$db" psql -U "${OWNER_USER:-platform_owner}" -d "${OWNER_DB:-platform}" \
+        -v ON_ERROR_STOP=1 -v admin_email="$address" -v allow_additional=yes \
+        < db/manual/M002__grant_first_platform_administrator.sql 2>&1)" \
+        || fail "the repair form of the manual step failed: $m002_output"
+      ;;
+    *) fail "the manual step answered something unexpected: $m002_output" ;;
+  esac
+  [ "$(owner_sql -c "select count(*) from platform_role_assignment a join platform_user u on u.id = a.user_id \
+    where u.email = '$address' and a.role = 'PLATFORM_ADMIN' and a.deleted_at is null")" -ge 1 ] \
+    || fail "the person does not hold the platform administrator role"
+  echo "ok: the first platform administrator was created by the documented manual step"
+
+  console_token="$(sign_in_token "$host" "$address" "$password")"
+  [ -n "$console_token" ] || fail "the platform administrator could not sign in on the platform host"
+  status="$(call -H "Authorization: Bearer $console_token" "$base/api/v1/platform/organizations")"
+  [ "$status" = "200" ] || fail "the console list answered $status: $(cat "$body")"
+  status="$(call_host="$org_host" call -H "Authorization: Bearer $org_token" "$base/api/v1/platform/organizations")"
+  [ "$status" = "404" ] || fail "the console answered $status on an organization's host"
+  invitee_platform_token="$(sign_in_token "$host" "$invitee" "$invitee_password")"
+  status="$(call -H "Authorization: Bearer $invitee_platform_token" "$base/api/v1/platform/organizations")"
+  [ "$status" = "403" ] || fail "an ordinary person reached the console ($status)"
+  echo "ok: the console answers the platform administrator on the platform host only, and an ordinary person is refused"
+
+  client="smoke-client-$(date +%s)"
+  client_slug="smoke-client"
+  client_admin="smoke-client-admin-$(date +%s)@example.test"
+  client_password="a-long-client-passphrase-$RANDOM-$RANDOM"
+  status="$(call -X POST -H "Authorization: Bearer $console_token" -H 'Content-Type: application/json' \
+    -d "{\"displayName\":\"Smoke Client\",\"slug\":\"$client_slug-$RANDOM\",\"planKey\":\"trial\",\"email\":\"$client_admin\"}" \
+    "$base/api/v1/platform/organizations")"
+  [ "$status" = "201" ] || fail "provisioning answered $status: $(cat "$body")"
+  grep -q '"status":"PROVISIONING"' "$body" || fail "the new organization is not being set up: $(cat "$body")"
+  grep -q "$client_admin" "$body" && fail "the provisioning answer shows the address"
+  client_host="$(grep -o '"slug":"[^"]*"' "$body" | head -1 | cut -d'"' -f4).$host"
+  status="$(call_host="$client_host" call "$base/api/v1/tenant/current")"
+  [ "$status" = "403" ] || fail "the organization is not closed before acceptance ($status)"
+  echo "ok: provisioning answers 201 and the organization stays closed until its first administrator accepts"
+
+  client_link=""
+  for _ in $(seq 1 30); do
+    message_id="$(curl -fsS "$mail/api/v1/search?query=to:$client_admin" | grep -o '"ID":"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
+    if [ -n "$message_id" ]; then
+      client_link="$(curl -fsS "$mail/api/v1/message/$message_id" | grep -o 'https\?://[A-Za-z0-9./:_-]*#token=[A-Za-z0-9_-]*' | head -1 || true)"
+      break
+    fi
+    sleep 2
+  done
+  [ -n "$client_link" ] || fail "no first-administrator e-mail arrived"
+  case "$client_link" in
+    "https://$host/invitations/accept#token="*) ;;
+    *) fail "the first-administrator link does not point at the platform host: ${client_link%%#*}" ;;
+  esac
+  client_token="${client_link#*#token=}"
+  status="$(call -X POST "${json_headers[@]}" \
+    -d "{\"token\":\"$client_token\",\"displayName\":\"Client Administrator\",\"password\":\"$client_password\"}" \
+    "$base/api/v1/auth/invitations/accept-new")"
+  [ "$status" = "200" ] || fail "the first administrator could not accept ($status): $(cat "$body")"
+  grep -q "\"host\":\"$client_host\"" "$body" || fail "the answer does not name the organization's host: $(cat "$body")"
+  status="$(call_host="$client_host" call "$base/api/v1/tenant/current")"
+  [ "$status" = "200" ] || fail "accepting did not open the organization ($status)"
+  client_access="$(sign_in_token "$client_host" "$client_admin" "$client_password")"
+  [ -n "$client_access" ] || fail "the first administrator could not sign in on the organization's host"
+  status="$(call_host="$client_host" call -H "Authorization: Bearer $client_access" "$base/api/v1/members")"
+  [ "$status" = "200" ] || fail "the first administrator could not list the members ($status)"
+  [ "$(owner_sql -c "select founding_administrator and administrator from membership m join tenant t on t.id = m.tenant_id \
+    where t.slug = '${client_host%%.*}'")" = "t" ] || fail "the first administrator is not the founder and an administrator"
+  echo "ok: the first administrator accepts, the organization opens and they sign in as its founder"
+
+  stored="$(owner_sql -c "select t::text from account_token t union all select t::text from mail_queue t \
+    union all select attributes::text from audit_record union all select t::text from invitation t")"
+  if echo "$stored" | grep -q "$client_token"; then
+    fail "a first-administrator token was stored in clear"
+  fi
+  if echo "$stored" | grep -q "$client_password"; then
+    fail "a client password reached a table"
+  fi
+  if owner_sql -c "select attributes::text from audit_record" | grep -q "$client_admin"; then
+    fail "the first administrator's address reached the audit table"
+  fi
+  echo "ok: no first-administrator token, password or address is stored where it must not be"
 fi

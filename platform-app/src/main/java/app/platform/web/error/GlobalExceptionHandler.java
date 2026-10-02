@@ -2,6 +2,7 @@ package app.platform.web.error;
 
 import app.platform.observability.ErrorReport;
 import app.platform.observability.ErrorTracker;
+import app.platform.sharedkernel.support.SupportAccessDeniedException;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
 import jakarta.validation.ConstraintViolation;
@@ -95,6 +96,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     /** Authenticated but not allowed. */
     @ExceptionHandler(AccessDeniedException.class)
     ResponseEntity<Object> handleAccessDenied() {
+        return responses.of(ErrorCode.FORBIDDEN);
+    }
+
+    /** Support access was asked for without an active grant (ADR-0035): refused, with no reason given. */
+    @ExceptionHandler(SupportAccessDeniedException.class)
+    ResponseEntity<Object> handleSupportAccessDenied() {
         return responses.of(ErrorCode.FORBIDDEN);
     }
 

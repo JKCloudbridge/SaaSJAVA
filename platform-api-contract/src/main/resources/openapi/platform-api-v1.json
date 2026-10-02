@@ -154,7 +154,7 @@
     },
     "/api/v1/auth/me" : {
       "get" : {
-        "description" : "The signed-in user. 401 UNAUTHENTICATED without a valid token. Says nothing about what the user may do: permissions are decided elsewhere, per organization.",
+        "description" : "The signed-in user. 401 UNAUTHENTICATED without a valid token. Says nothing about what the user may do in an organization: permissions are decided elsewhere, per organization. On the platform host it also lists the platform roles, for presentation only.",
         "operationId" : "getCurrentUser",
         "responses" : {
           "200" : {
@@ -675,6 +675,36 @@
         "tags" : [ "Invitations" ]
       }
     },
+    "/api/v1/licences" : {
+      "get" : {
+        "description" : "Per licence type: how many licences the organization holds, how many are assigned and how many are free. For the administrators of the organization of the host. NOT_FOUND on the platform host.",
+        "operationId" : "listLicencePools",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListLicencePoolView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The licence pools of the organization",
+        "tags" : [ "Members" ]
+      }
+    },
     "/api/v1/members" : {
       "get" : {
         "description" : "For the administrators of the organization of the host. NOT_FOUND on the platform host, FORBIDDEN for a member who is not an administrator.",
@@ -779,6 +809,78 @@
         "tags" : [ "Members" ]
       }
     },
+    "/api/v1/members/{membershipId}/licence" : {
+      "delete" : {
+        "description" : "The licence returns to the pool. Nothing happens when the member holds none.",
+        "operationId" : "releaseMemberLicence",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "membershipId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Take a member licence back",
+        "tags" : [ "Members" ]
+      },
+      "put" : {
+        "description" : "Moves the member from the licence type they hold, if any. CONFLICT when none is free of that type or the member is not active; two administrators asking for the last free licence have one winner. A licence counts assignments only: it grants no permission.",
+        "operationId" : "assignMemberLicence",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "membershipId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SetLicenceRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Give a member a licence",
+        "tags" : [ "Members" ]
+      }
+    },
     "/api/v1/members/{membershipId}/reactivate" : {
       "post" : {
         "description" : "The person can sign in again; sessions that ended do not come back and the administrator marker is not restored. CONFLICT when the member is not deactivated.",
@@ -808,6 +910,29 @@
           }
         },
         "summary" : "Reactivate a deactivated member",
+        "tags" : [ "Members" ]
+      }
+    },
+    "/api/v1/organization/sign-out-all" : {
+      "post" : {
+        "description" : "Ends every session and token bound to this organization host except the caller own. For the administrators of the organization of the host; audited.",
+        "operationId" : "signOutEveryoneElse",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Sign everybody else out of the organization",
         "tags" : [ "Members" ]
       }
     },
@@ -879,6 +1004,1063 @@
         "tags" : [ "Organizations" ]
       }
     },
+    "/api/v1/platform/features" : {
+      "get" : {
+        "description" : "For platform administrators, billing and support.",
+        "operationId" : "listFeatures",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListCatalogueItem"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The feature keys",
+        "tags" : [ "Platform plans" ]
+      },
+      "post" : {
+        "description" : "CONFLICT when the key exists. For platform administrators and billing.",
+        "operationId" : "addFeature",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AddCatalogueItemRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCatalogueItem"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Add a feature key",
+        "tags" : [ "Platform plans" ]
+      }
+    },
+    "/api/v1/platform/licence-types" : {
+      "get" : {
+        "description" : "For platform administrators, billing and support.",
+        "operationId" : "listLicenceTypes",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListCatalogueItem"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The licence types",
+        "tags" : [ "Platform plans" ]
+      },
+      "post" : {
+        "description" : "CONFLICT when the key exists. For platform administrators and billing.",
+        "operationId" : "addLicenceType",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AddCatalogueItemRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCatalogueItem"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Add a licence type",
+        "tags" : [ "Platform plans" ]
+      }
+    },
+    "/api/v1/platform/organizations" : {
+      "get" : {
+        "description" : "By short name, one page at a time. For platform administrators, support and billing. Never shows members or business data. Platform host only.",
+        "operationId" : "listPlatformOrganizations",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 200,
+            "minimum" : 1
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 512,
+            "minLength" : 0
+          }
+        }, {
+          "in" : "query",
+          "name" : "search",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiPageResponsePlatformOrganizationSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "List the organizations (platform console)",
+        "tags" : [ "Platform organizations" ]
+      },
+      "post" : {
+        "description" : "Creates the organization on a plan and invites its first administrator. The organization stays closed (its host answers not available) until that person accepts, which opens it. The answer is the same whether or not the address has an account. For platform administrators.",
+        "operationId" : "provisionOrganization",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProvisionOrganizationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePlatformOrganizationSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Set up an organization for a client",
+        "tags" : [ "Platform organizations" ]
+      }
+    },
+    "/api/v1/platform/organizations/{organizationId}" : {
+      "get" : {
+        "description" : "Status, subscription, licence pools, features and the state of the first-administrator invitation (never its address). For platform administrators, support and billing.",
+        "operationId" : "getPlatformOrganization",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "organizationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePlatformOrganizationDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One organization (platform console)",
+        "tags" : [ "Platform organizations" ]
+      }
+    },
+    "/api/v1/platform/organizations/{organizationId}/deactivate" : {
+      "post" : {
+        "description" : "Final. Needs a reason and the short name of the organization typed again as confirmation. Open invitations are withdrawn and sessions end. Also cancels an organization that was still being set up. For platform administrators.",
+        "operationId" : "deactivateOrganization",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "organizationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LifecycleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Close an organization for good",
+        "tags" : [ "Platform organizations" ]
+      }
+    },
+    "/api/v1/platform/organizations/{organizationId}/entitlements/{feature}" : {
+      "put" : {
+        "description" : "Over the plan default; an absent value removes the override. For platform administrators.",
+        "operationId" : "setOrganizationEntitlement",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "organizationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "feature",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SetEntitlementRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePlatformOrganizationDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Switch a feature on or off for an organization",
+        "tags" : [ "Platform organizations" ]
+      }
+    },
+    "/api/v1/platform/organizations/{organizationId}/first-administrator" : {
+      "post" : {
+        "description" : "For an organization that is being set up, or that lost every administrator. Always answers 202 with the same text whether or not the address has an account. For platform administrators.",
+        "operationId" : "inviteFirstAdministrator",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "organizationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/FirstAdministratorRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRequestAccepted"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Invite a new first administrator",
+        "tags" : [ "Platform organizations" ]
+      }
+    },
+    "/api/v1/platform/organizations/{organizationId}/first-administrator/resend" : {
+      "post" : {
+        "description" : "A new link replaces the old one and the time starts again. CONFLICT when it is no longer open. For platform administrators and support.",
+        "operationId" : "resendFirstAdministratorInvitation",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "organizationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRequestAccepted"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Send the first-administrator invitation again",
+        "tags" : [ "Platform organizations" ]
+      }
+    },
+    "/api/v1/platform/organizations/{organizationId}/pools/{licenceType}" : {
+      "put" : {
+        "description" : "Not below the licences in use (CONFLICT). For platform administrators.",
+        "operationId" : "setOrganizationLicencePool",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "organizationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "licenceType",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SetPoolRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePlatformOrganizationDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Set the size of a licence pool of an organization",
+        "tags" : [ "Platform organizations" ]
+      }
+    },
+    "/api/v1/platform/organizations/{organizationId}/reinstate" : {
+      "post" : {
+        "description" : "People sign in again; sessions that ended do not come back. Needs a reason. For platform administrators.",
+        "operationId" : "reinstateOrganization",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "organizationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LifecycleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Reinstate a suspended organization",
+        "tags" : [ "Platform organizations" ]
+      }
+    },
+    "/api/v1/platform/organizations/{organizationId}/sign-out-all" : {
+      "post" : {
+        "description" : "Ends every session and token bound to the organization host. Needs a reason. For platform administrators and support.",
+        "operationId" : "signOutOrganizationEverywhere",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "organizationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReasonRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Sign everybody out of an organization",
+        "tags" : [ "Platform organizations" ]
+      }
+    },
+    "/api/v1/platform/organizations/{organizationId}/subscription" : {
+      "put" : {
+        "description" : "Plan, status and dates; also puts an organization without a plan on one. A plan that would leave a licence pool below the licences in use is refused (CONFLICT). No payment is involved. For platform administrators and billing.",
+        "operationId" : "changeOrganizationSubscription",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "organizationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChangeSubscriptionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePlatformOrganizationDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change the subscription of an organization",
+        "tags" : [ "Platform organizations" ]
+      }
+    },
+    "/api/v1/platform/organizations/{organizationId}/support-access" : {
+      "get" : {
+        "description" : "For platform administrators and support.",
+        "operationId" : "listOrganizationSupportAccess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "organizationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListSupportAccessView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The support-access requests of an organization",
+        "tags" : [ "Support access" ]
+      },
+      "post" : {
+        "description" : "A reason and 15 to 240 minutes. Nothing is granted until an administrator of the organization approves it. One open request per person and organization (CONFLICT). For platform administrators and support.",
+        "operationId" : "requestSupportAccess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "organizationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SupportAccessRequestBody"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Ask an organization for support access",
+        "tags" : [ "Support access" ]
+      }
+    },
+    "/api/v1/platform/organizations/{organizationId}/support-access/{grantId}/cancel" : {
+      "post" : {
+        "description" : "Only the person who asked can. CONFLICT when it is no longer open.",
+        "operationId" : "cancelSupportAccessRequest",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "organizationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "grantId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Withdraw your own open request",
+        "tags" : [ "Support access" ]
+      }
+    },
+    "/api/v1/platform/organizations/{organizationId}/suspend" : {
+      "post" : {
+        "description" : "Its host answers not available at once and everybody signed in loses access. Needs a reason (kept in the audit trail only). For platform administrators.",
+        "operationId" : "suspendOrganization",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "organizationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LifecycleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Suspend an organization",
+        "tags" : [ "Platform organizations" ]
+      }
+    },
+    "/api/v1/platform/people" : {
+      "get" : {
+        "description" : "For platform administrators. Platform host only.",
+        "operationId" : "listPlatformPeople",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListPlatformPersonView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Who holds a platform role",
+        "tags" : [ "Platform people" ]
+      },
+      "post" : {
+        "description" : "The person must already have an active account. VALIDATION_ERROR when no active account has the address, CONFLICT when the person holds the role. Audited. For platform administrators.",
+        "operationId" : "grantPlatformRole",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GrantPlatformRoleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePlatformPersonView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Give a platform role to a person",
+        "tags" : [ "Platform people" ]
+      }
+    },
+    "/api/v1/platform/people/{assignmentId}" : {
+      "delete" : {
+        "description" : "CONFLICT for the last platform administrator. Audited. For platform administrators.",
+        "operationId" : "revokePlatformRole",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "assignmentId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Take a platform role away",
+        "tags" : [ "Platform people" ]
+      }
+    },
+    "/api/v1/platform/plans" : {
+      "get" : {
+        "description" : "Default licence quantities and included features. For platform administrators, billing and support.",
+        "operationId" : "listPlans",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListPlanInfo"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The plans",
+        "tags" : [ "Platform plans" ]
+      }
+    },
+    "/api/v1/platform/plans/{key}" : {
+      "put" : {
+        "description" : "Organizations keep their pools until their subscription changes plan. For platform administrators and billing.",
+        "operationId" : "savePlan",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SavePlanRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePlanInfo"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Create a plan, or replace the one with this key",
+        "tags" : [ "Platform plans" ]
+      }
+    },
+    "/api/v1/platform/sessions/lookup" : {
+      "post" : {
+        "description" : "When each began and ends and which host it works on; never a token or a secret. An unknown address gives an empty list. For platform administrators and support.",
+        "operationId" : "lookUpSessions",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SessionLookupRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListSessionInfo"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The live sign-ins of a person",
+        "tags" : [ "Platform sessions" ]
+      }
+    },
+    "/api/v1/platform/sessions/sign-out" : {
+      "post" : {
+        "description" : "Ends every session and token of the person on every host. Answers 204 whether or not the address has an account. For platform administrators and support.",
+        "operationId" : "signOutPersonEverywhere",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SessionLookupRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Sign a person out everywhere",
+        "tags" : [ "Platform sessions" ]
+      }
+    },
     "/api/v1/platform/status" : {
       "get" : {
         "description" : "Succeeds when the API is running and its database answered a query.",
@@ -907,6 +2089,141 @@
         },
         "summary" : "Platform status",
         "tags" : [ "Platform" ]
+      }
+    },
+    "/api/v1/support-access" : {
+      "get" : {
+        "description" : "Who asked, why, and what became of it. For the administrators of the organization of the host. NOT_FOUND on the platform host.",
+        "operationId" : "listSupportAccess",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListSupportAccessView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Support-access requests of the organization",
+        "tags" : [ "Support access" ]
+      }
+    },
+    "/api/v1/support-access/{grantId}/approve" : {
+      "post" : {
+        "description" : "Opens a window of at most the minutes asked for and four hours; it ends by itself. CONFLICT when the request is no longer open.",
+        "operationId" : "approveSupportAccess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "grantId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ApproveSupportAccessRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Approve a support-access request",
+        "tags" : [ "Support access" ]
+      }
+    },
+    "/api/v1/support-access/{grantId}/deny" : {
+      "post" : {
+        "description" : "CONFLICT when the request is no longer open.",
+        "operationId" : "denySupportAccess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "grantId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Deny a support-access request",
+        "tags" : [ "Support access" ]
+      }
+    },
+    "/api/v1/support-access/{grantId}/revoke" : {
+      "post" : {
+        "description" : "CONFLICT when the access is not approved.",
+        "operationId" : "revokeSupportAccess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "grantId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "End an approved support access now",
+        "tags" : [ "Support access" ]
       }
     },
     "/api/v1/tenant/current" : {
@@ -963,6 +2280,22 @@
         },
         "required" : [ "displayName", "password", "token" ]
       },
+      "AddCatalogueItemRequest" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "key", "name" ]
+      },
       "ApiError" : {
         "type" : "object",
         "properties" : {
@@ -999,6 +2332,30 @@
         },
         "required" : [ "error" ]
       },
+      "ApiPageResponsePlatformOrganizationSummary" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlatformOrganizationSummary"
+            }
+          },
+          "pagination" : {
+            "$ref" : "#/components/schemas/Pagination"
+          }
+        },
+        "required" : [ "data", "pagination" ]
+      },
+      "ApiResponseCatalogueItem" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CatalogueItem"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseCurrentUser" : {
         "type" : "object",
         "properties" : {
@@ -1026,6 +2383,18 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListCatalogueItem" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CatalogueItem"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListInvitationView" : {
         "type" : "object",
         "properties" : {
@@ -1033,6 +2402,18 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/InvitationView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListLicencePoolView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LicencePoolView"
             }
           }
         },
@@ -1062,11 +2443,95 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListPlanInfo" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlanInfo"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListPlatformPersonView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlatformPersonView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListSessionInfo" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SessionInfo"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListSupportAccessView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SupportAccessView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseOrganizationCreated" : {
         "type" : "object",
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/OrganizationCreated"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponsePlanInfo" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PlanInfo"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponsePlatformOrganizationDetail" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PlatformOrganizationDetail"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponsePlatformOrganizationSummary" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PlatformOrganizationSummary"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponsePlatformPersonView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PlatformPersonView"
           }
         },
         "required" : [ "data" ]
@@ -1107,6 +2572,29 @@
         },
         "required" : [ "data" ]
       },
+      "ApproveSupportAccessRequest" : {
+        "type" : "object",
+        "properties" : {
+          "minutes" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 240,
+            "minimum" : 15
+          }
+        }
+      },
+      "CatalogueItem" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "key", "name" ]
+      },
       "ChangePasswordRequest" : {
         "type" : "object",
         "properties" : {
@@ -1122,6 +2610,35 @@
           }
         },
         "required" : [ "currentPassword", "newPassword" ]
+      },
+      "ChangeSubscriptionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "periodEndsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "planKey" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "status" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "trialEndsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "reason" ]
       },
       "CompleteSignUpRequest" : {
         "type" : "object",
@@ -1182,14 +2699,73 @@
           },
           "id" : {
             "type" : "string"
+          },
+          "platformRoles" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           }
         },
-        "required" : [ "displayName", "email", "id" ]
+        "required" : [ "displayName", "email", "id", "platformRoles" ]
+      },
+      "EntitlementInfo" : {
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "inPlan" : {
+            "type" : "boolean"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "override" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "key", "name" ]
       },
       "ErrorCode" : {
         "type" : "string",
         "description" : "Stable machine-readable error code. Branch on this, never on the message.",
         "enum" : [ "VALIDATION_ERROR", "MALFORMED_REQUEST", "UNAUTHENTICATED", "FORBIDDEN", "NOT_FOUND", "METHOD_NOT_ALLOWED", "NOT_ACCEPTABLE", "CONFLICT", "CONCURRENT_MODIFICATION", "PAYLOAD_TOO_LARGE", "UNSUPPORTED_MEDIA_TYPE", "RATE_LIMITED", "INTERNAL_ERROR", "SERVICE_UNAVAILABLE", "TENANT_UNAVAILABLE" ]
+      },
+      "FirstAdministratorInfo" : {
+        "type" : "object",
+        "properties" : {
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "sentCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "expiresAt", "id", "status" ]
+      },
+      "FirstAdministratorRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "maxLength" : 254,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "email" ]
       },
       "ForgotPasswordRequest" : {
         "type" : "object",
@@ -1201,6 +2777,22 @@
           }
         },
         "required" : [ "email" ]
+      },
+      "GrantPlatformRoleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "maxLength" : 254,
+            "minLength" : 0
+          },
+          "role" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "email", "role" ]
       },
       "InvitationAccepted" : {
         "type" : "object",
@@ -1288,6 +2880,46 @@
         },
         "required" : [ "email" ]
       },
+      "LicencePoolView" : {
+        "type" : "object",
+        "properties" : {
+          "assigned" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "available" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "licenceType" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "quantity" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "licenceType", "name" ]
+      },
+      "LifecycleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "confirm" : {
+            "type" : "string",
+            "maxLength" : 63,
+            "minLength" : 0
+          },
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "reason" ]
+      },
       "MemberView" : {
         "type" : "object",
         "properties" : {
@@ -1306,6 +2938,9 @@
           "id" : {
             "type" : "string",
             "format" : "uuid"
+          },
+          "licence" : {
+            "type" : "string"
           },
           "since" : {
             "type" : "string",
@@ -1369,6 +3004,131 @@
         },
         "required" : [ "hasMore", "limit" ]
       },
+      "PlanInfo" : {
+        "type" : "object",
+        "properties" : {
+          "features" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "licences" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "trialDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "features", "key", "licences", "name" ]
+      },
+      "PlatformOrganizationDetail" : {
+        "type" : "object",
+        "properties" : {
+          "displayName" : {
+            "type" : "string"
+          },
+          "entitlements" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/EntitlementInfo"
+            }
+          },
+          "firstAdministrator" : {
+            "$ref" : "#/components/schemas/FirstAdministratorInfo"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "pools" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LicencePoolView"
+            }
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "statusChangedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "subscription" : {
+            "$ref" : "#/components/schemas/SubscriptionInfo"
+          }
+        },
+        "required" : [ "displayName", "entitlements", "id", "pools", "slug", "status", "statusChangedAt" ]
+      },
+      "PlatformOrganizationSummary" : {
+        "type" : "object",
+        "properties" : {
+          "displayName" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "plan" : {
+            "type" : "string"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "subscriptionStatus" : {
+            "type" : "string"
+          },
+          "trialEndsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "trialExpired" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "displayName", "id", "slug", "status" ]
+      },
+      "PlatformPersonView" : {
+        "type" : "object",
+        "properties" : {
+          "displayName" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "role" : {
+            "type" : "string"
+          },
+          "since" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "displayName", "email", "id", "role", "since" ]
+      },
       "PlatformStatus" : {
         "type" : "object",
         "properties" : {
@@ -1388,6 +3148,43 @@
           }
         },
         "required" : [ "apiVersion", "databaseTime", "serverTime", "service" ]
+      },
+      "ProvisionOrganizationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "displayName" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "email" : {
+            "type" : "string",
+            "maxLength" : 254,
+            "minLength" : 0
+          },
+          "planKey" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "slug" : {
+            "type" : "string",
+            "maxLength" : 63,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "displayName", "email", "planKey", "slug" ]
+      },
+      "ReasonRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "reason" ]
       },
       "RequestAccepted" : {
         "type" : "object",
@@ -1414,6 +3211,70 @@
         },
         "required" : [ "newPassword", "token" ]
       },
+      "SavePlanRequest" : {
+        "type" : "object",
+        "properties" : {
+          "features" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "licences" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "trialDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "features", "licences", "name" ]
+      },
+      "SessionInfo" : {
+        "type" : "object",
+        "properties" : {
+          "expires" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "organization" : {
+            "type" : "string"
+          },
+          "started" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "expires", "kind", "started" ]
+      },
+      "SessionLookupRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "maxLength" : 254,
+            "minLength" : 0
+          },
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "email", "reason" ]
+      },
       "SetAdministratorRequest" : {
         "type" : "object",
         "properties" : {
@@ -1422,6 +3283,48 @@
           }
         },
         "required" : [ "administrator" ]
+      },
+      "SetEntitlementRequest" : {
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "reason" ]
+      },
+      "SetLicenceRequest" : {
+        "type" : "object",
+        "properties" : {
+          "licenceType" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "licenceType" ]
+      },
+      "SetPoolRequest" : {
+        "type" : "object",
+        "properties" : {
+          "quantity" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 100000,
+            "minimum" : 0
+          },
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "quantity", "reason" ]
       },
       "SignInRequest" : {
         "type" : "object",
@@ -1449,6 +3352,87 @@
           }
         },
         "required" : [ "email" ]
+      },
+      "SubscriptionInfo" : {
+        "type" : "object",
+        "properties" : {
+          "periodEndsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "planKey" : {
+            "type" : "string"
+          },
+          "planName" : {
+            "type" : "string"
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "trialEndsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "trialExpired" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "planKey", "planName", "startedAt", "status" ]
+      },
+      "SupportAccessRequestBody" : {
+        "type" : "object",
+        "properties" : {
+          "minutes" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 240,
+            "minimum" : 15
+          },
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "minutes", "reason" ]
+      },
+      "SupportAccessView" : {
+        "type" : "object",
+        "properties" : {
+          "accessExpiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "active" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "requestedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "requestedMinutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "requester" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "reason", "requestedAt", "requester", "status" ]
       },
       "SwitchOrganizationRequest" : {
         "type" : "object",

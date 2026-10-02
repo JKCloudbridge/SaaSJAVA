@@ -14,7 +14,8 @@
         displayName = "Identity",
         allowedDependencies = {
             "sharedkernel",
-            "tenant"
+            "tenant",
+            "licensing"
         })
 package app.platform.identity;
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { MembersPanel } from "@/components/members/MembersPanel";
+import { SupportAccessPanel } from "@/components/members/SupportAccessPanel";
 
 export const metadata: Metadata = {
   title: "Members",
@@ -11,6 +12,7 @@ export default function MembersPage() {
     <>
       <h1>Members</h1>
       <MembersPanel />
+      <SupportAccessPanel />
     </>
   );
 }

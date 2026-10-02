@@ -55,6 +55,21 @@ class TenantRepository {
                 .optional();
     }
 
+    /** One page by short name; the search text is matched as plain text (wildcards typed by a person are dropped). */
+    java.util.List<Tenant> list(String afterSlug, String search, int limit) {
+        String pattern = search == null || search.isBlank() ? null
+                : "%" + search.strip().toLowerCase(java.util.Locale.ROOT).replaceAll("[%_\\\\]", " ") + "%";
+        return jdbc.sql("select " + COLUMNS + " from tenant where deleted_at is null "
+                        + "and (cast(:after as text) is null or slug > cast(:after as text)) "
+                        + "and (cast(:pattern as text) is null or slug like cast(:pattern as text) "
+                        + "or lower(display_name) like cast(:pattern as text)) order by slug limit :limit")
+                .param("after", afterSlug, java.sql.Types.VARCHAR)
+                .param("pattern", pattern, java.sql.Types.VARCHAR)
+                .param("limit", limit)
+                .query(TenantRepository::map)
+                .list();
+    }
+
     long countFoundedBy(ActorId actor) {
         return jdbc.sql("select count(*) from tenant where created_by = :actor and deleted_at is null "
                         + "and status <> 'DEACTIVATED'")
