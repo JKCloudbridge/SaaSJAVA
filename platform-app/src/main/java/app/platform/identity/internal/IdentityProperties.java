@@ -125,6 +125,9 @@ record IdentityProperties(
      * @param refreshAbsolute the longest a sign-in may last in total, however often it was refreshed
      * @param refreshGrace a refresh token that was just replaced is refused without punishment for this long, so two
      *        browser tabs that refresh at the same moment do not look like theft
+     * @param platformSessionMax the longest a sign-in of a person who holds a platform role works on the platform host,
+     *        however often it was refreshed (Sprint 6, ADR-0030): the most powerful accounts sign in again often until
+     *        multi-factor sign-in exists
      */
     record Tokens(
             @DefaultValue("5m") Duration loginSession,
@@ -132,7 +135,8 @@ record IdentityProperties(
             @DefaultValue("10m") Duration access,
             @DefaultValue("8h") Duration refreshIdle,
             @DefaultValue("30d") Duration refreshAbsolute,
-            @DefaultValue("10s") Duration refreshGrace) {
+            @DefaultValue("10s") Duration refreshGrace,
+            @DefaultValue("4h") Duration platformSessionMax) {
     }
 
     /**

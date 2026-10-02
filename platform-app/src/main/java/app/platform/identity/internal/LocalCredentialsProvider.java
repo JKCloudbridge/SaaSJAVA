@@ -36,11 +36,16 @@ class LocalCredentialsProvider implements PlatformAuthenticationProvider {
 
     static final String ID = "local";
 
+    /** Consecutive failures that lock an account that holds a platform role. */
+    static final int PLATFORM_LOCK_THRESHOLD = 3;
+
     private final UserRepository users;
     private final CredentialRepository credentials;
     private final PasswordHasher hasher;
     private final PasswordPolicy policy;
     private final LockoutPolicy lockout;
+    private final LockoutPolicy platformLockout;
+    private final PlatformRoleRepository platformRoles;
     private final AuthAudit audit;
     private final TransactionTemplate transaction;
     private final Clock clock;
@@ -49,7 +54,13 @@ class LocalCredentialsProvider implements PlatformAuthenticationProvider {
 
     LocalCredentialsProvider(UserRepository users, CredentialRepository credentials, PasswordHasher hasher,
             PasswordPolicy policy, LockoutPolicy lockout, AuthAudit audit, TransactionTemplate transaction,
-            Clock clock, MailQueue mail, IdentityProperties properties) {
+            Clock clock, MailQueue mail, IdentityProperties properties, PlatformRoleRepository platformRoles) {
+        this.platformRoles = platformRoles;
+        IdentityProperties.Lockout settings = properties.lockout();
+        // The most powerful accounts lock sooner (ADR-0030): same steps and cap, a lower threshold.
+        this.platformLockout = new LockoutPolicy(new IdentityProperties.Lockout(
+                Math.min(PLATFORM_LOCK_THRESHOLD, settings.threshold()), settings.base(), settings.cap(),
+                settings.quiet()));
         this.mail = mail;
         this.lockMailInterval = properties.account().lockMailInterval();
         this.users = users;
@@ -89,6 +100,10 @@ class LocalCredentialsProvider implements PlatformAuthenticationProvider {
             return new AuthenticationOutcome.Rejected(RejectionReason.UNKNOWN_ACCOUNT, null);
         }
         User found = user.get();
+        // Looked up for every known account, whatever its state, so that the work (and the time) of a locked
+        // account, a disabled one and a wrong password stay alike (ADR-0021); only the stricter lock of a platform
+        // account uses it.
+        boolean platformAccount = !platformRoles.rolesOf(found.id()).isEmpty();
         if (credential.isEmpty() || found.status() == UserStatus.INVITED) {
             return new AuthenticationOutcome.Rejected(RejectionReason.NOT_VERIFIED, found.id());
         }
@@ -100,7 +115,7 @@ class LocalCredentialsProvider implements PlatformAuthenticationProvider {
             return new AuthenticationOutcome.Rejected(RejectionReason.LOCKED, found.id());
         }
         if (!passwordCorrect) {
-            registerFailure(found, now, password.source());
+            registerFailure(found, now, password.source(), platformAccount);
             return new AuthenticationOutcome.Rejected(RejectionReason.WRONG_PASSWORD, found.id());
         }
         succeed(found, credential.get(), password.password());
@@ -124,14 +139,15 @@ class LocalCredentialsProvider implements PlatformAuthenticationProvider {
         }
     }
 
-    private void registerFailure(User user, Instant now, String source) {
+    private void registerFailure(User user, Instant now, String source, boolean platformAccount) {
         LockoutPolicy.Failure failure = transaction.execute(status -> {
             // Lock the row so two simultaneous failures are counted one after the other.
             CredentialRepository.Credential current = credentials.findForUpdate(user.id()).orElse(null);
             if (current == null) {
                 return null;
             }
-            LockoutPolicy.Failure result = lockout.afterFailure(current.state(), now);
+            LockoutPolicy policyForAccount = platformAccount ? platformLockout : lockout;
+            LockoutPolicy.Failure result = policyForAccount.afterFailure(current.state(), now);
             if (!result.lockedNow()) {
                 credentials.storeState(user.id(), result.state());
             }

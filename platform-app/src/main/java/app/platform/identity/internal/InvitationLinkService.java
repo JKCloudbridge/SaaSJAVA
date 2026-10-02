@@ -4,6 +4,7 @@ import app.platform.identity.AccountTokenPurpose;
 import app.platform.identity.User;
 import app.platform.identity.UserStatus;
 import app.platform.identity.Users;
+import app.platform.licensing.Licences;
 import app.platform.sharedkernel.ActorId;
 import app.platform.sharedkernel.TenantId;
 import app.platform.tenant.Tenant;
@@ -44,6 +45,7 @@ class InvitationLinkService {
     private final InvitationRepository invitations;
     private final MembershipRepository memberships;
     private final Users users;
+    private final Licences licences;
     private final Tenants tenants;
     private final TenantContexts contexts;
     private final AccountLimiter limiter;
@@ -53,13 +55,14 @@ class InvitationLinkService {
     private final Clock clock;
 
     InvitationLinkService(AccountTokenRepository tokens, InvitationRepository invitations,
-            MembershipRepository memberships, Users users, Tenants tenants, TenantContexts contexts,
-            AccountLimiter limiter, AuthAudit audit, OrganizationHosts hosts, TransactionTemplate transaction,
-            Clock clock) {
+            MembershipRepository memberships, Users users, Licences licences, Tenants tenants,
+            TenantContexts contexts, AccountLimiter limiter, AuthAudit audit, OrganizationHosts hosts,
+            TransactionTemplate transaction, Clock clock) {
         this.tokens = tokens;
         this.invitations = invitations;
         this.memberships = memberships;
         this.users = users;
+        this.licences = licences;
         this.tenants = tenants;
         this.contexts = contexts;
         this.limiter = limiter;
@@ -146,6 +149,13 @@ class InvitationLinkService {
                 invitations.accept(invitation.id(), membership, actor);
                 tokens.cancelOpenOfInvitation(invitation.id());
                 audit.invitationAccepted(person.id(), invitation.id(), membership, existing == null);
+                if (resolved.tenant().status() == TenantStatus.PROVISIONING) {
+                    // The first administrator of an organization a platform administrator set up: accepting opens it,
+                    // in the same transaction, so the organization is never open without its administrator.
+                    openProvisioned(tenantId, actor, person.id());
+                }
+                // A person who joins holds the default licence when one is free; never a reason to refuse them.
+                licences.assignDefault(membership, actor);
                 outcome[0] = resolved;
             }));
         } catch (LinkRefusal e) {
@@ -157,10 +167,24 @@ class InvitationLinkService {
                 hosts.of(tenant.slug().value(), authority));
     }
 
-    /** The open invitation behind a live token, and its open organization. */
+    private void openProvisioned(TenantId tenantId, ActorId actor, UUID person) {
+        try {
+            tenants.activate(tenantId, actor);
+        } catch (ApiException e) {
+            if (e.code() == ErrorCode.CONFLICT) {
+                // The organization was closed between reading it and now: the same answer as any unusable link.
+                throw new LinkRefusal("organization_not_open");
+            }
+            throw e;
+        }
+        audit.organizationOpened(person);
+    }
+
+    /** The open invitation behind a live token, and its organization (open, or being set up for its first admin). */
     private Optional<Resolved> resolve(AccountTokenRepository.Live live) {
         TenantId tenantId = new TenantId(live.contextTenantId());
-        Optional<Tenant> tenant = tenants.findById(tenantId).filter(found -> found.status() == TenantStatus.ACTIVE);
+        Optional<Tenant> tenant = tenants.findById(tenantId).filter(found -> found.status() == TenantStatus.ACTIVE
+                || found.status() == TenantStatus.PROVISIONING);
         if (tenant.isEmpty()) {
             return Optional.empty();
         }

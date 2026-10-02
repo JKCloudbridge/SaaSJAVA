@@ -112,8 +112,14 @@ class MailComposer {
         Map<String, String> values = Map.of("link", links.invitation(token),
                 "lifetime", describe(tokens.lifetime(AccountTokenPurpose.INVITATION)),
                 "organization", MailTexts.safeName(invitation.organizationName()));
-        return send(mail, invitation.existingAccount() ? MailTexts.Kind.INVITATION_EXISTING
-                : MailTexts.Kind.INVITATION_NEW, values, "link_sent");
+        MailTexts.Kind kind;
+        if (invitation.firstAdministrator()) {
+            kind = invitation.existingAccount() ? MailTexts.Kind.FIRST_ADMINISTRATOR_EXISTING
+                    : MailTexts.Kind.FIRST_ADMINISTRATOR_NEW;
+        } else {
+            kind = invitation.existingAccount() ? MailTexts.Kind.INVITATION_EXISTING : MailTexts.Kind.INVITATION_NEW;
+        }
+        return send(mail, kind, values, "link_sent");
     }
 
     private static UUID uuid(String text) {

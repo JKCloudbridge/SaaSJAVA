@@ -7,6 +7,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.Clock;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest;
 import org.springframework.beans.factory.annotation.Value;
@@ -137,7 +138,7 @@ class SecurityConfiguration {
     @Bean
     @Order(2)
     SecurityFilterChain apiChain(HttpSecurity http, AuthorizationStore store, TenantContexts contexts,
-            MembershipGate gate, AuthAudit audit,
+            MembershipGate gate, AuthAudit audit, PlatformRoleRepository platformRoles, Clock clock,
             @Qualifier("handlerExceptionResolver") HandlerExceptionResolver errors, IdentityProperties properties)
             throws Exception {
         ApiSecurityHandlers.EntryPoint entryPoint = new ApiSecurityHandlers.EntryPoint(errors);
@@ -169,7 +170,8 @@ class SecurityConfiguration {
                 .oauth2ResourceServer(resource -> resource
                         .bearerTokenResolver(new TokenAuthentication.Resolver())
                         .opaqueToken(token -> token
-                                .introspector(new TokenAuthentication.Introspector(store, gate, audit)))
+                                .introspector(new TokenAuthentication.Introspector(store, gate, audit,
+                                        platformRoles, clock, properties.tokens().platformSessionMax())))
                         .authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(denied))
                 .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(entryPoint)

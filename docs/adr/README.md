@@ -35,3 +35,12 @@ A decision that is still open has status **Proposed** and names the gate or spri
 | [0027](0027-which-organizations-does-a-person-belong-to.md) | Which organizations does a person belong to: a narrow system scope | Accepted | — |
 | [0028](0028-invitations.md) | Invitations: a record of the organization, a one-time link, a membership only on acceptance | Accepted | — |
 | [0029](0029-switching-organizations.md) | Switching organizations: a one-time proof carried to the other host | Accepted | — |
+| [0030](0030-platform-roles-and-the-first-platform-administrator.md) | Platform roles, the first platform administrator and what protects those accounts | Accepted (multi-factor sign-in is a go-live gate) | — |
+| [0031](0031-where-the-platform-tables-live-and-how-an-organization-is-reached.md) | Where the Sprint 6 tables live, and how a platform administrator reaches one organization | Accepted | — |
+| [0032](0032-licences-pools-assignments-and-their-rules.md) | Licences: types as data, a pool per organization, an assignment per member, and the rules | Accepted | — |
+| [0033](0033-subscriptions-trials-and-the-organization-limit.md) | Subscriptions, "try for free" trials, and the limit of organizations per person | Accepted | — |
+| [0034](0034-feature-entitlements.md) | Feature entitlements: keys as data, plan defaults, overrides, one read contract | Accepted | — |
+| [0035](0035-controlled-support-access.md) | Controlled support access: request, approval, time limit, audit, no automatic access | Accepted | — |
+| [0036](0036-administrative-sessions.md) | Administrative sessions: listing, signing a person or an organization out | Accepted | — |
+| [0037](0037-provisioning-an-organization-for-a-client.md) | Provisioning an organization for a client and inviting its first administrator | Accepted | — |
+| [0038](0038-organization-lifecycle-by-platform-administrators.md) | Organization lifecycle by platform administrators: suspend, reinstate, deactivate | Accepted | — |

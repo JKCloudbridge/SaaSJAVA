@@ -4,6 +4,8 @@ import app.platform.sharedkernel.ActorId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -85,6 +87,38 @@ class LoginSessions {
                 .param("actor", actor.value())
                 .param("user", userId)
                 .param("tenant", boundTenantId)
+                .update();
+    }
+
+    /** One live sign-in session of a user, without its secret. */
+    record Summary(Instant started, Instant expires, UUID boundTenantId) {
+    }
+
+    /** The live sessions of a user (no secret, no hash), newest first. */
+    List<Summary> liveOf(UUID userId) {
+        return jdbc.sql("select s.created_at, s.expires_at, s.bound_tenant_id from login_session s "
+                        + "join platform_user u on u.id = s.user_id "
+                        + "where s.user_id = :user and s.deleted_at is null and s.revoked_at is null "
+                        + "and s.expires_at > now() and u.status = 'ACTIVE' and u.deleted_at is null "
+                        + "and u.security_version = s.security_version order by s.created_at desc")
+                .param("user", userId)
+                .query((rs, row) -> new Summary(rs.getTimestamp("created_at").toInstant(),
+                        rs.getTimestamp("expires_at").toInstant(), rs.getObject("bound_tenant_id", UUID.class)))
+                .list();
+    }
+
+    /**
+     * Ends every session issued on one organization's host, except those of {@code keepUser} (may be null).
+     *
+     * @return how many were alive
+     */
+    int revokeAllOfOrganization(UUID boundTenantId, UUID keepUser, ActorId actor) {
+        return jdbc.sql("update login_session set revoked_at = now(), updated_by = :actor, version = version + 1 "
+                        + "where bound_tenant_id = :tenant and revoked_at is null and deleted_at is null "
+                        + "and (cast(:keep as uuid) is null or user_id <> cast(:keep as uuid))")
+                .param("actor", actor.value())
+                .param("tenant", boundTenantId)
+                .param("keep", keepUser, java.sql.Types.OTHER)
                 .update();
     }
 

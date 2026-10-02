@@ -63,7 +63,7 @@ class InvitationRequestTest {
                 new MembershipRepository.Own(UUID.randomUUID(), ADMIN, "ACTIVE", true)));
         when(invitations.openOrRenew(any(), eq(false), any(), any())).thenReturn(new InvitationRepository.Invitation(
                 INVITATION, "person-a@example.test", false, false, "OPEN", Instant.parse("2026-10-09T10:00:00Z"), 1,
-                Instant.parse("2026-10-02T10:00:00Z")));
+                Instant.parse("2026-10-02T10:00:00Z"), false));
     }
 
     @Test

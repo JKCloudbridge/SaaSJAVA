@@ -15,9 +15,10 @@ import java.util.UUID;
  * @param foundingAdministrator the historical fact that this person created the organization; grants nothing
  * @param since when the person became a member
  * @param you whether this member is the caller (for presentation only)
+ * @param licence the key of the licence type the member holds, absent when the member has none (Sprint 6)
  */
 public record MemberView(@NotNull UUID id, @NotNull String email, @NotNull String displayName, @NotNull String status,
-        boolean administrator, boolean foundingAdministrator, @NotNull Instant since, boolean you) {
+        boolean administrator, boolean foundingAdministrator, @NotNull Instant since, boolean you, String licence) {
 
     @Override
     public String toString() {

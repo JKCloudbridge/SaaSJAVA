@@ -103,6 +103,18 @@ password, and a person who already has an account signs in and accepts. A person
 header and moves between them without typing the password again. Only administrators of an organization see its members; a person who is
 not a member of an organization cannot sign in on its address. Invitation links live 7 days.
 
+**The platform console, licences and support access (Sprint 6).** The `local` profile also creates three platform people (no
+organization, same password `LOCAL_SEED_PASSWORD`): `platform-a@example.test` (platform administrator), `support-a@example.test`
+(support) and `billing-a@example.test` (billing). Sign in as one of them on the platform host `http://localhost:3000` and open
+**Console**: organizations (open one to see its plan, licence numbers, features, the first-administrator invitation and the
+lifecycle buttons), **Set up an organization** (a client's organization stays closed until its first administrator accepts the
+mailed invitation; read the mail at `http://localhost:8025`), plans, platform people and sessions. A platform session lasts at most
+4 hours and three wrong passwords lock a platform account for a minute. In a real environment there is no such account: the first
+platform administrator is created by the manual step `db/manual/M002__grant_first_platform_administrator.sql` (see
+`Sprint 6 manual steps.md`). On an organization's address, **Members** now shows the licence numbers, the licence of each member
+(assign and take back) and a **Support access** section where an administrator approves, denies or ends a platform person's
+request. The two local organizations start on a 30-day trial (5 user and 2 admin licences); the local users hold a licence.
+
 Sign-up and reset pages exist only on the platform host. If the catcher is stopped, mail waits in the queue and is sent when it is back
 (`docker compose stop mail-catcher`, then `docker compose start mail-catcher`). Limits (5 sign-ups per hour per source, 5 mails per hour per
 address) apply here too; to start again within the hour, delete the counters in Redis (`platform:identity:acct:*`).

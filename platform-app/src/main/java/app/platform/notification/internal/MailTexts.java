@@ -116,6 +116,36 @@ final class MailTexts {
                 The link works once and stops working in {{lifetime}}. The invitation gives no access until you \
                 accept it. If you do not know this organization or did not expect this message, ignore it: nothing \
                 changes until the link is used.
+                """),
+
+        FIRST_ADMINISTRATOR_NEW(
+                "You have been invited to set up an organization",
+                """
+                Hello,
+
+                You have been invited to set up and administer the organization "{{organization}}". To accept, open \
+                this link and choose your name and a password:
+
+                {{link}}
+
+                The link works once and stops working in {{lifetime}}. The organization opens when you accept. If \
+                you do not know this organization or did not expect this message, ignore it: nothing is created \
+                until the link is used.
+                """),
+
+        FIRST_ADMINISTRATOR_EXISTING(
+                "You have been invited to set up an organization",
+                """
+                Hello,
+
+                You have been invited to set up and administer the organization "{{organization}}". This e-mail \
+                address already has an account. To accept, open this link and sign in with that account:
+
+                {{link}}
+
+                The link works once and stops working in {{lifetime}}. The organization opens when you accept. If \
+                you do not know this organization or did not expect this message, ignore it: nothing changes until \
+                the link is used.
                 """);
 
         private final String subject;

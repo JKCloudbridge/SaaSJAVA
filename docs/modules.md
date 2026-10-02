@@ -11,8 +11,8 @@ Module identifiers are package names, so the platform-admin module is `platforma
 |--------|----------------|-------------|----------------------------------------|
 | `sharedkernel` | Identifiers and cross-cutting interfaces (secrets store, event publisher and handler contracts). Open to all. Separate Maven module. | S0 | nothing |
 | `tenant` | Organizations, tenant lifecycle, tenant context, hostname resolution (ADR-0014, ADR-0017) | S2 | nothing |
-| `identity` | Users, credentials, sign-in, sessions and tokens, the provider abstraction (S3: [ADR-0019](adr/0019-authentication-implementation.md) to [ADR-0021](adr/0021-brute-force-protection-and-rate-limits.md)); memberships, invitations and organization switching (S5: [ADR-0026](adr/0026-membership-lifecycle-and-the-administrator-marker.md) to [ADR-0029](adr/0029-switching-organizations.md)) | S3 | tenant |
-| `licensing` | Plans, licence pools, feature entitlements | S6 | tenant, identity |
+| `identity` | Users, credentials, sign-in, sessions and tokens, the provider abstraction (S3: [ADR-0019](adr/0019-authentication-implementation.md) to [ADR-0021](adr/0021-brute-force-protection-and-rate-limits.md)); memberships, invitations and organization switching (S5: [ADR-0026](adr/0026-membership-lifecycle-and-the-administrator-marker.md) to [ADR-0029](adr/0029-switching-organizations.md)); platform roles, administrative sessions and the first-administrator invitation (S6: [ADR-0030](adr/0030-platform-roles-and-the-first-platform-administrator.md), [ADR-0036](adr/0036-administrative-sessions.md), [ADR-0037](adr/0037-provisioning-an-organization-for-a-client.md)) | S3 | tenant, licensing |
+| `licensing` | Plans, licence types, pools and assignments, subscriptions and trials, feature entitlements (S6: [ADR-0031](adr/0031-where-the-platform-tables-live-and-how-an-organization-is-reached.md) to [ADR-0034](adr/0034-feature-entitlements.md)). **Depends on `tenant` only**: the identity module calls it, so a licence goes back to the pool in the transaction that deactivates a member | S6 | tenant |
 | `security` | Profiles, roles, permission sets, groups, authorization decision engine | S7 | tenant, identity |
 | `metadata` | Object, field, layout, application definitions; versioning | S10 | tenant, security |
 | `data` | Tenant business records, queries, record-level security | S14 | tenant, metadata, security |
@@ -25,7 +25,7 @@ Module identifiers are package names, so the platform-admin module is `platforma
 | `observability` | Request correlation, error tracking hook, database correlation stamp (infrastructure) | S1 | nothing |
 | `outbox` | Transactional outbox, polling relay, idempotent consumer base (infrastructure, ADR-0016). Other modules use the event contracts of `sharedkernel`, never this module | S2 | tenant, observability |
 | `web` | HTTP conventions: error model handling, paging binding, OpenAPI, platform status endpoint (infrastructure) | S1 | observability |
-| `platformadmin` | Platform-level administration, separate from tenant administration | S6 | tenant, identity, licensing, security, audit |
+| `platformadmin` | The platform console: organizations, plans, platform people, sessions, provisioning, lifecycle by platform administrators ([ADR-0037](adr/0037-provisioning-an-organization-for-a-client.md), [ADR-0038](adr/0038-organization-lifecycle-by-platform-administrators.md)) and controlled support access with its one enforcement point ([ADR-0035](adr/0035-controlled-support-access.md)); separate from tenant administration | S6 | tenant, identity, licensing, security, audit |
 
 ```mermaid
 graph TD
@@ -37,9 +37,9 @@ graph TD
   application --> metadata & security & tenant
   metadata --> security & tenant
   security --> identity & tenant
-  licensing --> identity & tenant
+  licensing --> tenant
   notification --> identity & tenant & observability
-  identity --> tenant
+  identity --> tenant & licensing
   web --> observability
   outbox --> tenant & observability
 ```
@@ -59,6 +59,10 @@ graph TD
    [ADR-0012](adr/0012-observability.md)). Business modules never depend on `web` (an architecture test enforces it):
    their controllers use the types of the API contract and throw `ApiException`. A business module that needs to
    report an unexpected error may depend on `observability` through the process in rule 6.
-8. Passwords, tokens and the authorization server stay inside `identity`: no other module may use the cryptography and
+8. Sprint 6 changed one edge on purpose: `identity` depends on `licensing` (not the reverse), so that releasing a licence
+   is part of the transaction that deactivates a member. `licensing` and `platformadmin` keep to their declared lists; the
+   enforcement point of support access (`SupportAccess`) is a contract of the shared kernel, so a module that reads tenant
+   data later can call it without depending on `platformadmin`.
+9. Passwords, tokens and the authorization server stay inside `identity`: no other module may use the cryptography and
    authorization-server libraries (an architecture test enforces it), and no business module reads the caller from the security
    framework's static holder; it reads `TenantContexts` (the user is filled in from Sprint 3) or asks the identity module's public API.

@@ -9,6 +9,7 @@ import { COMMON_TEXT } from "@/components/account/messages";
 
 type Member = components["schemas"]["MemberView"];
 type Invitation = components["schemas"]["InvitationView"];
+type Pool = components["schemas"]["LicencePoolView"];
 
 type Loaded<T> = { kind: "loading" } | { kind: "ok"; items: T[] } | { kind: "failed"; message: string };
 
@@ -26,6 +27,7 @@ async function failureText(error: unknown, response: Response): Promise<string> 
 export function MembersPanel() {
   const [members, setMembers] = useState<Loaded<Member>>({ kind: "loading" });
   const [invitations, setInvitations] = useState<Loaded<Invitation>>({ kind: "loading" });
+  const [pools, setPools] = useState<Pool[]>([]);
   const [email, setEmail] = useState("");
   const [asAdministrator, setAsAdministrator] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -34,7 +36,12 @@ export function MembersPanel() {
 
   const reload = useCallback(async () => {
     try {
-      const [m, i] = await Promise.all([api.GET("/api/v1/members"), api.GET("/api/v1/invitations")]);
+      const [m, i, p] = await Promise.all([
+        api.GET("/api/v1/members"),
+        api.GET("/api/v1/invitations"),
+        api.GET("/api/v1/licences"),
+      ]);
+      setPools(p.data?.data ?? []);
       setMembers(
         m.data
           ? { kind: "ok", items: m.data.data }
@@ -107,6 +114,23 @@ export function MembersPanel() {
         body: { administrator },
       });
       return { error, response, text: administrator ? "The member is now an administrator." : "The member is no longer an administrator." };
+    });
+
+  const assignLicence = (membershipId: string, licenceType: string) =>
+    act(async () => {
+      const { error, response } = await api.PUT("/api/v1/members/{membershipId}/licence", {
+        params: { path: { membershipId } },
+        body: { licenceType },
+      });
+      return { error, response, text: "The licence was assigned." };
+    });
+
+  const releaseLicence = (membershipId: string) =>
+    act(async () => {
+      const { error, response } = await api.DELETE("/api/v1/members/{membershipId}/licence", {
+        params: { path: { membershipId } },
+      });
+      return { error, response, text: "The licence was taken back." };
     });
 
   const invitationAction = (invitationId: string, action: "resend" | "revoke") =>
@@ -227,6 +251,34 @@ export function MembersPanel() {
         ) : null}
       </section>
 
+      <section aria-labelledby="licences-heading">
+        <h2 id="licences-heading">Licences</h2>
+        {pools.length === 0 ? <p>This organization holds no licences yet.</p> : null}
+        {pools.length > 0 ? (
+          <table className="table" data-testid="licence-pools">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Held</th>
+                <th>Assigned</th>
+                <th>Free</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pools.map((pool) => (
+                <tr key={pool.licenceType}>
+                  <td>{pool.name}</td>
+                  <td>{pool.quantity}</td>
+                  <td>{pool.assigned}</td>
+                  <td>{pool.available}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
+        <p>A licence counts who may be given something; it grants no permission.</p>
+      </section>
+
       <section aria-labelledby="members-heading">
         <h2 id="members-heading">Members</h2>
         {members.kind === "loading" ? <p aria-live="polite">Loading…</p> : null}
@@ -237,6 +289,7 @@ export function MembersPanel() {
                 <th>Name</th>
                 <th>Address</th>
                 <th>State</th>
+                <th>Licence</th>
                 <th>
                   <span className="visually-hidden">Actions</span>
                 </th>
@@ -254,6 +307,35 @@ export function MembersPanel() {
                     {member.status === "ACTIVE" ? "Active" : "Deactivated"}
                     {member.administrator ? ", administrator" : ""}
                     {member.foundingAdministrator ? ", founded the organization" : ""}
+                  </td>
+                  <td data-testid="member-licence">
+                    {member.licence ?? "none"}
+                    {member.status === "ACTIVE" ? (
+                      <>
+                        {" "}
+                        {pools.map((pool) => (
+                          <button
+                            key={pool.licenceType}
+                            type="button"
+                            className="link-button"
+                            disabled={busy || member.licence === pool.licenceType}
+                            onClick={() => void assignLicence(member.id, pool.licenceType)}
+                          >
+                            Give {pool.name}
+                          </button>
+                        ))}
+                        {member.licence ? (
+                          <button
+                            type="button"
+                            className="link-button"
+                            disabled={busy}
+                            onClick={() => void releaseLicence(member.id)}
+                          >
+                            Take back
+                          </button>
+                        ) : null}
+                      </>
+                    ) : null}
                   </td>
                   <td>
                     {member.status === "ACTIVE" ? (
