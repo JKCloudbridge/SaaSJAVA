@@ -102,6 +102,42 @@ class AuthAudit {
                 .with("actor", actor.toString()));
     }
 
+    /** A sign-up was requested. Identical for every address: only a hash of the address is kept. */
+    void signUpRequested(String email, String source) {
+        write(AuditRecord.of("auth.sign_up.requested", AuditOutcome.SUCCESS)
+                .with("identifier_hash", Hashes.sha256Hex(email)).with("source", source));
+    }
+
+    void signUpCompleted(UUID userId) {
+        write(AuditRecord.of("auth.sign_up.completed", AuditOutcome.SUCCESS).forUser(userId));
+    }
+
+    /** A link was refused: unknown, used, cancelled or expired (never says which to the caller). */
+    void linkRefused(String purpose, String reason, String source) {
+        write(AuditRecord.of("auth.link.refused", AuditOutcome.DENIED).because(reason)
+                .with("purpose", purpose).with("source", source));
+    }
+
+    void tokenCreated(String purpose, UUID userIdOrNull) {
+        write(AuditRecord.of("auth.link.created", AuditOutcome.SUCCESS).forUser(userIdOrNull)
+                .with("purpose", purpose));
+    }
+
+    /** A password reset was requested. Identical for every address: only a hash of the address is kept. */
+    void passwordResetRequested(String email, String source) {
+        write(AuditRecord.of("auth.password_reset.requested", AuditOutcome.SUCCESS)
+                .with("identifier_hash", Hashes.sha256Hex(email)).with("source", source));
+    }
+
+    void passwordResetCompleted(UUID userId) {
+        write(AuditRecord.of("auth.password_reset.completed", AuditOutcome.SUCCESS).forUser(userId));
+    }
+
+    void organizationFounded(UUID userId, String slug) {
+        write(AuditRecord.of("tenant.organization.founded", AuditOutcome.SUCCESS).forUser(userId)
+                .with("slug", slug));
+    }
+
     void bindingRefused(UUID userId, String what) {
         write(AuditRecord.of("auth.token.refused", AuditOutcome.DENIED).forUser(userId).because("wrong_host")
                 .with("what", what));

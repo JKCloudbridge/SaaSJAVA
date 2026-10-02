@@ -68,13 +68,14 @@ Image names and versions are in [docker-compose.yml](docker-compose.yml) (the on
 
 Since Sprint 1 the application uses PostgreSQL (and exports traces to the trace viewer); since Sprint 2 it connects as its
 own role (`APP_DB_USER` in `.env`, created by `./init-app-role.ps1`) and runs the outbox relay; since Sprint 3 it also uses Redis
-(sign-in rate limits shared across instances: `REDIS_PORT` and `REDIS_PASSWORD` in `.env`) and signs users in. Object storage and
-the mail catcher are not used yet. Three ways to run it, all against these services:
+(sign-in rate limits shared across instances: `REDIS_PORT` and `REDIS_PASSWORD` in `.env`) and signs users in; since Sprint 4 it sends
+e-mail to the mail catcher (`MAIL_SMTP_PORT` in `.env`, SMTP only; you read the messages at `http://localhost:8025`). Object storage is
+not used yet. Three ways to run it, all against these services:
 
 1. **As a jar or from the IDE** (the usual loop). Build once with `./mvnw -DskipTests package` in the repository root, then
    `java -jar platform-app/target/platform-app-0.1.0-SNAPSHOT.jar --spring.profiles.active=local`. The `local` profile reads
    `infra/local/.env` directly (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`, `APP_DB_USER`, `APP_DB_PASSWORD`,
-   `TRACING_COLLECTOR_PORT`, `REDIS_PORT`, `REDIS_PASSWORD`, `LOCAL_SEED_PASSWORD`),
+   `TRACING_COLLECTOR_PORT`, `REDIS_PORT`, `REDIS_PASSWORD`, `MAIL_SMTP_PORT`, `LOCAL_SEED_PASSWORD`),
    so nothing needs to be exported; real environment variables win over the file. The first start migrates the database.
 2. **As the container image**, closest to a deployment: build the jar as above, then
    `docker build -t platform-app:local platform-app` and `docker compose --profile app up -d` here. It runs the `prod`
@@ -90,6 +91,14 @@ the mail catcher are not used yet. Three ways to run it, all against these servi
    `tenant-a` and `tenant-b` are separate sessions, and `http://localhost:3000` is the platform host (signing in works there too, with no
    organization). The browser talks only to that address; the dev server forwards `/api` to the application (passing the
    original host name, which the `local` profile trusts) and `/telemetry` to the trace viewer.
+
+**Creating an account and an organization (Sprint 4).** On the platform host `http://localhost:3000`, **Create an account**, type an
+address, and open the mail catcher at `http://localhost:8025`: the e-mail with the link arrives within a few seconds (the application sends
+mail in the background, every two seconds). Open the link, choose your name and a password, sign in, and use **Create an organization** on
+the home page; it gives you the address of the new organization (`<short name>.localhost:3000`). **Forgot your password?** works the same way.
+Sign-up and reset pages exist only on the platform host. If the catcher is stopped, mail waits in the queue and is sent when it is back
+(`docker compose stop mail-catcher`, then `docker compose start mail-catcher`). Limits (5 sign-ups per hour per source, 5 mails per hour per
+address) apply here too; to start again within the hour, delete the counters in Redis (`platform:identity:acct:*`).
 
 Open the trace viewer at `http://localhost:16686` after loading the home page: one trace shows the browser, the API and the
 database statements. To see the same identifiers in the database log, set `POSTGRES_LOG_MIN_DURATION_MS=0` in `.env`

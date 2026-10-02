@@ -34,9 +34,13 @@ final class SchemaConventions {
      * organizations), so users, credentials, login sessions and authorization records cannot belong to one tenant,
      * and an authentication event can happen where there is no tenant at all. Their tenant-related column is named
      * {@code bound_tenant_id} or {@code context_tenant_id} so that nobody mistakes them for tenant-scoped data.
+     *
+     * <p>Sprint 4 added {@code account_token} (one-time sign-up and reset link tokens, ADR-0023) and
+     * {@code mail_queue} (the e-mail queue, ADR-0024): both are used on the platform host where there is no tenant,
+     * and neither carries a tenant column at all.
      */
     static final Set<String> PLATFORM_TABLES = Set.of("tenant", "platform_user", "user_credential", "login_session",
-            "oauth2_authorization", "audit_record");
+            "oauth2_authorization", "audit_record", "account_token", "mail_queue");
 
     /** Tables whose policies may admit a system scope next to the tenant, and the scopes they may name. */
     static final Set<String> SYSTEM_SCOPE_TABLES = Set.of("outbox_event", "processed_event");

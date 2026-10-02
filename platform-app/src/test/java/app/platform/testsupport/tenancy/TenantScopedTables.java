@@ -29,8 +29,20 @@ public final class TenantScopedTables {
                             + "values (?, 'probe', ?, ?, ?)",
                     tenant, UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
 
+    /** The memberships of users in organizations (Sprint 4). Each probe row needs a user, which it creates. */
+    public static final TenantScopedTable MEMBERSHIP = new TenantScopedTable("membership", (connection, tenant) -> {
+        UUID user = UUID.randomUUID();
+        TenantFixtures.update(connection,
+                "insert into platform_user (id, email, display_name, created_by, updated_by) "
+                        + "values (?, ?, 'Probe', ?, ?)",
+                user, "probe-" + user + "@example.test", ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        TenantFixtures.update(connection,
+                "insert into membership (tenant_id, user_id, created_by, updated_by) values (?, ?, ?, ?)",
+                tenant, user, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+    });
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
-    public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT);
+    public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP);
 
     private TenantScopedTables() {
     }

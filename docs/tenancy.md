@@ -85,6 +85,20 @@ delay and, after the limit, sets it aside as a dead letter.
   `SecurityConfiguration`; a test walks every controller mapping and fails for one that is public without being listed.
 - Write the authorization test (allowed, denied, cross-tenant) with `TestBrowser` and `TestSignIn` (`testsupport`), which sign in for real.
 
+## Sign-up, organizations and the mail queue (Sprint 4)
+
+- Two more **platform-level** tables, decided in [ADR-0023](adr/0023-sign-up-verification-and-password-reset.md) and
+  [ADR-0024](adr/0024-mail-queue-and-notification-v0.md): `account_token` (one-time link tokens) and `mail_queue` (the e-mail queue). Neither
+  has a tenant column: a sign-up and a reset happen on the platform host, where there is no tenant. Both are in
+  `SchemaConventions.PLATFORM_TABLES`, which the schema test asserts exactly.
+- The first tenant-scoped table since Sprint 2 is `membership` ([ADR-0025](adr/0025-founding-an-organization-and-the-minimal-membership.md)),
+  registered in `TenantScopedTables`, so the leak harness covers it. A signed-in person **founds an organization** with
+  `POST /api/v1/organizations` on the platform host: the code opens the new tenant's context with `Tenants.newId()` **before** the transaction,
+  provisions and opens the tenant, and writes the membership in that transaction. The tenant is never named by the client.
+- A mail is queued with the `MailQueue` contract of the shared kernel (in the caller's transaction, with or without a tenant context); the
+  notification module sends it later and decides what it becomes. Never put a secret or a link in a `MailRequest` (it refuses such names).
+- The endpoints of sign-up and reset are public paths and answer only on the platform host (`NOT_FOUND` on an organization host).
+
 ## Configuration of this sprint
 
 | Variable | Meaning |
@@ -96,7 +110,8 @@ delay and, after the limit, sets it aside as a dead letter.
 | `APP_DB_USER`, `APP_DB_PASSWORD` | The same role in the local environment file `infra/local/.env`. |
 
 Tuning of the relay (`platform.outbox.*`: poll interval, batch size, lease, attempts, backoff, retention) is documented in
-`OutboxProperties`.
+`OutboxProperties`. The variables of Sprint 4 (mail) are in the engineering guide and in `Sprint 4 manual steps.md`; their tuning is
+`MailProperties` (`platform.notification.*`) and `IdentityProperties.Account` (`platform.identity.account.*`).
 
 ## On a developer machine
 

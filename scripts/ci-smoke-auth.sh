@@ -2,17 +2,21 @@
 # Authentication checks of the container smoke test (see .github/workflows/ci.yml); also usable by hand against any local
 # container started the same way (production profile, Redis, a token signing key pair). The image is already running
 # against the database and Redis containers, as the application role.
-#   usage: ci-smoke-auth.sh <database container> <redis container> <redis password>
+#   usage: ci-smoke-auth.sh <database container> <redis container> <redis password> [<mail catcher address>]
 # It proves, on the image: a protected endpoint refuses an unauthenticated caller in the error model, the public
 # endpoints stay public, a state-changing request needs the forgery header, the cookies carry the Secure flag outside a
 # developer machine, a failed sign-in answers the same 401 for an account that does not exist, the audit record is
 # written, the published key set holds the public key and no private part, the authorization endpoint without a
-# sign-in goes to the sign-in page, and Redis is really in use. The owner's role name can be set with OWNER_USER.
+# sign-in goes to the sign-in page, and Redis is really in use. With the address of a mail catcher (for example
+# http://localhost:8025) it also runs a whole sign-up on the image: the request answers 202, the e-mail arrives with a link
+# on the platform host, completing the link creates the account and the person signs in. The owner's role name can be set
+# with OWNER_USER.
 set -euo pipefail
 
 db="${1:?database container name}"
 redis="${2:?redis container name}"
 redis_password="${3:?redis password}"
+mail="${4:-}"
 base="http://localhost:8080"
 host="platform.example.test"
 
@@ -89,3 +93,52 @@ echo "ok: the failed sign-in is audited with its true reason, and no password is
 keys="$(docker exec "$redis" redis-cli -a "$redis_password" --no-auth-warning --scan --pattern 'platform:identity:*' | head -1)"
 [ -n "$keys" ] || fail "the image wrote no rate-limit counter to Redis"
 echo "ok: the rate-limit counters live in Redis"
+
+# 10. With a mail catcher: a whole sign-up on the image. The request answers 202; the e-mail (sent by the mail relay,
+# asynchronously) arrives with a link on the platform host; completing it creates the account; the person signs in.
+if [ -n "$mail" ]; then
+  address="smoke-$(date +%s)@example.test"
+  password="a-long-smoke-test-passphrase-$RANDOM-$RANDOM"
+  json_headers=(-H 'Content-Type: application/json' -H "Cookie: XSRF-TOKEN=$token" -H "X-XSRF-TOKEN: $token")
+  status="$(call -X POST "${json_headers[@]}" -d "{\"email\":\"$address\"}" "$base/api/v1/auth/sign-up")"
+  [ "$status" = "202" ] || fail "a sign-up request answered $status: $(cat "$body")"
+  status="$(call -X POST "${json_headers[@]}" -d '{"email":"nobody-smoke@example.test"}' "$base/api/v1/auth/sign-up")"
+  [ "$status" = "202" ] || fail "a sign-up request for another address answered $status"
+  echo "ok: a sign-up request answers 202"
+
+  link=""
+  for _ in $(seq 1 30); do
+    message_id="$(curl -fsS "$mail/api/v1/search?query=to:$address" | grep -o '"ID":"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
+    if [ -n "$message_id" ]; then
+      link="$(curl -fsS "$mail/api/v1/message/$message_id" | grep -o 'https\?://[A-Za-z0-9./:_-]*#token=[A-Za-z0-9_-]*' | head -1 || true)"
+      break
+    fi
+    sleep 2
+  done
+  [ -n "$link" ] || fail "no sign-up e-mail arrived for the address"
+  case "$link" in
+    "https://$host/sign-up/complete#token="*) ;;
+    *) fail "the link does not point at the platform host: ${link%%#*}" ;;
+  esac
+  echo "ok: the sign-up e-mail arrived with a link on the platform host"
+
+  link_token="${link#*#token=}"
+  complete="{\"token\":\"$link_token\",\"displayName\":\"Smoke Person\",\"password\":\"$password\"}"
+  status="$(call -X POST "${json_headers[@]}" -d "$complete" "$base/api/v1/auth/sign-up/complete")"
+  [ "$status" = "204" ] || fail "completing the sign-up answered $status: $(cat "$body")"
+  status="$(call -X POST "${json_headers[@]}" -d "$complete" "$base/api/v1/auth/sign-up/complete")"
+  [ "$status" = "400" ] || fail "the link worked a second time ($status)"
+  echo "ok: the link creates the account once and not twice"
+
+  status="$(call -X POST "${json_headers[@]}" -d "{\"email\":\"$address\",\"password\":\"$password\"}" \
+    "$base/api/v1/auth/sign-in")"
+  [ "$status" = "204" ] || fail "the new person could not sign in ($status)"
+  echo "ok: the new person signs in"
+
+  stored="$(owner_sql -c "select t::text from account_token t union all select t::text from mail_queue t \
+    union all select attributes::text from audit_record")"
+  if echo "$stored" | grep -q "$link_token"; then
+    fail "a link token was stored in clear"
+  fi
+  echo "ok: no token is stored in clear (tokens, queue, audit)"
+fi

@@ -96,6 +96,12 @@
       <artifactId>bcprov-jdk18on</artifactId>
     </dependency>
 
+    <!-- Sending e-mail over SMTP (Sprint 4, notification module, ADR-0024); versions come from the Spring Boot BOM. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-mail</artifactId>
+    </dependency>
+
     <!-- OpenAPI document generated from the controllers; the interactive documentation page is not included. -->
     <dependency>
       <groupId>org.springdoc</groupId>

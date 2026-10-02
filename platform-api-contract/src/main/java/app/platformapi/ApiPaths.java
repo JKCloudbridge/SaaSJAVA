@@ -51,6 +51,21 @@ public final class ApiPaths {
     /** Who the caller is. */
     public static final String AUTH_ME = AUTH + "/me";
 
+    /** Starts a sign-up: an e-mail with a link is sent when the address may sign up (Sprint 4). */
+    public static final String AUTH_SIGN_UP = AUTH + "/sign-up";
+
+    /** Completes a sign-up with the token from the mailed link: creates the account. */
+    public static final String AUTH_SIGN_UP_COMPLETE = AUTH + "/sign-up/complete";
+
+    /** Asks for a password-reset link. */
+    public static final String AUTH_PASSWORD_FORGOT = AUTH_PASSWORD + "/forgot";
+
+    /** Completes a password reset with the token from the mailed link. */
+    public static final String AUTH_PASSWORD_RESET = AUTH_PASSWORD + "/reset";
+
+    /** Organizations: a signed-in person founds one (Sprint 4). */
+    public static final String ORGANIZATIONS = V1 + "/organizations";
+
     /** The authorization server's endpoints (Sprint 3). */
     public static final String OAUTH2 = V1 + "/oauth2";
 

@@ -19,6 +19,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  *        proxy that overwrites it; with the API reachable directly a caller could choose its own address)
  * @param cleanup removal of sessions and grants that ended long ago
  * @param seed developer convenience users (the local profile only)
+ * @param account sign-up, password reset and founding an organization (Sprint 4, ADR-0023)
  */
 @ConfigurationProperties("platform.identity")
 record IdentityProperties(
@@ -30,7 +31,8 @@ record IdentityProperties(
         @DefaultValue Signing signing,
         @DefaultValue("false") boolean trustForwardedFor,
         @DefaultValue Cleanup cleanup,
-        @DefaultValue Seed seed) {
+        @DefaultValue Seed seed,
+        @DefaultValue Account account) {
 
     /**
      * Password policy and the cost of the Argon2id hash.
@@ -187,5 +189,47 @@ record IdentityProperties(
      *        repository; seeding is skipped when it is empty
      */
     record Seed(@DefaultValue("") String password) {
+    }
+
+    /**
+     * Sign-up, password reset and founding an organization (ADR-0023). The limits count a request whatever the address
+     * is (known or not), so a refusal reveals nothing about an account.
+     *
+     * @param signUpLinkLife how long the link of a sign-up e-mail works
+     * @param resetLinkLife how long the link of a password-reset e-mail works
+     * @param signUpsPerSource sign-up requests allowed per source address in {@code requestWindow}
+     * @param resetsPerSource password-reset requests allowed per source address in {@code requestWindow}
+     * @param requestWindow window of the two per-source request limits
+     * @param mailsPerAddress requests of any kind that may send a mail to one address in {@code addressWindow}, from
+     *        any source: nobody's inbox can be flooded through this API
+     * @param addressWindow window of the per-address limit
+     * @param tokenAttempts attempts to complete a sign-up or a reset allowed per source address in
+     *        {@code tokenWindow} (a token cannot be guessed, but guessing must not be free either)
+     * @param tokenWindow window of the token-attempt limit
+     * @param maxOrganizationsPerPerson how many organizations one person may found; Sprint 6 attaches plans
+     * @param foundingsPerHour organizations one person may found per hour
+     * @param lockMailInterval the shortest time between two lock notices to the same account owner
+     */
+    record Account(
+            @DefaultValue("24h") Duration signUpLinkLife,
+            @DefaultValue("60m") Duration resetLinkLife,
+            @DefaultValue("5") int signUpsPerSource,
+            @DefaultValue("10") int resetsPerSource,
+            @DefaultValue("1h") Duration requestWindow,
+            @DefaultValue("5") int mailsPerAddress,
+            @DefaultValue("1h") Duration addressWindow,
+            @DefaultValue("20") int tokenAttempts,
+            @DefaultValue("10m") Duration tokenWindow,
+            @DefaultValue("3") int maxOrganizationsPerPerson,
+            @DefaultValue("5") int foundingsPerHour,
+            @DefaultValue("24h") Duration lockMailInterval) {
+
+        Account {
+            if (signUpLinkLife.isNegative() || signUpLinkLife.isZero() || resetLinkLife.isNegative()
+                    || resetLinkLife.isZero() || signUpsPerSource < 1 || resetsPerSource < 1 || mailsPerAddress < 1
+                    || tokenAttempts < 1 || maxOrganizationsPerPerson < 1 || foundingsPerHour < 1) {
+                throw new IllegalArgumentException("platform.identity.account: invalid values");
+            }
+        }
     }
 }

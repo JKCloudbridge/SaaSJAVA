@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { api } from "@/lib/api/client";
+import { usePlatformAddress } from "@/lib/account/usePlatformAddress";
 import { navigate } from "@/lib/navigation";
 import { ensureForgeryCookie, useSession } from "@/lib/session/SessionProvider";
 
@@ -29,6 +30,7 @@ function problemText(problem: string | undefined): string | undefined {
  */
 export function SignInForm({ returnTo, problem }: { returnTo: string; problem?: string }) {
   const { state } = useSession();
+  const platform = usePlatformAddress();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -99,6 +101,11 @@ export function SignInForm({ returnTo, problem }: { returnTo: string; problem?: 
       <button type="submit" className="button" disabled={submitting}>
         {submitting ? "Signing in…" : "Sign in"}
       </button>
+      <p>
+        <a href={`${platform.origin}/forgot-password`}>Forgot your password?</a>
+        {" · "}
+        <a href={`${platform.origin}/sign-up`}>Create an account</a>
+      </p>
     </form>
   );
 }

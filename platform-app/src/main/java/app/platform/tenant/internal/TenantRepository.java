@@ -55,6 +55,14 @@ class TenantRepository {
                 .optional();
     }
 
+    long countFoundedBy(ActorId actor) {
+        return jdbc.sql("select count(*) from tenant where created_by = :actor and deleted_at is null "
+                        + "and status <> 'DEACTIVATED'")
+                .param("actor", actor.value())
+                .query(Long.class)
+                .single();
+    }
+
     /** @return whether a row was changed; false means the version was stale */
     boolean updateStatus(Tenant current, TenantStatus target, ActorId actor) {
         return jdbc.sql("update tenant set status = :status, updated_by = :actor, version = version + 1 "

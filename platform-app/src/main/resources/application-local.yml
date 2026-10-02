@@ -17,6 +17,18 @@ spring:
       host: localhost
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD}
+  mail:
+    # The mail catcher of infra/local: it accepts every message without login or encryption and shows it at
+    # http://localhost:8025.
+    host: localhost
+    port: ${MAIL_SMTP_PORT:1025}
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+            required: false
   flyway:
     url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/${POSTGRES_DB:platform}
     user: ${POSTGRES_USER:platform}
@@ -53,6 +65,10 @@ platform:
     base-domain: localhost
     # The development proxy of the web app rewrites the Host header and passes the original in X-Forwarded-Host.
     trust-forwarded-host: true
+  notification:
+    sender-address: no-reply@example.test
+    # The web app's development server.
+    public-base-url: http://localhost:3000
   identity:
     # A developer machine uses plain HTTP, so cookies cannot be Secure; the signing key lives only in memory; the
     # development proxy passes the caller's address in X-Forwarded-For.

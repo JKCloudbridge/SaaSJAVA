@@ -7,7 +7,11 @@ import app.platform.identity.PlatformAuthenticationProvider;
 import app.platform.identity.RejectionReason;
 import app.platform.identity.User;
 import app.platform.identity.UserStatus;
+import app.platform.sharedkernel.mail.MailQueue;
+import app.platform.sharedkernel.mail.MailRequest;
+import app.platform.sharedkernel.mail.MailTemplate;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Optional;
@@ -40,10 +44,14 @@ class LocalCredentialsProvider implements PlatformAuthenticationProvider {
     private final AuthAudit audit;
     private final TransactionTemplate transaction;
     private final Clock clock;
+    private final MailQueue mail;
+    private final Duration lockMailInterval;
 
     LocalCredentialsProvider(UserRepository users, CredentialRepository credentials, PasswordHasher hasher,
             PasswordPolicy policy, LockoutPolicy lockout, AuthAudit audit, TransactionTemplate transaction,
-            Clock clock) {
+            Clock clock, MailQueue mail, IdentityProperties properties) {
+        this.mail = mail;
+        this.lockMailInterval = properties.account().lockMailInterval();
         this.users = users;
         this.credentials = credentials;
         this.hasher = hasher;
@@ -127,10 +135,23 @@ class LocalCredentialsProvider implements PlatformAuthenticationProvider {
             if (!result.lockedNow()) {
                 credentials.storeState(user.id(), result.state());
             }
+            if (result.lockLength() != null) {
+                notifyOwner(user);
+            }
             return result;
         });
         if (failure != null && failure.lockLength() != null) {
             audit.accountLocked(user.id(), failure.lockLength().toSeconds(), source);
+        }
+    }
+
+    /**
+     * Tells the owner their account was locked (ADR-0021, ADR-0023), at most once per interval: the row is locked here,
+     * so two instances cannot both pass the check, and a persistent attacker cannot turn the notice into spam.
+     */
+    private void notifyOwner(User user) {
+        if (!mail.queuedRecently(MailTemplate.ACCOUNT_LOCKED, user.id(), lockMailInterval.toSeconds())) {
+            mail.enqueue(MailRequest.of(MailTemplate.ACCOUNT_LOCKED, user.email()).forUser(user.id()));
         }
     }
 

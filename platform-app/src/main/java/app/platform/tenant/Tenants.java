@@ -56,4 +56,11 @@ public interface Tenants {
 
     /** The tenant with this slug, whatever its status. */
     Optional<Tenant> findBySlug(TenantSlug slug);
+
+    /**
+     * How many organizations that are not deactivated were provisioned by this actor. Lets the code that lets a person
+     * found organizations limit how many one person holds; the count cannot come from the memberships, because they
+     * are isolated per tenant.
+     */
+    long countFoundedBy(ActorId actor);
 }

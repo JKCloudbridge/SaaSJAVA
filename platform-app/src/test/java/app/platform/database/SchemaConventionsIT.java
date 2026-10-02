@@ -354,7 +354,8 @@ class SchemaConventionsIT {
         // Adding to this list is a security decision (ADR-0015, and for the identity tables ADR-0022); a reviewer sees
         // it here and in the scanner.
         assertThat(SchemaConventions.PLATFORM_TABLES).containsExactlyInAnyOrder("tenant", "platform_user",
-                "user_credential", "login_session", "oauth2_authorization", "audit_record");
+                "user_credential", "login_session", "oauth2_authorization", "audit_record", "account_token",
+                "mail_queue");
         assertThat(SchemaConventions.SYSTEM_SCOPE_TABLES).containsExactlyInAnyOrder("outbox_event", "processed_event");
         assertThat(SchemaConventions.SYSTEM_SCOPES).containsExactlyInAnyOrder("outbox_relay");
     }

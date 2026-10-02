@@ -126,6 +126,17 @@ class PlatformRulesTest {
     }
 
     @Test
+    void onlyTheNotificationModuleCreatesLinkTokens() {
+        // A token that completes a sign-up or a password reset is created at the moment the mail is sent, by the
+        // notification module, so the queue never holds a secret (ADR-0023, ADR-0024). Nothing else may mint one.
+        noClasses().that().resideOutsideOfPackages("app.platform.identity..", "app.platform.notification..")
+                .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.identity.AccountTokens")
+                .because("only the notification module creates link tokens, at send time")
+                .allowEmptyShould(true)
+                .check(platform);
+    }
+
+    @Test
     void onlyTheIdentityModuleAndTheRequestLevelWebModulesKnowTheSecurityFrameworkTypes() {
         // Business modules ask who the caller is through the tenant context and the identity module's public types,
         // never through the framework's security context (so authorization stays platform-owned, ADR-0005).

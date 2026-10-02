@@ -105,6 +105,11 @@ class DefaultTenants implements Tenants {
         return repository.findBySlug(slug);
     }
 
+    @Override
+    public long countFoundedBy(ActorId actor) {
+        return repository.countFoundedBy(actor);
+    }
+
     /**
      * Moves a tenant. Each operation names the states it applies to: ACTIVE is the target of both activating and
      * reinstating, but they are different operations (and different events) for different starting states.

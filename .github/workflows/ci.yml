@@ -173,7 +173,8 @@ jobs:
       # Sprint 3 adds Redis (rate limits shared across instances) and a token signing key pair, both generated here and
       # kept only for this job. The authentication checks (scripts/ci-smoke-auth.sh) prove that the image refuses an
       # unauthenticated call, answers the sign-in uniformly, publishes only the public key, keeps its cookies secure,
-      # writes the audit record and really uses Redis.
+      # writes the audit record and really uses Redis. Sprint 4 adds a mail catcher (SMTP) and the sender and public
+      # address settings; the same script then runs a whole sign-up on the image and reads the e-mail from the catcher.
       - name: Smoke test image
         run: |
           owner_password="$(openssl rand -hex 16)"
@@ -187,6 +188,7 @@ jobs:
           docker network create smoke
           docker run -d --name smoke-redis --network smoke \
             redis:8 redis-server --requirepass "$redis_password"
+          docker run -d --name smoke-mail --network smoke -p 8025:8025 axllent/mailpit:v1.31
           docker run -d --name smoke-db --network smoke \
             -e POSTGRES_USER=platform_owner -e POSTGRES_PASSWORD="$owner_password" -e POSTGRES_DB=platform \
             postgres:18
@@ -204,6 +206,9 @@ jobs:
             -e PLATFORM_DB_APP_USER=platform_app -e PLATFORM_DB_APP_PASSWORD="$app_password" \
             -e PLATFORM_BASE_DOMAIN=platform.example.test \
             -e PLATFORM_REDIS_HOST=smoke-redis -e PLATFORM_REDIS_PASSWORD="$redis_password" \
+            -e PLATFORM_SMTP_HOST=smoke-mail -e PLATFORM_SMTP_PORT=1025 -e PLATFORM_SMTP_AUTH=false \
+            -e PLATFORM_SMTP_STARTTLS_REQUIRED=false \
+            -e PLATFORM_MAIL_SENDER=no-reply@example.test -e PLATFORM_PUBLIC_BASE_URL=https://platform.example.test \
             -e PLATFORM_SIGNING_KEY_ID=ci-smoke-key \
             -e PLATFORM_SIGNING_PRIVATE_KEY_FILE=/keys/private.pem \
             -e PLATFORM_SIGNING_PUBLIC_KEY_FILE=/keys/public.pem \
@@ -215,7 +220,7 @@ jobs:
               curl -fsS -H "X-Request-ID: ci-smoke-request-1" -i http://localhost:8080/api/v1/platform/status
               echo
               bash ./scripts/ci-smoke-tenants.sh smoke-db "$app_password"
-              bash ./scripts/ci-smoke-auth.sh smoke-db smoke-redis "$redis_password"
+              bash ./scripts/ci-smoke-auth.sh smoke-db smoke-redis "$redis_password" http://localhost:8025
               exit 0
             fi
             sleep 2
