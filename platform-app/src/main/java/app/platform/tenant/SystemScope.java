@@ -12,7 +12,13 @@ package app.platform.tenant;
 public enum SystemScope {
 
     /** The outbox relay: claims due events of every tenant and applies retention (ADR-0016). */
-    OUTBOX_RELAY("outbox_relay");
+    OUTBOX_RELAY("outbox_relay"),
+
+    /**
+     * The identity module asking which organizations one person belongs to (the organization switcher, ADR-0027). The
+     * policy of {@code membership} admits it for reading only, and the code always asks by user.
+     */
+    MEMBERSHIP_LOOKUP("membership_lookup");
 
     private final String settingValue;
 

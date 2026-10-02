@@ -104,6 +104,85 @@ class MigrationIT {
     }
 
     @Test
+    void theFoundersOfSprintFourBecomeAdministratorsWhenTheMembershipLifecycleArrives() throws Exception {
+        // Run as a database owner that is NOT a superuser, like a deployment: forced row level security binds it, which
+        // is why the migration switches the force off for its one backfill statement.
+        String suffix = UUID.randomUUID().toString().replace("-", "");
+        String role = "migrator_" + suffix;
+        String password = "pw-" + UUID.randomUUID();
+        String database = "backfill_" + suffix;
+        try (Connection admin = TestDatabase.ownerConnection(); Statement statement = admin.createStatement()) {
+            statement.execute("create role " + role + " login password '" + password + "'");
+            statement.execute("create database " + database + " owner " + role);
+        }
+        String ownUrl = TestDatabase.jdbcUrl().replace("/platform?", "/" + database + "?");
+        try {
+            Flyway.configure().dataSource(ownUrl, role, password).locations("classpath:db/migration").target("12")
+                    .cleanDisabled(true).placeholderReplacement(false).load().migrate();
+            // A database as Sprint 4 left it: an organization with its founding administrator (ACTIVE, no marker yet).
+            UUID tenant = UUID.randomUUID();
+            UUID founder = UUID.randomUUID();
+            UUID member = UUID.randomUUID();
+            UUID system = new UUID(0L, 0L);
+            try (Connection connection = DriverManager.getConnection(ownUrl, role, password)) {
+                connection.setAutoCommit(false);
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("insert into tenant (id, slug, display_name, created_by, updated_by) values ('"
+                            + tenant + "', 'org-before', 'Org Before', '" + system + "', '" + system + "')");
+                    for (UUID user : List.of(founder, member)) {
+                        statement.execute("insert into platform_user (id, email, display_name, created_by, "
+                                + "updated_by) values ('" + user + "', '" + user + "@example.test', 'Person', '"
+                                + system + "', '" + system + "')");
+                    }
+                    statement.execute("select set_config('app.current_tenant', '" + tenant + "', true)");
+                    statement.execute("insert into membership (tenant_id, user_id, founding_administrator, "
+                            + "created_by, updated_by) values ('" + tenant + "', '" + founder + "', true, '" + system
+                            + "', '" + system + "')");
+                    statement.execute("insert into membership (tenant_id, user_id, created_by, updated_by) values ('"
+                            + tenant + "', '" + member + "', '" + system + "', '" + system + "')");
+                }
+                connection.commit();
+            }
+
+            MigrateResult result = Flyway.configure().dataSource(ownUrl, role, password)
+                    .locations("classpath:db/migration").cleanDisabled(true).placeholderReplacement(false).load()
+                    .migrate();
+
+            assertThat(result.success).isTrue();
+            try (Connection connection = DriverManager.getConnection(ownUrl, role, password)) {
+                connection.setAutoCommit(false);
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("select set_config('app.current_tenant', '" + tenant + "', true)");
+                    try (ResultSet rs = statement.executeQuery("select user_id, status, administrator, "
+                            + "founding_administrator, version from membership "
+                            + "order by founding_administrator desc")) {
+                        assertThat(rs.next()).isTrue();
+                        assertThat(rs.getObject("user_id", UUID.class)).isEqualTo(founder);
+                        assertThat(rs.getString("status")).isEqualTo("ACTIVE");
+                        assertThat(rs.getBoolean("administrator")).as("the founder administers").isTrue();
+                        assertThat(rs.getBoolean("founding_administrator")).isTrue();
+                        assertThat(rs.getLong("version")).as("the update carried the version").isEqualTo(1L);
+                        assertThat(rs.next()).isTrue();
+                        assertThat(rs.getObject("user_id", UUID.class)).isEqualTo(member);
+                        assertThat(rs.getBoolean("administrator")).as("a plain member stays plain").isFalse();
+                    }
+                    try (ResultSet rs = statement.executeQuery("select relforcerowsecurity from pg_class "
+                            + "where relname = 'membership'")) {
+                        rs.next();
+                        assertThat(rs.getBoolean(1)).as("row level security is forced again").isTrue();
+                    }
+                }
+                connection.rollback();
+            }
+        } finally {
+            try (Connection admin = TestDatabase.ownerConnection(); Statement statement = admin.createStatement()) {
+                statement.execute("drop database if exists " + database + " with (force)");
+                statement.execute("drop role if exists " + role);
+            }
+        }
+    }
+
+    @Test
     void aMigrationEditedAfterItRanIsRefused(@org.junit.jupiter.api.io.TempDir Path folder) throws IOException {
         Path migration = folder.resolve("V001__create_probe.sql");
         Files.writeString(migration, "create table probe (id int);\n");

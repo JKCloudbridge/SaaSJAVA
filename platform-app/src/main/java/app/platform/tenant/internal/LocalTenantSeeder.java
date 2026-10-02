@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
@@ -21,6 +22,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Profile("local")
+// Before the local users, whose memberships need the organizations (identity's LocalUserSeeder).
+@Order(1)
 class LocalTenantSeeder implements ApplicationRunner {
 
     private static final Logger LOG = LoggerFactory.getLogger(LocalTenantSeeder.class);

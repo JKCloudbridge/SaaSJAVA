@@ -6,6 +6,7 @@ import app.platform.testsupport.PlatformIntegrationTest;
 import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestHttp;
 import app.platform.testsupport.TestHttp.Response;
+import app.platform.testsupport.TestMembers;
 import app.platform.testsupport.TestSignIn;
 import app.platform.testsupport.TestUsers;
 import app.platform.testsupport.TestUsers.TestUser;
@@ -64,6 +65,7 @@ class AuthorizationCodeFlowIT {
     }
 
     private TestBrowser signedInWithPassword(String host, TestUser user) {
+        TestMembers.addForHost(host, user.user().id());
         TestBrowser browser = new TestBrowser(port, host);
         assertThat(browser.signInPassword(user.email(), user.password()).status()).isEqualTo(204);
         return browser;

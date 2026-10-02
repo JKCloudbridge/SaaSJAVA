@@ -95,12 +95,26 @@ class PlatformRulesTest {
     }
 
     @Test
-    void onlyTheTenantAndOutboxModulesEnterASystemScope() {
+    void onlyTheTenantOutboxAndIdentityModulesEnterASystemScope() {
         // Working across tenants is the one deliberate exception to tenant isolation (ADR-0015); it must stay
-        // visible in one or two places, never spread through the business modules.
-        noClasses().that().resideOutsideOfPackages("app.platform.tenant..", "app.platform.outbox..")
+        // visible in a few places, never spread through the business modules. Identity joined in Sprint 5 for the
+        // read-only membership lookup behind the organization switcher (ADR-0027); the next test narrows it.
+        noClasses().that().resideOutsideOfPackages("app.platform.tenant..", "app.platform.outbox..",
+                        "app.platform.identity..")
                 .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.tenant.SystemScope")
                 .because("system scopes are platform infrastructure")
+                .allowEmptyShould(true)
+                .check(platform);
+    }
+
+    @Test
+    void insideIdentityOnlyTheOrganizationDirectoryEntersASystemScope() {
+        // The read-only membership lookup (ADR-0027) lives in one class, so the one place that may read across
+        // organizations stays small enough to review.
+        noClasses().that().resideInAPackage("app.platform.identity..")
+                .and().doNotHaveFullyQualifiedName("app.platform.identity.internal.OrganizationDirectory")
+                .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.tenant.SystemScope")
+                .because("only the organization directory may work across organizations")
                 .allowEmptyShould(true)
                 .check(platform);
     }

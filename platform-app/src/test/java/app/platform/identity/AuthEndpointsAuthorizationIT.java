@@ -6,6 +6,7 @@ import app.platform.testsupport.PlatformIntegrationTest;
 import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestHttp;
 import app.platform.testsupport.TestHttp.Response;
+import app.platform.testsupport.TestMembers;
 import app.platform.testsupport.TestSignIn;
 import app.platform.testsupport.TestUsers;
 import app.platform.testsupport.TestUsers.TestUser;
@@ -56,6 +57,7 @@ class AuthEndpointsAuthorizationIT {
 
         for (Protected endpoint : PROTECTED) {
             TestUser user = TestUsers.create(users);
+            TestMembers.addForHost(hostA, user.user().id());
             String bearer = new TestBrowser(port, hostA).signIn(user.email(), user.password()).bearer();
 
             assertThat(call(endpoint, hostA, null).status()).as("denied: no token, " + endpoint.path())

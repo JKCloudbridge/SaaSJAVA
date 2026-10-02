@@ -138,6 +138,68 @@ class AuthAudit {
                 .with("slug", slug));
     }
 
+    // ---- membership, invitations and switching (Sprint 5); the tenant of the record is the organization ----
+
+    /** An invitation was requested. Identical for every address: only a hash of the address is kept. */
+    void invitationRequested(UUID inviter, UUID invitationId, String email, boolean administrator) {
+        write(AuditRecord.of("membership.invitation.requested", AuditOutcome.SUCCESS).forUser(inviter)
+                .with("invitation", invitationId.toString()).with("identifier_hash", Hashes.sha256Hex(email))
+                .with("administrator", Boolean.toString(administrator)));
+    }
+
+    void invitationResent(UUID inviter, UUID invitationId) {
+        write(AuditRecord.of("membership.invitation.resent", AuditOutcome.SUCCESS).forUser(inviter)
+                .with("invitation", invitationId.toString()));
+    }
+
+    void invitationRevoked(UUID inviter, UUID invitationId) {
+        write(AuditRecord.of("membership.invitation.revoked", AuditOutcome.SUCCESS).forUser(inviter)
+                .with("invitation", invitationId.toString()));
+    }
+
+    void invitationAccepted(UUID user, UUID invitationId, UUID membershipId, boolean newAccount) {
+        write(AuditRecord.of("membership.invitation.accepted", AuditOutcome.SUCCESS).forUser(user)
+                .with("invitation", invitationId.toString()).with("membership", membershipId.toString())
+                .with("new_account", Boolean.toString(newAccount)));
+    }
+
+    void membershipDeactivated(UUID actor, UUID subject, UUID membershipId, int sessionsEnded) {
+        write(AuditRecord.of("membership.deactivated", AuditOutcome.SUCCESS).forUser(subject)
+                .with("actor", actor.toString()).with("membership", membershipId.toString())
+                .with("sessions_ended", Integer.toString(sessionsEnded)));
+    }
+
+    void membershipReactivated(UUID actor, UUID subject, UUID membershipId) {
+        write(AuditRecord.of("membership.reactivated", AuditOutcome.SUCCESS).forUser(subject)
+                .with("actor", actor.toString()).with("membership", membershipId.toString()));
+    }
+
+    void administratorChanged(UUID actor, UUID subject, UUID membershipId, boolean granted) {
+        write(AuditRecord.of(granted ? "membership.administrator.granted" : "membership.administrator.revoked",
+                AuditOutcome.SUCCESS).forUser(subject).with("actor", actor.toString())
+                .with("membership", membershipId.toString()));
+    }
+
+    /** An administrative action was refused (not an administrator, last administrator, ...). */
+    void membershipActionRefused(UUID actor, String action, String reason) {
+        write(AuditRecord.of("membership.action.refused", AuditOutcome.DENIED).forUser(actor).because(reason)
+                .with("action", action));
+    }
+
+    void switchRequested(UUID userId, UUID targetTenant) {
+        write(AuditRecord.of("auth.organization.switch_requested", AuditOutcome.SUCCESS).forUser(userId)
+                .with("target_tenant", targetTenant.toString()));
+    }
+
+    void switchRefused(UUID userId, String reason, String source) {
+        write(AuditRecord.of("auth.organization.switch_refused", AuditOutcome.DENIED).forUser(userId).because(reason)
+                .with("source", source));
+    }
+
+    void switched(UUID userId) {
+        write(AuditRecord.of("auth.organization.switched", AuditOutcome.SUCCESS).forUser(userId));
+    }
+
     void bindingRefused(UUID userId, String what) {
         write(AuditRecord.of("auth.token.refused", AuditOutcome.DENIED).forUser(userId).because("wrong_host")
                 .with("what", what));

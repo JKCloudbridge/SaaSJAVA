@@ -40,7 +40,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  *       finds it: not revoked, not past its absolute lifetime, its user may sign in, and the user's security version is
  *       still the one the grant was issued under. There is no cached copy that could be stale on another instance.</li>
  *   <li><b>Bound to the host</b> it was issued on (an organization, or the platform host): presented on another host
- * it is       refused. This is a stop-gap until the membership check of Sprint 5.</li>
+ * it is       refused. Since Sprint 5 the membership is checked as well (every request, and a membership that
+ * ends revokes the grants bound to its organization).</li>
  *   <li><b>Refresh rotation with reuse detection</b> (story S3-SEC-13): every use of a refresh token replaces it and
  * keeps       the hash of the one replaced. A replayed replaced token revokes the whole grant, unless it was replaced
  * only a       moment ago (two browser tabs refreshing together), which is refused without punishment.</li>
@@ -265,6 +266,22 @@ class AuthorizationStore implements OAuth2AuthorizationService {
                 .param("reason", reason)
                 .param("actor", actor)
                 .param("user", userId)
+                .update();
+    }
+
+    /**
+     * Revokes every grant of a user that is bound to one organization's host: all their tokens for that organization
+     * stop working now, and the person's other organizations are untouched. @return how many grants were alive
+     */
+    int revokeAllIn(UUID userId, UUID boundTenantId, String reason, UUID actor) {
+        return jdbc.sql("update oauth2_authorization set revoked_at = now(), revoked_reason = :reason, "
+                        + "updated_by = :actor, version = version + 1 "
+                        + "where user_id = :user and bound_tenant_id = :tenant and revoked_at is null "
+                        + "and deleted_at is null")
+                .param("reason", reason)
+                .param("actor", actor)
+                .param("user", userId)
+                .param("tenant", boundTenantId)
                 .update();
     }
 

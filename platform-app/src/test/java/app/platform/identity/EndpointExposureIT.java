@@ -45,7 +45,13 @@ class EndpointExposureIT {
             "POST /api/v1/auth/sign-up",
             "POST /api/v1/auth/sign-up/complete",
             "POST /api/v1/auth/password/forgot",
-            "POST /api/v1/auth/password/reset");
+            "POST /api/v1/auth/password/reset",
+            // Sprint 5: authorized by a one-time token and nothing else. Reading and accepting an invitation as a new
+            // person prove themselves with the token of the mailed link; completing a switch proves itself with the
+            // one-time, 60-second proof the other host handed out. All answer the same for every kind of bad token.
+            "POST /api/v1/auth/invitations/preview",
+            "POST /api/v1/auth/invitations/accept-new",
+            "POST /api/v1/auth/switch/complete");
 
     @LocalServerPort
     private int port;

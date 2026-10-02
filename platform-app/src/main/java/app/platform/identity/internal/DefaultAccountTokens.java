@@ -38,6 +38,9 @@ class DefaultAccountTokens implements AccountTokens {
         if (purpose == AccountTokenPurpose.PASSWORD_RESET && userId == null) {
             throw new IllegalArgumentException("A reset token belongs to an account");
         }
+        if (purpose == AccountTokenPurpose.INVITATION) {
+            throw new IllegalArgumentException("An invitation token belongs to an invitation");
+        }
         String token = Hashes.randomSecret();
         Duration life = lifetime(purpose);
         transaction.executeWithoutResult(status -> {
@@ -49,7 +52,26 @@ class DefaultAccountTokens implements AccountTokens {
     }
 
     @Override
+    public String issueInvitation(String email, UUID tenantId, UUID invitationId) {
+        Objects.requireNonNull(email, "email");
+        Objects.requireNonNull(tenantId, "tenantId");
+        Objects.requireNonNull(invitationId, "invitationId");
+        String token = Hashes.randomSecret();
+        Duration life = lifetime(AccountTokenPurpose.INVITATION);
+        transaction.executeWithoutResult(status -> {
+            tokens.cancelOpenOfInvitation(invitationId);
+            tokens.insertInvitation(email, tenantId, invitationId, Hashes.hashed(token), clock.instant().plus(life));
+            audit.tokenCreated(AccountTokenPurpose.INVITATION.name(), null);
+        });
+        return token;
+    }
+
+    @Override
     public Duration lifetime(AccountTokenPurpose purpose) {
-        return purpose == AccountTokenPurpose.SIGN_UP ? settings.signUpLinkLife() : settings.resetLinkLife();
+        return switch (purpose) {
+            case SIGN_UP -> settings.signUpLinkLife();
+            case PASSWORD_RESET -> settings.resetLinkLife();
+            case INVITATION -> settings.invitationLinkLife();
+        };
     }
 }

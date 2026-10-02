@@ -66,6 +66,27 @@ public final class ApiPaths {
     /** Organizations: a signed-in person founds one (Sprint 4). */
     public static final String ORGANIZATIONS = V1 + "/organizations";
 
+    /** Invitations of the organization the host names: invite, list, send again, revoke (Sprint 5). */
+    public static final String INVITATIONS = V1 + "/invitations";
+
+    /** The members of the organization the host names: list, deactivate, reactivate, administrators (Sprint 5). */
+    public static final String MEMBERS = V1 + "/members";
+
+    /** Reads what an invitation link is for, before the person decides (public: the token is the proof). */
+    public static final String AUTH_INVITATION_PREVIEW = AUTH + "/invitations/preview";
+
+    /** Accepts an invitation by a person who has no account yet: chooses a name and a password. */
+    public static final String AUTH_INVITATION_ACCEPT_NEW = AUTH + "/invitations/accept-new";
+
+    /** Accepts an invitation by a signed-in person who already has an account. */
+    public static final String AUTH_INVITATION_ACCEPT = AUTH + "/invitations/accept";
+
+    /** Asks to continue in another organization of the signed-in person (Sprint 5). */
+    public static final String AUTH_SWITCH = AUTH + "/switch";
+
+    /** Completes a switch on the target host with the one-time handoff (public: the token is the proof). */
+    public static final String AUTH_SWITCH_COMPLETE = AUTH_SWITCH + "/complete";
+
     /** The authorization server's endpoints (Sprint 3). */
     public static final String OAUTH2 = V1 + "/oauth2";
 

@@ -10,6 +10,8 @@ import static org.mockito.Mockito.when;
 
 import app.platform.identity.AccountTokenPurpose;
 import app.platform.identity.AccountTokens;
+import app.platform.identity.InvitationMail;
+import app.platform.identity.Invitations;
 import app.platform.identity.User;
 import app.platform.identity.UserStatus;
 import app.platform.identity.Users;
@@ -31,7 +33,8 @@ class MailTextsAndComposerTest {
 
     private final Users users = mock(Users.class);
     private final AccountTokens tokens = mock(AccountTokens.class);
-    private final MailComposer composer = new MailComposer(users, tokens, new MailLinks(PROPERTIES));
+    private final Invitations invitations = mock(Invitations.class);
+    private final MailComposer composer = new MailComposer(users, invitations, tokens, new MailLinks(PROPERTIES));
 
     private static MailProperties properties(String sender, String baseUrl) {
         return new MailProperties(true, sender, baseUrl, Duration.ofSeconds(2), 10, Duration.ofMinutes(2), 10,
@@ -52,7 +55,8 @@ class MailTextsAndComposerTest {
     @Test
     void everyMessageIsFilledCompletelyAndHasBothForms() {
         Map<String, String> values = Map.of("link", "http://localhost:3000/x#token=abc", "lifetime", "24 hours",
-                "signInLink", "http://localhost:3000/sign-in", "forgotLink", "http://localhost:3000/forgot-password");
+                "signInLink", "http://localhost:3000/sign-in", "forgotLink", "http://localhost:3000/forgot-password",
+                "organization", "Organization A");
         for (MailTexts.Kind kind : MailTexts.Kind.values()) {
             assertThat(MailTexts.text(kind, values)).as(kind + " text").doesNotContain("{{").isNotBlank();
             assertThat(MailTexts.html(kind, values)).as(kind + " html").doesNotContain("{{").startsWith("<!doctype");
@@ -78,6 +82,23 @@ class MailTextsAndComposerTest {
         assertThat(MailComposer.describe(Duration.ofMinutes(60))).isEqualTo("1 hour");
         assertThat(MailComposer.describe(Duration.ofMinutes(90))).isEqualTo("90 minutes");
         assertThat(MailComposer.describe(Duration.ofMinutes(1))).isEqualTo("1 minute");
+        assertThat(MailComposer.describe(Duration.ofDays(7))).isEqualTo("7 days");
+    }
+
+    @Test
+    void anOrganizationNameInAMailCanOnlyBeAName() {
+        assertThat(MailTexts.safeName("Organization A")).isEqualTo("Organization A");
+        assertThat(MailTexts.safeName("https://evil.example/sign-in now")).doesNotContain(":").doesNotContain("/")
+                .doesNotContain(".");
+        assertThat(MailTexts.safeName("a@b.example")).doesNotContain("@").doesNotContain(".");
+        assertThat(MailTexts.safeName("Line one\nLine two\r\nLine three")).doesNotContain("\n").doesNotContain("\r");
+        assertThat(MailTexts.safeName("<script>alert(1)</script>")).doesNotContain("<").doesNotContain(">");
+        assertThat(MailTexts.safeName("x".repeat(500))).hasSize(80);
+        assertThat(MailTexts.safeName("///:::")).isEqualTo("an organization");
+        // And the HTML form of a message never turns the name into a link, whatever it started with.
+        String html = MailTexts.html(MailTexts.Kind.INVITATION_NEW, Map.of("link", "http://localhost:3000/x#token=a",
+                "lifetime", "7 days", "organization", MailTexts.safeName("https://evil.example")));
+        assertThat(html).doesNotContain("evil.example").doesNotContain("href=\"https://evil");
     }
 
     // ---- decisions ----
@@ -152,6 +173,44 @@ class MailTextsAndComposerTest {
             assertThat(send.message().text()).contains("http://localhost:3000/forgot-password")
                     .doesNotContain("#token=");
         }
+    }
+
+    @Test
+    void anInvitationBecomesALinkMessageInTheWordsOfTheAccountState() {
+        UUID tenant = UUID.randomUUID();
+        UUID invitation = UUID.randomUUID();
+        when(tokens.issueInvitation("a@example.test", tenant, invitation)).thenReturn("INVITE7");
+        when(tokens.lifetime(AccountTokenPurpose.INVITATION)).thenReturn(Duration.ofDays(7));
+        ClaimedMail queued = new ClaimedMail(UUID.randomUUID(), MailTemplate.INVITATION, "a@example.test", null,
+                Map.of("organization_id", tenant.toString(), "invitation_id", invitation.toString()),
+                Instant.now(), 1, 1);
+
+        when(invitations.forMail(tenant, invitation))
+                .thenReturn(Optional.of(new InvitationMail("Organization A", "a@example.test", false)));
+        Decision.Send fresh = (Decision.Send) composer.decide(queued);
+        when(invitations.forMail(tenant, invitation))
+                .thenReturn(Optional.of(new InvitationMail("Organization A", "a@example.test", true)));
+        Decision.Send existing = (Decision.Send) composer.decide(queued);
+
+        assertThat(fresh.message().text()).contains("http://localhost:3000/invitations/accept#token=INVITE7")
+                .contains("\"Organization A\"").contains("7 days").contains("choose your name and a password");
+        assertThat(existing.message().text()).contains("#token=INVITE7").contains("sign in with that account");
+        assertThat(fresh.message().subject()).isEqualTo(existing.message().subject())
+                .as("the subject holds no text an administrator chose").doesNotContain("Organization");
+    }
+
+    @Test
+    void anInvitationThatIsNotOpenAnyMoreOrCannotBeUnderstoodSendsNothingAndCreatesNoToken() {
+        UUID tenant = UUID.randomUUID();
+        UUID invitation = UUID.randomUUID();
+        when(invitations.forMail(tenant, invitation)).thenReturn(Optional.empty());
+
+        assertThat(composer.decide(new ClaimedMail(UUID.randomUUID(), MailTemplate.INVITATION, "a@example.test", null,
+                Map.of("organization_id", tenant.toString(), "invitation_id", invitation.toString()), Instant.now(),
+                1, 1))).isEqualTo(new Decision.Suppress("invitation_not_open"));
+        assertThat(composer.decide(mail(MailTemplate.INVITATION, "a@example.test")))
+                .isEqualTo(new Decision.Suppress("invitation_unknown"));
+        verify(tokens, never()).issueInvitation(any(), any(), any());
     }
 
     // ---- retry delay ----

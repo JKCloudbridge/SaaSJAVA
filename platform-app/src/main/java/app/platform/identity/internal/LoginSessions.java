@@ -77,6 +77,17 @@ class LoginSessions {
                 .update();
     }
 
+    /** Ends every session of a user that was issued on one organization's host. @return how many were alive */
+    int revokeAllIn(UUID userId, UUID boundTenantId, ActorId actor) {
+        return jdbc.sql("update login_session set revoked_at = now(), updated_by = :actor, version = version + 1 "
+                        + "where user_id = :user and bound_tenant_id = :tenant and revoked_at is null "
+                        + "and deleted_at is null")
+                .param("actor", actor.value())
+                .param("user", userId)
+                .param("tenant", boundTenantId)
+                .update();
+    }
+
     /** Removes sessions that ended long ago. @return how many */
     int purgeEndedBefore(Duration age) {
         return jdbc.sql("delete from login_session where expires_at < now() - make_interval(secs => :seconds)")

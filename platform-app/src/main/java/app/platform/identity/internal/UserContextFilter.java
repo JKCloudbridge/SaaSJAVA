@@ -21,7 +21,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * <p>Runs right after the token has been checked. When the request has a tenant (an organization host) the context is
  * re-opened for the same tenant with the user filled in; the tenant is read from the context the host name produced and
  * never from anything the client sent. On the platform host there is no tenant, and the context cannot exist without
- * one, so the user is visible only through the security context there. The membership is not looked up (Sprint 5).
+ * one, so the user is visible only through the security context there. On an organization host the token check
+ * (see {@link TokenAuthentication.Introspector}) has already required an active membership and passed its identifier
+ * on,
+ * and this filter puts it into the context (Sprint 5, ADR-0026).
  * Not a bean: it belongs to the API filter chain, and a servlet-container registration of it would run it twice.
  */
 final class UserContextFilter extends OncePerRequestFilter {
@@ -41,10 +44,24 @@ final class UserContextFilter extends OncePerRequestFilter {
             chain.doFilter(request, response);
             return;
         }
-        TenantContext withUser = new TenantContext(current.get().tenantId(), user.get(), null);
+        TenantContext withUser = new TenantContext(current.get().tenantId(), user.get(), membership().orElse(null));
         try (TenantContexts.Scope _ = contexts.open(withUser)) {
             chain.doFilter(request, response);
         }
+    }
+
+    /** The membership the token check found on an organization host (the check refused the request without one). */
+    private static Optional<UUID> membership() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication instanceof BearerTokenAuthentication token
+                && token.getTokenAttributes().get(TokenAuthentication.MEMBERSHIP_ATTRIBUTE) instanceof String id) {
+            try {
+                return Optional.of(UUID.fromString(id));
+            } catch (IllegalArgumentException e) {
+                return Optional.empty();
+            }
+        }
+        return Optional.empty();
     }
 
     private static Optional<UUID> authenticatedUser() {

@@ -118,6 +118,25 @@ public final class TenantContexts {
     }
 
     /**
+     * Runs the supplier in a system scope while the request's own tenant context is set aside, then puts it back.
+     * Meant for the one case where a request on an organization host must ask a question that spans organizations (the
+     * list of a person's organizations, ADR-0027). The work in between has no tenant: it sees only what the scope's
+     * policies admit. Refused inside a running transaction (the database setting is made when a transaction begins) and
+     * inside another system scope.
+     */
+    public <T> T callAsSystemApart(SystemScope scope, Supplier<T> work) {
+        Objects.requireNonNull(scope, "scope");
+        Frame previous = frame();
+        if (previous.scope() != null) {
+            throw new IllegalStateException("A system scope cannot be entered inside another system scope");
+        }
+        LOG.debug("Entering system scope {} apart from the request's tenant", scope);
+        try (Scope _ = enter(previous, new Frame(null, scope))) {
+            return work.get();
+        }
+    }
+
+    /**
      * Wraps a task so that it runs with the context (or system scope) of the thread that wraps it, wherever and
      * whenever it runs. The wrapping thread's context is captured now; the running thread's own is restored after.
      */

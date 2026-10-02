@@ -26,6 +26,10 @@ class MailLinks {
         return base + "/reset-password#token=" + token;
     }
 
+    String invitation(String token) {
+        return base + "/invitations/accept#token=" + token;
+    }
+
     String signIn() {
         return base + "/sign-in";
     }

@@ -8,6 +8,7 @@ import app.platform.testsupport.PlatformIntegrationTest;
 import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestHttp;
 import app.platform.testsupport.TestHttp.Response;
+import app.platform.testsupport.TestMembers;
 import app.platform.testsupport.TestSignIn;
 import app.platform.testsupport.TestUsers;
 import app.platform.testsupport.TestUsers.TestUser;
@@ -67,6 +68,7 @@ class SignInIT {
     void signInWorksOnTheOrganizationHostAndOnThePlatformHost() {
         TestUser user = TestUsers.create(users);
         String organizationHost = TenantFixtures.createActiveTenant().host();
+        TestMembers.addForHost(organizationHost, user.user().id());
 
         for (String host : List.of(organizationHost, TestSignIn.PLATFORM_HOST)) {
             TestBrowser browser = new TestBrowser(port, host);

@@ -219,6 +219,29 @@ class TenantContextsTest {
     }
 
     @Test
+    void aRequestForATenantCanSetItAsideForOneSystemScopeAndGetItBack() {
+        try (TenantContexts.Scope _ = contexts.open(TENANT_A)) {
+            String seen = contexts.callAsSystemApart(SystemScope.MEMBERSHIP_LOOKUP, () -> {
+                assertThat(contexts.current()).as("the scope has no tenant").isEmpty();
+                assertThat(contexts.currentSystemScope()).contains(SystemScope.MEMBERSHIP_LOOKUP);
+                return "answered";
+            });
+
+            assertThat(seen).isEqualTo("answered");
+            assertThat(contexts.require()).as("the request's tenant is back").isEqualTo(TENANT_A);
+            assertThat(contexts.currentSystemScope()).isEmpty();
+        }
+    }
+
+    @Test
+    void aSystemScopeSetAsideForARequestCannotBeNestedInAnotherScope() {
+        try (TenantContexts.Scope _ = contexts.openSystem(SystemScope.OUTBOX_RELAY)) {
+            assertThatThrownBy(() -> contexts.callAsSystemApart(SystemScope.MEMBERSHIP_LOOKUP, () -> "x"))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+    }
+
+    @Test
     void aMembershipNeedsAUser() {
         assertThatThrownBy(() -> new TenantContext(TENANT_A.tenantId(), null, UUID.randomUUID()))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -229,5 +252,6 @@ class TenantContextsTest {
     @Test
     void theSystemScopeNamesAreTheOnesThePoliciesUse() {
         assertThat(SystemScope.OUTBOX_RELAY.settingValue()).isEqualTo("outbox_relay");
+        assertThat(SystemScope.MEMBERSHIP_LOOKUP.settingValue()).isEqualTo("membership_lookup");
     }
 }
