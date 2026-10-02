@@ -19,5 +19,13 @@ public enum MailTemplate {
     PASSWORD_CHANGED,
 
     /** The account was locked after repeated failed sign-ins: tells the owner and points to the reset. */
-    ACCOUNT_LOCKED
+    ACCOUNT_LOCKED,
+
+    /**
+     * An organization invited this address (Sprint 5, ADR-0028). The request names the organization and the invitation
+     * (facts, no secret); at send time the relay sends a link to a new account or to an existing one, or nothing when
+     * the
+     * invitation is no longer open or the address is already a member.
+     */
+    INVITATION
 }

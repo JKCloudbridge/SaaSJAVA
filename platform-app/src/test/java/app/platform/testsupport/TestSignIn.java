@@ -18,6 +18,8 @@ public final class TestSignIn {
      */
     public static String bearer(int port, Users users, String host) {
         TestUsers.TestUser user = TestUsers.create(users);
+        // Since Sprint 5 a person signs in on an organization host only as a member of it.
+        TestMembers.addForHost(host, user.user().id());
         return new TestBrowser(port, host).signIn(user.email(), user.password()).bearer();
     }
 

@@ -86,6 +86,36 @@ final class MailTexts {
                 set a new password to be safe:
 
                 {{forgotLink}}
+                """),
+
+        INVITATION_NEW(
+                "You have been invited to join an organization",
+                """
+                Hello,
+
+                An administrator of the organization "{{organization}}" invited this e-mail address to join it. To \
+                accept, open this link and choose your name and a password:
+
+                {{link}}
+
+                The link works once and stops working in {{lifetime}}. The invitation gives no access until you \
+                accept it. If you do not know this organization or did not expect this message, ignore it: nothing \
+                is created until the link is used.
+                """),
+
+        INVITATION_EXISTING(
+                "You have been invited to join an organization",
+                """
+                Hello,
+
+                An administrator of the organization "{{organization}}" invited this e-mail address, which already \
+                has an account, to join it. To accept, open this link and sign in with that account:
+
+                {{link}}
+
+                The link works once and stops working in {{lifetime}}. The invitation gives no access until you \
+                accept it. If you do not know this organization or did not expect this message, ignore it: nothing \
+                changes until the link is used.
                 """);
 
         private final String subject;
@@ -101,7 +131,29 @@ final class MailTexts {
         }
     }
 
+    private static final int MAX_NAME_LENGTH = 80;
+
     private MailTexts() {
+    }
+
+    /**
+     * The organization's name as it may appear in a mail: text an administrator chose, so it is cut to a short length
+     * and reduced to letters, digits, spaces and a few quiet marks. Anything that could make a link or an address
+     * (colon, slash, at-sign, dot) and anything that could break a line is dropped, so the name can only be a name.
+     */
+    static String safeName(String name) {
+        StringBuilder safe = new StringBuilder();
+        for (int i = 0; i < name.length() && safe.length() < MAX_NAME_LENGTH; ) {
+            int point = name.codePointAt(i);
+            i += Character.charCount(point);
+            if (Character.isLetterOrDigit(point) || " -'&,()".indexOf(point) >= 0) {
+                safe.appendCodePoint(point);
+            } else if (Character.isWhitespace(point)) {
+                safe.append(' ');
+            }
+        }
+        String result = safe.toString().strip().replaceAll(" {2,}", " ");
+        return result.isEmpty() ? "an organization" : result;
     }
 
     /** The plain-text body with the values inserted as they are. */

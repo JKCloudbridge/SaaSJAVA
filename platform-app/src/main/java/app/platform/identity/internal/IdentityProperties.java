@@ -209,6 +209,12 @@ record IdentityProperties(
      * @param maxOrganizationsPerPerson how many organizations one person may found; Sprint 6 attaches plans
      * @param foundingsPerHour organizations one person may found per hour
      * @param lockMailInterval the shortest time between two lock notices to the same account owner
+     * @param invitationLinkLife how long the link of an invitation e-mail works (Sprint 5, ADR-0028)
+     * @param invitationsPerOrganizationPerHour invitations (new or sent again) one organization may start per hour,
+     *        whatever the addresses are
+     * @param invitationsPerPersonPerHour invitations one administrator may start per hour
+     * @param handoffLife how long a signed-in person's request to continue on another organization's host works
+     *        (ADR-0029)
      */
     record Account(
             @DefaultValue("24h") Duration signUpLinkLife,
@@ -222,12 +228,19 @@ record IdentityProperties(
             @DefaultValue("10m") Duration tokenWindow,
             @DefaultValue("3") int maxOrganizationsPerPerson,
             @DefaultValue("5") int foundingsPerHour,
-            @DefaultValue("24h") Duration lockMailInterval) {
+            @DefaultValue("24h") Duration lockMailInterval,
+            @DefaultValue("7d") Duration invitationLinkLife,
+            @DefaultValue("20") int invitationsPerOrganizationPerHour,
+            @DefaultValue("10") int invitationsPerPersonPerHour,
+            @DefaultValue("60s") Duration handoffLife) {
 
         Account {
             if (signUpLinkLife.isNegative() || signUpLinkLife.isZero() || resetLinkLife.isNegative()
                     || resetLinkLife.isZero() || signUpsPerSource < 1 || resetsPerSource < 1 || mailsPerAddress < 1
-                    || tokenAttempts < 1 || maxOrganizationsPerPerson < 1 || foundingsPerHour < 1) {
+                    || tokenAttempts < 1 || maxOrganizationsPerPerson < 1 || foundingsPerHour < 1
+                    || invitationLinkLife.isNegative() || invitationLinkLife.isZero()
+                    || invitationsPerOrganizationPerHour < 1 || invitationsPerPersonPerHour < 1
+                    || handoffLife.isNegative() || handoffLife.isZero()) {
                 throw new IllegalArgumentException("platform.identity.account: invalid values");
             }
         }

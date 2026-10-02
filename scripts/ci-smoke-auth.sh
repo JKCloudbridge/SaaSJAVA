@@ -9,7 +9,10 @@
 # written, the published key set holds the public key and no private part, the authorization endpoint without a
 # sign-in goes to the sign-in page, and Redis is really in use. With the address of a mail catcher (for example
 # http://localhost:8025) it also runs a whole sign-up on the image: the request answers 202, the e-mail arrives with a link
-# on the platform host, completing the link creates the account and the person signs in. The owner's role name can be set
+# on the platform host, completing the link creates the account and the person signs in. It then runs one invitation
+# round trip (Sprint 5): the person founds an organization, invites a second address as an administrator of it, the
+# invitation e-mail arrives with a link on the platform host, accepting it once creates the account and the membership
+# (twice does not), and the invited person signs in on the organization's host. The owner's role name can be set
 # with OWNER_USER.
 set -euo pipefail
 
@@ -21,14 +24,41 @@ base="http://localhost:8080"
 host="platform.example.test"
 
 fail() {
-  echo "FAILED: $1"
+  echo "FAILED: $1" >&2
   exit 1
 }
 
 body="$(mktemp)"
 headers="$(mktemp)"
 call() { # <extra curl arguments...>: writes $body and $headers, prints the status code
-  curl -s -o "$body" -D "$headers" -w '%{http_code}' -H "Host: $host" "$@"
+  curl -s -o "$body" -D "$headers" -w '%{http_code}' -H "Host: ${call_host:-$host}" "$@"
+}
+
+cookie_value() { # <name>: the value of a cookie the last response set
+  grep -i "^set-cookie: $1=" "$headers" | head -1 | tr -d '\r' | sed -E 's/^[^=]*=([^;]*).*/\1/' || true
+}
+
+location_path() { # the path and query of the last redirect
+  grep -i '^location:' "$headers" | head -1 | tr -d '\r' | sed -E 's/^[^:]*: *//; s#^https?://[^/]+##'
+}
+
+sign_in_token() { # <host> <email> <password>: the browser's whole sign-in on that host; prints the access token
+  local on="$1" email="$2" secret="$3" xsrf login tx path
+  call_host="$on"
+  [ "$(call "$base/api/v1/auth/csrf")" = "204" ] || fail "no forgery cookie on $on"
+  xsrf="$(cookie_value XSRF-TOKEN)"
+  [ "$(call -X POST -H 'Content-Type: application/json' -H "Cookie: XSRF-TOKEN=$xsrf" -H "X-XSRF-TOKEN: $xsrf" \
+    -d "{\"email\":\"$email\",\"password\":\"$secret\"}" "$base/api/v1/auth/sign-in")" = "204" ] \
+    || fail "the sign-in on $on was refused"
+  login="$(cookie_value platform_login)"
+  [ "$(call -H "Cookie: platform_login=$login" "$base/api/v1/auth/start?continue=/")" = "302" ] || fail "no start on $on"
+  tx="$(cookie_value platform_tx)"
+  path="$(location_path)"
+  [ "$(call -H "Cookie: platform_login=$login; platform_tx=$tx" "$base$path")" = "302" ] || fail "no code on $on"
+  path="$(location_path)"
+  [ "$(call -H "Cookie: platform_login=$login; platform_tx=$tx" "$base$path")" = "302" ] || fail "no callback on $on"
+  cookie_value platform_at
+  call_host=""
 }
 
 # 1. A protected endpoint refuses an unauthenticated caller, in the error model, with a bearer challenge.
@@ -141,4 +171,73 @@ if [ -n "$mail" ]; then
     fail "a link token was stored in clear"
   fi
   echo "ok: no token is stored in clear (tokens, queue, audit)"
+
+  # 11. An invitation round trip on the image (Sprint 5). The first person founds an organization and signs in on its
+  # host; they invite a second address as an administrator; the invitation e-mail arrives with a link on the platform
+  # host; accepting creates the account and the membership once; the invited person signs in on the organization's host.
+  founder_token="$(sign_in_token "$host" "$address" "$password")"
+  [ -n "$founder_token" ] || fail "the founder has no access token"
+  status="$(call -X POST -H "Authorization: Bearer $founder_token" -H 'Content-Type: application/json' \
+    -d '{"displayName":"Smoke Organization","slug":"smoke-org"}' "$base/api/v1/organizations")"
+  [ "$status" = "201" ] || fail "founding an organization answered $status: $(cat "$body")"
+  org_host="smoke-org.$host"
+  org_token="$(sign_in_token "$org_host" "$address" "$password")"
+  [ -n "$org_token" ] || fail "the founder could not sign in on the organization's host"
+  echo "ok: a person founds an organization and signs in on its host as its member"
+
+  invitee="smoke-invitee-$(date +%s)@example.test"
+  invitee_password="a-long-invited-passphrase-$RANDOM-$RANDOM"
+  status="$(call_host="$org_host" call -X POST -H "Authorization: Bearer $org_token" -H 'Content-Type: application/json' \
+    -d "{\"email\":\"$invitee\",\"administrator\":true}" "$base/api/v1/invitations")"
+  [ "$status" = "202" ] || fail "inviting answered $status: $(cat "$body")"
+  status="$(call_host="$org_host" call -X POST -H "Authorization: Bearer $org_token" -H 'Content-Type: application/json' \
+    -d '{"email":"nobody-smoke@example.test"}' "$base/api/v1/invitations")"
+  [ "$status" = "202" ] || fail "inviting another address answered $status"
+  echo "ok: an administrator's invitation request answers 202 whatever the address"
+
+  invite_link=""
+  for _ in $(seq 1 30); do
+    message_id="$(curl -fsS "$mail/api/v1/search?query=to:$invitee" | grep -o '"ID":"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
+    if [ -n "$message_id" ]; then
+      invite_link="$(curl -fsS "$mail/api/v1/message/$message_id" | grep -o 'https\?://[A-Za-z0-9./:_-]*#token=[A-Za-z0-9_-]*' | head -1 || true)"
+      break
+    fi
+    sleep 2
+  done
+  [ -n "$invite_link" ] || fail "no invitation e-mail arrived"
+  case "$invite_link" in
+    "https://$host/invitations/accept#token="*) ;;
+    *) fail "the invitation link does not point at the platform host: ${invite_link%%#*}" ;;
+  esac
+  echo "ok: the invitation e-mail arrived with a link on the platform host"
+
+  invite_token="${invite_link#*#token=}"
+  accept="{\"token\":\"$invite_token\",\"displayName\":\"Invited Person\",\"password\":\"$invitee_password\"}"
+  status="$(call -X POST "${json_headers[@]}" -d "{\"token\":\"$invite_token\"}" "$base/api/v1/auth/invitations/preview")"
+  [ "$status" = "200" ] || fail "reading the invitation answered $status: $(cat "$body")"
+  grep -q '"existingAccount":false' "$body" || fail "the preview does not say the address has no account: $(cat "$body")"
+  status="$(call -X POST "${json_headers[@]}" -d "$accept" "$base/api/v1/auth/invitations/accept-new")"
+  [ "$status" = "200" ] || fail "accepting the invitation answered $status: $(cat "$body")"
+  grep -q "\"host\":\"$org_host\"" "$body" || fail "the answer does not name the organization's host: $(cat "$body")"
+  status="$(call -X POST "${json_headers[@]}" -d "$accept" "$base/api/v1/auth/invitations/accept-new")"
+  [ "$status" = "400" ] || fail "the invitation worked a second time ($status)"
+  echo "ok: accepting creates the account and the membership once and not twice"
+
+  invitee_token="$(sign_in_token "$org_host" "$invitee" "$invitee_password")"
+  [ -n "$invitee_token" ] || fail "the invited person could not sign in on the organization's host"
+  status="$(call_host="$org_host" call -H "Authorization: Bearer $invitee_token" "$base/api/v1/members")"
+  [ "$status" = "200" ] || fail "the invited administrator could not list the members ($status)"
+  [ "$(owner_sql -c "select count(*) from membership m join tenant t on t.id = m.tenant_id where t.slug = 'smoke-org'")" = "2" ] \
+    || fail "the organization does not have exactly two members"
+  echo "ok: the invited person signs in on the organization's host and is its second member"
+
+  stored="$(owner_sql -c "select t::text from account_token t union all select t::text from mail_queue t \
+    union all select attributes::text from audit_record union all select t::text from organization_handoff t")"
+  if echo "$stored" | grep -q "$invite_token"; then
+    fail "an invitation token was stored in clear"
+  fi
+  if echo "$stored" | grep -q "$invitee_password"; then
+    fail "a password reached a table"
+  fi
+  echo "ok: no invitation token or password is stored in clear"
 fi

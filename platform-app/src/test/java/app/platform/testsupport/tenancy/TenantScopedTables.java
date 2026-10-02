@@ -41,8 +41,17 @@ public final class TenantScopedTables {
                 tenant, user, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
     });
 
+    /** The invitations of organizations (Sprint 5). */
+    public static final TenantScopedTable INVITATION = new TenantScopedTable("invitation",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into invitation (tenant_id, email, expires_at, created_by, updated_by) "
+                            + "values (?, ?, now() + interval '1 day', ?, ?)",
+                    tenant, "probe-" + UUID.randomUUID() + "@example.test", ActorId.SYSTEM.value(),
+                    ActorId.SYSTEM.value()));
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
-    public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP);
+    public static final List<TenantScopedTable> ALL =
+            List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION);
 
     private TenantScopedTables() {
     }

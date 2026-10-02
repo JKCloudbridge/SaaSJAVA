@@ -16,8 +16,12 @@ import org.springframework.stereotype.Repository;
 @Repository
 class AccountTokenRepository {
 
-    /** A live token: not used, not cancelled, not expired. */
-    record Live(UUID id, AccountTokenPurpose purpose, String email, UUID userId) {
+    /**
+     * A live token: not used, not cancelled, not expired. An invitation token also names the organization and the
+     * invitation it resolves to (both null for the other purposes).
+     */
+    record Live(UUID id, AccountTokenPurpose purpose, String email, UUID userId, UUID contextTenantId,
+            UUID invitationId) {
     }
 
     private final JdbcClient jdbc;
@@ -35,6 +39,29 @@ class AccountTokenRepository {
                 .param("hash", storedHash)
                 .param("expires", Timestamp.from(expiresAt))
                 .param("actor", ActorId.SYSTEM.value())
+                .update();
+    }
+
+    void insertInvitation(String email, UUID tenantId, UUID invitationId, String storedHash, Instant expiresAt) {
+        jdbc.sql("insert into account_token (purpose, email, token_hash, expires_at, context_tenant_id, "
+                        + "invitation_id, created_by, updated_by) values ('INVITATION', :email, :hash, :expires, "
+                        + ":tenant, :invitation, :actor, :actor)")
+                .param("email", email)
+                .param("hash", storedHash)
+                .param("expires", Timestamp.from(expiresAt))
+                .param("tenant", tenantId)
+                .param("invitation", invitationId)
+                .param("actor", ActorId.SYSTEM.value())
+                .update();
+    }
+
+    /** Cancels the unused links of one invitation (sent again, accepted or revoked); returns how many. */
+    int cancelOpenOfInvitation(UUID invitationId) {
+        return jdbc.sql("update account_token set revoked_at = now(), updated_by = :actor, version = version + 1 "
+                        + "where invitation_id = :invitation and used_at is null and revoked_at is null "
+                        + "and deleted_at is null")
+                .param("actor", ActorId.SYSTEM.value())
+                .param("invitation", invitationId)
                 .update();
     }
 
@@ -61,7 +88,8 @@ class AccountTokenRepository {
 
     /** The live token with this stored hash and purpose, if there is one. */
     Optional<Live> findLive(String storedHash, AccountTokenPurpose purpose, Instant now) {
-        return jdbc.sql("select id, purpose, email, user_id from account_token where token_hash = :hash "
+        return jdbc.sql("select id, purpose, email, user_id, context_tenant_id, invitation_id from account_token "
+                        + "where token_hash = :hash "
                         + "and purpose = :purpose and used_at is null and revoked_at is null "
                         + "and expires_at > :now and deleted_at is null")
                 .param("hash", storedHash)
@@ -69,7 +97,8 @@ class AccountTokenRepository {
                 .param("now", Timestamp.from(now))
                 .query((rs, row) -> new Live(rs.getObject("id", UUID.class),
                         AccountTokenPurpose.valueOf(rs.getString("purpose")), rs.getString("email"),
-                        rs.getObject("user_id", UUID.class)))
+                        rs.getObject("user_id", UUID.class), rs.getObject("context_tenant_id", UUID.class),
+                        rs.getObject("invitation_id", UUID.class)))
                 .optional();
     }
 

@@ -96,6 +96,13 @@ not used yet. Three ways to run it, all against these services:
 address, and open the mail catcher at `http://localhost:8025`: the e-mail with the link arrives within a few seconds (the application sends
 mail in the background, every two seconds). Open the link, choose your name and a password, sign in, and use **Create an organization** on
 the home page; it gives you the address of the new organization (`<short name>.localhost:3000`). **Forgot your password?** works the same way.
+**Inviting someone and switching organizations (Sprint 5).** Sign in on an organization's address (for example
+`http://tenant-a.localhost:3000` as `admin-a@example.test`), open **Members**, type an address and **Send the invitation**. The e-mail
+arrives in the mail catcher within a few seconds; the link opens a page on the platform host where a new person chooses a name and a
+password, and a person who already has an account signs in and accepts. A person who belongs to two organizations sees a list in the
+header and moves between them without typing the password again. Only administrators of an organization see its members; a person who is
+not a member of an organization cannot sign in on its address. Invitation links live 7 days.
+
 Sign-up and reset pages exist only on the platform host. If the catcher is stopped, mail waits in the queue and is sent when it is back
 (`docker compose stop mail-catcher`, then `docker compose start mail-catcher`). Limits (5 sign-ups per hour per source, 5 mails per hour per
 address) apply here too; to start again within the hour, delete the counters in Redis (`platform:identity:acct:*`).

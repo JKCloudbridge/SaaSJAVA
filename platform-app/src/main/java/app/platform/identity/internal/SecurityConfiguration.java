@@ -62,11 +62,15 @@ class SecurityConfiguration {
      * Public POST paths. Sign-in checks the password itself; refresh and sign-out work from the refresh cookie, so they
      * must be reachable when the access token has already expired. Sign-up and password reset (Sprint 4) are for people
      * who have no session: the request steps are anonymous by nature, and the completing steps are authorized by the
-     * one-time token from the e-mailed link. All of them are still protected by CSRF.
+     * one-time token from the e-mailed link. Sprint 5 adds three of the same kind: reading an invitation link,
+     * accepting
+     * it as a new person (both prove themselves with the link's token), and completing an organization switch on the
+     * destination host (it proves itself with the one-time handoff). All of them are still protected by CSRF.
      */
     static final String[] PUBLIC_POST = {ApiPaths.AUTH_SIGN_IN, ApiPaths.AUTH_REFRESH, ApiPaths.AUTH_SIGN_OUT,
         ApiPaths.AUTH_SIGN_UP, ApiPaths.AUTH_SIGN_UP_COMPLETE, ApiPaths.AUTH_PASSWORD_FORGOT,
-        ApiPaths.AUTH_PASSWORD_RESET};
+        ApiPaths.AUTH_PASSWORD_RESET, ApiPaths.AUTH_INVITATION_PREVIEW, ApiPaths.AUTH_INVITATION_ACCEPT_NEW,
+        ApiPaths.AUTH_SWITCH_COMPLETE};
 
     /** Whether the request is for one of the public endpoints (by method and path). */
     static boolean isPublic(HttpServletRequest request) {
@@ -133,6 +137,7 @@ class SecurityConfiguration {
     @Bean
     @Order(2)
     SecurityFilterChain apiChain(HttpSecurity http, AuthorizationStore store, TenantContexts contexts,
+            MembershipGate gate, AuthAudit audit,
             @Qualifier("handlerExceptionResolver") HandlerExceptionResolver errors, IdentityProperties properties)
             throws Exception {
         ApiSecurityHandlers.EntryPoint entryPoint = new ApiSecurityHandlers.EntryPoint(errors);
@@ -163,7 +168,8 @@ class SecurityConfiguration {
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resource -> resource
                         .bearerTokenResolver(new TokenAuthentication.Resolver())
-                        .opaqueToken(token -> token.introspector(new TokenAuthentication.Introspector(store)))
+                        .opaqueToken(token -> token
+                                .introspector(new TokenAuthentication.Introspector(store, gate, audit)))
                         .authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(denied))
                 .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(entryPoint)

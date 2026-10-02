@@ -10,6 +10,7 @@ import app.platform.testsupport.LogCapture;
 import app.platform.testsupport.PlatformIntegrationTest;
 import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestDatabase;
+import app.platform.testsupport.TestMembers;
 import app.platform.testsupport.TestSignIn;
 import app.platform.testsupport.TestUsers;
 import app.platform.testsupport.TestUsers.TestUser;
@@ -72,6 +73,7 @@ class AuditIT {
         // a wrong host
         String hostA = TenantFixtures.createActiveTenant().host();
         TestUser other = TestUsers.create(users);
+        TestMembers.addForHost(hostA, other.user().id());
         TestBrowser.Session onA = new TestBrowser(port, hostA).signIn(other.email(), other.password());
         new app.platform.testsupport.TestHttp(port).get("/api/v1/auth/me", "Host", TestSignIn.PLATFORM_HOST,
                 "Authorization", onA.bearer());

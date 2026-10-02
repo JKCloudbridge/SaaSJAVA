@@ -11,6 +11,7 @@ import app.platform.testsupport.PlatformIntegrationTest;
 import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestHttp;
 import app.platform.testsupport.TestHttp.Response;
+import app.platform.testsupport.TestMembers;
 import app.platform.testsupport.TestSignIn;
 import app.platform.testsupport.TestUsers;
 import app.platform.testsupport.TestUsers.TestUser;
@@ -203,6 +204,7 @@ class OrganizationIT {
     void theEndpointDoesNotExistOnAnOrganizationHost() {
         TestUser person = TestUsers.create(users);
         TenantFixtures.TestTenant organization = TenantFixtures.createActiveTenant();
+        TestMembers.add(organization.id(), person.user().id(), false);
         TestBrowser inside = new TestBrowser(port, organization.host());
         inside.signIn(person.email(), person.password());
 
@@ -215,6 +217,7 @@ class OrganizationIT {
     void aTokenFromAnotherHostIsRefused() {
         TestUser person = TestUsers.create(users);
         TenantFixtures.TestTenant organization = TenantFixtures.createActiveTenant();
+        TestMembers.add(organization.id(), person.user().id(), false);
         String bearer = new TestBrowser(port, organization.host()).signIn(person.email(), person.password()).bearer();
 
         Response refused = new TestHttp(port).request("POST", "/api/v1/organizations",

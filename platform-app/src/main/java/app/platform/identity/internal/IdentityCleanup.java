@@ -21,15 +21,17 @@ class IdentityCleanup implements SmartLifecycle {
     private final LoginSessions loginSessions;
     private final AuthorizationStore authorizations;
     private final AccountTokenRepository tokens;
+    private final HandoffRepository handoffs;
     private final Clock clock;
     private final IdentityProperties.Cleanup settings;
     private ScheduledExecutorService executor;
 
     IdentityCleanup(LoginSessions loginSessions, AuthorizationStore authorizations, AccountTokenRepository tokens,
-            Clock clock, IdentityProperties properties) {
+            HandoffRepository handoffs, Clock clock, IdentityProperties properties) {
         this.loginSessions = loginSessions;
         this.authorizations = authorizations;
         this.tokens = tokens;
+        this.handoffs = handoffs;
         this.clock = clock;
         this.settings = properties.cleanup();
     }
@@ -39,9 +41,10 @@ class IdentityCleanup implements SmartLifecycle {
         int sessions = loginSessions.purgeEndedBefore(settings.keepEnded());
         int grants = authorizations.purgeEnded(settings.keepEnded());
         int links = tokens.purgeExpiredBefore(clock.instant().minus(settings.keepEnded()));
-        if (sessions + grants + links > 0) {
-            LOG.info("Removed {} ended login sessions, {} ended grants and {} old link tokens", sessions, grants,
-                    links);
+        int switches = handoffs.purgeExpiredBefore(clock.instant().minus(settings.keepEnded()));
+        if (sessions + grants + links + switches > 0) {
+            LOG.info("Removed {} ended login sessions, {} ended grants, {} old link tokens and {} old switch proofs",
+                    sessions, grants, links, switches);
         }
     }
 

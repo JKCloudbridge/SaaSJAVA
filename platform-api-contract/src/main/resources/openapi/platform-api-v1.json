@@ -32,6 +32,126 @@
         "tags" : [ "Authentication" ]
       }
     },
+    "/api/v1/auth/invitations/accept" : {
+      "post" : {
+        "description" : "For a person who already has an account and is signed in as the invited address. Creates the membership and answers the organization. Anybody else, and any unusable link, gets the same VALIDATION_ERROR on the field token, and the link stays usable for the right person.",
+        "operationId" : "acceptInvitation",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/InvitationLinkRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInvitationAccepted"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Accept an invitation as a signed-in person",
+        "tags" : [ "Invitations" ]
+      }
+    },
+    "/api/v1/auth/invitations/accept-new" : {
+      "post" : {
+        "description" : "Public: the token from the mailed link is the proof. Creates the account and the membership. Answers the organization to sign in at. An unusable link, or an address that has an account by now, is a VALIDATION_ERROR on the field token; a password that breaks the policy is one on password and leaves the link usable.",
+        "operationId" : "acceptInvitationAsNewPerson",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AcceptInvitationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInvitationAccepted"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Accept an invitation by choosing a name and a password",
+        "tags" : [ "Invitations" ]
+      }
+    },
+    "/api/v1/auth/invitations/preview" : {
+      "post" : {
+        "description" : "Public: the token from the mailed link is the proof. Answers the organization's name, the invited address and whether that address already has an account (which decides whether the person chooses a password or signs in). A link that is unknown, used, replaced, revoked or expired is a VALIDATION_ERROR on the field token, always with the same message.",
+        "operationId" : "previewInvitation",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/InvitationLinkRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInvitationPreview"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Read what an invitation link is for",
+        "tags" : [ "Invitations" ]
+      }
+    },
     "/api/v1/auth/me" : {
       "get" : {
         "description" : "The signed-in user. 401 UNAUTHENTICATED without a valid token. Says nothing about what the user may do: permissions are decided elsewhere, per organization.",
@@ -343,7 +463,383 @@
         "tags" : [ "Authentication" ]
       }
     },
+    "/api/v1/auth/switch" : {
+      "post" : {
+        "description" : "Answers the destination host and a one-time proof, valid for a minute. The browser opens the destination's switch page with the proof after the #. An organization that does not exist and one the caller does not belong to give the same NOT_FOUND.",
+        "operationId" : "switchOrganization",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SwitchOrganizationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSwitchTarget"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Ask to continue in another of your organizations",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/auth/switch/complete" : {
+      "post" : {
+        "description" : "Public, on an organization host: the proof from the previous host is the credential. On success answers 204 and sets the short-lived login cookie; the browser then continues with the sign-in navigation (/api/v1/auth/start). A proof that is unknown, used, expired, made for another organization, or whose person is not a member here is a VALIDATION_ERROR on the field token, always with the same message.",
+        "operationId" : "completeSwitch",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CompleteSwitchRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Continue in this organization with the one-time proof",
+        "tags" : [ "Authentication" ]
+      }
+    },
+    "/api/v1/invitations" : {
+      "get" : {
+        "description" : "Newest first, with their state: OPEN, EXPIRED, ACCEPTED or REVOKED. For administrators.",
+        "operationId" : "listInvitations",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListInvitationView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "List the invitations of the organization",
+        "tags" : [ "Invitations" ]
+      },
+      "post" : {
+        "description" : "Always answers 202 with the same text, whether or not the address has an account or is already a member: if it can be invited, an e-mail with a link follows. Inviting an address that has an open invitation sends it again. The invitation grants nothing until accepted. For administrators of the organization of the host. Too many requests answer 429 RATE_LIMITED.",
+        "operationId" : "inviteMember",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/InviteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRequestAccepted"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Invite an address into the organization",
+        "tags" : [ "Invitations" ]
+      }
+    },
+    "/api/v1/invitations/{invitationId}/resend" : {
+      "post" : {
+        "description" : "A new link replaces the old one and the time starts again. Answers 202 like the invitation. CONFLICT when the invitation is no longer open; NOT_FOUND for an invitation of another organization.",
+        "operationId" : "resendInvitation",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "invitationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRequestAccepted"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Send an open invitation again",
+        "tags" : [ "Invitations" ]
+      }
+    },
+    "/api/v1/invitations/{invitationId}/revoke" : {
+      "post" : {
+        "description" : "Its link stops working at once. CONFLICT when the invitation is no longer open; NOT_FOUND for an invitation of another organization.",
+        "operationId" : "revokeInvitation",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "invitationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Withdraw an open invitation",
+        "tags" : [ "Invitations" ]
+      }
+    },
+    "/api/v1/members" : {
+      "get" : {
+        "description" : "For the administrators of the organization of the host. NOT_FOUND on the platform host, FORBIDDEN for a member who is not an administrator.",
+        "operationId" : "listMembers",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListMemberView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "List the members of the organization",
+        "tags" : [ "Members" ]
+      }
+    },
+    "/api/v1/members/{membershipId}/administrator" : {
+      "put" : {
+        "description" : "A stop-gap until access policies exist. The last administrator cannot be released (CONFLICT). Only an active member can be an administrator.",
+        "operationId" : "setMemberAdministrator",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "membershipId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SetAdministratorRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Name a member an administrator, or release them",
+        "tags" : [ "Members" ]
+      }
+    },
+    "/api/v1/members/{membershipId}/deactivate" : {
+      "post" : {
+        "description" : "The member is signed out of this organization at once and cannot get back in until reactivated; their other organizations are untouched. CONFLICT when already deactivated or when this is the last administrator. NOT_FOUND for a member of another organization.",
+        "operationId" : "deactivateMember",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "membershipId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Deactivate a member",
+        "tags" : [ "Members" ]
+      }
+    },
+    "/api/v1/members/{membershipId}/reactivate" : {
+      "post" : {
+        "description" : "The person can sign in again; sessions that ended do not come back and the administrator marker is not restored. CONFLICT when the member is not deactivated.",
+        "operationId" : "reactivateMember",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "membershipId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Reactivate a deactivated member",
+        "tags" : [ "Members" ]
+      }
+    },
     "/api/v1/organizations" : {
+      "get" : {
+        "description" : "For the organization switcher, on any host: the answer is the caller's own memberships, not the organization the host names. Each entry carries the host the server built for it.",
+        "operationId" : "listMyOrganizations",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListOrganizationSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The organizations the signed-in person is an active member of",
+        "tags" : [ "Organizations" ]
+      },
       "post" : {
         "description" : "The signed-in person creates an organization and becomes its founding administrator. The short name (slug) becomes the first label of the organization's host name. Answers 201 with the host to sign in at. A name or slug that is not acceptable or not free is a VALIDATION_ERROR on its field; a person who already founded as many organizations as allowed is FORBIDDEN. Only on the platform host.",
         "operationId" : "createOrganization",
@@ -446,6 +942,27 @@
   },
   "components" : {
     "schemas" : {
+      "AcceptInvitationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "displayName" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "password" : {
+            "type" : "string",
+            "maxLength" : 1024,
+            "minLength" : 0
+          },
+          "token" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "displayName", "password", "token" ]
+      },
       "ApiError" : {
         "type" : "object",
         "properties" : {
@@ -491,6 +1008,60 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseInvitationAccepted" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/InvitationAccepted"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseInvitationPreview" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/InvitationPreview"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListInvitationView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InvitationView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListMemberView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MemberView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListOrganizationSummary" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OrganizationSummary"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseOrganizationCreated" : {
         "type" : "object",
         "properties" : {
@@ -514,6 +1085,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/RequestAccepted"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseSwitchTarget" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/SwitchTarget"
           }
         },
         "required" : [ "data" ]
@@ -564,6 +1144,17 @@
         },
         "required" : [ "displayName", "password", "token" ]
       },
+      "CompleteSwitchRequest" : {
+        "type" : "object",
+        "properties" : {
+          "token" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "token" ]
+      },
       "CreateOrganizationRequest" : {
         "type" : "object",
         "properties" : {
@@ -611,9 +1202,145 @@
         },
         "required" : [ "email" ]
       },
+      "InvitationAccepted" : {
+        "type" : "object",
+        "properties" : {
+          "displayName" : {
+            "type" : "string"
+          },
+          "host" : {
+            "type" : "string"
+          },
+          "slug" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "displayName", "host", "slug" ]
+      },
+      "InvitationLinkRequest" : {
+        "type" : "object",
+        "properties" : {
+          "token" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "token" ]
+      },
+      "InvitationPreview" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string"
+          },
+          "existingAccount" : {
+            "type" : "boolean"
+          },
+          "organizationName" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "email", "organizationName" ]
+      },
+      "InvitationView" : {
+        "type" : "object",
+        "properties" : {
+          "administrator" : {
+            "type" : "boolean"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "sentCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "createdAt", "email", "expiresAt", "id", "status" ]
+      },
+      "InviteRequest" : {
+        "type" : "object",
+        "properties" : {
+          "administrator" : {
+            "type" : "boolean"
+          },
+          "email" : {
+            "type" : "string",
+            "maxLength" : 254,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "email" ]
+      },
+      "MemberView" : {
+        "type" : "object",
+        "properties" : {
+          "administrator" : {
+            "type" : "boolean"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "foundingAdministrator" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "since" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "you" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "displayName", "email", "id", "since", "status" ]
+      },
       "OrganizationCreated" : {
         "type" : "object",
         "properties" : {
+          "displayName" : {
+            "type" : "string"
+          },
+          "host" : {
+            "type" : "string"
+          },
+          "slug" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "displayName", "host", "slug" ]
+      },
+      "OrganizationSummary" : {
+        "type" : "object",
+        "properties" : {
+          "administrator" : {
+            "type" : "boolean"
+          },
           "displayName" : {
             "type" : "string"
           },
@@ -687,6 +1414,15 @@
         },
         "required" : [ "newPassword", "token" ]
       },
+      "SetAdministratorRequest" : {
+        "type" : "object",
+        "properties" : {
+          "administrator" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "administrator" ]
+      },
       "SignInRequest" : {
         "type" : "object",
         "properties" : {
@@ -713,6 +1449,29 @@
           }
         },
         "required" : [ "email" ]
+      },
+      "SwitchOrganizationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "slug" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "slug" ]
+      },
+      "SwitchTarget" : {
+        "type" : "object",
+        "properties" : {
+          "host" : {
+            "type" : "string"
+          },
+          "token" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "host", "token" ]
       },
       "TenantSummary" : {
         "type" : "object",

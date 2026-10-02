@@ -38,15 +38,20 @@ final class SchemaConventions {
      * <p>Sprint 4 added {@code account_token} (one-time sign-up and reset link tokens, ADR-0023) and
      * {@code mail_queue} (the e-mail queue, ADR-0024): both are used on the platform host where there is no tenant,
      * and neither carries a tenant column at all.
+     *
+     * <p>Sprint 5 added {@code organization_handoff} (a signed-in person's one-time request to continue on another
+     * organization's host, ADR-0029): it exists so that a session can be started on a different host, and it names the
+     * target organization in {@code bound_tenant_id}. It also let {@code membership} admit the read-only
+     * {@code membership_lookup} system scope (ADR-0027).
      */
     static final Set<String> PLATFORM_TABLES = Set.of("tenant", "platform_user", "user_credential", "login_session",
-            "oauth2_authorization", "audit_record", "account_token", "mail_queue");
+            "oauth2_authorization", "audit_record", "account_token", "mail_queue", "organization_handoff");
 
     /** Tables whose policies may admit a system scope next to the tenant, and the scopes they may name. */
-    static final Set<String> SYSTEM_SCOPE_TABLES = Set.of("outbox_event", "processed_event");
+    static final Set<String> SYSTEM_SCOPE_TABLES = Set.of("outbox_event", "processed_event", "membership");
 
     /** The system scopes that exist (the values of the {@code SystemScope} enum of the tenant module). */
-    static final Set<String> SYSTEM_SCOPES = Set.of("outbox_relay");
+    static final Set<String> SYSTEM_SCOPES = Set.of("outbox_relay", "membership_lookup");
 
     private static final String CURRENT_TENANT = "platform_current_tenant";
     private static final Pattern SCOPE_NAME = Pattern.compile("platform_in_system_scope\\('([a-z_]+)'");

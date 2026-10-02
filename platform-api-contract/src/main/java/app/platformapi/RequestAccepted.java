@@ -17,4 +17,8 @@ public record RequestAccepted(@NotNull String message) {
     /** The answer to a password-reset request. */
     public static final RequestAccepted PASSWORD_RESET = new RequestAccepted(
             "If an account exists for this address, an e-mail with a reset link is on its way.");
+
+    /** The answer to an invitation (or to sending it again): the same whatever the address is. */
+    public static final RequestAccepted INVITATION = new RequestAccepted(
+            "If this address can be invited, an e-mail with the invitation is on its way.");
 }

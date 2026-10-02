@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import app.platform.testsupport.PlatformIntegrationTest;
 import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestHttp;
+import app.platform.testsupport.TestMembers;
 import app.platform.testsupport.TestUsers;
 import app.platform.testsupport.tenancy.TenantFixtures;
 import com.jayway.jsonpath.JsonPath;
@@ -25,6 +26,7 @@ class SignInSmokeIT {
     void aUserSignsInOnAnOrganizationHostAndIsKnownToTheApi() {
         TestUsers.TestUser user = TestUsers.create(users);
         String host = TenantFixtures.createActiveTenant().host();
+        TestMembers.addForHost(host, user.user().id());
         TestBrowser browser = new TestBrowser(port, host);
 
         TestBrowser.Session session = browser.signIn(user.email(), user.password());

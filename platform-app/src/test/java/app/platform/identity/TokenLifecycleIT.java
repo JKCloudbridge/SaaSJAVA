@@ -8,6 +8,7 @@ import app.platform.testsupport.PlatformIntegrationTest;
 import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestHttp;
 import app.platform.testsupport.TestHttp.Response;
+import app.platform.testsupport.TestMembers;
 import app.platform.testsupport.TestSignIn;
 import app.platform.testsupport.TestUsers;
 import app.platform.testsupport.TestUsers.TestUser;
@@ -140,7 +141,9 @@ class TokenLifecycleIT {
     void signingOutEverywhereEndsEverySessionOfTheUserOnEveryDevice() {
         TestUser user = TestUsers.create(users);
         TestBrowser laptop = platformBrowser();
-        TestBrowser phone = browser(TenantFixtures.createActiveTenant().host());
+        String phoneHost = TenantFixtures.createActiveTenant().host();
+        TestMembers.addForHost(phoneHost, user.user().id());
+        TestBrowser phone = browser(phoneHost);
         TestBrowser.Session first = laptop.signIn(user.email(), user.password());
         phone.signIn(user.email(), user.password());
         TestUser other = TestUsers.create(users);
@@ -379,6 +382,7 @@ class TokenLifecycleIT {
         TestUser user = TestUsers.create(users);
         String hostA = TenantFixtures.createActiveTenant().host();
         String hostB = TenantFixtures.createActiveTenant().host();
+        TestMembers.addForHost(hostA, user.user().id());
         TestBrowser.Session onA = browser(hostA).signIn(user.email(), user.password());
 
         assertThat(meWithBearer(hostA, onA.bearer()).status()).isEqualTo(200);
@@ -402,6 +406,7 @@ class TokenLifecycleIT {
         TestUser user = TestUsers.create(users);
         String hostA = TenantFixtures.createActiveTenant().host();
         String hostB = TenantFixtures.createActiveTenant().host();
+        TestMembers.addForHost(hostA, user.user().id());
         TestBrowser onA = browser(hostA);
         onA.signInPassword(user.email(), user.password());
         TestBrowser thief = browser(hostB);

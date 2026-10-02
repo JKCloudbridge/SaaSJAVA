@@ -355,9 +355,10 @@ class SchemaConventionsIT {
         // it here and in the scanner.
         assertThat(SchemaConventions.PLATFORM_TABLES).containsExactlyInAnyOrder("tenant", "platform_user",
                 "user_credential", "login_session", "oauth2_authorization", "audit_record", "account_token",
-                "mail_queue");
-        assertThat(SchemaConventions.SYSTEM_SCOPE_TABLES).containsExactlyInAnyOrder("outbox_event", "processed_event");
-        assertThat(SchemaConventions.SYSTEM_SCOPES).containsExactlyInAnyOrder("outbox_relay");
+                "mail_queue", "organization_handoff");
+        assertThat(SchemaConventions.SYSTEM_SCOPE_TABLES)
+                .containsExactlyInAnyOrder("outbox_event", "processed_event", "membership");
+        assertThat(SchemaConventions.SYSTEM_SCOPES).containsExactlyInAnyOrder("outbox_relay", "membership_lookup");
     }
 
     /**

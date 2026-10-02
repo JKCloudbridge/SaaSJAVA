@@ -8,8 +8,8 @@ What every feature that touches tenant data or publishes events needs to know. T
 
 ## The rules in one screen
 
-1. The tenant is **never** read from a request. It is derived on the server (the host name now; the authenticated
-   membership too from Sprint 5) and held in a `TenantContext`.
+1. The tenant is **never** read from a request. It is derived on the server (the host name, checked against the
+   authenticated person's active membership since Sprint 5) and held in a `TenantContext`.
 2. Use `TenantContexts` (module `tenant`) to read it (`require()`), and to set it for work that has no request (jobs,
    events, tests): `contexts.run(TenantContext.of(tenantId), () -> ...)`. Open the context **before** the transaction begins.
 3. Do not write the database tenant setting yourself. The transaction hook of the tenant module does it; a test fails the
@@ -19,7 +19,8 @@ What every feature that touches tenant data or publishes events needs to know. T
 6. Announce events with `EventPublisher` and react with `EventHandler` beans, both in the shared kernel. Never call another
    module "backwards"; never depend on the `outbox` module.
 7. Working across tenants is a system scope (`SystemScope`), reserved for platform infrastructure. A business module does not
-   use it (an architecture test fails the build).
+   use it (an architecture test fails the build). The only scope outside infrastructure is the identity module's read-only
+   `membership_lookup`, entered by one class ([ADR-0027](adr/0027-which-organizations-does-a-person-belong-to.md)).
 
 ## A new tenant-scoped table (migration template)
 
@@ -79,8 +80,8 @@ delay and, after the limit, sets it aside as a dead letter.
   Their tenant-related columns are called `bound_tenant_id` and `context_tenant_id`, never `tenant_id`.
 - `TenantContext.userId` is filled in from the authenticated token (a filter after the token check). The tenant is **still read only from
   the host name**; a header, parameter or body cannot change it, and a token works only on the host it was issued on. On the platform host
-  there is no tenant, so there is no context there; the caller is visible through `GET /api/v1/auth/me`. `membershipId` is still empty
-  until Sprint 5.
+  there is no tenant, so there is no context there; the caller is visible through `GET /api/v1/auth/me`. Since Sprint 5 `membershipId` is
+  filled on an organization host (see below).
 - A new endpoint is **protected by default**: every `/api/v1` path needs a valid token unless it is on the short list in
   `SecurityConfiguration`; a test walks every controller mapping and fails for one that is public without being listed.
 - Write the authorization test (allowed, denied, cross-tenant) with `TestBrowser` and `TestSignIn` (`testsupport`), which sign in for real.
@@ -98,6 +99,31 @@ delay and, after the limit, sets it aside as a dead letter.
 - A mail is queued with the `MailQueue` contract of the shared kernel (in the caller's transaction, with or without a tenant context); the
   notification module sends it later and decides what it becomes. Never put a secret or a link in a `MailRequest` (it refuses such names).
 - The endpoints of sign-up and reset are public paths and answer only on the platform host (`NOT_FOUND` on an organization host).
+
+## Membership, invitations and switching (Sprint 5)
+
+Decisions in [ADR-0026](adr/0026-membership-lifecycle-and-the-administrator-marker.md) to
+[ADR-0029](adr/0029-switching-organizations.md). What a contributor needs:
+
+- **Being inside an organization means an active membership.** On an organization host the token check requires an active membership of
+  the organization the host names (`MembershipGate`), and `TenantContext` carries `userId` and `membershipId`. Sign-in on an organization host
+  refuses a non-member exactly like a wrong password. A test that signs a person in on an organization host must make them a member first
+  (`TestMembers.add(...)`, or `TestOrganizations`).
+- **"May this member administer the organization?"** is asked in one place, `Administration.run(...)`. In Sprint 5 the answer is the
+  changeable `administrator` marker on the membership (the historical `founding_administrator` fact grants nothing); Sprint 7 replaces the
+  marker by an access policy and only that class changes. Wrap every administrative action in it so a refusal is audited.
+- **Tenant-scoped:** `membership` (lifecycle trigger, last-administrator rule with an advisory lock) and `invitation` (open, accepted,
+  revoked; one open invitation per address and organization). Both are in `TenantScopedTables`.
+- **Platform-level:** `organization_handoff` (the 60-second proof of a switch, hash only, column `bound_tenant_id`). `account_token` has a
+  new purpose, `INVITATION`, with `context_tenant_id` and `invitation_id`, so the link resolves to the organization on the server.
+- **A person's organizations** are answered only by `OrganizationDirectory` (system scope `membership_lookup`, read-only, always by
+  user). Do not add another reader of that scope.
+- **A new invitation-like mail** follows the Sprint 4 pattern: a `MailTemplate`, a text in `MailTexts`, a branch in `MailComposer`, and
+  the account-state decision at send time (here `Invitations.forMail`). Text chosen by an administrator (the organization's name) goes
+  through `MailTexts.safeName`.
+- Tests: `TestOrganizations`, `TestMembers`, `InvitationFlowIT` (mail catcher, relay driven by the test), `MembershipIT`,
+  `SwitchOrganizationIT`, `MembershipGuardIT` (database rules), `MembershipFlowsLogsAreCleanIT`. Limit tests must tolerate one split
+  count (Redis answered late, ADR-0021): assert that the limit arrives within twice the number.
 
 ## Configuration of this sprint
 

@@ -11,7 +11,7 @@ Module identifiers are package names, so the platform-admin module is `platforma
 |--------|----------------|-------------|----------------------------------------|
 | `sharedkernel` | Identifiers and cross-cutting interfaces (secrets store, event publisher and handler contracts). Open to all. Separate Maven module. | S0 | nothing |
 | `tenant` | Organizations, tenant lifecycle, tenant context, hostname resolution (ADR-0014, ADR-0017) | S2 | nothing |
-| `identity` | Users, credentials, sign-in, sessions and tokens, the provider abstraction (S3: [ADR-0019](adr/0019-authentication-implementation.md) to [ADR-0021](adr/0021-brute-force-protection-and-rate-limits.md)); memberships and invitations follow in S5 | S3 | tenant |
+| `identity` | Users, credentials, sign-in, sessions and tokens, the provider abstraction (S3: [ADR-0019](adr/0019-authentication-implementation.md) to [ADR-0021](adr/0021-brute-force-protection-and-rate-limits.md)); memberships, invitations and organization switching (S5: [ADR-0026](adr/0026-membership-lifecycle-and-the-administrator-marker.md) to [ADR-0029](adr/0029-switching-organizations.md)) | S3 | tenant |
 | `licensing` | Plans, licence pools, feature entitlements | S6 | tenant, identity |
 | `security` | Profiles, roles, permission sets, groups, authorization decision engine | S7 | tenant, identity |
 | `metadata` | Object, field, layout, application definitions; versioning | S10 | tenant, security |

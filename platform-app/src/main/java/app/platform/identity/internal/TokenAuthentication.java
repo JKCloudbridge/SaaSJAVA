@@ -38,6 +38,9 @@ final class TokenAuthentication {
     private static final String BEARER = "Bearer ";
     private static final int MAX_TOKEN_LENGTH = 4096;
 
+    /** The attribute of the authenticated principal that carries the membership on an organization host. */
+    static final String MEMBERSHIP_ATTRIBUTE = "mid";
+
     private TokenAuthentication() {
     }
 
@@ -142,9 +145,13 @@ final class TokenAuthentication {
     static final class Introspector implements OpaqueTokenIntrospector {
 
         private final AuthorizationStore store;
+        private final MembershipGate gate;
+        private final AuthAudit audit;
 
-        Introspector(AuthorizationStore store) {
+        Introspector(AuthorizationStore store, MembershipGate gate, AuthAudit audit) {
             this.store = store;
+            this.gate = gate;
+            this.audit = audit;
         }
 
         @Override
@@ -152,10 +159,19 @@ final class TokenAuthentication {
             AuthorizationStore.Introspected found = store.introspect(token)
                     .orElseThrow(() -> new BadOpaqueTokenException("The token is not valid."));
             List<GrantedAuthority> none = List.of();
-            return new DefaultOAuth2AuthenticatedPrincipal(found.userId().toString(),
-                    Map.of("sub", found.userId().toString(), "sid", found.authorizationId().toString(),
-                            "scope", List.copyOf(found.scopes())),
-                    none);
+            Map<String, Object> attributes = new java.util.HashMap<>(Map.of("sub", found.userId().toString(),
+                    "sid", found.authorizationId().toString(), "scope", List.copyOf(found.scopes())));
+            if (gate.onOrganizationHost()) {
+                // A token of an organization host is good only while its holder is an active member (ADR-0026).
+                // Ending a membership revokes the grants as well; this is the check that does not depend on that.
+                MembershipRepository.Own own = gate.activeMembership(found.userId()).orElse(null);
+                if (own == null) {
+                    audit.bindingRefused(found.userId(), "not_a_member");
+                    throw new BadOpaqueTokenException("The token is not valid.");
+                }
+                attributes.put(MEMBERSHIP_ATTRIBUTE, own.id().toString());
+            }
+            return new DefaultOAuth2AuthenticatedPrincipal(found.userId().toString(), attributes, none);
         }
     }
 }

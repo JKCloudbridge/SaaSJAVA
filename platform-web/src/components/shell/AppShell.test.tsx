@@ -44,18 +44,21 @@ describe("AppShell", () => {
     vi.unstubAllGlobals();
   });
 
-  it("has the landmarks of the application frame and renders its content", () => {
+  it("has the landmarks of the application frame and renders its content", async () => {
     renderShell(<p>page content</p>);
 
     expect(screen.getByRole("banner")).toHaveTextContent("Platform");
     expect(screen.getByRole("navigation", { name: "Main" })).toBeInTheDocument();
     expect(screen.getByRole("main")).toHaveTextContent("page content");
+    // The header and the navigation ask the API in the background: let them finish before the test ends.
+    await screen.findByText("Not signed in");
   });
 
-  it("offers a way past the navigation for keyboard users", () => {
+  it("offers a way past the navigation for keyboard users", async () => {
     renderShell("content");
 
     expect(screen.getByRole("link", { name: "Skip to content" })).toHaveAttribute("href", "#main");
+    await screen.findByText("Not signed in");
   });
 
   it("is honest that no organization or user is established when the API knows none", async () => {

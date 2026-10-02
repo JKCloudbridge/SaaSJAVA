@@ -33,4 +33,17 @@ class SessionRevocation {
         audit.sessionRevoked(userId, reason, count);
         return count;
     }
+
+    /**
+     * Ends everything a user holds for one organization: the sign-in sessions and the grants bound to that
+     * organization's host. Used when a membership ends (ADR-0026); the person's other organizations keep working.
+     *
+     * @return how many sessions and grants were alive
+     */
+    int revokeAllIn(UUID userId, UUID tenantId, String reason, ActorId actor) {
+        int count = loginSessions.revokeAllIn(userId, tenantId, actor)
+                + authorizations.revokeAllIn(userId, tenantId, reason, actor.value());
+        audit.sessionRevoked(userId, reason, count);
+        return count;
+    }
 }

@@ -7,5 +7,11 @@ public enum AccountTokenPurpose {
     SIGN_UP,
 
     /** Completes a password reset for an existing account. */
-    PASSWORD_RESET
+    PASSWORD_RESET,
+
+    /**
+     * Accepts an invitation into an organization (Sprint 5, ADR-0028). The token resolves, on the server, to the
+     * invitation and so to the organization; the person never names it.
+     */
+    INVITATION
 }

@@ -18,7 +18,7 @@ class AccountLimiterTest {
     private final MutableClock clock = new MutableClock(Instant.parse("2026-01-01T00:00:00Z"));
     private final IdentityProperties.Account limits = new IdentityProperties.Account(
             Duration.ofHours(24), Duration.ofMinutes(60), 2, 3, Duration.ofHours(1), 4, Duration.ofHours(1), 5,
-            Duration.ofMinutes(10), 3, 5, Duration.ofHours(24));
+            Duration.ofMinutes(10), 3, 5, Duration.ofHours(24), Duration.ofDays(7), 2, 2, Duration.ofSeconds(60));
 
     private AccountLimiter limiter() {
         return new AccountLimiter(new LocalCounters(clock), limits);

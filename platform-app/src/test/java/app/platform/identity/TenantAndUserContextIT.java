@@ -6,6 +6,7 @@ import app.platform.testsupport.PlatformIntegrationTest;
 import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestHttp;
 import app.platform.testsupport.TestHttp.Response;
+import app.platform.testsupport.TestMembers;
 import app.platform.testsupport.TestSignIn;
 import app.platform.testsupport.TestUsers;
 import app.platform.testsupport.TestUsers.TestUser;
@@ -14,6 +15,7 @@ import app.platform.testsupport.tenancy.TenantFixtures.TestTenant;
 import app.webtest.IdentityTestController;
 import com.jayway.jsonpath.JsonPath;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -42,6 +44,7 @@ class TenantAndUserContextIT {
     void onAnOrganizationHostTheContextHoldsTheTenantOfTheHostAndTheUserOfTheToken() {
         TestUser user = TestUsers.create(users);
         TestTenant tenant = TenantFixtures.createActiveTenant();
+        UUID membership = TestMembers.add(tenant.id(), user.user().id(), false);
         TestBrowser browser = new TestBrowser(port, tenant.host());
         browser.signIn(user.email(), user.password());
 
@@ -51,7 +54,8 @@ class TenantAndUserContextIT {
         assertThat(JsonPath.<String>read(response.body(), "$.data.tenantId")).isEqualTo(tenant.id().toString());
         assertThat(JsonPath.<String>read(response.body(), "$.data.userId")).isEqualTo(user.user().id().toString());
         assertThat(JsonPath.<String>read(response.body(), "$.data.membershipId"))
-                .as("the membership is Sprint 5").isEmpty();
+                .as("the membership of the user in the organization of the host (Sprint 5)")
+                .isEqualTo(membership.toString());
     }
 
     @Test
@@ -72,6 +76,7 @@ class TenantAndUserContextIT {
         TestUser user = TestUsers.create(users);
         TestTenant mine = TenantFixtures.createActiveTenant();
         TestTenant other = TenantFixtures.createActiveTenant();
+        TestMembers.add(mine.id(), user.user().id(), false);
         TestBrowser browser = new TestBrowser(port, mine.host());
         TestBrowser.Session session = browser.signIn(user.email(), user.password());
         TestHttp http = new TestHttp(port, "Host", mine.host(), "Authorization", session.bearer());
@@ -96,6 +101,7 @@ class TenantAndUserContextIT {
         TestUser user = TestUsers.create(users);
         TestTenant mine = TenantFixtures.createActiveTenant();
         TestTenant other = TenantFixtures.createActiveTenant();
+        TestMembers.add(mine.id(), user.user().id(), false);
         TestBrowser.Session session = new TestBrowser(port, mine.host()).signIn(user.email(), user.password());
 
         Response viaOtherHost = new TestHttp(port).get(CONTEXT, "Host", other.host(), "Authorization",

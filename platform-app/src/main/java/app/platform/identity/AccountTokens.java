@@ -22,8 +22,20 @@ public interface AccountTokens {
      * @param userId the account the token is for; required for {@link AccountTokenPurpose#PASSWORD_RESET}, null for a
      *        sign-up (the address has no account yet)
      * @return the token to put into the link
+     * @throws IllegalArgumentException for {@link AccountTokenPurpose#INVITATION}: use {@link #issueInvitation}
      */
     String issue(AccountTokenPurpose purpose, String email, UUID userId);
+
+    /**
+     * Creates the token of an invitation link (ADR-0028). It resolves, on the server, to the organization and the
+     * invitation, and cancels the older unused links of the same invitation, so only the newest link works.
+     *
+     * @param email the invited address, normalized
+     * @param tenantId the inviting organization
+     * @param invitationId the invitation
+     * @return the token to put into the link
+     */
+    String issueInvitation(String email, UUID tenantId, UUID invitationId);
 
     /** How long a token of this purpose works, for the text of the mail that carries it. */
     Duration lifetime(AccountTokenPurpose purpose);

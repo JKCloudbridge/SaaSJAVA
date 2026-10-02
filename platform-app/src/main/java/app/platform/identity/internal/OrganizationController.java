@@ -7,15 +7,18 @@ import app.platformapi.ApiResponse;
 import app.platformapi.CreateOrganizationRequest;
 import app.platformapi.ErrorCode;
 import app.platformapi.OrganizationCreated;
+import app.platformapi.OrganizationSummary;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.security.Principal;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,12 +32,14 @@ import org.springframework.web.bind.annotation.RestController;
 class OrganizationController {
 
     private final OrganizationService organizations;
+    private final SwitchService switching;
     private final TenantContexts contexts;
     private final boolean trustForwardedHost;
 
-    OrganizationController(OrganizationService organizations, TenantContexts contexts,
+    OrganizationController(OrganizationService organizations, SwitchService switching, TenantContexts contexts,
             @Value("${platform.tenancy.trust-forwarded-host:false}") boolean trustForwardedHost) {
         this.organizations = organizations;
+        this.switching = switching;
         this.contexts = contexts;
         this.trustForwardedHost = trustForwardedHost;
     }
@@ -56,6 +61,16 @@ class OrganizationController {
         OrganizationCreated created = organizations.found(userOf(principal), body.displayName(), body.slug(),
                 RequestHost.authority(request, trustForwardedHost));
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(created));
+    }
+
+    @GetMapping(ApiPaths.ORGANIZATIONS)
+    @Operation(
+            operationId = "listMyOrganizations",
+            summary = "The organizations the signed-in person is an active member of",
+            description = "For the organization switcher, on any host: the answer is the caller's own memberships, "
+                    + "not the organization the host names. Each entry carries the host the server built for it.")
+    ApiResponse<List<OrganizationSummary>> mine(Principal principal, HttpServletRequest request) {
+        return ApiResponse.of(switching.mine(userOf(principal), RequestHost.authority(request, trustForwardedHost)));
     }
 
     private static UUID userOf(Principal principal) {

@@ -39,10 +39,12 @@ class SignInService {
     private final LoginSessions loginSessions;
     private final AuthAudit audit;
     private final TenantContexts contexts;
+    private final MembershipGate gate;
     private final Duration sessionLifetime;
 
     SignInService(SignInLimiter limiter, PlatformProviderAdapter adapter, UserRepository users,
-            LoginSessions loginSessions, AuthAudit audit, TenantContexts contexts, IdentityProperties properties) {
+            LoginSessions loginSessions, AuthAudit audit, TenantContexts contexts, MembershipGate gate,
+            IdentityProperties properties) {
         this.limiter = limiter;
         // The manager is private to this class: the adapter is the only way a sign-in reaches a provider.
         this.authentication = new ProviderManager(adapter);
@@ -50,6 +52,7 @@ class SignInService {
         this.loginSessions = loginSessions;
         this.audit = audit;
         this.contexts = contexts;
+        this.gate = gate;
         this.sessionLifetime = properties.tokens().loginSession();
     }
 
@@ -84,6 +87,14 @@ class SignInService {
             UUID userId = UUID.fromString(result.getName());
             long version = users.findById(userId).map(user -> user.securityVersion())
                     .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED, FAILURE_MESSAGE));
+            if (gate.onOrganizationHost() && gate.activeMembership(userId).isEmpty()) {
+                // Right password, but not a member of this organization (ADR-0026): the same failure as a wrong
+                // password, with the true reason in the audit record only. The password check has already run, so
+                // the work done does not depend on whether the person belongs here.
+                audit.signInFailed(userId, identifier, "local", "not_a_member", source);
+                limiter.recordFailure(source);
+                throw new ApiException(ErrorCode.UNAUTHENTICATED, FAILURE_MESSAGE);
+            }
             UUID boundTenant = contexts.current().map(TenantContext::tenantId).map(tenant -> tenant.value())
                     .orElse(null);
             LOG.info("Sign-in succeeded");

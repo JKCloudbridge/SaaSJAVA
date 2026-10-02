@@ -31,3 +31,7 @@ A decision that is still open has status **Proposed** and names the gate or spri
 | [0023](0023-sign-up-verification-and-password-reset.md) | Sign-up, e-mail verification and password reset: address first, one answer for every address, one-time links | Accepted | — |
 | [0024](0024-mail-queue-and-notification-v0.md) | The mail queue and notification v0: a platform-level queue, a relay with retries, no secret at rest | Accepted | — |
 | [0025](0025-founding-an-organization-and-the-minimal-membership.md) | A signed-in person founds an organization; the minimal membership | Accepted | — |
+| [0026](0026-membership-lifecycle-and-the-administrator-marker.md) | Membership lifecycle, the administrator marker and the check on every request | Accepted (the marker is a stop-gap until access policies, Sprint 7) | — |
+| [0027](0027-which-organizations-does-a-person-belong-to.md) | Which organizations does a person belong to: a narrow system scope | Accepted | — |
+| [0028](0028-invitations.md) | Invitations: a record of the organization, a one-time link, a membership only on acceptance | Accepted | — |
+| [0029](0029-switching-organizations.md) | Switching organizations: a one-time proof carried to the other host | Accepted | — |

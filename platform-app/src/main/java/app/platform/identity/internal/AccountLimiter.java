@@ -23,6 +23,8 @@ final class AccountLimiter {
         SIGN_UP, PASSWORD_RESET
     }
 
+    private static final int SWITCHES_PER_MINUTE = 20;
+
     private final Counters counters;
     private final IdentityProperties.Account limits;
 
@@ -53,6 +55,33 @@ final class AccountLimiter {
     void admitTokenAttempt(String source) {
         if (counters.increment("acct:tok:src:" + source, limits.tokenWindow()) > limits.tokenAttempts()) {
             throw ApiException.rateLimited(limits.tokenWindow().toSeconds());
+        }
+    }
+
+    /**
+     * Counts an invitation (new, or sent again) and refuses it when the organization or the administrator started too
+     * many in the last hour, or the invited address already received its share of mails. Counted before anything about
+     * the address is looked at, so the answer is the same for every address.
+     */
+    void admitInvitation(UUID tenantId, UUID inviter, String email) {
+        Duration window = Duration.ofHours(1);
+        if (counters.increment("acct:invite:org:" + tenantId, window) > limits.invitationsPerOrganizationPerHour()) {
+            throw ApiException.rateLimited(window.toSeconds());
+        }
+        if (counters.increment("acct:invite:who:" + inviter, window) > limits.invitationsPerPersonPerHour()) {
+            throw ApiException.rateLimited(window.toSeconds());
+        }
+        String key = Hashes.sha256Hex(email.toLowerCase(Locale.ROOT));
+        if (counters.increment("acct:addr:" + key, limits.addressWindow()) > limits.mailsPerAddress()) {
+            throw ApiException.rateLimited(limits.addressWindow().toSeconds());
+        }
+    }
+
+    /** Counts a request to switch organization by one person and refuses it when they made too many per minute. */
+    void admitSwitch(UUID userId) {
+        Duration window = Duration.ofMinutes(1);
+        if (counters.increment("acct:switch:" + userId, window) > SWITCHES_PER_MINUTE) {
+            throw ApiException.rateLimited(window.toSeconds());
         }
     }
 
