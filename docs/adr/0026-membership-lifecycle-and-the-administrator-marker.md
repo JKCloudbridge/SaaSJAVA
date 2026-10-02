@@ -1,6 +1,6 @@
 # ADR-0026: Membership lifecycle, the administrator marker and the check on every request
 
-- **Status:** Accepted
+- **Status:** Accepted. **Superseded in part by [ADR-0043](0043-replacing-the-administrator-marker.md) (Sprint 7):** the administrator marker, and the rule "the last administrator stays" on it, were replaced by abilities and [ADR-0044](0044-the-last-member-who-can-manage-access.md); everything else here stands.
 - **Date:** 2026-10-02
 - **Sprint:** S5
 - **Related:** [ADR-0014](0014-tenancy-model-and-tenant-context.md), [ADR-0015](0015-row-level-security-implementation.md),

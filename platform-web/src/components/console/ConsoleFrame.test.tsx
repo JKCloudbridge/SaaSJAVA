@@ -8,7 +8,7 @@ import { ConsoleFrame } from "./ConsoleFrame";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/console" }));
 
-const PERSON = { id: "u-1", email: "platform-a@example.test", displayName: "Platform A" };
+const PERSON = { id: "u-1", email: "platform-a@example.test", displayName: "Platform A", abilities: [] };
 
 function renderFrame(strict = false) {
   const tree = (

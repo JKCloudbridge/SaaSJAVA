@@ -9,8 +9,6 @@ import jakarta.validation.constraints.NotNull;
  * @param displayName the organization's name for people
  * @param host the host name (with the port, when there is one) at which the organization is reached; built by the
  * server
- * @param administrator whether the person may administer it (for presentation only; the server decides every action)
  */
-public record OrganizationSummary(@NotNull String slug, @NotNull String displayName, @NotNull String host,
-        boolean administrator) {
+public record OrganizationSummary(@NotNull String slug, @NotNull String displayName, @NotNull String host) {
 }

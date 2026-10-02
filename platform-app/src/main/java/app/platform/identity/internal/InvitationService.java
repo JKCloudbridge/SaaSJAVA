@@ -1,5 +1,7 @@
 package app.platform.identity.internal;
 
+import app.platform.security.Ability;
+import app.platform.security.MemberAccess;
 import app.platform.sharedkernel.ActorId;
 import app.platform.sharedkernel.mail.MailQueue;
 import app.platform.sharedkernel.mail.MailRequest;
@@ -11,6 +13,7 @@ import app.platformapi.InvitationView;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
@@ -28,6 +31,7 @@ import org.springframework.stereotype.Service;
 class InvitationService {
 
     private final Administration administration;
+    private final MemberAccess access;
     private final InvitationRepository invitations;
     private final AccountTokenRepository tokens;
     private final AccountLimiter limiter;
@@ -37,10 +41,11 @@ class InvitationService {
     private final IdentityProperties.Account settings;
     private final Clock clock;
 
-    InvitationService(Administration administration, InvitationRepository invitations, AccountTokenRepository tokens,
-            AccountLimiter limiter, MailQueue mail, AuthAudit audit, TenantContexts contexts,
-            IdentityProperties properties, Clock clock) {
+    InvitationService(Administration administration, MemberAccess access, InvitationRepository invitations,
+            AccountTokenRepository tokens, AccountLimiter limiter, MailQueue mail, AuthAudit audit,
+            TenantContexts contexts, IdentityProperties properties, Clock clock) {
         this.administration = administration;
+        this.access = access;
         this.invitations = invitations;
         this.tokens = tokens;
         this.limiter = limiter;
@@ -57,30 +62,41 @@ class InvitationService {
      * @throws ApiException {@code VALIDATION_ERROR} for text that cannot be an address (the same for every address),
      *         {@code FORBIDDEN} for a caller who is not an administrator, {@code RATE_LIMITED}
      */
-    void invite(String emailText, boolean administrator) {
+    void invite(String emailText, String displayNameText, UUID profileId, UUID roleId, boolean send) {
         String email = Emails.normalize(emailText)
                 .orElseThrow(() -> ApiException.validation("email", "Is not a valid address."));
+        String displayName = PersonNames.clean(displayNameText);
         // Who may ask is decided first; the limits then count the request before anything about the address is read.
-        MembershipRepository.Own caller = administration.run("invitation.create", own -> own);
+        MembershipRepository.Own caller = administration.run("invitation.create", Ability.MEMBERS_INVITE, own -> own);
         UUID tenant = contexts.require().tenantId().value();
         limiter.admitInvitation(tenant, caller.userId(), email);
-        administration.run("invitation.create", own -> {
-            InvitationRepository.Invitation invitation = invitations.openOrRenew(email, administrator,
-                    expiry(), new ActorId(own.userId()));
-            enqueue(tenant, invitation.id(), email);
-            audit.invitationRequested(own.userId(), invitation.id(), email, administrator);
+        administration.run("invitation.create", Ability.MEMBERS_INVITE, own -> {
+            // The profile and the role are checked inside the transaction and never depend on the address; a person who
+            // cannot manage access can only give a profile whose abilities they hold themselves (ADR-0043).
+            UUID profile = access.checkInvitation(own.id(), profileId, roleId);
+            InvitationRepository.Invitation invitation = invitations.openOrRenew(email, profile, roleId, displayName,
+                    send, expiry(), new ActorId(own.userId()));
+            if (send) {
+                enqueue(tenant, invitation.id(), email);
+            }
+            audit.invitationRequested(own.userId(), invitation.id(), email, profile, send);
             return null;
         });
     }
 
-    /** The organization's invitations, newest first. */
+    /** The organization's invitations, newest first, with the profile and role each will give. */
     List<InvitationView> list() {
         Instant now = clock.instant();
-        return administration.run("invitation.list", own -> invitations.list().stream()
-                .map(invitation -> new InvitationView(invitation.id(), invitation.email(),
-                        invitation.administrator(), statusOf(invitation, now), invitation.expiresAt(),
-                        invitation.sentCount(), invitation.createdAt()))
-                .toList());
+        return administration.run("invitation.list", Ability.MEMBERS_INVITE, own -> {
+            Map<UUID, String> profiles = access.profileNames();
+            Map<UUID, String> roles = access.roleNames();
+            return invitations.list().stream()
+                    .map(invitation -> new InvitationView(invitation.id(), invitation.email(),
+                            invitation.displayName(), invitation.profileId(), profiles.get(invitation.profileId()),
+                            roles.get(invitation.roleId()), statusOf(invitation, now), invitation.expiresAt(),
+                            invitation.sentCount(), invitation.createdAt()))
+                    .toList();
+        });
     }
 
     /**
@@ -94,7 +110,7 @@ class InvitationService {
         UUID tenant = contexts.require().tenantId().value();
         record Checked(MembershipRepository.Own caller, InvitationRepository.Invitation invitation) {
         }
-        Checked checked = administration.run("invitation.resend", own -> {
+        Checked checked = administration.run("invitation.resend", Ability.MEMBERS_INVITE, own -> {
             InvitationRepository.Invitation invitation = invitations.find(invitationId)
                     .orElseThrow(() -> ApiException.notFound("This invitation does not exist."));
             if (!invitation.open(clock.instant())) {
@@ -104,7 +120,7 @@ class InvitationService {
         });
         InvitationRepository.Invitation current = checked.invitation();
         limiter.admitInvitation(tenant, checked.caller().userId(), current.email());
-        administration.run("invitation.resend", own -> {
+        administration.run("invitation.resend", Ability.MEMBERS_INVITE, own -> {
             if (!invitations.renew(invitationId, expiry(), new ActorId(own.userId()))) {
                 throw new ApiException(ErrorCode.CONFLICT, "This invitation is no longer open.");
             }
@@ -122,7 +138,7 @@ class InvitationService {
      *         is no longer open
      */
     void revoke(UUID invitationId) {
-        administration.run("invitation.revoke", own -> {
+        administration.run("invitation.revoke", Ability.MEMBERS_INVITE, own -> {
             invitations.find(invitationId).orElseThrow(() -> ApiException.notFound("This invitation does not exist."));
             if (!invitations.revoke(invitationId, new ActorId(own.userId()))) {
                 throw new ApiException(ErrorCode.CONFLICT, "This invitation is no longer open.");

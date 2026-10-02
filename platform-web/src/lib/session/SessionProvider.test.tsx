@@ -5,7 +5,7 @@ import { setLogSink } from "@/lib/log";
 import * as navigation from "@/lib/navigation";
 import { fetchSession, SessionProvider } from "./SessionProvider";
 
-const user = { id: "u1", email: "user-a@example.test", displayName: "User A" };
+const user = { id: "u1", email: "user-a@example.test", displayName: "User A", platformRoles: [], abilities: [] };
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });

@@ -4,7 +4,7 @@ import app.platform.identity.AccountTokenPurpose;
 import app.platform.identity.User;
 import app.platform.identity.UserStatus;
 import app.platform.identity.Users;
-import app.platform.licensing.Licences;
+import app.platform.security.MemberAccess;
 import app.platform.sharedkernel.ActorId;
 import app.platform.sharedkernel.TenantId;
 import app.platform.tenant.Tenant;
@@ -25,16 +25,14 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * The invited person's side of an invitation (ADR-0028): read what the link is for, accept as a new person (choose a
- * name
- * and a password), accept as a person who already has an account (signed in as the invited address).
+ * name and a password), accept as a person who already has an account (signed in as the invited address).
  *
  * <p>The link's token resolves, on the server, to the invitation and so to the organization; nothing the person sends
  * can name or change the organization. A link that cannot be used (unknown, used, replaced, revoked, expired, the
  * organization closed, the address already a member, the wrong signed-in person) is always the same answer, and its
  * true reason is audited after the transaction ended. Acceptance runs in one transaction under the organization's
  * context: the token is used first (so simultaneous uses have one winner), the invitation is locked, and a membership
- * is
- * created only then.
+ * is created only then.
  */
 @Service
 class InvitationLinkService {
@@ -45,7 +43,7 @@ class InvitationLinkService {
     private final InvitationRepository invitations;
     private final MembershipRepository memberships;
     private final Users users;
-    private final Licences licences;
+    private final MemberAccess access;
     private final Tenants tenants;
     private final TenantContexts contexts;
     private final AccountLimiter limiter;
@@ -55,14 +53,14 @@ class InvitationLinkService {
     private final Clock clock;
 
     InvitationLinkService(AccountTokenRepository tokens, InvitationRepository invitations,
-            MembershipRepository memberships, Users users, Licences licences, Tenants tenants,
+            MembershipRepository memberships, Users users, MemberAccess access, Tenants tenants,
             TenantContexts contexts, AccountLimiter limiter, AuthAudit audit, OrganizationHosts hosts,
             TransactionTemplate transaction, Clock clock) {
         this.tokens = tokens;
         this.invitations = invitations;
         this.memberships = memberships;
         this.users = users;
-        this.licences = licences;
+        this.access = access;
         this.tenants = tenants;
         this.contexts = contexts;
         this.limiter = limiter;
@@ -78,7 +76,7 @@ class InvitationLinkService {
         AccountTokenRepository.Live live = liveOrRefuse(token, source);
         Resolved resolved = resolve(live).orElseThrow(() -> refused("invitation_not_open", source));
         return new InvitationPreview(resolved.tenant().displayName(), live.email(),
-                users.findByEmail(live.email()).isPresent());
+                users.findByEmail(live.email()).isPresent(), resolved.invitation().displayName());
     }
 
     /**
@@ -130,8 +128,14 @@ class InvitationLinkService {
                         .orElseThrow(() -> new LinkRefusal("invitation_not_open"));
                 User person = existing;
                 if (person == null) {
+                    // The name the administrator entered wins; otherwise the person chose one (a first administrator
+                    // invited by the platform has none entered).
+                    String name = invitation.displayName() != null ? invitation.displayName() : displayName;
+                    if (name == null || name.isBlank()) {
+                        throw ApiException.validation("displayName", "Must not be empty.");
+                    }
                     try {
-                        person = users.createActive(invitation.email(), displayName, password, ActorId.SYSTEM);
+                        person = users.createActive(invitation.email(), name, password, ActorId.SYSTEM);
                     } catch (ApiException e) {
                         if (e.code() == ErrorCode.CONFLICT) {
                             // The address got an account by another way since the link was sent: sign in and accept.
@@ -144,8 +148,7 @@ class InvitationLinkService {
                     throw new LinkRefusal("already_member");
                 }
                 ActorId actor = new ActorId(person.id());
-                UUID membership = memberships.insertMember(person.id(), invitation.administrator(),
-                        invitation.founding(), actor);
+                UUID membership = memberships.insertMember(person.id(), invitation.founding(), actor);
                 invitations.accept(invitation.id(), membership, actor);
                 tokens.cancelOpenOfInvitation(invitation.id());
                 audit.invitationAccepted(person.id(), invitation.id(), membership, existing == null);
@@ -154,8 +157,14 @@ class InvitationLinkService {
                     // in the same transaction, so the organization is never open without its administrator.
                     openProvisioned(tenantId, actor, person.id());
                 }
-                // A person who joins holds the default licence when one is free; never a reason to refuse them.
-                licences.assignDefault(membership, actor);
+                // The person gets the profile and the role the administrator chose (the administrator profile for an
+                // invitation made by a platform administrator or before profiles existed, the default profile
+                // otherwise) and the licence of the profile's type when one is free. Never a reason to refuse them:
+                // without a licence they join without the profile's abilities until one is free (ADR-0039). The
+                // first administrator of a platform-provisioned organization always gets an administrator licence.
+                access.join(membership, invitation.profileId(), invitation.roleId(),
+                        invitation.administrator() || invitation.invitedByPlatform(), invitation.invitedByPlatform(),
+                        actor);
                 outcome[0] = resolved;
             }));
         } catch (LinkRefusal e) {

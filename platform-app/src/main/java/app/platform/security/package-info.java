@@ -1,15 +1,25 @@
 /**
- * Security module: profiles, roles, permission sets, groups and the authorization decision engine.
+ * Security module: profiles, roles, access policies, individual grants, the effective-permission calculator and the
+ * read contract that every other module uses to ask what a member may do (Sprint 7, ADR-0039 to ADR-0045). Public
+ * groups and object and field permissions arrive in Sprint 8, the cache and the security audit in Sprint 9.
  *
- * <p>Other modules may use only the types in this package (its public API). Everything in sub-packages is
- * internal. Allowed outgoing dependencies are declared below and verified by the architecture tests.
+ * <p>Other modules may use only the types in this package (its public API): {@link app.platform.security.Permissions}
+ * (what may this member do), {@link app.platform.security.MemberAccess} (what the identity module changes when members
+ * join, return, leave or are given something), the {@link app.platform.security.Ability} catalogue and the pure
+ * {@link app.platform.security.EffectivePermissions} calculator. Everything in sub-packages is internal. Allowed
+ * outgoing
+ * dependencies are declared below and verified by the architecture tests.
+ *
+ * <p>The edge to {@code identity} of the first draft was reversed in Sprint 7: identity asks security, in the
+ * transaction
+ * that creates, deactivates or changes a member, so security knows members only by their identifier.
  */
 @ApplicationModule(
         displayName = "Security",
         allowedDependencies = {
             "sharedkernel",
             "tenant",
-            "identity"
+            "licensing"
         })
 package app.platform.security;
 

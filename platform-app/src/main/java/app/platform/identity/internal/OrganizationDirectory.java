@@ -21,10 +21,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 class OrganizationDirectory {
 
     /** An organization the person is an active member of. */
-    record Organization(UUID tenantId, String slug, String displayName, boolean administrator) {
+    record Organization(UUID tenantId, String slug, String displayName) {
     }
 
-    private static final String SELECT = "select t.id, t.slug, t.display_name, m.administrator from membership m "
+    private static final String SELECT = "select t.id, t.slug, t.display_name from membership m "
             + "join tenant t on t.id = m.tenant_id where m.user_id = :user and m.status = 'ACTIVE' "
             + "and m.deleted_at is null and t.status = 'ACTIVE' and t.deleted_at is null";
 
@@ -43,7 +43,7 @@ class OrganizationDirectory {
         return inScope(() -> jdbc.sql(SELECT + " order by t.display_name, t.slug limit 100")
                 .param("user", userId)
                 .query((rs, row) -> new Organization(rs.getObject("id", UUID.class), rs.getString("slug"),
-                        rs.getString("display_name"), rs.getBoolean("administrator")))
+                        rs.getString("display_name")))
                 .list());
     }
 
@@ -53,7 +53,7 @@ class OrganizationDirectory {
                 .param("user", userId)
                 .param("slug", slug)
                 .query((rs, row) -> new Organization(rs.getObject("id", UUID.class), rs.getString("slug"),
-                        rs.getString("display_name"), rs.getBoolean("administrator")))
+                        rs.getString("display_name")))
                 .optional());
     }
 

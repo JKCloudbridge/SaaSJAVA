@@ -72,13 +72,13 @@ export function InvitationAcceptance() {
     void read();
   }, []);
 
-  async function acceptAsNew(token: string) {
+  async function acceptAsNew(token: string, preview: Preview) {
     setSubmitting(true);
     setMessage(undefined);
     try {
       await ensureForgeryCookie();
       const { data, error, response } = await api.POST("/api/v1/auth/invitations/accept-new", {
-        body: { token, displayName, password },
+        body: { token, displayName: preview.displayName ? undefined : displayName, password },
       });
       if (data) {
         setPassword("");
@@ -133,7 +133,7 @@ export function InvitationAcceptance() {
       setMessage(COMMON_TEXT.passwordsDiffer);
       return;
     }
-    void acceptAsNew(step.token);
+    void acceptAsNew(step.token, step.preview);
   }
 
   if (step.kind === "reading") {
@@ -237,18 +237,24 @@ export function InvitationAcceptance() {
             {message}
           </p>
         ) : null}
-        <div className="field">
-          <label htmlFor="displayName">Your name</label>
-          <input
-            id="displayName"
-            name="displayName"
-            type="text"
-            autoComplete="name"
-            value={displayName}
-            onChange={(event) => setDisplayName(event.target.value)}
-            required
-          />
-        </div>
+        {preview.displayName ? (
+          <p data-testid="invitation-name">
+            Your name in this organization: <strong>{preview.displayName}</strong>
+          </p>
+        ) : (
+          <div className="field">
+            <label htmlFor="displayName">Your name</label>
+            <input
+              id="displayName"
+              name="displayName"
+              type="text"
+              autoComplete="name"
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+              required
+            />
+          </div>
+        )}
         <div className="field">
           <label htmlFor="password">Password</label>
           <input

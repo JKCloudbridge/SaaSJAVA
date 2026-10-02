@@ -14,9 +14,8 @@ import java.util.UUID;
 
 /**
  * People who hold a platform role and plans for tests of Sprint 6. A platform person is an ordinary account plus a row
- * in
- * the platform role table, written the way the documented manual step writes it: by the database owner, never through
- * the application (the application cannot create the first one on purpose).
+ * in the platform role table, written the way the documented manual step writes it: by the database owner, never
+ * through the application (the application cannot create the first one on purpose).
  */
 public final class TestPlatform {
 
@@ -41,6 +40,17 @@ public final class TestPlatform {
         }
     }
 
+    /** How many admin licences the members of the organization hold now (read as the owner, by tenant). */
+    public static int adminLicencesInUse(TenantId organization) {
+        try {
+            return IdentityDb.value(Long.class, "select count(*) from licence_assignment a "
+                    + "join licence_type t on t.id = a.licence_type_id where a.tenant_id = ? and t.key = 'admin' "
+                    + "and a.deleted_at is null", organization.value()).intValue();
+        } catch (SQLException e) {
+            throw new IllegalStateException("Could not count the admin licences of a test organization", e);
+        }
+    }
+
     /** A browser signed in on the platform host as the person. */
     public static TestBrowser signedIn(int port, TestUser person) {
         return TestOrganizations.signedIn(port, TestSignIn.PLATFORM_HOST, person);
@@ -54,10 +64,14 @@ public final class TestPlatform {
         return key;
     }
 
-    /** Puts an organization (that has no subscription yet) on a new plan; returns the plan key. */
+    /**
+     * Puts an organization (that has no subscription yet) on a new plan; returns the plan key. Since Sprint 7 an
+     * administrator holds an admin licence (the test fixture grew the pool for them), so the plan always has at least
+     * as many admin licences as the organization's administrators already hold: a plan below that would be refused.
+     */
     public static String subscribe(Plans plans, Subscriptions subscriptions, TenantId organization, int users,
             int admins, String... features) {
-        String key = plan(plans, users, admins, features);
+        String key = plan(plans, users, Math.max(admins, adminLicencesInUse(organization)), features);
         subscriptions.attach(organization, key, ActorId.SYSTEM);
         return key;
     }

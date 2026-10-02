@@ -40,7 +40,7 @@ function fakeApi(api: Api) {
       }
       if (key === "GET /api/v1/auth/me") {
         return api.signedIn
-          ? json({ data: { id: "1", email: "user-a@example.test", displayName: "User A" } })
+          ? json({ data: { id: "1", email: "user-a@example.test", displayName: "User A", platformRoles: [], abilities: [] } })
           : json({ error: { code: "UNAUTHENTICATED", message: "Authentication is required." } }, 401);
       }
       if (key === "POST /api/v1/auth/refresh") {
@@ -92,6 +92,29 @@ describe("InvitationAcceptance", () => {
     expect(screen.getByTestId("invitation-intro")).toHaveTextContent("user-a@example.test");
     expect(window.location.hash).toBe("");
     expect(calls).toEqual([{ key: "POST /api/v1/auth/invitations/preview", body: JSON.stringify({ token: TOKEN }) }]);
+  });
+
+  it("asks only for a password when the administrator already entered the person's name", async () => {
+    const calls = fakeApi({
+      preview: () =>
+        json({
+          data: { organizationName: "Organization A", email: "user-a@example.test", existingAccount: false, displayName: "Person A" },
+        }),
+    });
+    open();
+    await screen.findByTestId("invitation-new");
+
+    expect(screen.getByTestId("invitation-name")).toHaveTextContent("Person A");
+    expect(screen.queryByLabelText("Your name")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "a-long-and-unusual-passphrase-1" } });
+    fireEvent.change(screen.getByLabelText("Repeat the password"), { target: { value: "a-long-and-unusual-passphrase-1" } });
+    fireEvent.submit(screen.getByLabelText("Password").closest("form")!);
+
+    await waitFor(() => expect(calls.some((call) => call.key.endsWith("/accept-new"))).toBe(true));
+    expect(JSON.parse(calls.find((call) => call.key.endsWith("/accept-new"))!.body)).toEqual({
+      token: TOKEN,
+      password: "a-long-and-unusual-passphrase-1",
+    });
   });
 
   it("still has the token, and asks the API only once, when the page runs its effects twice as development does", async () => {

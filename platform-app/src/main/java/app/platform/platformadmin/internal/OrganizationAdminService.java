@@ -10,6 +10,7 @@ import app.platform.licensing.PoolView;
 import app.platform.licensing.SubscriptionChange;
 import app.platform.licensing.SubscriptionView;
 import app.platform.licensing.Subscriptions;
+import app.platform.security.MemberAccess;
 import app.platform.sharedkernel.ActorId;
 import app.platform.sharedkernel.TenantId;
 import app.platform.tenant.Tenant;
@@ -57,13 +58,14 @@ class OrganizationAdminService {
     private final Licences licences;
     private final Plans plans;
     private final Invitations invitations;
+    private final MemberAccess access;
     private final SessionAdministration sessions;
     private final OrganizationScope scope;
     private final PlatformAudit audit;
     private final Clock clock;
 
     OrganizationAdminService(Tenants tenants, Subscriptions subscriptions, Entitlements entitlements,
-            Licences licences, Plans plans, Invitations invitations,
+            Licences licences, Plans plans, Invitations invitations, MemberAccess access,
             SessionAdministration sessions, OrganizationScope scope, PlatformAudit audit, Clock clock) {
         this.tenants = tenants;
         this.subscriptions = subscriptions;
@@ -71,6 +73,7 @@ class OrganizationAdminService {
         this.licences = licences;
         this.plans = plans;
         this.invitations = invitations;
+        this.access = access;
         this.sessions = sessions;
         this.scope = scope;
         this.audit = audit;
@@ -133,6 +136,7 @@ class OrganizationAdminService {
             scope.in(id, actor, () -> {
                 tenants.provision(id, slug, request.displayName(), by);
                 subscriptions.attach(id, request.planKey(), by);
+                access.ensureSystemProfiles(by);
                 invitations.inviteFirstAdministrator(id, request.email(), actor);
                 audit.done("platform.organization.provisioned", actor, id, null, "slug", slug.value());
                 return null;

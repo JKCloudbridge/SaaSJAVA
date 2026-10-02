@@ -31,7 +31,7 @@ A decision that is still open has status **Proposed** and names the gate or spri
 | [0023](0023-sign-up-verification-and-password-reset.md) | Sign-up, e-mail verification and password reset: address first, one answer for every address, one-time links | Accepted | — |
 | [0024](0024-mail-queue-and-notification-v0.md) | The mail queue and notification v0: a platform-level queue, a relay with retries, no secret at rest | Accepted | — |
 | [0025](0025-founding-an-organization-and-the-minimal-membership.md) | A signed-in person founds an organization; the minimal membership | Accepted | — |
-| [0026](0026-membership-lifecycle-and-the-administrator-marker.md) | Membership lifecycle, the administrator marker and the check on every request | Accepted (the marker is a stop-gap until access policies, Sprint 7) | — |
+| [0026](0026-membership-lifecycle-and-the-administrator-marker.md) | Membership lifecycle, the administrator marker and the check on every request | Accepted; the marker was replaced in Sprint 7 by [ADR-0043](0043-replacing-the-administrator-marker.md) | ADR-0043 |
 | [0027](0027-which-organizations-does-a-person-belong-to.md) | Which organizations does a person belong to: a narrow system scope | Accepted | — |
 | [0028](0028-invitations.md) | Invitations: a record of the organization, a one-time link, a membership only on acceptance | Accepted | — |
 | [0029](0029-switching-organizations.md) | Switching organizations: a one-time proof carried to the other host | Accepted | — |
@@ -44,3 +44,10 @@ A decision that is still open has status **Proposed** and names the gate or spri
 | [0036](0036-administrative-sessions.md) | Administrative sessions: listing, signing a person or an organization out | Accepted | — |
 | [0037](0037-provisioning-an-organization-for-a-client.md) | Provisioning an organization for a client and inviting its first administrator | Accepted | — |
 | [0038](0038-organization-lifecycle-by-platform-administrators.md) | Organization lifecycle by platform administrators: suspend, reinstate, deactivate | Accepted | — |
+| [0039](0039-abilities-profiles-access-policies-and-individual-grants.md) | Abilities, profiles, access policies and individual grants | Accepted | — |
+| [0040](0040-effective-permissions-and-the-read-contract.md) | Effective permissions: the algorithm (union, no deny) and the one read contract | Accepted | — |
+| [0041](0041-where-the-access-tables-live-and-the-module-edge.md) | Where the access tables live (all tenant-scoped), and the module edge identity to security | Accepted | — |
+| [0042](0042-the-role-hierarchy.md) | The role hierarchy: visibility only, no loops (service and database) | Accepted | — |
+| [0043](0043-replacing-the-administrator-marker.md) | Replacing the administrator marker; creating a member by invitation; leaving | Accepted | ADR-0026 in part |
+| [0044](0044-the-last-member-who-can-manage-access.md) | The last member who can manage access stays (database and service) | Accepted | — |
+| [0045](0045-system-profiles-seeding-backfill-and-licence-consequences.md) | System profiles, seeding, the backfill, and what licences mean for abilities | Accepted | — |

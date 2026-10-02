@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MembersPanel } from "./MembersPanel";
 
@@ -6,36 +7,50 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
+const ADMIN_PROFILE = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const MEMBER_PROFILE = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const ROLE = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+
 const MEMBERS = [
   {
     id: "11111111-1111-4111-8111-111111111111",
     email: "admin-a@example.test",
     displayName: "Admin A",
     status: "ACTIVE",
-    administrator: true,
     foundingAdministrator: true,
     since: "2026-10-01T10:00:00Z",
     you: true,
+    licence: "admin",
+    profileId: ADMIN_PROFILE,
+    profileName: "Organization administrator",
+    licensed: true,
+    policies: [],
   },
   {
     id: "22222222-2222-4222-8222-222222222222",
     email: "user-a@example.test",
     displayName: "User A",
     status: "ACTIVE",
-    administrator: false,
     foundingAdministrator: false,
     since: "2026-10-01T11:00:00Z",
     you: false,
+    profileId: MEMBER_PROFILE,
+    profileName: "Member",
+    licensed: false,
+    roleId: ROLE,
+    roleName: "role-a",
+    policies: [{ id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", name: "policy-a" }],
   },
   {
     id: "33333333-3333-4333-8333-333333333333",
     email: "user-b@example.test",
     displayName: "User B",
     status: "DEACTIVATED",
-    administrator: false,
     foundingAdministrator: false,
     since: "2026-10-01T12:00:00Z",
     you: false,
+    licensed: false,
+    policies: [],
   },
 ];
 
@@ -43,12 +58,26 @@ const INVITATIONS = [
   {
     id: "44444444-4444-4444-8444-444444444444",
     email: "invited-a@example.test",
-    administrator: false,
+    displayName: "Invited A",
+    profileName: "Member",
     status: "OPEN",
     expiresAt: "2026-10-09T10:00:00Z",
     sentCount: 1,
     createdAt: "2026-10-02T10:00:00Z",
   },
+  {
+    id: "45454545-4545-4545-8545-454545454545",
+    email: "saved-a@example.test",
+    status: "OPEN",
+    expiresAt: "2026-10-09T10:00:00Z",
+    sentCount: 0,
+    createdAt: "2026-10-02T10:00:00Z",
+  },
+];
+
+const PROFILES = [
+  { id: ADMIN_PROFILE, name: "Organization administrator", description: "", licenceType: "admin", abilities: [], system: true, fullAccess: true, defaultProfile: false, members: 1 },
+  { id: MEMBER_PROFILE, name: "Member", description: "", licenceType: "user", abilities: [], system: true, fullAccess: false, defaultProfile: true, members: 1 },
 ];
 
 type Handler = (request: Request) => Response | Promise<Response>;
@@ -72,6 +101,10 @@ function fakeApi(overrides: Record<string, Handler> = {}) {
           return json({ data: MEMBERS });
         case "GET /api/v1/invitations":
           return json({ data: INVITATIONS });
+        case "GET /api/v1/profiles":
+          return json({ data: PROFILES });
+        case "GET /api/v1/roles":
+          return json({ data: [{ id: ROLE, name: "role-a", description: "", members: 1 }] });
         default:
           return new Response(null, { status: 204 });
       }
@@ -91,19 +124,23 @@ describe("MembersPanel", () => {
     document.cookie = "XSRF-TOKEN=; path=/; max-age=0";
   });
 
-  it("lists the members and the invitations as the API reports them", async () => {
+  it("lists the members with profile, role and access policies, and the invitations, as the API reports them", async () => {
     fakeApi();
     render(<MembersPanel />);
 
     const rows = await screen.findAllByTestId("member-row");
     expect(rows).toHaveLength(3);
     expect(rows[0]).toHaveTextContent("Admin A (you)");
-    expect(rows[0]).toHaveTextContent("administrator");
+    expect(within(rows[0] as HTMLElement).getByTestId("member-profile")).toHaveTextContent("Organization administrator");
+    expect(within(rows[1] as HTMLElement).getByTestId("member-profile")).toHaveTextContent("Member, role-a, policy-a");
+    expect(within(rows[1] as HTMLElement).getByTestId("member-profile")).toHaveTextContent("Waiting for a licence");
     expect(rows[2]).toHaveTextContent("Deactivated");
-    expect(within(screen.getByTestId("invitations")).getByText("invited-a@example.test")).toBeInTheDocument();
+    const invitations = screen.getByTestId("invitations");
+    expect(within(invitations).getByText("invited-a@example.test")).toBeInTheDocument();
+    expect(invitations).toHaveTextContent("saved, not sent");
   });
 
-  it("shows the API's refusal instead of the lists when the caller is not an administrator", async () => {
+  it("shows the API's refusal instead of the lists when the caller may not see members", async () => {
     fakeApi({
       "GET /api/v1/members": () => json({ error: { code: "FORBIDDEN", message: "You are not allowed to perform this action." } }, 403),
       "GET /api/v1/invitations": () => json({ error: { code: "FORBIDDEN", message: "You are not allowed to perform this action." } }, 403),
@@ -114,7 +151,7 @@ describe("MembersPanel", () => {
     expect(screen.queryByTestId("member-row")).toBeNull();
   });
 
-  it("invites an address, shows the one sentence the API gives and clears the form", async () => {
+  it("creates a member: name, address, profile and role, sent now, and clears the form", async () => {
     const calls = fakeApi({
       "POST /api/v1/invitations": () =>
         json({ data: { message: "If this address can be invited, an e-mail with the invitation is on its way." } }, 202),
@@ -122,15 +159,36 @@ describe("MembersPanel", () => {
     render(<MembersPanel />);
     await screen.findAllByTestId("member-row");
 
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "New A" } });
     fireEvent.change(screen.getByLabelText("E-mail address"), { target: { value: "new-a@example.test" } });
-    fireEvent.click(screen.getByLabelText(/Make this person an administrator/));
+    fireEvent.change(screen.getByLabelText("Profile"), { target: { value: ADMIN_PROFILE } });
+    fireEvent.change(screen.getByLabelText("Role"), { target: { value: ROLE } });
     fireEvent.submit(screen.getByLabelText("E-mail address").closest("form")!);
 
     expect(await screen.findByTestId("members-notice")).toHaveTextContent("on its way");
     expect(calls.find((call) => call.key === "POST /api/v1/invitations")?.body).toBe(
-      JSON.stringify({ email: "new-a@example.test", administrator: true }),
+      JSON.stringify({ email: "new-a@example.test", displayName: "New A", profileId: ADMIN_PROFILE, roleId: ROLE, active: true }),
     );
     expect(screen.getByLabelText("E-mail address")).toHaveValue("");
+    expect(screen.getByLabelText("Name")).toHaveValue("");
+  });
+
+  it("saves the member without sending when Active is switched off", async () => {
+    const calls = fakeApi({
+      "POST /api/v1/invitations": () => json({ data: { message: "Saved." } }, 202),
+    });
+    render(<MembersPanel />);
+    await screen.findAllByTestId("member-row");
+
+    fireEvent.change(screen.getByLabelText("E-mail address"), { target: { value: "later-a@example.test" } });
+    fireEvent.click(screen.getByLabelText(/Active: send the link now/));
+    fireEvent.submit(screen.getByLabelText("E-mail address").closest("form")!);
+
+    await waitFor(() => expect(calls.some((call) => call.key === "POST /api/v1/invitations")).toBe(true));
+    expect(JSON.parse(calls.find((call) => call.key === "POST /api/v1/invitations")!.body)).toMatchObject({
+      email: "later-a@example.test",
+      active: false,
+    });
   });
 
   it("deactivates and reactivates members through the API and reloads", async () => {
@@ -154,14 +212,15 @@ describe("MembersPanel", () => {
     expect(calls.filter((call) => call.key === "GET /api/v1/members").length).toBeGreaterThanOrEqual(3);
   });
 
-  it("shows the API's words when the last administrator cannot be removed", async () => {
+  it("shows the API's words when the last member who can manage access cannot be removed", async () => {
     fakeApi({
       "POST /api/v1/members/11111111-1111-4111-8111-111111111111/deactivate": () =>
         json(
           {
             error: {
               code: "CONFLICT",
-              message: "The last administrator of an organization cannot be removed. Name another administrator first.",
+              message:
+                "The organization must keep at least one active member who can manage access. Give another member that ability first.",
             },
           },
           409,
@@ -172,23 +231,51 @@ describe("MembersPanel", () => {
 
     fireEvent.click(within(rows[0] as HTMLElement).getByRole("button", { name: "Deactivate" }));
 
-    expect(await screen.findByTestId("members-problem")).toHaveTextContent("last administrator");
+    expect(await screen.findByTestId("members-problem")).toHaveTextContent("manage access");
   });
 
-  it("names and releases administrators with the value the button promises", async () => {
+  it("gives an unlicensed member the licence their profile needs, without a body", async () => {
     const calls = fakeApi();
     render(<MembersPanel />);
     const rows = await screen.findAllByTestId("member-row");
 
-    fireEvent.click(within(rows[1] as HTMLElement).getByRole("button", { name: "Make administrator" }));
+    fireEvent.click(within(rows[1] as HTMLElement).getByRole("button", { name: "Give a licence" }));
 
     await waitFor(() =>
-      expect(calls.find((call) => call.key === "PUT /api/v1/members/22222222-2222-4222-8222-222222222222/administrator")?.body)
-        .toBe(JSON.stringify({ administrator: true })),
+      expect(calls.find((call) => call.key === "PUT /api/v1/members/22222222-2222-4222-8222-222222222222/licence")?.body).toBe(""),
     );
   });
 
-  it("withdraws and sends an invitation again", async () => {
+  it("opens the access of a member and loads it from the API", async () => {
+    const calls = fakeApi({
+      "GET /api/v1/members/22222222-2222-4222-8222-222222222222/access": () =>
+        json({
+          data: {
+            membershipId: "22222222-2222-4222-8222-222222222222",
+            profileId: MEMBER_PROFILE,
+            profileName: "Member",
+            profileLicenceType: "user",
+            licenceHeld: false,
+            policies: [],
+            grants: [{ ability: "members.view", reason: "covers for a colleague", since: "2026-10-02T10:00:00Z" }],
+            abilities: ["members.view"],
+          },
+        }),
+      "GET /api/v1/abilities": () => json({ data: [{ key: "members.view", name: "See members", description: "x" }] }),
+      "GET /api/v1/access-policies": () => json({ data: [] }),
+    });
+    render(<MembersPanel />);
+    const rows = await screen.findAllByTestId("member-row");
+
+    fireEvent.click(within(rows[1] as HTMLElement).getByRole("button", { name: "Access" }));
+
+    expect(await screen.findByTestId("member-abilities")).toHaveTextContent("See members");
+    expect(screen.getByTestId("member-unlicensed")).toHaveTextContent("does not hold the user licence");
+    expect(screen.getByTestId("member-grants")).toHaveTextContent("covers for a colleague");
+    expect(calls.map((call) => call.key)).toContain("GET /api/v1/members/22222222-2222-4222-8222-222222222222/access");
+  });
+
+  it("withdraws, sends and sends again an invitation", async () => {
     const calls = fakeApi({
       "POST /api/v1/invitations/44444444-4444-4444-8444-444444444444/resend": () =>
         json({ data: { message: "If this address can be invited, an e-mail with the invitation is on its way." } }, 202),
@@ -200,9 +287,22 @@ describe("MembersPanel", () => {
     await waitFor(() =>
       expect(calls.map((call) => call.key)).toContain("POST /api/v1/invitations/44444444-4444-4444-8444-444444444444/resend"),
     );
-    fireEvent.click(await screen.findByRole("button", { name: "Withdraw" }));
+    expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument();
+    fireEvent.click((await screen.findAllByRole("button", { name: "Withdraw" }))[0] as HTMLElement);
     await waitFor(() =>
       expect(calls.map((call) => call.key)).toContain("POST /api/v1/invitations/44444444-4444-4444-8444-444444444444/revoke"),
     );
+  });
+
+  it("loads the lists once per mount, also under React strict mode", async () => {
+    const calls = fakeApi();
+    render(
+      <StrictMode>
+        <MembersPanel />
+      </StrictMode>,
+    );
+
+    await screen.findAllByTestId("member-row");
+    await waitFor(() => expect(calls.filter((call) => call.key === "GET /api/v1/members").length).toBeLessThanOrEqual(2));
   });
 });

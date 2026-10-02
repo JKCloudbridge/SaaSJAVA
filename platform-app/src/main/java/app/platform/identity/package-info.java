@@ -1,5 +1,6 @@
 /**
- * Identity module: users, credentials, sign-in, sessions and tokens (Sprint 3), and later memberships and invitations.
+ * Identity module: users, credentials, sign-in, sessions and tokens (Sprint 3), memberships and invitations (Sprint 5).
+ * Since Sprint 7 it asks the security module what a member may do and what a new member gets (ADR-0039).
  *
  * <p>The public API is {@link app.platform.identity.Users} (create users, change their state and password, end their
  * sessions), the user types, and the authentication-provider abstraction
@@ -15,7 +16,8 @@
         allowedDependencies = {
             "sharedkernel",
             "tenant",
-            "licensing"
+            "licensing",
+            "security"
         })
 package app.platform.identity;
 

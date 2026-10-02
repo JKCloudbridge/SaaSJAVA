@@ -31,11 +31,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
 /**
- * Licences (Sprint 6, ADR-0032): an organization's administrators assign and release them, the last free licence has
- * one
- * winner under concurrency, a pool cannot be reduced below use (service and database), a deactivated member gives the
- * licence back, and a licence, an entitlement and the administrator marker are three separate things. The allowed,
- * denied and cross-organization cases of every endpoint.
+ * Licences (Sprint 6, ADR-0032; since Sprint 7 they follow profiles, ADR-0039): an organization's administrators give
+ * and take back the licence a member's profile needs, the last free licence has one winner under concurrency, a pool
+ * cannot be reduced below use (service and database), a deactivated member gives the licence back, and a licence, an
+ * entitlement and a permission are three separate things. The allowed, denied and cross-organization cases of every
+ * endpoint.
  */
 @PlatformIntegrationTest
 class LicencesIT {
@@ -60,6 +60,9 @@ class LicencesIT {
     @Autowired
     private Entitlements entitlements;
 
+    @Autowired
+    private app.platform.tenant.TenantContexts contexts;
+
     private Organization organization(int userLicences, int adminLicences, String... features) {
         Organization organization = TestOrganizations.create(users);
         TestPlatform.subscribe(plans, subscriptions, organization.id(), userLicences, adminLicences, features);
@@ -70,13 +73,29 @@ class LicencesIT {
         return TestOrganizations.signedIn(port, organization.host(), organization.admin().person());
     }
 
-    private static Response assign(TestBrowser admin, UUID membership, String type) {
-        return admin.request("PUT", "/api/v1/members/" + membership + "/licence",
-                "{\"licenceType\":\"" + type + "\"}");
+    /** Gives the member the licence their profile needs (the member holds the default profile unless given another). */
+    private static Response give(TestBrowser admin, UUID membership) {
+        return admin.request("PUT", "/api/v1/members/" + membership + "/licence", null);
     }
 
     private static Response release(TestBrowser admin, UUID membership) {
         return admin.request("DELETE", "/api/v1/members/" + membership + "/licence", null);
+    }
+
+    private static UUID createProfile(TestBrowser admin, String name, String licenceType, String... abilities) {
+        List<String> quoted = new ArrayList<>();
+        for (String ability : abilities) {
+            quoted.add("\"" + ability + "\"");
+        }
+        Response created = admin.postJson("/api/v1/profiles", "{\"name\":\"" + name + "\",\"description\":\"\","
+                + "\"licenceType\":\"" + licenceType + "\",\"abilities\":[" + String.join(",", quoted) + "]}");
+        assertThat(created.status()).as(created.body()).isEqualTo(201);
+        return UUID.fromString(JsonPath.read(created.body(), "$.data.id"));
+    }
+
+    private static Response setProfile(TestBrowser admin, UUID membership, UUID profile) {
+        return admin.request("PUT", "/api/v1/members/" + membership + "/profile",
+                "{\"profileId\":\"" + profile + "\"}");
     }
 
     private static int assigned(TestBrowser admin, String type) {
@@ -96,7 +115,7 @@ class LicencesIT {
     // ---- the happy path and the numbers ----
 
     @Test
-    void anAdministratorSeesTheNumbersAssignsAndReleasesALicence() {
+    void anAdministratorSeesTheNumbersGivesAndTakesBackALicence() {
         Organization organization = organization(2, 1);
         TestBrowser admin = adminOf(organization);
         Member other = TestOrganizations.join(users, organization.tenant(), false);
@@ -106,9 +125,9 @@ class LicencesIT {
         assertThat(JsonPath.<List<Integer>>read(pools.body(), "$.data[?(@.licenceType=='user')].quantity"))
                 .containsExactly(2);
         assertThat(assigned(admin, "user")).isZero();
-        assertThat(licenceOf(admin, other.membership())).as("a member holds none until one is assigned").isNull();
+        assertThat(licenceOf(admin, other.membership())).as("a member holds none until one is given").isNull();
 
-        assertThat(assign(admin, other.membership(), "user").status()).isEqualTo(204);
+        assertThat(give(admin, other.membership()).status()).isEqualTo(204);
 
         assertThat(assigned(admin, "user")).isEqualTo(1);
         assertThat(JsonPath.<List<Integer>>read(admin.get(POOLS).body(), "$.data[?(@.licenceType=='user')].available"))
@@ -125,46 +144,49 @@ class LicencesIT {
     }
 
     @Test
-    void assigningAnotherTypeMovesTheMemberAndAnUnknownTypeIsNotFound() {
-        Organization organization = organization(2, 1);
+    void givingAMemberAnotherProfileMovesTheirLicenceToTheTypeOfThatProfile() {
+        Organization organization = organization(2, 2);
         TestBrowser admin = adminOf(organization);
         Member other = TestOrganizations.join(users, organization.tenant(), false);
-        assertThat(assign(admin, other.membership(), "user").status()).isEqualTo(204);
+        assertThat(give(admin, other.membership()).status()).isEqualTo(204);
+        UUID adminTypeProfile = createProfile(admin, "profile-a", "admin", "members.view");
 
-        assertThat(assign(admin, other.membership(), "admin").status()).isEqualTo(204);
+        assertThat(setProfile(admin, other.membership(), adminTypeProfile).status()).isEqualTo(204);
 
         assertThat(licenceOf(admin, other.membership())).isEqualTo("admin");
         assertThat(assigned(admin, "user")).isZero();
-        assertThat(assigned(admin, "admin")).isEqualTo(1);
-        assertThat(assign(admin, other.membership(), "no-such-type").status()).isEqualTo(404);
+        assertThat(assigned(admin, "admin")).isEqualTo(2);
+        assertThat(setProfile(admin, other.membership(), UUID.randomUUID()).status()).as("an unknown profile")
+                .isEqualTo(404);
     }
 
     @Test
-    void anOrganizationWithoutAFreeLicenceOrWithoutAPoolIsRefusedWithAConflict() {
-        Organization organization = organization(1, 0);
+    void anOrganizationWithoutAFreeLicenceIsRefusedWithAConflict() {
+        Organization organization = organization(1, 1);
         TestBrowser admin = adminOf(organization);
         Member first = TestOrganizations.join(users, organization.tenant(), false);
         Member second = TestOrganizations.join(users, organization.tenant(), false);
-        assertThat(assign(admin, first.membership(), "user").status()).isEqualTo(204);
+        UUID adminTypeProfile = createProfile(admin, "profile-a", "admin");
+        assertThat(give(admin, first.membership()).status()).isEqualTo(204);
 
-        Response noneFree = assign(admin, second.membership(), "user");
-        Response noPool = assign(admin, second.membership(), "admin");
+        Response noneFree = give(admin, second.membership());
+        Response noAdminLicence = setProfile(admin, second.membership(), adminTypeProfile);
 
         assertThat(noneFree.status()).isEqualTo(409);
         assertThat(noneFree.body()).contains("No licence of this type is free.");
-        assertThat(noPool.status()).as("a zero pool is an empty pool").isEqualTo(409);
+        assertThat(noAdminLicence.status()).as("the only admin licence is the administrator's").isEqualTo(409);
     }
 
     // ---- who may ask, and for whom ----
 
     @Test
-    void aMemberWhoIsNotAnAdministratorIsRefusedEverywhere() {
+    void aMemberWithoutTheAbilityIsRefusedEverywhere() {
         Organization organization = organization(2, 1);
         Member plain = TestOrganizations.join(users, organization.tenant(), false);
         TestBrowser member = TestOrganizations.signedIn(port, organization.host(), plain.person());
 
         assertThat(member.get(POOLS).status()).isEqualTo(403);
-        assertThat(assign(member, plain.membership(), "user").status()).isEqualTo(403);
+        assertThat(give(member, plain.membership()).status()).isEqualTo(403);
         assertThat(release(member, plain.membership()).status()).isEqualTo(403);
         assertThat(member.postJson("/api/v1/organization/sign-out-all", "{}").status()).isEqualTo(403);
     }
@@ -176,7 +198,7 @@ class LicencesIT {
         Member theirMember = TestOrganizations.join(users, other.tenant(), false);
         TestBrowser admin = adminOf(mine);
 
-        assertThat(assign(admin, theirMember.membership(), "user").status()).as("a foreign member is not found")
+        assertThat(give(admin, theirMember.membership()).status()).as("a foreign member is not found")
                 .isEqualTo(404);
         assertThat(release(admin, theirMember.membership()).status()).isEqualTo(404);
         assertThat(assigned(adminOf(other), "user")).as("nothing changed over there").isZero();
@@ -200,7 +222,7 @@ class LicencesIT {
         assertThat(new TestHttp(port, "Host", TestSignIn.PLATFORM_HOST).get(POOLS, "Authorization", bearer).status())
                 .as("the platform host has no organization").isEqualTo(404);
         assertThat(new TestHttp(port, "Host", TestSignIn.PLATFORM_HOST).request("PUT",
-                "/api/v1/members/" + plain.membership() + "/licence", "{\"licenceType\":\"user\"}",
+                "/api/v1/members/" + plain.membership() + "/licence", null,
                 "Authorization", bearer, "Content-Type", "application/json").status()).isEqualTo(404);
         assertThat(new TestHttp(port, "Host", organization.host()).get(POOLS).status()).as("no sign-in").isEqualTo(401);
         assertThat(onPlatformHost.get(POOLS).status()).isEqualTo(401);
@@ -209,9 +231,9 @@ class LicencesIT {
     // ---- concurrency and the database guards ----
 
     @Test
-    void twoAdministratorsAssigningTheLastFreeLicenceHaveOneWinner() throws Exception {
+    void twoAdministratorsGivingTheLastFreeLicenceHaveOneWinner() throws Exception {
         for (int round = 0; round < 3; round++) {
-            Organization organization = organization(1, 0);
+            Organization organization = organization(1, 3);
             Member second = TestOrganizations.join(users, organization.tenant(), true);
             List<Member> candidates = new ArrayList<>();
             for (int i = 0; i < 4; i++) {
@@ -228,7 +250,7 @@ class LicencesIT {
                 UUID target = candidates.get(i).membership();
                 results.add(pool.submit(() -> {
                     start.await();
-                    return assign(by, target, "user").status();
+                    return give(by, target).status();
                 }));
             }
             start.countDown();
@@ -246,12 +268,12 @@ class LicencesIT {
 
     @Test
     void aPoolCannotBeReducedBelowUseNeitherByTheServiceNorByTheDatabase() throws SQLException {
-        Organization organization = organization(3, 0);
+        Organization organization = organization(3, 1);
         TestBrowser admin = adminOf(organization);
         Member a = TestOrganizations.join(users, organization.tenant(), false);
         Member b = TestOrganizations.join(users, organization.tenant(), false);
-        assertThat(assign(admin, a.membership(), "user").status()).isEqualTo(204);
-        assertThat(assign(admin, b.membership(), "user").status()).isEqualTo(204);
+        assertThat(give(admin, a.membership()).status()).isEqualTo(204);
+        assertThat(give(admin, b.membership()).status()).isEqualTo(204);
 
         assertThatThrownBy(() -> inOrganization(organization.id(),
                 () -> licences.setPoolQuantity("user", 1, ActorId.SYSTEM)))
@@ -278,10 +300,10 @@ class LicencesIT {
 
     @Test
     void deactivatingAMemberGivesTheLicenceBackAndReactivationBringsTheDefaultOneWhenFree() {
-        Organization organization = organization(2, 0);
+        Organization organization = organization(2, 1);
         TestBrowser admin = adminOf(organization);
         Member other = TestOrganizations.join(users, organization.tenant(), false);
-        assertThat(assign(admin, other.membership(), "user").status()).isEqualTo(204);
+        assertThat(give(admin, other.membership()).status()).isEqualTo(204);
         assertThat(assigned(admin, "user")).isEqualTo(1);
 
         assertThat(admin.postJson("/api/v1/members/" + other.membership() + "/deactivate", "{}").status())
@@ -295,20 +317,20 @@ class LicencesIT {
         assertThat(admin.postJson("/api/v1/members/" + other.membership() + "/reactivate", "{}").status())
                 .isEqualTo(204);
 
-        assertThat(licenceOf(admin, other.membership())).as("the default licence, because one was free")
+        assertThat(licenceOf(admin, other.membership())).as("the licence of the default profile, because one was free")
                 .isEqualTo("user");
     }
 
     @Test
     void aReactivatedMemberReturnsUnlicensedWhenNoLicenceIsFree() {
-        Organization organization = organization(1, 0);
+        Organization organization = organization(1, 1);
         TestBrowser admin = adminOf(organization);
         Member away = TestOrganizations.join(users, organization.tenant(), false);
         Member stayer = TestOrganizations.join(users, organization.tenant(), false);
-        assertThat(assign(admin, away.membership(), "user").status()).isEqualTo(204);
+        assertThat(give(admin, away.membership()).status()).isEqualTo(204);
         assertThat(admin.postJson("/api/v1/members/" + away.membership() + "/deactivate", "{}").status())
                 .isEqualTo(204);
-        assertThat(assign(admin, stayer.membership(), "user").status()).isEqualTo(204);
+        assertThat(give(admin, stayer.membership()).status()).isEqualTo(204);
 
         assertThat(admin.postJson("/api/v1/members/" + away.membership() + "/reactivate", "{}").status())
                 .as("reactivation never fails for lack of a licence").isEqualTo(204);
@@ -319,74 +341,76 @@ class LicencesIT {
 
     @Test
     void aDeactivatedMemberCannotBeGivenALicence() {
-        Organization organization = organization(2, 0);
+        Organization organization = organization(2, 1);
         TestBrowser admin = adminOf(organization);
         Member other = TestOrganizations.join(users, organization.tenant(), false);
         assertThat(admin.postJson("/api/v1/members/" + other.membership() + "/deactivate", "{}").status())
                 .isEqualTo(204);
 
-        assertThat(assign(admin, other.membership(), "user").status()).isEqualTo(409);
+        assertThat(give(admin, other.membership()).status()).isEqualTo(409);
     }
 
     // ---- licence, entitlement and permission are three separate things ----
 
     @Test
-    void aLicenceAnEntitlementAndTheAdministratorMarkerEachChangeWithoutTheOthers() {
+    void aLicenceAnEntitlementAndAPermissionEachChangeWithoutTheOthers() {
         Organization organization = organization(2, 1, "approvals");
         TestBrowser admin = adminOf(organization);
         Member member = TestOrganizations.join(users, organization.tenant(), false);
         TenantId id = organization.id();
+        TestBrowser asMember = TestOrganizations.signedIn(port, organization.host(), member.person());
+        UUID viewer = createProfile(admin, "profile-a", "user", "members.view");
+        UUID inviter = createProfile(admin, "profile-b", "user", "members.invite");
+        assertThat(setProfile(admin, member.membership(), viewer).status()).isEqualTo(204);
         assertThat(entitlements.enabled(id, "approvals")).isTrue();
-        assertThat(licenceOf(admin, member.membership())).isNull();
+        assertThat(licenceOf(admin, member.membership())).isEqualTo("user");
+        assertThat(asMember.get("/api/v1/members").status()).isEqualTo(200);
 
-        // A licence changes: the entitlement and the marker do not.
-        assertThat(assign(admin, member.membership(), "user").status()).isEqualTo(204);
-        assertThat(entitlements.enabled(id, "approvals")).isTrue();
-        assertThat(administratorMarker(admin, member.membership())).isFalse();
-
-        // An entitlement changes (the organization loses a feature): the licence and the marker do not.
+        // An entitlement changes (the organization loses a feature): the licence and the permission do not.
         entitlements.override(id, "approvals", false, ActorId.SYSTEM);
         assertThat(entitlements.enabled(id, "approvals")).isFalse();
         assertThat(licenceOf(admin, member.membership())).isEqualTo("user");
-        assertThat(administratorMarker(admin, member.membership())).isFalse();
+        assertThat(asMember.get("/api/v1/members").status()).isEqualTo(200);
         entitlements.override(id, "approvals", null, ActorId.SYSTEM);
         assertThat(entitlements.enabled(id, "approvals")).as("back to the plan").isTrue();
 
-        // The marker (the permission of this sprint) changes: the licence and the entitlement do not.
-        assertThat(admin.request("PUT", "/api/v1/members/" + member.membership() + "/administrator",
-                "{\"administrator\":true}").status()).isEqualTo(204);
-        assertThat(administratorMarker(admin, member.membership())).isTrue();
+        // The permission changes (another profile of the same licence type): the licence and the entitlement do not.
+        assertThat(setProfile(admin, member.membership(), inviter).status()).isEqualTo(204);
+        assertThat(asMember.get("/api/v1/members").status()).isEqualTo(403);
+        assertThat(asMember.get("/api/v1/invitations").status()).isEqualTo(200);
         assertThat(licenceOf(admin, member.membership())).isEqualTo("user");
+        assertThat(assigned(admin, "user")).isEqualTo(1);
         assertThat(entitlements.enabled(id, "approvals")).isTrue();
 
-        // And the other way round: releasing the licence takes no permission away.
+        // The licence is taken back: the profile gives no abilities (a licence is what lets the profile count), and the
+        // feature is untouched.
         assertThat(release(admin, member.membership()).status()).isEqualTo(204);
-        assertThat(administratorMarker(admin, member.membership())).isTrue();
+        assertThat(asMember.get("/api/v1/invitations").status()).isEqualTo(403);
+        assertThat(entitlements.enabled(id, "approvals")).isTrue();
     }
 
     @Test
-    void anAdministratorWithoutALicenceCanStillAdministerAndALicencedMemberStillCannot() {
-        Organization organization = organization(2, 1);
+    void anAdministratorWithoutTheirLicenceHasNoAbilitiesAndALicencedMemberWithoutAbilitiesStillCannot() {
+        Organization organization = organization(2, 2);
         TestBrowser admin = adminOf(organization);
+        Member secondAdministrator = TestOrganizations.join(users, organization.tenant(), true);
         Member plain = TestOrganizations.join(users, organization.tenant(), false);
-        assertThat(assign(admin, plain.membership(), "user").status()).isEqualTo(204);
+        assertThat(give(admin, plain.membership()).status()).isEqualTo(204);
+        TestBrowser asSecond = TestOrganizations.signedIn(port, organization.host(), secondAdministrator.person());
+        assertThat(asSecond.get(POOLS).status()).isEqualTo(200);
 
-        assertThat(licenceOf(admin, organization.admin().membership())).as("the administrator holds none").isNull();
-        assertThat(admin.get(POOLS).status()).as("no licence is needed to administer").isEqualTo(200);
+        assertThat(release(admin, secondAdministrator.membership()).status()).isEqualTo(204);
+
+        assertThat(licenceOf(admin, secondAdministrator.membership())).as("the administrator holds none").isNull();
+        assertThat(asSecond.get(POOLS).status()).as("without the licence the profile gives nothing").isEqualTo(403);
         TestBrowser licensedMember = TestOrganizations.signedIn(port, organization.host(), plain.person());
         assertThat(licensedMember.get(POOLS).status()).as("a licence grants no permission").isEqualTo(403);
-    }
-
-    private static boolean administratorMarker(TestBrowser admin, UUID membership) {
-        List<Boolean> value = JsonPath.read(admin.get("/api/v1/members").body(),
-                "$.data[?(@.id=='" + membership + "')].administrator");
-        return value.get(0);
+        assertThat(give(admin, secondAdministrator.membership()).status()).as("and a licence given back restores it")
+                .isEqualTo(204);
+        assertThat(asSecond.get(POOLS).status()).isEqualTo(200);
     }
 
     private void inOrganization(TenantId organization, Runnable work) {
         contexts.run(app.platform.tenant.TenantContext.of(organization), work);
     }
-
-    @Autowired
-    private app.platform.tenant.TenantContexts contexts;
 }

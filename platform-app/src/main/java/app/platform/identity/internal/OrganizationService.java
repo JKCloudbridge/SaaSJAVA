@@ -2,7 +2,7 @@ package app.platform.identity.internal;
 
 import app.platform.identity.User;
 import app.platform.identity.UserStatus;
-import app.platform.licensing.Licences;
+import app.platform.security.MemberAccess;
 import app.platform.licensing.Subscriptions;
 import app.platform.sharedkernel.ActorId;
 import app.platform.sharedkernel.TenantId;
@@ -35,18 +35,18 @@ class OrganizationService {
     private final UserRepository users;
     private final MembershipRepository memberships;
     private final Subscriptions subscriptions;
-    private final Licences licences;
+    private final MemberAccess access;
     private final AccountLimiter limiter;
     private final AuthAudit audit;
     private final TransactionTemplate transaction;
     private final IdentityProperties.Account limits;
 
     OrganizationService(Tenants tenants, TenantContexts contexts, UserRepository users,
-            MembershipRepository memberships, Subscriptions subscriptions, Licences licences,
+            MembershipRepository memberships, Subscriptions subscriptions, MemberAccess access,
             AccountLimiter limiter, AuthAudit audit, TransactionTemplate transaction,
             IdentityProperties properties) {
         this.subscriptions = subscriptions;
-        this.licences = licences;
+        this.access = access;
         this.tenants = tenants;
         this.contexts = contexts;
         this.users = users;
@@ -87,10 +87,11 @@ class OrganizationService {
                 tenants.provision(id, slug, displayName, actor);
                 tenants.activate(id, actor);
                 UUID founder = memberships.insertFounder(userId, actor);
-                // "Try for free": the organization starts on the default plan (a trial) with its pools, and the
-                // founder holds the default licence (ADR-0033). Neither can fail the founding for lack of a licence.
+                // "Try for free": the organization starts on the default plan (a trial) with its pools (ADR-0033). It
+                // gets its two system profiles, and the founder the administrator profile with an administrator
+                // licence (ADR-0039); neither can fail the founding for lack of a licence.
                 subscriptions.startDefault(id, actor);
-                licences.assignDefault(founder, actor);
+                access.join(founder, null, null, true, true, actor);
                 audit.organizationFounded(userId, slug.value());
             }));
         } catch (ApiException e) {

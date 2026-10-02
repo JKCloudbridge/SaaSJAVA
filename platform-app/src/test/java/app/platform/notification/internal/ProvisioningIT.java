@@ -155,13 +155,16 @@ class ProvisioningIT {
         assertThat(JsonPath.<String>read(accepted.body(), "$.data.host")).isEqualTo(hostOf(slug));
         assertThat(status(organization)).as("accepting opened the organization").isEqualTo("ACTIVE");
         assertThat(hostAnswer(slug).status()).isEqualTo(200);
-        assertThat(IdentityDb.value(Boolean.class, "select founding_administrator and administrator from membership "
-                + "where tenant_id = ?", organization)).as("the founder and an administrator").isTrue();
+        assertThat(IdentityDb.value(Boolean.class, "select m.founding_administrator and p.system_key = 'administrator' "
+                + "from membership m join member_access a on a.membership_id = m.id and a.deleted_at is null "
+                + "join profile p on p.id = a.profile_id where m.tenant_id = ?", organization))
+                .as("the founder, with the administrator profile").isTrue();
         TestBrowser inside = new TestBrowser(port, hostOf(slug));
         inside.signIn(email, password);
         assertThat(inside.get("/api/v1/members").status()).isEqualTo(200);
         assertThat(JsonPath.<List<Integer>>read(inside.get("/api/v1/licences").body(),
-                "$.data[?(@.licenceType=='user')].assigned")).as("the default licence was assigned").containsExactly(1);
+                "$.data[?(@.licenceType=='admin')].assigned")).as("the first administrator got an admin licence")
+                .containsExactly(1);
         Response detail = console.get("/api/v1/platform/organizations/" + organization);
         assertThat(JsonPath.<String>read(detail.body(), "$.data.status")).isEqualTo("ACTIVE");
         assertThat(JsonPath.<String>read(detail.body(), "$.data.firstAdministrator.status")).isEqualTo("ACCEPTED");

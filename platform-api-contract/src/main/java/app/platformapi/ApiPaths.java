@@ -93,6 +93,24 @@ public final class ApiPaths {
     /** Signs everyone else of the organization the host names out (Sprint 6). */
     public static final String ORGANIZATION_SIGN_OUT_ALL = V1 + "/organization/sign-out-all";
 
+    /** The abilities the platform knows, for building profiles and policies (Sprint 7). */
+    public static final String ABILITIES = V1 + "/abilities";
+
+    /** The profiles of the organization the host names: list, create, change, remove, make default (Sprint 7). */
+    public static final String PROFILES = V1 + "/profiles";
+
+    /** The access policies of the organization the host names: list, create, change, remove (Sprint 7). */
+    public static final String ACCESS_POLICIES = V1 + "/access-policies";
+
+    /** The role hierarchy of the organization the host names: list, create, change, remove (Sprint 7). */
+    public static final String ROLES = V1 + "/roles";
+
+    /** The licence types a profile or access policy can use (the platform catalogue), for the setup screens. */
+    public static final String LICENCE_TYPES = V1 + "/licence-types";
+
+    /** The caller leaves the organization the host names (Sprint 7). */
+    public static final String ORGANIZATION_LEAVE = V1 + "/organization/leave";
+
     /** Requests for support access to the organization the host names: list, approve, deny, revoke (Sprint 6). */
     public static final String SUPPORT_ACCESS = V1 + "/support-access";
 

@@ -44,6 +44,8 @@
     <!-- Versions not managed by the Spring Boot BOM. -->
     <spring-modulith.version>2.1.1</spring-modulith.version>
     <archunit.version>1.5.1</archunit.version>
+    <!-- Sprint 7: property-based tests of the effective-permission calculator (test scope only, never shipped). -->
+    <jqwik.version>1.10.1</jqwik.version>
     <springdoc.version>3.1.1</springdoc.version>
     <datasource-micrometer.version>2.3.0</datasource-micrometer.version>
     <!-- Sprint 3: the cryptography library behind the Argon2id password hash (Spring's encoder needs it; the JDK has none). -->
@@ -74,6 +76,12 @@
         <groupId>com.tngtech.archunit</groupId>
         <artifactId>archunit</artifactId>
         <version>${archunit.version}</version>
+      </dependency>
+      <dependency>
+        <!-- Property-based tests (a test engine that tries many random inputs); test scope only. -->
+        <groupId>net.jqwik</groupId>
+        <artifactId>jqwik</artifactId>
+        <version>${jqwik.version}</version>
       </dependency>
       <dependency>
         <!-- Generates the OpenAPI document from the controllers (ADR-0011). -->

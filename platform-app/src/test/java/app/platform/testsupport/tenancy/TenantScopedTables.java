@@ -6,8 +6,8 @@ import java.util.UUID;
 
 /**
  * The register of every tenant-scoped table of the platform (a table with a {@code tenant_id} column).
- * Each entry is run
- * through {@link CrossTenantLeakHarness} by {@code TenantIsolationIT}, and a second test fails when a table with a
+ * Each entry is run through {@link CrossTenantLeakHarness} by {@code TenantIsolationIT}, and a second test fails when a
+ * table with a
  * {@code tenant_id} column exists that is not listed here, so a new table cannot skip its isolation test.
  *
  * <p><strong>Adding a table:</strong> add one {@link TenantScopedTable} below (the table name and how to insert one
@@ -104,11 +104,94 @@ public final class TenantScopedTables {
                         tenant, person, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
             });
 
+    /** The profiles of organizations (Sprint 7). A probe row needs a licence type of its own. */
+    public static final TenantScopedTable PROFILE = new TenantScopedTable("profile", (connection, tenant) -> {
+        UUID type = probeLicenceType(connection);
+        TenantFixtures.update(connection,
+                "insert into profile (tenant_id, name, licence_type_id, created_by, updated_by) "
+                        + "values (?, ?, ?, ?, ?)",
+                tenant, "probe-" + UUID.randomUUID(), type, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+    });
+
+    /** The access policies of organizations (Sprint 7). */
+    public static final TenantScopedTable ACCESS_POLICY = new TenantScopedTable("access_policy",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into access_policy (tenant_id, name, created_by, updated_by) values (?, ?, ?, ?)",
+                    tenant, "probe-" + UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
+    /** The role hierarchies of organizations (Sprint 7). */
+    public static final TenantScopedTable SECURITY_ROLE = new TenantScopedTable("security_role",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into security_role (tenant_id, name, created_by, updated_by) values (?, ?, ?, ?)",
+                    tenant, "probe-" + UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
+    /** The profile and role of a member (Sprint 7). A probe row needs a profile, a user and a membership. */
+    public static final TenantScopedTable MEMBER_ACCESS = new TenantScopedTable("member_access",
+            (connection, tenant) -> {
+                UUID membership = probeMembership(connection, tenant);
+                UUID profile = probeProfile(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into member_access (tenant_id, membership_id, profile_id, created_by, updated_by) "
+                                + "values (?, ?, ?, ?, ?)",
+                        tenant, membership, profile, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** The access policies assigned to members (Sprint 7). */
+    public static final TenantScopedTable MEMBER_ACCESS_POLICY = new TenantScopedTable("member_access_policy",
+            (connection, tenant) -> {
+                UUID membership = probeMembership(connection, tenant);
+                UUID policy = UUID.randomUUID();
+                TenantFixtures.update(connection,
+                        "insert into access_policy (id, tenant_id, name, created_by, updated_by) "
+                                + "values (?, ?, ?, ?, ?)",
+                        policy, tenant, "probe-" + policy, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+                TenantFixtures.update(connection,
+                        "insert into member_access_policy (tenant_id, membership_id, access_policy_id, created_by, "
+                                + "updated_by) values (?, ?, ?, ?, ?)",
+                        tenant, membership, policy, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** The abilities given to single members (Sprint 7). */
+    public static final TenantScopedTable MEMBER_GRANT = new TenantScopedTable("member_grant",
+            (connection, tenant) -> {
+                UUID membership = probeMembership(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into member_grant (tenant_id, membership_id, ability, created_by, updated_by) "
+                                + "values (?, ?, 'members.view', ?, ?)",
+                        tenant, membership, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
-            LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT);
+            LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
+            MEMBER_ACCESS, MEMBER_ACCESS_POLICY, MEMBER_GRANT);
 
     private TenantScopedTables() {
+    }
+
+    /** A user and an active membership of the tenant for a probe row; returns the membership. */
+    private static UUID probeMembership(java.sql.Connection connection, UUID tenant) throws java.sql.SQLException {
+        UUID user = UUID.randomUUID();
+        UUID membership = UUID.randomUUID();
+        TenantFixtures.update(connection,
+                "insert into platform_user (id, email, display_name, created_by, updated_by) "
+                        + "values (?, ?, 'Probe', ?, ?)",
+                user, "probe-" + user + "@example.test", ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        TenantFixtures.update(connection,
+                "insert into membership (id, tenant_id, user_id, created_by, updated_by) values (?, ?, ?, ?, ?)",
+                membership, tenant, user, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        return membership;
+    }
+
+    /** A profile of the tenant for a probe row; returns it. */
+    private static UUID probeProfile(java.sql.Connection connection, UUID tenant) throws java.sql.SQLException {
+        UUID profile = UUID.randomUUID();
+        TenantFixtures.update(connection,
+                "insert into profile (id, tenant_id, name, licence_type_id, created_by, updated_by) "
+                        + "values (?, ?, ?, ?, ?, ?)",
+                profile, tenant, "probe-" + profile, probeLicenceType(connection), ActorId.SYSTEM.value(),
+                ActorId.SYSTEM.value());
+        return profile;
     }
 
     /** A licence type of its own in the catalogue (platform-level), so that probe pools never collide. */

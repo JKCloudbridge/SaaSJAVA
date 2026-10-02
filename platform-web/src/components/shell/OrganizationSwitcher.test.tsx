@@ -9,8 +9,8 @@ function json(body: unknown, status = 200): Response {
 }
 
 const ORGANIZATIONS = [
-  { slug: "org-a", displayName: "Organization A", host: "org-a.localhost:3000", administrator: true },
-  { slug: "org-b", displayName: "Organization B", host: "org-b.localhost:3000", administrator: false },
+  { slug: "org-a", displayName: "Organization A", host: "org-a.localhost:3000" },
+  { slug: "org-b", displayName: "Organization B", host: "org-b.localhost:3000" },
 ];
 
 function fakeApi(options: { signedIn: boolean; organizations: unknown[]; switchAnswer?: () => Response }) {
@@ -25,7 +25,7 @@ function fakeApi(options: { signedIn: boolean; organizations: unknown[]; switchA
           return new Response(null, { status: 204 });
         case "GET /api/v1/auth/me":
           return options.signedIn
-            ? json({ data: { id: "1", email: "user-a@example.test", displayName: "User A" } })
+            ? json({ data: { id: "1", email: "user-a@example.test", displayName: "User A", platformRoles: [], abilities: [] } })
             : json({ error: { code: "UNAUTHENTICATED", message: "Authentication is required." } }, 401);
         case "POST /api/v1/auth/refresh":
           return json({ error: { code: "UNAUTHENTICATED", message: "Authentication is required." } }, 401);

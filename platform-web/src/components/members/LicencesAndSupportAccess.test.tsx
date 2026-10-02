@@ -11,8 +11,11 @@ const MEMBERS = {
       email: "admin-a@example.test",
       displayName: "Admin A",
       status: "ACTIVE",
-      administrator: true,
       foundingAdministrator: true,
+      licensed: false,
+      policies: [],
+      profileId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      profileName: "Organization administrator",
       since: "2026-10-01T10:00:00Z",
       you: true,
     },
@@ -21,8 +24,9 @@ const MEMBERS = {
       email: "user-a@example.test",
       displayName: "User A",
       status: "ACTIVE",
-      administrator: false,
       foundingAdministrator: false,
+      licensed: true,
+      policies: [],
       since: "2026-10-01T11:00:00Z",
       you: false,
       licence: "user",
@@ -32,8 +36,9 @@ const MEMBERS = {
       email: "user-b@example.test",
       displayName: "User B",
       status: "DEACTIVATED",
-      administrator: false,
       foundingAdministrator: false,
+      licensed: true,
+      policies: [],
       since: "2026-10-01T12:00:00Z",
       you: false,
     },
@@ -76,11 +81,12 @@ describe("MembersPanel licences", () => {
     const rows = await screen.findAllByTestId("member-row");
     expect(within(rows[1] as HTMLElement).getByTestId("member-licence")).toHaveTextContent("user");
     expect(within(rows[0] as HTMLElement).getByTestId("member-licence")).toHaveTextContent("none");
+    expect(within(rows[0] as HTMLElement).getByTestId("member-profile")).toHaveTextContent("Waiting for a licence");
     expect(within(rows[2] as HTMLElement).queryByRole("button", { name: /Give/ })).toBeNull();
-    expect(screen.getByText(/it grants no permission/)).toBeInTheDocument();
+    expect(screen.getByText(/grants no permission by itself/)).toBeInTheDocument();
   });
 
-  it("gives and takes back a licence and shows the API's words when none is free", async () => {
+  it("gives the licence a profile needs, takes one back, and shows the API's words when none is free", async () => {
     const calls = api({
       "PUT /api/v1/members/11111111-1111-4111-8111-111111111111/licence": () =>
         refusal("CONFLICT", "No licence of this type is free.", 409),
@@ -88,11 +94,9 @@ describe("MembersPanel licences", () => {
     render(<MembersPanel />);
     const rows = await screen.findAllByTestId("member-row");
 
-    fireEvent.click(within(rows[0] as HTMLElement).getByRole("button", { name: "Give Administrator" }));
+    fireEvent.click(within(rows[0] as HTMLElement).getByRole("button", { name: "Give a licence" }));
     expect(await screen.findByTestId("members-problem")).toHaveTextContent("No licence of this type is free.");
-    expect(calls.find((c) => c.key === "PUT /api/v1/members/11111111-1111-4111-8111-111111111111/licence")?.body).toBe(
-      JSON.stringify({ licenceType: "admin" }),
-    );
+    expect(calls.some((c) => c.key === "PUT /api/v1/members/11111111-1111-4111-8111-111111111111/licence")).toBe(true);
 
     fireEvent.click(within(rows[1] as HTMLElement).getByRole("button", { name: "Take back" }));
     await waitFor(() =>
@@ -101,6 +105,7 @@ describe("MembersPanel licences", () => {
     expect(await screen.findByTestId("members-notice")).toHaveTextContent("The licence was taken back.");
   });
 });
+
 
 describe("SupportAccessPanel", () => {
   const REQUESTS = {

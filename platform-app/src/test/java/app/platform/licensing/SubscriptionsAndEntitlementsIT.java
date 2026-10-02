@@ -74,7 +74,7 @@ class SubscriptionsAndEntitlementsIT {
     // ---- try for free ----
 
     @Test
-    void anOrganizationFoundedBySignedInPersonStartsAThirtyDayTrialWithPoolsAndALicenceForTheFounder()
+    void anOrganizationFoundedBySignedInPersonStartsAThirtyDayTrialWithPoolsAndAnAdministratorLicenceForTheFounder()
             throws SQLException {
         TestUser founder = TestUsers.create(users);
         TestBrowser browser = TestOrganizations.signedIn(port, TestSignIn.PLATFORM_HOST, founder);
@@ -96,7 +96,9 @@ class SubscriptionsAndEntitlementsIT {
         assertThat(JsonPath.<List<Integer>>read(detail.body(), "$.data.pools[?(@.licenceType=='admin')].quantity"))
                 .containsExactly(2);
         assertThat(JsonPath.<List<Integer>>read(detail.body(), "$.data.pools[?(@.licenceType=='user')].assigned"))
-                .as("the founder holds the default licence").containsExactly(1);
+                .as("the founder holds an administrator licence, not a user licence").containsExactly(0);
+        assertThat(JsonPath.<List<Integer>>read(detail.body(), "$.data.pools[?(@.licenceType=='admin')].assigned"))
+                .as("the founder holds the licence of the administrator profile").containsExactly(1);
         assertThat(JsonPath.<List<Boolean>>read(detail.body(), "$.data.entitlements[?(@.key=='approvals')].enabled"))
                 .as("a trial includes the first features").containsExactly(true);
     }

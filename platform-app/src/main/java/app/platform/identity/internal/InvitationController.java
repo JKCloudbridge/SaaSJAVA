@@ -21,10 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * The invitations of the organization the host names (Sprint 5, ADR-0028), for its administrators. The request to
- * invite
- * gives one answer whatever the address is; the work is in {@link InvitationService}. The organization is the host and
- * is
- * never taken from the request.
+ * invite gives one answer whatever the address is; the work is in {@link InvitationService}. The organization is the
+ * host and is never taken from the request.
  */
 @RestController
 @Tag(name = "Invitations")
@@ -39,13 +37,18 @@ class InvitationController {
     @PostMapping(ApiPaths.INVITATIONS)
     @Operation(
             operationId = "inviteMember",
-            summary = "Invite an address into the organization",
+            summary = "Create a new member by inviting an address",
             description = "Always answers 202 with the same text, whether or not the address has an account or is "
                     + "already a member: if it can be invited, an e-mail with a link follows. Inviting an address "
-                    + "that has an open invitation sends it again. The invitation grants nothing until accepted. "
-                    + "For administrators of the organization of the host. Too many requests answer 429 RATE_LIMITED.")
+                    + "that has an open invitation updates and sends it again. The administrator chooses the "
+                    + "profile and "
+                    + "role; the person only sets a password. Active=false saves it without sending. Nothing is "
+                    + "granted until accepted. For members who may invite. VALIDATION_ERROR for a profile or role "
+                    + "of another organization, FORBIDDEN for a profile with abilities the caller lacks, 429 "
+                    + "RATE_LIMITED.")
     ResponseEntity<ApiResponse<RequestAccepted>> invite(@Valid @RequestBody InviteRequest body) {
-        invitations.invite(body.email(), Boolean.TRUE.equals(body.administrator()));
+        invitations.invite(body.email(), body.displayName(), body.profileId(), body.roleId(),
+                !Boolean.FALSE.equals(body.active()));
         return accepted();
     }
 

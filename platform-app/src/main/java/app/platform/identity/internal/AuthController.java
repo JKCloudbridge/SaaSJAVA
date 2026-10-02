@@ -3,7 +3,10 @@ package app.platform.identity.internal;
 import app.platform.identity.PlatformRoles;
 import app.platform.identity.User;
 import app.platform.identity.Users;
+import app.platform.security.Ability;
+import app.platform.security.Permissions;
 import app.platform.sharedkernel.ActorId;
+import app.platform.tenant.TenantContext;
 import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiException;
 import app.platformapi.ApiPaths;
@@ -47,9 +50,12 @@ class AuthController {
     private final IdentityProperties properties;
     private final PlatformRoles platformRoles;
     private final TenantContexts contexts;
+    private final Permissions permissions;
 
     AuthController(SignInService signIn, AuthFlow flow, Users users, AuthCookies cookies,
-            IdentityProperties properties, PlatformRoles platformRoles, TenantContexts contexts) {
+            IdentityProperties properties, PlatformRoles platformRoles, TenantContexts contexts,
+            Permissions permissions) {
+        this.permissions = permissions;
         this.platformRoles = platformRoles;
         this.contexts = contexts;
         this.signIn = signIn;
@@ -169,7 +175,12 @@ class AuthController {
         // Platform roles are shown on the platform host only: on an organization host the person is an ordinary member.
         List<String> roles = contexts.current().isPresent() ? List.of()
                 : platformRoles.of(user.id()).stream().map(Enum::name).sorted().toList();
-        return ApiResponse.of(new CurrentUser(user.id().toString(), user.email(), user.displayName(), roles));
+        // What the member may do in the organization of the host, for presentation only (ADR-0039): every action is
+        // decided again by the server. Empty on the platform host and for a person without a membership.
+        List<String> abilities = contexts.current().map(TenantContext::membershipId)
+                .map(permissions::effective).map(Ability::keysOf).orElse(List.of());
+        return ApiResponse.of(new CurrentUser(user.id().toString(), user.email(), user.displayName(), roles,
+                abilities));
     }
 
     private static UUID userOf(Principal principal) {

@@ -11,9 +11,9 @@ Module identifiers are package names, so the platform-admin module is `platforma
 |--------|----------------|-------------|----------------------------------------|
 | `sharedkernel` | Identifiers and cross-cutting interfaces (secrets store, event publisher and handler contracts). Open to all. Separate Maven module. | S0 | nothing |
 | `tenant` | Organizations, tenant lifecycle, tenant context, hostname resolution (ADR-0014, ADR-0017) | S2 | nothing |
-| `identity` | Users, credentials, sign-in, sessions and tokens, the provider abstraction (S3: [ADR-0019](adr/0019-authentication-implementation.md) to [ADR-0021](adr/0021-brute-force-protection-and-rate-limits.md)); memberships, invitations and organization switching (S5: [ADR-0026](adr/0026-membership-lifecycle-and-the-administrator-marker.md) to [ADR-0029](adr/0029-switching-organizations.md)); platform roles, administrative sessions and the first-administrator invitation (S6: [ADR-0030](adr/0030-platform-roles-and-the-first-platform-administrator.md), [ADR-0036](adr/0036-administrative-sessions.md), [ADR-0037](adr/0037-provisioning-an-organization-for-a-client.md)) | S3 | tenant, licensing |
+| `identity` | Users, credentials, sign-in, sessions and tokens, the provider abstraction (S3: [ADR-0019](adr/0019-authentication-implementation.md) to [ADR-0021](adr/0021-brute-force-protection-and-rate-limits.md)); memberships, invitations and organization switching (S5: [ADR-0026](adr/0026-membership-lifecycle-and-the-administrator-marker.md) to [ADR-0029](adr/0029-switching-organizations.md)); platform roles, administrative sessions and the first-administrator invitation (S6: [ADR-0030](adr/0030-platform-roles-and-the-first-platform-administrator.md), [ADR-0036](adr/0036-administrative-sessions.md), [ADR-0037](adr/0037-provisioning-an-organization-for-a-client.md)); the abilities a member holds decide every administrative action, and invitations create members with a profile and role (S7: [ADR-0043](adr/0043-replacing-the-administrator-marker.md)) | S3 | tenant, licensing, security |
 | `licensing` | Plans, licence types, pools and assignments, subscriptions and trials, feature entitlements (S6: [ADR-0031](adr/0031-where-the-platform-tables-live-and-how-an-organization-is-reached.md) to [ADR-0034](adr/0034-feature-entitlements.md)). **Depends on `tenant` only**: the identity module calls it, so a licence goes back to the pool in the transaction that deactivates a member | S6 | tenant |
-| `security` | Profiles, roles, permission sets, groups, authorization decision engine | S7 | tenant, identity |
+| `security` | Abilities, profiles, access policies, individual grants, the role hierarchy, the effective-permission calculator and the one read contract `Permissions` (S7: [ADR-0039](adr/0039-abilities-profiles-access-policies-and-individual-grants.md) to [ADR-0045](adr/0045-system-profiles-seeding-backfill-and-licence-consequences.md)); public groups, object and field permissions and the decision engine follow in S8. **Depends on `licensing` and `tenant` only**: identity asks it, so a member's access is created, changed and released in the transaction of the membership change | S7 | tenant, licensing |
 | `metadata` | Object, field, layout, application definitions; versioning | S10 | tenant, security |
 | `data` | Tenant business records, queries, record-level security | S14 | tenant, metadata, security |
 | `application` | Tenant-created applications and navigation | S12 | tenant, metadata, security |
@@ -36,10 +36,10 @@ graph TD
   data --> metadata & security & tenant
   application --> metadata & security & tenant
   metadata --> security & tenant
-  security --> identity & tenant
+  security --> licensing & tenant
   licensing --> tenant
   notification --> identity & tenant & observability
-  identity --> tenant & licensing
+  identity --> tenant & licensing & security
   web --> observability
   outbox --> tenant & observability
 ```
@@ -66,3 +66,8 @@ graph TD
 9. Passwords, tokens and the authorization server stay inside `identity`: no other module may use the cryptography and
    authorization-server libraries (an architecture test enforces it), and no business module reads the caller from the security
    framework's static holder; it reads `TenantContexts` (the user is filled in from Sprint 3) or asks the identity module's public API.
+10. Sprint 7 changed one more edge on purpose ([ADR-0041](adr/0041-where-the-access-tables-live-and-the-module-edge.md)):
+    `security` no longer depends on `identity`; `identity` depends on `security` (graph: `identity → security → licensing →
+    tenant`). `Administration` asks `Permissions` what a member may do, and acceptance, founding, deactivation and reactivation
+    create, change and release a member's access in the transaction of the membership change. Security knows a member only by
+    its identifier. A module that later needs to know what a member may do asks `Permissions` (and `Ability`), never a table.

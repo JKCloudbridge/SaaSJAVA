@@ -4,6 +4,74 @@
  */
 
 export interface paths {
+    "/api/v1/abilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The abilities the platform knows
+         * @description What a profile, an access policy or an individual grant can hold. For members who manage access, invite members or see members. NOT_FOUND on the platform host, FORBIDDEN without one of those abilities.
+         */
+        get: operations["listAbilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/access-policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the access policies of the organization
+         * @description With the number of members who hold each. For members who manage access. NOT_FOUND on the platform host, FORBIDDEN without the ability.
+         */
+        get: operations["listAccessPolicies"];
+        put?: never;
+        /**
+         * Create an access policy
+         * @description Abilities added to the members it is assigned to; optionally it uses a licence of one type from the organization's pool when assigned. VALIDATION_ERROR for a name in use, an unknown ability or an unknown licence type. Audited.
+         */
+        post: operations["createAccessPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/access-policies/{policyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change an access policy
+         * @description Takes effect for its members at once. CONFLICT for a licence type change while members hold the policy, or when the change would leave nobody who can manage access. NOT_FOUND for a policy of another organization. Audited.
+         */
+        put: operations["updateAccessPolicy"];
+        post?: never;
+        /**
+         * Remove an access policy
+         * @description CONFLICT while members still hold it. Audited.
+         */
+        delete: operations["deleteAccessPolicy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/csrf": {
         parameters: {
             query?: never;
@@ -338,8 +406,8 @@ export interface paths {
         get: operations["listInvitations"];
         put?: never;
         /**
-         * Invite an address into the organization
-         * @description Always answers 202 with the same text, whether or not the address has an account or is already a member: if it can be invited, an e-mail with a link follows. Inviting an address that has an open invitation sends it again. The invitation grants nothing until accepted. For administrators of the organization of the host. Too many requests answer 429 RATE_LIMITED.
+         * Create a new member by inviting an address
+         * @description Always answers 202 with the same text, whether or not the address has an account or is already a member: if it can be invited, an e-mail with a link follows. Inviting an address that has an open invitation updates and sends it again. The administrator chooses the profile and role; the person only sets a password. Active=false saves it without sending. Nothing is granted until accepted. For members who may invite. VALIDATION_ERROR for a profile or role of another organization, FORBIDDEN for a profile with abilities the caller lacks, 429 RATE_LIMITED.
          */
         post: operations["inviteMember"];
         delete?: never;
@@ -388,6 +456,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/licence-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The licence types a profile or access policy can use
+         * @description The platform's catalogue of licence types, for the setup screens. For members who manage access, invite members or see members. NOT_FOUND on the platform host, FORBIDDEN without one of those abilities.
+         */
+        get: operations["listLicenceTypes_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/licences": {
         parameters: {
             query?: never;
@@ -397,7 +485,7 @@ export interface paths {
         };
         /**
          * The licence pools of the organization
-         * @description Per licence type: how many licences the organization holds, how many are assigned and how many are free. For the administrators of the organization of the host. NOT_FOUND on the platform host.
+         * @description Per licence type: how many licences the organization holds, how many are assigned (for profiles and for licence-bound access policies) and how many are free. For members who manage licences. NOT_FOUND on the platform host.
          */
         get: operations["listLicencePools"];
         put?: never;
@@ -417,7 +505,7 @@ export interface paths {
         };
         /**
          * List the members of the organization
-         * @description For the administrators of the organization of the host. NOT_FOUND on the platform host, FORBIDDEN for a member who is not an administrator.
+         * @description With each member's profile, role, access policies and licence. For members who may see members. NOT_FOUND on the platform host, FORBIDDEN without the ability.
          */
         get: operations["listMembers"];
         put?: never;
@@ -428,19 +516,19 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/members/{membershipId}/administrator": {
+    "/api/v1/members/{membershipId}/access": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
         /**
-         * Name a member an administrator, or release them
-         * @description A stop-gap until access policies exist. The last administrator cannot be released (CONFLICT). Only an active member can be an administrator.
+         * Everything that decides what one member may do
+         * @description Their profile, role, access policies, individual grants (with the notes) and the resulting abilities. For members who manage access. NOT_FOUND for a member of another organization.
          */
-        put: operations["setMemberAdministrator"];
+        get: operations["getMemberAccess"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -459,10 +547,50 @@ export interface paths {
         put?: never;
         /**
          * Deactivate a member
-         * @description The member is signed out of this organization at once and cannot get back in until reactivated; their other organizations are untouched. CONFLICT when already deactivated or when this is the last administrator. NOT_FOUND for a member of another organization.
+         * @description The member is signed out of this organization at once, their licences go back to the pool, and they cannot get back in until reactivated; their other organizations are untouched. CONFLICT when already deactivated or when this is the last member who can manage access. NOT_FOUND for a member of another organization.
          */
         post: operations["deactivateMember"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/members/{membershipId}/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give one member one ability directly
+         * @description With an optional short note why, shown only to members who manage access. VALIDATION_ERROR for an unknown ability. Audited.
+         */
+        post: operations["grantMemberAbility"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/members/{membershipId}/grants/{ability}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Take a directly given ability back
+         * @description Nothing happens when the member does not hold it. CONFLICT when the change would leave nobody who can manage access.
+         */
+        delete: operations["revokeMemberAbility"];
         options?: never;
         head?: never;
         patch?: never;
@@ -477,16 +605,76 @@ export interface paths {
         };
         get?: never;
         /**
-         * Give a member a licence
-         * @description Moves the member from the licence type they hold, if any. CONFLICT when none is free of that type or the member is not active; two administrators asking for the last free licence have one winner. A licence counts assignments only: it grants no permission.
+         * Give a member the licence their profile needs
+         * @description For a member who has none (for example one who joined when none was free). CONFLICT when none is free of that type, the member is not active or has no profile; two administrators asking for the last free licence have one winner. A licence counts assignments only: it grants no permission.
          */
-        put: operations["assignMemberLicence"];
+        put: operations["giveMemberLicence"];
         post?: never;
         /**
          * Take a member licence back
-         * @description The licence returns to the pool. Nothing happens when the member holds none.
+         * @description The licence for their profile returns to the pool and the profile gives no abilities until one is held again. Nothing happens when the member holds none. CONFLICT when the change would leave nobody who can manage access.
          */
         delete: operations["releaseMemberLicence"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/members/{membershipId}/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a member an access policy
+         * @description A policy that needs a licence uses one from the pool: CONFLICT when none is free, two administrators asking for the last one have one winner. For members who manage access; audited.
+         */
+        post: operations["assignMemberPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/members/{membershipId}/policies/{policyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Take an access policy from a member
+         * @description Its licence goes back to the pool. Nothing happens when the member does not hold it. CONFLICT when the change would leave nobody who can manage access.
+         */
+        delete: operations["unassignMemberPolicy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/members/{membershipId}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Give a member a profile
+         * @description The member then holds a licence of the profile's type, taken from the pool (the one they held for the old profile goes back). CONFLICT when none is free, the member is not active, or the change would leave nobody who can manage access. For members who manage access; audited.
+         */
+        put: operations["setMemberProfile"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -503,9 +691,49 @@ export interface paths {
         put?: never;
         /**
          * Reactivate a deactivated member
-         * @description The person can sign in again; sessions that ended do not come back and the administrator marker is not restored. CONFLICT when the member is not deactivated.
+         * @description The person can sign in again with the organization's default profile and nothing else (what they held ended with their membership), and a licence if one is free; sessions that ended do not come back. CONFLICT when the member is not deactivated.
          */
         post: operations["reactivateMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/members/{membershipId}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Place a member in the role hierarchy, or take them out of it
+         * @description A role decides which records the member may see once records exist; it gives no ability. For members who manage access; audited.
+         */
+        put: operations["setMemberRole"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organization/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave the organization
+         * @description The caller's membership ends: they are signed out of this organization, their licences go back to the pool, and an administrator can let them back in. Their other organizations are untouched. CONFLICT for the last member who can manage access. Any active member may leave.
+         */
+        post: operations["leaveOrganization"];
         delete?: never;
         options?: never;
         head?: never;
@@ -523,7 +751,7 @@ export interface paths {
         put?: never;
         /**
          * Sign everybody else out of the organization
-         * @description Ends every session and token bound to this organization host except the caller own. For the administrators of the organization of the host; audited.
+         * @description Ends every session and token bound to this organization host except the caller own. For members who may sign people out; audited.
          */
         post: operations["signOutEveryoneElse"];
         delete?: never;
@@ -1016,6 +1244,122 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the profiles of the organization
+         * @description With the number of members who hold each. For members who manage access, invite members or see members. NOT_FOUND on the platform host, FORBIDDEN without one of those abilities.
+         */
+        get: operations["listProfiles"];
+        put?: never;
+        /**
+         * Create a profile
+         * @description A named base set of abilities that belongs to one licence type. VALIDATION_ERROR for a name in use, an unknown ability or an unknown licence type. For members who manage access; audited.
+         */
+        post: operations["createProfile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{profileId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a profile
+         * @description Takes effect for its members at once. CONFLICT for the administrator profile, for a licence type change while members hold the profile, or when the change would leave nobody who can manage access. NOT_FOUND for a profile of another organization. Audited.
+         */
+        put: operations["updateProfile"];
+        post?: never;
+        /**
+         * Remove a profile
+         * @description CONFLICT for a system profile, the default profile or a profile members still hold. Audited.
+         */
+        delete: operations["deleteProfile"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{profileId}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a profile the default for new members
+         * @description CONFLICT for the administrator profile. Audited.
+         */
+        post: operations["makeProfileDefault"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the roles of the organization
+         * @description The hierarchy as a flat list with each role's parent. For members who manage access, invite members or see members. NOT_FOUND on the platform host, FORBIDDEN without one of those abilities.
+         */
+        get: operations["listRoles"];
+        put?: never;
+        /**
+         * Create a role
+         * @description VALIDATION_ERROR for a name in use or a parent of another organization. For members who manage access; audited.
+         */
+        post: operations["createRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles/{roleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change or move a role
+         * @description CONFLICT when the move would put the role below itself or one of its sub-roles (a loop). NOT_FOUND for a role of another organization. Audited.
+         */
+        put: operations["updateRole"];
+        post?: never;
+        /**
+         * Remove a role
+         * @description CONFLICT while the role has sub-roles or members hold it. Audited.
+         */
+        delete: operations["deleteRole"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/support-access": {
         parameters: {
             query?: never;
@@ -1120,10 +1464,31 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AbilityInfo: {
+            description: string;
+            key: string;
+            name: string;
+        };
         AcceptInvitationRequest: {
-            displayName: string;
+            displayName?: string;
             password: string;
             token: string;
+        };
+        AccessPolicyRef: {
+            /** Format: uuid */
+            id: string;
+            licenceType?: string;
+            name: string;
+        };
+        AccessPolicyView: {
+            abilities: string[];
+            description: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: int32 */
+            members?: number;
+            name: string;
+            requiredLicenceType?: string;
         };
         AddCatalogueItemRequest: {
             key: string;
@@ -1145,6 +1510,9 @@ export interface components {
             data: components["schemas"]["PlatformOrganizationSummary"][];
             pagination: components["schemas"]["Pagination"];
         };
+        ApiResponseAccessPolicyView: {
+            data: components["schemas"]["AccessPolicyView"];
+        };
         ApiResponseCatalogueItem: {
             data: components["schemas"]["CatalogueItem"];
         };
@@ -1156,6 +1524,12 @@ export interface components {
         };
         ApiResponseInvitationPreview: {
             data: components["schemas"]["InvitationPreview"];
+        };
+        ApiResponseListAbilityInfo: {
+            data: components["schemas"]["AbilityInfo"][];
+        };
+        ApiResponseListAccessPolicyView: {
+            data: components["schemas"]["AccessPolicyView"][];
         };
         ApiResponseListCatalogueItem: {
             data: components["schemas"]["CatalogueItem"][];
@@ -1178,11 +1552,20 @@ export interface components {
         ApiResponseListPlatformPersonView: {
             data: components["schemas"]["PlatformPersonView"][];
         };
+        ApiResponseListProfileView: {
+            data: components["schemas"]["ProfileView"][];
+        };
+        ApiResponseListRoleView: {
+            data: components["schemas"]["RoleView"][];
+        };
         ApiResponseListSessionInfo: {
             data: components["schemas"]["SessionInfo"][];
         };
         ApiResponseListSupportAccessView: {
             data: components["schemas"]["SupportAccessView"][];
+        };
+        ApiResponseMemberAccessView: {
+            data: components["schemas"]["MemberAccessView"];
         };
         ApiResponseOrganizationCreated: {
             data: components["schemas"]["OrganizationCreated"];
@@ -1202,8 +1585,14 @@ export interface components {
         ApiResponsePlatformStatus: {
             data: components["schemas"]["PlatformStatus"];
         };
+        ApiResponseProfileView: {
+            data: components["schemas"]["ProfileView"];
+        };
         ApiResponseRequestAccepted: {
             data: components["schemas"]["RequestAccepted"];
+        };
+        ApiResponseRoleView: {
+            data: components["schemas"]["RoleView"];
         };
         ApiResponseSwitchTarget: {
             data: components["schemas"]["SwitchTarget"];
@@ -1214,6 +1603,18 @@ export interface components {
         ApproveSupportAccessRequest: {
             /** Format: int32 */
             minutes?: number;
+        };
+        AssignPolicyRequest: {
+            /** Format: uuid */
+            policyId: string;
+        };
+        AssignProfileRequest: {
+            /** Format: uuid */
+            profileId: string;
+        };
+        AssignRoleRequest: {
+            /** Format: uuid */
+            roleId?: string;
         };
         CatalogueItem: {
             key: string;
@@ -1245,6 +1646,7 @@ export interface components {
             slug: string;
         };
         CurrentUser: {
+            abilities: string[];
             displayName: string;
             email: string;
             id: string;
@@ -1277,9 +1679,19 @@ export interface components {
         ForgotPasswordRequest: {
             email: string;
         };
+        GrantAbilityRequest: {
+            ability: string;
+            reason?: string;
+        };
         GrantPlatformRoleRequest: {
             email: string;
             role: string;
+        };
+        GrantView: {
+            ability: string;
+            reason: string;
+            /** Format: date-time */
+            since: string;
         };
         InvitationAccepted: {
             displayName: string;
@@ -1290,26 +1702,36 @@ export interface components {
             token: string;
         };
         InvitationPreview: {
+            displayName?: string;
             email: string;
             existingAccount?: boolean;
             organizationName: string;
         };
         InvitationView: {
-            administrator?: boolean;
             /** Format: date-time */
             createdAt: string;
+            displayName?: string;
             email: string;
             /** Format: date-time */
             expiresAt: string;
             /** Format: uuid */
             id: string;
+            /** Format: uuid */
+            profileId?: string;
+            profileName?: string;
+            roleName?: string;
             /** Format: int32 */
             sentCount?: number;
             status: string;
         };
         InviteRequest: {
-            administrator?: boolean;
+            active?: boolean;
+            displayName?: string;
             email: string;
+            /** Format: uuid */
+            profileId?: string;
+            /** Format: uuid */
+            roleId?: string;
         };
         LicencePoolView: {
             /** Format: int32 */
@@ -1325,14 +1747,36 @@ export interface components {
             confirm?: string;
             reason: string;
         };
+        MemberAccessView: {
+            abilities: string[];
+            grants: components["schemas"]["GrantView"][];
+            licenceHeld?: boolean;
+            /** Format: uuid */
+            membershipId: string;
+            policies: components["schemas"]["AccessPolicyRef"][];
+            /** Format: uuid */
+            profileId?: string;
+            profileLicenceType?: string;
+            profileName?: string;
+            /** Format: uuid */
+            roleId?: string;
+            roleName?: string;
+        };
         MemberView: {
-            administrator?: boolean;
             displayName: string;
             email: string;
             foundingAdministrator?: boolean;
             /** Format: uuid */
             id: string;
             licence?: string;
+            licensed?: boolean;
+            policies: components["schemas"]["AccessPolicyRef"][];
+            /** Format: uuid */
+            profileId?: string;
+            profileName?: string;
+            /** Format: uuid */
+            roleId?: string;
+            roleName?: string;
             /** Format: date-time */
             since: string;
             status: string;
@@ -1344,7 +1788,6 @@ export interface components {
             slug: string;
         };
         OrganizationSummary: {
-            administrator?: boolean;
             displayName: string;
             host: string;
             slug: string;
@@ -1407,6 +1850,19 @@ export interface components {
             serverTime: string;
             service: string;
         };
+        ProfileView: {
+            abilities: string[];
+            defaultProfile?: boolean;
+            description: string;
+            fullAccess?: boolean;
+            /** Format: uuid */
+            id: string;
+            licenceType: string;
+            /** Format: int32 */
+            members?: number;
+            name: string;
+            system?: boolean;
+        };
         ProvisionOrganizationRequest: {
             displayName: string;
             email: string;
@@ -1423,6 +1879,22 @@ export interface components {
             newPassword: string;
             token: string;
         };
+        RoleView: {
+            description: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: int32 */
+            members?: number;
+            name: string;
+            /** Format: uuid */
+            parentId?: string;
+        };
+        SaveAccessPolicyRequest: {
+            abilities: string[];
+            description?: string;
+            name: string;
+            requiredLicenceType?: string;
+        };
         SavePlanRequest: {
             features: string[];
             licences: {
@@ -1431,6 +1903,18 @@ export interface components {
             name: string;
             /** Format: int32 */
             trialDays?: number;
+        };
+        SaveProfileRequest: {
+            abilities: string[];
+            description?: string;
+            licenceType: string;
+            name: string;
+        };
+        SaveRoleRequest: {
+            description?: string;
+            name: string;
+            /** Format: uuid */
+            parentId?: string;
         };
         SessionInfo: {
             /** Format: date-time */
@@ -1444,15 +1928,9 @@ export interface components {
             email: string;
             reason: string;
         };
-        SetAdministratorRequest: {
-            administrator: boolean;
-        };
         SetEntitlementRequest: {
             enabled?: boolean;
             reason: string;
-        };
-        SetLicenceRequest: {
-            licenceType: string;
         };
         SetPoolRequest: {
             /** Format: int32 */
@@ -1517,6 +1995,161 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listAbilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListAbilityInfo"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listAccessPolicies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListAccessPolicyView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createAccessPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveAccessPolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseAccessPolicyView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateAccessPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveAccessPolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseAccessPolicyView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteAccessPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     getCsrfToken: {
         parameters: {
             query?: never;
@@ -2129,6 +2762,35 @@ export interface operations {
             };
         };
     };
+    listLicenceTypes_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListCatalogueItem"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     listLicencePools: {
         parameters: {
             query?: never;
@@ -2187,7 +2849,7 @@ export interface operations {
             };
         };
     };
-    setMemberAdministrator: {
+    getMemberAccess: {
         parameters: {
             query?: never;
             header?: never;
@@ -2196,18 +2858,16 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SetAdministratorRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ApiResponseMemberAccessView"];
+                };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {
@@ -2249,7 +2909,7 @@ export interface operations {
             };
         };
     };
-    assignMemberLicence: {
+    grantMemberAbility: {
         parameters: {
             query?: never;
             header?: never;
@@ -2260,9 +2920,68 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SetLicenceRequest"];
+                "application/json": components["schemas"]["GrantAbilityRequest"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    revokeMemberAbility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                membershipId: string;
+                ability: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    giveMemberLicence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                membershipId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -2311,6 +3030,102 @@ export interface operations {
             };
         };
     };
+    assignMemberPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                membershipId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignPolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    unassignMemberPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                membershipId: string;
+                policyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    setMemberProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                membershipId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     reactivateMember: {
         parameters: {
             query?: never;
@@ -2318,6 +3133,66 @@ export interface operations {
             path: {
                 membershipId: string;
             };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    setMemberRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                membershipId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    leaveOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -3285,6 +4160,287 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiResponsePlatformStatus"];
                 };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listProfiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListProfileView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseProfileView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseProfileView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    makeProfileDefault: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListRoleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRoleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRoleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {

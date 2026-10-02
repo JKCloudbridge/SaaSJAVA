@@ -19,7 +19,7 @@ function fakeApi(signedIn: boolean, platformHost: boolean) {
           return new Response(null, { status: 204 });
         case "GET /api/v1/auth/me":
           return signedIn
-            ? json({ data: { id: "1", email: "user-a@example.test", displayName: "User A" } })
+            ? json({ data: { id: "1", email: "user-a@example.test", displayName: "User A", platformRoles: [], abilities: [] } })
             : json(UNAUTHENTICATED, 401);
         case "POST /api/v1/auth/refresh":
           return json(UNAUTHENTICATED, 401);
