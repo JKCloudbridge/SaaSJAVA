@@ -23,9 +23,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  *       against their memberships (an unknown organization and one they do not belong to give the same answer) and
  *       hands out a one-time proof, valid for a minute, stored only as a hash.</li>
  *   <li>On the destination host: the proof is presented (it travels after the {@code #}, so no server logs it). The
- * host
- *       decides the organization, the proof must have been made for exactly that organization, the person must be an
- *       active member of it, and a sign-in session bound to that host is started. The usual authorization-code step
+ * host       decides the organization, the proof must have been made for exactly that organization, the person must be
+ * an       active member of it, and a sign-in session bound to that host is started. The usual authorization-code step
  *       then gives the browser its cookies.</li>
  * </ol>
  * The destination is a navigation target, never a tenant for the request: the tenant of every call is still derived
@@ -76,8 +75,7 @@ class SwitchService {
     /** The organizations the person is an active member of. */
     List<OrganizationSummary> mine(UUID userId, String authority) {
         return directory.of(userId).stream()
-                .map(org -> new OrganizationSummary(org.slug(), org.displayName(), hosts.of(org.slug(), authority),
-                        org.administrator()))
+                .map(org -> new OrganizationSummary(org.slug(), org.displayName(), hosts.of(org.slug(), authority)))
                 .toList();
     }
 

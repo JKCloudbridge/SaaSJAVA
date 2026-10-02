@@ -103,6 +103,15 @@ password, and a person who already has an account signs in and accepts. A person
 header and moves between them without typing the password again. Only administrators of an organization see its members; a person who is
 not a member of an organization cannot sign in on its address. Invitation links live 7 days.
 
+**Profiles, roles and access policies (Sprint 7).** What a member may do now comes from their **profile** (plus **access policies** and
+abilities given directly), not from an administrator marker. Every organization has two system profiles, **Organization administrator**
+(every ability) and **Member** (none, the default); `admin-a` holds the first, `user-a` the second. As `admin-a` open **Setup** (profiles,
+access policies, roles) to create your own, and **Members** to create a member (name, address, profile, role; the person only chooses a
+password) and to open a member's **Access**. A profile uses one licence of its type, so a new member shows "Waiting for a licence" if none is
+free; a new local organization has 5 user and 2 admin licences (your own `tenant-a` and `tenant-b` have more user licences because they were
+sized for their existing members when your database was migrated). Changing what a member holds takes effect at once. The organization
+always keeps one member who can manage access.
+
 **The platform console, licences and support access (Sprint 6).** The `local` profile also creates three platform people (no
 organization, same password `LOCAL_SEED_PASSWORD`): `platform-a@example.test` (platform administrator), `support-a@example.test`
 (support) and `billing-a@example.test` (billing). Sign in as one of them on the platform host `http://localhost:3000` and open

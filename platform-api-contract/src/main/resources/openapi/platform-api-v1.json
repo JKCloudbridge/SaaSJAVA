@@ -9,6 +9,183 @@
     "url" : "/"
   } ],
   "paths" : {
+    "/api/v1/abilities" : {
+      "get" : {
+        "description" : "What a profile, an access policy or an individual grant can hold. For members who manage access, invite members or see members. NOT_FOUND on the platform host, FORBIDDEN without one of those abilities.",
+        "operationId" : "listAbilities",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListAbilityInfo"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The abilities the platform knows",
+        "tags" : [ "Access" ]
+      }
+    },
+    "/api/v1/access-policies" : {
+      "get" : {
+        "description" : "With the number of members who hold each. For members who manage access. NOT_FOUND on the platform host, FORBIDDEN without the ability.",
+        "operationId" : "listAccessPolicies",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListAccessPolicyView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "List the access policies of the organization",
+        "tags" : [ "Access" ]
+      },
+      "post" : {
+        "description" : "Abilities added to the members it is assigned to; optionally it uses a licence of one type from the organization's pool when assigned. VALIDATION_ERROR for a name in use, an unknown ability or an unknown licence type. Audited.",
+        "operationId" : "createAccessPolicy",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveAccessPolicyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAccessPolicyView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Create an access policy",
+        "tags" : [ "Access" ]
+      }
+    },
+    "/api/v1/access-policies/{policyId}" : {
+      "delete" : {
+        "description" : "CONFLICT while members still hold it. Audited.",
+        "operationId" : "deleteAccessPolicy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "policyId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove an access policy",
+        "tags" : [ "Access" ]
+      },
+      "put" : {
+        "description" : "Takes effect for its members at once. CONFLICT for a licence type change while members hold the policy, or when the change would leave nobody who can manage access. NOT_FOUND for a policy of another organization. Audited.",
+        "operationId" : "updateAccessPolicy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "policyId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveAccessPolicyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAccessPolicyView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change an access policy",
+        "tags" : [ "Access" ]
+      }
+    },
     "/api/v1/auth/csrf" : {
       "get" : {
         "description" : "Answers 204 and sets the XSRF-TOKEN cookie. A browser page reads that cookie and sends its value in the X-XSRF-TOKEN header with every state-changing request, which the server compares with the cookie.",
@@ -566,7 +743,7 @@
         "tags" : [ "Invitations" ]
       },
       "post" : {
-        "description" : "Always answers 202 with the same text, whether or not the address has an account or is already a member: if it can be invited, an e-mail with a link follows. Inviting an address that has an open invitation sends it again. The invitation grants nothing until accepted. For administrators of the organization of the host. Too many requests answer 429 RATE_LIMITED.",
+        "description" : "Always answers 202 with the same text, whether or not the address has an account or is already a member: if it can be invited, an e-mail with a link follows. Inviting an address that has an open invitation updates and sends it again. The administrator chooses the profile and role; the person only sets a password. Active=false saves it without sending. Nothing is granted until accepted. For members who may invite. VALIDATION_ERROR for a profile or role of another organization, FORBIDDEN for a profile with abilities the caller lacks, 429 RATE_LIMITED.",
         "operationId" : "inviteMember",
         "requestBody" : {
           "content" : {
@@ -600,7 +777,7 @@
             "description" : "Error. The code says what went wrong; the message is safe to show."
           }
         },
-        "summary" : "Invite an address into the organization",
+        "summary" : "Create a new member by inviting an address",
         "tags" : [ "Invitations" ]
       }
     },
@@ -675,9 +852,39 @@
         "tags" : [ "Invitations" ]
       }
     },
+    "/api/v1/licence-types" : {
+      "get" : {
+        "description" : "The platform's catalogue of licence types, for the setup screens. For members who manage access, invite members or see members. NOT_FOUND on the platform host, FORBIDDEN without one of those abilities.",
+        "operationId" : "listLicenceTypes_1",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListCatalogueItem"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The licence types a profile or access policy can use",
+        "tags" : [ "Access" ]
+      }
+    },
     "/api/v1/licences" : {
       "get" : {
-        "description" : "Per licence type: how many licences the organization holds, how many are assigned and how many are free. For the administrators of the organization of the host. NOT_FOUND on the platform host.",
+        "description" : "Per licence type: how many licences the organization holds, how many are assigned (for profiles and for licence-bound access policies) and how many are free. For members who manage licences. NOT_FOUND on the platform host.",
         "operationId" : "listLicencePools",
         "responses" : {
           "200" : {
@@ -707,7 +914,7 @@
     },
     "/api/v1/members" : {
       "get" : {
-        "description" : "For the administrators of the organization of the host. NOT_FOUND on the platform host, FORBIDDEN for a member who is not an administrator.",
+        "description" : "With each member's profile, role, access policies and licence. For members who may see members. NOT_FOUND on the platform host, FORBIDDEN without the ability.",
         "operationId" : "listMembers",
         "responses" : {
           "200" : {
@@ -735,10 +942,10 @@
         "tags" : [ "Members" ]
       }
     },
-    "/api/v1/members/{membershipId}/administrator" : {
-      "put" : {
-        "description" : "A stop-gap until access policies exist. The last administrator cannot be released (CONFLICT). Only an active member can be an administrator.",
-        "operationId" : "setMemberAdministrator",
+    "/api/v1/members/{membershipId}/access" : {
+      "get" : {
+        "description" : "Their profile, role, access policies, individual grants (with the notes) and the resulting abilities. For members who manage access. NOT_FOUND for a member of another organization.",
+        "operationId" : "getMemberAccess",
         "parameters" : [ {
           "in" : "path",
           "name" : "membershipId",
@@ -748,18 +955,15 @@
             "format" : "uuid"
           }
         } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/SetAdministratorRequest"
-              }
-            }
-          },
-          "required" : true
-        },
         "responses" : {
           "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMemberAccessView"
+                }
+              }
+            },
             "description" : "OK"
           },
           "default" : {
@@ -773,13 +977,13 @@
             "description" : "Error. The code says what went wrong; the message is safe to show."
           }
         },
-        "summary" : "Name a member an administrator, or release them",
+        "summary" : "Everything that decides what one member may do",
         "tags" : [ "Members" ]
       }
     },
     "/api/v1/members/{membershipId}/deactivate" : {
       "post" : {
-        "description" : "The member is signed out of this organization at once and cannot get back in until reactivated; their other organizations are untouched. CONFLICT when already deactivated or when this is the last administrator. NOT_FOUND for a member of another organization.",
+        "description" : "The member is signed out of this organization at once, their licences go back to the pool, and they cannot get back in until reactivated; their other organizations are untouched. CONFLICT when already deactivated or when this is the last member who can manage access. NOT_FOUND for a member of another organization.",
         "operationId" : "deactivateMember",
         "parameters" : [ {
           "in" : "path",
@@ -809,9 +1013,90 @@
         "tags" : [ "Members" ]
       }
     },
+    "/api/v1/members/{membershipId}/grants" : {
+      "post" : {
+        "description" : "With an optional short note why, shown only to members who manage access. VALIDATION_ERROR for an unknown ability. Audited.",
+        "operationId" : "grantMemberAbility",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "membershipId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GrantAbilityRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Give one member one ability directly",
+        "tags" : [ "Members" ]
+      }
+    },
+    "/api/v1/members/{membershipId}/grants/{ability}" : {
+      "delete" : {
+        "description" : "Nothing happens when the member does not hold it. CONFLICT when the change would leave nobody who can manage access.",
+        "operationId" : "revokeMemberAbility",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "membershipId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "ability",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Take a directly given ability back",
+        "tags" : [ "Members" ]
+      }
+    },
     "/api/v1/members/{membershipId}/licence" : {
       "delete" : {
-        "description" : "The licence returns to the pool. Nothing happens when the member holds none.",
+        "description" : "The licence for their profile returns to the pool and the profile gives no abilities until one is held again. Nothing happens when the member holds none. CONFLICT when the change would leave nobody who can manage access.",
         "operationId" : "releaseMemberLicence",
         "parameters" : [ {
           "in" : "path",
@@ -841,8 +1126,40 @@
         "tags" : [ "Members" ]
       },
       "put" : {
-        "description" : "Moves the member from the licence type they hold, if any. CONFLICT when none is free of that type or the member is not active; two administrators asking for the last free licence have one winner. A licence counts assignments only: it grants no permission.",
-        "operationId" : "assignMemberLicence",
+        "description" : "For a member who has none (for example one who joined when none was free). CONFLICT when none is free of that type, the member is not active or has no profile; two administrators asking for the last free licence have one winner. A licence counts assignments only: it grants no permission.",
+        "operationId" : "giveMemberLicence",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "membershipId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Give a member the licence their profile needs",
+        "tags" : [ "Members" ]
+      }
+    },
+    "/api/v1/members/{membershipId}/policies" : {
+      "post" : {
+        "description" : "A policy that needs a licence uses one from the pool: CONFLICT when none is free, two administrators asking for the last one have one winner. For members who manage access; audited.",
+        "operationId" : "assignMemberPolicy",
         "parameters" : [ {
           "in" : "path",
           "name" : "membershipId",
@@ -856,7 +1173,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/SetLicenceRequest"
+                "$ref" : "#/components/schemas/AssignPolicyRequest"
               }
             }
           },
@@ -877,13 +1194,95 @@
             "description" : "Error. The code says what went wrong; the message is safe to show."
           }
         },
-        "summary" : "Give a member a licence",
+        "summary" : "Give a member an access policy",
+        "tags" : [ "Members" ]
+      }
+    },
+    "/api/v1/members/{membershipId}/policies/{policyId}" : {
+      "delete" : {
+        "description" : "Its licence goes back to the pool. Nothing happens when the member does not hold it. CONFLICT when the change would leave nobody who can manage access.",
+        "operationId" : "unassignMemberPolicy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "membershipId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "policyId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Take an access policy from a member",
+        "tags" : [ "Members" ]
+      }
+    },
+    "/api/v1/members/{membershipId}/profile" : {
+      "put" : {
+        "description" : "The member then holds a licence of the profile's type, taken from the pool (the one they held for the old profile goes back). CONFLICT when none is free, the member is not active, or the change would leave nobody who can manage access. For members who manage access; audited.",
+        "operationId" : "setMemberProfile",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "membershipId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssignProfileRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Give a member a profile",
         "tags" : [ "Members" ]
       }
     },
     "/api/v1/members/{membershipId}/reactivate" : {
       "post" : {
-        "description" : "The person can sign in again; sessions that ended do not come back and the administrator marker is not restored. CONFLICT when the member is not deactivated.",
+        "description" : "The person can sign in again with the organization's default profile and nothing else (what they held ended with their membership), and a licence if one is free; sessions that ended do not come back. CONFLICT when the member is not deactivated.",
         "operationId" : "reactivateMember",
         "parameters" : [ {
           "in" : "path",
@@ -913,9 +1312,74 @@
         "tags" : [ "Members" ]
       }
     },
+    "/api/v1/members/{membershipId}/role" : {
+      "put" : {
+        "description" : "A role decides which records the member may see once records exist; it gives no ability. For members who manage access; audited.",
+        "operationId" : "setMemberRole",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "membershipId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssignRoleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Place a member in the role hierarchy, or take them out of it",
+        "tags" : [ "Members" ]
+      }
+    },
+    "/api/v1/organization/leave" : {
+      "post" : {
+        "description" : "The caller's membership ends: they are signed out of this organization, their licences go back to the pool, and an administrator can let them back in. Their other organizations are untouched. CONFLICT for the last member who can manage access. Any active member may leave.",
+        "operationId" : "leaveOrganization",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Leave the organization",
+        "tags" : [ "Members" ]
+      }
+    },
     "/api/v1/organization/sign-out-all" : {
       "post" : {
-        "description" : "Ends every session and token bound to this organization host except the caller own. For the administrators of the organization of the host; audited.",
+        "description" : "Ends every session and token bound to this organization host except the caller own. For members who may sign people out; audited.",
         "operationId" : "signOutEveryoneElse",
         "responses" : {
           "200" : {
@@ -2091,6 +2555,332 @@
         "tags" : [ "Platform" ]
       }
     },
+    "/api/v1/profiles" : {
+      "get" : {
+        "description" : "With the number of members who hold each. For members who manage access, invite members or see members. NOT_FOUND on the platform host, FORBIDDEN without one of those abilities.",
+        "operationId" : "listProfiles",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListProfileView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "List the profiles of the organization",
+        "tags" : [ "Access" ]
+      },
+      "post" : {
+        "description" : "A named base set of abilities that belongs to one licence type. VALIDATION_ERROR for a name in use, an unknown ability or an unknown licence type. For members who manage access; audited.",
+        "operationId" : "createProfile",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveProfileRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseProfileView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Create a profile",
+        "tags" : [ "Access" ]
+      }
+    },
+    "/api/v1/profiles/{profileId}" : {
+      "delete" : {
+        "description" : "CONFLICT for a system profile, the default profile or a profile members still hold. Audited.",
+        "operationId" : "deleteProfile",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "profileId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a profile",
+        "tags" : [ "Access" ]
+      },
+      "put" : {
+        "description" : "Takes effect for its members at once. CONFLICT for the administrator profile, for a licence type change while members hold the profile, or when the change would leave nobody who can manage access. NOT_FOUND for a profile of another organization. Audited.",
+        "operationId" : "updateProfile",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "profileId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveProfileRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseProfileView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change a profile",
+        "tags" : [ "Access" ]
+      }
+    },
+    "/api/v1/profiles/{profileId}/default" : {
+      "post" : {
+        "description" : "CONFLICT for the administrator profile. Audited.",
+        "operationId" : "makeProfileDefault",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "profileId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Make a profile the default for new members",
+        "tags" : [ "Access" ]
+      }
+    },
+    "/api/v1/roles" : {
+      "get" : {
+        "description" : "The hierarchy as a flat list with each role's parent. For members who manage access, invite members or see members. NOT_FOUND on the platform host, FORBIDDEN without one of those abilities.",
+        "operationId" : "listRoles",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListRoleView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "List the roles of the organization",
+        "tags" : [ "Access" ]
+      },
+      "post" : {
+        "description" : "VALIDATION_ERROR for a name in use or a parent of another organization. For members who manage access; audited.",
+        "operationId" : "createRole",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveRoleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRoleView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Create a role",
+        "tags" : [ "Access" ]
+      }
+    },
+    "/api/v1/roles/{roleId}" : {
+      "delete" : {
+        "description" : "CONFLICT while the role has sub-roles or members hold it. Audited.",
+        "operationId" : "deleteRole",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "roleId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a role",
+        "tags" : [ "Access" ]
+      },
+      "put" : {
+        "description" : "CONFLICT when the move would put the role below itself or one of its sub-roles (a loop). NOT_FOUND for a role of another organization. Audited.",
+        "operationId" : "updateRole",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "roleId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveRoleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRoleView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change or move a role",
+        "tags" : [ "Access" ]
+      }
+    },
     "/api/v1/support-access" : {
       "get" : {
         "description" : "Who asked, why, and what became of it. For the administrators of the organization of the host. NOT_FOUND on the platform host.",
@@ -2259,6 +3049,21 @@
   },
   "components" : {
     "schemas" : {
+      "AbilityInfo" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "description", "key", "name" ]
+      },
       "AcceptInvitationRequest" : {
         "type" : "object",
         "properties" : {
@@ -2278,7 +3083,52 @@
             "minLength" : 0
           }
         },
-        "required" : [ "displayName", "password", "token" ]
+        "required" : [ "password", "token" ]
+      },
+      "AccessPolicyRef" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "licenceType" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "name" ]
+      },
+      "AccessPolicyView" : {
+        "type" : "object",
+        "properties" : {
+          "abilities" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "members" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "requiredLicenceType" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "abilities", "description", "id", "name" ]
       },
       "AddCatalogueItemRequest" : {
         "type" : "object",
@@ -2347,6 +3197,15 @@
         },
         "required" : [ "data", "pagination" ]
       },
+      "ApiResponseAccessPolicyView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/AccessPolicyView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseCatalogueItem" : {
         "type" : "object",
         "properties" : {
@@ -2379,6 +3238,30 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/InvitationPreview"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListAbilityInfo" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AbilityInfo"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListAccessPolicyView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AccessPolicyView"
+            }
           }
         },
         "required" : [ "data" ]
@@ -2467,6 +3350,30 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListProfileView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ProfileView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListRoleView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RoleView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListSessionInfo" : {
         "type" : "object",
         "properties" : {
@@ -2487,6 +3394,15 @@
             "items" : {
               "$ref" : "#/components/schemas/SupportAccessView"
             }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseMemberAccessView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/MemberAccessView"
           }
         },
         "required" : [ "data" ]
@@ -2545,11 +3461,29 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseProfileView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ProfileView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseRequestAccepted" : {
         "type" : "object",
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/RequestAccepted"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseRoleView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/RoleView"
           }
         },
         "required" : [ "data" ]
@@ -2580,6 +3514,35 @@
             "format" : "int32",
             "maximum" : 240,
             "minimum" : 15
+          }
+        }
+      },
+      "AssignPolicyRequest" : {
+        "type" : "object",
+        "properties" : {
+          "policyId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        },
+        "required" : [ "policyId" ]
+      },
+      "AssignProfileRequest" : {
+        "type" : "object",
+        "properties" : {
+          "profileId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        },
+        "required" : [ "profileId" ]
+      },
+      "AssignRoleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "roleId" : {
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -2691,6 +3654,12 @@
       "CurrentUser" : {
         "type" : "object",
         "properties" : {
+          "abilities" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
           "displayName" : {
             "type" : "string"
           },
@@ -2707,7 +3676,7 @@
             }
           }
         },
-        "required" : [ "displayName", "email", "id", "platformRoles" ]
+        "required" : [ "abilities", "displayName", "email", "id", "platformRoles" ]
       },
       "EntitlementInfo" : {
         "type" : "object",
@@ -2778,6 +3747,22 @@
         },
         "required" : [ "email" ]
       },
+      "GrantAbilityRequest" : {
+        "type" : "object",
+        "properties" : {
+          "ability" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "ability" ]
+      },
       "GrantPlatformRoleRequest" : {
         "type" : "object",
         "properties" : {
@@ -2793,6 +3778,22 @@
           }
         },
         "required" : [ "email", "role" ]
+      },
+      "GrantView" : {
+        "type" : "object",
+        "properties" : {
+          "ability" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "since" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "ability", "reason", "since" ]
       },
       "InvitationAccepted" : {
         "type" : "object",
@@ -2823,6 +3824,9 @@
       "InvitationPreview" : {
         "type" : "object",
         "properties" : {
+          "displayName" : {
+            "type" : "string"
+          },
           "email" : {
             "type" : "string"
           },
@@ -2838,12 +3842,12 @@
       "InvitationView" : {
         "type" : "object",
         "properties" : {
-          "administrator" : {
-            "type" : "boolean"
-          },
           "createdAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "displayName" : {
+            "type" : "string"
           },
           "email" : {
             "type" : "string"
@@ -2855,6 +3859,16 @@
           "id" : {
             "type" : "string",
             "format" : "uuid"
+          },
+          "profileId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "profileName" : {
+            "type" : "string"
+          },
+          "roleName" : {
+            "type" : "string"
           },
           "sentCount" : {
             "type" : "integer",
@@ -2869,13 +3883,26 @@
       "InviteRequest" : {
         "type" : "object",
         "properties" : {
-          "administrator" : {
+          "active" : {
             "type" : "boolean"
+          },
+          "displayName" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
           },
           "email" : {
             "type" : "string",
             "maxLength" : 254,
             "minLength" : 0
+          },
+          "profileId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "roleId" : {
+            "type" : "string",
+            "format" : "uuid"
           }
         },
         "required" : [ "email" ]
@@ -2920,12 +3947,57 @@
         },
         "required" : [ "reason" ]
       },
+      "MemberAccessView" : {
+        "type" : "object",
+        "properties" : {
+          "abilities" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "grants" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/GrantView"
+            }
+          },
+          "licenceHeld" : {
+            "type" : "boolean"
+          },
+          "membershipId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "policies" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AccessPolicyRef"
+            }
+          },
+          "profileId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "profileLicenceType" : {
+            "type" : "string"
+          },
+          "profileName" : {
+            "type" : "string"
+          },
+          "roleId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "roleName" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "abilities", "grants", "membershipId", "policies" ]
+      },
       "MemberView" : {
         "type" : "object",
         "properties" : {
-          "administrator" : {
-            "type" : "boolean"
-          },
           "displayName" : {
             "type" : "string"
           },
@@ -2942,6 +4014,29 @@
           "licence" : {
             "type" : "string"
           },
+          "licensed" : {
+            "type" : "boolean"
+          },
+          "policies" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AccessPolicyRef"
+            }
+          },
+          "profileId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "profileName" : {
+            "type" : "string"
+          },
+          "roleId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "roleName" : {
+            "type" : "string"
+          },
           "since" : {
             "type" : "string",
             "format" : "date-time"
@@ -2953,7 +4048,7 @@
             "type" : "boolean"
           }
         },
-        "required" : [ "displayName", "email", "id", "since", "status" ]
+        "required" : [ "displayName", "email", "id", "policies", "since", "status" ]
       },
       "OrganizationCreated" : {
         "type" : "object",
@@ -2973,9 +4068,6 @@
       "OrganizationSummary" : {
         "type" : "object",
         "properties" : {
-          "administrator" : {
-            "type" : "boolean"
-          },
           "displayName" : {
             "type" : "string"
           },
@@ -3149,6 +4241,44 @@
         },
         "required" : [ "apiVersion", "databaseTime", "serverTime", "service" ]
       },
+      "ProfileView" : {
+        "type" : "object",
+        "properties" : {
+          "abilities" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "defaultProfile" : {
+            "type" : "boolean"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "fullAccess" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "licenceType" : {
+            "type" : "string"
+          },
+          "members" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "system" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "abilities", "description", "id", "licenceType", "name" ]
+      },
       "ProvisionOrganizationRequest" : {
         "type" : "object",
         "properties" : {
@@ -3211,6 +4341,61 @@
         },
         "required" : [ "newPassword", "token" ]
       },
+      "RoleView" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "members" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "parentId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        },
+        "required" : [ "description", "id", "name" ]
+      },
+      "SaveAccessPolicyRequest" : {
+        "type" : "object",
+        "properties" : {
+          "abilities" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 60,
+              "minLength" : 0
+            },
+            "maxItems" : 100,
+            "minItems" : 0
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "requiredLicenceType" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "abilities", "name" ]
+      },
       "SavePlanRequest" : {
         "type" : "object",
         "properties" : {
@@ -3238,6 +4423,57 @@
           }
         },
         "required" : [ "features", "licences", "name" ]
+      },
+      "SaveProfileRequest" : {
+        "type" : "object",
+        "properties" : {
+          "abilities" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 60,
+              "minLength" : 0
+            },
+            "maxItems" : 100,
+            "minItems" : 0
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "licenceType" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "abilities", "licenceType", "name" ]
+      },
+      "SaveRoleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "parentId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        },
+        "required" : [ "name" ]
       },
       "SessionInfo" : {
         "type" : "object",
@@ -3275,15 +4511,6 @@
         },
         "required" : [ "email", "reason" ]
       },
-      "SetAdministratorRequest" : {
-        "type" : "object",
-        "properties" : {
-          "administrator" : {
-            "type" : "boolean"
-          }
-        },
-        "required" : [ "administrator" ]
-      },
       "SetEntitlementRequest" : {
         "type" : "object",
         "properties" : {
@@ -3297,17 +4524,6 @@
           }
         },
         "required" : [ "reason" ]
-      },
-      "SetLicenceRequest" : {
-        "type" : "object",
-        "properties" : {
-          "licenceType" : {
-            "type" : "string",
-            "maxLength" : 40,
-            "minLength" : 0
-          }
-        },
-        "required" : [ "licenceType" ]
       },
       "SetPoolRequest" : {
         "type" : "object",

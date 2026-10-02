@@ -11,13 +11,8 @@ import app.platform.testsupport.TestDatabase;
 import app.platform.testsupport.tenancy.TenantFixtures;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -119,68 +114,6 @@ class MembershipGuardIT {
         assertThat(administratorOf(tenant, second)).as("a returning member is named again on purpose").isFalse();
     }
 
-    @Test
-    void theLastActiveAdministratorCannotBeDeactivatedReleasedOrDeleted() throws SQLException {
-        TenantId tenant = TenantFixtures.createActiveTenant().id();
-        UUID only = member(tenant, true);
-        member(tenant, false);
-
-        assertThatThrownBy(() -> setStatus(tenant, only, "DEACTIVATED")).hasMessageContaining("last administrator");
-        assertThatThrownBy(() -> setAdministrator(tenant, only, false)).hasMessageContaining("last administrator");
-        assertThatThrownBy(() -> TenantFixtures.asTenant(tenant, connection -> TenantFixtures.update(connection,
-                "update membership set deleted_at = now(), deleted_by = ?, version = version + 1, updated_by = ? "
-                        + "where id = ?", SYSTEM, SYSTEM, only))).hasMessageContaining("last administrator");
-        UUID another = member(tenant, true);
-        assertThat(setAdministrator(tenant, only, false)).as("with another administrator it is allowed").isEqualTo(1);
-        assertThatThrownBy(() -> setStatus(tenant, another, "DEACTIVATED")).hasMessageContaining("last administrator");
-    }
-
-    @Test
-    void anAdministratorOfAnotherOrganizationDoesNotCount() throws SQLException {
-        TenantId tenant = TenantFixtures.createActiveTenant().id();
-        TenantId other = TenantFixtures.createActiveTenant().id();
-        UUID only = member(tenant, true);
-        member(other, true);
-
-        assertThatThrownBy(() -> setStatus(tenant, only, "DEACTIVATED")).hasMessageContaining("last administrator");
-    }
-
-    @Test
-    void twoAdministratorsStepDownAtTheSameMomentAndOneStays() throws Exception {
-        for (int round = 0; round < 5; round++) {
-            TenantId tenant = TenantFixtures.createActiveTenant().id();
-            UUID a = member(tenant, true);
-            UUID b = member(tenant, true);
-            CountDownLatch go = new CountDownLatch(1);
-            ExecutorService pool = Executors.newFixedThreadPool(2);
-            List<Future<Boolean>> results = new ArrayList<>();
-            try {
-                for (UUID target : List.of(a, b)) {
-                    results.add(pool.submit(() -> {
-                        go.await();
-                        try {
-                            setStatus(tenant, target, "DEACTIVATED");
-                            return true;
-                        } catch (SQLException e) {
-                            return false;
-                        }
-                    }));
-                }
-                go.countDown();
-                int succeeded = 0;
-                for (Future<Boolean> result : results) {
-                    succeeded += result.get() ? 1 : 0;
-                }
-
-                assertThat(succeeded).as("exactly one of two simultaneous steps down").isEqualTo(1);
-            } finally {
-                pool.shutdownNow();
-            }
-            long active = TenantFixtures.asTenant(tenant, connection -> TenantFixtures.count(connection,
-                    "select count(*) from membership where administrator and status = 'ACTIVE'"));
-            assertThat(active).isEqualTo(1L);
-        }
-    }
 
     @Test
     void aPersonIsAMemberOfAnOrganizationOnce() throws SQLException {

@@ -1,6 +1,7 @@
 package app.platform.platformadmin.internal;
 
 import app.platform.identity.OrganizationAdministration;
+import app.platform.security.Ability;
 import app.platform.sharedkernel.TenantId;
 import app.platform.sharedkernel.support.SupportAccess;
 import app.platform.sharedkernel.support.SupportAccessDeniedException;
@@ -97,7 +98,7 @@ class SupportAccessService implements SupportAccess {
     // ---- the organization's side (an administrator of the organization of the host) ----
 
     List<SupportAccessView> list() {
-        return administration.asAdministrator("support_access.list", caller ->
+        return administration.asAdministrator("support_access.list", Ability.SUPPORT_ACCESS_MANAGE, caller ->
                 grants.list().stream().map(SupportAccessService::view).toList());
     }
 
@@ -107,7 +108,7 @@ class SupportAccessService implements SupportAccess {
      * @param minutes how long, or null for as asked
      */
     void approve(UUID grantId, Integer minutes) {
-        administration.asAdministrator("support_access.approve", caller -> {
+        administration.asAdministrator("support_access.approve", Ability.SUPPORT_ACCESS_MANAGE, caller -> {
             SupportAccessRepository.Grant grant = open(grantId);
             int window = minutes == null ? grant.requestedMinutes() : minutes;
             if (window < 15 || window > grant.requestedMinutes()) {
@@ -127,7 +128,7 @@ class SupportAccessService implements SupportAccess {
     }
 
     void deny(UUID grantId) {
-        administration.asAdministrator("support_access.deny", caller -> {
+        administration.asAdministrator("support_access.deny", Ability.SUPPORT_ACCESS_MANAGE, caller -> {
             open(grantId);
             grants.deny(grantId, caller.userId());
             audit.done("support_access.grant.denied", caller.userId(), contexts.require().tenantId(), null, "grant",
@@ -138,7 +139,7 @@ class SupportAccessService implements SupportAccess {
 
     /** Ends an approved access at once. */
     void revoke(UUID grantId) {
-        administration.asAdministrator("support_access.revoke", caller -> {
+        administration.asAdministrator("support_access.revoke", Ability.SUPPORT_ACCESS_MANAGE, caller -> {
             SupportAccessRepository.Grant grant = grants.findForUpdate(grantId)
                     .orElseThrow(() -> ApiException.notFound("This request does not exist."));
             if (!"APPROVED".equals(grant.status())) {

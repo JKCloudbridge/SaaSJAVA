@@ -26,11 +26,17 @@ class InvitationRepository {
     /**
      * An invitation.
      *
+     * @param administrator the Sprint 5 marker: true for an invitation that predates profiles or that a platform
+     *        administrator made for a first administrator; both get the administrator profile on acceptance
      * @param status {@code OPEN}, {@code ACCEPTED} or {@code REVOKED}; an open invitation past {@code expiresAt} is
      *        shown as expired by the caller
+     * @param profileId the profile the administrator chose, or null for the default (or administrator) profile
+     * @param roleId the role the administrator chose, or null
+     * @param displayName the name the administrator entered, or null when the person chooses it
      */
     record Invitation(UUID id, String email, boolean administrator, boolean founding, String status, Instant expiresAt,
-            int sentCount, Instant createdAt, boolean invitedByPlatform) {
+            int sentCount, Instant createdAt, boolean invitedByPlatform, UUID profileId, UUID roleId,
+            String displayName) {
 
         boolean open(Instant now) {
             return OPEN.equals(status) && expiresAt.isAfter(now);
@@ -44,7 +50,7 @@ class InvitationRepository {
     }
 
     private static final String COLUMNS = "id, email, administrator, founding_administrator, status, expires_at, "
-            + "sent_count, created_at, invited_by_platform";
+            + "sent_count, created_at, invited_by_platform, profile_id, role_id, display_name";
 
     private final JdbcClient jdbc;
 
@@ -58,35 +64,52 @@ class InvitationRepository {
      *
      * @return the invitation, with the expiry it now has
      */
-    Invitation openOrRenew(String email, boolean administrator, Instant expiresAt, ActorId actor) {
-        return openOrRenew(email, administrator, false, false, expiresAt, actor);
+    Invitation openOrRenew(String email, UUID profileId, UUID roleId, String displayName, boolean send,
+            Instant expiresAt, ActorId actor) {
+        return openOrRenew(email, false, false, false, profileId, roleId, displayName, send, expiresAt, actor);
     }
 
     /**
-     * Like the three-argument form, for the invitation a platform administrator makes (the founding flag and the
-     * platform mark). Renewing an open invitation never takes those away, and a platform invitation stays one for an
-     * administrator.
+     * Like the other form, for the invitation a platform administrator makes (the founding flag and the platform mark,
+     * always sent). Renewing an open invitation never takes those away, and a platform invitation stays one for an
+     * administrator: the profile an administrator of the organization chose cannot replace it.
      */
     Invitation openOrRenew(String email, boolean administrator, boolean founding, boolean invitedByPlatform,
             Instant expiresAt, ActorId actor) {
+        return openOrRenew(email, administrator, founding, invitedByPlatform, null, null, null, true, expiresAt,
+                actor);
+    }
+
+    private Invitation openOrRenew(String email, boolean administrator, boolean founding, boolean invitedByPlatform,
+            UUID profileId, UUID roleId, String displayName, boolean send, Instant expiresAt, ActorId actor) {
         return jdbc.sql("insert into invitation (email, administrator, founding_administrator, invited_by_platform, "
-                        + "expires_at, created_by, updated_by) "
-                        + "values (:email, :administrator, :founding, :platform, :expires, :actor, :actor) "
+                        + "profile_id, role_id, display_name, expires_at, sent_count, created_by, updated_by) "
+                        + "values (:email, :administrator, :founding, :platform, :profile, :role, :name, :expires, "
+                        + ":sent, :actor, :actor) "
                         + "on conflict (tenant_id, email) where status = 'OPEN' and deleted_at is null do update "
                         + "set administrator = case when invitation.invited_by_platform then true "
                         + "else excluded.administrator end, "
                         + "founding_administrator = invitation.founding_administrator "
                         + "or excluded.founding_administrator, "
                         + "invited_by_platform = invitation.invited_by_platform or excluded.invited_by_platform, "
+                        + "profile_id = case when invitation.invited_by_platform then invitation.profile_id "
+                        + "else excluded.profile_id end, "
+                        + "role_id = case when invitation.invited_by_platform then invitation.role_id "
+                        + "else excluded.role_id end, "
+                        + "display_name = coalesce(excluded.display_name, invitation.display_name), "
                         + "expires_at = excluded.expires_at, "
-                        + "sent_count = invitation.sent_count + 1, version = invitation.version + 1, "
+                        + "sent_count = invitation.sent_count + :sent, version = invitation.version + 1, "
                         + "updated_by = excluded.updated_by "
                         + "returning " + COLUMNS)
                 .param("email", email)
                 .param("administrator", administrator)
                 .param("founding", founding)
                 .param("platform", invitedByPlatform)
+                .param("profile", profileId, java.sql.Types.OTHER)
+                .param("role", roleId, java.sql.Types.OTHER)
+                .param("name", displayName, java.sql.Types.VARCHAR)
                 .param("expires", Timestamp.from(expiresAt))
+                .param("sent", send ? 1 : 0)
                 .param("actor", actor.value())
                 .query(InvitationRepository::invitation)
                 .single();
@@ -169,6 +192,8 @@ class InvitationRepository {
         return new Invitation(rs.getObject("id", UUID.class), rs.getString("email"), rs.getBoolean("administrator"),
                 rs.getBoolean("founding_administrator"), rs.getString("status"),
                 rs.getTimestamp("expires_at").toInstant(), rs.getInt("sent_count"),
-                rs.getTimestamp("created_at").toInstant(), rs.getBoolean("invited_by_platform"));
+                rs.getTimestamp("created_at").toInstant(), rs.getBoolean("invited_by_platform"),
+                rs.getObject("profile_id", UUID.class), rs.getObject("role_id", UUID.class),
+                rs.getString("display_name"));
     }
 }

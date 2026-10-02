@@ -277,6 +277,122 @@ class MigrationIT {
         }
     }
 
+    @Test
+    void organizationsThatExistBeforeProfilesGetTheirSystemProfilesAndEveryAdministratorKeepsAuthority()
+            throws Exception {
+        // A database owner that is NOT a superuser, like a real deployment (forced row level security binds it): the
+        // backfill (V023) switches the force off for its statements and on again in the same transaction.
+        String suffix = UUID.randomUUID().toString().replace("-", "");
+        String role = "migrator_" + suffix;
+        String password = "pw-" + UUID.randomUUID();
+        String database = "profiles_" + suffix;
+        try (Connection admin = TestDatabase.ownerConnection(); Statement statement = admin.createStatement()) {
+            statement.execute("create role " + role + " login password '" + password + "'");
+            statement.execute("create database " + database + " owner " + role);
+        }
+        String ownUrl = TestDatabase.jdbcUrl().replace("/platform?", "/" + database + "?");
+        try {
+            Flyway.configure().dataSource(ownUrl, role, password).locations("classpath:db/migration").target("22")
+                    .cleanDisabled(true).placeholderReplacement(false).load().migrate();
+            // A database as Sprint 6 left it: an open organization whose plan has no admin licence, with three
+            // administrators (the marker), two plain members and one deactivated member; every active member holds a
+            // user licence; and an organization that holds nothing.
+            UUID system = new UUID(0L, 0L);
+            UUID open = UUID.randomUUID();
+            UUID empty = UUID.randomUUID();
+            List<UUID> people = new java.util.ArrayList<>();
+            for (int i = 0; i < 6; i++) {
+                people.add(UUID.randomUUID());
+            }
+            try (Connection connection = DriverManager.getConnection(ownUrl, role, password)) {
+                connection.setAutoCommit(false);
+                try (Statement statement = connection.createStatement()) {
+                    for (UUID tenant : List.of(open, empty)) {
+                        statement.execute("insert into tenant (id, slug, display_name, created_by, updated_by) "
+                                + "values ('" + tenant + "', 'org-" + tenant.toString().substring(0, 8)
+                                + "', 'Org', '" + system + "', '" + system + "')");
+                        statement.execute("update tenant set status = 'ACTIVE', version = version + 1 where id = '"
+                                + tenant + "'");
+                    }
+                    for (UUID user : people) {
+                        statement.execute("insert into platform_user (id, email, display_name, created_by, "
+                                + "updated_by) values ('" + user + "', '" + user + "@example.test', 'Person', '"
+                                + system + "', '" + system + "')");
+                    }
+                    statement.execute("select set_config('app.current_tenant', '" + open + "', true)");
+                    for (UUID user : people) {
+                        statement.execute("insert into membership (tenant_id, user_id, created_by, updated_by) "
+                                + "values ('" + open + "', '" + user + "', '" + system + "', '" + system + "')");
+                    }
+                    statement.execute("update membership set administrator = true, version = version + 1 "
+                            + "where user_id in ('" + people.get(0) + "', '" + people.get(1) + "', '"
+                            + people.get(2) + "')");
+                    statement.execute("insert into licence_pool (tenant_id, licence_type_id, quantity, created_by, "
+                            + "updated_by) select '" + open + "', id, 5, '" + system + "', '" + system
+                            + "' from licence_type where key = 'user'");
+                    statement.execute("insert into licence_assignment (tenant_id, membership_id, licence_type_id, "
+                            + "created_by, updated_by) select '" + open + "', m.id, t.id, '" + system + "', '"
+                            + system + "' from membership m, licence_type t where t.key = 'user' "
+                            + "and m.user_id <> '" + people.get(5) + "'");
+                    statement.execute("update membership set status = 'DEACTIVATED', version = version + 1 "
+                            + "where user_id = '" + people.get(5) + "'");
+                }
+                connection.commit();
+            }
+
+            MigrateResult result = Flyway.configure().dataSource(ownUrl, role, password)
+                    .locations("classpath:db/migration").cleanDisabled(true).placeholderReplacement(false).load()
+                    .migrate();
+
+            assertThat(result.success).isTrue();
+            try (Connection connection = DriverManager.getConnection(ownUrl, role, password)) {
+                connection.setAutoCommit(false);
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("select set_config('app.current_tenant', '" + open + "', true)");
+                    assertThat(scalar(statement, "select count(*) from profile where system_key is not null"))
+                            .as("both system profiles").isEqualTo(2L);
+                    assertThat(scalar(statement, "select count(*) from profile where is_default and system_key = "
+                            + "'member'")).as("the member profile is the default").isEqualTo(1L);
+                    assertThat(scalar(statement, "select count(*) from member_access a join profile p on p.id = "
+                            + "a.profile_id where p.system_key = 'administrator'"))
+                            .as("every marker administrator got the administrator profile").isEqualTo(3L);
+                    assertThat(scalar(statement, "select count(*) from member_access a join profile p on p.id = "
+                            + "a.profile_id where p.system_key = 'member'")).as("every other active member")
+                            .isEqualTo(2L);
+                    assertThat(scalar(statement, "select count(*) from member_access")).as("not the deactivated one")
+                            .isEqualTo(5L);
+                    assertThat(scalar(statement, "select quantity from licence_pool p join licence_type t on t.id = "
+                            + "p.licence_type_id where t.key = 'admin'")).as("raised to cover the administrators")
+                            .isEqualTo(3L);
+                    assertThat(scalar(statement, "select count(*) from licence_assignment a join licence_type t on "
+                            + "t.id = a.licence_type_id where t.key = 'admin' and a.deleted_at is null"))
+                            .as("each administrator holds an admin licence").isEqualTo(3L);
+                    assertThat(scalar(statement, "select count(*) from licence_assignment a join licence_type t on "
+                            + "t.id = a.licence_type_id where t.key = 'user' and a.deleted_at is null"))
+                            .as("the plain members keep their user licence, the administrators gave theirs back")
+                            .isEqualTo(2L);
+                    assertThat(scalar(statement, "select platform_access_holders('" + open + "')"))
+                            .as("every administrator still holds the ability").isEqualTo(3L);
+                    statement.execute("select set_config('app.current_tenant', '" + empty + "', true)");
+                    assertThat(scalar(statement, "select count(*) from profile where system_key is not null"))
+                            .as("an organization without members still gets its system profiles").isEqualTo(2L);
+                    assertThat(scalar(statement, "select count(*) from member_access")).isZero();
+                    for (String table : List.of("profile", "member_access", "licence_pool", "licence_assignment",
+                            "membership")) {
+                        assertThat(scalar(statement, "select count(*) from pg_class where relname = '" + table
+                                + "' and relrowsecurity and relforcerowsecurity")).as(table + " is forced again")
+                                .isEqualTo(1L);
+                    }
+                }
+            }
+        } finally {
+            try (Connection admin = TestDatabase.ownerConnection(); Statement statement = admin.createStatement()) {
+                statement.execute("drop database if exists " + database + " with (force)");
+                statement.execute("drop role if exists " + role);
+            }
+        }
+    }
+
     private static long scalar(Statement statement, String sql) throws SQLException {
         try (ResultSet rs = statement.executeQuery(sql)) {
             assertThat(rs.next()).isTrue();

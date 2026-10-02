@@ -35,10 +35,10 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 /**
  * Platform roles (Sprint 6, ADR-0030): what each role may do against every platform endpoint, that an organization
  * administrator, an ordinary member and a platform person inside an organization have no platform ability and a
- * platform
- * role gives no organization authority, that platform endpoints answer on the platform host only, that granting and
- * revoking are audited and take effect at once, that the last platform administrator stays (also under concurrency),
- * and the protections of platform accounts: a loud sign-in record, a short session and a lock that comes sooner.
+ * platform role gives no organization authority, that platform endpoints answer on the platform host only, that
+ * granting and revoking are audited and take effect at once, that the last platform administrator stays (also under
+ * concurrency), and the protections of platform accounts: a loud sign-in record, a short session and a lock that comes
+ * sooner.
  */
 @PlatformIntegrationTest
 class PlatformRolesIT {
@@ -249,9 +249,11 @@ class PlatformRolesIT {
                 "X-Tenant-Id", decoy.id().toString(), "X-Forwarded-Host", decoy.host());
 
         assertThat(forged.status()).isEqualTo(200);
-        assertThat(IdentityDb.value(Integer.class, "select quantity from licence_pool where tenant_id = ?",
+        assertThat(IdentityDb.value(Integer.class, "select p.quantity from licence_pool p join licence_type t "
+                + "on t.id = p.licence_type_id where p.tenant_id = ? and t.key = 'user'",
                 target.id().value())).as("the organization in the path changed").isEqualTo(9);
-        assertThat(IdentityDb.value(Long.class, "select count(*) from licence_pool where tenant_id = ?",
+        assertThat(IdentityDb.value(Long.class, "select count(*) from licence_pool p join licence_type t "
+                + "on t.id = p.licence_type_id where p.tenant_id = ? and t.key = 'user'",
                 decoy.id().value())).as("the organization in the header did not").isZero();
         assertThat(IdentityDb.auditOfType("platform.licence_pool.changed")).anyMatch(record ->
                 target.id().value().equals(record.tenantId()));

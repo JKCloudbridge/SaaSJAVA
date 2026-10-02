@@ -61,9 +61,15 @@ class InvitationFlowIT {
         return TestOrganizations.signedIn(port, organization.host(), organization.admin().person());
     }
 
+    /** Creates the member; an "administrator" gets the system administrator profile, anybody else the default. */
     private static Response invite(TestBrowser admin, String email, boolean administrator) {
-        return admin.postJson("/api/v1/invitations",
-                "{\"email\":\"" + email + "\",\"administrator\":" + administrator + "}");
+        String profile = "";
+        if (administrator) {
+            List<String> ids = JsonPath.read(admin.get("/api/v1/profiles").body(),
+                    "$.data[?(@.name=='Organization administrator')].id");
+            profile = ",\"profileId\":\"" + ids.get(0) + "\"";
+        }
+        return admin.postJson("/api/v1/invitations", "{\"email\":\"" + email + "\"" + profile + "}");
     }
 
     private static Response preview(TestBrowser browser, String token) {
@@ -136,16 +142,17 @@ class InvitationFlowIT {
     }
 
     @Test
-    void aPersonInvitedAsAdministratorBecomesOne() throws SQLException {
+    void aPersonInvitedWithTheAdministratorProfileGetsIt() throws SQLException {
         Organization organization = TestOrganizations.create(users);
         String email = newAddress();
         TestMail.Message mail = invitationMail(adminOf(organization), email, true);
 
         acceptNew(platform(), mail.token().orElseThrow(), "Person A", strongPassword());
 
-        assertThat(IdentityDb.value(Boolean.class, "select m.administrator from membership m join platform_user u "
-                + "on u.id = m.user_id where m.tenant_id = ? and u.email = ?", organization.id().value(), email))
-                .isTrue();
+        assertThat(IdentityDb.value(String.class, "select p.system_key from membership m join platform_user u "
+                + "on u.id = m.user_id join member_access a on a.membership_id = m.id and a.deleted_at is null "
+                + "join profile p on p.id = a.profile_id where m.tenant_id = ? and u.email = ?",
+                organization.id().value(), email)).as("the profile the administrator chose").isEqualTo("administrator");
     }
 
     @Test

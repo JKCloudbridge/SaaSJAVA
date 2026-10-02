@@ -142,10 +142,10 @@ class AuthAudit {
     // ---- membership, invitations and switching (Sprint 5); the tenant of the record is the organization ----
 
     /** An invitation was requested. Identical for every address: only a hash of the address is kept. */
-    void invitationRequested(UUID inviter, UUID invitationId, String email, boolean administrator) {
+    void invitationRequested(UUID inviter, UUID invitationId, String email, UUID profile, boolean sent) {
         write(AuditRecord.of("membership.invitation.requested", AuditOutcome.SUCCESS).forUser(inviter)
                 .with("invitation", invitationId.toString()).with("identifier_hash", Hashes.sha256Hex(email))
-                .with("administrator", Boolean.toString(administrator)));
+                .with("profile", profile.toString()).with("sent", Boolean.toString(sent)));
     }
 
     void invitationResent(UUID inviter, UUID invitationId) {
@@ -181,10 +181,10 @@ class AuthAudit {
                 .with("actor", actor.toString()).with("membership", membershipId.toString()));
     }
 
-    void administratorChanged(UUID actor, UUID subject, UUID membershipId, boolean granted) {
-        write(AuditRecord.of(granted ? "membership.administrator.granted" : "membership.administrator.revoked",
-                AuditOutcome.SUCCESS).forUser(subject).with("actor", actor.toString())
-                .with("membership", membershipId.toString()));
+    /** A member left the organization by themselves (Sprint 7). */
+    void membershipLeft(UUID user, UUID membershipId, int sessionsEnded) {
+        write(AuditRecord.of("membership.left", AuditOutcome.SUCCESS).forUser(user)
+                .with("membership", membershipId.toString()).with("sessions_ended", Integer.toString(sessionsEnded)));
     }
 
     void licenceAssigned(UUID actor, UUID subject, UUID membershipId, String licenceType) {

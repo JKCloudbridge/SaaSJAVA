@@ -17,7 +17,9 @@
 # provisions an organization for a client as that administrator, reads the first-administrator e-mail, accepts it, and
 # checks that the organization was closed until then, that an ordinary person reaches no platform endpoint and that no
 # token is stored in clear. Run it from the repository root (it reads db/manual/M002...). The owner's role name can be
-# set with OWNER_USER.
+# set with OWNER_USER. Since Sprint 7 the invitation chooses a profile for the invited person (the administrator profile here),
+# and a last step creates a profile and an access policy as the first administrator, gives the policy, reads
+# the access back and checks the audit records and that a platform token is refused on an organization host.
 set -euo pipefail
 
 db="${1:?database container name}"
@@ -190,10 +192,16 @@ if [ -n "$mail" ]; then
   [ -n "$org_token" ] || fail "the founder could not sign in on the organization's host"
   echo "ok: a person founds an organization and signs in on its host as its member"
 
+  # Sprint 7: the administrator chooses the profile of the new member; the administrator profile is the one of the system.
+  status="$(call_host="$org_host" call -H "Authorization: Bearer $org_token" "$base/api/v1/profiles")"
+  [ "$status" = "200" ] || fail "listing the profiles answered $status: $(cat "$body")"
+  admin_profile="$(grep -o '"id":"[^"]*","name":"Organization administrator"' "$body" | head -1 | cut -d'"' -f4)"
+  [ -n "$admin_profile" ] || fail "the organization has no administrator profile: $(cat "$body")"
   invitee="smoke-invitee-$(date +%s)@example.test"
   invitee_password="a-long-invited-passphrase-$RANDOM-$RANDOM"
   status="$(call_host="$org_host" call -X POST -H "Authorization: Bearer $org_token" -H 'Content-Type: application/json' \
-    -d "{\"email\":\"$invitee\",\"administrator\":true}" "$base/api/v1/invitations")"
+    -d "{\"email\":\"$invitee\",\"displayName\":\"Invited Person\",\"profileId\":\"$admin_profile\"}" \
+    "$base/api/v1/invitations")"
   [ "$status" = "202" ] || fail "inviting answered $status: $(cat "$body")"
   status="$(call_host="$org_host" call -X POST -H "Authorization: Bearer $org_token" -H 'Content-Type: application/json' \
     -d '{"email":"nobody-smoke@example.test"}' "$base/api/v1/invitations")"
@@ -217,7 +225,7 @@ if [ -n "$mail" ]; then
   echo "ok: the invitation e-mail arrived with a link on the platform host"
 
   invite_token="${invite_link#*#token=}"
-  accept="{\"token\":\"$invite_token\",\"displayName\":\"Invited Person\",\"password\":\"$invitee_password\"}"
+  accept="{\"token\":\"$invite_token\",\"password\":\"$invitee_password\"}"
   status="$(call -X POST "${json_headers[@]}" -d "{\"token\":\"$invite_token\"}" "$base/api/v1/auth/invitations/preview")"
   [ "$status" = "200" ] || fail "reading the invitation answered $status: $(cat "$body")"
   grep -q '"existingAccount":false' "$body" || fail "the preview does not say the address has no account: $(cat "$body")"
@@ -321,9 +329,47 @@ if [ -n "$mail" ]; then
   [ -n "$client_access" ] || fail "the first administrator could not sign in on the organization's host"
   status="$(call_host="$client_host" call -H "Authorization: Bearer $client_access" "$base/api/v1/members")"
   [ "$status" = "200" ] || fail "the first administrator could not list the members ($status)"
-  [ "$(owner_sql -c "select founding_administrator and administrator from membership m join tenant t on t.id = m.tenant_id \
-    where t.slug = '${client_host%%.*}'")" = "t" ] || fail "the first administrator is not the founder and an administrator"
+  [ "$(owner_sql -c "select m.founding_administrator and p.system_key = 'administrator' and l.id is not null \
+    from membership m join tenant t on t.id = m.tenant_id \
+    join member_access a on a.membership_id = m.id and a.deleted_at is null \
+    join profile p on p.id = a.profile_id \
+    left join licence_assignment l on l.membership_id = m.id and l.purpose = 'PROFILE' and l.deleted_at is null \
+    where t.slug = '${client_host%%.*}'")" = "t" ] \
+    || fail "the first administrator is not the founder with the administrator profile and an administrator licence"
   echo "ok: the first administrator accepts, the organization opens and they sign in as its founder"
+
+  # 13. An assignment round trip on the image (Sprint 7): the first administrator creates a profile and an
+  # access policy, gives the policy to themselves, reads what decides their
+  # access, and a platform person's token is refused on the organization's host. The abilities come from the profile.
+  client_call() {
+    call_host="$client_host" call -H "Authorization: Bearer $client_access" "$@"
+  }
+  status="$(client_call -X POST -H 'Content-Type: application/json' \
+    -d '{"name":"smoke-profile","description":"","licenceType":"admin","abilities":["members.view"]}' \
+    "$base/api/v1/profiles")"
+  [ "$status" = "201" ] || fail "creating a profile answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H 'Content-Type: application/json' \
+    -d '{"name":"smoke-policy","description":"","abilities":["members.invite"]}' "$base/api/v1/access-policies")"
+  [ "$status" = "201" ] || fail "creating an access policy answered $status: $(cat "$body")"
+  policy_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  own_membership="$(owner_sql -c "select m.id from membership m join tenant t on t.id = m.tenant_id \
+    where t.slug = '${client_host%%.*}' and m.founding_administrator")"
+  status="$(client_call -X POST -H 'Content-Type: application/json' -d "{\"policyId\":\"$policy_id\"}" \
+    "$base/api/v1/members/$own_membership/policies")"
+  [ "$status" = "204" ] || fail "giving an access policy answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/members/$own_membership/access")"
+  [ "$status" = "200" ] || fail "reading the access of a member answered $status: $(cat "$body")"
+  grep -q '"profileName":"Organization administrator"' "$body" || fail "the access view lacks the profile: $(cat "$body")"
+  grep -q '"licenceHeld":true' "$body" || fail "the founder does not hold the licence of their profile: $(cat "$body")"
+  grep -q '"policies":\[{' "$body" || fail "the access view lacks the policy: $(cat "$body")"
+  status="$(client_call "$base/api/v1/auth/me")"
+  grep -q 'access.manage' "$body" || fail "the caller's abilities do not name access.manage: $(cat "$body")"
+  # A platform person's token on an organization's host is no member: refused, the same as everywhere else.
+  status="$(call_host="$client_host" call -H "Authorization: Bearer $console_token" "$base/api/v1/profiles")"
+  [ "$status" = "401" ] || fail "a platform administrator's token was accepted on an organization's host ($status)"
+  [ "$(owner_sql -c "select count(*) from audit_record where event_type like 'access.%' and context_tenant_id is not null")" -ge 3 ] \
+    || fail "the changes of access were not audited"
+  echo "ok: a profile and an access policy are created and given, the access is read back, and the changes are audited"
 
   stored="$(owner_sql -c "select t::text from account_token t union all select t::text from mail_queue t \
     union all select attributes::text from audit_record union all select t::text from invitation t")"

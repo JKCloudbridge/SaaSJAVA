@@ -57,6 +57,13 @@ class LicensingStore {
                 .param("key", key).query(UUID.class).optional();
     }
 
+    Map<UUID, String> licenceTypeKeys() {
+        Map<UUID, String> result = new HashMap<>();
+        jdbc.sql("select id, key from licence_type where deleted_at is null")
+                .query((rs, row) -> result.put(rs.getObject("id", UUID.class), rs.getString("key"))).list();
+        return result;
+    }
+
     List<LicenceTypeView> licenceTypes() {
         return jdbc.sql("select key, name from licence_type where deleted_at is null order by key")
                 .query((rs, row) -> new LicenceTypeView(rs.getString("key"), rs.getString("name"))).list();
@@ -276,20 +283,61 @@ class LicensingStore {
                 .param("quantity", quantity).param("actor", actor.value()).param("id", poolId).update();
     }
 
-    /** Licence type key by membership, for the current organization. */
+    /**
+     * Takes the lock that serializes every change of who may do what in the current organization (the same one the
+     * database guard of the last access manager takes, ADR-0044). Taken first, so the order of locks is always the
+     * same.
+     */
+    void lockAccessChanges() {
+        jdbc.sql("select pg_advisory_xact_lock(hashtextextended('access-managers:' "
+                        + "|| platform_current_tenant()::text, 0))")
+                .query().singleRow();
+    }
+
+    /** Licence type key by membership, for the current organization: the licences held for profiles. */
     Map<UUID, String> assigned() {
         Map<UUID, String> result = new HashMap<>();
         jdbc.sql("select a.membership_id, t.key from licence_assignment a "
-                        + "join licence_type t on t.id = a.licence_type_id where a.deleted_at is null")
+                        + "join licence_type t on t.id = a.licence_type_id "
+                        + "where a.purpose = 'PROFILE' and a.deleted_at is null")
                 .query((rs, row) -> result.put(rs.getObject("membership_id", UUID.class), rs.getString("key")))
                 .list();
         return result;
     }
 
+    /** The licence type key the member holds for their profile. */
+    Optional<String> profileLicenceOf(UUID membershipId) {
+        return jdbc.sql("select t.key from licence_assignment a join licence_type t on t.id = a.licence_type_id "
+                        + "where a.membership_id = :membership and a.purpose = 'PROFILE' and a.deleted_at is null")
+                .param("membership", membershipId).query(String.class).optional();
+    }
+
+    /** How many members hold a licence for each access policy. */
+    Map<UUID, Integer> policyUses() {
+        Map<UUID, Integer> result = new HashMap<>();
+        jdbc.sql("select a.source_id, count(*) as uses from licence_assignment a "
+                        + "where a.purpose = 'ACCESS_POLICY' and a.deleted_at is null group by a.source_id")
+                .query((rs, row) -> result.put(rs.getObject("source_id", UUID.class), rs.getInt("uses")))
+                .list();
+        return result;
+    }
+
+    /** The licence the member holds for their profile, locked until the transaction ends. */
     Optional<AssignmentRow> assignmentOf(UUID membershipId) {
         return jdbc.sql("select a.id, t.key from licence_assignment a join licence_type t on t.id = a.licence_type_id "
-                        + "where a.membership_id = :membership and a.deleted_at is null for update of a")
+                        + "where a.membership_id = :membership and a.purpose = 'PROFILE' and a.deleted_at is null "
+                        + "for update of a")
                 .param("membership", membershipId)
+                .query((rs, row) -> new AssignmentRow(rs.getObject("id", UUID.class), rs.getString("key")))
+                .optional();
+    }
+
+    /** The licence the member holds for the access policy, locked until the transaction ends. */
+    Optional<AssignmentRow> policyAssignmentOf(UUID membershipId, UUID policyId) {
+        return jdbc.sql("select a.id, t.key from licence_assignment a join licence_type t on t.id = a.licence_type_id "
+                        + "where a.membership_id = :membership and a.purpose = 'ACCESS_POLICY' "
+                        + "and a.source_id = :policy and a.deleted_at is null for update of a")
+                .param("membership", membershipId).param("policy", policyId)
                 .query((rs, row) -> new AssignmentRow(rs.getObject("id", UUID.class), rs.getString("key")))
                 .optional();
     }
@@ -301,12 +349,37 @@ class LicensingStore {
                 .update();
     }
 
-    /** Takes a licence back. @return whether the member held one */
+    void insertPolicyAssignment(UUID membershipId, UUID licenceTypeId, UUID policyId, ActorId actor) {
+        jdbc.sql("insert into licence_assignment (membership_id, licence_type_id, purpose, source_id, created_by, "
+                        + "updated_by) values (:membership, :type, 'ACCESS_POLICY', :policy, :actor, :actor)")
+                .param("membership", membershipId).param("type", licenceTypeId).param("policy", policyId)
+                .param("actor", actor.value()).update();
+    }
+
+    /** Takes the licence for the profile back. @return whether the member held one */
     boolean releaseAssignment(UUID membershipId, ActorId actor) {
         return jdbc.sql("update licence_assignment set deleted_at = now(), deleted_by = :actor, "
                         + "version = version + 1, updated_by = :actor "
-                        + "where membership_id = :membership and deleted_at is null")
+                        + "where membership_id = :membership and purpose = 'PROFILE' and deleted_at is null")
                 .param("actor", actor.value()).param("membership", membershipId).update() > 0;
+    }
+
+    /** Takes the licence for one access policy back. @return whether the member held one */
+    boolean releasePolicyAssignment(UUID membershipId, UUID policyId, ActorId actor) {
+        return jdbc.sql("update licence_assignment set deleted_at = now(), deleted_by = :actor, "
+                        + "version = version + 1, updated_by = :actor "
+                        + "where membership_id = :membership and purpose = 'ACCESS_POLICY' and source_id = :policy "
+                        + "and deleted_at is null")
+                .param("actor", actor.value()).param("membership", membershipId).param("policy", policyId)
+                .update() > 0;
+    }
+
+    /** Takes every licence of the member back. @return how many were held */
+    int releaseAllAssignments(UUID membershipId, ActorId actor) {
+        return jdbc.sql("update licence_assignment set deleted_at = now(), deleted_by = :actor, "
+                        + "version = version + 1, updated_by = :actor "
+                        + "where membership_id = :membership and deleted_at is null")
+                .param("actor", actor.value()).param("membership", membershipId).update();
     }
 
     // ---- entitlements (platform-level) ----

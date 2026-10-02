@@ -3,7 +3,7 @@ package app.platform.identity.internal;
 import app.platform.identity.PlatformRole;
 import app.platform.identity.User;
 import app.platform.identity.Users;
-import app.platform.licensing.Licences;
+import app.platform.security.MemberAccess;
 import app.platform.licensing.Subscriptions;
 import app.platform.sharedkernel.ActorId;
 import app.platform.tenant.Tenant;
@@ -60,14 +60,14 @@ class LocalUserSeeder implements ApplicationRunner {
     private final MembershipRepository memberships;
     private final TransactionTemplate transaction;
     private final Subscriptions subscriptions;
-    private final Licences licences;
+    private final MemberAccess access;
     private final PlatformRoleRepository platformRoles;
 
     LocalUserSeeder(Users users, IdentityProperties properties, Tenants tenants, TenantContexts contexts,
             MembershipRepository memberships, TransactionTemplate transaction, Subscriptions subscriptions,
-            Licences licences, PlatformRoleRepository platformRoles) {
+            MemberAccess access, PlatformRoleRepository platformRoles) {
         this.subscriptions = subscriptions;
-        this.licences = licences;
+        this.access = access;
         this.platformRoles = platformRoles;
         this.users = users;
         this.properties = properties;
@@ -115,9 +115,10 @@ class LocalUserSeeder implements ApplicationRunner {
                 contexts.run(new TenantContext(tenant, user.id(), null), () ->
                         transaction.executeWithoutResult(status -> {
                             if (memberships.findOwn(user.id()).isEmpty()) {
-                                UUID membership = memberships.insertMember(user.id(), administrator, false,
+                                UUID membership = memberships.insertMember(user.id(), false,
                                         ActorId.SYSTEM);
-                                licences.assignDefault(membership, ActorId.SYSTEM);
+                                access.join(membership, null, null, administrator, administrator,
+                                        ActorId.SYSTEM);
                                 LOG.info("Local user {} is a member of {}", user.displayName(), slug);
                             }
                         }));

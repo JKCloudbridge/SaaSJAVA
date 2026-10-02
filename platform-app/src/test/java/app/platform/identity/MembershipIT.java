@@ -56,9 +56,22 @@ class MembershipIT {
         return admin.postJson("/api/v1/members/" + membership + "/reactivate", "{}");
     }
 
-    private static Response administrator(TestBrowser admin, UUID membership, boolean value) {
-        return admin.request("PUT", "/api/v1/members/" + membership + "/administrator",
-                "{\"administrator\":" + value + "}");
+    /** Gives the member a profile (Sprint 7 replaced the administrator marker by profiles and abilities). */
+    private static Response setProfile(TestBrowser admin, UUID membership, UUID profile) {
+        return admin.request("PUT", "/api/v1/members/" + membership + "/profile",
+                "{\"profileId\":\"" + profile + "\"}");
+    }
+
+    /** The identifier of the organization's system administrator profile, as its administrators see it. */
+    private static UUID administratorProfile(TestBrowser admin) {
+        List<String> ids = JsonPath.read(admin.get("/api/v1/profiles").body(),
+                "$.data[?(@.name=='Organization administrator')].id");
+        return UUID.fromString(ids.get(0));
+    }
+
+    /** How many active members of the organization can manage access (the rule of ADR-0044). */
+    private static long holders(Organization organization) throws SQLException {
+        return IdentityDb.value(Long.class, "select platform_access_holders(?)", organization.id().value());
     }
 
     /** What a caller can see of a response, without what is unique to each request. */
@@ -183,7 +196,7 @@ class MembershipIT {
     }
 
     @Test
-    void aReactivatedAdministratorIsNotAnAdministratorUntilNamedAgain() {
+    void aReactivatedAdministratorComesBackWithTheDefaultProfileUntilGivenMoreAgain() {
         Organization organization = TestOrganizations.create(users);
         TestBrowser admin = signedIn(organization, organization.admin().person());
         Member second = TestOrganizations.join(users, organization.tenant(), true);
@@ -192,34 +205,30 @@ class MembershipIT {
 
         TestBrowser again = signedIn(organization, second.person());
 
-        assertThat(again.get("/api/v1/members").status()).isEqualTo(403);
-        assertThat(administrator(admin, second.membership(), true).status()).isEqualTo(204);
+        assertThat(again.get("/api/v1/members").status()).as("what they held ended with their membership")
+                .isEqualTo(403);
+        assertThat(setProfile(admin, second.membership(), administratorProfile(admin)).status()).isEqualTo(204);
         assertThat(again.get("/api/v1/members").status()).isEqualTo(200);
     }
 
-    // ---- the last administrator ----
+    // ---- the last member who can manage access (ADR-0044; the Sprint 5 rule about the marker moved here) ----
 
     @Test
-    void theLastAdministratorCannotBeDeactivatedOrReleasedAndAnotherOneLetsTheFounderLeave() throws SQLException {
+    void theLastMemberWhoCanManageAccessCannotBeDeactivatedAndAnotherOneLetsTheFounderLeave() throws SQLException {
         Organization organization = TestOrganizations.create(users);
         TestBrowser founder = signedIn(organization, organization.admin().person());
-        Member plain = TestOrganizations.join(users, organization.tenant(), false);
+        Member second = TestOrganizations.join(users, organization.tenant(), true);
 
-        Response deactivateLast = deactivate(founder, organization.admin().membership());
-        Response releaseLast = administrator(founder, organization.admin().membership(), false);
+        Response deactivateTheOnlyOneButNotYet = deactivate(founder, organization.admin().membership());
+        assertThat(deactivateTheOnlyOneButNotYet.status()).as("a second holder exists, the founder may step aside")
+                .isEqualTo(204);
+        TestBrowser nowLast = signedIn(organization, second.person());
+        Response deactivateLast = deactivate(nowLast, second.membership());
 
         assertThat(deactivateLast.status()).isEqualTo(409);
-        assertThat(JsonPath.<String>read(deactivateLast.body(), "$.error.message")).contains("last administrator");
-        assertThat(releaseLast.status()).isEqualTo(409);
-        assertThat(administrator(founder, plain.membership(), true).status()).isEqualTo(204);
-        // Now the founder can step aside, and the organization is not stuck.
-        assertThat(deactivate(founder, organization.admin().membership()).status()).isEqualTo(204);
-        TestBrowser second = signedIn(organization, plain.person());
-        assertThat(second.get("/api/v1/members").status()).isEqualTo(200);
-        assertThat(deactivate(second, plain.membership()).status()).as("and now the second is the last")
-                .isEqualTo(409);
-        assertThat(IdentityDb.value(Long.class, "select count(*) from membership where tenant_id = ? and "
-                + "administrator and status = 'ACTIVE'", organization.id().value())).isEqualTo(1L);
+        assertThat(JsonPath.<String>read(deactivateLast.body(), "$.error.message")).contains("manage access");
+        assertThat(nowLast.get("/api/v1/members").status()).as("nothing changed").isEqualTo(200);
+        assertThat(holders(organization)).isEqualTo(1L);
     }
 
     @Test
@@ -248,10 +257,10 @@ class MembershipIT {
             } finally {
                 pool.shutdownNow();
             }
-            assertThat(IdentityDb.value(Long.class, "select count(*) from membership where tenant_id = ? and "
-                    + "administrator and status = 'ACTIVE'", organization.id().value())).isEqualTo(1L);
+            assertThat(holders(organization)).isEqualTo(1L);
         }
     }
+
 
     @Test
     void deactivatingAndReactivatingOneMemberAtOnceNeverBreaksAnything() throws Exception {
@@ -303,7 +312,7 @@ class MembershipIT {
         assertThat(member.get("/api/v1/members").status()).isEqualTo(403);
         assertThat(deactivate(member, target.membership()).status()).isEqualTo(403);
         assertThat(reactivate(member, target.membership()).status()).isEqualTo(403);
-        assertThat(administrator(member, target.membership(), true).status()).isEqualTo(403);
+        assertThat(setProfile(member, target.membership(), UUID.randomUUID()).status()).isEqualTo(403);
         TestBrowser anonymous = new TestBrowser(port, organization.host());
         assertThat(anonymous.get("/api/v1/members").status()).isEqualTo(401);
         assertThat(deactivate(anonymous, target.membership()).status()).isEqualTo(401);
@@ -320,7 +329,7 @@ class MembershipIT {
 
         assertThat(deactivate(outsider, target.membership()).status()).isEqualTo(404);
         assertThat(reactivate(outsider, target.membership()).status()).isEqualTo(404);
-        assertThat(administrator(outsider, target.membership(), true).status()).isEqualTo(404);
+        assertThat(setProfile(outsider, target.membership(), UUID.randomUUID()).status()).isEqualTo(404);
         assertThat(JsonPath.<List<?>>read(outsider.get("/api/v1/members").body(), "$.data")).hasSize(1);
         // A forged tenant header or host header on the outsider's own host changes nothing.
         String bearer = outsider.signIn(stranger.admin().person().email(), stranger.admin().person().password())

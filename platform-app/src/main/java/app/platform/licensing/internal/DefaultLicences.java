@@ -1,5 +1,6 @@
 package app.platform.licensing.internal;
 
+import app.platform.licensing.LicenceTypeView;
 import app.platform.licensing.Licences;
 import app.platform.licensing.PoolView;
 import app.platform.sharedkernel.ActorId;
@@ -13,11 +14,10 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 /**
- * The rules of licences (ADR-0032). The pool row is locked before the count is read, so two requests for the last free
- * licence are decided one after the other; the database guards (a trigger on the assignment and on the pool) say the
- * same
- * thing again, so a bug here cannot break the rules. A refusal is a {@code CONFLICT} whose words never reveal more than
- * the numbers an administrator already sees.
+ * The rules of licences (ADR-0032, ADR-0039). The access lock and then the pool row are locked before the count is
+ * read, so two requests for the last free licence are decided one after the other; the database guards (a trigger on
+ * the assignment and on the pool) say the same thing again, so a bug here cannot break the rules. A refusal is a
+ * {@code CONFLICT} whose words never reveal more than the numbers an administrator already sees.
  */
 @Service
 class DefaultLicences implements Licences {
@@ -27,12 +27,25 @@ class DefaultLicences implements Licences {
 
     private final LicensingStore store;
     private final OrganizationWork work;
-    private final LicensingProperties properties;
 
-    DefaultLicences(LicensingStore store, OrganizationWork work, LicensingProperties properties) {
+    DefaultLicences(LicensingStore store, OrganizationWork work) {
         this.store = store;
         this.work = work;
-        this.properties = properties;
+    }
+
+    @Override
+    public Optional<UUID> licenceTypeId(String key) {
+        return key == null ? Optional.empty() : store.licenceTypeId(key);
+    }
+
+    @Override
+    public List<LicenceTypeView> licenceTypes() {
+        return store.licenceTypes();
+    }
+
+    @Override
+    public Map<UUID, String> licenceTypeKeys() {
+        return store.licenceTypeKeys();
     }
 
     @Override
@@ -46,28 +59,106 @@ class DefaultLicences implements Licences {
     }
 
     @Override
+    public Optional<String> profileLicenceOf(UUID membershipId) {
+        return work.inCurrent(() -> store.profileLicenceOf(membershipId));
+    }
+
+    @Override
+    public Map<UUID, Integer> policyUses() {
+        return work.inCurrent(store::policyUses);
+    }
+
+    @Override
     public void assign(UUID membershipId, String licenceType, ActorId actor) {
         UUID typeId = store.licenceTypeId(licenceType)
                 .orElseThrow(() -> ApiException.notFound("This licence type does not exist."));
         work.inCurrent(() -> {
+            store.lockAccessChanges();
             doAssign(membershipId, typeId, licenceType, actor, true);
             return null;
         });
     }
 
     @Override
-    public boolean release(UUID membershipId, ActorId actor) {
-        return Boolean.TRUE.equals(work.inCurrent(() -> store.releaseAssignment(membershipId, actor)));
-    }
-
-    @Override
-    public boolean assignDefault(UUID membershipId, ActorId actor) {
-        String type = properties.defaultLicenceType();
-        Optional<UUID> typeId = store.licenceTypeId(type);
+    public boolean assignIfFree(UUID membershipId, String licenceType, ActorId actor) {
+        Optional<UUID> typeId = store.licenceTypeId(licenceType);
         if (typeId.isEmpty()) {
             return false;
         }
-        return Boolean.TRUE.equals(work.inCurrent(() -> doAssign(membershipId, typeId.get(), type, actor, false)));
+        return Boolean.TRUE.equals(work.inCurrent(() -> {
+            store.lockAccessChanges();
+            return doAssign(membershipId, typeId.get(), licenceType, actor, false);
+        }));
+    }
+
+    @Override
+    public void assignToFounder(UUID membershipId, String licenceType, ActorId actor) {
+        Optional<UUID> typeId = store.licenceTypeId(licenceType);
+        if (typeId.isEmpty()) {
+            return;
+        }
+        work.inCurrent(() -> {
+            store.lockAccessChanges();
+            Optional<LicensingStore.PoolRow> pool = store.lockPool(typeId.get());
+            if (pool.isEmpty()) {
+                store.insertPool(typeId.get(), 1, actor);
+            } else if (store.used(typeId.get()) >= pool.get().quantity()) {
+                store.updatePool(pool.get().id(), pool.get().quantity() + 1, actor);
+            }
+            doAssign(membershipId, typeId.get(), licenceType, actor, false);
+            return null;
+        });
+    }
+
+    @Override
+    public void assignForPolicy(UUID membershipId, String licenceType, UUID policyId, ActorId actor) {
+        UUID typeId = store.licenceTypeId(licenceType)
+                .orElseThrow(() -> ApiException.notFound("This licence type does not exist."));
+        work.inCurrent(() -> {
+            store.lockAccessChanges();
+            Optional<LicensingStore.PoolRow> pool = store.lockPool(typeId);
+            if (pool.isEmpty()) {
+                throw new ApiException(ErrorCode.CONFLICT, NO_POOL);
+            }
+            if (store.policyAssignmentOf(membershipId, policyId).isPresent()) {
+                return null;
+            }
+            if (store.used(typeId) >= pool.get().quantity()) {
+                throw new ApiException(ErrorCode.CONFLICT, NO_FREE_LICENCE);
+            }
+            try {
+                store.insertPolicyAssignment(membershipId, typeId, policyId, actor);
+            } catch (DataIntegrityViolationException e) {
+                // The guard in the database refused (the member is not active, or a race the lock excluded).
+                throw new ApiException(ErrorCode.CONFLICT, NO_FREE_LICENCE);
+            }
+            return null;
+        });
+    }
+
+    @Override
+    public boolean releaseForPolicy(UUID membershipId, UUID policyId, ActorId actor) {
+        return Boolean.TRUE.equals(work.inCurrent(() -> {
+            store.lockAccessChanges();
+            return store.releasePolicyAssignment(membershipId, policyId, actor);
+        }));
+    }
+
+    @Override
+    public boolean release(UUID membershipId, ActorId actor) {
+        return Boolean.TRUE.equals(work.inCurrent(() -> {
+            store.lockAccessChanges();
+            return store.releaseAssignment(membershipId, actor);
+        }));
+    }
+
+    @Override
+    public int releaseAll(UUID membershipId, ActorId actor) {
+        Integer released = work.inCurrent(() -> {
+            store.lockAccessChanges();
+            return store.releaseAllAssignments(membershipId, actor);
+        });
+        return released == null ? 0 : released;
     }
 
     @Override
@@ -99,8 +190,8 @@ class DefaultLicences implements Licences {
     }
 
     /**
-     * Gives the member a licence of the type. With {@code strict} a refusal is an exception; without it, a false.
-     * Runs inside the caller's transaction.
+     * Gives the member the licence for their profile. With {@code strict} a refusal is an exception; without it, a
+     * false. Runs inside the caller's transaction.
      */
     private boolean doAssign(UUID membershipId, UUID typeId, String type, ActorId actor, boolean strict) {
         Optional<LicensingStore.PoolRow> pool = store.lockPool(typeId);

@@ -71,7 +71,7 @@ class FirstAdministratorRequestTest {
                 ((Supplier<?>) call.getArgument(1)).get());
         when(invitations.openOrRenew(any(), eq(true), eq(true), eq(true), any(), any())).thenReturn(
                 new InvitationRepository.Invitation(INVITATION, "person-a@example.test", true, true, "OPEN",
-                        NOW.plus(Duration.ofDays(7)), 1, NOW, true));
+                        NOW.plus(Duration.ofDays(7)), 1, NOW, true, null, null, null));
     }
 
     @Test

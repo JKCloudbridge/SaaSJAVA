@@ -109,10 +109,11 @@ Decisions in [ADR-0026](adr/0026-membership-lifecycle-and-the-administrator-mark
   the organization the host names (`MembershipGate`), and `TenantContext` carries `userId` and `membershipId`. Sign-in on an organization host
   refuses a non-member exactly like a wrong password. A test that signs a person in on an organization host must make them a member first
   (`TestMembers.add(...)`, or `TestOrganizations`).
-- **"May this member administer the organization?"** is asked in one place, `Administration.run(...)`. In Sprint 5 the answer is the
-  changeable `administrator` marker on the membership (the historical `founding_administrator` fact grants nothing); Sprint 7 replaces the
-  marker by an access policy and only that class changes. Wrap every administrative action in it so a refusal is audited.
-- **Tenant-scoped:** `membership` (lifecycle trigger, last-administrator rule with an advisory lock) and `invitation` (open, accepted,
+- **"May this member do this?"** is asked in one place, `Administration.run(action, ability, work)`. Since Sprint 7 the answer is the member's
+  effective abilities (their licensed profile, access policies and individual grants), not the Sprint 5 `administrator` marker, which nothing
+  reads any more (the historical `founding_administrator` fact grants nothing); see "Profiles, roles and access policies (Sprint 7)" below.
+  Wrap every administrative action in it so a refusal is audited.
+- **Tenant-scoped:** `membership` (lifecycle trigger; since Sprint 7 the "last member who can manage access" rule, ADR-0044) and `invitation` (open, accepted,
   revoked; one open invitation per address and organization). Both are in `TenantScopedTables`.
 - **Platform-level:** `organization_handoff` (the 60-second proof of a switch, hash only, column `bound_tenant_id`). `account_token` has a
   new purpose, `INVITATION`, with `context_tenant_id` and `invitation_id`, so the link resolves to the organization on the server.
@@ -152,8 +153,25 @@ Decisions in [ADR-0030](adr/0030-platform-roles-and-the-first-platform-administr
 - **Tests:** `TestPlatform` (platform people and plans), `PlatformRolesIT` (role against every endpoint), `LicencesIT`,
   `ProvisioningIT`, `OrganizationLifecycleIT`, `SupportAccessIT`, `SessionAdministrationIT`, `SubscriptionsAndEntitlementsIT`,
   `PlatformFlowsLogsAreCleanIT`, `FirstPlatformAdministratorScriptIT` (the manual step run with the real command line tool).
-- **Settings:** `platform.licensing.default-plan` (`trial`), `platform.licensing.default-licence-type` (`user`),
+- **Settings:** `platform.licensing.default-plan` (`trial`) (Sprint 7 removed `platform.licensing.default-licence-type`; the licence a new member gets is the one of their profile),
   `platform.identity.tokens.platform-session-max` (`4h`).
+
+## Profiles, roles and access policies (Sprint 7)
+
+The contributor view of ADR-0039 to ADR-0045. Every table of the sprint is **tenant-scoped** (`profile`, `access_policy`, `security_role`,
+`member_access`, `member_access_policy`, `member_grant`); none is platform-level, so there is nothing to seed outside an organization's own
+context. The two system profiles are created in that context (founding, provisioning by a platform administrator, the first member, the
+backfill); a platform administrator reaches one organization by opening its context before the transaction (`OrganizationScope`), as for
+pools, with no privileged connection and no new system scope.
+
+- A foreign key check bypasses row level security, so every table has a guard trigger that checks the rows it names belong to the same
+  organization (and that a member is active). A foreign identifier is simply not found.
+- Whoever writes a membership must give it access in the same transaction: `MemberAccess.join` (new), `returned` (reactivation), `left`
+  (deactivation or leaving). A platform person who opened an organization's context has no membership and therefore no abilities.
+- Changing what members hold takes the per-organization advisory lock first (`lockAccessChanges` in the identity, licensing and security
+  repositories, the same lock the database triggers take); then the member row; then the licence pool row.
+- Test fixtures: `TestMembers.add` (see the engineering guide), `TenantScopedTables` lists the six new tables, `MigrationIT` has the backfill
+  test, `AccessGuardIT` the guard under real concurrency. A test of a table's policy uses the application role, not the owner.
 
 ## Configuration of this sprint
 
