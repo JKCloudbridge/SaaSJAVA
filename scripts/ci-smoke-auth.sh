@@ -406,8 +406,8 @@ if [ -n "$mail" ]; then
   # events carry no typed text, a malformed filter is refused in words, and the platform endpoint is not served here.
   status="$(client_call "$base/api/v1/audit-events?kind=access.group&limit=50")"
   [ "$status" = "200" ] || fail "the audit viewer answered $status: $(cat "$body")"
-  grep -Fq type:access.group.created "$body" || fail "the viewer does not show the group that was created: $(cat "$body")"
-  grep -Fq type:access.group.member_added "$body" || fail "the viewer does not show the person added to a group: $(cat "$body")"
+  grep -Fq '"type":"access.group.created"' "$body" || fail "the viewer does not show the group that was created: $(cat "$body")"
+  grep -Fq '"type":"access.group.member_added"' "$body" || fail "the viewer does not show the person added to a group: $(cat "$body")"
   status="$(client_call "$base/api/v1/audit-events?kind=Not%20A%20Kind")"
   [ "$status" = "400" ] || fail "a malformed audit filter was not refused ($status): $(cat "$body")"
   status="$(client_call "$base/api/v1/platform/audit-events")"
