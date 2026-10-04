@@ -34,8 +34,12 @@ public interface Plans {
     /** Every licence type. */
     List<LicenceTypeView> licenceTypes();
 
-    /** Adds a licence type. @throws app.platformapi.ApiException {@code VALIDATION_ERROR} or {@code CONFLICT} */
-    LicenceTypeView addLicenceType(String key, String name, ActorId actor);
+    /**
+     * Adds a licence type of the kind ({@code SEAT} or {@code ADD_ON}, see {@link LicenceTypeView}).
+     *
+     * @throws app.platformapi.ApiException {@code VALIDATION_ERROR} or {@code CONFLICT}
+     */
+    LicenceTypeView addLicenceType(String key, String name, String kind, ActorId actor);
 
     /** Every feature key. */
     List<FeatureView> features();

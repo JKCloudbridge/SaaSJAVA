@@ -16,9 +16,8 @@ import org.springframework.stereotype.Repository;
  * default and the policy take it from the transaction. The database also enforces the lifecycle (legal status moves)
  * and that the organization keeps a member who can manage access (ADR-0044), so a bug here cannot break those rules.
  *
- * <p>The administrator marker column of Sprint 5 still exists but nothing reads or writes it any more (ADR-0039): what
- * a
- * member may do comes from their profile, access policies and grants. A later contract migration drops it.
+ * <p>What a member may do comes from their profile, access policies, groups and grants (ADR-0039, ADR-0047); the
+ * administrator marker of Sprint 5 was dropped in Sprint 8 (ADR-0051).
  */
 @Repository
 class MembershipRepository {

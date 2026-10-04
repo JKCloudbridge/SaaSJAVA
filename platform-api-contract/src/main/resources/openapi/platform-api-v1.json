@@ -186,6 +186,92 @@
         "tags" : [ "Access" ]
       }
     },
+    "/api/v1/access-policies/{policyId}/data-access" : {
+      "get" : {
+        "description" : "For members who manage access. NOT_FOUND for a policy of another organization.",
+        "operationId" : "getAccessPolicyDataAccess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "policyId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDataAccessView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The permission matrix of an access policy",
+        "tags" : [ "Access" ]
+      },
+      "put" : {
+        "description" : "What is not listed is not allowed. Takes effect at once for everyone who holds the policy, also through a group. VALIDATION_ERROR for an unknown object, field or action. Audited.",
+        "operationId" : "replaceAccessPolicyDataAccess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "policyId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveDataAccessRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDataAccessView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Replace the permission matrix of an access policy",
+        "tags" : [ "Access" ]
+      }
+    },
     "/api/v1/auth/csrf" : {
       "get" : {
         "description" : "Answers 204 and sets the XSRF-TOKEN cookie. A browser page reads that cookie and sends its value in the X-XSRF-TOKEN header with every state-changing request, which the server compares with the cookie.",
@@ -713,6 +799,489 @@
         "tags" : [ "Authentication" ]
       }
     },
+    "/api/v1/data-access/mine" : {
+      "get" : {
+        "description" : "Their effective permissions on objects and fields (profile while licensed, access policies, the access policies of their groups, individual grants), with implied actions written out. Presentation only: every request is decided again by the server. NOT_FOUND on the platform host.",
+        "operationId" : "getMyDataAccess",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDataAccessView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "What the signed-in member may do with data",
+        "tags" : [ "Access" ]
+      }
+    },
+    "/api/v1/data-catalogue" : {
+      "get" : {
+        "description" : "Objects arrive with the metadata engine (Sprint 10); until then a deployment lists none. For members who manage access. NOT_FOUND on the platform host, FORBIDDEN without the ability.",
+        "operationId" : "getDataCatalogue",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDataCatalogue"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The objects and fields a permission matrix can be about, and the actions",
+        "tags" : [ "Access" ]
+      }
+    },
+    "/api/v1/groups" : {
+      "get" : {
+        "description" : "With their people, nested groups and access policies. For members who manage access. NOT_FOUND on the platform host, FORBIDDEN without the ability.",
+        "operationId" : "listGroups",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListGroupView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "List the public groups of the organization",
+        "tags" : [ "Access" ]
+      },
+      "post" : {
+        "description" : "A named set of people and groups. VALIDATION_ERROR for a name in use. Audited.",
+        "operationId" : "createGroup",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveGroupRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseGroupView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Create a public group",
+        "tags" : [ "Access" ]
+      }
+    },
+    "/api/v1/groups/{groupId}" : {
+      "delete" : {
+        "description" : "Everyone who held something through the group loses it at once. CONFLICT when that would leave nobody who can manage access. Audited.",
+        "operationId" : "deleteGroup",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "groupId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a public group",
+        "tags" : [ "Access" ]
+      },
+      "get" : {
+        "description" : "NOT_FOUND for a group of another organization.",
+        "operationId" : "getGroup",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "groupId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseGroupView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Read one public group",
+        "tags" : [ "Access" ]
+      },
+      "put" : {
+        "description" : "VALIDATION_ERROR for a name in use. NOT_FOUND for a group of another organization. Audited.",
+        "operationId" : "updateGroup",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "groupId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveGroupRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseGroupView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Rename a public group",
+        "tags" : [ "Access" ]
+      }
+    },
+    "/api/v1/groups/{groupId}/members" : {
+      "post" : {
+        "description" : "Name exactly one of membershipId and groupId. CONFLICT when the group would contain itself, directly or through other groups, or when the person is not an active member. Audited.",
+        "operationId" : "addGroupMember",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "groupId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AddGroupMemberRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseGroupView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Put a person or another group into a group",
+        "tags" : [ "Access" ]
+      }
+    },
+    "/api/v1/groups/{groupId}/members/groups/{innerGroupId}" : {
+      "delete" : {
+        "description" : "Takes effect at once. CONFLICT when that would leave nobody who can manage access. Audited.",
+        "operationId" : "removeGroupGroup",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "groupId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "innerGroupId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseGroupView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Take a nested group out of a group",
+        "tags" : [ "Access" ]
+      }
+    },
+    "/api/v1/groups/{groupId}/members/people/{membershipId}" : {
+      "delete" : {
+        "description" : "Takes effect at once. CONFLICT when that would leave nobody who can manage access. Audited.",
+        "operationId" : "removeGroupPerson",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "groupId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "membershipId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseGroupView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Take a person out of a group",
+        "tags" : [ "Access" ]
+      }
+    },
+    "/api/v1/groups/{groupId}/policies" : {
+      "post" : {
+        "description" : "Everyone in the group, directly or through nested groups, holds what the policy gives. CONFLICT for a policy that needs a licence (a licence belongs to a person). Audited.",
+        "operationId" : "giveGroupPolicy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "groupId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssignPolicyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseGroupView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Give an access policy to a group",
+        "tags" : [ "Access" ]
+      }
+    },
+    "/api/v1/groups/{groupId}/policies/{policyId}" : {
+      "delete" : {
+        "description" : "Takes effect at once. CONFLICT when that would leave nobody who can manage access. Audited.",
+        "operationId" : "takeGroupPolicy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "groupId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "policyId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseGroupView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Take an access policy from a group",
+        "tags" : [ "Access" ]
+      }
+    },
     "/api/v1/invitations" : {
       "get" : {
         "description" : "Newest first, with their state: OPEN, EXPIRED, ACCEPTED or REVOKED. For administrators.",
@@ -861,7 +1430,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListCatalogueItem"
+                  "$ref" : "#/components/schemas/ApiResponseListLicenceTypeItem"
                 }
               }
             },
@@ -979,6 +1548,92 @@
         },
         "summary" : "Everything that decides what one member may do",
         "tags" : [ "Members" ]
+      }
+    },
+    "/api/v1/members/{membershipId}/data-access" : {
+      "get" : {
+        "description" : "For members who manage access. NOT_FOUND for a member of another organization.",
+        "operationId" : "getMemberDataAccess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "membershipId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDataAccessView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The permissions on data granted to one member directly",
+        "tags" : [ "Access" ]
+      },
+      "put" : {
+        "description" : "What is not listed is not granted. VALIDATION_ERROR for an unknown object, field or action; CONFLICT for a member who is not active. Audited.",
+        "operationId" : "replaceMemberDataAccess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "membershipId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveDataAccessRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDataAccessView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Replace the permissions on data granted to one member directly",
+        "tags" : [ "Access" ]
       }
     },
     "/api/v1/members/{membershipId}/deactivate" : {
@@ -1545,7 +2200,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListCatalogueItem"
+                  "$ref" : "#/components/schemas/ApiResponseListLicenceTypeItem"
                 }
               }
             },
@@ -1566,13 +2221,13 @@
         "tags" : [ "Platform plans" ]
       },
       "post" : {
-        "description" : "CONFLICT when the key exists. For platform administrators and billing.",
+        "description" : "A SEAT (the right to occupy a seat; profiles belong to one) or an ADD_ON (sold on top, for example the licence of a standard access policy); SEAT when not given. CONFLICT when the key exists. For platform administrators and billing.",
         "operationId" : "addLicenceType",
         "requestBody" : {
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/AddCatalogueItemRequest"
+                "$ref" : "#/components/schemas/AddLicenceTypeRequest"
               }
             }
           },
@@ -1583,7 +2238,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseCatalogueItem"
+                  "$ref" : "#/components/schemas/ApiResponseLicenceTypeItem"
                 }
               }
             },
@@ -2702,6 +3357,92 @@
         "tags" : [ "Access" ]
       }
     },
+    "/api/v1/profiles/{profileId}/data-access" : {
+      "get" : {
+        "description" : "For members who manage access. The administrator profile answers everything. NOT_FOUND for a profile of another organization.",
+        "operationId" : "getProfileDataAccess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "profileId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDataAccessView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The permission matrix of a profile",
+        "tags" : [ "Access" ]
+      },
+      "put" : {
+        "description" : "What is not listed is not allowed. Counts for its members while they hold the licence of the profile. VALIDATION_ERROR for an unknown object, field or action; CONFLICT for the administrator profile. Audited.",
+        "operationId" : "replaceProfileDataAccess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "profileId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveDataAccessRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDataAccessView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Replace the permission matrix of a profile",
+        "tags" : [ "Access" ]
+      }
+    },
     "/api/v1/profiles/{profileId}/default" : {
       "post" : {
         "description" : "CONFLICT for the administrator profile. Audited.",
@@ -3113,6 +3854,10 @@
           "description" : {
             "type" : "string"
           },
+          "groups" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "id" : {
             "type" : "string",
             "format" : "uuid"
@@ -3136,6 +3881,40 @@
           "key" : {
             "type" : "string",
             "maxLength" : 40,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "key", "name" ]
+      },
+      "AddGroupMemberRequest" : {
+        "type" : "object",
+        "properties" : {
+          "groupId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "membershipId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "AddLicenceTypeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "kind" : {
+            "type" : "string",
+            "maxLength" : 10,
             "minLength" : 0
           },
           "name" : {
@@ -3224,6 +4003,33 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseDataAccessView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/DataAccessView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseDataCatalogue" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/DataCatalogue"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseGroupView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/GroupView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseInvitationAccepted" : {
         "type" : "object",
         "properties" : {
@@ -3238,6 +4044,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/InvitationPreview"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseLicenceTypeItem" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/LicenceTypeItem"
           }
         },
         "required" : [ "data" ]
@@ -3278,6 +4093,18 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListGroupView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/GroupView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListInvitationView" : {
         "type" : "object",
         "properties" : {
@@ -3297,6 +4124,18 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/LicencePoolView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListLicenceTypeItem" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LicenceTypeItem"
             }
           }
         },
@@ -3678,6 +4517,99 @@
         },
         "required" : [ "abilities", "displayName", "email", "id", "platformRoles" ]
       },
+      "DataAccessView" : {
+        "type" : "object",
+        "properties" : {
+          "everything" : {
+            "type" : "boolean"
+          },
+          "fields" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PermissionEntry"
+            }
+          },
+          "objects" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PermissionEntry"
+            }
+          }
+        },
+        "required" : [ "fields", "objects" ]
+      },
+      "DataAction" : {
+        "type" : "object",
+        "properties" : {
+          "implies" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "implies", "key", "title" ]
+      },
+      "DataCatalogue" : {
+        "type" : "object",
+        "properties" : {
+          "fieldActions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DataAction"
+            }
+          },
+          "objectActions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DataAction"
+            }
+          },
+          "objects" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DataObject"
+            }
+          }
+        },
+        "required" : [ "fieldActions", "objectActions", "objects" ]
+      },
+      "DataField" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "key", "label" ]
+      },
+      "DataObject" : {
+        "type" : "object",
+        "properties" : {
+          "fields" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DataField"
+            }
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "fields", "key", "label" ]
+      },
       "EntitlementInfo" : {
         "type" : "object",
         "properties" : {
@@ -3794,6 +4726,57 @@
           }
         },
         "required" : [ "ability", "reason", "since" ]
+      },
+      "GroupRef" : {
+        "type" : "object",
+        "properties" : {
+          "direct" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "name" ]
+      },
+      "GroupView" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "groups" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/GroupRef"
+            }
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "people" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            }
+          },
+          "policies" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AccessPolicyRef"
+            }
+          }
+        },
+        "required" : [ "description", "groups", "id", "name", "people", "policies" ]
       },
       "InvitationAccepted" : {
         "type" : "object",
@@ -3931,6 +4914,21 @@
         },
         "required" : [ "licenceType", "name" ]
       },
+      "LicenceTypeItem" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "key", "kind", "name" ]
+      },
       "LifecycleRequest" : {
         "type" : "object",
         "properties" : {
@@ -3956,10 +4954,19 @@
               "type" : "string"
             }
           },
+          "data" : {
+            "$ref" : "#/components/schemas/DataAccessView"
+          },
           "grants" : {
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/GrantView"
+            }
+          },
+          "groups" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/GroupRef"
             }
           },
           "licenceHeld" : {
@@ -3993,7 +5000,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "abilities", "grants", "membershipId", "policies" ]
+        "required" : [ "abilities", "data", "grants", "groups", "membershipId", "policies" ]
       },
       "MemberView" : {
         "type" : "object",
@@ -4095,6 +5102,27 @@
           }
         },
         "required" : [ "hasMore", "limit" ]
+      },
+      "PermissionEntry" : {
+        "type" : "object",
+        "properties" : {
+          "actions" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 20,
+              "minLength" : 0
+            },
+            "maxItems" : 6,
+            "minItems" : 0
+          },
+          "key" : {
+            "type" : "string",
+            "maxLength" : 121,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "actions", "key" ]
       },
       "PlanInfo" : {
         "type" : "object",
@@ -4395,6 +5423,44 @@
           }
         },
         "required" : [ "abilities", "name" ]
+      },
+      "SaveDataAccessRequest" : {
+        "type" : "object",
+        "properties" : {
+          "fields" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PermissionEntry"
+            },
+            "maxItems" : 5000,
+            "minItems" : 0
+          },
+          "objects" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PermissionEntry"
+            },
+            "maxItems" : 500,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "fields", "objects" ]
+      },
+      "SaveGroupRequest" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "name" ]
       },
       "SavePlanRequest" : {
         "type" : "object",

@@ -191,3 +191,18 @@ Tuning of the relay (`platform.outbox.*`: poll interval, batch size, lease, atte
 
 Open `http://tenant-a.localhost:3000` (and `tenant-b`): the `local` profile creates both organizations at start-up. See
 [../infra/local/README.md](../infra/local/README.md) for the application role (`init-app-role.ps1`).
+
+## Public groups, object and field permissions and the decision API (Sprint 8)
+
+Short form; decisions in ADR-0046 to ADR-0052.
+
+- **Tenant-scoped tables (ADR-0015):** `public_group`, `public_group_member`, `public_group_access_policy`, `object_permission`, `field_permission`, each with
+  forced row level security, the tenant guard and a guard that keeps every row inside its organization (a foreign key bypasses row level security).
+  `licence_type` gained a `kind` (platform-level catalogue). Register a new table in `TenantScopedTables`.
+- **Groups** carry access policies; no loops (service and database, one lock per organization); a member who ends leaves every group.
+- **Permissions on data** live in the same three containers as abilities and are combined by the same union; objects and fields are named by key and
+  validated by `ObjectCatalog`. Ask only through `Decisions` (`can`, `accessTo`, `accessToAll`); the tenant is the context, never a parameter; unknown and
+  forbidden answer alike.
+- **Licences:** a policy of the licence type of the member's profile uses no extra licence; a different type takes one (ADR-0046).
+- **Platform functions:** annotate a platform console endpoint with `@PlatformFunction`; an architecture test fails without it (ADR-0052).
+- **Tests:** `DecisionMatrixTest`, `DataAccessPropertyTest`, `GroupIT`, `GroupGuardIT`, `DataAccessIT`, `PolicyLicenceRuleIT`, `GroupFlowsLogsAreCleanIT`.

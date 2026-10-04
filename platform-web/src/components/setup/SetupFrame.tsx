@@ -7,11 +7,12 @@ import type { ReactNode } from "react";
 const SECTIONS = [
   { href: "/setup/profiles", label: "Profiles" },
   { href: "/setup/access-policies", label: "Access policies" },
+  { href: "/setup/groups", label: "Groups" },
   { href: "/setup/roles", label: "Roles" },
 ];
 
 /**
- * The frame of the setup pages (profiles, access policies, roles) of the organization the address names. It only
+ * The frame of the setup pages (profiles, access policies, groups, roles) of the organization the address names. It only
  * navigates: whether the person may open a page is the API's answer, which each page shows in the API's own words.
  */
 export function SetupFrame({ children }: { children: ReactNode }) {

@@ -161,10 +161,57 @@ public final class TenantScopedTables {
                         tenant, membership, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
             });
 
+    /** The public groups of organizations (Sprint 8). */
+    public static final TenantScopedTable PUBLIC_GROUP = new TenantScopedTable("public_group",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into public_group (tenant_id, name, created_by, updated_by) values (?, ?, ?, ?)",
+                    tenant, "probe-" + UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
+    /** The people and nested groups in public groups (Sprint 8). A probe row needs a group and a membership. */
+    public static final TenantScopedTable PUBLIC_GROUP_MEMBER = new TenantScopedTable("public_group_member",
+            (connection, tenant) -> {
+                UUID membership = probeMembership(connection, tenant);
+                UUID group = probeGroup(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into public_group_member (tenant_id, group_id, member_membership_id, created_by, "
+                                + "updated_by) values (?, ?, ?, ?, ?)",
+                        tenant, group, membership, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** The access policies given to public groups (Sprint 8). */
+    public static final TenantScopedTable PUBLIC_GROUP_ACCESS_POLICY = new TenantScopedTable(
+            "public_group_access_policy", (connection, tenant) -> {
+                UUID group = probeGroup(connection, tenant);
+                UUID policy = UUID.randomUUID();
+                TenantFixtures.update(connection,
+                        "insert into access_policy (id, tenant_id, name, created_by, updated_by) "
+                                + "values (?, ?, ?, ?, ?)",
+                        policy, tenant, "probe-" + policy, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+                TenantFixtures.update(connection,
+                        "insert into public_group_access_policy (tenant_id, group_id, access_policy_id, created_by, "
+                                + "updated_by) values (?, ?, ?, ?, ?)",
+                        tenant, group, policy, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** What a profile allows on objects (Sprint 8). */
+    public static final TenantScopedTable OBJECT_PERMISSION = new TenantScopedTable("object_permission",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into object_permission (tenant_id, profile_id, object_key, actions, created_by, "
+                            + "updated_by) values (?, ?, 'object-a', array['read'], ?, ?)",
+                    tenant, probeProfile(connection, tenant), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
+    /** What a profile allows on fields (Sprint 8). */
+    public static final TenantScopedTable FIELD_PERMISSION = new TenantScopedTable("field_permission",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into field_permission (tenant_id, profile_id, field_key, actions, created_by, "
+                            + "updated_by) values (?, ?, 'object-a.field-a', array['read'], ?, ?)",
+                    tenant, probeProfile(connection, tenant), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
-            MEMBER_ACCESS, MEMBER_ACCESS_POLICY, MEMBER_GRANT);
+            MEMBER_ACCESS, MEMBER_ACCESS_POLICY, MEMBER_GRANT, PUBLIC_GROUP, PUBLIC_GROUP_MEMBER,
+            PUBLIC_GROUP_ACCESS_POLICY, OBJECT_PERMISSION, FIELD_PERMISSION);
 
     private TenantScopedTables() {
     }
@@ -181,6 +228,15 @@ public final class TenantScopedTables {
                 "insert into membership (id, tenant_id, user_id, created_by, updated_by) values (?, ?, ?, ?, ?)",
                 membership, tenant, user, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
         return membership;
+    }
+
+    /** A public group of the tenant for a probe row; returns it. */
+    private static UUID probeGroup(java.sql.Connection connection, UUID tenant) throws java.sql.SQLException {
+        UUID group = UUID.randomUUID();
+        TenantFixtures.update(connection,
+                "insert into public_group (id, tenant_id, name, created_by, updated_by) values (?, ?, ?, ?, ?)",
+                group, tenant, "probe-" + group, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        return group;
     }
 
     /** A profile of the tenant for a probe row; returns it. */

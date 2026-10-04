@@ -371,6 +371,37 @@ if [ -n "$mail" ]; then
     || fail "the changes of access were not audited"
   echo "ok: a profile and an access policy are created and given, the access is read back, and the changes are audited"
 
+  # 14. Groups and permissions on data on the image (Sprint 8): the first administrator creates two groups, puts themselves
+  # and the second group into the first, gives the policy to the group, a loop is refused, and in a deployment no object
+  # exists yet, so the catalogue is empty and a permission on an object is refused.
+  group_json='Content-Type: application/json'
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"smoke-group-a","description":""}' "$base/api/v1/groups")"
+  [ "$status" = "201" ] || fail "creating a group answered $status: $(cat "$body")"
+  group_a="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"smoke-group-b","description":""}' "$base/api/v1/groups")"
+  [ "$status" = "201" ] || fail "creating a second group answered $status: $(cat "$body")"
+  group_b="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(client_call -X POST -H "$group_json" -d "{\"membershipId\":\"$own_membership\"}" "$base/api/v1/groups/$group_a/members")"
+  [ "$status" = "200" ] || fail "putting a person into a group answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d "{\"groupId\":\"$group_b\"}" "$base/api/v1/groups/$group_a/members")"
+  [ "$status" = "200" ] || fail "putting a group into a group answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d "{\"groupId\":\"$group_a\"}" "$base/api/v1/groups/$group_b/members")"
+  [ "$status" = "409" ] || fail "a loop of groups was not refused ($status): $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d "{\"policyId\":\"$policy_id\"}" "$base/api/v1/groups/$group_a/policies")"
+  [ "$status" = "200" ] || fail "giving a policy to a group answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/members/$own_membership/access")"
+  grep -Fq '"groups":[{' "$body" || fail "the access view lacks the group: $(cat "$body")"
+  status="$(client_call "$base/api/v1/data-catalogue")"
+  [ "$status" = "200" ] || fail "reading the data catalogue answered $status: $(cat "$body")"
+  grep -Fq '"objects":[]' "$body" || fail "a deployment must list no objects before Sprint 10: $(cat "$body")"
+  profile_id="$(client_call "$base/api/v1/profiles" >/dev/null; grep -o '"id":"[^"]*","name":"smoke-profile"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(client_call -X PUT -H "$group_json" -d '{"objects":[{"key":"object-a","actions":["read"]}],"fields":[]}'     "$base/api/v1/profiles/$profile_id/data-access")"
+  [ "$status" = "400" ] || fail "a permission on an object that does not exist was not refused ($status): $(cat "$body")"
+  status="$(client_call "$base/api/v1/data-access/mine")"
+  grep -q '"everything":true' "$body" || fail "the administrator profile does not hold everything: $(cat "$body")"
+  [ "$(owner_sql -c "select count(*) from audit_record where event_type like 'access.group.%' and context_tenant_id is not null")" -ge 3 ]     || fail "the changes of groups were not audited"
+  echo "ok: groups are created, filled and given a policy, a loop is refused, no object exists in a deployment, and the changes are audited"
+
   stored="$(owner_sql -c "select t::text from account_token t union all select t::text from mail_queue t \
     union all select attributes::text from audit_record union all select t::text from invitation t")"
   if echo "$stored" | grep -q "$client_token"; then

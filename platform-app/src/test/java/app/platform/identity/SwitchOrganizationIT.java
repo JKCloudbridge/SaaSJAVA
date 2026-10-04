@@ -95,7 +95,7 @@ class SwitchOrganizationIT {
         UUID membership = TestOrganizations.join(deactivated.tenant(), person, false);
         TestOrganizations.join(closed.tenant(), person, false);
         TestBrowser browser = signedInOnPlatform(person);
-        IdentityDb.executeWithoutTriggers("update membership set status = 'DEACTIVATED', administrator = false "
+        IdentityDb.executeWithoutTriggers("update membership set status = 'DEACTIVATED' "
                 + "where id = ?", membership);
         IdentityDb.executeWithoutTriggers("update tenant set status = 'SUSPENDED' where id = ?", closed.id().value());
 
@@ -197,7 +197,7 @@ class SwitchOrganizationIT {
         IdentityDb.executeWithoutTriggers("update organization_handoff set expires_at = now() - interval '1 minute' "
                 + "where user_id = ? and used_at is null", person.user().id());
         String left = tokenOf(switchTo(inFirst, second.tenant().slug()));
-        IdentityDb.executeWithoutTriggers("update membership set status = 'DEACTIVATED', administrator = false "
+        IdentityDb.executeWithoutTriggers("update membership set status = 'DEACTIVATED' "
                 + "where id = ?", membership);
         Response expiredAnswer = complete(new TestBrowser(port, second.host()), expired);
         Response leftAnswer = complete(new TestBrowser(port, second.host()), left);

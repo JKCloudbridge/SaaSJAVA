@@ -5,6 +5,7 @@ import { COMMON_TEXT } from "@/components/account/messages";
 import { ActionMessages, failureText, useAction } from "@/components/console/useAction";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
+import { DataAccessEditor } from "@/components/setup/DataAccessEditor";
 
 type Access = components["schemas"]["MemberAccessView"];
 type Profile = components["schemas"]["ProfileView"];
@@ -292,6 +293,44 @@ export function MemberAccessPanel({
           </button>
         </form>
       </section>
+
+      <section aria-label="Groups of this member">
+        <h4>Groups</h4>
+        {access.groups.length === 0 ? <p>None.</p> : null}
+        <ul data-testid="member-groups">
+          {access.groups.map((group) => (
+            <li key={group.id}>
+              {group.name}
+              {group.direct ? "" : " (through another group)"}
+            </li>
+          ))}
+        </ul>
+        <p className="hint">People are put into groups on the Groups page of the setup.</p>
+      </section>
+
+      <section aria-label="What this member may do with data" data-testid="member-data">
+        <h4>What this member may do with data</h4>
+        {access.data.everything ? <p>Every permission on every object and field.</p> : null}
+        {!access.data.everything && access.data.objects.length === 0 && access.data.fields.length === 0 ? <p>Nothing.</p> : null}
+        <ul>
+          {access.data.objects.map((entry) => (
+            <li key={entry.key}>
+              {entry.key}: {entry.actions.join(", ")}
+            </li>
+          ))}
+          {access.data.fields.map((entry) => (
+            <li key={entry.key}>
+              {entry.key}: {entry.actions.join(", ")}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <DataAccessEditor
+        key={membershipId}
+        target={{ kind: "member", id: membershipId }}
+        title="Permissions given to this member directly"
+      />
     </div>
   );
 }

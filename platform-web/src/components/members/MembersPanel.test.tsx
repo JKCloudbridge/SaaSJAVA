@@ -257,8 +257,10 @@ describe("MembersPanel", () => {
             profileLicenceType: "user",
             licenceHeld: false,
             policies: [],
+            groups: [{ id: "99999999-9999-4999-8999-999999999999", name: "group-a", direct: false }],
             grants: [{ ability: "members.view", reason: "covers for a colleague", since: "2026-10-02T10:00:00Z" }],
             abilities: ["members.view"],
+            data: { everything: false, objects: [{ key: "object-a", actions: ["read", "update"] }], fields: [] },
           },
         }),
       "GET /api/v1/abilities": () => json({ data: [{ key: "members.view", name: "See members", description: "x" }] }),
@@ -272,6 +274,8 @@ describe("MembersPanel", () => {
     expect(await screen.findByTestId("member-abilities")).toHaveTextContent("See members");
     expect(screen.getByTestId("member-unlicensed")).toHaveTextContent("does not hold the user licence");
     expect(screen.getByTestId("member-grants")).toHaveTextContent("covers for a colleague");
+    expect(screen.getByTestId("member-groups")).toHaveTextContent("group-a (through another group)");
+    expect(screen.getByTestId("member-data")).toHaveTextContent("object-a: read, update");
     expect(calls.map((call) => call.key)).toContain("GET /api/v1/members/22222222-2222-4222-8222-222222222222/access");
   });
 

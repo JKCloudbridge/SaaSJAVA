@@ -5,7 +5,7 @@ import app.platform.security.Ability;
 import app.platform.sharedkernel.ActorId;
 import app.platformapi.AbilityInfo;
 import app.platformapi.ApiException;
-import app.platformapi.CatalogueItem;
+import app.platformapi.LicenceTypeItem;
 import app.platformapi.ErrorCode;
 import app.platformapi.ProfileView;
 import app.platformapi.SaveProfileRequest;
@@ -36,10 +36,12 @@ class ProfileService {
     private final Licences licences;
     private final AccessAudit audit;
     private final SystemProfiles systemProfiles;
+    private final DataAccessStore dataStore;
 
     ProfileService(AccessGate gate, AccessStore store, Licences licences, AccessAudit audit,
-            SystemProfiles systemProfiles) {
+            SystemProfiles systemProfiles, DataAccessStore dataStore) {
         this.gate = gate;
+        this.dataStore = dataStore;
         this.store = store;
         this.licences = licences;
         this.audit = audit;
@@ -53,9 +55,9 @@ class ProfileService {
     }
 
     /** The licence types a profile or an access policy can use (the platform's catalogue). */
-    List<CatalogueItem> licenceTypes() {
+    List<LicenceTypeItem> licenceTypes() {
         return gate.run("licence_type.list", READERS, caller -> licences.licenceTypes().stream()
-                .map(type -> new CatalogueItem(type.key(), type.name())).toList());
+                .map(type -> new LicenceTypeItem(type.key(), type.name(), type.kind())).toList());
     }
 
     List<ProfileView> list() {
@@ -131,6 +133,7 @@ class ProfileService {
                         "Members still hold this profile. Give them another profile first.");
             }
             store.deleteProfile(id, new ActorId(caller.userId()));
+            dataStore.deleteAll(DataAccessStore.Holder.PROFILE, id, new ActorId(caller.userId()));
             audit.profileDeleted(caller.userId(), id, profile.name());
             return null;
         });
@@ -159,9 +162,16 @@ class ProfileService {
                 profile.defaultProfile(), profile.members());
     }
 
+    /** The licence type of a profile: it must exist and be a seat (an add-on cannot be what a profile needs). */
     private UUID licenceType(String key) {
-        return licences.licenceTypeId(key == null ? "" : key.strip().toLowerCase(java.util.Locale.ROOT))
+        String wanted = key == null ? "" : key.strip().toLowerCase(java.util.Locale.ROOT);
+        UUID id = licences.licenceTypeId(wanted)
                 .orElseThrow(() -> ApiException.validation("licenceType", "Is not a licence type."));
+        boolean seat = licences.licenceTypes().stream().anyMatch(type -> type.key().equals(wanted) && type.seat());
+        if (!seat) {
+            throw ApiException.validation("licenceType", "A profile needs a seat licence type, not an add-on.");
+        }
+        return id;
     }
 
     /** The sorted, unique keys of the abilities named; an ability the platform does not know is refused. */

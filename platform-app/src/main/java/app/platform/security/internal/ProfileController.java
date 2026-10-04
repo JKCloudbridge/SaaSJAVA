@@ -3,7 +3,7 @@ package app.platform.security.internal;
 import app.platformapi.AbilityInfo;
 import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
-import app.platformapi.CatalogueItem;
+import app.platformapi.LicenceTypeItem;
 import app.platformapi.ProfileView;
 import app.platformapi.SaveProfileRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -55,7 +55,7 @@ class ProfileController {
             description = "The platform's catalogue of licence types, for the setup screens. For members who manage "
                     + "access, invite members or see members. NOT_FOUND on the platform host, FORBIDDEN without "
                     + "one of those abilities.")
-    ApiResponse<List<CatalogueItem>> licenceTypes() {
+    ApiResponse<List<LicenceTypeItem>> licenceTypes() {
         return ApiResponse.of(profiles.licenceTypes());
     }
 
