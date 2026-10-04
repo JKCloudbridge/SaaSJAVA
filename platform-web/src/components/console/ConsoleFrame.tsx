@@ -53,6 +53,9 @@ export function ConsoleFrame({ children }: { children: ReactNode }) {
         <li>
           <Link href="/console/sessions">Sessions</Link>
         </li>
+        <li>
+          <Link href="/console/audit">Audit trail</Link>
+        </li>
       </ul>
       {children}
     </div>

@@ -50,7 +50,12 @@ public enum Ability {
 
     /** Manage profiles, access policies, roles and who holds them. */
     ACCESS_MANAGE("access.manage", "Manage access",
-            "Create and change profiles, access policies and roles, give them to members and give abilities directly.");
+            "Create and change profiles, access policies and roles, give them to members and give abilities directly."),
+
+    /** Read the audit trail of the organization. */
+    AUDIT_VIEW("audit.view", "View the audit trail",
+            "See who changed what in the organization and when: access changes, invitations, sign-ins and support "
+                    + "access.");
 
     private final String key;
     private final String title;

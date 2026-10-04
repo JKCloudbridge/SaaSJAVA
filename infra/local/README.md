@@ -6,7 +6,7 @@ Everything binds to `127.0.0.1` only.
 | Service | Purpose | Host address (default) |
 |---------|---------|------------------------|
 | `postgres` | PostgreSQL 18 database | `localhost:5432`, database and user from `.env` |
-| `redis` | Redis 8 cache (password protected) | `localhost:6379` |
+| `redis` | Redis 8 (password protected): the sign-in rate limits. The security cache of Sprint 9 does not use it ([ADR-0053](../../docs/adr/0053-the-security-cache-and-its-version.md)) | `localhost:6379` |
 | `object-storage` | S3-compatible object storage | `http://localhost:8333` |
 | `mail-catcher` | Receives all outgoing mail; nothing leaves your machine | SMTP `localhost:1025`, web UI `http://localhost:8025` |
 | `tracing` | Trace viewer: receives the traces of the browser app and the API and shows them (in memory, forgotten on restart) | collector `http://localhost:4318`, web UI `http://localhost:16686` |

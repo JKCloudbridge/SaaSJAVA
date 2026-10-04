@@ -16,6 +16,8 @@ export function ShellNav() {
   const showMembers = state.status === "signedIn" && platform.isPlatformHost === false;
   // The setup pages are offered to someone the API lists the ability to manage access for; the API decides again on every call.
   const showSetup = showMembers && state.status === "signedIn" && state.user.abilities.includes("access.manage");
+  // The audit trail is offered to someone the API lists the ability to view it for; the API decides again on every call.
+  const showAudit = showMembers && state.status === "signedIn" && state.user.abilities.includes("audit.view");
   // The console link is a convenience for a person the API lists a platform role for; the API refuses the rest.
   const showConsole =
     state.status === "signedIn" && platform.isPlatformHost === true && state.user.platformRoles.length > 0;
@@ -37,6 +39,13 @@ export function ShellNav() {
         <li>
           <Link href="/members" aria-current={pathname === "/members" ? "page" : undefined}>
             Members
+          </Link>
+        </li>
+      ) : null}
+      {showAudit ? (
+        <li>
+          <Link href="/audit" aria-current={pathname === "/audit" ? "page" : undefined}>
+            Audit trail
           </Link>
         </li>
       ) : null}

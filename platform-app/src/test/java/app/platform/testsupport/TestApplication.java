@@ -8,9 +8,11 @@ import org.springframework.boot.test.util.TestPropertyValues;
 import org.springframework.context.ConfigurableApplicationContext;
 
 /**
- * A complete application instance started by a test, on its own port, against the shared test database (and, unless a
- * property says otherwise, the shared test Redis). Starting two of them in one test is how "on every instance" is
- * proven: two real instances, two sets of caches and in-memory state, one database and one Redis.
+ * A complete application instance started by a test, on its own random port, against the shared test database (and,
+ * unless a property says otherwise, the shared test Redis). The ports are given as arguments because the configuration
+ * file names a fixed one that outranks default properties, so a second extra instance would collide. Starting two of
+ * them in one test is how "on every instance" is proven: two real instances, two sets of caches and in-memory state,
+ * one database and one Redis.
  */
 public final class TestApplication implements AutoCloseable {
 
@@ -26,13 +28,12 @@ public final class TestApplication implements AutoCloseable {
      * @param properties extra properties as {@code name=value} text
      */
     public static TestApplication start(String... properties) {
-        List<String> all = new ArrayList<>(List.of("server.port=0", "management.server.port=0"));
-        all.addAll(List.of(properties));
+        List<String> all = new ArrayList<>(List.of(properties));
         ConfigurableApplicationContext context = new SpringApplicationBuilder(PlatformApplication.class)
                 .profiles("test")
                 .initializers(new TestDatabaseInitializer())
                 .properties(all.toArray(String[]::new))
-                .run();
+                .run("--server.port=0", "--management.server.port=0");
         return new TestApplication(context);
     }
 
@@ -41,15 +42,14 @@ public final class TestApplication implements AutoCloseable {
      * take it away and bring it back.
      */
     public static TestApplication startWithRedis(String host, int port, String password, String... properties) {
-        List<String> all = new ArrayList<>(List.of("server.port=0", "management.server.port=0"));
-        all.addAll(List.of(properties));
+        List<String> all = new ArrayList<>(List.of(properties));
         ConfigurableApplicationContext context = new SpringApplicationBuilder(PlatformApplication.class)
                 .profiles("test")
                 .initializers(new TestDatabaseInitializer(), (ConfigurableApplicationContext candidate) ->
                         TestPropertyValues.of("spring.data.redis.host=" + host, "spring.data.redis.port=" + port,
                                 "spring.data.redis.password=" + password).applyTo(candidate))
                 .properties(all.toArray(String[]::new))
-                .run();
+                .run("--server.port=0", "--management.server.port=0");
         return new TestApplication(context);
     }
 

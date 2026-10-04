@@ -206,3 +206,33 @@ Short form; decisions in ADR-0046 to ADR-0052.
 - **Licences:** a policy of the licence type of the member's profile uses no extra licence; a different type takes one (ADR-0046).
 - **Platform functions:** annotate a platform console endpoint with `@PlatformFunction`; an architecture test fails without it (ADR-0052).
 - **Tests:** `DecisionMatrixTest`, `DataAccessPropertyTest`, `GroupIT`, `GroupGuardIT`, `DataAccessIT`, `PolicyLicenceRuleIT`, `GroupFlowsLogsAreCleanIT`.
+
+## The security cache, audit v1 and retention (Sprint 9)
+
+Short form; decisions in ADR-0053 to ADR-0057.
+
+- **The security version (ADR-0053).** `security_version` holds one counter per organization (tenant-scoped). A trigger on every table that
+  decides what a member may do raises it in the same transaction as the change (`profile`, `access_policy`, `member_access`,
+  `member_access_policy`, `member_grant`, `public_group`, `public_group_member`, `public_group_access_policy`, `object_permission`,
+  `field_permission`, `licence_assignment`, `membership`). **A new table that feeds an answer of `Permissions` or `Decisions` needs the
+  trigger** (copy one from V028) **and an entry in `SecurityVersionIT`**; the test fails when the set differs.
+- **The cache** keeps an answer with the version it was computed under and serves it only while the version is unchanged: the bound is "the next
+  question after the commit" on every instance. A transaction that has written never uses or fills it. Setting
+  `platform.security.cache.enabled=false` turns it off; `platform.security.cache.max-entries` bounds it. It does not use Redis. **Cost note:** every
+  question pays one extra read (the version); it pays off only for answers that take several reads. Read ADR-0053 before changing it.
+- **Audit v1.** Keep writing through `AuditRecorder`. `AuditRecord` has optional `objectKey`, `recordId`, `oldValue`, `newValue`, `source`
+  (`onObject`, `changing`, `from`); values are short keys, never typed text. A new kind of record gets an audience in `AuditAudience` (organization,
+  platform, both); without a rule it is visible only to the side it happened on.
+- **`audit_record` is platform-level with a read policy by audience** (ADR-0054): a reader with a tenant sees that organization's rows meant for
+  organizations, a reader without one sees the rows meant for the platform. Row level security is enabled and **not** forced on this one table (the
+  owner runs the purge function and must see every row); `TenantIsolationIT` names this exception.
+- **Append-only, with one door:** only `platform_audit_purge()` deletes (older than the retention period, never younger than 30 days, writes its own record).
+  Nobody else, not even the owner, can change or delete a record. Retention: `platform.audit.retention.*` (400 days default).
+- **Viewer:** `GET /api/v1/audit-events` (ability `audit.view`, organization hosts) and `GET /api/v1/platform/audit-events` (platform administrators, platform host); the
+  public interface is `AuditEvents`.
+- **Events:** the tenant lifecycle events of the outbox become `tenant.lifecycle.*` records (once each: the unique `source_event_id`). The use of the
+  `membership_lookup` system scope becomes `system.scope.used`.
+- **Invitations:** a closed invitation keeps its address 30 days (`platform.identity.cleanup.keep-closed-invitations`), then it is blanked by the
+  identity clean-up (ADR-0057).
+- **Tests:** `SecurityCacheTest`, `SecurityVersionIT`, `SecurityCacheIT` (three real instances, cache on and off), `SecurityCacheConsistencyIT`,
+  `SecurityCacheRedisOutageIT`, `AuditStorageIT`, `AuditViewerIT`, `TenantLifecycleAuditIT`, `InvitationRetentionIT`.

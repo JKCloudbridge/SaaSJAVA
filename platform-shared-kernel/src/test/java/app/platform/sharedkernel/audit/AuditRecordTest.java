@@ -68,4 +68,42 @@ class AuditRecordTest {
         assertThatThrownBy(() -> AuditRecord.of("auth.x.y", AuditOutcome.FAILURE).because("User jane@example.test"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void theFieldsOfAuditV1SurviveEveryCopy() {
+        AuditRecord record = AuditRecord.of("access.member.profile_set", AuditOutcome.SUCCESS)
+                .onObject("object-a", "record-1").changing("profile-a", "profile-b").from(AuditSource.EVENT)
+                .forUser(UUID.randomUUID()).with("k", "v").because("some_reason");
+
+        assertThat(record.objectKey()).isEqualTo("object-a");
+        assertThat(record.recordId()).isEqualTo("record-1");
+        assertThat(record.oldValue()).isEqualTo("profile-a");
+        assertThat(record.newValue()).isEqualTo("profile-b");
+        assertThat(record.source()).isEqualTo(AuditSource.EVENT);
+    }
+
+    @Test
+    void anOldOrNewValueIsCutToItsBound() {
+        AuditRecord record = AuditRecord.of("auth.x.y", AuditOutcome.SUCCESS)
+                .changing("a".repeat(900), "b".repeat(900));
+
+        assertThat(record.oldValue()).hasSize(AuditRecord.MAX_CHANGE_LENGTH);
+        assertThat(record.newValue()).hasSize(AuditRecord.MAX_CHANGE_LENGTH);
+    }
+
+    @Test
+    void anObjectKeyAndARecordIdAreCheckedForShape() {
+        assertThatThrownBy(() -> AuditRecord.of("auth.x.y", AuditOutcome.SUCCESS).onObject("Not A Key", null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> AuditRecord.of("auth.x.y", AuditOutcome.SUCCESS).onObject("object-a", "has space"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void theTextFormHoldsNoValueSoDebugLoggingCannotLeakOne() {
+        AuditRecord record = AuditRecord.of("auth.x.y", AuditOutcome.SUCCESS).changing("secret-looking-old", "new-one")
+                .with("name", "typed by a person");
+
+        assertThat(record.toString()).doesNotContain("secret-looking-old").doesNotContain("typed by a person");
+    }
 }

@@ -54,4 +54,17 @@ describe("ShellNav", () => {
     expect(await screen.findByRole("link", { name: "Members" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Setup" })).toBeNull();
   });
+
+  it("offers the audit trail to a member the API lists the ability to view it for, and to nobody else", async () => {
+    organizationApi(["audit.view"]);
+    const { unmount } = renderNav();
+
+    expect(await screen.findByRole("link", { name: "Audit trail" })).toHaveAttribute("href", "/audit");
+    unmount();
+
+    organizationApi(["members.view"]);
+    renderNav();
+    expect(await screen.findByRole("link", { name: "Members" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Audit trail" })).toBeNull();
+  });
 });

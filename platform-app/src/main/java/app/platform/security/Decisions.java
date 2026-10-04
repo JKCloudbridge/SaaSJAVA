@@ -9,8 +9,9 @@ import java.util.UUID;
  *
  * <p>The tenant is never a parameter: it is the organization of the thread's tenant context (derived from the host and
  * the signed-in member, never from a request), and a member who is not in it gets "no" like a member with nothing. The
- * context must be open before the transaction begins. The answer is computed from the current rows every time: there is
- * no cache (Sprint 9 decides invalidation), so a change takes effect for the next question.
+ * context must be open before the transaction begins. The answer comes from the current rows or from the security cache
+ * (ADR-0053, keyed by the organization's security version), so a change takes effect on the next question after it
+ * commits, on every instance.
  *
  * <p>The algorithm, in order:
  * <ol>

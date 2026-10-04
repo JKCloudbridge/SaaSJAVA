@@ -1,5 +1,9 @@
 package app.platform.tenant;
 
+import app.platform.sharedkernel.audit.AuditOutcome;
+import app.platform.sharedkernel.audit.AuditRecord;
+import app.platform.sharedkernel.audit.AuditRecorder;
+import app.platform.sharedkernel.audit.AuditSource;
 import app.platform.sharedkernel.logging.LogContext;
 import java.util.Objects;
 import java.util.Optional;
@@ -7,6 +11,8 @@ import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -41,6 +47,19 @@ public final class TenantContexts {
     // One frame per thread. An instance field, not static: the holder is an ordinary bean, so tests can build their
     // own and nothing global survives a test.
     private final ThreadLocal<Frame> frames = new ThreadLocal<>();
+
+    // Where the use of an audited system scope is recorded (ADR-0054); absent in tests that build a holder by hand.
+    private final ObjectProvider<AuditRecorder> auditRecorder;
+
+    /** A holder that records no audit (for tests that build one by hand). */
+    public TenantContexts() {
+        this.auditRecorder = null;
+    }
+
+    @Autowired
+    TenantContexts(ObjectProvider<AuditRecorder> auditRecorder) {
+        this.auditRecorder = auditRecorder;
+    }
 
     /** The tenant context of the current thread, if the thread works for a tenant. */
     public Optional<TenantContext> current() {
@@ -93,7 +112,9 @@ public final class TenantContexts {
             throw new IllegalStateException("A system scope cannot be entered inside a tenant context");
         }
         LOG.debug("Entering system scope {}", scope);
-        return enter(previous, new Frame(null, scope));
+        Scope entered = enter(previous, new Frame(null, scope));
+        noteUse(scope, null);
+        return entered;
     }
 
     /** Runs the supplier with the context open, then closes it. */
@@ -132,7 +153,30 @@ public final class TenantContexts {
         }
         LOG.debug("Entering system scope {} apart from the request's tenant", scope);
         try (Scope _ = enter(previous, new Frame(null, scope))) {
+            noteUse(scope, previous.context());
             return work.get();
+        }
+    }
+
+    /**
+     * Leaves an audit record for the use of a scope that asks for one: which scope, for which person and, when the
+     * request is on an organization host, which organization. Never fails the work: the recorder swallows a storage
+     * failure and this method swallows anything else.
+     */
+    private void noteUse(SystemScope scope, TenantContext onBehalf) {
+        if (!scope.audited() || auditRecorder == null) {
+            return;
+        }
+        try {
+            AuditRecorder recorder = auditRecorder.getIfAvailable();
+            if (recorder != null) {
+                recorder.record(new AuditRecord("system.scope.used", AuditOutcome.SUCCESS,
+                        onBehalf == null ? null : onBehalf.userId(), onBehalf == null ? null : onBehalf.tenantId(),
+                        null, java.util.Map.of("scope", scope.settingValue()), null, null, null, null,
+                        AuditSource.SYSTEM));
+            }
+        } catch (RuntimeException e) {
+            LOG.warn("The use of system scope {} could not be audited ({})", scope, e.getClass().getSimpleName());
         }
     }
 

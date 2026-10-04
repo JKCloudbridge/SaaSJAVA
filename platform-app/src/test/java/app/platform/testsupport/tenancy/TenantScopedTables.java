@@ -207,11 +207,27 @@ public final class TenantScopedTables {
                             + "updated_by) values (?, ?, 'object-a.field-a', array['read'], ?, ?)",
                     tenant, probeProfile(connection, tenant), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
 
+    /**
+     * The security version of an organization (Sprint 9). There is one live row per organization and other probe rows
+     * may have created it already, so each call retires the live one and adds a new one: every call adds one row, as
+     * the harness expects.
+     */
+    public static final TenantScopedTable SECURITY_VERSION = new TenantScopedTable("security_version",
+            (connection, tenant) -> {
+                TenantFixtures.update(connection,
+                        "update security_version set deleted_at = now(), deleted_by = ?, version = version + 1, "
+                                + "updated_by = ? where tenant_id = ? and deleted_at is null",
+                        ActorId.SYSTEM.value(), ActorId.SYSTEM.value(), tenant);
+                TenantFixtures.update(connection,
+                        "insert into security_version (tenant_id, created_by, updated_by) values (?, ?, ?)",
+                        tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
             MEMBER_ACCESS, MEMBER_ACCESS_POLICY, MEMBER_GRANT, PUBLIC_GROUP, PUBLIC_GROUP_MEMBER,
-            PUBLIC_GROUP_ACCESS_POLICY, OBJECT_PERMISSION, FIELD_PERMISSION);
+            PUBLIC_GROUP_ACCESS_POLICY, OBJECT_PERMISSION, FIELD_PERMISSION, SECURITY_VERSION);
 
     private TenantScopedTables() {
     }
