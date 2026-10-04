@@ -21,9 +21,10 @@ import org.springframework.stereotype.Service;
 
 /**
  * The decision API (ADR-0050): combines the member's effective permissions on data ({@link Permissions#data}) with the
- * object catalogue. No cache: every question reads the current rows. The record is accepted and not used until
- * Sprint 17. A member who does not exist, a member without the licence of their profile, an unknown object and an
- * unknown field all end in the same "no", so the answer reveals nothing to a caller who may not know.
+ * object catalogue. It adds no cache of its own: the answer of {@link Permissions#data} may come from the security
+ * cache (ADR-0053). The record is accepted and not used until Sprint 17. A member who does not exist, a member without
+ * the licence of their profile, an unknown object and an unknown field all end in the same "no", so the answer reveals
+ * nothing to a caller who may not know.
  */
 @Service
 class DefaultDecisions implements Decisions {

@@ -21,7 +21,7 @@ Module identifiers are package names, so the platform-admin module is `platforma
 | `approval` | Approval definitions, instances, history | S24 | tenant, metadata, security, data, notification |
 | `integration` | Connector framework and adapters; the only module that knows external systems | S26 | tenant, metadata, security, data |
 | `workflow` | Workflow definitions, triggers, actions, execution | S22 | tenant, metadata, security, data, approval, notification, integration |
-| `audit` | Append-only audit records. Version 0 arrived in S3 (the `AuditRecorder` contract is in `sharedkernel`; the module writes the platform-level table `audit_record`, [ADR-0022](adr/0022-platform-level-identity-tables-and-audit-v0.md)); the full module is S9 | S9 (v0 in S3) | nothing |
+| `audit` | Append-only audit records (audit v1, S9: the `AuditRecorder` contract is in `sharedkernel`; the module writes the platform-level table `audit_record` with a read policy by audience, consumes the tenant lifecycle events of the outbox, serves the audit viewer through `AuditEvents` and runs the retention of old records; [ADR-0022](adr/0022-platform-level-identity-tables-and-audit-v0.md), [ADR-0054](adr/0054-audit-v1-record-source-and-read-model.md), [ADR-0055](adr/0055-audit-retention-and-the-append-only-door.md), [ADR-0056](adr/0056-the-audit-viewer.md)) | S9 (v0 in S3) | identity, security, tenant |
 | `observability` | Request correlation, error tracking hook, database correlation stamp (infrastructure) | S1 | nothing |
 | `outbox` | Transactional outbox, polling relay, idempotent consumer base (infrastructure, ADR-0016). Other modules use the event contracts of `sharedkernel`, never this module | S2 | tenant, observability |
 | `web` | HTTP conventions: error model handling, paging binding, OpenAPI, platform status endpoint (infrastructure) | S1 | observability |
@@ -30,6 +30,7 @@ Module identifiers are package names, so the platform-admin module is `platforma
 ```mermaid
 graph TD
   platformadmin --> licensing & identity & security & audit & tenant
+  audit --> identity & security & tenant
   workflow --> approval & integration & notification & data & metadata & security & tenant
   approval --> notification & data & metadata & security & tenant
   integration --> data & metadata & security & tenant
@@ -49,8 +50,10 @@ graph TD
 1. Another module may use only the types in a module's root package. Sub-packages are internal.
 2. No module reads or writes another module's tables.
 3. Cross-module reactions use events (the outbox of Sprint 2), not direct calls "backwards" up the graph.
-   Example: `audit` depends on nothing; modules publish events through `EventPublisher` and `audit` consumes them
-   with an `EventHandler` bean; both interfaces are in `sharedkernel`, so neither side depends on `outbox`.
+   Example: modules publish events through `EventPublisher` and `audit` consumes them with an `EventHandler` bean;
+   both interfaces are in `sharedkernel`, so neither side depends on `outbox`. `audit` reads from `identity`,
+   `security` and `tenant` only to serve its viewer (the one question "may this member administer", the ability,
+   the tenant context); none of them depends on `audit` (they write through the contract in `sharedkernel`).
 4. Only `integration` may reference `app.platform.integration.adapter..`.
 5. The graph must stay acyclic. A needed edge that would create a cycle means a missing event or a missing
    module, not a cycle.

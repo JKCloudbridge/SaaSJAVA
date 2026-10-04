@@ -22,18 +22,30 @@ import java.util.regex.Pattern;
  * @param tenantId the tenant of the request, or null on the platform host
  * @param reason the internal reason code of a failure or refusal, or null
  * @param attributes further facts (keys are lower-case words with underscores)
+ * @param objectKey the object (kind of record) the change was about, or null (the data engine fills it from
+ *        Milestone 3 on)
+ * @param recordId the record the change was about, or null
+ * @param oldValue what it was before, as a short value or key (cut to {@link #MAX_CHANGE_LENGTH}), or null
+ * @param newValue what it is now, likewise, or null
+ * @param source where the record came from, or null to let the recorder decide (a request: API, otherwise SYSTEM)
  */
 public record AuditRecord(String type, AuditOutcome outcome, UUID actorUserId, TenantId tenantId, String reason,
-        Map<String, String> attributes) {
+        Map<String, String> attributes, String objectKey, String recordId, String oldValue, String newValue,
+        AuditSource source) {
 
     /** Largest stored attribute value. */
     public static final int MAX_VALUE_LENGTH = 200;
+
+    /** Longest stored old or new value. */
+    public static final int MAX_CHANGE_LENGTH = 500;
 
     /** Most attributes of one record. */
     public static final int MAX_ATTRIBUTES = 20;
 
     private static final Pattern TYPE = Pattern.compile("[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+");
     private static final Pattern KEY = Pattern.compile("[a-z][a-z0-9_]{0,39}");
+    private static final Pattern OBJECT_KEY = Pattern.compile("[a-z][a-z0-9_.-]{0,99}");
+    private static final Pattern RECORD_ID = Pattern.compile("[A-Za-z0-9_.:-]{1,64}");
     private static final Pattern REASON = Pattern.compile("[a-z][a-z0-9_]{0,59}");
     private static final Set<String> SECRET_WORDS = Set.of(
             "password", "passwd", "secret", "token", "credential", "authorization", "cookie", "verifier", "code");
@@ -66,6 +78,33 @@ public record AuditRecord(String type, AuditOutcome outcome, UUID actorUserId, T
             });
         }
         attributes = Map.copyOf(copy);
+        if (objectKey != null && !OBJECT_KEY.matcher(objectKey).matches()) {
+            throw new IllegalArgumentException("An audit object key is a lower-case key");
+        }
+        if (recordId != null && !RECORD_ID.matcher(recordId).matches()) {
+            throw new IllegalArgumentException("An audit record id is a short identifier");
+        }
+        oldValue = cut(oldValue);
+        newValue = cut(newValue);
+    }
+
+    /** A record without the fields of audit v1 (what every caller of audit v0 builds). */
+    public AuditRecord(String type, AuditOutcome outcome, UUID actorUserId, TenantId tenantId, String reason,
+            Map<String, String> attributes) {
+        this(type, outcome, actorUserId, tenantId, reason, attributes, null, null, null, null, null);
+    }
+
+    private static String cut(String value) {
+        return value == null || value.length() <= MAX_CHANGE_LENGTH ? value : value.substring(0, MAX_CHANGE_LENGTH);
+    }
+
+    /**
+     * Prints the kind and the outcome only. A record can hold values chosen by a person, and debug logging prints
+     * what a record's text form holds (ADR-0012), so the text form holds nothing typed.
+     */
+    @Override
+    public String toString() {
+        return "AuditRecord[" + type + ", " + outcome + "]";
     }
 
     /** A record without attributes, user, tenant or reason. */
@@ -75,23 +114,45 @@ public record AuditRecord(String type, AuditOutcome outcome, UUID actorUserId, T
 
     /** The same record about a user. */
     public AuditRecord forUser(UUID userId) {
-        return new AuditRecord(type, outcome, userId, tenantId, reason, attributes);
+        return new AuditRecord(type, outcome, userId, tenantId, reason, attributes, objectKey, recordId, oldValue,
+                newValue, source);
     }
 
     /** The same record for a tenant (null for the platform host). */
     public AuditRecord inTenant(TenantId tenant) {
-        return new AuditRecord(type, outcome, actorUserId, tenant, reason, attributes);
+        return new AuditRecord(type, outcome, actorUserId, tenant, reason, attributes, objectKey, recordId, oldValue,
+                newValue, source);
     }
 
     /** The same record with an internal reason. */
     public AuditRecord because(String internalReason) {
-        return new AuditRecord(type, outcome, actorUserId, tenantId, internalReason, attributes);
+        return new AuditRecord(type, outcome, actorUserId, tenantId, internalReason, attributes, objectKey, recordId,
+                oldValue, newValue, source);
     }
 
     /** The same record with one more attribute. */
     public AuditRecord with(String key, String value) {
         Map<String, String> more = new LinkedHashMap<>(attributes);
         more.put(key, value);
-        return new AuditRecord(type, outcome, actorUserId, tenantId, reason, more);
+        return new AuditRecord(type, outcome, actorUserId, tenantId, reason, more, objectKey, recordId, oldValue,
+                newValue, source);
+    }
+
+    /** The same record about an object and, when known, one record of it. */
+    public AuditRecord onObject(String object, String record) {
+        return new AuditRecord(type, outcome, actorUserId, tenantId, reason, attributes, object, record, oldValue,
+                newValue, source);
+    }
+
+    /** The same record with what changed: the value before and after, short values or keys, never typed text. */
+    public AuditRecord changing(String before, String after) {
+        return new AuditRecord(type, outcome, actorUserId, tenantId, reason, attributes, objectKey, recordId, before,
+                after, source);
+    }
+
+    /** The same record with its origin. */
+    public AuditRecord from(AuditSource origin) {
+        return new AuditRecord(type, outcome, actorUserId, tenantId, reason, attributes, objectKey, recordId,
+                oldValue, newValue, origin);
     }
 }

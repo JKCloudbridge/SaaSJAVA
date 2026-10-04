@@ -183,7 +183,8 @@ record IdentityProperties(
     record Cleanup(
             @DefaultValue("true") boolean enabled,
             @DefaultValue("1h") Duration interval,
-            @DefaultValue("7d") Duration keepEnded) {
+            @DefaultValue("7d") Duration keepEnded,
+            @DefaultValue("30d") Duration keepClosedInvitations) {
     }
 
     /**

@@ -117,6 +117,12 @@ public final class ApiPaths {
     /** What the signed-in member may do with data: their own permission matrix (Sprint 8). */
     public static final String DATA_ACCESS_MINE = V1 + "/data-access/mine";
 
+    /** The audit events of the organization the host names, for members who may view them (Sprint 9). */
+    public static final String AUDIT_EVENTS = V1 + "/audit-events";
+
+    /** The audit events of the platform, for platform administrators (Sprint 9). */
+    public static final String PLATFORM_AUDIT_EVENTS = PLATFORM + "/audit-events";
+
     /** The caller leaves the organization the host names (Sprint 7). */
     public static final String ORGANIZATION_LEAVE = V1 + "/organization/leave";
 

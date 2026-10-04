@@ -15,11 +15,12 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
- * Reads what a member holds and hands it to the calculator ({@link EffectivePermissions}, ADR-0040, ADR-0049). No
- * cache:
- * every call reads the current rows, so a change of profile, policy, group, grant or licence takes effect for the next
- * question. The abilities are read without the permissions on data (a cheaper read, asked by every action); the
- * permissions on data are read only when they are asked for.
+ * Reads what a member holds and hands it to the calculator ({@link EffectivePermissions}, ADR-0040, ADR-0049). The
+ * answer is kept in the {@link SecurityCache} under the organization's security version (ADR-0053): a change of
+ * profile, policy, group, grant, licence or membership raises the version in its own transaction, so the next question
+ * on any instance computes again from the current rows. A transaction that has written already, and an instance with
+ * the cache switched off, always read the rows. The abilities are read without the permissions on data (a cheaper
+ * read, asked by every action); the permissions on data are read only when they are asked for.
  */
 @Service
 class DefaultPermissions implements Permissions {
@@ -29,14 +30,18 @@ class DefaultPermissions implements Permissions {
     private final DataAccessStore dataStore;
     private final Licences licences;
     private final AccessWork work;
+    private final SecurityVersions versions;
+    private final SecurityCache cache;
 
     DefaultPermissions(AccessStore store, GroupStore groups, DataAccessStore dataStore, Licences licences,
-            AccessWork work) {
+            AccessWork work, SecurityVersions versions, SecurityCache cache) {
         this.store = store;
         this.groups = groups;
         this.dataStore = dataStore;
         this.licences = licences;
         this.work = work;
+        this.versions = versions;
+        this.cache = cache;
     }
 
     @Override
@@ -44,7 +49,8 @@ class DefaultPermissions implements Permissions {
         if (membershipId == null) {
             return Set.of();
         }
-        return work.run(() -> compute(membershipId, false).abilities());
+        return work.run(() -> cache.get(key(membershipId, SecurityCache.Kind.ABILITIES), versions.read(),
+                () -> compute(membershipId, false).abilities()));
     }
 
     @Override
@@ -52,7 +58,12 @@ class DefaultPermissions implements Permissions {
         if (membershipId == null) {
             return DataAccess.none();
         }
-        return work.run(() -> compute(membershipId, true).data());
+        return work.run(() -> cache.get(key(membershipId, SecurityCache.Kind.EFFECTIVE), versions.read(),
+                () -> compute(membershipId, true).data()));
+    }
+
+    private SecurityCache.Key key(UUID membershipId, SecurityCache.Kind kind) {
+        return new SecurityCache.Key(work.tenant(), membershipId, kind);
     }
 
     private EffectivePermissions.Effective compute(UUID membershipId, boolean withData) {

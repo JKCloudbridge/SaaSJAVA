@@ -96,6 +96,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audit-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The audit events of the organization
+         * @description Newest first, one page at a time, with filters for time, person, kind and target. For members who may view the audit trail. NOT_FOUND on the platform host, FORBIDDEN without the ability, VALIDATION_ERROR for a filter that is malformed.
+         */
+        get: operations["listAuditEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/csrf": {
         parameters: {
             query?: never;
@@ -1024,6 +1044,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform/audit-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The audit events of the platform (platform console)
+         * @description Newest first, one page at a time, with filters for time, person, kind and target. For platform administrators. Shows platform events only, never an organization's own administration or data. Platform host only.
+         */
+        get: operations["listPlatformAuditEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform/features": {
         parameters: {
             query?: never;
@@ -1783,6 +1823,10 @@ export interface components {
         ApiErrorResponse: {
             error: components["schemas"]["ApiError"];
         };
+        ApiPageResponseAuditEventView: {
+            data: components["schemas"]["AuditEventView"][];
+            pagination: components["schemas"]["Pagination"];
+        };
         ApiPageResponsePlatformOrganizationSummary: {
             data: components["schemas"]["PlatformOrganizationSummary"][];
             pagination: components["schemas"]["Pagination"];
@@ -1910,6 +1954,25 @@ export interface components {
         AssignRoleRequest: {
             /** Format: uuid */
             roleId?: string;
+        };
+        AuditEventView: {
+            /** Format: uuid */
+            actorUserId?: string;
+            attributes: {
+                [key: string]: string;
+            };
+            /** Format: uuid */
+            id: string;
+            newValue?: string;
+            objectKey?: string;
+            /** Format: date-time */
+            occurredAt: string;
+            oldValue?: string;
+            outcome: string;
+            reason?: string;
+            recordId?: string;
+            source: string;
+            type: string;
         };
         CatalogueItem: {
             key: string;
@@ -2556,6 +2619,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDataAccessView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listAuditEvents: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+                from?: string;
+                to?: string;
+                actor?: string;
+                kind?: string;
+                target?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiPageResponseAuditEventView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -4157,6 +4257,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseOrganizationCreated"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listPlatformAuditEvents: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+                from?: string;
+                to?: string;
+                actor?: string;
+                kind?: string;
+                target?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiPageResponseAuditEventView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

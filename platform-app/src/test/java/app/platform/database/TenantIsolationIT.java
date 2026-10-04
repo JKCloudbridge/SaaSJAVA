@@ -186,7 +186,9 @@ class TenantIsolationIT {
                 ResultSet rs = statement.executeQuery(
                         "select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace "
                                 + "where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity "
-                                + "and not c.relforcerowsecurity")) {
+                                + "and not c.relforcerowsecurity and c.relname <> 'audit_record'")) {
+            // audit_record is the one deliberate exception (ADR-0054): a platform-level table whose read policy is by
+            // audience, not forced because the owner (which migrates and runs the purge function) must see every row.
             assertThat(rs.next()).as("a table with RLS enabled but not forced").isFalse();
         }
     }

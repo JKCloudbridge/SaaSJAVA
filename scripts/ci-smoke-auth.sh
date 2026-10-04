@@ -402,6 +402,18 @@ if [ -n "$mail" ]; then
   [ "$(owner_sql -c "select count(*) from audit_record where event_type like 'access.group.%' and context_tenant_id is not null")" -ge 3 ]     || fail "the changes of groups were not audited"
   echo "ok: groups are created, filled and given a policy, a loop is refused, no object exists in a deployment, and the changes are audited"
 
+  # 15. The audit viewer on the image (Sprint 9): the administrator reads the group changes back through the API, the
+  # events carry no typed text, a malformed filter is refused in words, and the platform endpoint is not served here.
+  status="$(client_call "$base/api/v1/audit-events?kind=access.group&limit=50")"
+  [ "$status" = "200" ] || fail "the audit viewer answered $status: $(cat "$body")"
+  grep -Fq '"type":"access.group.created"' "$body" || fail "the viewer does not show the group that was created: $(cat "$body")"
+  grep -Fq '"type":"access.group.member_added"' "$body" || fail "the viewer does not show the person added to a group: $(cat "$body")"
+  status="$(client_call "$base/api/v1/audit-events?kind=Not%20A%20Kind")"
+  [ "$status" = "400" ] || fail "a malformed audit filter was not refused ($status): $(cat "$body")"
+  status="$(client_call "$base/api/v1/platform/audit-events")"
+  [ "$status" = "404" ] || [ "$status" = "403" ] || fail "the platform audit endpoint answered an organization host ($status)"
+  echo "ok: the audit viewer shows the changes of groups, refuses a malformed filter, and does not serve the platform endpoint here"
+
   stored="$(owner_sql -c "select t::text from account_token t union all select t::text from mail_queue t \
     union all select attributes::text from audit_record union all select t::text from invitation t")"
   if echo "$stored" | grep -q "$client_token"; then

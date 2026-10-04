@@ -58,3 +58,8 @@ A decision that is still open has status **Proposed** and names the gate or spri
 | [0050](0050-the-permission-decision-api.md) | The permission decision API | Accepted | — |
 | [0051](0051-dropping-the-administrator-marker.md) | Dropping the administrator marker (contract migration) | Accepted | — |
 | [0052](0052-platform-authorization-manager-and-method-security.md) | PlatformAuthorizationManager and method security | Accepted | — |
+| [0053](0053-the-security-cache-and-its-version.md) | The security cache and the security version (with the cost note) | Accepted | delivery plan S9: no Redis tier |
+| [0054](0054-audit-v1-record-source-and-read-model.md) | Audit v1: the record, its source, who may read it | Accepted | ADR-0022 in part |
+| [0055](0055-audit-retention-and-the-append-only-door.md) | Audit retention and the one door through the append-only rule | Accepted | — |
+| [0056](0056-the-audit-viewer.md) | The audit viewer (organization and platform) | Accepted | — |
+| [0057](0057-retention-of-closed-invitations.md) | Retention of closed invitations | Accepted | — |

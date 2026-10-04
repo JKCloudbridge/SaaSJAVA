@@ -1,6 +1,7 @@
 package app.platform.security.internal;
 
 import app.platform.tenant.TenantContexts;
+import java.util.UUID;
 import java.util.function.Supplier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -19,6 +20,11 @@ class AccessWork {
     AccessWork(TenantContexts contexts, TransactionTemplate transaction) {
         this.contexts = contexts;
         this.transaction = transaction;
+    }
+
+    /** The organization the thread works for now. */
+    UUID tenant() {
+        return contexts.require().tenantId().value();
     }
 
     <T> T run(Supplier<T> work) {

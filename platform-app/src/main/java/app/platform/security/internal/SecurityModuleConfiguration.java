@@ -1,6 +1,7 @@
 package app.platform.security.internal;
 
 import app.platform.security.ObjectCatalog;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -14,6 +15,11 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @EnableConfigurationProperties(SecurityProperties.class)
 class SecurityModuleConfiguration {
+
+    @Bean
+    SecurityCache securityCache(SecurityProperties properties, MeterRegistry meters) {
+        return new SecurityCache(properties.cache().enabled(), properties.cache().maxEntries(), meters);
+    }
 
     @Bean
     @ConditionalOnMissingBean(ObjectCatalog.class)

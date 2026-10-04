@@ -5,8 +5,9 @@ import java.util.UUID;
 
 /**
  * The one read contract other modules use to ask what a member may do (ADR-0040). It answers for the organization the
- * thread's tenant context names (never one named by a caller) and reads the current state every time: there is no
- * cache, so a change takes effect at once. Sprint 9 decides whether a cache and its invalidation are worth adding.
+ * thread's tenant context names (never one named by a caller). Since Sprint 9 an answer may come from a cache that is
+ * keyed by the organization's security version (ADR-0053): a change takes effect on the next question after it commits,
+ * on every instance, and a transaction that has changed something sees its own change at once.
  *
  * <p>The backend is the only place that decides: a screen that hides a button is a convenience, not a check. Every
  * action that needs an ability asks here, inside the transaction that does the work, so the answer and the action
