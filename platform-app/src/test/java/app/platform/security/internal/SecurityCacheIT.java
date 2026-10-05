@@ -101,8 +101,8 @@ class SecurityCacheIT {
             Organization organization, UUID membership) {
         return contexts.call(TenantContext.of(organization.id()), () -> new Answer(
                 new TreeSet<>(permissions.effective(membership)),
-                decisions.can(membership, "object-a", ObjectAction.READ).allowed(),
-                decisions.can(membership, "object-a", ObjectAction.UPDATE).allowed()));
+                decisions.can(membership, "ObjectA__c", ObjectAction.READ).allowed(),
+                decisions.can(membership, "ObjectA__c", ObjectAction.UPDATE).allowed()));
     }
 
     private static UUID idOf(Response created) {
@@ -181,10 +181,10 @@ class SecurityCacheIT {
 
         // The matrix of the profile, filled and replaced.
         admin.request("PUT", PROFILES + "/" + profile + "/data-access",
-                "{\"objects\":[{\"key\":\"object-a\",\"actions\":[\"read\",\"update\"]}],\"fields\":[]}");
+                "{\"objects\":[{\"key\":\"ObjectA__c\",\"actions\":[\"read\",\"update\"]}],\"fields\":[]}");
         expect(organization, member, "matrix filled", Set.of(Ability.MEMBERS_VIEW), true, true);
         admin.request("PUT", PROFILES + "/" + profile + "/data-access",
-                "{\"objects\":[{\"key\":\"object-a\",\"actions\":[\"read\"]}],\"fields\":[]}");
+                "{\"objects\":[{\"key\":\"ObjectA__c\",\"actions\":[\"read\"]}],\"fields\":[]}");
         expect(organization, member, "matrix changed", Set.of(Ability.MEMBERS_VIEW), true, false);
 
         // The licence, taken back and given again.

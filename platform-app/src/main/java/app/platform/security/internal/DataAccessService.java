@@ -83,8 +83,8 @@ class DataAccessService {
     }
 
     DataAccessView replaceProfile(UUID profileId, SaveDataAccessRequest request) {
-        DataAccess wanted = parse(request);
         return gate.run("data.profile.replace", MANAGERS, caller -> {
+            DataAccess wanted = parse(request);
             access.lockAccessChanges();
             AccessStore.ProfileRow profile = access.profileForUpdate(profileId)
                     .orElseThrow(() -> ApiException.notFound("This profile does not exist."));
@@ -104,8 +104,8 @@ class DataAccessService {
     }
 
     DataAccessView replacePolicy(UUID policyId, SaveDataAccessRequest request) {
-        DataAccess wanted = parse(request);
         return gate.run("data.policy.replace", MANAGERS, caller -> {
+            DataAccess wanted = parse(request);
             access.lockAccessChanges();
             access.policyForUpdate(policyId)
                     .orElseThrow(() -> ApiException.notFound("This access policy does not exist."));
@@ -122,8 +122,8 @@ class DataAccessService {
     }
 
     DataAccessView replaceMember(UUID membershipId, SaveDataAccessRequest request) {
-        DataAccess wanted = parse(request);
         return gate.run("data.member.replace", MANAGERS, caller -> {
+            DataAccess wanted = parse(request);
             access.lockAccessChanges();
             requireMember(membershipId);
             return replace("member", DataAccessStore.Holder.MEMBER, membershipId, wanted, caller);

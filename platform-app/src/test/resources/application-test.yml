@@ -34,19 +34,6 @@ spring:
 platform:
   tenancy:
     base-domain: platform.example.test
-  security:
-    # Objects do not exist before Sprint 10: the tests (and the local profile) use two sample objects (ADR-0049).
-    sample-objects:
-      - key: object-a
-        label: Object A
-        fields:
-          - { key: field-a, label: Field A }
-          - { key: field-b, label: Field B }
-          - { key: field-c, label: Field C }
-      - key: object-b
-        label: Object B
-        fields:
-          - { key: field-a, label: Field A }
   notification:
     # Tests drive the relay themselves (pollOnce), or switch it on for the one context that wants it to poll.
     enabled: false

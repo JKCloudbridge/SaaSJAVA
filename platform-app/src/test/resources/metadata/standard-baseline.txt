@@ -1,0 +1,97 @@
+# Released standard definitions (ADR-0059). Generated: see the javadoc of StandardMetadataBaselineTest.
+system.id TEXT
+system.sequence AUTO_NUMBER prefix= width=1
+system.description LONG_TEXT
+system.ownerId LOOKUP target=User
+system.createdAt DATETIME
+system.createdById LOOKUP target=User
+system.updatedAt DATETIME
+system.updatedById LOOKUP target=User
+AccessPolicy managedBy=security
+AccessPolicy.name TEXT
+AccessPolicy.isCustom BOOLEAN
+AccessPolicy.licenceTypeId LOOKUP target=LicenceType
+AccessPolicyAssignment managedBy=security
+AccessPolicyAssignment.assigneeId MASTER_DETAIL target=User
+AccessPolicyAssignment.accessPolicyId MASTER_DETAIL target=AccessPolicy
+Account managedBy=none
+Account.name TEXT
+Account.type PICKLIST values=Customer,Prospect,Partner,Vendor,Other
+Account.industry PICKLIST values=Agriculture,Banking,Construction,Education,Energy,Finance,Government,Healthcare,Hospitality,Manufacturing,Media,Retail,Technology,Telecommunications,Transportation,Other
+Account.parentAccountId LOOKUP target=Account
+Account.website URL
+Account.phone PHONE
+Account.email EMAIL
+Account.annualRevenue CURRENCY
+Account.employeeCount NUMBER
+Account.isActive BOOLEAN
+Account.billingStreet TEXT
+Account.billingCity TEXT
+Account.billingState TEXT
+Account.billingPostalCode TEXT
+Account.billingCountry TEXT
+Account.shippingStreet TEXT
+Account.shippingCity TEXT
+Account.shippingState TEXT
+Account.shippingPostalCode TEXT
+Account.shippingCountry TEXT
+Case managedBy=none
+Case.caseNumber AUTO_NUMBER prefix=CASE- width=6
+Case.subject TEXT
+Case.status PICKLIST values=New,InProgress,Escalated,Resolved,Closed
+Case.priority PICKLIST values=Low,Medium,High,Critical
+Case.origin PICKLIST values=Phone,Email,Web,Chat
+Case.accountId LOOKUP target=Account
+Case.contactId LOOKUP target=Contact
+Case.closedAt DATETIME
+Case.resolution LONG_TEXT
+Contact managedBy=none
+Contact.firstName TEXT
+Contact.lastName TEXT
+Contact.accountId LOOKUP target=Account
+Contact.reportsToId LOOKUP target=Contact
+Contact.title TEXT
+Contact.department TEXT
+Contact.email EMAIL
+Contact.phone PHONE
+Contact.mobilePhone PHONE
+Contact.birthDate DATE
+Contact.isActive BOOLEAN
+Contact.mailingStreet TEXT
+Contact.mailingCity TEXT
+Contact.mailingState TEXT
+Contact.mailingPostalCode TEXT
+Contact.mailingCountry TEXT
+LicenceType managedBy=licensing
+LicenceType.key TEXT
+LicenceType.name TEXT
+LicenceType.kind PICKLIST values=Seat,AddOn
+Opportunity managedBy=none
+Opportunity.name TEXT
+Opportunity.accountId LOOKUP target=Account
+Opportunity.primaryContactId LOOKUP target=Contact
+Opportunity.stage PICKLIST values=Prospecting,Qualification,Proposal,Negotiation,ClosedWon,ClosedLost
+Opportunity.amount CURRENCY
+Opportunity.probability PERCENT
+Opportunity.closeDate DATE
+Opportunity.leadSource PICKLIST values=Web,Referral,Partner,Event,Other
+Opportunity.nextStep TEXT
+Profile managedBy=security
+Profile.name TEXT
+Profile.licenceTypeId LOOKUP target=LicenceType
+Profile.isSystem BOOLEAN
+Profile.isDefault BOOLEAN
+Role managedBy=security
+Role.name TEXT
+Role.parentRoleId LOOKUP target=Role
+User managedBy=identity
+User.firstName TEXT
+User.lastName TEXT
+User.username TEXT
+User.email EMAIL
+User.profileId LOOKUP target=Profile
+User.roleId LOOKUP target=Role
+User.managerId LOOKUP target=User
+User.title TEXT
+User.phone PHONE
+User.isActive BOOLEAN

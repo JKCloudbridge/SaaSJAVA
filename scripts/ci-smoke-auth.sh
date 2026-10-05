@@ -372,8 +372,8 @@ if [ -n "$mail" ]; then
   echo "ok: a profile and an access policy are created and given, the access is read back, and the changes are audited"
 
   # 14. Groups and permissions on data on the image (Sprint 8): the first administrator creates two groups, puts themselves
-  # and the second group into the first, gives the policy to the group, a loop is refused, and in a deployment no object
-  # exists yet, so the catalogue is empty and a permission on an object is refused.
+  # and the second group into the first, gives the policy to the group, a loop is refused, the catalogue lists the standard
+  # objects (Sprint 10), and a permission on an object that does not exist is refused.
   group_json='Content-Type: application/json'
   status="$(client_call -X POST -H "$group_json" -d '{"name":"smoke-group-a","description":""}' "$base/api/v1/groups")"
   [ "$status" = "201" ] || fail "creating a group answered $status: $(cat "$body")"
@@ -393,14 +393,14 @@ if [ -n "$mail" ]; then
   grep -Fq '"groups":[{' "$body" || fail "the access view lacks the group: $(cat "$body")"
   status="$(client_call "$base/api/v1/data-catalogue")"
   [ "$status" = "200" ] || fail "reading the data catalogue answered $status: $(cat "$body")"
-  grep -Fq '"objects":[]' "$body" || fail "a deployment must list no objects before Sprint 10: $(cat "$body")"
+  grep -Fq '"key":"Account"' "$body" || fail "the catalogue lacks the standard objects: $(cat "$body")"
   profile_id="$(client_call "$base/api/v1/profiles" >/dev/null; grep -o '"id":"[^"]*","name":"smoke-profile"' "$body" | head -1 | cut -d'"' -f4)"
-  status="$(client_call -X PUT -H "$group_json" -d '{"objects":[{"key":"object-a","actions":["read"]}],"fields":[]}'     "$base/api/v1/profiles/$profile_id/data-access")"
+  status="$(client_call -X PUT -H "$group_json" -d '{"objects":[{"key":"Ghost__c","actions":["read"]}],"fields":[]}'     "$base/api/v1/profiles/$profile_id/data-access")"
   [ "$status" = "400" ] || fail "a permission on an object that does not exist was not refused ($status): $(cat "$body")"
   status="$(client_call "$base/api/v1/data-access/mine")"
   grep -q '"everything":true' "$body" || fail "the administrator profile does not hold everything: $(cat "$body")"
   [ "$(owner_sql -c "select count(*) from audit_record where event_type like 'access.group.%' and context_tenant_id is not null")" -ge 3 ]     || fail "the changes of groups were not audited"
-  echo "ok: groups are created, filled and given a policy, a loop is refused, no object exists in a deployment, and the changes are audited"
+  echo "ok: groups are created, filled and given a policy, a loop is refused, the standard objects are in the catalogue, an object that does not exist is refused, and the changes are audited"
 
   # 15. The audit viewer on the image (Sprint 9): the administrator reads the group changes back through the API, the
   # events carry no typed text, a malformed filter is refused in words, and the platform endpoint is not served here.
@@ -413,6 +413,40 @@ if [ -n "$mail" ]; then
   status="$(client_call "$base/api/v1/platform/audit-events")"
   [ "$status" = "404" ] || [ "$status" = "403" ] || fail "the platform audit endpoint answered an organization host ($status)"
   echo "ok: the audit viewer shows the changes of groups, refuses a malformed filter, and does not serve the platform endpoint here"
+
+  # 16. Objects and fields on the image (Sprint 10): the first administrator sees the standard objects, makes an object of
+  # their own and a field on it, is refused in words when they try to change a standard object, sees the changes in the
+  # audit viewer without anything they typed, and removes what they made.
+  status="$(client_call "$base/api/v1/metadata/objects")"
+  [ "$status" = "200" ] || fail "listing the objects answered $status: $(cat "$body")"
+  grep -Fq '"apiName":"Account"' "$body" || fail "the object list lacks the standard objects: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Employee","label":"Employee smoke label","pluralLabel":"Employees","description":""}' \
+    "$base/api/v1/metadata/objects")"
+  [ "$status" = "201" ] || fail "creating an object answered $status: $(cat "$body")"
+  grep -Fq '"apiName":"Employee__c"' "$body" || fail "the new object does not end in __c: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"salary","label":"Salary","type":"CURRENCY","required":true}' \
+    "$base/api/v1/metadata/objects/Employee__c/fields")"
+  [ "$status" = "201" ] || fail "adding a field answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/metadata/objects/Employee__c")"
+  [ "$status" = "200" ] || fail "reading the new object answered $status: $(cat "$body")"
+  grep -Fq '"apiName":"salary__c"' "$body" || fail "the object lacks the new field: $(cat "$body")"
+  status="$(client_call -X PUT -H "$group_json" -d '{"label":"Hacked","pluralLabel":"Hacked","description":"","version":0}' \
+    "$base/api/v1/metadata/objects/Account")"
+  [ "$status" = "403" ] || fail "a change to a standard object was not refused ($status): $(cat "$body")"
+  grep -Fq 'defined by the platform' "$body" || fail "the refusal does not say the platform defines it: $(cat "$body")"
+  status="$(client_call "$base/api/v1/audit-events?kind=metadata&limit=50")"
+  [ "$status" = "200" ] || fail "the audit viewer answered $status: $(cat "$body")"
+  grep -Fq '"type":"metadata.object.created"' "$body" || fail "the viewer does not show the new object: $(cat "$body")"
+  grep -Fq '"type":"metadata.change.refused"' "$body" || fail "the viewer does not show the refused change: $(cat "$body")"
+  if grep -Fq 'Employee smoke label' "$body"; then
+    fail "a label that was typed reached the audit viewer"
+  fi
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Employee__c")"
+  [ "$status" = "204" ] || fail "removing the object answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/metadata/objects/Employee__c")"
+  [ "$status" = "404" ] || fail "a removed object is still there ($status)"
+  echo "ok: the standard objects are listed, an object and a field are made, a change to a standard object is refused in words, the changes are audited without typed text, and the object is removed"
 
   stored="$(owner_sql -c "select t::text from account_token t union all select t::text from mail_queue t \
     union all select attributes::text from audit_record union all select t::text from invitation t")"

@@ -54,7 +54,7 @@ A decision that is still open has status **Proposed** and names the gate or spri
 | [0046](0046-licence-kinds-and-the-licence-rule-of-access-policies.md) | Licence kinds (seat, add-on) and the licence rule of access policies | Accepted | ADR-0039 point 3 in part |
 | [0047](0047-public-groups.md) | Public groups: nesting, access policies, loops | Accepted | — |
 | [0048](0048-groups-and-the-last-holder.md) | Groups and the last member who can manage access | Accepted | — |
-| [0049](0049-object-and-field-permissions.md) | Object and field permissions: keys, containers, union, implications, no deny | Accepted | — |
+| [0049](0049-object-and-field-permissions.md) | Object and field permissions: keys, containers, union, implications, no deny | Accepted | point 1 (keys) replaced in part by ADR-0058 |
 | [0050](0050-the-permission-decision-api.md) | The permission decision API | Accepted | — |
 | [0051](0051-dropping-the-administrator-marker.md) | Dropping the administrator marker (contract migration) | Accepted | — |
 | [0052](0052-platform-authorization-manager-and-method-security.md) | PlatformAuthorizationManager and method security | Accepted | — |
@@ -63,3 +63,8 @@ A decision that is still open has status **Proposed** and names the gate or spri
 | [0055](0055-audit-retention-and-the-append-only-door.md) | Audit retention and the one door through the append-only rule | Accepted | — |
 | [0056](0056-the-audit-viewer.md) | The audit viewer (organization and platform) | Accepted | — |
 | [0057](0057-retention-of-closed-invitations.md) | Retention of closed invitations | Accepted | — |
+| [0058](0058-object-and-field-definitions.md) | Object and field definitions: the model, API names, the system fields | Accepted | ADR-0049 point 1 in part |
+| [0059](0059-standard-metadata-in-definition-files.md) | Standard metadata lives in definition files, and nobody can write it while the system runs | Accepted | — |
+| [0060](0060-field-types-and-their-configuration.md) | Field types and their configuration | Accepted | — |
+| [0061](0061-the-metadata-version-and-the-catalogue-cache.md) | The metadata version and the catalogue cache (with the cost note) | Accepted | — |
+| [0062](0062-removing-objects-and-fields.md) | Removing objects and fields | Accepted | — |

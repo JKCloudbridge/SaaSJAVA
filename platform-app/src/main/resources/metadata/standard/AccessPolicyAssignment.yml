@@ -1,0 +1,24 @@
+# Standard object: AccessPolicyAssignment, the junction between a user and an access policy (ADR-0059).
+# A user can hold many access policies and a policy can be held by many users; one record of this object is one such
+# pairing. Both sides are master-detail: the user and the access policy are the masters and the assignment is the
+# detail, so an assignment cannot exist without either (when the data engine arrives, removing a master removes the
+# assignments with it). Records belong to the security part of the platform (managedBy).
+# How to change this file: docs/metadata-guide.md.
+apiName: AccessPolicyAssignment
+label: Access policy assignment
+pluralLabel: Access policy assignments
+description: One access policy held by one user.
+managedBy: security
+extensible: false
+fields:
+  - apiName: assigneeId
+    label: User
+    description: The user who holds the access policy.
+    type: MASTER_DETAIL
+    settings: { targetObject: User }
+
+  - apiName: accessPolicyId
+    label: Access policy
+    description: The access policy the user holds.
+    type: MASTER_DETAIL
+    settings: { targetObject: AccessPolicy }

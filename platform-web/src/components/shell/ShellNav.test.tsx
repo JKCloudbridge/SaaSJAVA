@@ -47,6 +47,13 @@ describe("ShellNav", () => {
     expect(screen.getByRole("link", { name: "Members" })).toHaveAttribute("href", "/members");
   });
 
+  it("offers the object pages to a member who may view objects but not manage access", async () => {
+    organizationApi(["metadata.view"]);
+    renderNav();
+
+    expect(await screen.findByRole("link", { name: "Setup" })).toHaveAttribute("href", "/setup/objects");
+  });
+
   it("does not offer the setup pages to a member without that ability, whatever the page would answer", async () => {
     organizationApi(["members.view"]);
     renderNav();

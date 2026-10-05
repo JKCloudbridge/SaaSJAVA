@@ -89,7 +89,7 @@ class AuditFlowsLogsAreCleanIT {
                 + description + "\"}");
         contexts.run(TenantContext.of(organization.id()), () -> {
             recorder.record(AuditRecord.of("access.probe.changed", AuditOutcome.SUCCESS).inTenant(organization.id())
-                    .onObject("object-a", "record-1").changing(oldTyped, newTyped));
+                    .onObject("ObjectA__c", "record-1").changing(oldTyped, newTyped));
             recorder.record(AuditRecord.of("platform.support_access.requested", AuditOutcome.SUCCESS)
                     .inTenant(organization.id()).with("reason_text", reasonTyped));
         });

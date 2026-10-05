@@ -90,10 +90,10 @@ class GroupFlowsLogsAreCleanIT {
         responses.add(admin.postJson(base + "/policies", "{\"policyId\":\"" + policy + "\"}").body());
         responses.add(admin.get("/api/v1/groups").body());
         responses.add(admin.request("PUT", "/api/v1/access-policies/" + policy + "/data-access",
-                "{\"objects\":[{\"key\":\"object-a\",\"actions\":[\"read\"]}],\"fields\":[]}").body());
+                "{\"objects\":[{\"key\":\"ObjectA__c\",\"actions\":[\"read\"]}],\"fields\":[]}").body());
         responses.add(admin.request("PUT", "/api/v1/members/" + person.membership() + "/data-access",
-                "{\"objects\":[{\"key\":\"object-b\",\"actions\":[\"update\"]}],\"fields\":"
-                        + "[{\"key\":\"object-a.field-a\",\"actions\":[\"edit\"]}]}").body());
+                "{\"objects\":[{\"key\":\"ObjectB__c\",\"actions\":[\"update\"]}],\"fields\":"
+                        + "[{\"key\":\"ObjectA__c.fieldA__c\",\"actions\":[\"edit\"]}]}").body());
         responses.add(admin.get("/api/v1/members/" + person.membership() + "/access").body());
         // Refusals: a loop, a duplicate name carrying the typed text, an unknown object.
         responses.add(admin.postJson("/api/v1/groups/" + inner + "/members", "{\"groupId\":\"" + group + "\"}")

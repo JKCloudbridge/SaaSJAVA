@@ -1,0 +1,33 @@
+# Standard object: AccessPolicy, a named set of abilities and permissions that can be given to members (ADR-0059).
+# Records belong to the security part of the platform (managedBy), changed only through the access policy screens, which
+# keep the rules about licences and the last member who can manage access.
+# How to change this file: docs/metadata-guide.md.
+apiName: AccessPolicy
+label: Access policy
+pluralLabel: Access policies
+description: >-
+  A named set of abilities and permissions on data that can be given to members and to groups, on top of their profile.
+managedBy: security
+extensible: true
+fields:
+  - apiName: name
+    label: Access policy name
+    type: TEXT
+    required: true
+    unique: true
+    settings: { maxLength: 80 }
+
+  - apiName: isCustom
+    label: Custom
+    description: >-
+      True when the organization made the access policy. False for a policy the platform defines and sells as an add-on.
+    type: BOOLEAN
+    default: true
+
+  - apiName: licenceTypeId
+    label: Required licence type
+    description: >-
+      The licence type a member needs to be given the policy. Empty when no licence is needed. A policy of the same
+      licence type as the member's profile uses no extra licence.
+    type: LOOKUP
+    settings: { targetObject: LicenceType }

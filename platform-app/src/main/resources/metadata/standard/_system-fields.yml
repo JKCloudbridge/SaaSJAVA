@@ -1,0 +1,59 @@
+# The system fields: every object has them, standard and custom alike (ADR-0059, docs/metadata-guide.md).
+#
+# They are defined once, here, and are protected: no organization can change or remove them, and they are never
+# retired. The platform fills them in; a person does not type them.
+#
+# Adding a system field puts a field on EVERY object, so it is a decision for the whole platform: read the guide first.
+# Names here must not clash with a standard field of any object (the loader refuses the clash).
+fields:
+  - apiName: id
+    label: Record ID
+    description: >-
+      The permanent identifier of the record. It never changes and is used in the address of the record
+      (/records/{object}/{id}), in the API and in integrations.
+    type: TEXT
+    unique: true
+    settings: { maxLength: 36 }
+
+  - apiName: sequence
+    label: Sequence
+    description: >-
+      A running number the platform gives every new record of the object, counting up by one. It is easy for people to
+      quote ("record 1042") where the identifier is not.
+    type: AUTO_NUMBER
+    settings: { prefix: "", startAt: 1, width: 1 }
+
+  - apiName: description
+    label: Description
+    description: Free text about the record.
+    type: LONG_TEXT
+    settings: { maxLength: 32000 }
+
+  - apiName: ownerId
+    label: Owner
+    description: The user who owns the record. Record sharing (a later release) starts from the owner.
+    type: LOOKUP
+    required: true
+    settings: { targetObject: User }
+
+  - apiName: createdAt
+    label: Created at
+    description: When the record was created.
+    type: DATETIME
+
+  - apiName: createdById
+    label: Created by
+    description: The user who created the record.
+    type: LOOKUP
+    settings: { targetObject: User }
+
+  - apiName: updatedAt
+    label: Last changed at
+    description: When the record was last changed.
+    type: DATETIME
+
+  - apiName: updatedById
+    label: Last changed by
+    description: The user who last changed the record.
+    type: LOOKUP
+    settings: { targetObject: User }

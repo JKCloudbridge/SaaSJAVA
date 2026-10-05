@@ -1,0 +1,87 @@
+# Standard object: Contact, a person at an account or on their own (ADR-0059).
+# How to change this file: docs/metadata-guide.md.
+apiName: Contact
+label: Contact
+pluralLabel: Contacts
+description: A person the business deals with, usually at an account.
+extensible: true
+fields:
+  - apiName: firstName
+    label: First name
+    type: TEXT
+    settings: { maxLength: 80 }
+
+  - apiName: lastName
+    label: Last name
+    type: TEXT
+    required: true
+    settings: { maxLength: 80 }
+
+  - apiName: accountId
+    label: Account
+    description: The account the person belongs to. A contact can exist without one.
+    type: LOOKUP
+    settings: { targetObject: Account }
+
+  - apiName: reportsToId
+    label: Reports to
+    description: The contact this person reports to.
+    type: LOOKUP
+    settings: { targetObject: Contact }
+
+  - apiName: title
+    label: Job title
+    type: TEXT
+    settings: { maxLength: 128 }
+
+  - apiName: department
+    label: Department
+    type: TEXT
+    settings: { maxLength: 80 }
+
+  - apiName: email
+    label: E-mail
+    type: EMAIL
+
+  - apiName: phone
+    label: Phone
+    type: PHONE
+
+  - apiName: mobilePhone
+    label: Mobile phone
+    type: PHONE
+
+  - apiName: birthDate
+    label: Birth date
+    type: DATE
+
+  - apiName: isActive
+    label: Active
+    description: Whether the business still deals with the person.
+    type: BOOLEAN
+    default: true
+
+  - apiName: mailingStreet
+    label: Mailing street
+    type: TEXT
+    settings: { maxLength: 255 }
+
+  - apiName: mailingCity
+    label: Mailing city
+    type: TEXT
+    settings: { maxLength: 80 }
+
+  - apiName: mailingState
+    label: Mailing state or province
+    type: TEXT
+    settings: { maxLength: 80 }
+
+  - apiName: mailingPostalCode
+    label: Mailing postal code
+    type: TEXT
+    settings: { maxLength: 20 }
+
+  - apiName: mailingCountry
+    label: Mailing country
+    type: TEXT
+    settings: { maxLength: 80 }

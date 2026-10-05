@@ -14,8 +14,11 @@ export function ShellNav() {
   const platform = usePlatformAddress();
   const pathname = usePathname();
   const showMembers = state.status === "signedIn" && platform.isPlatformHost === false;
-  // The setup pages are offered to someone the API lists the ability to manage access for; the API decides again on every call.
-  const showSetup = showMembers && state.status === "signedIn" && state.user.abilities.includes("access.manage");
+  // The setup pages are offered to someone the API lists the ability to manage access, or to view objects, for; the API
+  // decides again on every call. The link opens the first page the listed ability is for.
+  const abilities = state.status === "signedIn" ? state.user.abilities : [];
+  const setupHref = abilities.includes("access.manage") ? "/setup/profiles" : "/setup/objects";
+  const showSetup = showMembers && (abilities.includes("access.manage") || abilities.includes("metadata.view"));
   // The audit trail is offered to someone the API lists the ability to view it for; the API decides again on every call.
   const showAudit = showMembers && state.status === "signedIn" && state.user.abilities.includes("audit.view");
   // The console link is a convenience for a person the API lists a platform role for; the API refuses the rest.
@@ -51,7 +54,7 @@ export function ShellNav() {
       ) : null}
       {showSetup ? (
         <li>
-          <Link href="/setup/profiles" aria-current={pathname.startsWith("/setup") ? "page" : undefined}>
+          <Link href={setupHref} aria-current={pathname.startsWith("/setup") ? "page" : undefined}>
             Setup
           </Link>
         </li>

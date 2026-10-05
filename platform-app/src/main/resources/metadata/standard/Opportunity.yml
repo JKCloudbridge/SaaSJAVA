@@ -1,0 +1,75 @@
+# Standard object: Opportunity, a possible sale (ADR-0059).
+# How to change this file: docs/metadata-guide.md.
+apiName: Opportunity
+label: Opportunity
+pluralLabel: Opportunities
+description: A possible sale to an account, followed from first interest until it is won or lost.
+extensible: true
+fields:
+  - apiName: name
+    label: Opportunity name
+    type: TEXT
+    required: true
+    settings: { maxLength: 255 }
+
+  - apiName: accountId
+    label: Account
+    type: LOOKUP
+    settings: { targetObject: Account }
+
+  - apiName: primaryContactId
+    label: Primary contact
+    description: The person at the account the business mainly talks to about this sale.
+    type: LOOKUP
+    settings: { targetObject: Contact }
+
+  - apiName: stage
+    label: Stage
+    description: How far the sale has come.
+    type: PICKLIST
+    required: true
+    default: Prospecting
+    settings:
+      values:
+        - { value: Prospecting, label: Prospecting }
+        - { value: Qualification, label: Qualification }
+        - { value: Proposal, label: Proposal }
+        - { value: Negotiation, label: Negotiation }
+        - { value: ClosedWon, label: Closed won }
+        - { value: ClosedLost, label: Closed lost }
+
+  - apiName: amount
+    label: Amount
+    description: What the sale is worth.
+    type: CURRENCY
+    settings: { precision: 18, scale: 2 }
+
+  - apiName: probability
+    label: Probability
+    description: How likely the sale is to close, as a percentage.
+    type: PERCENT
+    settings: { precision: 5, scale: 2 }
+
+  - apiName: closeDate
+    label: Close date
+    description: When the sale is expected to close, or closed.
+    type: DATE
+    required: true
+
+  - apiName: leadSource
+    label: Lead source
+    description: Where the opportunity came from.
+    type: PICKLIST
+    settings:
+      values:
+        - { value: Web, label: Web }
+        - { value: Referral, label: Referral }
+        - { value: Partner, label: Partner }
+        - { value: Event, label: Event }
+        - { value: Other, label: Other }
+
+  - apiName: nextStep
+    label: Next step
+    description: What happens next.
+    type: TEXT
+    settings: { maxLength: 255 }

@@ -1,0 +1,22 @@
+# Standard object: Role, a place in the role hierarchy (ADR-0059).
+# Records belong to the security part of the platform (managedBy), changed only through the role screens.
+# How to change this file: docs/metadata-guide.md.
+apiName: Role
+label: Role
+pluralLabel: Roles
+description: A place in the role hierarchy. It decides which records a member can see, never what they may do.
+managedBy: security
+extensible: true
+fields:
+  - apiName: name
+    label: Role name
+    type: TEXT
+    required: true
+    unique: true
+    settings: { maxLength: 80 }
+
+  - apiName: parentRoleId
+    label: Parent role
+    description: The role above this one. Members of a role can see what the members below them can see.
+    type: LOOKUP
+    settings: { targetObject: Role }

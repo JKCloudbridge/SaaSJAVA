@@ -123,6 +123,12 @@ public final class ApiPaths {
     /** The audit events of the platform, for platform administrators (Sprint 9). */
     public static final String PLATFORM_AUDIT_EVENTS = PLATFORM + "/audit-events";
 
+    /** The object and field definitions of the organization the host names: standard and custom (Sprint 10). */
+    public static final String METADATA_OBJECTS = V1 + "/metadata/objects";
+
+    /** The field types an organization can choose from, with the settings each takes (Sprint 10). */
+    public static final String METADATA_FIELD_TYPES = V1 + "/metadata/field-types";
+
     /** The caller leaves the organization the host names (Sprint 7). */
     public static final String ORGANIZATION_LEAVE = V1 + "/organization/leave";
 

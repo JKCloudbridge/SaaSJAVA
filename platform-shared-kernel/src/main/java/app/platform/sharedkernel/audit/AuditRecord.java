@@ -44,7 +44,7 @@ public record AuditRecord(String type, AuditOutcome outcome, UUID actorUserId, T
 
     private static final Pattern TYPE = Pattern.compile("[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+");
     private static final Pattern KEY = Pattern.compile("[a-z][a-z0-9_]{0,39}");
-    private static final Pattern OBJECT_KEY = Pattern.compile("[a-z][a-z0-9_.-]{0,99}");
+    private static final Pattern OBJECT_KEY = Pattern.compile("[A-Za-z][A-Za-z0-9_.-]{0,119}");
     private static final Pattern RECORD_ID = Pattern.compile("[A-Za-z0-9_.:-]{1,64}");
     private static final Pattern REASON = Pattern.compile("[a-z][a-z0-9_]{0,59}");
     private static final Set<String> SECRET_WORDS = Set.of(
@@ -79,7 +79,7 @@ public record AuditRecord(String type, AuditOutcome outcome, UUID actorUserId, T
         }
         attributes = Map.copyOf(copy);
         if (objectKey != null && !OBJECT_KEY.matcher(objectKey).matches()) {
-            throw new IllegalArgumentException("An audit object key is a lower-case key");
+            throw new IllegalArgumentException("An audit object key is an API name, or an object and a field name");
         }
         if (recordId != null && !RECORD_ID.matcher(recordId).matches()) {
             throw new IllegalArgumentException("An audit record id is a short identifier");

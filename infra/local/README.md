@@ -156,8 +156,9 @@ and run `docker compose up -d postgres`, then `docker compose logs postgres`: ev
 - These credentials are for local use only. Never reuse them anywhere else and never commit `.env`.
 - Use only the `example.test` domain for test email addresses.
 
-## Sample objects for the permission editors (Sprint 8)
+## Sample objects (Sprint 10)
 
-Objects do not exist before Sprint 10. The `local` profile lists two sample objects (`object-a` with three fields and `object-b`) from
-`platform.security.sample-objects` in `application-local.yml`, so the matrix editors at `/setup/profiles` and `/setup/access-policies` have something to show.
-A deployment lists none.
+The `local` profile gives each local organization one object of its own, made through the same tables the object manager uses: `Employee__c` (with an employee
+number, a department picklist, a joining date and a salary) in `tenant-a`, and `Vehicle__c` (plate number, model, next service) in `tenant-b`. Sign in as
+`admin-a@example.test` and open **Setup, Objects** to see them next to the standard objects, and the matrix editors at `/setup/profiles` and
+`/setup/access-policies` list the same objects. The sample objects of Sprint 8 (`platform.security.sample-objects`) are gone. A deployment has none.

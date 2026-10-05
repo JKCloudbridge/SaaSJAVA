@@ -29,9 +29,13 @@ public final class TestOrganizations {
         }
     }
 
-    /** An open organization whose only member is an administrator. */
+    /**
+     * An open organization whose only member is an administrator, with the two sample objects of {@link TestObjects}
+     * (so that permissions on data have something to name).
+     */
     public static Organization create(Users users) {
         TestTenant tenant = TenantFixtures.createActiveTenant();
+        TestObjects.addSamples(tenant.id());
         return new Organization(tenant, join(users, tenant, true));
     }
 

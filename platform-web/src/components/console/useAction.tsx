@@ -15,6 +15,8 @@ export interface ActionResult {
   error?: unknown;
   response: Response;
   text?: string;
+  /** Words to show instead of the standard ones when it did not work (for example a refusal that lists the invalid fields). */
+  problem?: string;
 }
 
 /**
@@ -42,7 +44,7 @@ export function useAction(onDone: () => Promise<void>) {
           setNotice(result.text);
           await onDone();
         } else {
-          setProblem(await failureText(result.error, result.response));
+          setProblem(result.problem ?? (await failureText(result.error, result.response)));
         }
       } catch {
         setProblem(COMMON_TEXT.network);
