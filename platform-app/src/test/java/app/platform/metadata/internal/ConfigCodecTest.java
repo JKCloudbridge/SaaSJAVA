@@ -2,6 +2,7 @@ package app.platform.metadata.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.platform.metadata.DeleteBehaviour;
 import app.platform.metadata.FieldConfiguration;
 import app.platform.metadata.FieldConfiguration.AutoNumberConfiguration;
 import app.platform.metadata.FieldConfiguration.DecimalConfiguration;
@@ -45,7 +46,12 @@ class ConfigCodecTest {
                 Arguments.of(FieldType.MULTI_PICKLIST, new PicklistConfiguration(List.of(
                         new PicklistValue("A", "A \"quoted\" label", true)))),
                 Arguments.of(FieldType.LOOKUP, new ReferenceConfiguration("Account")),
-                Arguments.of(FieldType.MASTER_DETAIL, new ReferenceConfiguration("Employee__c")),
+                Arguments.of(FieldType.LOOKUP, new ReferenceConfiguration("Account", DeleteBehaviour.REFUSE, false,
+                        "Linked \"things\"")),
+                Arguments.of(FieldType.MASTER_DETAIL,
+                        ReferenceConfiguration.defaultsFor(FieldType.MASTER_DETAIL, "Employee__c")),
+                Arguments.of(FieldType.MASTER_DETAIL, new ReferenceConfiguration("Employee__c",
+                        DeleteBehaviour.CASCADE, true, "Lines")),
                 Arguments.of(FieldType.FORMULA, new FormulaConfiguration("a + \"b\"\n* 2", FieldType.NUMBER)),
                 Arguments.of(FieldType.AUTO_NUMBER, new AutoNumberConfiguration("INV-", 100, 5)));
     }
@@ -56,6 +62,20 @@ class ConfigCodecTest {
         assertThat(codec.read(FieldType.DECIMAL, null)).isEqualTo(new DecimalConfiguration(18, 2));
         assertThat(codec.read(FieldType.AUTO_NUMBER, ""))
                 .isEqualTo(new AutoNumberConfiguration("", 1, 6));
+    }
+
+    @Test
+    void aReferenceStoredBeforeSprintElevenTakesTheBehaviourOfItsType() {
+        assertThat(codec.read(FieldType.LOOKUP, "{\"targetObject\":\"Account\"}"))
+                .isEqualTo(new ReferenceConfiguration("Account", DeleteBehaviour.CLEAR, false, ""));
+        assertThat(codec.read(FieldType.MASTER_DETAIL, "{\"targetObject\":\"Account\"}"))
+                .isEqualTo(new ReferenceConfiguration("Account", DeleteBehaviour.CASCADE, false, ""));
+    }
+
+    @Test
+    void aMasterDetailAlwaysCascadesWhateverWasStored() {
+        assertThat(codec.read(FieldType.MASTER_DETAIL, "{\"targetObject\":\"Account\",\"onDelete\":\"CLEAR\"}"))
+                .isEqualTo(new ReferenceConfiguration("Account", DeleteBehaviour.CASCADE, false, ""));
     }
 
     @Test

@@ -5,11 +5,13 @@ import app.platform.metadata.FieldDefinition;
 import app.platform.metadata.FieldType;
 import app.platform.metadata.Metadata;
 import app.platform.metadata.ObjectDefinition;
+import app.platform.metadata.RecordType;
 import app.platform.security.ObjectCatalog;
 import app.platform.tenant.TenantContexts;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -37,9 +39,14 @@ class MetadataCatalogue implements Metadata {
     private final TenantContexts contexts;
     private final ConfigCodec codec;
     private final TransactionTemplate transaction;
+    private final RecordTypeStore recordTypeStore;
+    private final RecordTypeCodec recordTypeCodec;
 
     MetadataCatalogue(StandardMetadata standard, MetadataStore store, MetadataVersions versions,
-            MetadataCache cache, TenantContexts contexts, ConfigCodec codec, TransactionTemplate transaction) {
+            MetadataCache cache, TenantContexts contexts, ConfigCodec codec, TransactionTemplate transaction,
+            RecordTypeStore recordTypeStore, RecordTypeCodec recordTypeCodec) {
+        this.recordTypeStore = recordTypeStore;
+        this.recordTypeCodec = recordTypeCodec;
         this.standard = standard;
         this.store = store;
         this.versions = versions;
@@ -57,6 +64,11 @@ class MetadataCatalogue implements Metadata {
     @Override
     public Optional<ObjectDefinition> object(String apiName) {
         return snapshot().object(apiName);
+    }
+
+    @Override
+    public List<RecordType> recordTypes(String objectApiName) {
+        return snapshot().recordTypes(objectApiName);
     }
 
     /**
@@ -94,7 +106,12 @@ class MetadataCatalogue implements Metadata {
             objects.add(new ObjectDefinition(row.apiName(), row.label(), row.pluralLabel(), row.description(),
                     DefinitionKind.CUSTOM, null, true, row.version(), fields));
         }
-        return new MetadataSnapshot(objects);
+        Map<String, List<RecordType>> recordTypes = new LinkedHashMap<>();
+        for (RecordTypeStore.Row row : recordTypeStore.all()) {
+            recordTypes.computeIfAbsent(row.objectApiName(), name -> new ArrayList<>())
+                    .add(recordTypeCodec.read(row));
+        }
+        return new MetadataSnapshot(objects, recordTypes);
     }
 
     private FieldDefinition customField(MetadataStore.FieldRow row) {

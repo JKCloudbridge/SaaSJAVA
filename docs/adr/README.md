@@ -68,3 +68,9 @@ A decision that is still open has status **Proposed** and names the gate or spri
 | [0060](0060-field-types-and-their-configuration.md) | Field types and their configuration | Accepted | — |
 | [0061](0061-the-metadata-version-and-the-catalogue-cache.md) | The metadata version and the catalogue cache (with the cost note) | Accepted | — |
 | [0062](0062-removing-objects-and-fields.md) | Removing objects and fields | Accepted | — |
+| [0063](0063-relationships.md) | Relationships: read from the fields; delete behaviour, re-parenting, both directions | Accepted | — |
+| [0064](0064-record-types.md) | Record types | Accepted | — |
+| [0065](0065-the-dependency-graph-and-pre-publish-validation.md) | The dependency graph and pre-publish validation | Accepted | ADR-0062 point 6 carried out |
+| [0066](0066-change-sets-and-the-publication-of-metadata.md) | Change sets and the publication of metadata (draft, check, preview, publish) | Accepted | architecture note 3: no `status` column on the live tables |
+| [0067](0067-releases-history-and-rollback.md) | Releases, history and rollback | Accepted | — |
+| [0068](0068-the-publish-ability-and-changes-made-at-once.md) | The ability to publish, and changes made at once | Accepted | — |

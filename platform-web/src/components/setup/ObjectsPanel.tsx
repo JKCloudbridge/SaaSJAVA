@@ -7,6 +7,7 @@ import { ActionMessages, failureText, useAction } from "@/components/console/use
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
 import { KIND_TEXT, problemText } from "./objectText";
+import { addToSet, DRAFTED_TEXT, useWorkingSet } from "./workingSet";
 
 type ObjectSummary = components["schemas"]["ObjectSummaryView"];
 
@@ -21,6 +22,7 @@ export function ObjectsPanel() {
   const [objects, setObjects] = useState<ObjectSummary[] | undefined>();
   const [failure, setFailure] = useState<string | undefined>();
   const [draft, setDraft] = useState(EMPTY);
+  const { id: workingSet } = useWorkingSet();
 
   const reload = useCallback(async () => {
     try {
@@ -45,10 +47,16 @@ export function ObjectsPanel() {
   function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void act(async () => {
-      const { error, response } = await api.POST("/api/v1/metadata/objects", { body: draft });
+      const { error, response } = workingSet
+        ? await addToSet(workingSet, {
+            kind: "CREATE_OBJECT",
+            objectApiName: `${draft.name.trim()}__c`,
+            createObject: draft,
+          })
+        : await api.POST("/api/v1/metadata/objects", { body: draft });
       if (response.ok) {
         setDraft(EMPTY);
-        return { error, response, text: "The object was created." };
+        return { error, response, text: workingSet ? DRAFTED_TEXT : "The object was created." };
       }
       return { error, response, problem: problemText(error, response) };
     });

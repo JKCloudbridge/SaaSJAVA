@@ -24,6 +24,16 @@ class MetadataModuleConfiguration {
     }
 
     @Bean
+    RecordTypeCodec recordTypeCodec() {
+        return new RecordTypeCodec();
+    }
+
+    @Bean
+    ChangeCodec changeCodec() {
+        return new ChangeCodec();
+    }
+
+    @Bean
     MetadataCache metadataCache(MetadataProperties properties, MeterRegistry meters) {
         return new MetadataCache(properties.cache().enabled(), properties.cache().maxOrganizations(), meters);
     }

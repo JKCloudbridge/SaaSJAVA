@@ -38,7 +38,7 @@ final class StandardMetadataLoader {
     static final String SYSTEM_FIELDS_FILE = "_system-fields.yml";
 
     /** The parts of the platform that may own the records of a standard object. */
-    static final Set<String> OWNERS = Set.of("identity", "security", "licensing");
+    static final Set<String> OWNERS = Set.of("identity", "security", "licensing", "metadata");
 
     private static final Pattern OBJECT_NAME = Pattern.compile("[A-Z][A-Za-z0-9]{0,39}");
     private static final Pattern FIELD_NAME = Pattern.compile("[a-z][A-Za-z0-9]{0,39}");
@@ -51,7 +51,8 @@ final class StandardMetadataLoader {
     private static final Set<String> FIELD_KEYS = Set.of("apiName", "label", "description", "type", "required",
             "unique", "default", "settings", "retired");
     private static final Set<String> SETTING_KEYS = Set.of("maxLength", "digits", "precision", "scale", "values",
-            "targetObject", "expression", "resultType", "prefix", "startAt", "width");
+            "targetObject", "expression", "resultType", "prefix", "startAt", "width", "onDelete", "reparentable",
+            "listLabel");
     private static final Set<String> VALUE_KEYS = Set.of("value", "label", "active");
 
     private StandardMetadataLoader() {
@@ -221,7 +222,9 @@ final class StandardMetadataLoader {
                     node.optionalInteger("precision"), node.optionalInteger("scale"), values,
                     node.optionalText("targetObject"), node.optionalText("expression"),
                     node.optionalText("resultType"), node.optionalText("prefix"), node.optionalLong("startAt"),
-                    node.optionalInteger("width"));
+                    node.optionalInteger("width"), node.optionalText("onDelete"),
+                    node.has("reparentable") ? node.flag("reparentable", false) : null,
+                    node.optionalText("listLabel"));
         }
 
         private static String limited(YamlNode node, String key, int max) {

@@ -26,6 +26,43 @@ const FIELD_NAMES: Record<string, string> = {
   "settings.prefix": "Prefix",
   "settings.startAt": "First number",
   "settings.width": "Width",
+  "settings.onDelete": "When the other record is removed",
+  "settings.reparentable": "Moving to another master",
+  "settings.listLabel": "List label",
+  availableFields: "Available fields",
+  picklistSubsets: "Picklist values",
+  defaultType: "Default",
+  active: "Active",
+  problems: "Problem",
+  dependencies: "Needed by",
+};
+
+/** What happens to a record that points at a removed one, in words, for the two choices of a lookup and the master-detail. */
+export const ON_DELETE_TEXT: Record<string, string> = {
+  CLEAR: "the link is emptied",
+  REFUSE: "the removal is refused",
+  CASCADE: "the record is removed too",
+};
+
+/** The words for the kinds of change and the actions in the history, from what the API sent. */
+export const CHANGE_KIND_TEXT: Record<string, string> = {
+  CREATE_OBJECT: "Create object",
+  UPDATE_OBJECT: "Change object",
+  DELETE_OBJECT: "Remove object",
+  CREATE_FIELD: "Add field",
+  UPDATE_FIELD: "Change field",
+  DELETE_FIELD: "Remove field",
+  CREATE_RECORD_TYPE: "Add record type",
+  UPDATE_RECORD_TYPE: "Change record type",
+  DELETE_RECORD_TYPE: "Remove record type",
+};
+
+export const ACTION_TEXT: Record<string, string> = { ADDED: "Added", CHANGED: "Changed", REMOVED: "Removed" };
+export const ITEM_TEXT: Record<string, string> = { OBJECT: "object", FIELD: "field", RECORD_TYPE: "record type" };
+export const RELEASE_KIND_TEXT: Record<string, string> = {
+  QUICK: "A change made at once",
+  CHANGE_SET: "A change set",
+  ROLLBACK: "A rollback",
 };
 
 /**
@@ -58,6 +95,12 @@ export function settingsSummary(field: FieldView): string {
   }
   if (s.targetObject) {
     parts.push(`points to ${s.targetObject}`);
+  }
+  if (s.onDelete) {
+    parts.push(`when it is removed: ${ON_DELETE_TEXT[s.onDelete] ?? s.onDelete}`);
+  }
+  if (s.reparentable) {
+    parts.push("may move to another master");
   }
   if (s.expression) {
     parts.push(`result: ${s.resultType ?? "text"}`);

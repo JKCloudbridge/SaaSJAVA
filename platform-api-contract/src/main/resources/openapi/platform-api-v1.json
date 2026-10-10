@@ -2097,6 +2097,356 @@
         "tags" : [ "Members" ]
       }
     },
+    "/api/v1/metadata/change-sets" : {
+      "get" : {
+        "description" : "Open drafts first, then published and discarded ones. For members who may view objects and fields. NOT_FOUND on the platform host.",
+        "operationId" : "listChangeSets",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListChangeSetView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The change sets of the organization",
+        "tags" : [ "Metadata" ]
+      },
+      "post" : {
+        "description" : "A named group of intended changes that is published all together or not at all. A draft is invisible to everything that reads the organization's metadata until it is published. VALIDATION_ERROR for a name in use, CONFLICT at the limit of open change sets. Audited.",
+        "operationId" : "createChangeSet",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateChangeSetRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseChangeSetView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Start a change set",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/change-sets/{id}" : {
+      "delete" : {
+        "description" : "Nothing it holds was ever live. CONFLICT for one that was published or discarded. Audited.",
+        "operationId" : "discardChangeSet",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Discard an open change set",
+        "tags" : [ "Metadata" ]
+      },
+      "get" : {
+        "description" : "NOT_FOUND for a change set the organization does not have.",
+        "operationId" : "getChangeSet",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseChangeSetView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One change set with its changes",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/change-sets/{id}/changes" : {
+      "post" : {
+        "description" : "The change carries the request the live endpoint takes. It is not applied: nothing is checked beyond its shape until the set is checked or published. VALIDATION_ERROR for a change that does not say what it needs, CONFLICT for a set that is no longer open or full. Audited.",
+        "operationId" : "addChange",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChangeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseChangeSetView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Add a change to an open change set",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/change-sets/{id}/changes/{changeId}" : {
+      "delete" : {
+        "description" : "NOT_FOUND for a change the set does not have. Audited.",
+        "operationId" : "removeChange",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "changeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseChangeSetView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Take a change out of an open change set",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/change-sets/{id}/preview" : {
+      "post" : {
+        "description" : "The same check as validate, and in addition the affected objects as they would be after publishing. Needs the ability to view and either to manage or to publish.",
+        "operationId" : "previewChangeSet",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseChangeSetReportView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Show what a change set would make, without keeping anything",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/change-sets/{id}/publish" : {
+      "post" : {
+        "description" : "Puts all of it live or none of it, as one release. CONFLICT with every problem (each naming what depends on it) when it cannot be published, or when it is no longer open. Needs the abilities to publish and to view. Audited.",
+        "operationId" : "publishChangeSet",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseChangeSetView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Publish a change set",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/change-sets/{id}/validate" : {
+      "post" : {
+        "description" : "Applies the changes by the real rules, checks what depends on what, and rolls everything back. The answer lists every problem (each naming what depends on it) and what would be added, changed or removed. Needs the ability to view and either to manage or to publish.",
+        "operationId" : "validateChangeSet",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseChangeSetReportView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Check a change set without keeping anything",
+        "tags" : [ "Metadata" ]
+      }
+    },
     "/api/v1/metadata/field-types" : {
       "get" : {
         "description" : "With the settings each type takes and the constraints it allows. For members who may view objects and fields. NOT_FOUND on the platform host, FORBIDDEN without the ability.",
@@ -2444,6 +2794,352 @@
           }
         },
         "summary" : "Change a custom field",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/record-types" : {
+      "get" : {
+        "description" : "For members who may view objects and fields. NOT_FOUND for an object the organization does not have, on the platform host.",
+        "operationId" : "listRecordTypes",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListRecordTypeView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The record types of an object",
+        "tags" : [ "Metadata" ]
+      },
+      "post" : {
+        "description" : "Live at once, as a release of one change. The name is turned into the permanent API name with the ending __c. VALIDATION_ERROR lists every problem with the fields and picklist values named; CONFLICT for an object whose records belong to the platform, at the limit, or when the result would break a dependency. Audited.",
+        "operationId" : "createRecordType",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateRecordTypeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordTypeView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Add a record type to an object",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/record-types/{recordTypeApiName}" : {
+      "delete" : {
+        "description" : "Live at once, as a release of one change. NOT_FOUND for a record type the object does not have. Audited.",
+        "operationId" : "deleteRecordType",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "recordTypeApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a record type",
+        "tags" : [ "Metadata" ]
+      },
+      "get" : {
+        "description" : "NOT_FOUND for a record type the object does not have.",
+        "operationId" : "getRecordType",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "recordTypeApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordTypeView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One record type",
+        "tags" : [ "Metadata" ]
+      },
+      "put" : {
+        "description" : "Live at once, as a release of one change. The API name and the object never change. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.",
+        "operationId" : "updateRecordType",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "recordTypeApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateRecordTypeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordTypeView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change a record type",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/relationships" : {
+      "get" : {
+        "description" : "The objects this one points at (parents), the lists of other objects that point at it (children), and the objects related through a junction object (many-to-many). Read from the lookup and master-detail fields, with what happens to a child when its parent is removed. NOT_FOUND for an object the organization does not have.",
+        "operationId" : "getObjectRelationships",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseObjectRelationshipsView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The relationships of an object, in both directions",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/releases" : {
+      "get" : {
+        "description" : "Newest first: each release says what it added, changed or removed, whether it was rolled back, and whether it is the latest. For members who may view objects and fields.",
+        "operationId" : "listReleases",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListReleaseView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The history of publications",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/releases/latest/rollback" : {
+      "post" : {
+        "description" : "Undoes the latest release as a new release. Only the latest can be rolled back; rolling back a rollback redoes it. CONFLICT with every problem when it cannot be undone. Needs the abilities to publish and to view. Audited.",
+        "operationId" : "rollbackLatestRelease",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseReleaseView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Roll back the latest release",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/releases/latest/rollback-check" : {
+      "post" : {
+        "description" : "Applies the undo by the real rules and rolls everything back. The answer lists every problem, including records or values that would be lost, and what would be undone.",
+        "operationId" : "checkRollback",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseChangeSetReportView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Check what rolling back the latest release would do",
         "tags" : [ "Metadata" ]
       }
     },
@@ -4535,6 +5231,24 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseChangeSetReportView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ChangeSetReportView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseChangeSetView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ChangeSetView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseCurrentUser" : {
         "type" : "object",
         "properties" : {
@@ -4638,6 +5352,18 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/CatalogueItem"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListChangeSetView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChangeSetView"
             }
           }
         },
@@ -4775,6 +5501,30 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListRecordTypeView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordTypeView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListReleaseView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReleaseView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListRoleView" : {
         "type" : "object",
         "properties" : {
@@ -4816,6 +5566,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/MemberAccessView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseObjectRelationshipsView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ObjectRelationshipsView"
           }
         },
         "required" : [ "data" ]
@@ -4888,6 +5647,24 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/ProfileView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseRecordTypeView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/RecordTypeView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseReleaseView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ReleaseView"
           }
         },
         "required" : [ "data" ]
@@ -5044,6 +5821,112 @@
         },
         "required" : [ "currentPassword", "newPassword" ]
       },
+      "ChangeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "createField" : {
+            "$ref" : "#/components/schemas/CreateFieldRequest"
+          },
+          "createObject" : {
+            "$ref" : "#/components/schemas/CreateObjectRequest"
+          },
+          "createRecordType" : {
+            "$ref" : "#/components/schemas/CreateRecordTypeRequest"
+          },
+          "itemApiName" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "kind" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          },
+          "objectApiName" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "updateField" : {
+            "$ref" : "#/components/schemas/UpdateFieldRequest"
+          },
+          "updateObject" : {
+            "$ref" : "#/components/schemas/UpdateObjectRequest"
+          },
+          "updateRecordType" : {
+            "$ref" : "#/components/schemas/UpdateRecordTypeRequest"
+          }
+        },
+        "required" : [ "kind", "objectApiName" ]
+      },
+      "ChangeSetReportView" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReleaseItemView"
+            }
+          },
+          "objects" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ObjectView"
+            }
+          },
+          "problems" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ProblemView"
+            }
+          },
+          "valid" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "items", "objects", "problems", "valid" ]
+      },
+      "ChangeSetView" : {
+        "type" : "object",
+        "properties" : {
+          "changeCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "changes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChangeView"
+            }
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "releaseNumber" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "changeCount", "changes", "createdAt", "description", "id", "name", "status", "version" ]
+      },
       "ChangeSubscriptionRequest" : {
         "type" : "object",
         "properties" : {
@@ -5072,6 +5955,28 @@
           }
         },
         "required" : [ "reason" ]
+      },
+      "ChangeView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "itemApiName" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "position" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "id", "kind", "objectApiName", "position" ]
       },
       "CompleteSignUpRequest" : {
         "type" : "object",
@@ -5104,6 +6009,22 @@
           }
         },
         "required" : [ "token" ]
+      },
+      "CreateChangeSetRequest" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "name" ]
       },
       "CreateFieldRequest" : {
         "type" : "object",
@@ -5186,6 +6107,51 @@
           }
         },
         "required" : [ "displayName", "slug" ]
+      },
+      "CreateRecordTypeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "availableFields" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 60,
+              "minLength" : 0
+            },
+            "maxItems" : 500,
+            "minItems" : 0
+          },
+          "defaultType" : {
+            "type" : "boolean"
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "picklistSubsets" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PicklistSubset"
+            },
+            "maxItems" : 500,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "label", "name" ]
       },
       "CurrentUser" : {
         "type" : "object",
@@ -5345,9 +6311,19 @@
             "maxLength" : 4000,
             "minLength" : 0
           },
+          "listLabel" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
           "maxLength" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "onDelete" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
           },
           "precision" : {
             "type" : "integer",
@@ -5357,6 +6333,9 @@
             "type" : "string",
             "maxLength" : 10,
             "minLength" : 0
+          },
+          "reparentable" : {
+            "type" : "boolean"
           },
           "resultType" : {
             "type" : "string",
@@ -5890,6 +6869,30 @@
         },
         "required" : [ "displayName", "email", "id", "policies", "since", "status" ]
       },
+      "ObjectRelationshipsView" : {
+        "type" : "object",
+        "properties" : {
+          "children" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RelationshipView"
+            }
+          },
+          "manyToMany" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RelationshipView"
+            }
+          },
+          "parents" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RelationshipView"
+            }
+          }
+        },
+        "required" : [ "children", "manyToMany", "parents" ]
+      },
       "ObjectSummaryView" : {
         "type" : "object",
         "properties" : {
@@ -6045,6 +7048,27 @@
         },
         "required" : [ "active", "label", "value" ]
       },
+      "PicklistSubset" : {
+        "type" : "object",
+        "properties" : {
+          "field" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "values" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 80,
+              "minLength" : 0
+            },
+            "maxItems" : 1000,
+            "minItems" : 1
+          }
+        },
+        "required" : [ "field", "values" ]
+      },
       "PlanInfo" : {
         "type" : "object",
         "properties" : {
@@ -6190,6 +7214,37 @@
         },
         "required" : [ "apiVersion", "databaseTime", "serverTime", "service" ]
       },
+      "ProblemView" : {
+        "type" : "object",
+        "properties" : {
+          "dependent" : {
+            "type" : "string"
+          },
+          "fields" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "itemApiName" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "position" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "fields", "kind", "message" ]
+      },
       "ProfileView" : {
         "type" : "object",
         "properties" : {
@@ -6264,6 +7319,146 @@
           }
         },
         "required" : [ "reason" ]
+      },
+      "RecordTypeView" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "allFields" : {
+            "type" : "boolean"
+          },
+          "apiName" : {
+            "type" : "string"
+          },
+          "availableFields" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "defaultType" : {
+            "type" : "boolean"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "layout" : {
+            "type" : "string"
+          },
+          "picklistSubsets" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PicklistSubset"
+            }
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "active", "allFields", "apiName", "availableFields", "defaultType", "description", "label", "picklistSubsets", "version" ]
+      },
+      "RelationshipView" : {
+        "type" : "object",
+        "properties" : {
+          "childObject" : {
+            "type" : "string"
+          },
+          "field" : {
+            "type" : "string"
+          },
+          "fieldLabel" : {
+            "type" : "string"
+          },
+          "fieldType" : {
+            "type" : "string"
+          },
+          "listLabel" : {
+            "type" : "string"
+          },
+          "onDelete" : {
+            "type" : "string"
+          },
+          "otherObject" : {
+            "type" : "string"
+          },
+          "parentObject" : {
+            "type" : "string"
+          },
+          "reparentable" : {
+            "type" : "boolean"
+          },
+          "required" : {
+            "type" : "boolean"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "viaObject" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "childObject", "field", "fieldLabel", "fieldType", "listLabel", "onDelete", "otherObject", "parentObject", "reparentable", "required", "type" ]
+      },
+      "ReleaseItemView" : {
+        "type" : "object",
+        "properties" : {
+          "action" : {
+            "type" : "string"
+          },
+          "itemApiName" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "action", "kind", "objectApiName" ]
+      },
+      "ReleaseView" : {
+        "type" : "object",
+        "properties" : {
+          "changeSetName" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReleaseItemView"
+            }
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "latest" : {
+            "type" : "boolean"
+          },
+          "number" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "rolledBackBy" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "undoesRelease" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "createdAt", "items", "kind", "latest", "number" ]
       },
       "RequestAccepted" : {
         "type" : "object",
@@ -6730,6 +7925,50 @@
           }
         },
         "required" : [ "label", "pluralLabel", "version" ]
+      },
+      "UpdateRecordTypeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "availableFields" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 60,
+              "minLength" : 0
+            },
+            "maxItems" : 500,
+            "minItems" : 0
+          },
+          "defaultType" : {
+            "type" : "boolean"
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "picklistSubsets" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PicklistSubset"
+            },
+            "maxItems" : 500,
+            "minItems" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "label", "version" ]
       }
     }
   }

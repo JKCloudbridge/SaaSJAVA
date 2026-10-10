@@ -1,5 +1,6 @@
 package app.platform.metadata.internal;
 
+import app.platform.metadata.DeleteBehaviour;
 import app.platform.metadata.FieldConfiguration;
 import app.platform.metadata.FieldConfiguration.AutoNumberConfiguration;
 import app.platform.metadata.FieldConfiguration.DecimalConfiguration;
@@ -12,6 +13,7 @@ import app.platform.metadata.FieldConfiguration.TextConfiguration;
 import app.platform.metadata.FieldType;
 import app.platform.metadata.PicklistValue;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +58,12 @@ final class ConfigCodec {
                 }
                 out.put("values", values);
             }
-            case ReferenceConfiguration reference -> out.put("targetObject", reference.targetObject());
+            case ReferenceConfiguration reference -> {
+                out.put("targetObject", reference.targetObject());
+                out.put("onDelete", reference.onDelete().name());
+                out.put("reparentable", reference.reparentable());
+                out.put("listLabel", reference.listLabel());
+            }
             case FormulaConfiguration formula -> {
                 out.put("expression", formula.expression());
                 out.put("resultType", formula.resultType().name());
@@ -84,12 +91,23 @@ final class ConfigCodec {
                     integer(in, "scale", 2));
             case BOOLEAN, DATE, DATETIME, TIME -> new NoConfiguration();
             case PICKLIST, MULTI_PICKLIST -> new PicklistConfiguration(picklist(in));
-            case LOOKUP, MASTER_DETAIL -> new ReferenceConfiguration(text(in, "targetObject", ""));
+            case LOOKUP, MASTER_DETAIL -> reference(type, in);
             case FORMULA -> new FormulaConfiguration(text(in, "expression", ""),
                     FieldType.fromCode(text(in, "resultType", "TEXT")).orElse(FieldType.TEXT));
             case AUTO_NUMBER -> new AutoNumberConfiguration(text(in, "prefix", ""), longNumber(in, "startAt", 1),
                     integer(in, "width", FieldRules.AUTO_NUMBER_WIDTH_DEFAULT));
         };
+    }
+
+    /** A row written before Sprint 11 has only the target: the behaviour the type has by default fills the rest. */
+    private static ReferenceConfiguration reference(FieldType type, Map<String, Object> in) {
+        ReferenceConfiguration defaults = ReferenceConfiguration.defaultsFor(type, text(in, "targetObject", ""));
+        DeleteBehaviour onDelete = type == FieldType.MASTER_DETAIL ? DeleteBehaviour.CASCADE
+                : Arrays.stream(DeleteBehaviour.values())
+                        .filter(behaviour -> behaviour.name().equals(in.get("onDelete")))
+                        .findFirst().orElse(defaults.onDelete());
+        return new ReferenceConfiguration(defaults.targetObject(), onDelete,
+                Boolean.TRUE.equals(in.get("reparentable")), text(in, "listLabel", ""));
     }
 
     private static List<PicklistValue> picklist(Map<String, Object> in) {

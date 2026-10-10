@@ -64,7 +64,16 @@ public enum Ability {
     /** Create, change and remove the organization's own objects and fields. */
     METADATA_MANAGE("metadata.manage", "Manage objects and fields",
             "Create, change and remove the organization's own objects and fields, and add its own fields to "
-                    + "standard objects. Needs the ability to view objects and fields as well.");
+                    + "standard objects. Needs the ability to view objects and fields as well."),
+
+    /**
+     * Put draft changes of objects, fields and record types live and roll the latest publication back. A change made
+     * at once also needs it, because it is a publication of one change (ADR-0068).
+     */
+    METADATA_PUBLISH("metadata.publish", "Publish metadata changes",
+            "Publish a change set, make a single change live at once and roll the latest publication back. "
+                    + "Needs the ability to view objects and fields as well; a change made at once needs the "
+                    + "ability to manage them too.");
 
     private final String key;
     private final String title;

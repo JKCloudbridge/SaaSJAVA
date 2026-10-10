@@ -1,5 +1,6 @@
 package app.platform.metadata.internal;
 
+import app.platform.metadata.DeleteBehaviour;
 import app.platform.metadata.FieldConfiguration;
 import app.platform.metadata.FieldConfiguration.AutoNumberConfiguration;
 import app.platform.metadata.FieldConfiguration.DecimalConfiguration;
@@ -129,7 +130,7 @@ final class FieldRules {
             boolean unique, String defaultValue, FieldSettings given, Context context) {
         FieldSettings settings = given == null ? FieldSettings.none() : given;
         rejectUnusedSettings(problems, type, settings);
-        FieldConfiguration configuration = configurationOf(problems, type, settings, context);
+        FieldConfiguration configuration = configurationOf(problems, type, settings, context, required);
 
         boolean storedRequired = required;
         boolean storedUnique = unique;
@@ -180,6 +181,9 @@ final class FieldRules {
         given.put("prefix", settings.prefix());
         given.put("startAt", settings.startAt());
         given.put("width", settings.width());
+        given.put("onDelete", settings.onDelete());
+        given.put("reparentable", settings.reparentable());
+        given.put("listLabel", settings.listLabel());
         given.forEach((name, value) -> {
             if (value != null && !type.settings().contains(name)) {
                 add(problems, "settings." + name, "This setting is not used by a field of this type.");
@@ -188,7 +192,7 @@ final class FieldRules {
     }
 
     private static FieldConfiguration configurationOf(Map<String, List<String>> problems, FieldType type,
-            FieldSettings s, Context context) {
+            FieldSettings s, Context context, boolean required) {
         return switch (type) {
             case TEXT -> new TextConfiguration(pick(problems, "maxLength", s.maxLength(), TEXT_DEFAULT, 1,
                     TEXT_DEFAULT));
@@ -204,7 +208,7 @@ final class FieldRules {
             case PERCENT -> decimal(problems, s, 8, 2, 6);
             case BOOLEAN, DATE, DATETIME, TIME -> new NoConfiguration();
             case PICKLIST, MULTI_PICKLIST -> picklist(problems, s, context);
-            case LOOKUP, MASTER_DETAIL -> reference(problems, type, s, context);
+            case LOOKUP, MASTER_DETAIL -> reference(problems, type, s, context, required);
             case FORMULA -> formula(problems, s);
             case AUTO_NUMBER -> autoNumber(problems, s);
         };
@@ -255,11 +259,11 @@ final class FieldRules {
     }
 
     private static FieldConfiguration reference(Map<String, List<String>> problems, FieldType type, FieldSettings s,
-            Context context) {
+            Context context, boolean required) {
         String target = s.targetObject() == null ? "" : s.targetObject().strip();
         if (target.isEmpty()) {
             add(problems, "settings.targetObject", "Choose the object the field points to.");
-            return new ReferenceConfiguration("");
+            return ReferenceConfiguration.defaultsFor(type, "");
         }
         if (!context.targetExists().test(target)) {
             add(problems, "settings.targetObject", "This object does not exist.");
@@ -274,7 +278,48 @@ final class FieldRules {
                         + " master-detail fields.");
             }
         }
-        return new ReferenceConfiguration(target);
+        DeleteBehaviour onDelete = deleteBehaviour(problems, type, s.onDelete(), required);
+        return new ReferenceConfiguration(target, onDelete, Boolean.TRUE.equals(s.reparentable()),
+                listLabel(problems, s.listLabel()));
+    }
+
+    /**
+     * What happens when the record a lookup points at is removed (ADR-0063). A master-detail always removes its
+     * details; a lookup clears its pointer, or refuses the removal. A required lookup cannot clear a value it must
+     * have, so it refuses when nothing is chosen, and choosing to clear is a mistake that is reported.
+     */
+    private static DeleteBehaviour deleteBehaviour(Map<String, List<String>> problems, FieldType type, String given,
+            boolean required) {
+        if (type == FieldType.MASTER_DETAIL) {
+            return DeleteBehaviour.CASCADE;
+        }
+        String text = given == null ? "" : given.strip();
+        if (text.isEmpty()) {
+            return required ? DeleteBehaviour.REFUSE : DeleteBehaviour.CLEAR;
+        }
+        DeleteBehaviour chosen;
+        if (text.equals(DeleteBehaviour.CLEAR.name())) {
+            chosen = DeleteBehaviour.CLEAR;
+        } else if (text.equals(DeleteBehaviour.REFUSE.name())) {
+            chosen = DeleteBehaviour.REFUSE;
+        } else {
+            add(problems, "settings.onDelete", "Choose CLEAR (empty the link) or REFUSE (do not remove the other "
+                    + "record while records point at it).");
+            return required ? DeleteBehaviour.REFUSE : DeleteBehaviour.CLEAR;
+        }
+        if (required && chosen == DeleteBehaviour.CLEAR) {
+            add(problems, "settings.onDelete", "A required lookup cannot empty its link: choose REFUSE.");
+        }
+        return chosen;
+    }
+
+    private static String listLabel(Map<String, List<String>> problems, String given) {
+        String label = given == null ? "" : given.strip();
+        if (label.length() > PICKLIST_VALUE_MAX || hasControl(label)) {
+            add(problems, "settings.listLabel", "A list label is up to " + PICKLIST_VALUE_MAX + " characters.");
+            return "";
+        }
+        return label;
     }
 
     private static FieldConfiguration formula(Map<String, List<String>> problems, FieldSettings s) {
@@ -444,6 +489,16 @@ final class FieldRules {
 
     // ---- stored form to API form ----
 
+    /** The settings of the configuration as the API shows them, only those the type of the field takes. */
+    static FieldSettings settingsOf(FieldType type, FieldConfiguration configuration) {
+        if (configuration instanceof ReferenceConfiguration reference) {
+            return FieldSettings.reference(reference.targetObject(),
+                    type == FieldType.LOOKUP ? reference.onDelete().name() : null,
+                    type == FieldType.MASTER_DETAIL ? reference.reparentable() : null, reference.listLabel());
+        }
+        return settingsOf(configuration);
+    }
+
     /** The settings of the configuration as the API shows them. */
     static FieldSettings settingsOf(FieldConfiguration configuration) {
         return switch (configuration) {
@@ -457,8 +512,8 @@ final class FieldRules {
             case PicklistConfiguration picklist -> new FieldSettings(null, null, null, null,
                     picklist.values().stream().map(v -> new PicklistOption(v.value(), v.label(), v.active()))
                             .toList(), null, null, null, null, null, null);
-            case ReferenceConfiguration reference -> new FieldSettings(null, null, null, null, null,
-                    reference.targetObject(), null, null, null, null, null);
+            case ReferenceConfiguration reference -> FieldSettings.reference(reference.targetObject(),
+                    reference.onDelete().name(), reference.reparentable(), reference.listLabel());
             case FormulaConfiguration formula -> new FieldSettings(null, null, null, null, null, null,
                     formula.expression(), formula.resultType().name(), null, null, null);
             case AutoNumberConfiguration auto -> new FieldSettings(null, null, null, null, null, null, null, null,

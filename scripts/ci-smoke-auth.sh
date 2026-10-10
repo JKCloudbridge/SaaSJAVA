@@ -448,6 +448,70 @@ if [ -n "$mail" ]; then
   [ "$status" = "404" ] || fail "a removed object is still there ($status)"
   echo "ok: the standard objects are listed, an object and a field are made, a change to a standard object is refused in words, the changes are audited without typed text, and the object is removed"
 
+  # 17. The metadata lifecycle on the image (Sprint 11): a record type offers a field, so a change set that removes the
+  # field is refused with the record type named and nothing is kept; a good change set is checked, published as one
+  # release, appears in the history and is rolled back.
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Deal","label":"Deal","pluralLabel":"Deals","description":""}' "$base/api/v1/metadata/objects")"
+  [ "$status" = "201" ] || fail "creating the lifecycle object answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"department","label":"Department","type":"TEXT"}' \
+    "$base/api/v1/metadata/objects/Deal__c/fields")"
+  [ "$status" = "201" ] || fail "adding the lifecycle field answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Core","label":"Core","availableFields":["department__c"],"picklistSubsets":[]}' \
+    "$base/api/v1/metadata/objects/Deal__c/record-types")"
+  [ "$status" = "201" ] || fail "adding a record type answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Deal__c/fields/department__c")"
+  [ "$status" = "409" ] || fail "removing a field a record type offers was not refused ($status): $(cat "$body")"
+  grep -Fq 'record type Core__c of Deal__c offers field Deal__c.department__c' "$body" \
+    || fail "the refusal does not name the record type: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"Drop","description":""}' \
+    "$base/api/v1/metadata/change-sets")"
+  [ "$status" = "201" ] || fail "starting a change set answered $status: $(cat "$body")"
+  set_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  [ -n "$set_id" ] || fail "the change set has no identifier: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"kind":"DELETE_FIELD","objectApiName":"Deal__c","itemApiName":"department__c"}' \
+    "$base/api/v1/metadata/change-sets/$set_id/changes")"
+  [ "$status" = "201" ] || fail "adding a change answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/metadata/change-sets/$set_id/validate")"
+  [ "$status" = "200" ] || fail "checking the change set answered $status: $(cat "$body")"
+  grep -Fq '"valid":false' "$body" || fail "an invalid change set was reported valid: $(cat "$body")"
+  grep -Fq 'record type Core__c of Deal__c' "$body" || fail "the report does not name the dependent: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/metadata/change-sets/$set_id/publish")"
+  [ "$status" = "409" ] || fail "publishing an invalid change set answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/metadata/objects/Deal__c")"
+  grep -Fq '"apiName":"department__c"' "$body" || fail "a refused publication removed the field: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/change-sets/$set_id")"
+  [ "$status" = "204" ] || fail "discarding the change set answered $status"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"Extra","description":""}' \
+    "$base/api/v1/metadata/change-sets")"
+  set_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"kind":"CREATE_FIELD","objectApiName":"Deal__c","createField":{"name":"region","label":"Region","type":"TEXT"}}' \
+    "$base/api/v1/metadata/change-sets/$set_id/changes")"
+  [ "$status" = "201" ] || fail "adding the second change answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/metadata/change-sets/$set_id/publish")"
+  [ "$status" = "200" ] || fail "publishing a good change set answered $status: $(cat "$body")"
+  grep -Fq '"status":"PUBLISHED"' "$body" || fail "the published change set is not marked published: $(cat "$body")"
+  status="$(client_call "$base/api/v1/metadata/releases")"
+  [ "$status" = "200" ] || fail "the history answered $status: $(cat "$body")"
+  grep -Fq '"kind":"CHANGE_SET"' "$body" || fail "the history lacks the change set release: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/metadata/releases/latest/rollback")"
+  [ "$status" = "200" ] || fail "rolling back answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/metadata/objects/Deal__c")"
+  if grep -Fq '"apiName":"region__c"' "$body"; then
+    fail "the rolled back field is still there"
+  fi
+  status="$(client_call "$base/api/v1/audit-events?kind=metadata&limit=200")"
+  grep -Fq '"type":"metadata.publish.refused"' "$body" || fail "the refused publication is not in the trail: $(cat "$body")"
+  grep -Fq '"type":"metadata.release.rolledback"' "$body" || fail "the rollback is not in the trail: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Deal__c/record-types/Core__c")"
+  [ "$status" = "204" ] || fail "removing the record type answered $status"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Deal__c")"
+  [ "$status" = "204" ] || fail "removing the lifecycle object answered $status: $(cat "$body")"
+  echo "ok: a field a record type offers cannot be removed (live or in a change set) and the error names the record type, a good change set publishes as one release and is rolled back, and the trail shows it"
+
   stored="$(owner_sql -c "select t::text from account_token t union all select t::text from mail_queue t \
     union all select attributes::text from audit_record union all select t::text from invitation t")"
   if echo "$stored" | grep -q "$client_token"; then

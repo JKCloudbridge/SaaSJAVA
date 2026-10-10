@@ -257,3 +257,22 @@ Short form; decisions in ADR-0058 to ADR-0062, the how-to in [metadata-guide.md]
 - **Tests:** `StandardMetadataLoaderTest`, `StandardMetadataBaselineTest`, `StandardObjectsDocTest`, `FieldRulesTest`, `NameRulesTest`, `ConfigCodecTest`,
   `MetadataApiIT`, `MetadataCacheIT` (three real instances), `MetadataFlowsLogsAreCleanIT`, plus the isolation harness and `SecurityVersionIT` for the new tables.
   Tests that need objects to name get `ObjectA__c` and `ObjectB__c` from `TestObjects` (every `TestOrganizations.create`).
+
+## Relationships, record types and the lifecycle of metadata (Sprint 11)
+
+Short form; decisions in ADR-0063 to ADR-0068, the how-to in [metadata-guide.md](metadata-guide.md).
+
+- **Four more tenant-scoped tables (ADR-0015, V033):** `record_type`, `metadata_change_set`, `metadata_change` and `metadata_release`, each with forced row level security, the tenant
+  guard and a tenant-first index; registered in `TenantScopedTables`. `record_type` is **published** metadata (it raises the metadata version); the other three are the
+  lifecycle and never touch the version or the catalogue.
+- **A draft is invisible.** Only published rows are in the catalogue snapshot, the cache, the metadata version and the security version. A change set is rows in
+  `metadata_change_set` and `metadata_change`; checking and previewing apply the changes in a transaction that is **always rolled back** (`MetadataAdministration.rehearse`),
+  publishing commits the same work (ADR-0066). Never write to a definition table from anywhere but `MetadataService`, `RecordTypeService` and `ChangeApplier`.
+- **Every metadata change goes through the lifecycle** (`MetadataLifecycle`): the live endpoints are a publication of one change (`applyNow`), a change set is a publication
+  of many, a rollback is a publication of the undo. All take the organization's publication lock first and all end with the dependency check (ADR-0065).
+- **A new kind of dependent** (a layout, a validation rule) implements `DependencyGraph.Contributor` as a bean; nothing else needs to know. A rule it adds is a violation with a message
+  that names the dependent and never prints a typed value.
+- **Asking** record types and relationships: `Metadata.recordTypes(object)` (metadata root) and the relationships endpoint; relationships are computed from the fields, never stored.
+- **Abilities:** `metadata.view`, `metadata.manage` (draft) and `metadata.publish` (put live, roll back); a live change needs `manage` and `publish` (ADR-0068).
+- **Tests:** `RelationshipsIT`, `RecordTypesIT`, `ChangeSetLifecycleIT`, `RollbackIT`, `RollbackWithRecordsIT` (a stand-in `ObjectUsage`), `LifecycleAccessIT` (allowed, denied, cross-tenant, forged
+  header, platform administrator, unauthenticated for every new endpoint), `LifecycleFlowsLogsAreCleanIT`, `DependencyGraphTest`, `RecordTypeRulesTest`, and the isolation harness for the four tables.

@@ -19,15 +19,35 @@ import java.util.List;
  * @param prefix the fixed text in front of an auto-number
  * @param startAt the first number of an auto-number
  * @param width how many digits an auto-number is padded to
+ * @param onDelete what happens to a record that points at a removed one, for a lookup: {@code CLEAR} (the default,
+ *        or {@code REFUSE} when the lookup is required) or {@code REFUSE}
+ * @param reparentable whether a detail may be moved to another master, for a master-detail (default no)
+ * @param listLabel the label of the list of these records on the parent object, for a lookup or master-detail
  */
 public record FieldSettings(Integer maxLength, Integer digits, Integer precision, Integer scale,
         @Valid @Size(max = 1000) List<PicklistOption> values, @Size(max = 60) String targetObject,
         @Size(max = 4000) String expression, @Size(max = 20) String resultType, @Size(max = 10) String prefix,
-        Long startAt, Integer width) {
+        Long startAt, Integer width, @Size(max = 10) String onDelete, Boolean reparentable,
+        @Size(max = 80) String listLabel) {
 
     /** Copies the values (a list that was not given stays absent, which is not the same as an empty one). */
     public FieldSettings {
         values = values == null ? null : List.copyOf(values);
+    }
+
+    /** The settings of a type that has no relationship behaviour (everything but a lookup or master-detail). */
+    public FieldSettings(Integer maxLength, Integer digits, Integer precision, Integer scale,
+            List<PicklistOption> values, String targetObject, String expression, String resultType, String prefix,
+            Long startAt, Integer width) {
+        this(maxLength, digits, precision, scale, values, targetObject, expression, resultType, prefix, startAt,
+                width, null, null, null);
+    }
+
+    /** A lookup or master-detail pointing at an object, with the behaviour settings of the relationship. */
+    public static FieldSettings reference(String targetObject, String onDelete, Boolean reparentable,
+            String listLabel) {
+        return new FieldSettings(null, null, null, null, null, targetObject, null, null, null, null, null, onDelete,
+                reparentable, listLabel);
     }
 
     /** No setting given: every default applies. */
