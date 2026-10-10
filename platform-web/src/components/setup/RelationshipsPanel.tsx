@@ -36,7 +36,14 @@ function behaviour(relationship: Relationship): string {
  * that point to it (children) and the objects related through a junction object. A relationship is read from the lookup
  * and master-detail fields, so this only shows what the API answers; the behaviour is changed on the field itself.
  */
-export function RelationshipsPanel({ objectApiName }: { objectApiName: string }) {
+export function RelationshipsPanel({
+  objectApiName,
+  refreshToken,
+}: {
+  objectApiName: string;
+  /** Changes it to ask again: a field added or removed on this page can add or remove a relationship. */
+  refreshToken?: number;
+}) {
   const [relationships, setRelationships] = useState<Relationships | undefined>();
   const [missing, setMissing] = useState(false);
 
@@ -60,7 +67,7 @@ export function RelationshipsPanel({ objectApiName }: { objectApiName: string })
     return () => {
       current = false;
     };
-  }, [objectApiName]);
+  }, [objectApiName, refreshToken]);
 
   if (missing || !relationships) {
     return null;

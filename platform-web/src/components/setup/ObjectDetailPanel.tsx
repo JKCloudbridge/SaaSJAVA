@@ -38,6 +38,9 @@ export function ObjectDetailPanel() {
   const [editingField, setEditingField] = useState<FieldView | undefined>();
   const [labels, setLabels] = useState({ label: "", pluralLabel: "", description: "" });
   const [confirmRemove, setConfirmRemove] = useState(false);
+  // Bumped every time a reload actually refreshes the object, so RelationshipsPanel (which reads the fields of
+  // every object, not only this one) knows to ask again instead of showing what it fetched at mount.
+  const [refreshToken, setRefreshToken] = useState(0);
 
   const reload = useCallback(async () => {
     try {
@@ -54,6 +57,7 @@ export function ObjectDetailPanel() {
       }
       setFailure(undefined);
       setLoaded({ object: one.data.data, types: types.data.data, objects: objects.data.data });
+      setRefreshToken((token) => token + 1);
       setLabels({ label: one.data.data.label, pluralLabel: one.data.data.pluralLabel, description: one.data.data.description });
     } catch {
       setFailure(COMMON_TEXT.network);
@@ -312,7 +316,7 @@ export function ObjectDetailPanel() {
         <p className="hint">The platform does not allow extra fields on this object.</p>
       )}
 
-      <RelationshipsPanel objectApiName={objectApiName} />
+      <RelationshipsPanel objectApiName={objectApiName} refreshToken={refreshToken} />
       <RecordTypesPanel object={object} onChanged={reload} />
     </div>
   );
