@@ -128,6 +128,11 @@ public final class ApiPaths {
 
     /** The field types an organization can choose from, with the settings each takes (Sprint 10). */
     public static final String METADATA_FIELD_TYPES = V1 + "/metadata/field-types";
+    /** Change sets: named groups of metadata changes that are published together (Sprint 11). */
+    public static final String METADATA_CHANGE_SETS = V1 + "/metadata/change-sets";
+
+    /** The releases of the organization's metadata: its history and rollback (Sprint 11). */
+    public static final String METADATA_RELEASES = V1 + "/metadata/releases";
 
     /** The caller leaves the organization the host names (Sprint 7). */
     public static final String ORGANIZATION_LEAVE = V1 + "/organization/leave";

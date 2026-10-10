@@ -59,13 +59,19 @@ public enum FieldType {
     MULTI_PICKLIST("Multi-select picklist", "Several choices out of a list of values.", List.of("values"), true,
             false, true, false),
 
-    /** A reference to a record of another object, which can exist without it. */
+    /**
+     * A reference to a record of another object, which can exist without it. Unique makes the link one-to-one; what
+     * happens when the other record is removed is a setting (ADR-0063).
+     */
     LOOKUP("Lookup", "A link to a record of another object. The record can exist without it.",
-            List.of("targetObject"), true, false, false, false),
+            List.of("targetObject", "onDelete", "listLabel"), true, true, false, false),
 
-    /** A reference to a record of another object that owns this one. */
+    /**
+     * A reference to a record of another object that owns this one: the detail is removed with its master. Unique
+     * makes the link one-to-one; whether the detail may be moved to another master is a setting (ADR-0063).
+     */
     MASTER_DETAIL("Master-detail", "A link to a record of another object that owns this one: always required.",
-            List.of("targetObject"), false, false, false, false),
+            List.of("targetObject", "reparentable", "listLabel"), false, true, false, false),
 
     /** A value calculated from other fields. Stored only until Sprint 13 and 15. */
     FORMULA("Formula", "A value worked out from other fields (the calculation arrives in a later release).",

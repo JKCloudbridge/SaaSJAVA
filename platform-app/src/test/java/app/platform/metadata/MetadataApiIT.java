@@ -628,8 +628,10 @@ class MetadataApiIT {
         TestBrowser admin = adminOf(organization);
         createObject(admin, "Gadget");
         Member viewer = memberWith(organization, admin, "metadata.view");
-        Member manager = memberWith(organization, admin, "metadata.view", "metadata.manage");
+        Member drafter = memberWith(organization, admin, "metadata.view", "metadata.manage");
+        Member manager = memberWith(organization, admin, "metadata.view", "metadata.manage", "metadata.publish");
         TestBrowser asViewer = as(organization, viewer);
+        TestBrowser asDrafter = as(organization, drafter);
         TestBrowser asManager = as(organization, manager);
 
         assertThat(asViewer.get(OBJECTS).status()).as("a viewer reads").isEqualTo(200);
@@ -638,7 +640,10 @@ class MetadataApiIT {
         Response refused = createObject(asViewer, "Thing");
         assertThat(refused.status()).as("a viewer does not change").isEqualTo(403);
         assertThat(asViewer.request("DELETE", OBJECTS + "/Gadget__c", null).status()).isEqualTo(403);
-        assertThat(createObject(asManager, "Thing").status()).as("a manager changes").isEqualTo(201);
+        assertThat(createObject(asDrafter, "Thing").status())
+                .as("a change made at once is a publication: managing alone is not enough (ADR-0068)")
+                .isEqualTo(403);
+        assertThat(createObject(asManager, "Thing").status()).as("a manager who may publish changes").isEqualTo(201);
         assertThat(asManager.request("DELETE", OBJECTS + "/Thing__c", null).status()).isEqualTo(204);
     }
 

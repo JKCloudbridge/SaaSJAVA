@@ -81,6 +81,13 @@ Profile.name TEXT
 Profile.licenceTypeId LOOKUP target=LicenceType
 Profile.isSystem BOOLEAN
 Profile.isDefault BOOLEAN
+RecordType managedBy=metadata
+RecordType.label TEXT
+RecordType.apiName TEXT
+RecordType.objectApiName TEXT
+RecordType.active BOOLEAN
+RecordType.isDefault BOOLEAN
+RecordType.layoutRef TEXT
 Role managedBy=security
 Role.name TEXT
 Role.parentRoleId LOOKUP target=Role

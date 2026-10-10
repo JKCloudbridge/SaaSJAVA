@@ -19,12 +19,17 @@ record MetadataProperties(@DefaultValue Limits limits, @DefaultValue Cache cache
      * @param maxObjects custom objects per organization (default 200)
      * @param maxFieldsPerObject custom fields per object (default 500)
      * @param maxPicklistValues values in one picklist (default 1000)
+     * @param maxRecordTypesPerObject record types per object (default 50)
+     * @param maxChangesPerSet changes in one change set (default 200)
+     * @param maxOpenChangeSets change sets that are still drafts (default 50)
      */
     record Limits(@DefaultValue("200") int maxObjects, @DefaultValue("500") int maxFieldsPerObject,
-            @DefaultValue("1000") int maxPicklistValues) {
+            @DefaultValue("1000") int maxPicklistValues, @DefaultValue("50") int maxRecordTypesPerObject,
+            @DefaultValue("200") int maxChangesPerSet, @DefaultValue("50") int maxOpenChangeSets) {
 
         Limits {
-            if (maxObjects < 1 || maxFieldsPerObject < 1 || maxPicklistValues < 1) {
+            if (maxObjects < 1 || maxFieldsPerObject < 1 || maxPicklistValues < 1 || maxRecordTypesPerObject < 1
+                    || maxChangesPerSet < 1 || maxOpenChangeSets < 1) {
                 throw new IllegalArgumentException("platform.metadata.limits.* must be at least 1");
             }
         }

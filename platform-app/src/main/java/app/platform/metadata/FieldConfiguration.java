@@ -34,8 +34,29 @@ public sealed interface FieldConfiguration {
         }
     }
 
-    /** A lookup or master-detail: the API name of the object it points to. */
-    record ReferenceConfiguration(String targetObject) implements FieldConfiguration {
+    /**
+     * A lookup or master-detail: the API name of the object it points to and how the relationship behaves (ADR-0063).
+     *
+     * @param targetObject the object the field points to (the parent of the relationship)
+     * @param onDelete what happens to a record that points at a removed one: {@code CLEAR} or {@code REFUSE} for a
+     *        lookup, always {@code CASCADE} for a master-detail
+     * @param reparentable whether a detail may be moved to another master (a master-detail only)
+     * @param listLabel the label of the list of these records on the parent, or empty for the plural label of the
+     *        child object
+     */
+    record ReferenceConfiguration(String targetObject, DeleteBehaviour onDelete, boolean reparentable,
+            String listLabel) implements FieldConfiguration {
+
+        /** A reference with the behaviour of a lookup that was given no setting. */
+        public ReferenceConfiguration(String targetObject) {
+            this(targetObject, DeleteBehaviour.CLEAR, false, "");
+        }
+
+        /** A reference with the behaviour a field of the type has when nobody chose one. */
+        public static ReferenceConfiguration defaultsFor(FieldType type, String targetObject) {
+            return new ReferenceConfiguration(targetObject,
+                    type == FieldType.MASTER_DETAIL ? DeleteBehaviour.CASCADE : DeleteBehaviour.CLEAR, false, "");
+        }
     }
 
     /** A formula: its text and the type of its result. Stored only; nothing is calculated before Sprint 13. */

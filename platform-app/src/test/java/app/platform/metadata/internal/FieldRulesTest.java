@@ -3,6 +3,7 @@ package app.platform.metadata.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import app.platform.metadata.DeleteBehaviour;
 import app.platform.metadata.FieldConfiguration;
 import app.platform.metadata.FieldConfiguration.AutoNumberConfiguration;
 import app.platform.metadata.FieldConfiguration.DecimalConfiguration;
@@ -284,6 +285,80 @@ class FieldRulesTest {
                 .satisfies(e -> assertThat(((ApiException) e).fields()).containsKey("settings.targetObject"));
         assertThat(FieldRules.checkChange(FieldType.LOOKUP, before, true, false, null, target("Account"),
                 CUSTOM_OBJECT).required()).isTrue();
+    }
+
+    // ---- relationship behaviour (ADR-0063) ----
+
+    private static FieldSettings behaviour(String onDelete, Boolean reparentable, String listLabel) {
+        return FieldSettings.reference("Account", onDelete, reparentable, listLabel);
+    }
+
+    @Test
+    void aLookupClearsByDefaultAndAMasterDetailAlwaysCascades() {
+        assertThat(((ReferenceConfiguration) FieldRules.check(FieldType.LOOKUP, false, false, null, target("Account"),
+                CUSTOM_OBJECT).configuration()).onDelete()).isEqualTo(DeleteBehaviour.CLEAR);
+        assertThat(((ReferenceConfiguration) FieldRules.check(FieldType.MASTER_DETAIL, false, false, null,
+                target("Account"), CUSTOM_OBJECT).configuration()).onDelete()).isEqualTo(DeleteBehaviour.CASCADE);
+    }
+
+    @Test
+    void aLookupMayRefuseButNeverCascadeAndTheWordsMustBeKnown() {
+        assertThat(((ReferenceConfiguration) FieldRules.check(FieldType.LOOKUP, false, false, null,
+                behaviour("REFUSE", null, null), CUSTOM_OBJECT).configuration()).onDelete())
+                .isEqualTo(DeleteBehaviour.REFUSE);
+        assertThat(problems(FieldType.LOOKUP, false, false, null, behaviour("CASCADE", null, null), CUSTOM_OBJECT))
+                .containsKey("settings.onDelete");
+        assertThat(problems(FieldType.LOOKUP, false, false, null, behaviour("keep", null, null), CUSTOM_OBJECT))
+                .containsKey("settings.onDelete");
+    }
+
+    @Test
+    void aRequiredLookupRefusesByDefaultAndCannotClear() {
+        assertThat(((ReferenceConfiguration) FieldRules.check(FieldType.LOOKUP, true, false, null, target("Account"),
+                CUSTOM_OBJECT).configuration()).onDelete()).isEqualTo(DeleteBehaviour.REFUSE);
+        assertThat(problems(FieldType.LOOKUP, true, false, null, behaviour("CLEAR", null, null), CUSTOM_OBJECT))
+                .containsEntry("settings.onDelete", List.of("A required lookup cannot empty its link: choose REFUSE."));
+    }
+
+    @Test
+    void onlyAMasterDetailCanBeReparentedAndOnlyALookupHasADeleteChoice() {
+        assertThat(((ReferenceConfiguration) FieldRules.check(FieldType.MASTER_DETAIL, false, false, null,
+                behaviour(null, true, null), CUSTOM_OBJECT).configuration()).reparentable()).isTrue();
+        assertThat(problems(FieldType.LOOKUP, false, false, null, behaviour(null, true, null), CUSTOM_OBJECT))
+                .containsKey("settings.reparentable");
+        assertThat(problems(FieldType.MASTER_DETAIL, false, false, null, behaviour("CLEAR", null, null),
+                CUSTOM_OBJECT)).containsKey("settings.onDelete");
+    }
+
+    @Test
+    void theListLabelIsTrimmedAndBounded() {
+        assertThat(((ReferenceConfiguration) FieldRules.check(FieldType.LOOKUP, false, false, null,
+                behaviour(null, null, "  Staff  "), CUSTOM_OBJECT).configuration()).listLabel()).isEqualTo("Staff");
+        assertThat(problems(FieldType.LOOKUP, false, false, null, behaviour(null, null, "x".repeat(81)),
+                CUSTOM_OBJECT)).containsKey("settings.listLabel");
+    }
+
+    @Test
+    void aUniqueReferenceIsAllowedBecauseThatIsHowOneToOneIsMade() {
+        assertThat(FieldRules.check(FieldType.LOOKUP, false, true, null, target("Account"), CUSTOM_OBJECT).unique())
+                .isTrue();
+        assertThat(problems(FieldType.LOOKUP, false, true, "x", target("Account"), CUSTOM_OBJECT))
+                .containsKey("defaultValue");
+    }
+
+    @Test
+    void theApiShowsOnlyTheSettingsTheTypeTakes() {
+        ReferenceConfiguration lookup = new ReferenceConfiguration("Account", DeleteBehaviour.REFUSE, false, "L");
+        ReferenceConfiguration detail = new ReferenceConfiguration("Account", DeleteBehaviour.CASCADE, true, "L");
+
+        FieldSettings forLookup = FieldRules.settingsOf(FieldType.LOOKUP, lookup);
+        FieldSettings forDetail = FieldRules.settingsOf(FieldType.MASTER_DETAIL, detail);
+
+        assertThat(forLookup.onDelete()).isEqualTo("REFUSE");
+        assertThat(forLookup.reparentable()).isNull();
+        assertThat(forDetail.onDelete()).isNull();
+        assertThat(forDetail.reparentable()).isTrue();
+        assertThat(forDetail.listLabel()).isEqualTo("L");
     }
 
     @Test

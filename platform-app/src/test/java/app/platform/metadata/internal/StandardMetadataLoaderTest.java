@@ -37,7 +37,7 @@ class StandardMetadataLoaderTest {
 
         assertThat(standard.objects()).extracting(ObjectDefinition::apiName).containsExactlyInAnyOrder(
                 "Account", "AccessPolicy", "AccessPolicyAssignment", "Case", "Contact", "LicenceType",
-                "Opportunity", "Profile", "Role", "User").doesNotHaveDuplicates();
+                "Opportunity", "Profile", "RecordType", "Role", "User").doesNotHaveDuplicates();
         assertThat(standard.objects()).allSatisfy(object -> {
             assertThat(object.kind()).isEqualTo(DefinitionKind.STANDARD);
             assertThat(object.fields().subList(0, standard.systemFields().size()))
@@ -86,9 +86,10 @@ class StandardMetadataLoaderTest {
         assertThat(junction.field("assigneeId").orElseThrow().type()).isEqualTo(FieldType.MASTER_DETAIL);
         assertThat(junction.field("assigneeId").orElseThrow().required()).isTrue();
         assertThat(junction.field("assigneeId").orElseThrow().configuration())
-                .isEqualTo(new FieldConfiguration.ReferenceConfiguration("User"));
+                .isEqualTo(FieldConfiguration.ReferenceConfiguration.defaultsFor(FieldType.MASTER_DETAIL, "User"));
         assertThat(junction.field("accessPolicyId").orElseThrow().configuration())
-                .isEqualTo(new FieldConfiguration.ReferenceConfiguration("AccessPolicy"));
+                .isEqualTo(FieldConfiguration.ReferenceConfiguration.defaultsFor(FieldType.MASTER_DETAIL,
+                        "AccessPolicy"));
         assertThat(junction.managedBy()).isEqualTo("security");
         assertThat(junction.extensible()).isFalse();
 

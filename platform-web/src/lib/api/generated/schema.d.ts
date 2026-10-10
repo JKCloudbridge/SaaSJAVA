@@ -980,6 +980,154 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/metadata/change-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The change sets of the organization
+         * @description Open drafts first, then published and discarded ones. For members who may view objects and fields. NOT_FOUND on the platform host.
+         */
+        get: operations["listChangeSets"];
+        put?: never;
+        /**
+         * Start a change set
+         * @description A named group of intended changes that is published all together or not at all. A draft is invisible to everything that reads the organization's metadata until it is published. VALIDATION_ERROR for a name in use, CONFLICT at the limit of open change sets. Audited.
+         */
+        post: operations["createChangeSet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/change-sets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One change set with its changes
+         * @description NOT_FOUND for a change set the organization does not have.
+         */
+        get: operations["getChangeSet"];
+        put?: never;
+        post?: never;
+        /**
+         * Discard an open change set
+         * @description Nothing it holds was ever live. CONFLICT for one that was published or discarded. Audited.
+         */
+        delete: operations["discardChangeSet"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/change-sets/{id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a change to an open change set
+         * @description The change carries the request the live endpoint takes. It is not applied: nothing is checked beyond its shape until the set is checked or published. VALIDATION_ERROR for a change that does not say what it needs, CONFLICT for a set that is no longer open or full. Audited.
+         */
+        post: operations["addChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/change-sets/{id}/changes/{changeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Take a change out of an open change set
+         * @description NOT_FOUND for a change the set does not have. Audited.
+         */
+        delete: operations["removeChange"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/change-sets/{id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Show what a change set would make, without keeping anything
+         * @description The same check as validate, and in addition the affected objects as they would be after publishing. Needs the ability to view and either to manage or to publish.
+         */
+        post: operations["previewChangeSet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/change-sets/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish a change set
+         * @description Puts all of it live or none of it, as one release. CONFLICT with every problem (each naming what depends on it) when it cannot be published, or when it is no longer open. Needs the abilities to publish and to view. Audited.
+         */
+        post: operations["publishChangeSet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/change-sets/{id}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a change set without keeping anything
+         * @description Applies the changes by the real rules, checks what depends on what, and rolls everything back. The answer lists every problem (each naming what depends on it) and what would be added, changed or removed. Needs the ability to view and either to manage or to publish.
+         */
+        post: operations["validateChangeSet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/metadata/field-types": {
         parameters: {
             query?: never;
@@ -1091,6 +1239,138 @@ export interface paths {
          * @description The permissions on the field end with it. FORBIDDEN for a field the platform defines. Audited.
          */
         delete: operations["deleteField"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/record-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The record types of an object
+         * @description For members who may view objects and fields. NOT_FOUND for an object the organization does not have, on the platform host.
+         */
+        get: operations["listRecordTypes"];
+        put?: never;
+        /**
+         * Add a record type to an object
+         * @description Live at once, as a release of one change. The name is turned into the permanent API name with the ending __c. VALIDATION_ERROR lists every problem with the fields and picklist values named; CONFLICT for an object whose records belong to the platform, at the limit, or when the result would break a dependency. Audited.
+         */
+        post: operations["createRecordType"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/record-types/{recordTypeApiName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One record type
+         * @description NOT_FOUND for a record type the object does not have.
+         */
+        get: operations["getRecordType"];
+        /**
+         * Change a record type
+         * @description Live at once, as a release of one change. The API name and the object never change. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.
+         */
+        put: operations["updateRecordType"];
+        post?: never;
+        /**
+         * Remove a record type
+         * @description Live at once, as a release of one change. NOT_FOUND for a record type the object does not have. Audited.
+         */
+        delete: operations["deleteRecordType"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/relationships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The relationships of an object, in both directions
+         * @description The objects this one points at (parents), the lists of other objects that point at it (children), and the objects related through a junction object (many-to-many). Read from the lookup and master-detail fields, with what happens to a child when its parent is removed. NOT_FOUND for an object the organization does not have.
+         */
+        get: operations["getObjectRelationships"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The history of publications
+         * @description Newest first: each release says what it added, changed or removed, whether it was rolled back, and whether it is the latest. For members who may view objects and fields.
+         */
+        get: operations["listReleases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/releases/latest/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Roll back the latest release
+         * @description Undoes the latest release as a new release. Only the latest can be rolled back; rolling back a rollback redoes it. CONFLICT with every problem when it cannot be undone. Needs the abilities to publish and to view. Audited.
+         */
+        post: operations["rollbackLatestRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/releases/latest/rollback-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check what rolling back the latest release would do
+         * @description Applies the undo by the real rules and rolls everything back. The answer lists every problem, including records or values that would be lost, and what would be undone.
+         */
+        post: operations["checkRollback"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1953,6 +2233,12 @@ export interface components {
         ApiResponseCatalogueItem: {
             data: components["schemas"]["CatalogueItem"];
         };
+        ApiResponseChangeSetReportView: {
+            data: components["schemas"]["ChangeSetReportView"];
+        };
+        ApiResponseChangeSetView: {
+            data: components["schemas"]["ChangeSetView"];
+        };
         ApiResponseCurrentUser: {
             data: components["schemas"]["CurrentUser"];
         };
@@ -1985,6 +2271,9 @@ export interface components {
         };
         ApiResponseListCatalogueItem: {
             data: components["schemas"]["CatalogueItem"][];
+        };
+        ApiResponseListChangeSetView: {
+            data: components["schemas"]["ChangeSetView"][];
         };
         ApiResponseListFieldTypeView: {
             data: components["schemas"]["FieldTypeView"][];
@@ -2019,6 +2308,12 @@ export interface components {
         ApiResponseListProfileView: {
             data: components["schemas"]["ProfileView"][];
         };
+        ApiResponseListRecordTypeView: {
+            data: components["schemas"]["RecordTypeView"][];
+        };
+        ApiResponseListReleaseView: {
+            data: components["schemas"]["ReleaseView"][];
+        };
         ApiResponseListRoleView: {
             data: components["schemas"]["RoleView"][];
         };
@@ -2030,6 +2325,9 @@ export interface components {
         };
         ApiResponseMemberAccessView: {
             data: components["schemas"]["MemberAccessView"];
+        };
+        ApiResponseObjectRelationshipsView: {
+            data: components["schemas"]["ObjectRelationshipsView"];
         };
         ApiResponseObjectView: {
             data: components["schemas"]["ObjectView"];
@@ -2054,6 +2352,12 @@ export interface components {
         };
         ApiResponseProfileView: {
             data: components["schemas"]["ProfileView"];
+        };
+        ApiResponseRecordTypeView: {
+            data: components["schemas"]["RecordTypeView"];
+        };
+        ApiResponseReleaseView: {
+            data: components["schemas"]["ReleaseView"];
         };
         ApiResponseRequestAccepted: {
             data: components["schemas"]["RequestAccepted"];
@@ -2110,6 +2414,38 @@ export interface components {
             currentPassword: string;
             newPassword: string;
         };
+        ChangeRequest: {
+            createField?: components["schemas"]["CreateFieldRequest"];
+            createObject?: components["schemas"]["CreateObjectRequest"];
+            createRecordType?: components["schemas"]["CreateRecordTypeRequest"];
+            itemApiName?: string;
+            kind: string;
+            objectApiName: string;
+            updateField?: components["schemas"]["UpdateFieldRequest"];
+            updateObject?: components["schemas"]["UpdateObjectRequest"];
+            updateRecordType?: components["schemas"]["UpdateRecordTypeRequest"];
+        };
+        ChangeSetReportView: {
+            items: components["schemas"]["ReleaseItemView"][];
+            objects: components["schemas"]["ObjectView"][];
+            problems: components["schemas"]["ProblemView"][];
+            valid: boolean;
+        };
+        ChangeSetView: {
+            /** Format: int32 */
+            changeCount: number;
+            changes: components["schemas"]["ChangeView"][];
+            /** Format: date-time */
+            createdAt: string;
+            description: string;
+            id: string;
+            name: string;
+            /** Format: int64 */
+            releaseNumber?: number;
+            status: string;
+            /** Format: int64 */
+            version: number;
+        };
         ChangeSubscriptionRequest: {
             /** Format: date-time */
             periodEndsAt?: string;
@@ -2119,6 +2455,14 @@ export interface components {
             /** Format: date-time */
             trialEndsAt?: string;
         };
+        ChangeView: {
+            id: string;
+            itemApiName?: string;
+            kind: string;
+            objectApiName: string;
+            /** Format: int32 */
+            position: number;
+        };
         CompleteSignUpRequest: {
             displayName: string;
             password: string;
@@ -2126,6 +2470,10 @@ export interface components {
         };
         CompleteSwitchRequest: {
             token: string;
+        };
+        CreateChangeSetRequest: {
+            description?: string;
+            name: string;
         };
         CreateFieldRequest: {
             defaultValue?: string;
@@ -2146,6 +2494,15 @@ export interface components {
         CreateOrganizationRequest: {
             displayName: string;
             slug: string;
+        };
+        CreateRecordTypeRequest: {
+            active?: boolean;
+            availableFields?: string[];
+            defaultType?: boolean;
+            description?: string;
+            label: string;
+            name: string;
+            picklistSubsets?: components["schemas"]["PicklistSubset"][];
         };
         CurrentUser: {
             abilities: string[];
@@ -2194,11 +2551,14 @@ export interface components {
             /** Format: int32 */
             digits?: number;
             expression?: string;
+            listLabel?: string;
             /** Format: int32 */
             maxLength?: number;
+            onDelete?: string;
             /** Format: int32 */
             precision?: number;
             prefix?: string;
+            reparentable?: boolean;
             resultType?: string;
             /** Format: int32 */
             scale?: number;
@@ -2375,6 +2735,11 @@ export interface components {
             status: string;
             you?: boolean;
         };
+        ObjectRelationshipsView: {
+            children: components["schemas"]["RelationshipView"][];
+            manyToMany: components["schemas"]["RelationshipView"][];
+            parents: components["schemas"]["RelationshipView"][];
+        };
         ObjectSummaryView: {
             apiName: string;
             /** Format: int32 */
@@ -2423,6 +2788,10 @@ export interface components {
             active: boolean;
             label: string;
             value: string;
+        };
+        PicklistSubset: {
+            field: string;
+            values: string[];
         };
         PlanInfo: {
             features: string[];
@@ -2476,6 +2845,16 @@ export interface components {
             serverTime: string;
             service: string;
         };
+        ProblemView: {
+            dependent?: string;
+            fields: string[];
+            itemApiName?: string;
+            kind: string;
+            message: string;
+            objectApiName?: string;
+            /** Format: int32 */
+            position?: number;
+        };
         ProfileView: {
             abilities: string[];
             defaultProfile?: boolean;
@@ -2497,6 +2876,53 @@ export interface components {
         };
         ReasonRequest: {
             reason: string;
+        };
+        RecordTypeView: {
+            active: boolean;
+            allFields: boolean;
+            apiName: string;
+            availableFields: string[];
+            defaultType: boolean;
+            description: string;
+            label: string;
+            layout?: string;
+            picklistSubsets: components["schemas"]["PicklistSubset"][];
+            /** Format: int64 */
+            version: number;
+        };
+        RelationshipView: {
+            childObject: string;
+            field: string;
+            fieldLabel: string;
+            fieldType: string;
+            listLabel: string;
+            onDelete: string;
+            otherObject: string;
+            parentObject: string;
+            reparentable: boolean;
+            required: boolean;
+            type: string;
+            viaObject?: string;
+        };
+        ReleaseItemView: {
+            action: string;
+            itemApiName?: string;
+            kind: string;
+            objectApiName: string;
+        };
+        ReleaseView: {
+            changeSetName?: string;
+            /** Format: date-time */
+            createdAt: string;
+            items: components["schemas"]["ReleaseItemView"][];
+            kind: string;
+            latest: boolean;
+            /** Format: int64 */
+            number: number;
+            /** Format: int64 */
+            rolledBackBy?: number;
+            /** Format: int64 */
+            undoesRelease?: number;
         };
         RequestAccepted: {
             message: string;
@@ -2634,6 +3060,16 @@ export interface components {
             description?: string;
             label: string;
             pluralLabel: string;
+            /** Format: int64 */
+            version: number;
+        };
+        UpdateRecordTypeRequest: {
+            active?: boolean;
+            availableFields?: string[];
+            defaultType?: boolean;
+            description?: string;
+            label: string;
+            picklistSubsets?: components["schemas"]["PicklistSubset"][];
             /** Format: int64 */
             version: number;
         };
@@ -4389,6 +4825,288 @@ export interface operations {
             };
         };
     };
+    listChangeSets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListChangeSetView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createChangeSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateChangeSetRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeSetView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getChangeSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeSetView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    discardChangeSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    addChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeSetView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    removeChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                changeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeSetView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    previewChangeSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeSetReportView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    publishChangeSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeSetView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    validateChangeSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeSetReportView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     listFieldTypes: {
         parameters: {
             query?: never;
@@ -4664,6 +5382,288 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listRecordTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListRecordTypeView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createRecordType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRecordTypeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordTypeView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getRecordType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                recordTypeApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordTypeView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateRecordType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                recordTypeApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRecordTypeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordTypeView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteRecordType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                recordTypeApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getObjectRelationships: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseObjectRelationshipsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listReleases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListReleaseView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    rollbackLatestRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseReleaseView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    checkRollback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeSetReportView"];
+                };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {

@@ -2,7 +2,7 @@
 
 Written for anyone who has to add or change what the platform defines: a new standard object, a new field on one, a label, a picklist value, or a
 new kind of field. You do not need to know databases for most of it. Decisions behind it: [ADR-0058](adr/0058-object-and-field-definitions.md) to
-[ADR-0062](adr/0062-removing-objects-and-fields.md). The list of what exists today is generated: [standard-objects.md](standard-objects.md).
+[ADR-0062](adr/0062-removing-objects-and-fields.md); since Sprint 11 also [ADR-0063](adr/0063-relationships.md) to [ADR-0068](adr/0068-the-publish-ability-and-changes-made-at-once.md) (section 10). The list of what exists today is generated: [standard-objects.md](standard-objects.md).
 
 ## 1. The ideas in plain words
 
@@ -120,7 +120,7 @@ apiName: Account              # permanent; must match the file name
 label: Account
 pluralLabel: Accounts
 description: Free text.       # optional
-managedBy: security           # optional: identity | security | licensing
+managedBy: security           # optional: identity | security | licensing | metadata
 extensible: true              # optional, default true
 fields:
   - apiName: name             # permanent
@@ -138,7 +138,7 @@ Keys the loader does not know are an error (so a typing mistake cannot silently 
 (`description: "Note: this"`), or use `>-` for a longer text; YAML otherwise reads it as a new key.
 
 Settings per type: `maxLength`, `digits`, `precision`, `scale`, `values` (a list of `{ value, label, active }`), `targetObject`, `expression`, `resultType`,
-`prefix`, `startAt`, `width` (section 6 says which type takes which).
+`prefix`, `startAt`, `width`, `onDelete`, `reparentable`, `listLabel` (section 6 says which type takes which).
 
 ## 6. The field types
 
@@ -154,8 +154,8 @@ Settings per type: `maxLength`, `digits`, `precision`, `scale`, `values` (a list
 | DATE, DATETIME, TIME | none | yes | no | yes | default as `2030-01-31`, `2030-01-31T09:30:00Z`, `09:30` |
 | EMAIL, PHONE, URL | none (fixed lengths 254, 40, 2048) | yes | yes | yes | |
 | PICKLIST, MULTI_PICKLIST | values (at least one; at most 1000) | yes | no | yes | a default is an active value; several are separated by `;` |
-| LOOKUP | targetObject (must exist) | yes | no | no | the record can exist without the target |
-| MASTER_DETAIL | targetObject | always | no | no | at most 2 per object, only on custom objects and the platform's own definitions |
+| LOOKUP | targetObject (must exist), onDelete CLEAR or REFUSE (CLEAR; REFUSE when required), listLabel | yes | yes (one-to-one) | no | the record can exist without the target |
+| MASTER_DETAIL | targetObject, reparentable (no), listLabel | always | yes (one-to-one) | no | at most 2 per object, only on custom objects and the platform's own definitions; always cascades |
 | FORMULA | expression (up to 4000), resultType | no | no | no | **stored, not calculated** until Sprint 13 and 15 |
 | AUTO_NUMBER | prefix (up to 10), startAt, width 1-12 | no | always | no | counting arrives with records |
 
@@ -169,23 +169,46 @@ The defaults are in brackets. The authority is `FieldRules`; the unit tests in `
 - A custom object or field can be removed; its permissions end with it; an object other fields point to cannot be removed until those fields are.
 - A picklist value can be switched off, never removed; the target of a lookup never changes.
 - An organization may add fields to a standard object only where the file says `extensible: true`, and a master-detail only on its own objects.
+- A lookup or master-detail also has a delete behaviour, a re-parenting flag and a list label (section 10); a unique one is one-to-one.
+- Record types: up to 50 per object, only on objects whose records are ordinary organization data (`managedBy` empty).
 
 ## 8. Where each later piece of the metadata work lives
 
 | Piece | Sprint | Notes |
 |-------|--------|-------|
-| Relationships (one-to-many, many-to-many), what a lookup does on delete, record types | 11 | the record type becomes a standard object then |
-| Draft, validate, publish, versions, rollback; dependency check before a removal | 11 | `MetadataService.deleteObject/deleteField` are where the dependency check goes |
+| Relationships (one-to-many, many-to-many), what a lookup does on delete, record types | 11 (built) | section 10; `RecordType` is a standard object since Sprint 11 |
+| Draft, validate, publish, versions, rollback; dependency check before a removal | 11 (built) | section 10; the check runs after every change in `MetadataLifecycle` |
 | Page layouts, record pages, applications, navigation | 12 | rendering 19 and 20, builder 21 |
 | The metadata runtime, expression engine, validation rules | 13 | the expression engine decides what a formula may be |
 | Records (the `id` in the record address, the `sequence` counting) | 14 | `ObjectUsage` is the seam that keeps an object with records from being removed |
 | Required, unique, default and formulas enforced on records; field security | 15 | |
 | Record-level security (view-all, modify-all start to work) | 17 | |
 
+## 10. Relationships, record types, change sets and releases (Sprint 11)
+
+Plain words first, then what to change.
+
+- **Relationship.** A lookup or master-detail field links records of one object (the *child*) to records of another (the *parent*). Both ends see it: the child has the field, the parent
+  shows a *list* of its children. A unique link is one-to-one. Two master-detail fields on one object (a *junction*) relate their two parents many-to-many. Nothing is stored apart from the
+  field. See it on the object page, "Relationships".
+- **What happens when the parent is removed** is chosen on the field: a master-detail removes its details with it; a lookup either empties the link or refuses the removal (a required lookup refuses).
+  Records do not exist yet, so the data engine will carry this out; today it is stored, shown and known to the dependency check.
+- **Record type.** A variant of an object that offers some of its fields and allows some picklist values. At most one is the default. A restricted record type must offer every required field.
+- **Change set.** A named group of changes (create/change/remove an object, a field or a record type) that goes live **all together or not at all**. While it is open nothing in it is live and nobody
+  else sees it. **Check** lists every problem and what would change; **Preview** also shows the objects as they would be; **Publish** puts it live as one numbered *release*. To fill one, choose it in
+  "Changes on the object pages go" and make the changes on the object pages as usual.
+- **A change made at once** (no change set chosen) is allowed to people who may both manage and publish; it is one release of one change.
+- **History and rollback.** Every release is listed with what it did. The latest can be rolled back (a new release that undoes it). A removed field comes back as a definition, not with the permissions it had.
+- **When something is still needed.** Removing a field a record type offers, or an object a lookup points to, is refused and the message names the record type or field that needs it. Fix it in the same
+  change set (update the record type, then remove the field) and publish again.
+
+To add a **standard** object that is a record type holder or to change the standard `RecordType` definition, follow sections 3 and 4 (the file is `RecordType.yml`; its owner is `metadata`).
+To give a **standard field** a delete behaviour, add `onDelete: REFUSE`, `reparentable: true` or `listLabel: ...` under its `settings` (the loader checks them like any other setting).
 ## 9. If something fails
 
 - *The application does not start and names a YAML file*: the message says the file, the place (the object and field) and the rule. Fix that place.
 - *`StandardMetadataBaselineTest` fails with "was released and is gone"*: you removed or renamed something released. Restore it and use `retired: true`.
 - *`StandardMetadataBaselineTest` fails with "not in the baseline yet"*: you added something; run the update command of section 4 and commit the baseline.
 - *`StandardObjectsDocTest` fails*: run the third command of section 4.
+- *A change set is refused with "does not exist after this change"*: something still needs what the set removes; the message names the record type or field. Update that first, in the same set.
 - *A lookup is refused with "This object does not exist"*: the target name is spelled differently from the `apiName` of its file (case matters).

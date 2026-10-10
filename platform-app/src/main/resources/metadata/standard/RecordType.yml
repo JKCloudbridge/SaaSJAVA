@@ -1,0 +1,48 @@
+# Standard object: RecordType, a variant of an object such as "New business" or "Renewal" (ADR-0059, ADR-0064).
+# Added in Sprint 11. One record of this object describes one record type of the metadata module; the definitions
+# themselves are kept by the metadata part of the platform (managedBy) and changed only through the record type screens
+# and change sets. Records of every other object will point at this object to say which variant they are (Sprint 14).
+# How to change this file: docs/metadata-guide.md.
+apiName: RecordType
+label: Record type
+pluralLabel: Record types
+description: A variant of an object with its own available fields and picklist values.
+managedBy: metadata
+extensible: false
+fields:
+  - apiName: label
+    label: Record type name
+    description: The name people read.
+    type: TEXT
+    required: true
+    settings: { maxLength: 80 }
+
+  - apiName: apiName
+    label: API name
+    description: The permanent name used by code and integrations.
+    type: TEXT
+    required: true
+    settings: { maxLength: 60 }
+
+  - apiName: objectApiName
+    label: Object
+    description: The API name of the object this record type belongs to.
+    type: TEXT
+    required: true
+    settings: { maxLength: 60 }
+
+  - apiName: active
+    label: Active
+    description: Whether new records may use this record type.
+    type: BOOLEAN
+
+  - apiName: isDefault
+    label: Default
+    description: Whether new records get this record type when nothing else is chosen.
+    type: BOOLEAN
+
+  - apiName: layoutRef
+    label: Page layout
+    description: The page layout this record type uses. Empty until page layouts exist (Sprint 12).
+    type: TEXT
+    settings: { maxLength: 120 }

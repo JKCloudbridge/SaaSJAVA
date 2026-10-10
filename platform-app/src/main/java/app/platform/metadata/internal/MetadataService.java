@@ -47,10 +47,12 @@ class MetadataService {
     private final DataPermissionCleanup cleanup;
     private final ObjectProvider<ObjectUsage> usage;
     private final MetadataProperties properties;
+    private final RecordTypeStore recordTypeStore;
 
     MetadataService(MetadataStore store, MetadataCatalogue catalogue, MetadataVersions versions, ConfigCodec codec,
             MetadataAudit audit, DataPermissionCleanup cleanup, ObjectProvider<ObjectUsage> usage,
-            MetadataProperties properties) {
+            MetadataProperties properties, RecordTypeStore recordTypeStore) {
+        this.recordTypeStore = recordTypeStore;
         this.store = store;
         this.catalogue = catalogue;
         this.versions = versions;
@@ -149,10 +151,11 @@ class MetadataService {
         }
         versions.wrote();
         ActorId actor = new ActorId(caller.userId());
+        int recordTypes = recordTypeStore.deleteOf(apiName, caller.userId());
         int fields = store.deleteFieldsOf(apiName, caller.userId());
         int lines = cleanup.forgetObject(apiName, actor);
         store.deleteObject(row.id(), caller.userId());
-        audit.objectDeleted(caller.userId(), apiName, fields, lines);
+        audit.objectDeleted(caller.userId(), apiName, fields, recordTypes, lines);
     }
 
     // ---- fields ----
@@ -298,7 +301,7 @@ class MetadataService {
 
     private static FieldView fieldView(FieldDefinition field) {
         FieldConfiguration configuration = field.configuration();
-        FieldSettings settings = FieldRules.settingsOf(configuration);
+        FieldSettings settings = FieldRules.settingsOf(field.type(), configuration);
         return new FieldView(field.apiName(), field.label(), field.description(), field.kind().name(),
                 field.type().name(), field.required(), field.unique(), field.defaultValue(), settings,
                 field.retired(), field.kind() == DefinitionKind.CUSTOM, field.version());
