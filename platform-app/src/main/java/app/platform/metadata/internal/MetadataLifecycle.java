@@ -15,6 +15,8 @@ import app.platformapi.ReleaseItemView;
 import app.platformapi.ReleaseView;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -273,11 +275,49 @@ class MetadataLifecycle {
         if (problems.isEmpty()) {
             problems.addAll(dependencyProblems());
         }
-        List<Change> undo = new ArrayList<>();
-        List<List<Change>> reversed = new ArrayList<>(undos);
-        Collections.reverse(reversed);
-        reversed.forEach(undo::addAll);
-        return new Outcome(problems, items, undo, touched);
+        return new Outcome(problems, items, undoOf(undos), touched);
+    }
+
+    /**
+     * Orders the undo of a batch so that applying it never asks for something that is not there yet. Undoing a
+     * deletion (a creation) must run before undoing a mere update that puts a reference to the recreated thing back
+     * (a record type's field list is checked against what exists, immediately, unlike the dependency graph): first
+     * every recreation, then every value restored, last every removal of what the batch created. Inside each group
+     * the newest change is undone first, as one undoes a stack: a field removed before its object is recreated after
+     * the object, and a newer thing is removed before whatever it depended on. A thing changed more than once is
+     * restored once, to the values it had before the batch, expecting the version the last change left (each restore
+     * carries the version its own change left, which the restore before it would already have moved on). The undo of
+     * one change keeps its own order.
+     */
+    private List<Change> undoOf(List<List<Change>> undos) {
+        List<List<Change>> newestFirst = new ArrayList<>(undos);
+        Collections.reverse(newestFirst);
+        List<Change> recreations = new ArrayList<>();
+        Map<String, Change> restorations = new LinkedHashMap<>();
+        List<Change> removals = new ArrayList<>();
+        for (List<Change> oneUndo : newestFirst) {
+            for (Change change : oneUndo) {
+                if (change.kind().isCreate()) {
+                    recreations.add(change);
+                } else if (change.kind().isDelete()) {
+                    removals.add(change);
+                } else {
+                    String key = ChangeCodec.restoreKey(change);
+                    Change newer = restorations.get(key);
+                    restorations.put(key,
+                            newer == null ? change : codec.expecting(change, codec.expectedVersion(newer)));
+                }
+            }
+        }
+        // A thing that is recreated starts again at version zero, whatever the batch had made of it before.
+        Set<String> recreated = new HashSet<>();
+        recreations.forEach(creation -> recreated.add(codec.restoreKeyOfCreation(creation)));
+        restorations.replaceAll((key, restoring) ->
+                recreated.contains(key) ? codec.expecting(restoring, 0) : restoring);
+        List<Change> undo = new ArrayList<>(recreations);
+        undo.addAll(restorations.values());
+        undo.addAll(removals);
+        return undo;
     }
 
     private List<Problem> dependencyProblems() {

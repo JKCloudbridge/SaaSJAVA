@@ -123,6 +123,84 @@ class RollbackIT extends LifecycleSupport {
     }
 
     @Test
+    void rollingBackASetThatRemovedAFieldAndUpdatedTheRecordTypeThatOfferedItRestoresBothInTheRightOrder() {
+        TestBrowser admin = adminOf(organization());
+        createObject(admin, "Deal");
+        createField(admin, "Deal__c", requiredText("code"));
+        createField(admin, "Deal__c", text("department"));
+        createRecordType(admin, "Deal__c", recordType("NewBusiness", "[\"code__c\",\"department__c\"]", "[]"));
+        String set = createSet(admin, "Drop department");
+        addChange(admin, set, change("DELETE_FIELD", "Deal__c", "department__c", null, null));
+        addChange(admin, set, change("UPDATE_RECORD_TYPE", "Deal__c", "NewBusiness__c", "updateRecordType",
+                "{\"label\":\"NewBusiness\",\"description\":\"\",\"availableFields\":[\"code__c\"],"
+                        + "\"picklistSubsets\":[],\"version\":0}"));
+        publish(admin, set);
+
+        Response rolledBack = admin.postJson(ROLLBACK, "{}");
+
+        assertThat(rolledBack.status()).as(rolledBack.body()).isEqualTo(200);
+        assertThat(fieldNames(admin, "Deal__c")).contains("department__c");
+        assertThat(JsonPath.<List<String>>read(admin.get(OBJECTS + "/Deal__c/record-types/NewBusiness__c").body(),
+                "$.data.availableFields")).containsExactly("code__c", "department__c");
+    }
+
+    @Test
+    void rollingBackASetThatChangedTheSameFieldTwiceRestoresTheOriginalNotTheMiddleState() {
+        TestBrowser admin = adminOf(organization());
+        createObject(admin, "Deal");
+        createField(admin, "Deal__c", text("code"));
+        String set = createSet(admin, "Rename twice");
+        addChange(admin, set, change("UPDATE_FIELD", "Deal__c", "code__c", "updateField", updateField("Middle", 0)));
+        addChange(admin, set, change("UPDATE_FIELD", "Deal__c", "code__c", "updateField", updateField("Last", 1)));
+        assertThat(publish(admin, set).status()).isEqualTo(200);
+
+        Response rolledBack = admin.postJson(ROLLBACK, "{}");
+
+        assertThat(rolledBack.status()).as(rolledBack.body()).isEqualTo(200);
+        assertThat(JsonPath.<List<String>>read(admin.get(OBJECTS + "/Deal__c").body(),
+                "$.data.fields[?(@.apiName=='code__c')].label")).containsExactly("code");
+    }
+
+    @Test
+    void rollingBackASetThatRemovedAFieldAndThenItsObjectBringsBackTheObjectBeforeTheField() {
+        TestBrowser admin = adminOf(organization());
+        createObject(admin, "Deal");
+        createField(admin, "Deal__c", text("code"));
+        createField(admin, "Deal__c", text("department"));
+        String set = createSet(admin, "Drop it all");
+        addChange(admin, set, change("DELETE_FIELD", "Deal__c", "department__c", null, null));
+        addChange(admin, set, change("DELETE_OBJECT", "Deal__c", null, null, null));
+        assertThat(publish(admin, set).status()).isEqualTo(200);
+
+        Response rolledBack = admin.postJson(ROLLBACK, "{}");
+
+        assertThat(rolledBack.status()).as(rolledBack.body()).isEqualTo(200);
+        assertThat(fieldNames(admin, "Deal__c")).contains("code__c", "department__c");
+    }
+
+    @Test
+    void rollingBackASetThatChangedAFieldAndThenRemovedItBringsBackTheOriginal() {
+        TestBrowser admin = adminOf(organization());
+        createObject(admin, "Deal");
+        createField(admin, "Deal__c", text("code"));
+        String set = createSet(admin, "Change then drop");
+        addChange(admin, set, change("UPDATE_FIELD", "Deal__c", "code__c", "updateField", updateField("Middle", 0)));
+        addChange(admin, set, change("DELETE_FIELD", "Deal__c", "code__c", null, null));
+        assertThat(publish(admin, set).status()).isEqualTo(200);
+
+        Response rolledBack = admin.postJson(ROLLBACK, "{}");
+
+        assertThat(rolledBack.status()).as(rolledBack.body()).isEqualTo(200);
+        assertThat(JsonPath.<List<String>>read(admin.get(OBJECTS + "/Deal__c").body(),
+                "$.data.fields[?(@.apiName=='code__c')].label")).containsExactly("code");
+    }
+
+    private static String updateField(String label, int version) {
+        return "{\"label\":\"" + label + "\",\"description\":\"\",\"required\":false,\"unique\":false,"
+                + "\"settings\":{},\"version\":" + version + "}";
+    }
+
+    @Test
     void aRollbackCheckKeepsNothing() {
         TestBrowser admin = adminOf(organization());
         createObject(admin, "Team");
