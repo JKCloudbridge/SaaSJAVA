@@ -4,10 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePlatformAddress } from "@/lib/account/usePlatformAddress";
 import { useSession } from "@/lib/session/SessionProvider";
+import { ApplicationMenu } from "./ApplicationMenu";
 
 /**
  * The main navigation. "Members" is offered to a signed-in person on an organization's address; whether the person may
  * open it is the API's answer (the page says so when the API refuses), never this component's decision.
+ *
+ * <p>The links written here (Home, Console, Members, Audit trail, Setup) are the platform's own pages, the same for every
+ * organization, so they stay fixed. What an organization configured for its members, its applications and their
+ * navigation, is drawn from the API by {@link ApplicationMenu} (Sprint 12).
  */
 export function ShellNav() {
   const { state } = useSession();
@@ -38,6 +43,7 @@ export function ShellNav() {
           </Link>
         </li>
       ) : null}
+      {showMembers ? <ApplicationMenu /> : null}
       {showMembers ? (
         <li>
           <Link href="/members" aria-current={pathname === "/members" ? "page" : undefined}>

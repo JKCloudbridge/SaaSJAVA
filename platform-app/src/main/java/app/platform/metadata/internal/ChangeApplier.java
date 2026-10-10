@@ -2,15 +2,27 @@ package app.platform.metadata.internal;
 
 import app.platform.identity.OrganizationAdministration.Caller;
 import app.platformapi.ApiException;
+import app.platformapi.ApplicationView;
+import app.platformapi.CreateApplicationRequest;
 import app.platformapi.CreateFieldRequest;
+import app.platformapi.CreateLayoutAssignmentRequest;
+import app.platformapi.CreateLayoutRequest;
 import app.platformapi.CreateObjectRequest;
+import app.platformapi.CreateRecordPageRequest;
 import app.platformapi.CreateRecordTypeRequest;
 import app.platformapi.FieldView;
+import app.platformapi.LayoutAssignmentView;
+import app.platformapi.LayoutView;
 import app.platformapi.ObjectView;
+import app.platformapi.RecordPageView;
 import app.platformapi.RecordTypeView;
 import app.platformapi.ReleaseItemView;
+import app.platformapi.UpdateApplicationRequest;
 import app.platformapi.UpdateFieldRequest;
+import app.platformapi.UpdateLayoutAssignmentRequest;
+import app.platformapi.UpdateLayoutRequest;
 import app.platformapi.UpdateObjectRequest;
+import app.platformapi.UpdateRecordPageRequest;
 import app.platformapi.UpdateRecordTypeRequest;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +41,8 @@ class ChangeApplier {
      * What applying a change did.
      *
      * @param result the view the live endpoint returns (an {@code ObjectView}, {@code FieldView},
-     *        {@code RecordTypeView}, or {@code Boolean.TRUE} for a removal)
+     *        {@code RecordTypeView}, {@code LayoutView}, {@code RecordPageView}, {@code ApplicationView},
+     *        {@code LayoutAssignmentView}, or {@code Boolean.TRUE} for a removal)
      * @param undo the changes that put things back, to be applied in this order; empty when nothing changed
      * @param items what was added, changed or removed
      */
@@ -38,11 +51,16 @@ class ChangeApplier {
 
     private final MetadataService metadata;
     private final RecordTypeService recordTypes;
+    private final DefinitionService definitions;
+    private final AssignmentService assignments;
     private final ChangeCodec codec;
 
-    ChangeApplier(MetadataService metadata, RecordTypeService recordTypes, ChangeCodec codec) {
+    ChangeApplier(MetadataService metadata, RecordTypeService recordTypes, DefinitionService definitions,
+            AssignmentService assignments, ChangeCodec codec) {
         this.metadata = metadata;
         this.recordTypes = recordTypes;
+        this.definitions = definitions;
+        this.assignments = assignments;
         this.codec = codec;
     }
 
@@ -63,6 +81,18 @@ class ChangeApplier {
             case CREATE_RECORD_TYPE -> createRecordType(caller, change);
             case UPDATE_RECORD_TYPE -> updateRecordType(caller, change);
             case DELETE_RECORD_TYPE -> deleteRecordType(caller, change);
+            case CREATE_LAYOUT -> createLayout(caller, change);
+            case UPDATE_LAYOUT -> updateLayout(caller, change);
+            case DELETE_LAYOUT -> deleteLayout(caller, change);
+            case CREATE_RECORD_PAGE -> createRecordPage(caller, change);
+            case UPDATE_RECORD_PAGE -> updateRecordPage(caller, change);
+            case DELETE_RECORD_PAGE -> deleteRecordPage(caller, change);
+            case CREATE_APPLICATION -> createApplication(caller, change);
+            case UPDATE_APPLICATION -> updateApplication(caller, change);
+            case DELETE_APPLICATION -> deleteApplication(caller, change);
+            case CREATE_LAYOUT_ASSIGNMENT -> createAssignment(caller, change);
+            case UPDATE_LAYOUT_ASSIGNMENT -> updateAssignment(caller, change);
+            case DELETE_LAYOUT_ASSIGNMENT -> deleteAssignment(caller, change);
         };
     }
 
@@ -177,6 +207,114 @@ class ChangeApplier {
         recordTypes.delete(caller, change.object(), change.item());
         return new Applied(Boolean.TRUE, List.of(codec.makeRecordType(change.object(), before)),
                 List.of(item("REMOVED", "RECORD_TYPE", change.object(), change.item())));
+    }
+
+    // ---- layouts ----
+
+    private Applied createLayout(Caller caller, Change change) {
+        LayoutView made = definitions.createLayout(caller, change.object(), codec.read(change,
+                CreateLayoutRequest.class));
+        return new Applied(made, List.of(codec.removeLayout(change.object(), made.apiName())),
+                List.of(item("ADDED", "LAYOUT", change.object(), made.apiName())));
+    }
+
+    private Applied updateLayout(Caller caller, Change change) {
+        LayoutView before = definitions.layout(change.object(), change.item());
+        LayoutView after = definitions.updateLayout(caller, change.object(), change.item(),
+                codec.read(change, UpdateLayoutRequest.class));
+        if (after.version().equals(before.version())) {
+            return new Applied(after, List.of(), List.of());
+        }
+        return new Applied(after, List.of(codec.restoreLayout(before, after.version())),
+                List.of(item("CHANGED", "LAYOUT", change.object(), after.apiName())));
+    }
+
+    private Applied deleteLayout(Caller caller, Change change) {
+        LayoutView before = definitions.layout(change.object(), change.item());
+        definitions.deleteLayout(caller, change.object(), change.item());
+        return new Applied(Boolean.TRUE, List.of(codec.makeLayout(before)),
+                List.of(item("REMOVED", "LAYOUT", change.object(), change.item())));
+    }
+
+    // ---- record pages ----
+
+    private Applied createRecordPage(Caller caller, Change change) {
+        RecordPageView made = definitions.createRecordPage(caller, change.object(), codec.read(change,
+                CreateRecordPageRequest.class));
+        return new Applied(made, List.of(codec.removeRecordPage(change.object(), made.apiName())),
+                List.of(item("ADDED", "RECORD_PAGE", change.object(), made.apiName())));
+    }
+
+    private Applied updateRecordPage(Caller caller, Change change) {
+        RecordPageView before = definitions.recordPage(change.object(), change.item());
+        RecordPageView after = definitions.updateRecordPage(caller, change.object(), change.item(),
+                codec.read(change, UpdateRecordPageRequest.class));
+        if (after.version().equals(before.version())) {
+            return new Applied(after, List.of(), List.of());
+        }
+        return new Applied(after, List.of(codec.restoreRecordPage(before, after.version())),
+                List.of(item("CHANGED", "RECORD_PAGE", change.object(), after.apiName())));
+    }
+
+    private Applied deleteRecordPage(Caller caller, Change change) {
+        RecordPageView before = definitions.recordPage(change.object(), change.item());
+        definitions.deleteRecordPage(caller, change.object(), change.item());
+        return new Applied(Boolean.TRUE, List.of(codec.makeRecordPage(before)),
+                List.of(item("REMOVED", "RECORD_PAGE", change.object(), change.item())));
+    }
+
+    // ---- applications ----
+
+    private Applied createApplication(Caller caller, Change change) {
+        ApplicationView made = definitions.createApplication(caller, codec.read(change,
+                CreateApplicationRequest.class));
+        return new Applied(made, List.of(codec.removeApplication(made.apiName())),
+                List.of(item("ADDED", "APPLICATION", "", made.apiName())));
+    }
+
+    private Applied updateApplication(Caller caller, Change change) {
+        ApplicationView before = definitions.application(change.item());
+        ApplicationView after = definitions.updateApplication(caller, change.item(),
+                codec.read(change, UpdateApplicationRequest.class));
+        if (after.version().equals(before.version())) {
+            return new Applied(after, List.of(), List.of());
+        }
+        return new Applied(after, List.of(codec.restoreApplication(before, after.version())),
+                List.of(item("CHANGED", "APPLICATION", "", after.apiName())));
+    }
+
+    private Applied deleteApplication(Caller caller, Change change) {
+        ApplicationView before = definitions.application(change.item());
+        definitions.deleteApplication(caller, change.item());
+        return new Applied(Boolean.TRUE, List.of(codec.makeApplication(before)),
+                List.of(item("REMOVED", "APPLICATION", "", change.item())));
+    }
+
+    // ---- layout assignments ----
+
+    private Applied createAssignment(Caller caller, Change change) {
+        LayoutAssignmentView made = assignments.create(caller, change.object(), codec.read(change,
+                CreateLayoutAssignmentRequest.class));
+        return new Applied(made, List.of(codec.removeAssignment(change.object(), made.key())),
+                List.of(item("ADDED", "LAYOUT_ASSIGNMENT", change.object(), made.key())));
+    }
+
+    private Applied updateAssignment(Caller caller, Change change) {
+        LayoutAssignmentView before = assignments.get(change.object(), change.item());
+        LayoutAssignmentView after = assignments.update(caller, change.object(), change.item(),
+                codec.read(change, UpdateLayoutAssignmentRequest.class));
+        if (after.version().equals(before.version())) {
+            return new Applied(after, List.of(), List.of());
+        }
+        return new Applied(after, List.of(codec.restoreAssignment(change.object(), before, after.version())),
+                List.of(item("CHANGED", "LAYOUT_ASSIGNMENT", change.object(), after.key())));
+    }
+
+    private Applied deleteAssignment(Caller caller, Change change) {
+        LayoutAssignmentView before = assignments.get(change.object(), change.item());
+        assignments.delete(caller, change.object(), change.item());
+        return new Applied(Boolean.TRUE, List.of(codec.makeAssignment(change.object(), before)),
+                List.of(item("REMOVED", "LAYOUT_ASSIGNMENT", change.object(), change.item())));
     }
 
     private static ReleaseItemView item(String action, String kind, String object, String item) {

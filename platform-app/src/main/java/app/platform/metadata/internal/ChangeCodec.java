@@ -1,19 +1,32 @@
 package app.platform.metadata.internal;
 
 import app.platform.metadata.FieldType;
+import app.platform.metadata.LayoutAssignment;
 import app.platformapi.ApiException;
+import app.platformapi.ApplicationView;
 import app.platformapi.ChangeRequest;
+import app.platformapi.CreateApplicationRequest;
 import app.platformapi.CreateFieldRequest;
+import app.platformapi.CreateLayoutAssignmentRequest;
+import app.platformapi.CreateLayoutRequest;
 import app.platformapi.CreateObjectRequest;
+import app.platformapi.CreateRecordPageRequest;
 import app.platformapi.CreateRecordTypeRequest;
 import app.platformapi.FieldSettings;
 import app.platformapi.FieldView;
+import app.platformapi.LayoutAssignmentView;
+import app.platformapi.LayoutView;
 import app.platformapi.ObjectView;
+import app.platformapi.RecordPageView;
 import app.platformapi.RecordTypeView;
-import app.platformapi.UpdateFieldRequest;
-import app.platformapi.UpdateObjectRequest;
-import app.platformapi.UpdateRecordTypeRequest;
 import app.platformapi.ReleaseItemView;
+import app.platformapi.UpdateApplicationRequest;
+import app.platformapi.UpdateFieldRequest;
+import app.platformapi.UpdateLayoutAssignmentRequest;
+import app.platformapi.UpdateLayoutRequest;
+import app.platformapi.UpdateObjectRequest;
+import app.platformapi.UpdateRecordPageRequest;
+import app.platformapi.UpdateRecordTypeRequest;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -42,11 +55,17 @@ final class ChangeCodec {
     Change fromRequest(ChangeRequest request) {
         Change.Kind kind = Change.Kind.fromCode(request.kind())
                 .orElseThrow(() -> ApiException.validation("kind", "Choose one of the kinds of change."));
-        String object = request.objectApiName() == null ? "" : request.objectApiName().strip();
+        boolean application = kind.entity() == Change.Entity.APPLICATION;
+        String object = request.objectApiName() == null || application ? "" : request.objectApiName().strip();
+        if (object.isEmpty() && !application) {
+            throw ApiException.validation("objectApiName", "Name the object this change is about.");
+        }
         String item = request.itemApiName() == null || request.itemApiName().isBlank() ? null
                 : request.itemApiName().strip();
-        if (kind.namesItem() && item == null) {
-            throw ApiException.validation("itemApiName", "Name the field or record type this change is about.");
+        // The key of a new layout assignment comes from its request, so it is not asked for twice.
+        if (kind.namesItem() && item == null && kind != Change.Kind.CREATE_LAYOUT_ASSIGNMENT) {
+            throw ApiException.validation("itemApiName", "Name the field, record type, layout, record page, "
+                    + "application or assignment this change is about.");
         }
         if (!kind.namesItem()) {
             item = null;
@@ -63,7 +82,8 @@ final class ChangeCodec {
             }
             case UPDATE_OBJECT -> new Change(kind, object, null,
                     write(required(request.updateObject(), "updateObject", kind)));
-            case DELETE_OBJECT, DELETE_FIELD, DELETE_RECORD_TYPE -> new Change(kind, object, item, EMPTY);
+            case DELETE_OBJECT, DELETE_FIELD, DELETE_RECORD_TYPE, DELETE_LAYOUT, DELETE_RECORD_PAGE,
+                    DELETE_APPLICATION, DELETE_LAYOUT_ASSIGNMENT -> new Change(kind, object, item, EMPTY);
             case CREATE_FIELD -> new Change(kind, object, null,
                     write(required(request.createField(), "createField", kind)));
             case UPDATE_FIELD -> new Change(kind, object, item,
@@ -72,6 +92,27 @@ final class ChangeCodec {
                     write(required(request.createRecordType(), "createRecordType", kind)));
             case UPDATE_RECORD_TYPE -> new Change(kind, object, item,
                     write(required(request.updateRecordType(), "updateRecordType", kind)));
+            case CREATE_LAYOUT -> new Change(kind, object, null,
+                    write(required(request.createLayout(), "createLayout", kind)));
+            case UPDATE_LAYOUT -> new Change(kind, object, item,
+                    write(required(request.updateLayout(), "updateLayout", kind)));
+            case CREATE_RECORD_PAGE -> new Change(kind, object, null,
+                    write(required(request.createRecordPage(), "createRecordPage", kind)));
+            case UPDATE_RECORD_PAGE -> new Change(kind, object, item,
+                    write(required(request.updateRecordPage(), "updateRecordPage", kind)));
+            case CREATE_APPLICATION -> new Change(kind, "", null,
+                    write(required(request.createApplication(), "createApplication", kind)));
+            case UPDATE_APPLICATION -> new Change(kind, "", item,
+                    write(required(request.updateApplication(), "updateApplication", kind)));
+            case CREATE_LAYOUT_ASSIGNMENT -> {
+                CreateLayoutAssignmentRequest body = required(request.createLayoutAssignment(),
+                        "createLayoutAssignment", kind);
+                String type = body.recordType() == null || body.recordType().isBlank() ? null
+                        : body.recordType().strip();
+                yield new Change(kind, object, LayoutAssignment.keyOf(body.profileId(), type), write(body));
+            }
+            case UPDATE_LAYOUT_ASSIGNMENT -> new Change(kind, object, item,
+                    write(required(request.updateLayoutAssignment(), "updateLayoutAssignment", kind)));
         };
     }
 
@@ -114,6 +155,14 @@ final class ChangeCodec {
                     withSuffix(name), EMPTY));
             case CREATE_RECORD_TYPE -> restoreKey(new Change(Change.Kind.UPDATE_RECORD_TYPE, creation.object(),
                     withSuffix(name), EMPTY));
+            case CREATE_LAYOUT -> restoreKey(new Change(Change.Kind.UPDATE_LAYOUT, creation.object(),
+                    withSuffix(name), EMPTY));
+            case CREATE_RECORD_PAGE -> restoreKey(new Change(Change.Kind.UPDATE_RECORD_PAGE, creation.object(),
+                    withSuffix(name), EMPTY));
+            case CREATE_APPLICATION -> restoreKey(new Change(Change.Kind.UPDATE_APPLICATION, creation.object(),
+                    withSuffix(name), EMPTY));
+            case CREATE_LAYOUT_ASSIGNMENT -> restoreKey(new Change(Change.Kind.UPDATE_LAYOUT_ASSIGNMENT,
+                    creation.object(), creation.item(), EMPTY));
             default -> throw new IllegalArgumentException("Not a creation: " + creation.kind());
         };
     }
@@ -197,13 +246,75 @@ final class ChangeCodec {
     Change makeRecordType(String object, RecordTypeView view) {
         return new Change(Change.Kind.CREATE_RECORD_TYPE, object, null, write(new CreateRecordTypeRequest(
                 withoutSuffix(view.apiName()), view.label(), view.description(), view.active(), view.defaultType(),
-                fieldsToSend(view), view.picklistSubsets())));
+                fieldsToSend(view), view.picklistSubsets(), view.layout())));
     }
 
     Change restoreRecordType(String object, RecordTypeView before, long afterVersion) {
         return new Change(Change.Kind.UPDATE_RECORD_TYPE, object, before.apiName(), write(
                 new UpdateRecordTypeRequest(before.label(), before.description(), before.active(),
-                        before.defaultType(), fieldsToSend(before), before.picklistSubsets(), afterVersion)));
+                        before.defaultType(), fieldsToSend(before), before.picklistSubsets(), before.layout(),
+                        afterVersion)));
+    }
+
+    // ---- layouts, record pages, applications and layout assignments (Sprint 12) ----
+
+    Change removeLayout(String object, String layout) {
+        return new Change(Change.Kind.DELETE_LAYOUT, object, layout, EMPTY);
+    }
+
+    Change makeLayout(LayoutView view) {
+        return new Change(Change.Kind.CREATE_LAYOUT, view.objectApiName(), null, write(new CreateLayoutRequest(
+                withoutSuffix(view.apiName()), view.label(), view.description(), view.definition())));
+    }
+
+    Change restoreLayout(LayoutView before, long afterVersion) {
+        return new Change(Change.Kind.UPDATE_LAYOUT, before.objectApiName(), before.apiName(), write(
+                new UpdateLayoutRequest(before.label(), before.description(), before.definition(), afterVersion)));
+    }
+
+    Change removeRecordPage(String object, String page) {
+        return new Change(Change.Kind.DELETE_RECORD_PAGE, object, page, EMPTY);
+    }
+
+    Change makeRecordPage(RecordPageView view) {
+        return new Change(Change.Kind.CREATE_RECORD_PAGE, view.objectApiName(), null, write(
+                new CreateRecordPageRequest(withoutSuffix(view.apiName()), view.label(), view.description(),
+                        view.definition())));
+    }
+
+    Change restoreRecordPage(RecordPageView before, long afterVersion) {
+        return new Change(Change.Kind.UPDATE_RECORD_PAGE, before.objectApiName(), before.apiName(), write(
+                new UpdateRecordPageRequest(before.label(), before.description(), before.definition(),
+                        afterVersion)));
+    }
+
+    Change removeApplication(String application) {
+        return new Change(Change.Kind.DELETE_APPLICATION, "", application, EMPTY);
+    }
+
+    Change makeApplication(ApplicationView view) {
+        return new Change(Change.Kind.CREATE_APPLICATION, "", null, write(new CreateApplicationRequest(
+                withoutSuffix(view.apiName()), view.label(), view.description(), view.definition())));
+    }
+
+    Change restoreApplication(ApplicationView before, long afterVersion) {
+        return new Change(Change.Kind.UPDATE_APPLICATION, "", before.apiName(), write(
+                new UpdateApplicationRequest(before.label(), before.description(), before.definition(),
+                        afterVersion)));
+    }
+
+    Change removeAssignment(String object, String key) {
+        return new Change(Change.Kind.DELETE_LAYOUT_ASSIGNMENT, object, key, EMPTY);
+    }
+
+    Change makeAssignment(String object, LayoutAssignmentView view) {
+        return new Change(Change.Kind.CREATE_LAYOUT_ASSIGNMENT, object, view.key(), write(
+                new CreateLayoutAssignmentRequest(view.profileId(), view.recordType(), view.layout())));
+    }
+
+    Change restoreAssignment(String object, LayoutAssignmentView before, long afterVersion) {
+        return new Change(Change.Kind.UPDATE_LAYOUT_ASSIGNMENT, object, before.key(), write(
+                new UpdateLayoutAssignmentRequest(before.layout(), afterVersion)));
     }
 
     private static List<String> fieldsToSend(RecordTypeView view) {

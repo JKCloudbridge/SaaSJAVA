@@ -178,7 +178,7 @@ The defaults are in brackets. The authority is `FieldRules`; the unit tests in `
 |-------|--------|-------|
 | Relationships (one-to-many, many-to-many), what a lookup does on delete, record types | 11 (built) | section 10; `RecordType` is a standard object since Sprint 11 |
 | Draft, validate, publish, versions, rollback; dependency check before a removal | 11 (built) | section 10; the check runs after every change in `MetadataLifecycle` |
-| Page layouts, record pages, applications, navigation | 12 | rendering 19 and 20, builder 21 |
+| Page layouts, record pages, applications, navigation | 12 (built) | section 11; rendering with records 19 and 20, builder 21, security-aware navigation 18 |
 | The metadata runtime, expression engine, validation rules | 13 | the expression engine decides what a formula may be |
 | Records (the `id` in the record address, the `sequence` counting) | 14 | `ObjectUsage` is the seam that keeps an object with records from being removed |
 | Required, unique, default and formulas enforced on records; field security | 15 | |
@@ -204,6 +204,29 @@ Plain words first, then what to change.
 
 To add a **standard** object that is a record type holder or to change the standard `RecordType` definition, follow sections 3 and 4 (the file is `RecordType.yml`; its owner is `metadata`).
 To give a **standard field** a delete behaviour, add `onDelete: REFUSE`, `reparentable: true` or `listLabel: ...` under its `settings` (the loader checks them like any other setting).
+## 11. Page layouts, record pages, applications and layout assignments (Sprint 12)
+
+Plain words first, then what to change.
+
+- **Page layout.** The structure of a record form of one object: *sections* with *fields* in them. Each field is editable, read only, required on this page, or hidden. A layout must show every required field
+  of its object and must not hide it. Make them on the object page, "Page layouts".
+- **Record page.** What a record page is made of: a header, the details (the fields of a layout), related lists (the records that point at this one), tabs, activity and history, in order, in the main part
+  or a side panel, and the actions (edit, delete, clone). A part can be shown only **when** a field has a value or the person holds an ability; the form builds one such condition, and a rule that combines
+  several (all/any) is kept as it is. There is no free text.
+- **Application.** A named menu: an icon key, the profiles whose members see it (none chosen: everyone) and items in order: an object, a record page, a link to a page of the organization (`/members`,
+  never an address elsewhere) or a heading. Make them at **Setup, Applications**. Members see their menu in the navigation.
+- **Which layout is used.** Choose a default for the object, a layout for a profile, and for a profile a layout per record type. The layout of a record type alone is chosen on the record type. The order
+  is: the profile with the record type, the record type, the profile, the default. "Which layout would a person get?" answers and names the rule.
+- **Preview.** Each layout and record page has a preview that draws the structure with made-up values. It is a picture of the structure; no records exist yet.
+- **Everything goes through the working set.** Choose a change set in "Changes on the object pages go" and the new things are drafted, checked, previewed and published with the rest; otherwise they go live at once
+  (an administrator who may manage and publish). A rollback puts the latest release back, including layouts, pages, applications and choices.
+- **When something is still needed.** Removing a field a layout shows, a layout a record page, a record type or a choice uses, a record page or an object an application opens, or the relationship a related list
+  follows, is refused and the message names who needs it. Fix both in one change set and publish.
+
+To change the **shape** of a definition (a new component type, a new behaviour, a new rule operator) edit `platform-api-contract/src/main/resources/schemas/metadata-definitions.json`, run `scripts/update-openapi`
+and `npm run api:generate` in `platform-web`, extend `DefinitionSchemasTest`, and add the new word to the form that offers the list. Nothing in this sprint changes a standard definition, so the three commands of
+section 4 are not needed.
+
 ## 9. If something fails
 
 - *The application does not start and names a YAML file*: the message says the file, the place (the object and field) and the rule. Fix that place.

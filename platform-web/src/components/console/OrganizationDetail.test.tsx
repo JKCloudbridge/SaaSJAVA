@@ -165,6 +165,43 @@ describe("OrganizationDetail", () => {
     );
   });
 
+  it("retries once after a silent refresh when the access token ran out mid-page, and succeeds", async () => {
+    let attempts = 0;
+    const calls = api({
+      [`PUT /api/v1/platform/organizations/${ID}/entitlements/approvals`]: () => {
+        attempts += 1;
+        return attempts === 1 ? refusal("UNAUTHENTICATED", "Authentication is required.", 401) : json({ data: DETAIL });
+      },
+      // No handler for POST /api/v1/auth/refresh: fakeApi's default 204 stands in for a successful silent refresh.
+    });
+    render(<OrganizationDetail />);
+    await screen.findByTestId("organization-detail");
+    fireEvent.change(screen.getByLabelText(/Reason for the changes below/), { target: { value: "pilot" } });
+
+    const row = within(screen.getByTestId("entitlements")).getByText("Approvals").closest("tr") as HTMLElement;
+    fireEvent.click(within(row).getByRole("button", { name: "Switch off" }));
+
+    expect(await screen.findByTestId("organization-notice")).toBeInTheDocument();
+    expect(attempts).toBe(2);
+    expect(calls.filter((call) => call.key === "POST /api/v1/auth/refresh")).toHaveLength(1);
+  });
+
+  it("shows the real refusal when the silent refresh itself fails (the session has truly ended)", async () => {
+    api({
+      [`PUT /api/v1/platform/organizations/${ID}/entitlements/approvals`]: () =>
+        refusal("UNAUTHENTICATED", "Authentication is required.", 401),
+      "POST /api/v1/auth/refresh": () => refusal("UNAUTHENTICATED", "Authentication is required.", 401),
+    });
+    render(<OrganizationDetail />);
+    await screen.findByTestId("organization-detail");
+    fireEvent.change(screen.getByLabelText(/Reason for the changes below/), { target: { value: "pilot" } });
+
+    const row = within(screen.getByTestId("entitlements")).getByText("Approvals").closest("tr") as HTMLElement;
+    fireEvent.click(within(row).getByRole("button", { name: "Switch off" }));
+
+    expect(await screen.findByTestId("organization-problem")).toHaveTextContent("Authentication is required");
+  });
+
   it("sends the first-administrator invitation again and invites a new address", async () => {
     const calls = api({
       [`POST /api/v1/platform/organizations/${ID}/first-administrator/resend`]: () =>

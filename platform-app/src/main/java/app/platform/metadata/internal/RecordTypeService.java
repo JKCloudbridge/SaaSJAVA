@@ -11,6 +11,7 @@ import app.platformapi.RecordTypeView;
 import app.platformapi.UpdateRecordTypeRequest;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -64,6 +65,7 @@ class RecordTypeService {
         String description = problems.check(() -> NameRules.description(request.description()));
         RecordTypeRules.Checked checked = problems.check(() -> RecordTypeRules.check(object, request.active(),
                 request.defaultType(), request.availableFields(), request.picklistSubsets()));
+        String layout = problems.check(() -> NameRules.layoutReference(request.layout()));
         problems.throwIfAny();
         if (store.count(objectApiName) >= properties.limits().maxRecordTypesPerObject()) {
             throw new ApiException(ErrorCode.CONFLICT, "The object has reached the most record types it may have ("
@@ -77,7 +79,7 @@ class RecordTypeService {
             store.clearDefaultExcept(objectApiName, UUID.randomUUID(), caller.userId());
         }
         try {
-            store.insert(objectApiName, apiName, label, description, checked.active(), checked.defaultType(),
+            store.insert(objectApiName, apiName, label, description, checked.active(), checked.defaultType(), layout,
                     codec.writeFields(checked.allFields(), checked.fields()), codec.writePicklists(checked.picklists()),
                     caller.userId());
         } catch (DuplicateKeyException e) {
@@ -97,6 +99,7 @@ class RecordTypeService {
         String description = problems.check(() -> NameRules.description(request.description()));
         RecordTypeRules.Checked checked = problems.check(() -> RecordTypeRules.check(object, request.active(),
                 request.defaultType(), request.availableFields(), request.picklistSubsets()));
+        String layout = problems.check(() -> NameRules.layoutReference(request.layout()));
         problems.throwIfAny();
         String fields = codec.writeFields(checked.allFields(), checked.fields());
         String picklists = codec.writePicklists(checked.picklists());
@@ -105,6 +108,7 @@ class RecordTypeService {
         addIf(changed, "description", !description.equals(row.description()));
         addIf(changed, "active", checked.active() != row.active());
         addIf(changed, "default", checked.defaultType() != row.defaultType());
+        addIf(changed, "layout", !Objects.equals(layout, row.layoutRef()));
         RecordType current = codec.read(row);
         addIf(changed, "fields", current.allFields() != checked.allFields()
                 || !current.availableFields().equals(checked.fields()));
@@ -120,7 +124,7 @@ class RecordTypeService {
             store.clearDefaultExcept(objectApiName, row.id(), caller.userId());
         }
         if (!store.update(row.id(), request.version(), label, description, checked.active(), checked.defaultType(),
-                fields, picklists, caller.userId())) {
+                layout, fields, picklists, caller.userId())) {
             throw new ApiException(ErrorCode.CONCURRENT_MODIFICATION);
         }
         audit.recordTypeUpdated(caller.userId(), objectApiName, apiName, String.join(",", changed));

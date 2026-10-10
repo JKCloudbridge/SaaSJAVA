@@ -134,7 +134,7 @@ echo "ok: the rate-limit counters live in Redis"
 # asynchronously) arrives with a link on the platform host; completing it creates the account; the person signs in.
 if [ -n "$mail" ]; then
   address="smoke-$(date +%s)@example.test"
-  password="a-long-smoke-test-passphrase-$RANDOM-$RANDOM"
+  password="A-long-smoke-test-passphrase-$RANDOM-$RANDOM"
   json_headers=(-H 'Content-Type: application/json' -H "Cookie: XSRF-TOKEN=$token" -H "X-XSRF-TOKEN: $token")
   status="$(call -X POST "${json_headers[@]}" -d "{\"email\":\"$address\"}" "$base/api/v1/auth/sign-up")"
   [ "$status" = "202" ] || fail "a sign-up request answered $status: $(cat "$body")"
@@ -171,6 +171,69 @@ if [ -n "$mail" ]; then
   [ "$status" = "204" ] || fail "the new person could not sign in ($status)"
   echo "ok: the new person signs in"
 
+  # 18. Layouts, record pages and applications on the image (Sprint 12): a layout is checked against its schema (the
+  # refusal names the place), a record page and an application are made, the member's own menu comes from the API, a
+  # layout that is shown cannot lose its field and the error names the layout, a record page keeps its layout, and the
+  # default layout is chosen.
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Deal","label":"Deal","pluralLabel":"Deals","description":""}' "$base/api/v1/metadata/objects")"
+  [ "$status" = "201" ] || fail "creating the layout object answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"department","label":"Department","type":"TEXT"}' \
+    "$base/api/v1/metadata/objects/Deal__c/fields")"
+  [ "$status" = "201" ] || fail "adding the layout field answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Main","label":"Main","description":"","definition":{"sections":[{"label":"Main","fields":[{"field":"department__c","behaviour":"SHOUT"}]}]}}' \
+    "$base/api/v1/metadata/objects/Deal__c/layouts")"
+  [ "$status" = "400" ] || fail "a layout with a wrong behaviour answered $status: $(cat "$body")"
+  grep -Fq 'definition.sections[0].fields[0].behaviour' "$body" || fail "the refusal does not name the place: $(cat "$body")"
+  layout_json='{"name":"Main","label":"Main","description":"","definition":{"sections":[{"label":"Main","fields":[{"field":"department__c","behaviour":"REQUIRED"}]}]}}'
+  status="$(client_call -X POST -H "$group_json" -d "$layout_json" "$base/api/v1/metadata/objects/Deal__c/layouts")"
+  [ "$status" = "201" ] || fail "adding the layout answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/metadata/objects/Deal__c/layouts/Main__c")"
+  [ "$status" = "200" ] || fail "reading the layout back answered $status: $(cat "$body")"
+  grep -Fq '"behaviour":"REQUIRED"' "$body" || fail "the layout did not come back as it was sent: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Overview","label":"Overview","description":"","definition":{"layout":"Main__c","components":[{"key":"details","type":"DETAILS"}]}}' \
+    "$base/api/v1/metadata/objects/Deal__c/record-pages")"
+  [ "$status" = "201" ] || fail "adding the record page answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Sales","label":"Sales","description":"","definition":{"iconKey":"briefcase","items":[{"type":"OBJECT","object":"Deal__c"},{"type":"LINK","label":"Members","path":"/members"}]}}' \
+    "$base/api/v1/metadata/applications")"
+  [ "$status" = "201" ] || fail "adding the application answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Bad","label":"Bad","description":"","definition":{"items":[{"type":"LINK","label":"Away","path":"https://example.test"}]}}' \
+    "$base/api/v1/metadata/applications")"
+  [ "$status" = "400" ] || fail "a link outside the organization answered $status: $(cat "$body")"
+  grep -Fq 'definition.items[0].path' "$body" || fail "the refusal does not name the link: $(cat "$body")"
+  status="$(client_call "$base/api/v1/applications")"
+  [ "$status" = "200" ] || fail "the member's menu answered $status: $(cat "$body")"
+  grep -Fq '"apiName":"Sales__c"' "$body" || fail "the menu lacks the application: $(cat "$body")"
+  grep -Fq '"path":"/members"' "$body" || fail "the menu lacks the link: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"layout":"Main__c"}' \
+    "$base/api/v1/metadata/objects/Deal__c/layout-assignments")"
+  [ "$status" = "201" ] || fail "choosing the default layout answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/metadata/objects/Deal__c/layout-resolution")"
+  grep -Fq '"rule":"DEFAULT"' "$body" || fail "the default layout is not the answer: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Deal__c/fields/department__c")"
+  [ "$status" = "409" ] || fail "removing a field a layout shows was not refused ($status): $(cat "$body")"
+  grep -Fq 'page layout Main__c of Deal__c shows field Deal__c.department__c' "$body" \
+    || fail "the refusal does not name the layout: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Deal__c/layouts/Main__c")"
+  [ "$status" = "409" ] || fail "removing a layout a page uses was not refused ($status): $(cat "$body")"
+  grep -Fq 'record page Overview__c of Deal__c shows the details of page layout Main__c' "$body" \
+    || fail "the refusal does not name the record page: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/applications/Sales__c")"
+  [ "$status" = "204" ] || fail "removing the application answered $status"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Deal__c/layout-assignments/default")"
+  [ "$status" = "204" ] || fail "removing the layout choice answered $status"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Deal__c/record-pages/Overview__c")"
+  [ "$status" = "204" ] || fail "removing the record page answered $status"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Deal__c/layouts/Main__c")"
+  [ "$status" = "204" ] || fail "removing the layout answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Deal__c")"
+  [ "$status" = "204" ] || fail "removing the layout object answered $status: $(cat "$body")"
+  echo "ok: a layout is checked against its schema and read back, a record page and an application are made, the member's menu comes from the API, a link outside the organization is refused with its place, and a layout, a field and a record page that are still needed cannot be removed (the error names who needs them)"
+
   stored="$(owner_sql -c "select t::text from account_token t union all select t::text from mail_queue t \
     union all select attributes::text from audit_record")"
   if echo "$stored" | grep -q "$link_token"; then
@@ -198,7 +261,7 @@ if [ -n "$mail" ]; then
   admin_profile="$(grep -o '"id":"[^"]*","name":"Organization administrator"' "$body" | head -1 | cut -d'"' -f4)"
   [ -n "$admin_profile" ] || fail "the organization has no administrator profile: $(cat "$body")"
   invitee="smoke-invitee-$(date +%s)@example.test"
-  invitee_password="a-long-invited-passphrase-$RANDOM-$RANDOM"
+  invitee_password="A-long-invited-passphrase-$RANDOM-$RANDOM"
   status="$(call_host="$org_host" call -X POST -H "Authorization: Bearer $org_token" -H 'Content-Type: application/json' \
     -d "{\"email\":\"$invitee\",\"displayName\":\"Invited Person\",\"profileId\":\"$admin_profile\"}" \
     "$base/api/v1/invitations")"
@@ -291,7 +354,7 @@ if [ -n "$mail" ]; then
   client="smoke-client-$(date +%s)"
   client_slug="smoke-client"
   client_admin="smoke-client-admin-$(date +%s)@example.test"
-  client_password="a-long-client-passphrase-$RANDOM-$RANDOM"
+  client_password="A-long-client-passphrase-$RANDOM-$RANDOM"
   status="$(call -X POST -H "Authorization: Bearer $console_token" -H 'Content-Type: application/json' \
     -d "{\"displayName\":\"Smoke Client\",\"slug\":\"$client_slug-$RANDOM\",\"planKey\":\"trial\",\"email\":\"$client_admin\"}" \
     "$base/api/v1/platform/organizations")"

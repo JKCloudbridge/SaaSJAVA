@@ -58,26 +58,30 @@ class RecordTypeStore {
     }
 
     Row insert(String objectApiName, String apiName, String label, String description, boolean active,
-            boolean defaultType, String availableFields, String picklistValues, UUID actor) {
+            boolean defaultType, String layoutRef, String availableFields, String picklistValues, UUID actor) {
         return jdbc.sql("insert into record_type (object_api_name, api_name, label, description, active, "
-                        + "is_default, available_fields, picklist_values, created_by, updated_by) values (:object, "
-                        + ":name, :label, :description, :active, :default, cast(:fields as jsonb), "
-                        + "cast(:picklists as jsonb), :actor, :actor) returning " + COLUMNS)
+                        + "is_default, layout_ref, available_fields, picklist_values, created_by, updated_by) "
+                        + "values (:object, :name, :label, :description, :active, :default, "
+                        + "cast(:layout as text), cast(:fields as jsonb), cast(:picklists as jsonb), :actor, :actor) "
+                        + "returning " + COLUMNS)
                 .param("object", objectApiName).param("name", apiName).param("label", label)
                 .param("description", description).param("active", active).param("default", defaultType)
-                .param("fields", availableFields).param("picklists", picklistValues).param("actor", actor)
+                .param("layout", layoutRef).param("fields", availableFields).param("picklists", picklistValues)
+                .param("actor", actor)
                 .query(RecordTypeStore::row).single();
     }
 
     /** Changes the record type when it still has the version the caller read; false when it does not. */
     boolean update(UUID id, long version, String label, String description, boolean active, boolean defaultType,
-            String availableFields, String picklistValues, UUID actor) {
+            String layoutRef, String availableFields, String picklistValues, UUID actor) {
         return jdbc.sql("update record_type set label = :label, description = :description, active = :active, "
-                        + "is_default = :default, available_fields = cast(:fields as jsonb), "
+                        + "is_default = :default, layout_ref = cast(:layout as text), "
+                        + "available_fields = cast(:fields as jsonb), "
                         + "picklist_values = cast(:picklists as jsonb), version = version + 1, updated_by = :actor "
                         + "where id = :id and version = :version and deleted_at is null")
                 .param("label", label).param("description", description).param("active", active)
-                .param("default", defaultType).param("fields", availableFields).param("picklists", picklistValues)
+                .param("default", defaultType).param("layout", layoutRef).param("fields", availableFields)
+                .param("picklists", picklistValues)
                 .param("actor", actor).param("id", id).param("version", version).update() == 1;
     }
 

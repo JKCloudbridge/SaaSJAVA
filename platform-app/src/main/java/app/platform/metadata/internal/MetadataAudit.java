@@ -61,6 +61,32 @@ class MetadataAudit {
                 .onObject(object + "." + recordType, null));
     }
 
+    // ---- layouts, record pages, applications and layout assignments (ADR-0069 to ADR-0071) ----
+
+    /**
+     * A definition of Sprint 12 was made. {@code kind} is {@code layout}, {@code recordpage}, {@code application} or
+     * {@code layoutassignment}; {@code name} is the API name (an assignment: its key); {@code size} counts the
+     * sections, components or items. Nothing typed by a person is written.
+     */
+    void definitionCreated(UUID actor, String kind, String object, String name, int size) {
+        write(AuditRecord.of("metadata." + kind + ".created", AuditOutcome.SUCCESS).forUser(actor)
+                .onObject(path(object, name), null).with("size", Integer.toString(size)));
+    }
+
+    void definitionUpdated(UUID actor, String kind, String object, String name, String changed, int size) {
+        write(AuditRecord.of("metadata." + kind + ".updated", AuditOutcome.SUCCESS).forUser(actor)
+                .onObject(path(object, name), null).with("changed", changed).with("size", Integer.toString(size)));
+    }
+
+    void definitionDeleted(UUID actor, String kind, String object, String name) {
+        write(AuditRecord.of("metadata." + kind + ".deleted", AuditOutcome.SUCCESS).forUser(actor)
+                .onObject(path(object, name), null));
+    }
+
+    private static String path(String object, String name) {
+        return object == null || object.isEmpty() ? name : object + "." + name;
+    }
+
     // ---- lifecycle: change sets and releases (ADR-0066, ADR-0067) ----
 
     void changeSetCreated(UUID actor, UUID changeSet) {

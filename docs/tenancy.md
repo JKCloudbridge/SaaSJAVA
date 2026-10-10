@@ -276,3 +276,14 @@ Short form; decisions in ADR-0063 to ADR-0068, the how-to in [metadata-guide.md]
 - **Abilities:** `metadata.view`, `metadata.manage` (draft) and `metadata.publish` (put live, roll back); a live change needs `manage` and `publish` (ADR-0068).
 - **Tests:** `RelationshipsIT`, `RecordTypesIT`, `ChangeSetLifecycleIT`, `RollbackIT`, `RollbackWithRecordsIT` (a stand-in `ObjectUsage`), `LifecycleAccessIT` (allowed, denied, cross-tenant, forged
   header, platform administrator, unauthenticated for every new endpoint), `LifecycleFlowsLogsAreCleanIT`, `DependencyGraphTest`, `RecordTypeRulesTest`, and the isolation harness for the four tables.
+
+## Layouts, record pages, applications and assignments (Sprint 12)
+
+- **Four tenant-scoped tables** (V034), each with `tenant_id not null default platform_current_tenant()`, row level security enabled **and forced**, the tenant guard, a tenant-first partial unique index and the
+  metadata version trigger: `page_layout`, `record_page`, `application`, `layout_assignment`. They are registered in `TenantScopedTables`, so `TenantIsolationIT` probes them.
+- **The tenant is never in a request.** Every endpoint is answered on an organization host only, derives the organization from the host and the token, and a definition of another organization does not exist
+  for the caller (404). The member's menu (`GET /api/v1/applications`) is the menu of the member the token names.
+- **A profile in an assignment or an application is a plain identifier** of the same organization's profile table; there is no foreign key, so deleting a profile is never blocked (ADR-0071). The profile of a
+  member is read with `MemberAccess.profileOf`.
+- **Drafts are not rows of these tables.** A layout in a change set is a row of `metadata_change`; the new tables hold what is published (ADR-0066, ADR-0069).
+- **Contributor notes:** a new check that depends on layouts goes into `DefinitionDependencies`; a new field of a definition goes into the schema file and nowhere else.

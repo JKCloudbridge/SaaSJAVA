@@ -78,7 +78,7 @@ class AuditIT {
         new app.platform.testsupport.TestHttp(port).get("/api/v1/auth/me", "Host", TestSignIn.PLATFORM_HOST,
                 "Authorization", onA.bearer());
         users.changePassword(other.user().id(), other.password().toCharArray(),
-                "a new violet lantern 61 harbor".toCharArray());
+                "A-new-violet-lantern-61-harbor!".toCharArray());
 
         IdentityDb.auditOf(user.user().id()).forEach(record -> seen.add(record.type()));
         IdentityDb.auditOf(other.user().id()).forEach(record -> seen.add(record.type()));

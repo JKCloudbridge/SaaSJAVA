@@ -11,15 +11,16 @@ const SECTIONS = [
   { href: "/setup/groups", label: "Groups" },
   { href: "/setup/roles", label: "Roles" },
   { href: "/setup/objects", label: "Objects" },
+  { href: "/setup/applications", label: "Applications" },
   { href: "/setup/changes", label: "Change sets" },
   { href: "/setup/history", label: "History" },
 ];
 
 /** The pages where a change can be made, so the person can choose where it goes: live at once or into a change set. */
-const OBJECT_PAGES = ["/setup/objects", "/setup/changes"];
+const OBJECT_PAGES = ["/setup/objects", "/setup/applications", "/setup/changes"];
 
 /**
- * The frame of the setup pages (profiles, access policies, groups, roles, objects, change sets, history) of the
+ * The frame of the setup pages (profiles, access policies, groups, roles, objects, applications, change sets, history) of the
  * organization the address names. It only navigates: whether the person may open a page is the API's answer, which each page shows in the API's own words.
  */
 export function SetupFrame({ children }: { children: ReactNode }) {

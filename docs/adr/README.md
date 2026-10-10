@@ -74,3 +74,10 @@ A decision that is still open has status **Proposed** and names the gate or spri
 | [0066](0066-change-sets-and-the-publication-of-metadata.md) | Change sets and the publication of metadata (draft, check, preview, publish) | Accepted | architecture note 3: no `status` column on the live tables |
 | [0067](0067-releases-history-and-rollback.md) | Releases, history and rollback | Accepted | — |
 | [0068](0068-the-publish-ability-and-changes-made-at-once.md) | The ability to publish, and changes made at once | Accepted | — |
+| [0069](0069-layouts-record-pages-applications-and-where-they-live.md) | Page layouts, record pages, applications and layout assignments, and where they live | Accepted | architecture note 3: no `status` column, no version per definition |
+| [0070](0070-definitions-are-json-checked-by-a-schema.md) | Definitions are JSON, checked against a schema that is published with the API | Accepted | — |
+| [0071](0071-which-layout-a-person-gets.md) | Which layout a person gets (layout assignment and the order of the rules) | Accepted | — |
+| [0072](0072-the-dependency-graph-learns-layouts-pages-and-applications.md) | The dependency graph learns layouts, record pages, assignments and applications | Accepted | ADR-0065 contributors carried out |
+| [0073](0073-applications-navigation-and-the-members-menu.md) | Applications, navigation and the member's menu | Accepted | — |
+| [0074](0074-definitions-the-version-counter-and-the-cache.md) | Definitions, the version counter and the cache; abilities | Accepted | — |
+| [0075](0075-the-setup-screens-and-the-rendering-proof-of-concept.md) | The setup screens for definitions and the rendering proof of concept | Accepted | — |

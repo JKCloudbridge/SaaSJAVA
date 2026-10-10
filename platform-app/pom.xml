@@ -102,6 +102,12 @@
       <artifactId>spring-boot-starter-mail</artifactId>
     </dependency>
 
+    <!-- Page layouts, record pages and applications are checked against a JSON schema on every save (Sprint 12). -->
+    <dependency>
+      <groupId>com.networknt</groupId>
+      <artifactId>json-schema-validator</artifactId>
+    </dependency>
+
     <!-- OpenAPI document generated from the controllers; the interactive documentation page is not included. -->
     <dependency>
       <groupId>org.springdoc</groupId>

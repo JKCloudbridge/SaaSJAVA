@@ -18,7 +18,7 @@ public final class TestUsers {
     /** An active user with a unique address and a strong random password. */
     public static TestUser create(Users users) {
         String email = "user-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12) + "@example.test";
-        String password = "pw-" + UUID.randomUUID() + "-" + UUID.randomUUID();
+        String password = "Pw-" + UUID.randomUUID() + "-" + UUID.randomUUID();
         User user = users.createActive(email, "Test User", password.toCharArray(), ActorId.SYSTEM);
         return new TestUser(user, email, password);
     }

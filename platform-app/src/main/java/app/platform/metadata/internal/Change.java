@@ -9,8 +9,9 @@ import java.util.Optional;
  * set, of a quick change and of the undo list of a release, so all three are judged by exactly the same rules.
  *
  * @param kind what the change does
- * @param object the API name of the object it is about
- * @param item the API name of the field or record type it is about, or null
+ * @param object the API name of the object it is about, empty for an application
+ * @param item the API name of the field, record type, layout, record page or application it is about (for a layout
+ *        assignment its key), or null
  * @param payload the JSON of the request ({@code {}} for a removal)
  */
 record Change(Kind kind, String object, String item, String payload) {
@@ -25,7 +26,20 @@ record Change(Kind kind, String object, String item, String payload) {
         DELETE_FIELD(Entity.FIELD, true),
         CREATE_RECORD_TYPE(Entity.RECORD_TYPE, false),
         UPDATE_RECORD_TYPE(Entity.RECORD_TYPE, true),
-        DELETE_RECORD_TYPE(Entity.RECORD_TYPE, true);
+        DELETE_RECORD_TYPE(Entity.RECORD_TYPE, true),
+        CREATE_LAYOUT(Entity.LAYOUT, false),
+        UPDATE_LAYOUT(Entity.LAYOUT, true),
+        DELETE_LAYOUT(Entity.LAYOUT, true),
+        CREATE_RECORD_PAGE(Entity.RECORD_PAGE, false),
+        UPDATE_RECORD_PAGE(Entity.RECORD_PAGE, true),
+        DELETE_RECORD_PAGE(Entity.RECORD_PAGE, true),
+        CREATE_APPLICATION(Entity.APPLICATION, false),
+        UPDATE_APPLICATION(Entity.APPLICATION, true),
+        DELETE_APPLICATION(Entity.APPLICATION, true),
+        /** A layout assignment is named by its key, also when it is made: the key is what the change is about. */
+        CREATE_LAYOUT_ASSIGNMENT(Entity.LAYOUT_ASSIGNMENT, true),
+        UPDATE_LAYOUT_ASSIGNMENT(Entity.LAYOUT_ASSIGNMENT, true),
+        DELETE_LAYOUT_ASSIGNMENT(Entity.LAYOUT_ASSIGNMENT, true);
 
         private final Entity entity;
         private final boolean namesItem;
@@ -40,7 +54,7 @@ record Change(Kind kind, String object, String item, String payload) {
             return entity;
         }
 
-        /** Whether the change names the field or record type it is about (a creation carries the name inside). */
+        /** Whether the change names the item it is about (a creation carries the name inside, except an assignment). */
         boolean namesItem() {
             return namesItem;
         }
@@ -59,5 +73,5 @@ record Change(Kind kind, String object, String item, String payload) {
     }
 
     /** The kinds of definition. */
-    enum Entity { OBJECT, FIELD, RECORD_TYPE }
+    enum Entity { OBJECT, FIELD, RECORD_TYPE, LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT }
 }

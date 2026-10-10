@@ -11,7 +11,7 @@ import java.util.List;
  * @param description what the variant is for
  * @param active whether new records may use it
  * @param defaultType whether new records get it when nothing else is chosen
- * @param layout the page layout it uses, or null while layouts do not exist
+ * @param layout the API name of the page layout it uses, or null for none
  * @param allFields whether every field of the object is available
  * @param availableFields the fields available when {@code allFields} is false
  * @param picklistSubsets the picklist values this type allows (a picklist not listed allows all its values)

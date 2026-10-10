@@ -16,11 +16,13 @@ import java.util.List;
  * @param defaultType whether new records get it when nothing else is chosen; left out means no
  * @param availableFields the API names of the fields a record of this type offers; left out or empty means every field
  * @param picklistSubsets for picklist fields, the values this type allows; a picklist not named allows all its values
+ * @param layout the API name of the page layout this type uses (Sprint 12); left out or empty means none, so the
+ *        layout of the profile or the default layout of the object applies
  */
 public record CreateRecordTypeRequest(@NotBlank @Size(max = 40) String name, @NotBlank @Size(max = 80) String label,
         @Size(max = 500) String description, Boolean active, Boolean defaultType,
         @Size(max = 500) List<@NotBlank @Size(max = 60) String> availableFields,
-        @Size(max = 500) List<@Valid PicklistSubset> picklistSubsets) {
+        @Size(max = 500) List<@Valid PicklistSubset> picklistSubsets, @Size(max = 60) String layout) {
 
     /** Copies the lists (a list that was not given stays absent). */
     public CreateRecordTypeRequest {

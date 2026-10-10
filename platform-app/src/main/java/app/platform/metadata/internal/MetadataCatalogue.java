@@ -1,10 +1,15 @@
 package app.platform.metadata.internal;
 
+import app.platform.metadata.ApplicationDefinition;
 import app.platform.metadata.DefinitionKind;
 import app.platform.metadata.FieldDefinition;
 import app.platform.metadata.FieldType;
+import app.platform.metadata.LayoutAssignment;
+import app.platform.metadata.LayoutResolution;
 import app.platform.metadata.Metadata;
 import app.platform.metadata.ObjectDefinition;
+import app.platform.metadata.PageLayout;
+import app.platform.metadata.RecordPage;
 import app.platform.metadata.RecordType;
 import app.platform.security.ObjectCatalog;
 import app.platform.tenant.TenantContexts;
@@ -41,12 +46,19 @@ class MetadataCatalogue implements Metadata {
     private final TransactionTemplate transaction;
     private final RecordTypeStore recordTypeStore;
     private final RecordTypeCodec recordTypeCodec;
+    private final DefinitionStore definitionStore;
+    private final AssignmentStore assignmentStore;
+    private final DefinitionCodec definitionCodec;
 
     MetadataCatalogue(StandardMetadata standard, MetadataStore store, MetadataVersions versions,
             MetadataCache cache, TenantContexts contexts, ConfigCodec codec, TransactionTemplate transaction,
-            RecordTypeStore recordTypeStore, RecordTypeCodec recordTypeCodec) {
+            RecordTypeStore recordTypeStore, RecordTypeCodec recordTypeCodec, DefinitionStore definitionStore,
+            AssignmentStore assignmentStore, DefinitionCodec definitionCodec) {
         this.recordTypeStore = recordTypeStore;
         this.recordTypeCodec = recordTypeCodec;
+        this.definitionStore = definitionStore;
+        this.assignmentStore = assignmentStore;
+        this.definitionCodec = definitionCodec;
         this.standard = standard;
         this.store = store;
         this.versions = versions;
@@ -69,6 +81,31 @@ class MetadataCatalogue implements Metadata {
     @Override
     public List<RecordType> recordTypes(String objectApiName) {
         return snapshot().recordTypes(objectApiName);
+    }
+
+    @Override
+    public List<PageLayout> layouts(String objectApiName) {
+        return snapshot().layouts(objectApiName);
+    }
+
+    @Override
+    public List<RecordPage> recordPages(String objectApiName) {
+        return snapshot().recordPages(objectApiName);
+    }
+
+    @Override
+    public List<LayoutAssignment> layoutAssignments(String objectApiName) {
+        return snapshot().assignments(objectApiName);
+    }
+
+    @Override
+    public List<ApplicationDefinition> applications() {
+        return snapshot().applications();
+    }
+
+    @Override
+    public LayoutResolution layoutFor(String objectApiName, UUID profileId, String recordType) {
+        return snapshot().layoutFor(objectApiName, profileId, recordType);
     }
 
     /**
@@ -111,7 +148,29 @@ class MetadataCatalogue implements Metadata {
             recordTypes.computeIfAbsent(row.objectApiName(), name -> new ArrayList<>())
                     .add(recordTypeCodec.read(row));
         }
-        return new MetadataSnapshot(objects, recordTypes);
+        return new MetadataSnapshot(objects, recordTypes, definitions());
+    }
+
+    /** Layouts, record pages, assignments and applications, as published (Sprint 12). */
+    private MetadataSnapshot.Definitions definitions() {
+        Map<String, List<PageLayout>> layouts = new LinkedHashMap<>();
+        for (DefinitionStore.Row row : definitionStore.all(DefinitionStore.Table.PAGE_LAYOUT)) {
+            layouts.computeIfAbsent(row.objectApiName(), name -> new ArrayList<>())
+                    .add(definitionCodec.layout(row));
+        }
+        Map<String, List<RecordPage>> pages = new LinkedHashMap<>();
+        for (DefinitionStore.Row row : definitionStore.all(DefinitionStore.Table.RECORD_PAGE)) {
+            pages.computeIfAbsent(row.objectApiName(), name -> new ArrayList<>())
+                    .add(definitionCodec.recordPage(row));
+        }
+        Map<String, List<LayoutAssignment>> assignments = new LinkedHashMap<>();
+        for (AssignmentStore.Row row : assignmentStore.all()) {
+            assignments.computeIfAbsent(row.objectApiName(), name -> new ArrayList<>())
+                    .add(definitionCodec.assignment(row));
+        }
+        List<ApplicationDefinition> applications = definitionStore.all(DefinitionStore.Table.APPLICATION).stream()
+                .map(definitionCodec::application).toList();
+        return new MetadataSnapshot.Definitions(layouts, pages, assignments, applications);
     }
 
     private FieldDefinition customField(MetadataStore.FieldRow row) {

@@ -17,6 +17,7 @@ final class NameRules {
     private static final int NAME_MAX = 40;
     private static final Pattern OBJECT_NAME = Pattern.compile("[A-Z][A-Za-z0-9]*(_[A-Za-z0-9]+)*");
     private static final Pattern FIELD_NAME = Pattern.compile("[a-z][A-Za-z0-9]*(_[A-Za-z0-9]+)*");
+    private static final Pattern DEFINITION_API_NAME = Pattern.compile("[A-Z][A-Za-z0-9_]{0,55}__c");
 
     private NameRules() {
     }
@@ -29,6 +30,27 @@ final class NameRules {
     /** The API name of a new custom field, for example {@code salary__c} for {@code salary}. */
     static String fieldApiName(String typed) {
         return apiName(typed, FIELD_NAME, "starting with a lower case letter, for example salary");
+    }
+
+    /**
+     * The API name of the page layout a record type uses, or null for none (blank means none). Only the shape is
+     * checked here; that the layout exists is the dependency graph's question (ADR-0065).
+     */
+    static String layoutReference(String typed) {
+        return reference("layout", typed, "Give the API name of a page layout of this object, for example "
+                + "EmployeeDetails__c.");
+    }
+
+    /** An API name that refers to a layout, a record page or a record type of the organization, or null for none. */
+    static String reference(String field, String typed, String problem) {
+        String clean = typed == null ? "" : typed.strip();
+        if (clean.isEmpty()) {
+            return null;
+        }
+        if (!DEFINITION_API_NAME.matcher(clean).matches()) {
+            throw ApiException.validation(field, problem);
+        }
+        return clean;
     }
 
     /** A label: not empty, at most 80 characters, no control characters. */

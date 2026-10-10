@@ -22,14 +22,21 @@ record MetadataProperties(@DefaultValue Limits limits, @DefaultValue Cache cache
      * @param maxRecordTypesPerObject record types per object (default 50)
      * @param maxChangesPerSet changes in one change set (default 200)
      * @param maxOpenChangeSets change sets that are still drafts (default 50)
+     * @param maxLayoutsPerObject page layouts per object (default 50)
+     * @param maxRecordPagesPerObject record pages per object (default 20)
+     * @param maxApplications applications per organization (default 20)
+     * @param maxAssignmentsPerObject layout assignments per object (default 200)
      */
     record Limits(@DefaultValue("200") int maxObjects, @DefaultValue("500") int maxFieldsPerObject,
             @DefaultValue("1000") int maxPicklistValues, @DefaultValue("50") int maxRecordTypesPerObject,
-            @DefaultValue("200") int maxChangesPerSet, @DefaultValue("50") int maxOpenChangeSets) {
+            @DefaultValue("200") int maxChangesPerSet, @DefaultValue("50") int maxOpenChangeSets,
+            @DefaultValue("50") int maxLayoutsPerObject, @DefaultValue("20") int maxRecordPagesPerObject,
+            @DefaultValue("20") int maxApplications, @DefaultValue("200") int maxAssignmentsPerObject) {
 
         Limits {
             if (maxObjects < 1 || maxFieldsPerObject < 1 || maxPicklistValues < 1 || maxRecordTypesPerObject < 1
-                    || maxChangesPerSet < 1 || maxOpenChangeSets < 1) {
+                    || maxChangesPerSet < 1 || maxOpenChangeSets < 1 || maxLayoutsPerObject < 1
+                    || maxRecordPagesPerObject < 1 || maxApplications < 1 || maxAssignmentsPerObject < 1) {
                 throw new IllegalArgumentException("platform.metadata.limits.* must be at least 1");
             }
         }

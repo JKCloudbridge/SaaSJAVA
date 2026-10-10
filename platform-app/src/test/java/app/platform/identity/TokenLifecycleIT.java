@@ -192,7 +192,7 @@ class TokenLifecycleIT {
         TestUser user = TestUsers.create(users);
         TestBrowser browser = platformBrowser();
         TestBrowser.Session session = browser.signIn(user.email(), user.password());
-        String next = "a brand new violet lantern 55";
+        String next = "A-brand-new-violet-lantern-55!";
 
         Response changed = browser.postJson("/api/v1/auth/password",
                 "{\"currentPassword\":\"" + user.password() + "\",\"newPassword\":\"" + next + "\"}");
@@ -211,12 +211,12 @@ class TokenLifecycleIT {
 
         Response response = browser.postJson("/api/v1/auth/password",
                 "{\"currentPassword\":\"the wrong current password\","
-                        + "\"newPassword\":\"a brand new violet lantern 55\"}");
+                        + "\"newPassword\":\"A-brand-new-violet-lantern-55!\"}");
 
         assertThat(response.status()).isEqualTo(400);
         assertThat(JsonPath.<List<String>>read(response.body(), "$.error.fields.currentPassword")).isNotEmpty();
         assertThat(response.body()).doesNotContain("the wrong current password")
-                .doesNotContain("a brand new violet lantern 55");
+                .doesNotContain("A-brand-new-violet-lantern-55!");
         assertThat(browser.get(ME).status()).as("a refused change leaves the session alone").isEqualTo(200);
     }
 

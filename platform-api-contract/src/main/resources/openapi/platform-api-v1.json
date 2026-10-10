@@ -272,6 +272,36 @@
         "tags" : [ "Access" ]
       }
     },
+    "/api/v1/applications" : {
+      "get" : {
+        "description" : "An application is listed when it names the profile of the member or names no profile. Items that point to something that no longer exists are left out. Presentation only: every page a link opens is decided again by the server. NOT_FOUND on the platform host.",
+        "operationId" : "getMyApplications",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListMyApplicationView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The applications the signed-in member may use, with their navigation",
+        "tags" : [ "Applications" ]
+      }
+    },
     "/api/v1/audit-events" : {
       "get" : {
         "description" : "Newest first, one page at a time, with filters for time, person, kind and target. For members who may view the audit trail. NOT_FOUND on the platform host, FORBIDDEN without the ability, VALIDATION_ERROR for a filter that is malformed.",
@@ -2097,6 +2127,187 @@
         "tags" : [ "Members" ]
       }
     },
+    "/api/v1/metadata/applications" : {
+      "get" : {
+        "description" : "For members who may view objects and fields: the whole definition, including the profiles that see each application. A member's own menu is GET /api/v1/applications.",
+        "operationId" : "listApplicationDefinitions",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListApplicationView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The applications of the organization, as defined",
+        "tags" : [ "Metadata" ]
+      },
+      "post" : {
+        "description" : "Live at once, as a release of one change. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. A navigation item opens an object, a record page or a path inside the organization, never an arbitrary address. CONFLICT when an object or record page it opens does not exist, or at the limit. Audited.",
+        "operationId" : "createApplication",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateApplicationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApplicationView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Add an application",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/applications/{applicationApiName}" : {
+      "delete" : {
+        "description" : "Live at once, as a release of one change. NOT_FOUND for an application the organization does not have. Audited.",
+        "operationId" : "deleteApplication",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "applicationApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove an application",
+        "tags" : [ "Metadata" ]
+      },
+      "get" : {
+        "description" : "NOT_FOUND for an application the organization does not have.",
+        "operationId" : "getApplicationDefinition",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "applicationApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApplicationView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One application, as defined",
+        "tags" : [ "Metadata" ]
+      },
+      "put" : {
+        "description" : "Live at once, as a release of one change. The API name never changes. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.",
+        "operationId" : "updateApplication",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "applicationApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateApplicationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApplicationView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change an application",
+        "tags" : [ "Metadata" ]
+      }
+    },
     "/api/v1/metadata/change-sets" : {
       "get" : {
         "description" : "Open drafts first, then published and discarded ones. For members who may view objects and fields. NOT_FOUND on the platform host.",
@@ -2794,6 +3005,713 @@
           }
         },
         "summary" : "Change a custom field",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/layout-assignments" : {
+      "get" : {
+        "description" : "The default layout of the object and the layouts chosen for profiles, with or without a record type. A profile that no longer exists has no name here and is ignored when a layout is chosen. NOT_FOUND for an object the organization does not have.",
+        "operationId" : "listLayoutAssignments",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListLayoutAssignmentView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The layout assignments of an object",
+        "tags" : [ "Metadata" ]
+      },
+      "post" : {
+        "description" : "Live at once, as a release of one change. With no profile it is the default layout of the object. A record type needs a profile: a layout for a record type alone is set on the record type. CONFLICT when the layout or record type does not exist. Audited.",
+        "operationId" : "createLayoutAssignment",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateLayoutAssignmentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLayoutAssignmentView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Choose a layout for a profile (and a record type), or the default layout of the object",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/layout-assignments/{key}" : {
+      "delete" : {
+        "description" : "The key is default, the identifier of the profile, or the identifier of the profile, a tilde and the API name of the record type. Live at once, as a release of one change. Audited.",
+        "operationId" : "deleteLayoutAssignment",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a layout assignment",
+        "tags" : [ "Metadata" ]
+      },
+      "get" : {
+        "description" : "The key is default, the identifier of the profile, or the identifier of the profile, a tilde and the API name of the record type. NOT_FOUND for an assignment the object does not have.",
+        "operationId" : "getLayoutAssignment",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLayoutAssignmentView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One layout assignment",
+        "tags" : [ "Metadata" ]
+      },
+      "put" : {
+        "description" : "The key is default, the identifier of the profile, or the identifier of the profile, a tilde and the API name of the record type. Live at once, as a release of one change. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.",
+        "operationId" : "updateLayoutAssignment",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateLayoutAssignmentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLayoutAssignmentView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Point a layout assignment at another layout",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/layout-resolution" : {
+      "get" : {
+        "description" : "The first rule of this order that applies: the profile together with the record type, the record type alone (the layout of the record type), the profile alone, the default layout of the object. The answer names the rule; NONE when the object has no layout.",
+        "operationId" : "resolveLayout",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "profileId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "recordType",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLayoutResolutionView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Which layout an object uses for a profile and a record type",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/layouts" : {
+      "get" : {
+        "description" : "For members who may view objects and fields. NOT_FOUND for an object the organization does not have.",
+        "operationId" : "listLayouts",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListLayoutView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The page layouts of an object",
+        "tags" : [ "Metadata" ]
+      },
+      "post" : {
+        "description" : "Live at once, as a release of one change. The name is turned into the permanent API name with the ending __c. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. CONFLICT for an object whose records belong to the platform, at the limit, or when the result would break a dependency (a required field the layout does not show). Audited.",
+        "operationId" : "createLayout",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateLayoutRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLayoutView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Add a page layout to an object",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/layouts/{layoutApiName}" : {
+      "delete" : {
+        "description" : "Live at once, as a release of one change. CONFLICT, naming what still uses it, when a record type, record page or assignment depends on it. Audited.",
+        "operationId" : "deleteLayout",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "layoutApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a page layout",
+        "tags" : [ "Metadata" ]
+      },
+      "get" : {
+        "description" : "NOT_FOUND for a layout the object does not have.",
+        "operationId" : "getLayout",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "layoutApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLayoutView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One page layout",
+        "tags" : [ "Metadata" ]
+      },
+      "put" : {
+        "description" : "Live at once, as a release of one change. The API name and the object never change. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.",
+        "operationId" : "updateLayout",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "layoutApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateLayoutRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLayoutView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change a page layout",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/record-pages" : {
+      "get" : {
+        "description" : "For members who may view objects and fields. NOT_FOUND for an object the organization does not have.",
+        "operationId" : "listRecordPages",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListRecordPageView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The record pages of an object",
+        "tags" : [ "Metadata" ]
+      },
+      "post" : {
+        "description" : "Live at once, as a release of one change. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. Conditions that decide when a component or action is shown are closed data (a field compared with a value, or an ability, combined with all/any to two levels); there is no expression text. CONFLICT when the layout or a field it names does not exist or a related list does not follow a relationship. Audited.",
+        "operationId" : "createRecordPage",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateRecordPageRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordPageView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Add a record page to an object",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/record-pages/{pageApiName}" : {
+      "delete" : {
+        "description" : "Live at once, as a release of one change. CONFLICT, naming the application, when a navigation item opens it. Audited.",
+        "operationId" : "deleteRecordPage",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "pageApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a record page",
+        "tags" : [ "Metadata" ]
+      },
+      "get" : {
+        "description" : "NOT_FOUND for a record page the object does not have.",
+        "operationId" : "getRecordPage",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "pageApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordPageView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One record page",
+        "tags" : [ "Metadata" ]
+      },
+      "put" : {
+        "description" : "Live at once, as a release of one change. The API name and the object never change. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.",
+        "operationId" : "updateRecordPage",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "pageApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateRecordPageRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordPageView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change a record page",
         "tags" : [ "Metadata" ]
       }
     },
@@ -5183,6 +6101,11 @@
         },
         "required" : [ "error" ]
       },
+      "ApiNameShape" : {
+        "type" : "string",
+        "description" : "The permanent name of a layout, a record page or an application. It ends with __c.",
+        "pattern" : "^[A-Z][A-Za-z0-9_]{0,55}__c$"
+      },
       "ApiPageResponseAuditEventView" : {
         "type" : "object",
         "properties" : {
@@ -5218,6 +6141,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/AccessPolicyView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseApplicationView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ApplicationView"
           }
         },
         "required" : [ "data" ]
@@ -5312,6 +6244,33 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseLayoutAssignmentView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/LayoutAssignmentView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseLayoutResolutionView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/LayoutResolutionView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseLayoutView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/LayoutView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseLicenceTypeItem" : {
         "type" : "object",
         "properties" : {
@@ -5340,6 +6299,18 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/AccessPolicyView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListApplicationView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApplicationView"
             }
           }
         },
@@ -5405,6 +6376,30 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListLayoutAssignmentView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LayoutAssignmentView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListLayoutView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LayoutView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListLicencePoolView" : {
         "type" : "object",
         "properties" : {
@@ -5436,6 +6431,18 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/MemberView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListMyApplicationView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MyApplicationView"
             }
           }
         },
@@ -5496,6 +6503,18 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/ProfileView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListRecordPageView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordPageView"
             }
           }
         },
@@ -5651,6 +6670,15 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseRecordPageView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/RecordPageView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseRecordTypeView" : {
         "type" : "object",
         "properties" : {
@@ -5704,6 +6732,58 @@
           }
         },
         "required" : [ "data" ]
+      },
+      "ApplicationDefinition" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "description" : "What an application contains beyond its name: an icon, the profiles that see it, and its navigation in order.",
+        "properties" : {
+          "iconKey" : {
+            "type" : "string",
+            "pattern" : "^[a-z][a-z0-9-]{0,39}$"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NavigationItem"
+            },
+            "maxItems" : 50
+          },
+          "profiles" : {
+            "type" : "array",
+            "description" : "The profiles whose members see the application. Empty or left out: every member.",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid",
+              "pattern" : "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "maxItems" : 50,
+            "uniqueItems" : true
+          }
+        },
+        "required" : [ "items" ]
+      },
+      "ApplicationView" : {
+        "type" : "object",
+        "properties" : {
+          "apiName" : {
+            "type" : "string"
+          },
+          "definition" : {
+            "$ref" : "#/components/schemas/ApplicationDefinition"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "apiName", "definition", "description", "label", "version" ]
       },
       "ApproveSupportAccessRequest" : {
         "type" : "object",
@@ -5824,11 +6904,23 @@
       "ChangeRequest" : {
         "type" : "object",
         "properties" : {
+          "createApplication" : {
+            "$ref" : "#/components/schemas/CreateApplicationRequest"
+          },
           "createField" : {
             "$ref" : "#/components/schemas/CreateFieldRequest"
           },
+          "createLayout" : {
+            "$ref" : "#/components/schemas/CreateLayoutRequest"
+          },
+          "createLayoutAssignment" : {
+            "$ref" : "#/components/schemas/CreateLayoutAssignmentRequest"
+          },
           "createObject" : {
             "$ref" : "#/components/schemas/CreateObjectRequest"
+          },
+          "createRecordPage" : {
+            "$ref" : "#/components/schemas/CreateRecordPageRequest"
           },
           "createRecordType" : {
             "$ref" : "#/components/schemas/CreateRecordTypeRequest"
@@ -5840,7 +6932,7 @@
           },
           "kind" : {
             "type" : "string",
-            "maxLength" : 30,
+            "maxLength" : 40,
             "minLength" : 0
           },
           "objectApiName" : {
@@ -5848,17 +6940,29 @@
             "maxLength" : 60,
             "minLength" : 0
           },
+          "updateApplication" : {
+            "$ref" : "#/components/schemas/UpdateApplicationRequest"
+          },
           "updateField" : {
             "$ref" : "#/components/schemas/UpdateFieldRequest"
           },
+          "updateLayout" : {
+            "$ref" : "#/components/schemas/UpdateLayoutRequest"
+          },
+          "updateLayoutAssignment" : {
+            "$ref" : "#/components/schemas/UpdateLayoutAssignmentRequest"
+          },
           "updateObject" : {
             "$ref" : "#/components/schemas/UpdateObjectRequest"
+          },
+          "updateRecordPage" : {
+            "$ref" : "#/components/schemas/UpdateRecordPageRequest"
           },
           "updateRecordType" : {
             "$ref" : "#/components/schemas/UpdateRecordTypeRequest"
           }
         },
-        "required" : [ "kind", "objectApiName" ]
+        "required" : [ "kind" ]
       },
       "ChangeSetReportView" : {
         "type" : "object",
@@ -6010,6 +7114,30 @@
         },
         "required" : [ "token" ]
       },
+      "CreateApplicationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "definition" : {
+            "$ref" : "#/components/schemas/ApplicationDefinition"
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "definition", "label", "name" ]
+      },
       "CreateChangeSetRequest" : {
         "type" : "object",
         "properties" : {
@@ -6066,6 +7194,50 @@
         },
         "required" : [ "label", "name", "type" ]
       },
+      "CreateLayoutAssignmentRequest" : {
+        "type" : "object",
+        "properties" : {
+          "layout" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "profileId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "recordType" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "layout" ]
+      },
+      "CreateLayoutRequest" : {
+        "type" : "object",
+        "properties" : {
+          "definition" : {
+            "$ref" : "#/components/schemas/PageLayoutDefinition"
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "definition", "label", "name" ]
+      },
       "CreateObjectRequest" : {
         "type" : "object",
         "properties" : {
@@ -6108,6 +7280,30 @@
         },
         "required" : [ "displayName", "slug" ]
       },
+      "CreateRecordPageRequest" : {
+        "type" : "object",
+        "properties" : {
+          "definition" : {
+            "$ref" : "#/components/schemas/RecordPageDefinition"
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "definition", "label", "name" ]
+      },
       "CreateRecordTypeRequest" : {
         "type" : "object",
         "properties" : {
@@ -6135,6 +7331,11 @@
           "label" : {
             "type" : "string",
             "maxLength" : 80,
+            "minLength" : 0
+          },
+          "layout" : {
+            "type" : "string",
+            "maxLength" : 60,
             "minLength" : 0
           },
           "name" : {
@@ -6298,6 +7499,11 @@
         "type" : "string",
         "description" : "Stable machine-readable error code. Branch on this, never on the message.",
         "enum" : [ "VALIDATION_ERROR", "MALFORMED_REQUEST", "UNAUTHENTICATED", "FORBIDDEN", "NOT_FOUND", "METHOD_NOT_ALLOWED", "NOT_ACCEPTABLE", "CONFLICT", "CONCURRENT_MODIFICATION", "PAYLOAD_TOO_LARGE", "UNSUPPORTED_MEDIA_TYPE", "RATE_LIMITED", "INTERNAL_ERROR", "SERVICE_UNAVAILABLE", "TENANT_UNAVAILABLE" ]
+      },
+      "FieldNameShape" : {
+        "type" : "string",
+        "description" : "The API name of a field.",
+        "pattern" : "^[A-Za-z][A-Za-z0-9_]{0,59}$"
       },
       "FieldSettings" : {
         "type" : "object",
@@ -6702,6 +7908,108 @@
         },
         "required" : [ "email" ]
       },
+      "LayoutAssignmentView" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "layout" : {
+            "type" : "string"
+          },
+          "profileId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "profileName" : {
+            "type" : "string"
+          },
+          "recordType" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "key", "layout", "version" ]
+      },
+      "LayoutField" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "behaviour" : {
+            "type" : "string",
+            "description" : "EDITABLE: a person may change it. READ_ONLY: shown, never changed on this page. REQUIRED: must have a value on this page, whatever the field itself says. HIDDEN: kept in the layout but not shown. Left out: EDITABLE.",
+            "enum" : [ "EDITABLE", "READ_ONLY", "REQUIRED", "HIDDEN" ]
+          },
+          "field" : {
+            "$ref" : "#/components/schemas/FieldNameShape"
+          }
+        },
+        "required" : [ "field" ]
+      },
+      "LayoutResolutionView" : {
+        "type" : "object",
+        "properties" : {
+          "layout" : {
+            "type" : "string"
+          },
+          "rule" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "rule" ]
+      },
+      "LayoutSection" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "columns" : {
+            "type" : "integer",
+            "description" : "Left out: 1.",
+            "enum" : [ 1, 2 ]
+          },
+          "fields" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LayoutField"
+            },
+            "maxItems" : 100
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 1
+          }
+        },
+        "required" : [ "fields", "label" ]
+      },
+      "LayoutView" : {
+        "type" : "object",
+        "properties" : {
+          "apiName" : {
+            "type" : "string"
+          },
+          "definition" : {
+            "$ref" : "#/components/schemas/PageLayoutDefinition"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "apiName", "definition", "description", "label", "objectApiName", "version" ]
+      },
       "LicencePoolView" : {
         "type" : "object",
         "properties" : {
@@ -6869,6 +8177,147 @@
         },
         "required" : [ "displayName", "email", "id", "policies", "since", "status" ]
       },
+      "MyApplicationView" : {
+        "type" : "object",
+        "properties" : {
+          "apiName" : {
+            "type" : "string"
+          },
+          "iconKey" : {
+            "type" : "string"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NavigationEntryView"
+            }
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "apiName", "items", "label" ]
+      },
+      "NavigationEntryView" : {
+        "type" : "object",
+        "properties" : {
+          "label" : {
+            "type" : "string"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "pageApiName" : {
+            "type" : "string"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "label", "type" ]
+      },
+      "NavigationItem" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "allOf" : [ {
+          "if" : {
+            "properties" : {
+              "type" : {
+                "const" : "OBJECT"
+              }
+            },
+            "required" : [ "type" ]
+          },
+          "then" : {
+            "properties" : {
+              "page" : false,
+              "path" : false
+            },
+            "required" : [ "object" ]
+          }
+        }, {
+          "if" : {
+            "properties" : {
+              "type" : {
+                "const" : "RECORD_PAGE"
+              }
+            },
+            "required" : [ "type" ]
+          },
+          "then" : {
+            "properties" : {
+              "path" : false
+            },
+            "required" : [ "object", "page" ]
+          }
+        }, {
+          "if" : {
+            "properties" : {
+              "type" : {
+                "const" : "LINK"
+              }
+            },
+            "required" : [ "type" ]
+          },
+          "then" : {
+            "properties" : {
+              "object" : false,
+              "page" : false
+            },
+            "required" : [ "label", "path" ]
+          }
+        }, {
+          "if" : {
+            "properties" : {
+              "type" : {
+                "const" : "HEADING"
+              }
+            },
+            "required" : [ "type" ]
+          },
+          "then" : {
+            "properties" : {
+              "object" : false,
+              "page" : false,
+              "path" : false
+            },
+            "required" : [ "label" ]
+          }
+        } ],
+        "description" : "One entry of an application's navigation.",
+        "properties" : {
+          "label" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 1
+          },
+          "object" : {
+            "$ref" : "#/components/schemas/ObjectNameShape"
+          },
+          "page" : {
+            "$ref" : "#/components/schemas/ApiNameShape"
+          },
+          "path" : {
+            "type" : "string",
+            "description" : "A page inside the organization: a path that starts with a slash. Never an address with a host.",
+            "maxLength" : 200,
+            "pattern" : "^/[A-Za-z0-9_\\-]+(/[A-Za-z0-9_\\-]+)*$"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "OBJECT", "RECORD_PAGE", "LINK", "HEADING" ]
+          }
+        },
+        "required" : [ "type" ]
+      },
+      "ObjectNameShape" : {
+        "type" : "string",
+        "description" : "The API name of an object.",
+        "pattern" : "^[A-Z][A-Za-z0-9_]{0,59}$"
+      },
       "ObjectRelationshipsView" : {
         "type" : "object",
         "properties" : {
@@ -6991,6 +8440,208 @@
           }
         },
         "required" : [ "displayName", "host", "slug" ]
+      },
+      "PageAction" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "action" : {
+            "type" : "string",
+            "enum" : [ "EDIT", "DELETE", "CLONE" ]
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 1
+          },
+          "visibleWhen" : {
+            "$ref" : "#/components/schemas/VisibilityRule"
+          }
+        },
+        "required" : [ "action" ]
+      },
+      "PageComponent" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "allOf" : [ {
+          "if" : {
+            "properties" : {
+              "type" : {
+                "const" : "HEADER"
+              }
+            },
+            "required" : [ "type" ]
+          },
+          "then" : {
+            "properties" : {
+              "columns" : false,
+              "field" : false,
+              "label" : false,
+              "limit" : false,
+              "object" : false,
+              "tabs" : false
+            }
+          }
+        }, {
+          "if" : {
+            "properties" : {
+              "type" : {
+                "enum" : [ "DETAILS", "ACTIVITY", "HISTORY" ]
+              }
+            },
+            "required" : [ "type" ]
+          },
+          "then" : {
+            "properties" : {
+              "columns" : false,
+              "field" : false,
+              "highlightFields" : false,
+              "label" : false,
+              "limit" : false,
+              "object" : false,
+              "tabs" : false,
+              "titleField" : false
+            }
+          }
+        }, {
+          "if" : {
+            "properties" : {
+              "type" : {
+                "const" : "RELATED_LIST"
+              }
+            },
+            "required" : [ "type" ]
+          },
+          "then" : {
+            "properties" : {
+              "highlightFields" : false,
+              "tabs" : false,
+              "titleField" : false
+            },
+            "required" : [ "columns", "field", "object" ]
+          }
+        }, {
+          "if" : {
+            "properties" : {
+              "type" : {
+                "const" : "TABS"
+              }
+            },
+            "required" : [ "type" ]
+          },
+          "then" : {
+            "properties" : {
+              "columns" : false,
+              "field" : false,
+              "highlightFields" : false,
+              "label" : false,
+              "limit" : false,
+              "object" : false,
+              "titleField" : false
+            },
+            "required" : [ "tabs" ]
+          }
+        } ],
+        "description" : "One building block of a record page. Its type decides which other properties it takes.",
+        "properties" : {
+          "columns" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldNameShape"
+            },
+            "maxItems" : 10,
+            "minItems" : 1
+          },
+          "field" : {
+            "$ref" : "#/components/schemas/FieldNameShape"
+          },
+          "highlightFields" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldNameShape"
+            },
+            "maxItems" : 6
+          },
+          "key" : {
+            "type" : "string",
+            "description" : "Names the component inside the page; unique in the page.",
+            "pattern" : "^[a-z][a-z0-9-]{0,39}$"
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 1
+          },
+          "limit" : {
+            "type" : "integer",
+            "description" : "Left out: 5.",
+            "maximum" : 50,
+            "minimum" : 1
+          },
+          "object" : {
+            "$ref" : "#/components/schemas/ObjectNameShape"
+          },
+          "region" : {
+            "type" : "string",
+            "description" : "Left out: MAIN.",
+            "enum" : [ "MAIN", "SIDEBAR" ]
+          },
+          "tabs" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PageTab"
+            },
+            "maxItems" : 8,
+            "minItems" : 1
+          },
+          "titleField" : {
+            "$ref" : "#/components/schemas/FieldNameShape"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "HEADER", "DETAILS", "RELATED_LIST", "TABS", "ACTIVITY", "HISTORY" ]
+          },
+          "visibleWhen" : {
+            "$ref" : "#/components/schemas/VisibilityRule"
+          }
+        },
+        "required" : [ "key", "type" ]
+      },
+      "PageLayoutDefinition" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "description" : "The structure of a record form: sections with the fields in them, and how each field behaves.",
+        "properties" : {
+          "sections" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LayoutSection"
+            },
+            "maxItems" : 20,
+            "minItems" : 1
+          }
+        },
+        "required" : [ "sections" ]
+      },
+      "PageTab" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "components" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TabComponent"
+            },
+            "maxItems" : 10,
+            "minItems" : 1
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 1
+          }
+        },
+        "required" : [ "components", "label" ]
       },
       "Pagination" : {
         "type" : "object",
@@ -7319,6 +8970,57 @@
           }
         },
         "required" : [ "reason" ]
+      },
+      "RecordPageDefinition" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "description" : "The structure of a record page: which layout its details show, its components in order, and its actions.",
+        "properties" : {
+          "actions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PageAction"
+            },
+            "maxItems" : 10
+          },
+          "components" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PageComponent"
+            },
+            "maxItems" : 30,
+            "minItems" : 1
+          },
+          "layout" : {
+            "$ref" : "#/components/schemas/ApiNameShape"
+          }
+        },
+        "required" : [ "components", "layout" ]
+      },
+      "RecordPageView" : {
+        "type" : "object",
+        "properties" : {
+          "apiName" : {
+            "type" : "string"
+          },
+          "definition" : {
+            "$ref" : "#/components/schemas/RecordPageDefinition"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "apiName", "definition", "description", "label", "objectApiName", "version" ]
       },
       "RecordTypeView" : {
         "type" : "object",
@@ -7855,6 +9557,81 @@
         },
         "required" : [ "host", "token" ]
       },
+      "TabComponent" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "allOf" : [ {
+          "if" : {
+            "properties" : {
+              "type" : {
+                "enum" : [ "DETAILS", "ACTIVITY", "HISTORY" ]
+              }
+            },
+            "required" : [ "type" ]
+          },
+          "then" : {
+            "properties" : {
+              "columns" : false,
+              "field" : false,
+              "label" : false,
+              "limit" : false,
+              "object" : false
+            }
+          }
+        }, {
+          "if" : {
+            "properties" : {
+              "type" : {
+                "const" : "RELATED_LIST"
+              }
+            },
+            "required" : [ "type" ]
+          },
+          "then" : {
+            "required" : [ "columns", "field", "object" ]
+          }
+        } ],
+        "description" : "A component inside a tab: anything but another set of tabs.",
+        "properties" : {
+          "columns" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldNameShape"
+            },
+            "maxItems" : 10,
+            "minItems" : 1
+          },
+          "field" : {
+            "$ref" : "#/components/schemas/FieldNameShape"
+          },
+          "key" : {
+            "type" : "string",
+            "pattern" : "^[a-z][a-z0-9-]{0,39}$"
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 1
+          },
+          "limit" : {
+            "type" : "integer",
+            "description" : "Left out: 5.",
+            "maximum" : 50,
+            "minimum" : 1
+          },
+          "object" : {
+            "$ref" : "#/components/schemas/ObjectNameShape"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "DETAILS", "RELATED_LIST", "ACTIVITY", "HISTORY" ]
+          },
+          "visibleWhen" : {
+            "$ref" : "#/components/schemas/VisibilityRule"
+          }
+        },
+        "required" : [ "key", "type" ]
+      },
       "TenantSummary" : {
         "type" : "object",
         "properties" : {
@@ -7866,6 +9643,29 @@
           }
         },
         "required" : [ "displayName", "slug" ]
+      },
+      "UpdateApplicationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "definition" : {
+            "$ref" : "#/components/schemas/ApplicationDefinition"
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "definition", "label", "version" ]
       },
       "UpdateFieldRequest" : {
         "type" : "object",
@@ -7901,6 +9701,44 @@
         },
         "required" : [ "label", "version" ]
       },
+      "UpdateLayoutAssignmentRequest" : {
+        "type" : "object",
+        "properties" : {
+          "layout" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "layout", "version" ]
+      },
+      "UpdateLayoutRequest" : {
+        "type" : "object",
+        "properties" : {
+          "definition" : {
+            "$ref" : "#/components/schemas/PageLayoutDefinition"
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "definition", "label", "version" ]
+      },
       "UpdateObjectRequest" : {
         "type" : "object",
         "properties" : {
@@ -7925,6 +9763,29 @@
           }
         },
         "required" : [ "label", "pluralLabel", "version" ]
+      },
+      "UpdateRecordPageRequest" : {
+        "type" : "object",
+        "properties" : {
+          "definition" : {
+            "$ref" : "#/components/schemas/RecordPageDefinition"
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "definition", "label", "version" ]
       },
       "UpdateRecordTypeRequest" : {
         "type" : "object",
@@ -7955,6 +9816,11 @@
             "maxLength" : 80,
             "minLength" : 0
           },
+          "layout" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
           "picklistSubsets" : {
             "type" : "array",
             "items" : {
@@ -7969,6 +9835,226 @@
           }
         },
         "required" : [ "label", "version" ]
+      },
+      "VisibilityInner" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "allOf" : [ {
+          "if" : {
+            "properties" : {
+              "operator" : {
+                "enum" : [ "EQUALS", "NOT_EQUALS" ]
+              }
+            },
+            "required" : [ "operator" ]
+          },
+          "then" : {
+            "required" : [ "value" ]
+          }
+        }, {
+          "if" : {
+            "properties" : {
+              "operator" : {
+                "enum" : [ "IS_EMPTY", "IS_NOT_EMPTY" ]
+              }
+            },
+            "required" : [ "operator" ]
+          },
+          "then" : {
+            "not" : {
+              "required" : [ "value" ]
+            }
+          }
+        } ],
+        "description" : "A condition, or a group of conditions combined with all (AND) or any (OR).",
+        "oneOf" : [ {
+          "required" : [ "field", "operator" ]
+        }, {
+          "required" : [ "ability" ]
+        }, {
+          "required" : [ "all" ]
+        }, {
+          "required" : [ "any" ]
+        } ],
+        "properties" : {
+          "ability" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "pattern" : "^[a-z]+(\\.[a-z-]+)+$"
+          },
+          "all" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/VisibilityLeaf"
+            },
+            "maxItems" : 10,
+            "minItems" : 1
+          },
+          "any" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/VisibilityLeaf"
+            },
+            "maxItems" : 10,
+            "minItems" : 1
+          },
+          "field" : {
+            "$ref" : "#/components/schemas/FieldNameShape"
+          },
+          "operator" : {
+            "type" : "string",
+            "enum" : [ "EQUALS", "NOT_EQUALS", "IS_EMPTY", "IS_NOT_EMPTY" ]
+          },
+          "value" : {
+            "type" : [ "string", "number", "boolean" ],
+            "maxLength" : 255
+          }
+        }
+      },
+      "VisibilityLeaf" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "allOf" : [ {
+          "if" : {
+            "properties" : {
+              "operator" : {
+                "enum" : [ "EQUALS", "NOT_EQUALS" ]
+              }
+            },
+            "required" : [ "operator" ]
+          },
+          "then" : {
+            "required" : [ "value" ]
+          }
+        }, {
+          "if" : {
+            "properties" : {
+              "operator" : {
+                "enum" : [ "IS_EMPTY", "IS_NOT_EMPTY" ]
+              }
+            },
+            "required" : [ "operator" ]
+          },
+          "then" : {
+            "not" : {
+              "required" : [ "value" ]
+            }
+          }
+        }, {
+          "if" : {
+            "required" : [ "ability" ]
+          },
+          "then" : {
+            "not" : {
+              "anyOf" : [ {
+                "required" : [ "field" ]
+              }, {
+                "required" : [ "operator" ]
+              }, {
+                "required" : [ "value" ]
+              } ]
+            }
+          }
+        } ],
+        "description" : "One condition: a field compared with a value, or the person holding an ability.",
+        "oneOf" : [ {
+          "required" : [ "field", "operator" ]
+        }, {
+          "required" : [ "ability" ]
+        } ],
+        "properties" : {
+          "ability" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "pattern" : "^[a-z]+(\\.[a-z-]+)+$"
+          },
+          "field" : {
+            "$ref" : "#/components/schemas/FieldNameShape"
+          },
+          "operator" : {
+            "type" : "string",
+            "enum" : [ "EQUALS", "NOT_EQUALS", "IS_EMPTY", "IS_NOT_EMPTY" ]
+          },
+          "value" : {
+            "type" : [ "string", "number", "boolean" ],
+            "maxLength" : 255
+          }
+        }
+      },
+      "VisibilityRule" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "allOf" : [ {
+          "if" : {
+            "properties" : {
+              "operator" : {
+                "enum" : [ "EQUALS", "NOT_EQUALS" ]
+              }
+            },
+            "required" : [ "operator" ]
+          },
+          "then" : {
+            "required" : [ "value" ]
+          }
+        }, {
+          "if" : {
+            "properties" : {
+              "operator" : {
+                "enum" : [ "IS_EMPTY", "IS_NOT_EMPTY" ]
+              }
+            },
+            "required" : [ "operator" ]
+          },
+          "then" : {
+            "not" : {
+              "required" : [ "value" ]
+            }
+          }
+        } ],
+        "description" : "When a component or an action is shown. Closed data, never text that is evaluated: a condition, or all/any of conditions, nested once. The expression engine of Sprint 13 may add to this list, never replace it.",
+        "oneOf" : [ {
+          "required" : [ "field", "operator" ]
+        }, {
+          "required" : [ "ability" ]
+        }, {
+          "required" : [ "all" ]
+        }, {
+          "required" : [ "any" ]
+        } ],
+        "properties" : {
+          "ability" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "pattern" : "^[a-z]+(\\.[a-z-]+)+$"
+          },
+          "all" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/VisibilityInner"
+            },
+            "maxItems" : 10,
+            "minItems" : 1
+          },
+          "any" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/VisibilityInner"
+            },
+            "maxItems" : 10,
+            "minItems" : 1
+          },
+          "field" : {
+            "$ref" : "#/components/schemas/FieldNameShape"
+          },
+          "operator" : {
+            "type" : "string",
+            "enum" : [ "EQUALS", "NOT_EQUALS", "IS_EMPTY", "IS_NOT_EMPTY" ]
+          },
+          "value" : {
+            "type" : [ "string", "number", "boolean" ],
+            "maxLength" : 255
+          }
+        }
       }
     }
   }
