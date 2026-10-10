@@ -980,6 +980,122 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/metadata/field-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The field types an organization can choose from
+         * @description With the settings each type takes and the constraints it allows. For members who may view objects and fields. NOT_FOUND on the platform host, FORBIDDEN without the ability.
+         */
+        get: operations["listFieldTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The objects of the organization
+         * @description The standard objects of the platform and the organization's own, with how many fields each has. For members who may view objects and fields. NOT_FOUND on the platform host, FORBIDDEN without the ability.
+         */
+        get: operations["listObjects"];
+        put?: never;
+        /**
+         * Create a custom object
+         * @description The name is turned into the permanent API name with the ending __c. VALIDATION_ERROR for a name in use or not allowed, CONFLICT at the limit of objects. Audited.
+         */
+        post: operations["createObject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One object with all its fields
+         * @description System fields first, then the standard ones, then the organization's own. NOT_FOUND for an object the organization does not have.
+         */
+        get: operations["getObject"];
+        /**
+         * Change the labels of a custom object
+         * @description The API name never changes. FORBIDDEN for an object the platform defines, CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.
+         */
+        put: operations["updateObject"];
+        post?: never;
+        /**
+         * Remove a custom object with its fields
+         * @description The permissions on the object and its fields end with it. CONFLICT while fields of other objects point to it or it has records. FORBIDDEN for an object the platform defines. Audited.
+         */
+        delete: operations["deleteObject"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a custom field to an object
+         * @description To a custom object, or to a standard object that allows it. The name is turned into the permanent API name with the ending __c. VALIDATION_ERROR lists every problem with the type, its settings and its constraints. Audited.
+         */
+        post: operations["createField"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/fields/{fieldApiName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a custom field
+         * @description The API name, the object and the type never change; a picklist keeps every value it had. FORBIDDEN for a field the platform defines, CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.
+         */
+        put: operations["updateField"];
+        post?: never;
+        /**
+         * Remove a custom field
+         * @description The permissions on the field end with it. FORBIDDEN for a field the platform defines. Audited.
+         */
+        delete: operations["deleteField"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organization/leave": {
         parameters: {
             query?: never;
@@ -1846,6 +1962,9 @@ export interface components {
         ApiResponseDataCatalogue: {
             data: components["schemas"]["DataCatalogue"];
         };
+        ApiResponseFieldView: {
+            data: components["schemas"]["FieldView"];
+        };
         ApiResponseGroupView: {
             data: components["schemas"]["GroupView"];
         };
@@ -1867,6 +1986,9 @@ export interface components {
         ApiResponseListCatalogueItem: {
             data: components["schemas"]["CatalogueItem"][];
         };
+        ApiResponseListFieldTypeView: {
+            data: components["schemas"]["FieldTypeView"][];
+        };
         ApiResponseListGroupView: {
             data: components["schemas"]["GroupView"][];
         };
@@ -1881,6 +2003,9 @@ export interface components {
         };
         ApiResponseListMemberView: {
             data: components["schemas"]["MemberView"][];
+        };
+        ApiResponseListObjectSummaryView: {
+            data: components["schemas"]["ObjectSummaryView"][];
         };
         ApiResponseListOrganizationSummary: {
             data: components["schemas"]["OrganizationSummary"][];
@@ -1905,6 +2030,9 @@ export interface components {
         };
         ApiResponseMemberAccessView: {
             data: components["schemas"]["MemberAccessView"];
+        };
+        ApiResponseObjectView: {
+            data: components["schemas"]["ObjectView"];
         };
         ApiResponseOrganizationCreated: {
             data: components["schemas"]["OrganizationCreated"];
@@ -1999,6 +2127,22 @@ export interface components {
         CompleteSwitchRequest: {
             token: string;
         };
+        CreateFieldRequest: {
+            defaultValue?: string;
+            description?: string;
+            label: string;
+            name: string;
+            required?: boolean;
+            settings?: components["schemas"]["FieldSettings"];
+            type: string;
+            unique?: boolean;
+        };
+        CreateObjectRequest: {
+            description?: string;
+            label: string;
+            name: string;
+            pluralLabel: string;
+        };
         CreateOrganizationRequest: {
             displayName: string;
             slug: string;
@@ -2046,6 +2190,51 @@ export interface components {
          * @enum {string}
          */
         ErrorCode: "VALIDATION_ERROR" | "MALFORMED_REQUEST" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "NOT_ACCEPTABLE" | "CONFLICT" | "CONCURRENT_MODIFICATION" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "TENANT_UNAVAILABLE";
+        FieldSettings: {
+            /** Format: int32 */
+            digits?: number;
+            expression?: string;
+            /** Format: int32 */
+            maxLength?: number;
+            /** Format: int32 */
+            precision?: number;
+            prefix?: string;
+            resultType?: string;
+            /** Format: int32 */
+            scale?: number;
+            /** Format: int64 */
+            startAt?: number;
+            targetObject?: string;
+            values?: components["schemas"]["PicklistOption"][];
+            /** Format: int32 */
+            width?: number;
+        };
+        FieldTypeView: {
+            allowsDefault: boolean;
+            allowsRequired: boolean;
+            allowsUnique: boolean;
+            calculated: boolean;
+            description: string;
+            formulaResult: boolean;
+            label: string;
+            settings: string[];
+            type: string;
+        };
+        FieldView: {
+            apiName: string;
+            defaultValue?: string;
+            description: string;
+            editable: boolean;
+            kind: string;
+            label: string;
+            required: boolean;
+            retired: boolean;
+            settings: components["schemas"]["FieldSettings"];
+            type: string;
+            unique: boolean;
+            /** Format: int64 */
+            version: number;
+        };
         FirstAdministratorInfo: {
             /** Format: date-time */
             expiresAt: string;
@@ -2186,6 +2375,30 @@ export interface components {
             status: string;
             you?: boolean;
         };
+        ObjectSummaryView: {
+            apiName: string;
+            /** Format: int32 */
+            customFieldCount: number;
+            /** Format: int32 */
+            fieldCount: number;
+            kind: string;
+            label: string;
+            managedBy?: string;
+            pluralLabel: string;
+        };
+        ObjectView: {
+            apiName: string;
+            description: string;
+            editable: boolean;
+            extensible: boolean;
+            fields: components["schemas"]["FieldView"][];
+            kind: string;
+            label: string;
+            managedBy?: string;
+            pluralLabel: string;
+            /** Format: int64 */
+            version: number;
+        };
         OrganizationCreated: {
             displayName: string;
             host: string;
@@ -2205,6 +2418,11 @@ export interface components {
         PermissionEntry: {
             actions: string[];
             key: string;
+        };
+        PicklistOption: {
+            active: boolean;
+            label: string;
+            value: string;
         };
         PlanInfo: {
             features: string[];
@@ -2401,6 +2619,23 @@ export interface components {
         TenantSummary: {
             displayName: string;
             slug: string;
+        };
+        UpdateFieldRequest: {
+            defaultValue?: string;
+            description?: string;
+            label: string;
+            required?: boolean;
+            settings?: components["schemas"]["FieldSettings"];
+            unique?: boolean;
+            /** Format: int64 */
+            version: number;
+        };
+        UpdateObjectRequest: {
+            description?: string;
+            label: string;
+            pluralLabel: string;
+            /** Format: int64 */
+            version: number;
         };
     };
     responses: never;
@@ -4135,6 +4370,293 @@ export interface operations {
                 "application/json": components["schemas"]["AssignRoleRequest"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listFieldTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListFieldTypeView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listObjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListObjectSummaryView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createObject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateObjectRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseObjectView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getObject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseObjectView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateObject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateObjectRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseObjectView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteObject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createField: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFieldRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseFieldView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateField: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                fieldApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateFieldRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseFieldView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteField: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                fieldApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {

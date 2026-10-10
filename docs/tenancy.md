@@ -236,3 +236,24 @@ Short form; decisions in ADR-0053 to ADR-0057.
   identity clean-up (ADR-0057).
 - **Tests:** `SecurityCacheTest`, `SecurityVersionIT`, `SecurityCacheIT` (three real instances, cache on and off), `SecurityCacheConsistencyIT`,
   `SecurityCacheRedisOutageIT`, `AuditStorageIT`, `AuditViewerIT`, `TenantLifecycleAuditIT`, `InvitationRetentionIT`.
+
+## Object and field definitions (Sprint 10)
+
+Short form; decisions in ADR-0058 to ADR-0062, the how-to in [metadata-guide.md](metadata-guide.md).
+
+- **Tenant-scoped tables (ADR-0015):** `object_definition`, `field_definition` and `metadata_version` (V031), each with forced row level security, the tenant
+  guard and a tenant-first index; registered in `TenantScopedTables`. The standard objects and fields are **not** in the database: they are read from
+  `metadata/standard/*.yml` at start and are the same for every organization, so no tenant has a way to write them (ADR-0059).
+- **A field names its object by API name**, not by identifier, because the object may be a standard one that has no row. A guard keeps the API name, the object
+  and the data type of a field from ever changing and ties a field of a custom object to a live custom object of the same organization.
+- **Metadata version (ADR-0061).** `metadata_version` has one counter per organization, raised by triggers on both definition tables in the same transaction.
+  The catalogue cache keeps a snapshot with the version it was built under and serves it only while the version is unchanged. Both definition tables also raise
+  the **security version** (a new object or field can change an answer of `Decisions`), so they have an entry in `SecurityVersionIT`.
+- **Ask what exists through `Metadata`** (metadata root): `objects()`, `object(apiName)`. Security reads the same catalogue through its `ObjectCatalog`. Both
+  answer for the thread's tenant context; asked outside a transaction they open a short one of their own (the tenant is set only inside a transaction).
+- **Removing** an object or a field ends its permissions in the same transaction through `DataPermissionCleanup` (security root) and is refused while a field of
+  another object points at the object; `ObjectUsage` (metadata root) is the seam the data module implements to refuse removal while records exist.
+- **Names:** an organization's API names end in `__c`; the platform's never do. The API name is the key of permissions on data (V032 widened the three key checks).
+- **Tests:** `StandardMetadataLoaderTest`, `StandardMetadataBaselineTest`, `StandardObjectsDocTest`, `FieldRulesTest`, `NameRulesTest`, `ConfigCodecTest`,
+  `MetadataApiIT`, `MetadataCacheIT` (three real instances), `MetadataFlowsLogsAreCleanIT`, plus the isolation harness and `SecurityVersionIT` for the new tables.
+  Tests that need objects to name get `ObjectA__c` and `ObjectB__c` from `TestObjects` (every `TestOrganizations.create`).

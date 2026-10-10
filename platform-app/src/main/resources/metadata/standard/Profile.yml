@@ -1,0 +1,33 @@
+# Standard object: Profile, the base of a member's access (ADR-0059).
+# Records belong to the security part of the platform (managedBy), changed only through the profile screens.
+# How to change this file: docs/metadata-guide.md.
+apiName: Profile
+label: Profile
+pluralLabel: Profiles
+description: The base of a member's access, meaning the licence they hold and the abilities and permissions that come with it.
+managedBy: security
+extensible: true
+fields:
+  - apiName: name
+    label: Profile name
+    type: TEXT
+    required: true
+    unique: true
+    settings: { maxLength: 80 }
+
+  - apiName: licenceTypeId
+    label: Licence type
+    description: The kind of licence a member with this profile holds.
+    type: LOOKUP
+    required: true
+    settings: { targetObject: LicenceType }
+
+  - apiName: isSystem
+    label: System profile
+    description: Whether the platform created the profile for every organization. A system profile cannot be removed.
+    type: BOOLEAN
+
+  - apiName: isDefault
+    label: Default profile
+    description: Whether new members get this profile.
+    type: BOOLEAN

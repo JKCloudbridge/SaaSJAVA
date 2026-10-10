@@ -1,0 +1,75 @@
+import type { components } from "@/lib/api/generated/schema";
+import { failureFromResponse } from "@/lib/api/errors";
+
+export type FieldView = components["schemas"]["FieldView"];
+export type FieldTypeView = components["schemas"]["FieldTypeView"];
+export type FieldSettings = components["schemas"]["FieldSettings"];
+
+/** The names of the things a person fills in, for the problems the API lists under the request's own field names. */
+const FIELD_NAMES: Record<string, string> = {
+  name: "Name",
+  label: "Label",
+  pluralLabel: "Plural label",
+  description: "Description",
+  type: "Type",
+  required: "Required",
+  unique: "Unique",
+  defaultValue: "Default value",
+  "settings.maxLength": "Maximum length",
+  "settings.digits": "Digits",
+  "settings.precision": "Digits in all",
+  "settings.scale": "Digits after the point",
+  "settings.values": "Values",
+  "settings.targetObject": "Points to",
+  "settings.expression": "Formula",
+  "settings.resultType": "Result",
+  "settings.prefix": "Prefix",
+  "settings.startAt": "First number",
+  "settings.width": "Width",
+};
+
+/**
+ * The API's own words for a refusal. A refusal that lists the things that are wrong (a validation error) is shown with
+ * each of them, named by what the person filled in; any other refusal is its message. Nothing here decides anything.
+ */
+export function problemText(error: unknown, response: Response): string {
+  const failure = failureFromResponse(error, response);
+  const lines = Object.entries(failure.fields ?? {}).flatMap(([field, problems]) =>
+    problems.map((problem) => `${FIELD_NAMES[field] ?? field}: ${problem}`),
+  );
+  return lines.length > 0 ? `${failure.message} ${lines.join(" ")}` : failure.message;
+}
+
+/** A short description of a field's settings for the table, from what the API sent. */
+export function settingsSummary(field: FieldView): string {
+  const s = field.settings;
+  const parts: string[] = [];
+  if (s.maxLength != null) {
+    parts.push(`up to ${s.maxLength} characters`);
+  }
+  if (s.digits != null) {
+    parts.push(`up to ${s.digits} digits`);
+  }
+  if (s.precision != null) {
+    parts.push(`${s.precision} digits, ${s.scale ?? 0} after the point`);
+  }
+  if (s.values) {
+    parts.push(`${s.values.length} value${s.values.length === 1 ? "" : "s"}`);
+  }
+  if (s.targetObject) {
+    parts.push(`points to ${s.targetObject}`);
+  }
+  if (s.expression) {
+    parts.push(`result: ${s.resultType ?? "text"}`);
+  }
+  if (s.prefix != null && s.startAt != null) {
+    parts.push(`${s.prefix || "no prefix"}, from ${s.startAt}, ${s.width ?? 1} digits`);
+  }
+  return parts.join("; ");
+}
+
+export const KIND_TEXT: Record<string, string> = {
+  STANDARD: "Standard",
+  CUSTOM: "Custom",
+  SYSTEM: "System",
+};

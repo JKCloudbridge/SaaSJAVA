@@ -59,7 +59,7 @@ The application connects as its own database role, created once per environment 
 | `platform-shared-kernel/` | Identifiers and cross-cutting interfaces (secrets store) |
 | `platform-api-contract/` | The published HTTP contract: paths, envelope, errors, paging and the committed OpenAPI document |
 | `platform-web/` | The Next.js frontend, with the TypeScript API client generated from the OpenAPI document |
-| `docs/` | ADRs (`docs/adr`), module map (`docs/modules.md`), tenancy and isolation-test guides, spike findings (`docs/spikes`) |
+| `docs/` | ADRs (`docs/adr`), module map (`docs/modules.md`), tenancy and isolation-test guides, the metadata guide (`docs/metadata-guide.md`: how to add or change standard objects and fields) with the generated list of them (`docs/standard-objects.md`), spike findings (`docs/spikes`) |
 | `db/manual/` | Manual migrations: scripts a person runs once per environment (the application role) |
 | `infra/local/` | Local container environment |
 | `config/` | Static-analysis configuration |

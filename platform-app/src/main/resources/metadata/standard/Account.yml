@@ -1,0 +1,136 @@
+# Standard object: Account, a company or organization the business deals with (ADR-0059).
+# How to change this file: docs/metadata-guide.md. Never delete or rename a field that has been released: set
+# "retired: true" instead, and the baseline test will tell you if you forget.
+apiName: Account
+label: Account
+pluralLabel: Accounts
+description: A company or organization that the business sells to, buys from or works with.
+extensible: true
+fields:
+  - apiName: name
+    label: Account name
+    description: The name of the company or organization.
+    type: TEXT
+    required: true
+    settings: { maxLength: 255 }
+
+  - apiName: type
+    label: Account type
+    description: How the business relates to this account.
+    type: PICKLIST
+    settings:
+      values:
+        - { value: Customer, label: Customer }
+        - { value: Prospect, label: Prospect }
+        - { value: Partner, label: Partner }
+        - { value: Vendor, label: Vendor }
+        - { value: Other, label: Other }
+
+  - apiName: industry
+    label: Industry
+    description: The industry the account works in.
+    type: PICKLIST
+    settings:
+      values:
+        - { value: Agriculture, label: Agriculture }
+        - { value: Banking, label: Banking }
+        - { value: Construction, label: Construction }
+        - { value: Education, label: Education }
+        - { value: Energy, label: Energy }
+        - { value: Finance, label: Finance }
+        - { value: Government, label: Government }
+        - { value: Healthcare, label: Healthcare }
+        - { value: Hospitality, label: Hospitality }
+        - { value: Manufacturing, label: Manufacturing }
+        - { value: Media, label: Media }
+        - { value: Retail, label: Retail }
+        - { value: Technology, label: Technology }
+        - { value: Telecommunications, label: Telecommunications }
+        - { value: Transportation, label: Transportation }
+        - { value: Other, label: Other }
+
+  - apiName: parentAccountId
+    label: Parent account
+    description: The account this one belongs to, for example the head office of a branch.
+    type: LOOKUP
+    settings: { targetObject: Account }
+
+  - apiName: website
+    label: Website
+    type: URL
+
+  - apiName: phone
+    label: Phone
+    type: PHONE
+
+  - apiName: email
+    label: E-mail
+    description: The general e-mail address of the account.
+    type: EMAIL
+
+  - apiName: annualRevenue
+    label: Annual revenue
+    type: CURRENCY
+    settings: { precision: 18, scale: 2 }
+
+  - apiName: employeeCount
+    label: Employees
+    description: How many people work at the account.
+    type: NUMBER
+    settings: { digits: 9 }
+
+  - apiName: isActive
+    label: Active
+    description: Whether the business still deals with the account.
+    type: BOOLEAN
+    default: true
+
+  - apiName: billingStreet
+    label: Billing street
+    type: TEXT
+    settings: { maxLength: 255 }
+
+  - apiName: billingCity
+    label: Billing city
+    type: TEXT
+    settings: { maxLength: 80 }
+
+  - apiName: billingState
+    label: Billing state or province
+    type: TEXT
+    settings: { maxLength: 80 }
+
+  - apiName: billingPostalCode
+    label: Billing postal code
+    type: TEXT
+    settings: { maxLength: 20 }
+
+  - apiName: billingCountry
+    label: Billing country
+    type: TEXT
+    settings: { maxLength: 80 }
+
+  - apiName: shippingStreet
+    label: Shipping street
+    type: TEXT
+    settings: { maxLength: 255 }
+
+  - apiName: shippingCity
+    label: Shipping city
+    type: TEXT
+    settings: { maxLength: 80 }
+
+  - apiName: shippingState
+    label: Shipping state or province
+    type: TEXT
+    settings: { maxLength: 80 }
+
+  - apiName: shippingPostalCode
+    label: Shipping postal code
+    type: TEXT
+    settings: { maxLength: 20 }
+
+  - apiName: shippingCountry
+    label: Shipping country
+    type: TEXT
+    settings: { maxLength: 80 }

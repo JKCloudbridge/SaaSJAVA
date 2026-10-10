@@ -2097,6 +2097,356 @@
         "tags" : [ "Members" ]
       }
     },
+    "/api/v1/metadata/field-types" : {
+      "get" : {
+        "description" : "With the settings each type takes and the constraints it allows. For members who may view objects and fields. NOT_FOUND on the platform host, FORBIDDEN without the ability.",
+        "operationId" : "listFieldTypes",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListFieldTypeView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The field types an organization can choose from",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects" : {
+      "get" : {
+        "description" : "The standard objects of the platform and the organization's own, with how many fields each has. For members who may view objects and fields. NOT_FOUND on the platform host, FORBIDDEN without the ability.",
+        "operationId" : "listObjects",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListObjectSummaryView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The objects of the organization",
+        "tags" : [ "Metadata" ]
+      },
+      "post" : {
+        "description" : "The name is turned into the permanent API name with the ending __c. VALIDATION_ERROR for a name in use or not allowed, CONFLICT at the limit of objects. Audited.",
+        "operationId" : "createObject",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateObjectRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseObjectView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Create a custom object",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}" : {
+      "delete" : {
+        "description" : "The permissions on the object and its fields end with it. CONFLICT while fields of other objects point to it or it has records. FORBIDDEN for an object the platform defines. Audited.",
+        "operationId" : "deleteObject",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a custom object with its fields",
+        "tags" : [ "Metadata" ]
+      },
+      "get" : {
+        "description" : "System fields first, then the standard ones, then the organization's own. NOT_FOUND for an object the organization does not have.",
+        "operationId" : "getObject",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseObjectView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One object with all its fields",
+        "tags" : [ "Metadata" ]
+      },
+      "put" : {
+        "description" : "The API name never changes. FORBIDDEN for an object the platform defines, CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.",
+        "operationId" : "updateObject",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateObjectRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseObjectView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change the labels of a custom object",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/fields" : {
+      "post" : {
+        "description" : "To a custom object, or to a standard object that allows it. The name is turned into the permanent API name with the ending __c. VALIDATION_ERROR lists every problem with the type, its settings and its constraints. Audited.",
+        "operationId" : "createField",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateFieldRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseFieldView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Add a custom field to an object",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/fields/{fieldApiName}" : {
+      "delete" : {
+        "description" : "The permissions on the field end with it. FORBIDDEN for a field the platform defines. Audited.",
+        "operationId" : "deleteField",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "fieldApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a custom field",
+        "tags" : [ "Metadata" ]
+      },
+      "put" : {
+        "description" : "The API name, the object and the type never change; a picklist keeps every value it had. FORBIDDEN for a field the platform defines, CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.",
+        "operationId" : "updateField",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "fieldApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateFieldRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseFieldView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change a custom field",
+        "tags" : [ "Metadata" ]
+      }
+    },
     "/api/v1/organization/leave" : {
       "post" : {
         "description" : "The caller's membership ends: they are signed out of this organization, their licences go back to the pool, and an administrator can let them back in. Their other organizations are untouched. CONFLICT for the last member who can manage access. Any active member may leave.",
@@ -4212,6 +4562,15 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseFieldView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/FieldView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseGroupView" : {
         "type" : "object",
         "properties" : {
@@ -4284,6 +4643,18 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListFieldTypeView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldTypeView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListGroupView" : {
         "type" : "object",
         "properties" : {
@@ -4339,6 +4710,18 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/MemberView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListObjectSummaryView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ObjectSummaryView"
             }
           }
         },
@@ -4433,6 +4816,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/MemberAccessView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseObjectView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ObjectView"
           }
         },
         "required" : [ "data" ]
@@ -4713,6 +5105,72 @@
         },
         "required" : [ "token" ]
       },
+      "CreateFieldRequest" : {
+        "type" : "object",
+        "properties" : {
+          "defaultValue" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "required" : {
+            "type" : "boolean"
+          },
+          "settings" : {
+            "$ref" : "#/components/schemas/FieldSettings"
+          },
+          "type" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "unique" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "label", "name", "type" ]
+      },
+      "CreateObjectRequest" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "pluralLabel" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "label", "name", "pluralLabel" ]
+      },
       "CreateOrganizationRequest" : {
         "type" : "object",
         "properties" : {
@@ -4874,6 +5332,142 @@
         "type" : "string",
         "description" : "Stable machine-readable error code. Branch on this, never on the message.",
         "enum" : [ "VALIDATION_ERROR", "MALFORMED_REQUEST", "UNAUTHENTICATED", "FORBIDDEN", "NOT_FOUND", "METHOD_NOT_ALLOWED", "NOT_ACCEPTABLE", "CONFLICT", "CONCURRENT_MODIFICATION", "PAYLOAD_TOO_LARGE", "UNSUPPORTED_MEDIA_TYPE", "RATE_LIMITED", "INTERNAL_ERROR", "SERVICE_UNAVAILABLE", "TENANT_UNAVAILABLE" ]
+      },
+      "FieldSettings" : {
+        "type" : "object",
+        "properties" : {
+          "digits" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "expression" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "maxLength" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "precision" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "prefix" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          },
+          "resultType" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "scale" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "startAt" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "targetObject" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "values" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PicklistOption"
+            },
+            "maxItems" : 1000,
+            "minItems" : 0
+          },
+          "width" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "FieldTypeView" : {
+        "type" : "object",
+        "properties" : {
+          "allowsDefault" : {
+            "type" : "boolean"
+          },
+          "allowsRequired" : {
+            "type" : "boolean"
+          },
+          "allowsUnique" : {
+            "type" : "boolean"
+          },
+          "calculated" : {
+            "type" : "boolean"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "formulaResult" : {
+            "type" : "boolean"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "settings" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "allowsDefault", "allowsRequired", "allowsUnique", "calculated", "description", "formulaResult", "label", "settings", "type" ]
+      },
+      "FieldView" : {
+        "type" : "object",
+        "properties" : {
+          "apiName" : {
+            "type" : "string"
+          },
+          "defaultValue" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "editable" : {
+            "type" : "boolean"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "required" : {
+            "type" : "boolean"
+          },
+          "retired" : {
+            "type" : "boolean"
+          },
+          "settings" : {
+            "$ref" : "#/components/schemas/FieldSettings"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "unique" : {
+            "type" : "boolean"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "apiName", "description", "editable", "kind", "label", "required", "retired", "settings", "type", "unique", "version" ]
       },
       "FirstAdministratorInfo" : {
         "type" : "object",
@@ -5296,6 +5890,75 @@
         },
         "required" : [ "displayName", "email", "id", "policies", "since", "status" ]
       },
+      "ObjectSummaryView" : {
+        "type" : "object",
+        "properties" : {
+          "apiName" : {
+            "type" : "string"
+          },
+          "customFieldCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "fieldCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "managedBy" : {
+            "type" : "string"
+          },
+          "pluralLabel" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "apiName", "customFieldCount", "fieldCount", "kind", "label", "pluralLabel" ]
+      },
+      "ObjectView" : {
+        "type" : "object",
+        "properties" : {
+          "apiName" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "editable" : {
+            "type" : "boolean"
+          },
+          "extensible" : {
+            "type" : "boolean"
+          },
+          "fields" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldView"
+            }
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "managedBy" : {
+            "type" : "string"
+          },
+          "pluralLabel" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "apiName", "description", "editable", "extensible", "fields", "kind", "label", "pluralLabel", "version" ]
+      },
       "OrganizationCreated" : {
         "type" : "object",
         "properties" : {
@@ -5362,6 +6025,25 @@
           }
         },
         "required" : [ "actions", "key" ]
+      },
+      "PicklistOption" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "value" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "active", "label", "value" ]
       },
       "PlanInfo" : {
         "type" : "object",
@@ -5989,6 +6671,65 @@
           }
         },
         "required" : [ "displayName", "slug" ]
+      },
+      "UpdateFieldRequest" : {
+        "type" : "object",
+        "properties" : {
+          "defaultValue" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "required" : {
+            "type" : "boolean"
+          },
+          "settings" : {
+            "$ref" : "#/components/schemas/FieldSettings"
+          },
+          "unique" : {
+            "type" : "boolean"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "label", "version" ]
+      },
+      "UpdateObjectRequest" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "pluralLabel" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "label", "pluralLabel", "version" ]
       }
     }
   }

@@ -65,19 +65,6 @@ platform:
     base-domain: localhost
     # The development proxy of the web app rewrites the Host header and passes the original in X-Forwarded-Host.
     trust-forwarded-host: true
-  security:
-    # Objects do not exist before Sprint 10: two sample objects let the permission editors be tried by hand (ADR-0049).
-    sample-objects:
-      - key: object-a
-        label: Object A
-        fields:
-          - { key: field-a, label: Field A }
-          - { key: field-b, label: Field B }
-          - { key: field-c, label: Field C }
-      - key: object-b
-        label: Object B
-        fields:
-          - { key: field-a, label: Field A }
   notification:
     sender-address: no-reply@example.test
     # The web app's development server.

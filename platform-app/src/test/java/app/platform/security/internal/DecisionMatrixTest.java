@@ -59,7 +59,7 @@ class DecisionMatrixTest {
 
     private static final TenantContexts CONTEXTS = mock(TenantContexts.class);
 
-    private static final ObjectCatalog CATALOGUE = new ConfiguredObjectCatalog(List.of(
+    private static final ObjectCatalog CATALOGUE = new FixedObjectCatalog(List.of(
             new ObjectCatalog.ObjectInfo(OBJECT, "Object A", List.of(new ObjectCatalog.FieldInfo(FIELD, "Field A"),
                     new ObjectCatalog.FieldInfo("field-b", "Field B"))),
             new ObjectCatalog.ObjectInfo("object-b", "Object B", List.of(new ObjectCatalog.FieldInfo(FIELD, "F")))));

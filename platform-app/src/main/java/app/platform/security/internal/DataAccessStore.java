@@ -155,6 +155,28 @@ class DataAccessStore {
         return total;
     }
 
+    /**
+     * Ends the permission lines of an object that was removed: the lines on the object and on every one of its fields,
+     * whoever holds them. The key is compared as given, never as a pattern.
+     */
+    int deleteForObject(String objectKey, ActorId actor) {
+        int total = jdbc.sql("update object_permission set deleted_at = now(), deleted_by = :actor, "
+                        + "version = version + 1, updated_by = :actor where object_key = :key and deleted_at is null")
+                .param("actor", actor.value()).param("key", objectKey).update();
+        total += jdbc.sql("update field_permission set deleted_at = now(), deleted_by = :actor, "
+                        + "version = version + 1, updated_by = :actor "
+                        + "where split_part(field_key, '.', 1) = :key and deleted_at is null")
+                .param("actor", actor.value()).param("key", objectKey).update();
+        return total;
+    }
+
+    /** Ends the permission lines of one field that was removed, whoever holds them. */
+    int deleteForField(String fieldKey, ActorId actor) {
+        return jdbc.sql("update field_permission set deleted_at = now(), deleted_by = :actor, "
+                        + "version = version + 1, updated_by = :actor where field_key = :key and deleted_at is null")
+                .param("actor", actor.value()).param("key", fieldKey).update();
+    }
+
     // ---- reading ----
 
     private Map<String, Set<ObjectAction>> objectsOf(Holder holder, UUID id) {

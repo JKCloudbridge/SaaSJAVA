@@ -143,6 +143,14 @@ class AccessAudit {
                 .with("fields_removed", Integer.toString(changes.fieldsRemoved())));
     }
 
+    /** The permissions on an object or a field that was removed were ended (counts only, ADR-0062). */
+    void dataPermissionsForgotten(UUID actorOrNull, String objectKey, String fieldKey, int lines) {
+        AuditRecord record = AuditRecord.of("access.data.permissions_ended", AuditOutcome.SUCCESS).forUser(actorOrNull)
+                .onObject(fieldKey == null ? objectKey : objectKey + "." + fieldKey, null)
+                .with("lines", Integer.toString(lines));
+        write(record);
+    }
+
     // ---- what members hold ----
 
     void memberProfileSet(UUID actorOrNull, UUID membership, UUID profile, String how, boolean licensed) {

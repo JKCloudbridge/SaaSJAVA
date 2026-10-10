@@ -339,7 +339,7 @@ class AuditViewerIT {
             new Step("access.group.member_removed", s -> s.admin.request("DELETE",
                     GROUPS + "/" + s.group + "/members/people/" + s.member, null)),
             new Step("access.data.changed", s -> s.admin.request("PUT", PROFILES + "/" + s.profile + "/data-access",
-                    "{\"objects\":[{\"key\":\"object-a\",\"actions\":[\"read\"]}],\"fields\":[]}")),
+                    "{\"objects\":[{\"key\":\"ObjectA__c\",\"actions\":[\"read\"]}],\"fields\":[]}")),
             new Step("access.member.licence_taken_back", s -> s.admin.request("DELETE",
                     MEMBERS + "/" + s.member + "/licence", null)),
             new Step("membership.deactivated", s -> s.admin.postJson(MEMBERS + "/" + s.member + "/deactivate", "{}")),

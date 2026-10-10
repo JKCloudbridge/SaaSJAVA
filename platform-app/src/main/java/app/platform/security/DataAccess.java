@@ -10,7 +10,7 @@ import java.util.TreeSet;
 /**
  * What one container (a profile, an access policy, an individual grant) or a whole member may do with data: actions on
  * objects and actions on fields, each by key (ADR-0049, ADR-0050). An object is named by its key (for example
- * {@code object-a}), a field by {@code <object key>.<field key>}.
+ * {@code Employee__c}, the API name), a field by {@code <object key>.<field key>}.
  *
  * <p>Combining is a plain union (ADR-0040): {@link #union} never removes anything and gives the same result in any
  * order

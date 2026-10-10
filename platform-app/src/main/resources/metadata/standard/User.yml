@@ -1,0 +1,71 @@
+# Standard object: User, a person who is a member of the organization (ADR-0059).
+# The records of this object belong to the identity part of the platform (managedBy): people are invited, deactivated
+# and given a profile through the member screens, never through the generic record store. Organizations may add fields to it;
+# where the values are kept is decided by the data engine (Sprint 14).
+# How to change this file: docs/metadata-guide.md.
+apiName: User
+label: User
+pluralLabel: Users
+description: A person who is a member of the organization and can sign in to it.
+managedBy: identity
+extensible: true
+fields:
+  - apiName: firstName
+    label: First name
+    type: TEXT
+    settings: { maxLength: 80 }
+
+  - apiName: lastName
+    label: Last name
+    type: TEXT
+    required: true
+    settings: { maxLength: 80 }
+
+  - apiName: username
+    label: Username
+    description: The name the person signs in with, unique in the organization.
+    type: TEXT
+    required: true
+    unique: true
+    settings: { maxLength: 80 }
+
+  - apiName: email
+    label: E-mail
+    description: The address the person is invited at and gets mail from the platform at.
+    type: EMAIL
+    required: true
+    unique: true
+
+  - apiName: profileId
+    label: Profile
+    description: The profile that gives the person their licence and basic abilities.
+    type: LOOKUP
+    required: true
+    settings: { targetObject: Profile }
+
+  - apiName: roleId
+    label: Role
+    description: Where the person sits in the role hierarchy. It decides which records they can see, never what they
+      may do.
+    type: LOOKUP
+    settings: { targetObject: Role }
+
+  - apiName: managerId
+    label: Manager
+    type: LOOKUP
+    settings: { targetObject: User }
+
+  - apiName: title
+    label: Job title
+    type: TEXT
+    settings: { maxLength: 128 }
+
+  - apiName: phone
+    label: Phone
+    type: PHONE
+
+  - apiName: isActive
+    label: Active
+    description: Whether the person is an active member and can sign in.
+    type: BOOLEAN
+    default: true

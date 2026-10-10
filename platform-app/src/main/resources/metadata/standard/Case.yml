@@ -1,0 +1,74 @@
+# Standard object: Case, a question or problem raised by an account or a contact (ADR-0059).
+# How to change this file: docs/metadata-guide.md.
+apiName: Case
+label: Case
+pluralLabel: Cases
+description: A question, request or problem raised by an account or a contact, followed until it is closed.
+extensible: true
+fields:
+  - apiName: caseNumber
+    label: Case number
+    description: The number people quote for the case, for example CASE-000042. The platform gives it.
+    type: AUTO_NUMBER
+    settings: { prefix: CASE-, startAt: 1, width: 6 }
+
+  - apiName: subject
+    label: Subject
+    type: TEXT
+    required: true
+    settings: { maxLength: 255 }
+
+  - apiName: status
+    label: Status
+    type: PICKLIST
+    required: true
+    default: New
+    settings:
+      values:
+        - { value: New, label: New }
+        - { value: InProgress, label: In progress }
+        - { value: Escalated, label: Escalated }
+        - { value: Resolved, label: Resolved }
+        - { value: Closed, label: Closed }
+
+  - apiName: priority
+    label: Priority
+    type: PICKLIST
+    default: Medium
+    settings:
+      values:
+        - { value: Low, label: Low }
+        - { value: Medium, label: Medium }
+        - { value: High, label: High }
+        - { value: Critical, label: Critical }
+
+  - apiName: origin
+    label: Origin
+    description: How the case reached the business.
+    type: PICKLIST
+    settings:
+      values:
+        - { value: Phone, label: Phone }
+        - { value: Email, label: E-mail }
+        - { value: Web, label: Web }
+        - { value: Chat, label: Chat }
+
+  - apiName: accountId
+    label: Account
+    type: LOOKUP
+    settings: { targetObject: Account }
+
+  - apiName: contactId
+    label: Contact
+    type: LOOKUP
+    settings: { targetObject: Contact }
+
+  - apiName: closedAt
+    label: Closed at
+    type: DATETIME
+
+  - apiName: resolution
+    label: Resolution
+    description: How the case was resolved.
+    type: LONG_TEXT
+    settings: { maxLength: 32000 }

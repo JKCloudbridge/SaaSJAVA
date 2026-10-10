@@ -55,7 +55,16 @@ public enum Ability {
     /** Read the audit trail of the organization. */
     AUDIT_VIEW("audit.view", "View the audit trail",
             "See who changed what in the organization and when: access changes, invitations, sign-ins and support "
-                    + "access.");
+                    + "access."),
+
+    /** See the objects and fields of the organization (standard and custom). */
+    METADATA_VIEW("metadata.view", "View objects and fields",
+            "See the objects and fields of the organization with their types, settings and picklist values."),
+
+    /** Create, change and remove the organization's own objects and fields. */
+    METADATA_MANAGE("metadata.manage", "Manage objects and fields",
+            "Create, change and remove the organization's own objects and fields, and add its own fields to "
+                    + "standard objects. Needs the ability to view objects and fields as well.");
 
     private final String key;
     private final String title;

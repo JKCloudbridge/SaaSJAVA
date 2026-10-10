@@ -223,13 +223,53 @@ public final class TenantScopedTables {
                         tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
             });
 
+    /** The custom objects of organizations (Sprint 10). Each probe row has a name of its own. */
+    public static final TenantScopedTable OBJECT_DEFINITION = new TenantScopedTable("object_definition",
+            (connection, tenant) -> probeObject(connection, tenant));
+
+    /** The custom fields of organizations (Sprint 10). A probe row needs a custom object, which it creates. */
+    public static final TenantScopedTable FIELD_DEFINITION = new TenantScopedTable("field_definition",
+            (connection, tenant) -> {
+                String object = probeObject(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into field_definition (tenant_id, object_api_name, api_name, label, data_type, "
+                                + "created_by, updated_by) values (?, ?, 'probe__c', 'Probe', 'TEXT', ?, ?)",
+                        tenant, object, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /**
+     * The metadata version of an organization (Sprint 10). There is one live row per organization and the probe rows
+     * of the definition tables raise it, so each call retires the live one and adds a new one.
+     */
+    public static final TenantScopedTable METADATA_VERSION = new TenantScopedTable("metadata_version",
+            (connection, tenant) -> {
+                TenantFixtures.update(connection,
+                        "update metadata_version set deleted_at = now(), deleted_by = ?, version = version + 1, "
+                                + "updated_by = ? where tenant_id = ? and deleted_at is null",
+                        ActorId.SYSTEM.value(), ActorId.SYSTEM.value(), tenant);
+                TenantFixtures.update(connection,
+                        "insert into metadata_version (tenant_id, created_by, updated_by) values (?, ?, ?)",
+                        tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
             MEMBER_ACCESS, MEMBER_ACCESS_POLICY, MEMBER_GRANT, PUBLIC_GROUP, PUBLIC_GROUP_MEMBER,
-            PUBLIC_GROUP_ACCESS_POLICY, OBJECT_PERMISSION, FIELD_PERMISSION, SECURITY_VERSION);
+            PUBLIC_GROUP_ACCESS_POLICY, OBJECT_PERMISSION, FIELD_PERMISSION, SECURITY_VERSION, OBJECT_DEFINITION,
+            FIELD_DEFINITION, METADATA_VERSION);
 
     private TenantScopedTables() {
+    }
+
+    /** A custom object of the tenant for a probe row, with a name of its own; returns its API name. */
+    private static String probeObject(java.sql.Connection connection, UUID tenant) throws java.sql.SQLException {
+        String name = "P" + UUID.randomUUID().toString().replace("-", "").substring(0, 12) + "__c";
+        TenantFixtures.update(connection,
+                "insert into object_definition (tenant_id, api_name, label, plural_label, created_by, updated_by) "
+                        + "values (?, ?, 'Probe', 'Probes', ?, ?)",
+                tenant, name, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        return name;
     }
 
     /** A user and an active membership of the tenant for a probe row; returns the membership. */

@@ -148,9 +148,11 @@ class DataAccessIT {
 
         assertThat(catalogue.status()).isEqualTo(200);
         assertThat(JsonPath.<List<String>>read(catalogue.body(), "$.data.objects[*].key"))
-                .containsExactly("object-a", "object-b");
-        assertThat(JsonPath.<List<String>>read(catalogue.body(), "$.data.objects[0].fields[*].key"))
-                .containsExactly("field-a", "field-b", "field-c");
+                .as("the standard objects and the two sample objects of the test organization")
+                .contains("Account", "User", "ObjectA__c", "ObjectB__c");
+        assertThat(JsonPath.<List<String>>read(catalogue.body(),
+                "$.data.objects[?(@.key=='ObjectA__c')].fields[*].key"))
+                .contains("fieldA__c", "fieldB__c", "fieldC__c");
         assertThat(JsonPath.<List<String>>read(catalogue.body(), "$.data.objectActions[*].key"))
                 .containsExactly("read", "create", "update", "delete", "view-all", "modify-all");
         assertThat(JsonPath.<List<String>>read(catalogue.body(), "$.data.objectActions[?(@.key=='update')].implies[*]"))
@@ -168,45 +170,48 @@ class DataAccessIT {
         Member person = TestOrganizations.join(users, organization.tenant(), false);
         TestBrowser asPerson = as(organization, person);
         UUID profile = createProfile(admin, "profile-a");
-        Response saved = putMatrix(admin, PROFILES + "/" + profile, List.of("object-a=read,update"),
-                List.of("object-a.field-a=edit", "object-a.field-b=read"));
+        Response saved = putMatrix(admin, PROFILES + "/" + profile, List.of("ObjectA__c=read,update"),
+                List.of("ObjectA__c.fieldA__c=edit", "ObjectA__c.fieldB__c=read"));
         assertThat(saved.status()).as(saved.body()).isEqualTo(200);
         assertThat(JsonPath.<List<String>>read(saved.body(), "$.data.objects[0].actions[*]"))
                 .containsExactly("read", "update");
 
-        assertThat(can(organization, person.membership(), "object-a", ObjectAction.READ).allowed())
+        assertThat(can(organization, person.membership(), "ObjectA__c", ObjectAction.READ).allowed())
                 .as("not their profile yet").isFalse();
         assertThat(setProfile(admin, person.membership(), profile).status()).isEqualTo(204);
 
-        assertThat(can(organization, person.membership(), "object-a", ObjectAction.READ).allowed()).isTrue();
-        assertThat(can(organization, person.membership(), "object-a", ObjectAction.UPDATE).allowed()).isTrue();
-        assertThat(can(organization, person.membership(), "object-a", ObjectAction.DELETE).allowed()).isFalse();
-        assertThat(can(organization, person.membership(), "object-b", ObjectAction.READ).allowed()).isFalse();
-        assertThat(can(organization, person.membership(), "object-a", "field-a", FieldAction.EDIT).allowed()).isTrue();
-        assertThat(can(organization, person.membership(), "object-a", "field-a", FieldAction.READ).allowed()).isTrue();
-        assertThat(can(organization, person.membership(), "object-a", "field-b", FieldAction.READ).allowed()).isTrue();
-        assertThat(can(organization, person.membership(), "object-a", "field-b", FieldAction.EDIT).allowed())
+        assertThat(can(organization, person.membership(), "ObjectA__c", ObjectAction.READ).allowed()).isTrue();
+        assertThat(can(organization, person.membership(), "ObjectA__c", ObjectAction.UPDATE).allowed()).isTrue();
+        assertThat(can(organization, person.membership(), "ObjectA__c", ObjectAction.DELETE).allowed()).isFalse();
+        assertThat(can(organization, person.membership(), "ObjectB__c", ObjectAction.READ).allowed()).isFalse();
+        assertThat(can(organization, person.membership(), "ObjectA__c", "fieldA__c", FieldAction.EDIT).allowed())
+                .isTrue();
+        assertThat(can(organization, person.membership(), "ObjectA__c", "fieldA__c", FieldAction.READ).allowed())
+                .isTrue();
+        assertThat(can(organization, person.membership(), "ObjectA__c", "fieldB__c", FieldAction.READ).allowed())
+                .isTrue();
+        assertThat(can(organization, person.membership(), "ObjectA__c", "fieldB__c", FieldAction.EDIT).allowed())
                 .isFalse();
-        assertThat(can(organization, person.membership(), "object-a", "field-c", FieldAction.READ).allowed())
+        assertThat(can(organization, person.membership(), "ObjectA__c", "fieldC__c", FieldAction.READ).allowed())
                 .as("no permission for this field").isFalse();
         Response mine = asPerson.get(MINE);
         assertThat(mine.status()).isEqualTo(200);
         assertThat(JsonPath.<List<String>>read(mine.body(), "$.data.objects[0].actions[*]"))
                 .as("what they may do, implied actions written out").containsExactly("read", "update");
         assertThat(JsonPath.<List<String>>read(mine.body(), "$.data.fields[*].key"))
-                .containsExactly("object-a.field-a", "object-a.field-b");
+                .containsExactly("ObjectA__c.fieldA__c", "ObjectA__c.fieldB__c");
 
         // Licence, permission and entitlement change independently: without the licence the profile gives nothing,
         // with it again everything is back, and the matrix itself was never touched.
         assertThat(admin.request("DELETE", MEMBERS + "/" + person.membership() + "/licence", null).status())
                 .isEqualTo(204);
-        assertThat(can(organization, person.membership(), "object-a", ObjectAction.READ).allowed()).isFalse();
+        assertThat(can(organization, person.membership(), "ObjectA__c", ObjectAction.READ).allowed()).isFalse();
         assertThat(JsonPath.<List<String>>read(asPerson.get(MINE).body(), "$.data.objects[*]")).isEmpty();
         assertThat(JsonPath.<List<String>>read(admin.get(PROFILES + "/" + profile + "/data-access").body(),
                 "$.data.objects[0].actions[*]")).containsExactly("read", "update");
         assertThat(admin.request("PUT", MEMBERS + "/" + person.membership() + "/licence", null).status())
                 .isEqualTo(204);
-        assertThat(can(organization, person.membership(), "object-a", ObjectAction.READ).allowed()).isTrue();
+        assertThat(can(organization, person.membership(), "ObjectA__c", ObjectAction.READ).allowed()).isTrue();
     }
 
     @Test
@@ -216,17 +221,18 @@ class DataAccessIT {
         Member person = TestOrganizations.join(users, organization.tenant(), false);
         UUID profile = createProfile(admin, "profile-a");
         setProfile(admin, person.membership(), profile);
-        putMatrix(admin, PROFILES + "/" + profile, List.of("object-a=delete", "object-b=read"),
-                List.of("object-a.field-a=read"));
-        assertThat(can(organization, person.membership(), "object-b", ObjectAction.READ).allowed()).isTrue();
+        putMatrix(admin, PROFILES + "/" + profile, List.of("ObjectA__c=delete", "ObjectB__c=read"),
+                List.of("ObjectA__c.fieldA__c=read"));
+        assertThat(can(organization, person.membership(), "ObjectB__c", ObjectAction.READ).allowed()).isTrue();
 
-        Response second = putMatrix(admin, PROFILES + "/" + profile, List.of("object-a=read", "object-b="), List.of());
+        Response second = putMatrix(admin, PROFILES + "/" + profile, List.of("ObjectA__c=read", "ObjectB__c="),
+                List.of());
 
         assertThat(second.status()).isEqualTo(200);
-        assertThat(JsonPath.<List<String>>read(second.body(), "$.data.objects[*].key")).containsExactly("object-a");
-        assertThat(can(organization, person.membership(), "object-b", ObjectAction.READ).allowed()).isFalse();
-        assertThat(can(organization, person.membership(), "object-a", ObjectAction.DELETE).allowed()).isFalse();
-        assertThat(can(organization, person.membership(), "object-a", "field-a", FieldAction.READ).allowed())
+        assertThat(JsonPath.<List<String>>read(second.body(), "$.data.objects[*].key")).containsExactly("ObjectA__c");
+        assertThat(can(organization, person.membership(), "ObjectB__c", ObjectAction.READ).allowed()).isFalse();
+        assertThat(can(organization, person.membership(), "ObjectA__c", ObjectAction.DELETE).allowed()).isFalse();
+        assertThat(can(organization, person.membership(), "ObjectA__c", "fieldA__c", FieldAction.READ).allowed())
                 .isFalse();
         assertThat(IdentityDb.auditOfType("access.data.changed"))
                 .anyMatch(record -> organization.id().value().equals(record.tenantId()));
@@ -241,44 +247,44 @@ class DataAccessIT {
         Member person = TestOrganizations.join(users, organization.tenant(), false);
         UUID profile = createProfile(admin, "profile-a");
         setProfile(admin, person.membership(), profile);
-        putMatrix(admin, PROFILES + "/" + profile, List.of("object-a=read"), List.of());
+        putMatrix(admin, PROFILES + "/" + profile, List.of("ObjectA__c=read"), List.of());
         UUID policy = createPolicy(admin, "policy-a");
-        putMatrix(admin, POLICIES + "/" + policy, List.of("object-b=update"), List.of("object-b.field-a=edit"));
+        putMatrix(admin, POLICIES + "/" + policy, List.of("ObjectB__c=update"), List.of("ObjectB__c.fieldA__c=edit"));
         UUID groupPolicy = createPolicy(admin, "policy-b");
-        putMatrix(admin, POLICIES + "/" + groupPolicy, List.of("object-a=delete"), List.of());
+        putMatrix(admin, POLICIES + "/" + groupPolicy, List.of("ObjectA__c=delete"), List.of());
         UUID group = idOf(admin.postJson(GROUPS, "{\"name\":\"group-a\"}"));
 
-        assertThat(can(organization, person.membership(), "object-b", ObjectAction.UPDATE).allowed()).isFalse();
+        assertThat(can(organization, person.membership(), "ObjectB__c", ObjectAction.UPDATE).allowed()).isFalse();
         admin.postJson(MEMBERS + "/" + person.membership() + "/policies", "{\"policyId\":\"" + policy + "\"}");
-        assertThat(can(organization, person.membership(), "object-b", ObjectAction.UPDATE).allowed()).isTrue();
-        assertThat(can(organization, person.membership(), "object-b", "field-a", FieldAction.EDIT).allowed())
+        assertThat(can(organization, person.membership(), "ObjectB__c", ObjectAction.UPDATE).allowed()).isTrue();
+        assertThat(can(organization, person.membership(), "ObjectB__c", "fieldA__c", FieldAction.EDIT).allowed())
                 .isTrue();
 
-        assertThat(can(organization, person.membership(), "object-a", ObjectAction.DELETE).allowed()).isFalse();
+        assertThat(can(organization, person.membership(), "ObjectA__c", ObjectAction.DELETE).allowed()).isFalse();
         admin.postJson(GROUPS + "/" + group + "/policies", "{\"policyId\":\"" + groupPolicy + "\"}");
         admin.postJson(GROUPS + "/" + group + "/members", "{\"membershipId\":\"" + person.membership() + "\"}");
-        assertThat(can(organization, person.membership(), "object-a", ObjectAction.DELETE).allowed())
+        assertThat(can(organization, person.membership(), "ObjectA__c", ObjectAction.DELETE).allowed())
                 .as("through the group").isTrue();
 
-        assertThat(can(organization, person.membership(), "object-a", ObjectAction.CREATE).allowed()).isFalse();
-        Response grant = putMatrix(admin, MEMBERS + "/" + person.membership(), List.of("object-a=create"),
+        assertThat(can(organization, person.membership(), "ObjectA__c", ObjectAction.CREATE).allowed()).isFalse();
+        Response grant = putMatrix(admin, MEMBERS + "/" + person.membership(), List.of("ObjectA__c=create"),
                 List.of());
         assertThat(grant.status()).isEqualTo(200);
-        assertThat(can(organization, person.membership(), "object-a", ObjectAction.CREATE).allowed())
+        assertThat(can(organization, person.membership(), "ObjectA__c", ObjectAction.CREATE).allowed())
                 .as("an individual grant").isTrue();
         Response effective = admin.get(MEMBERS + "/" + person.membership() + "/access");
         assertThat(JsonPath.<List<String>>read(effective.body(),
-                "$.data.data.objects[?(@.key=='object-a')].actions[*]"))
+                "$.data.data.objects[?(@.key=='ObjectA__c')].actions[*]"))
                 .containsExactly("read", "create", "delete");
 
         // Everything the person held through containers goes away with the containers, at once.
         admin.request("DELETE", GROUPS + "/" + group + "/members/people/" + person.membership(), null);
-        assertThat(can(organization, person.membership(), "object-a", ObjectAction.DELETE).allowed()).isFalse();
+        assertThat(can(organization, person.membership(), "ObjectA__c", ObjectAction.DELETE).allowed()).isFalse();
         admin.request("DELETE", MEMBERS + "/" + person.membership() + "/policies/" + policy, null);
-        assertThat(can(organization, person.membership(), "object-b", ObjectAction.UPDATE).allowed()).isFalse();
+        assertThat(can(organization, person.membership(), "ObjectB__c", ObjectAction.UPDATE).allowed()).isFalse();
         putMatrix(admin, MEMBERS + "/" + person.membership(), List.of(), List.of());
-        assertThat(can(organization, person.membership(), "object-a", ObjectAction.CREATE).allowed()).isFalse();
-        assertThat(can(organization, person.membership(), "object-a", ObjectAction.READ).allowed())
+        assertThat(can(organization, person.membership(), "ObjectA__c", ObjectAction.CREATE).allowed()).isFalse();
+        assertThat(can(organization, person.membership(), "ObjectA__c", ObjectAction.READ).allowed())
                 .as("the profile still gives its part").isTrue();
     }
 
@@ -289,16 +295,16 @@ class DataAccessIT {
         Member person = TestOrganizations.join(users, organization.tenant(), false);
         UUID profile = createProfile(admin, "profile-a");
         setProfile(admin, person.membership(), profile);
-        putMatrix(admin, PROFILES + "/" + profile, List.of("object-a=read"), List.of());
-        putMatrix(admin, MEMBERS + "/" + person.membership(), List.of("object-b=read"), List.of());
-        assertThat(can(organization, person.membership(), "object-a", ObjectAction.READ).allowed()).isTrue();
+        putMatrix(admin, PROFILES + "/" + profile, List.of("ObjectA__c=read"), List.of());
+        putMatrix(admin, MEMBERS + "/" + person.membership(), List.of("ObjectB__c=read"), List.of());
+        assertThat(can(organization, person.membership(), "ObjectA__c", ObjectAction.READ).allowed()).isTrue();
 
         assertThat(admin.postJson(MEMBERS + "/" + person.membership() + "/deactivate", "{}").status())
                 .isEqualTo(204);
 
-        assertThat(can(organization, person.membership(), "object-a", ObjectAction.READ).allowed()).isFalse();
-        assertThat(can(organization, person.membership(), "object-b", ObjectAction.READ).allowed()).isFalse();
-        assertThat(putMatrix(admin, MEMBERS + "/" + person.membership(), List.of("object-b=read"), List.of())
+        assertThat(can(organization, person.membership(), "ObjectA__c", ObjectAction.READ).allowed()).isFalse();
+        assertThat(can(organization, person.membership(), "ObjectB__c", ObjectAction.READ).allowed()).isFalse();
+        assertThat(putMatrix(admin, MEMBERS + "/" + person.membership(), List.of("ObjectB__c=read"), List.of())
                 .status()).as("no permission for a member who is not active").isEqualTo(409);
     }
 
@@ -312,16 +318,16 @@ class DataAccessIT {
 
         Response view = admin.get(PROFILES + "/" + administrator + "/data-access");
         assertThat(JsonPath.<Boolean>read(view.body(), "$.data.everything")).isTrue();
-        assertThat(putMatrix(admin, PROFILES + "/" + administrator, List.of("object-a=read"), List.of()).status())
+        assertThat(putMatrix(admin, PROFILES + "/" + administrator, List.of("ObjectA__c=read"), List.of()).status())
                 .isEqualTo(409);
         assertThat(JsonPath.<Boolean>read(admin.get(MINE).body(), "$.data.everything")).isTrue();
 
         for (ObjectAction action : ObjectAction.values()) {
-            assertThat(can(organization, membership, "object-a", action).allowed()).as(action.key()).isTrue();
+            assertThat(can(organization, membership, "ObjectA__c", action).allowed()).as(action.key()).isTrue();
             assertThat(can(organization, membership, "object-z", action).allowed()).as("unknown object").isFalse();
         }
-        assertThat(can(organization, membership, "object-a", "field-c", FieldAction.EDIT).allowed()).isTrue();
-        assertThat(can(organization, membership, "object-a", "field-z", FieldAction.READ).allowed())
+        assertThat(can(organization, membership, "ObjectA__c", "fieldC__c", FieldAction.EDIT).allowed()).isTrue();
+        assertThat(can(organization, membership, "ObjectA__c", "field-z", FieldAction.READ).allowed())
                 .as("unknown field").isFalse();
     }
 
@@ -332,18 +338,18 @@ class DataAccessIT {
         Member person = TestOrganizations.join(users, organization.tenant(), false);
         UUID profile = createProfile(admin, "profile-a");
         setProfile(admin, person.membership(), profile);
-        putMatrix(admin, PROFILES + "/" + profile, List.of("object-a=update"),
-                List.of("object-a.field-a=edit", "object-a.field-b=read"));
+        putMatrix(admin, PROFILES + "/" + profile, List.of("ObjectA__c=update"),
+                List.of("ObjectA__c.fieldA__c=edit", "ObjectA__c.fieldB__c=read"));
 
         ObjectAccess access = contexts.call(TenantContext.of(organization.id()),
-                () -> decisions.accessTo(person.membership(), "object-a"));
+                () -> decisions.accessTo(person.membership(), "ObjectA__c"));
         java.util.Map<String, ObjectAccess> all = contexts.call(TenantContext.of(organization.id()),
                 () -> decisions.accessToAll(person.membership()));
 
         assertThat(access.actions()).containsExactlyInAnyOrder(ObjectAction.READ, ObjectAction.UPDATE);
-        assertThat(access.readableFields()).containsExactlyInAnyOrder("field-a", "field-b");
-        assertThat(access.editableFields()).containsExactly("field-a");
-        assertThat(all.keySet()).containsExactly("object-a");
+        assertThat(access.readableFields()).containsExactlyInAnyOrder("fieldA__c", "fieldB__c");
+        assertThat(access.editableFields()).containsExactly("fieldA__c");
+        assertThat(all.keySet()).containsExactly("ObjectA__c");
         assertThat(contexts.call(TenantContext.of(organization.id()),
                 () -> decisions.accessTo(person.membership(), "object-z"))).isEqualTo(ObjectAccess.none("object-z"));
     }
@@ -357,14 +363,14 @@ class DataAccessIT {
         String path = PROFILES + "/" + profile;
 
         assertThat(putMatrix(admin, path, List.of("object-z=read"), List.of()).status()).isEqualTo(400);
-        assertThat(putMatrix(admin, path, List.of("object-a=fly"), List.of()).status()).isEqualTo(400);
-        assertThat(putMatrix(admin, path, List.of(), List.of("object-a.field-z=read")).status()).isEqualTo(400);
-        assertThat(putMatrix(admin, path, List.of(), List.of("object-a=read")).status()).as("not a field key")
+        assertThat(putMatrix(admin, path, List.of("ObjectA__c=fly"), List.of()).status()).isEqualTo(400);
+        assertThat(putMatrix(admin, path, List.of(), List.of("ObjectA__c.field-z=read")).status()).isEqualTo(400);
+        assertThat(putMatrix(admin, path, List.of(), List.of("ObjectA__c=read")).status()).as("not a field key")
                 .isEqualTo(400);
-        assertThat(putMatrix(admin, path, List.of(), List.of("object-a.field-a=modify-all")).status())
+        assertThat(putMatrix(admin, path, List.of(), List.of("ObjectA__c.fieldA__c=modify-all")).status())
                 .as("an object action on a field").isEqualTo(400);
         assertThat(admin.request("PUT", path + "/data-access", "{}").status()).isEqualTo(400);
-        assertThat(putMatrix(admin, path, List.of("object-a=read"), List.of()).status()).isEqualTo(200);
+        assertThat(putMatrix(admin, path, List.of("ObjectA__c=read"), List.of()).status()).isEqualTo(200);
     }
 
     // ---- authorization ----
@@ -379,7 +385,7 @@ class DataAccessIT {
         setProfile(admin, person.membership(), profile);
         UUID policy = createPolicy(admin, "policy-a");
         TestBrowser asPerson = as(organization, person);
-        String body = matrix(List.of("object-a=read"), List.of());
+        String body = matrix(List.of("ObjectA__c=read"), List.of());
 
         List<Response> denied = List.of(
                 asPerson.get(CATALOGUE),
@@ -402,11 +408,11 @@ class DataAccessIT {
         Member inviter = TestOrganizations.join(users, organization.tenant(), false);
         UUID inviterProfile = createProfile(admin, "profile-a", "members.invite");
         setProfile(admin, inviter.membership(), inviterProfile);
-        putMatrix(admin, PROFILES + "/" + inviterProfile, List.of("object-a=read"), List.of());
+        putMatrix(admin, PROFILES + "/" + inviterProfile, List.of("ObjectA__c=read"), List.of());
         UUID bigger = createProfile(admin, "profile-b");
-        putMatrix(admin, PROFILES + "/" + bigger, List.of("object-a=read", "object-b=delete"), List.of());
+        putMatrix(admin, PROFILES + "/" + bigger, List.of("ObjectA__c=read", "ObjectB__c=delete"), List.of());
         UUID same = createProfile(admin, "profile-c");
-        putMatrix(admin, PROFILES + "/" + same, List.of("object-a=read"), List.of());
+        putMatrix(admin, PROFILES + "/" + same, List.of("ObjectA__c=read"), List.of());
         TestBrowser asInviter = as(organization, inviter);
 
         Response refused = asInviter.postJson("/api/v1/invitations", "{\"email\":\"person-a@example.test\","
@@ -431,7 +437,7 @@ class DataAccessIT {
             assertThat(onPlatform.get(path).status()).as(path).isEqualTo(404);
         }
         assertThat(onPlatform.request("PUT", PROFILES + "/" + profile + "/data-access",
-                matrix(List.of("object-a=read"), List.of())).status()).isEqualTo(404);
+                matrix(List.of("ObjectA__c=read"), List.of())).status()).isEqualTo(404);
     }
 
     @Test
@@ -443,7 +449,7 @@ class DataAccessIT {
         UUID theirProfile = createProfile(theirAdmin, "profile-a");
         UUID theirPolicy = createPolicy(theirAdmin, "policy-a");
         Member theirMember = TestOrganizations.join(users, theirs.tenant(), false);
-        String body = matrix(List.of("object-a=read"), List.of());
+        String body = matrix(List.of("ObjectA__c=read"), List.of());
 
         assertThat(admin.get(PROFILES + "/" + theirProfile + "/data-access").status()).isEqualTo(404);
         assertThat(admin.request("PUT", PROFILES + "/" + theirProfile + "/data-access", body).status())
@@ -454,7 +460,7 @@ class DataAccessIT {
         assertThat(admin.get(MEMBERS + "/" + theirMember.membership() + "/data-access").status()).isEqualTo(404);
         assertThat(admin.request("PUT", MEMBERS + "/" + theirMember.membership() + "/data-access", body).status())
                 .isEqualTo(404);
-        assertThat(can(mine, theirMember.membership(), "object-a", ObjectAction.READ).allowed())
+        assertThat(can(mine, theirMember.membership(), "ObjectA__c", ObjectAction.READ).allowed())
                 .as("a member of another organization is nobody here").isFalse();
     }
 
@@ -474,9 +480,9 @@ class DataAccessIT {
             assertThat(strip(withHeaders.body())).as(path).isEqualTo(strip(plain.body()));
         }
         assertThat(admin.request("PUT", PROFILES + "/" + profile + "/data-access",
-                matrix(List.of("object-a=read"), List.of()), forged).status()).isEqualTo(200);
+                matrix(List.of("ObjectA__c=read"), List.of()), forged).status()).isEqualTo(200);
         assertThat(JsonPath.<List<String>>read(admin.get(PROFILES + "/" + profile + "/data-access").body(),
-                "$.data.objects[*].key")).containsExactly("object-a");
+                "$.data.objects[*].key")).containsExactly("ObjectA__c");
     }
 
     private static String strip(String body) {
