@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { COMMON_TEXT } from "@/components/account/messages";
 import { ActionMessages, failureText, useAction } from "@/components/console/useAction";
 import { api } from "@/lib/api/client";
@@ -28,10 +28,18 @@ export function ChangeSetsPanel() {
   const [report, setReport] = useState<Report | undefined>();
   const [draft, setDraft] = useState({ name: "", description: "" });
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // reload() is called from several places (on mount, and after every action) and these calls can overlap; a slow
+  // one that started earlier must never overwrite what a later one found. Each call takes a ticket, and only the
+  // call holding the newest ticket when it finishes is allowed to apply what it read.
+  const latestRequest = useRef(0);
 
   const reload = useCallback(async () => {
+    const ticket = ++latestRequest.current;
     try {
       const list = await api.GET("/api/v1/metadata/change-sets");
+      if (ticket !== latestRequest.current) {
+        return;
+      }
       if (!list.data) {
         setFailure(await failureText(list.error, list.response));
         return;
@@ -41,13 +49,18 @@ export function ChangeSetsPanel() {
       const id = chosen ?? list.data.data[0]?.id;
       if (id && list.data.data.some((set) => set.id === id)) {
         const one = await api.GET("/api/v1/metadata/change-sets/{id}", { params: { path: { id } } });
+        if (ticket !== latestRequest.current) {
+          return;
+        }
         setDetail(one.data?.data);
         setChosen(id);
       } else {
         setDetail(undefined);
       }
     } catch {
-      setFailure(COMMON_TEXT.network);
+      if (ticket === latestRequest.current) {
+        setFailure(COMMON_TEXT.network);
+      }
     }
   }, [chosen]);
 

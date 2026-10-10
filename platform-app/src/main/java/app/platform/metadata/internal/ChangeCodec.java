@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Turns the request of the API into a stored {@link Change} and back (ADR-0066), and builds the changes that undo an
@@ -92,6 +93,36 @@ final class ChangeCodec {
 
     <T> T read(Change change, Class<T> type) {
         return json.readValue(change.payload(), type);
+    }
+
+    /** The version a restoring change (an update that puts values back) expects to find on the thing it restores. */
+    long expectedVersion(Change restoring) {
+        return json.readTree(restoring.payload()).path("version").longValue();
+    }
+
+    /** What a restoring change is about, as a key: its kind, object and item. */
+    static String restoreKey(Change restoring) {
+        return restoring.kind() + "|" + restoring.object() + "|" + restoring.item();
+    }
+
+    /** The key of the restoring change that would act on the thing this creation makes again. */
+    String restoreKeyOfCreation(Change creation) {
+        String name = json.readTree(creation.payload()).path("name").asString();
+        return switch (creation.kind()) {
+            case CREATE_OBJECT -> restoreKey(new Change(Change.Kind.UPDATE_OBJECT, creation.object(), null, EMPTY));
+            case CREATE_FIELD -> restoreKey(new Change(Change.Kind.UPDATE_FIELD, creation.object(),
+                    withSuffix(name), EMPTY));
+            case CREATE_RECORD_TYPE -> restoreKey(new Change(Change.Kind.UPDATE_RECORD_TYPE, creation.object(),
+                    withSuffix(name), EMPTY));
+            default -> throw new IllegalArgumentException("Not a creation: " + creation.kind());
+        };
+    }
+
+    /** The same restoring change, expecting another version. */
+    Change expecting(Change restoring, long version) {
+        ObjectNode request = (ObjectNode) json.readTree(restoring.payload());
+        request.put("version", version);
+        return new Change(restoring.kind(), restoring.object(), restoring.item(), json.writeValueAsString(request));
     }
 
     /** The stored form of a list of changes (the undo list of a release). */
@@ -177,6 +208,11 @@ final class ChangeCodec {
 
     private static List<String> fieldsToSend(RecordTypeView view) {
         return view.allFields() ? null : view.availableFields();
+    }
+
+    /** The API name of something made again from a stored request, whose name never carries the suffix. */
+    private static String withSuffix(String name) {
+        return name.endsWith(NameRules.CUSTOM_SUFFIX) ? name : name + NameRules.CUSTOM_SUFFIX;
     }
 
     private static String withoutSuffix(String apiName) {
