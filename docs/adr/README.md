@@ -87,3 +87,4 @@ A decision that is still open has status **Proposed** and names the gate or spri
 | [0079](0079-checking-and-trying-expressions-without-records.md) | Checking and trying expressions without records | Accepted | — |
 | [0080](0080-the-metadata-runtime-compiled-artefacts-and-the-publish-event.md) | The metadata runtime, compiled artefacts and the publish event | Accepted | delivery plan: "invalidation" is the version in the database; the event warms the instance that claims it |
 | [0081](0081-security-review-of-the-expression-engine.md) | Security review of the expression engine | Accepted | — |
+| [0082](0082-storage-benchmark-specification-gate-g1.md) | Storage benchmark specification and pass/fail thresholds (gate G1) | Draft | delivery plan S14 thresholds kept; join, bloat and degradation thresholds added before any run |
