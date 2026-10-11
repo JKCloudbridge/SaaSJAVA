@@ -13,6 +13,8 @@ import app.platformapi.ObjectView;
 import app.platformapi.ProblemView;
 import app.platformapi.ReleaseItemView;
 import app.platformapi.ReleaseView;
+import app.platform.sharedkernel.events.EventPublisher;
+import app.platform.sharedkernel.events.NewEvent;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -81,12 +83,14 @@ class MetadataLifecycle {
     private final MetadataProperties properties;
     private final List<DependencyGraph.Contributor> contributors;
     private final ObjectProvider<ObjectUsage> usage;
+    private final EventPublisher events;
     private final TransactionTemplate nested;
 
     MetadataLifecycle(LifecycleStore store, ChangeApplier applier, ChangeCodec codec, MetadataCatalogue catalogue,
             MetadataService metadata, MetadataAudit audit, MetadataProperties properties,
             List<DependencyGraph.Contributor> contributors, ObjectProvider<ObjectUsage> usage,
-            PlatformTransactionManager transactions) {
+            EventPublisher events, PlatformTransactionManager transactions) {
+        this.events = events;
         this.store = store;
         this.applier = applier;
         this.codec = codec;
@@ -387,8 +391,13 @@ class MetadataLifecycle {
     private long writeRelease(Caller caller, String kind, UUID changeSet, Long undoes, List<ReleaseItemView> items,
             List<Change> undo) {
         long number = store.nextReleaseNumber();
-        store.insertRelease(number, kind, changeSet, undoes, codec.write(items), codec.writeChanges(undo),
-                store.currentMetadataVersion(), caller.userId());
+        long version = store.currentMetadataVersion();
+        store.insertRelease(number, kind, changeSet, undoes, codec.write(items), codec.writeChanges(undo), version,
+                caller.userId());
+        // The event exists if and only if the release committed (the outbox, ADR-0016). It carries numbers only: the
+        // tenant is the one of the transaction, and what changed is read from the database, never from the event.
+        events.publish(new NewEvent(MetadataWarmer.EVENT_TYPE, "{\"release\":" + number + ",\"version\":" + version
+                + "}"));
         if (!kind.equals("ROLLBACK")) {
             audit.released(caller.userId(), number, kind, changeSet, items.size());
         }

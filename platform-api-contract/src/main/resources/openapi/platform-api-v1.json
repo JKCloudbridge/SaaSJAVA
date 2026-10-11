@@ -2658,6 +2658,116 @@
         "tags" : [ "Metadata" ]
       }
     },
+    "/api/v1/metadata/expressions/check" : {
+      "post" : {
+        "description" : "Answers valid or not, and when not, where it is wrong (line and column) and what kind of problem it is; when valid, the type it gives and the fields it uses. A formula may also name the type it must give. Nothing is stored and nothing is logged. Needs metadata.view and either metadata.manage or metadata.publish.",
+        "operationId" : "checkExpression",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CheckExpressionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseExpressionCheckView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Is this expression valid for an object?",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/expressions/functions" : {
+      "get" : {
+        "description" : "The fixed list: no function can be added by an organization. For members who may view objects and fields.",
+        "operationId" : "listExpressionFunctions",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListFunctionView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The functions of the expression language",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/expressions/test" : {
+      "post" : {
+        "description" : "Answers what a formula would give (VALUE) or what a rule would do (REJECTED or PASSED), or ERROR with the place when the evaluation itself fails. There are no records yet, so the values are typed as text for the type of each field. Nothing is stored and nothing is logged. Needs metadata.view and either metadata.manage or metadata.publish.",
+        "operationId" : "testExpression",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TestExpressionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseExpressionTestView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Try an expression that is not stored yet on sample values",
+        "tags" : [ "Metadata" ]
+      }
+    },
     "/api/v1/metadata/field-types" : {
       "get" : {
         "description" : "With the settings each type takes and the constraints it allows. For members who may view objects and fields. NOT_FOUND on the platform host, FORBIDDEN without the ability.",
@@ -2685,6 +2795,36 @@
           }
         },
         "summary" : "The field types an organization can choose from",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/formula-report" : {
+      "get" : {
+        "description" : "Formulas saved before formulas were checked keep their text and are listed here with the place that is wrong; nothing is removed and they cannot be saved again until fixed. For members who may view objects and fields.",
+        "operationId" : "listInvalidStoredFormulas",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListFormulaReportItemView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The stored formulas that do not pass the expression language",
         "tags" : [ "Metadata" ]
       }
     },
@@ -3005,6 +3145,61 @@
           }
         },
         "summary" : "Change a custom field",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/fields/{fieldApiName}/test" : {
+      "post" : {
+        "description" : "Answers what the formula would give for a record with these values (VALUE), or ERROR with the place. VALIDATION_ERROR when the field is not a formula. Nothing is stored and nothing is logged. Needs metadata.view and either metadata.manage or metadata.publish.",
+        "operationId" : "testFormulaField",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "fieldApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TestValuesRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseExpressionTestView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Try a formula field on sample values",
         "tags" : [ "Metadata" ]
       }
     },
@@ -3968,6 +4163,279 @@
           }
         },
         "summary" : "The relationships of an object, in both directions",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/validation-rules" : {
+      "get" : {
+        "description" : "For members who may view objects and fields. NOT_FOUND for an object the organization does not have.",
+        "operationId" : "listValidationRules",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListValidationRuleView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The validation rules of an object",
+        "tags" : [ "Metadata" ]
+      },
+      "post" : {
+        "description" : "Live at once, as a release of one change. The name is turned into the permanent API name with the ending __c. The condition is in the expression language and is true when the record must be REJECTED; a blank answer does not reject. It is parsed here (a VALIDATION_ERROR names the place); whether its fields exist and whether it gives true or false is checked after the change, and a CONFLICT names what is wrong. CONFLICT for an object whose records belong to the platform, at the limit, or when the result would break a dependency. Audited by name and counts, never by the text.",
+        "operationId" : "createValidationRule",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateValidationRuleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseValidationRuleView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Add a validation rule to an object",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/validation-rules/{ruleApiName}" : {
+      "delete" : {
+        "description" : "Live at once, as a release of one change. The undo of the release makes it again.",
+        "operationId" : "deleteValidationRule",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "ruleApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a validation rule",
+        "tags" : [ "Metadata" ]
+      },
+      "get" : {
+        "description" : "NOT_FOUND for a rule the object does not have.",
+        "operationId" : "getValidationRule",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "ruleApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseValidationRuleView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One validation rule",
+        "tags" : [ "Metadata" ]
+      },
+      "put" : {
+        "description" : "Live at once, as a release of one change. The API name and the object never change. The condition is in the expression language and is true when the record must be REJECTED; a blank answer does not reject. It is parsed here (a VALIDATION_ERROR names the place); whether its fields exist and whether it gives true or false is checked after the change, and a CONFLICT names what is wrong. CONCURRENT_MODIFICATION when someone changed it since it was read.",
+        "operationId" : "updateValidationRule",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "ruleApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateValidationRuleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseValidationRuleView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change a validation rule",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/validation-rules/{ruleApiName}/test" : {
+      "post" : {
+        "description" : "Answers what would happen to a record with these values: REJECTED with the message of the rule, PASSED, or ERROR with the place when the evaluation itself fails (for example a division by zero). There are no records yet, so the values are typed as text for the type of each field. Nothing is stored and nothing is logged. Needs metadata.view and either metadata.manage or metadata.publish.",
+        "operationId" : "testValidationRule",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "ruleApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TestValuesRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseExpressionTestView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Try a validation rule on sample values",
         "tags" : [ "Metadata" ]
       }
     },
@@ -6208,6 +6676,24 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseExpressionCheckView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ExpressionCheckView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseExpressionTestView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ExpressionTestView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseFieldView" : {
         "type" : "object",
         "properties" : {
@@ -6347,6 +6833,30 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/FieldTypeView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListFormulaReportItemView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FormulaReportItemView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListFunctionView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FunctionView"
             }
           }
         },
@@ -6580,6 +7090,18 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListValidationRuleView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ValidationRuleView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseMemberAccessView" : {
         "type" : "object",
         "properties" : {
@@ -6729,6 +7251,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/TenantSummary"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseValidationRuleView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ValidationRuleView"
           }
         },
         "required" : [ "data" ]
@@ -6925,6 +7456,9 @@
           "createRecordType" : {
             "$ref" : "#/components/schemas/CreateRecordTypeRequest"
           },
+          "createValidationRule" : {
+            "$ref" : "#/components/schemas/CreateValidationRuleRequest"
+          },
           "itemApiName" : {
             "type" : "string",
             "maxLength" : 60,
@@ -6960,6 +7494,9 @@
           },
           "updateRecordType" : {
             "$ref" : "#/components/schemas/UpdateRecordTypeRequest"
+          },
+          "updateValidationRule" : {
+            "$ref" : "#/components/schemas/UpdateValidationRuleRequest"
           }
         },
         "required" : [ "kind" ]
@@ -7081,6 +7618,32 @@
           }
         },
         "required" : [ "id", "kind", "objectApiName", "position" ]
+      },
+      "CheckExpressionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expression" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "objectApiName" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "purpose" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "resultType" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "expression", "objectApiName", "purpose" ]
       },
       "CompleteSignUpRequest" : {
         "type" : "object",
@@ -7354,6 +7917,45 @@
         },
         "required" : [ "label", "name" ]
       },
+      "CreateValidationRuleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "errorField" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "errorMessage" : {
+            "type" : "string",
+            "maxLength" : 255,
+            "minLength" : 0
+          },
+          "expression" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "errorMessage", "expression", "label", "name" ]
+      },
       "CurrentUser" : {
         "type" : "object",
         "properties" : {
@@ -7500,6 +8102,71 @@
         "description" : "Stable machine-readable error code. Branch on this, never on the message.",
         "enum" : [ "VALIDATION_ERROR", "MALFORMED_REQUEST", "UNAUTHENTICATED", "FORBIDDEN", "NOT_FOUND", "METHOD_NOT_ALLOWED", "NOT_ACCEPTABLE", "CONFLICT", "CONCURRENT_MODIFICATION", "PAYLOAD_TOO_LARGE", "UNSUPPORTED_MEDIA_TYPE", "RATE_LIMITED", "INTERNAL_ERROR", "SERVICE_UNAVAILABLE", "TENANT_UNAVAILABLE" ]
       },
+      "ExpressionCheckView" : {
+        "type" : "object",
+        "properties" : {
+          "fields" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "problem" : {
+            "$ref" : "#/components/schemas/ExpressionProblemView"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "usesClock" : {
+            "type" : "boolean"
+          },
+          "valid" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "fields", "usesClock", "valid" ]
+      },
+      "ExpressionProblemView" : {
+        "type" : "object",
+        "properties" : {
+          "column" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "line" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "kind", "message" ]
+      },
+      "ExpressionTestView" : {
+        "type" : "object",
+        "properties" : {
+          "message" : {
+            "type" : "string"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "problem" : {
+            "$ref" : "#/components/schemas/ExpressionProblemView"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "outcome" ]
+      },
       "FieldNameShape" : {
         "type" : "string",
         "description" : "The API name of a field.",
@@ -7632,6 +8299,9 @@
           "label" : {
             "type" : "string"
           },
+          "problem" : {
+            "type" : "string"
+          },
           "required" : {
             "type" : "boolean"
           },
@@ -7696,6 +8366,39 @@
           }
         },
         "required" : [ "email" ]
+      },
+      "FormulaReportItemView" : {
+        "type" : "object",
+        "properties" : {
+          "fieldApiName" : {
+            "type" : "string"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "problem" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "fieldApiName", "objectApiName", "problem" ]
+      },
+      "FunctionView" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "rulesOnly" : {
+            "type" : "boolean"
+          },
+          "signature" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "description", "name", "rulesOnly", "signature" ]
       },
       "GrantAbilityRequest" : {
         "type" : "object",
@@ -9644,6 +10347,44 @@
         },
         "required" : [ "displayName", "slug" ]
       },
+      "TestExpressionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expression" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "objectApiName" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "purpose" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "values" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }
+        },
+        "required" : [ "expression", "objectApiName", "purpose" ]
+      },
+      "TestValuesRequest" : {
+        "type" : "object",
+        "properties" : {
+          "values" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
       "UpdateApplicationRequest" : {
         "type" : "object",
         "properties" : {
@@ -9835,6 +10576,78 @@
           }
         },
         "required" : [ "label", "version" ]
+      },
+      "UpdateValidationRuleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "errorField" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "errorMessage" : {
+            "type" : "string",
+            "maxLength" : 255,
+            "minLength" : 0
+          },
+          "expression" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "active", "errorMessage", "expression", "label", "version" ]
+      },
+      "ValidationRuleView" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "apiName" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "errorField" : {
+            "type" : "string"
+          },
+          "errorMessage" : {
+            "type" : "string"
+          },
+          "expression" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "active", "apiName", "description", "errorMessage", "expression", "label", "objectApiName", "version" ]
       },
       "VisibilityInner" : {
         "type" : "object",

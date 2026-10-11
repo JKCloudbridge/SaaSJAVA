@@ -14,6 +14,7 @@ import { LayoutsPanel } from "./LayoutsPanel";
 import { RecordPagesPanel } from "./RecordPagesPanel";
 import { RecordTypesPanel } from "./RecordTypesPanel";
 import { RelationshipsPanel } from "./RelationshipsPanel";
+import { ValidationRulesPanel } from "./ValidationRulesPanel";
 import { addToSet, DRAFTED_TEXT, useWorkingSet } from "./workingSet";
 
 type ObjectView = components["schemas"]["ObjectView"];
@@ -243,6 +244,11 @@ export function ObjectDetailPanel() {
                     .filter(Boolean)
                     .join("; ")}
                   {field.defaultValue ? <div className="hint">default {field.defaultValue}</div> : null}
+                  {field.problem ? (
+                    <div className="form-message" role="note" data-testid="formula-problem">
+                      This formula is not valid, so it is not calculated. {field.problem}
+                    </div>
+                  ) : null}
                 </td>
                 <td>
                   {field.editable ? (
@@ -271,6 +277,7 @@ export function ObjectDetailPanel() {
             objects={objects}
             editing={editingField}
             busy={busy}
+            check={{ objectApiName, fields: object.fields }}
             onCancel={() => setEditingField(undefined)}
             onCreate={(body) =>
               void act(async () => {
@@ -324,6 +331,7 @@ export function ObjectDetailPanel() {
       <LayoutsPanel object={object} onChanged={reload} />
       <LayoutAssignmentsPanel object={object} refreshToken={refreshToken} />
       <RecordPagesPanel object={object} onChanged={reload} />
+      <ValidationRulesPanel object={object} onChanged={reload} />
     </div>
   );
 }

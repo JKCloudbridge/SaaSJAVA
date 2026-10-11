@@ -81,3 +81,9 @@ A decision that is still open has status **Proposed** and names the gate or spri
 | [0073](0073-applications-navigation-and-the-members-menu.md) | Applications, navigation and the member's menu | Accepted | — |
 | [0074](0074-definitions-the-version-counter-and-the-cache.md) | Definitions, the version counter and the cache; abilities | Accepted | — |
 | [0075](0075-the-setup-screens-and-the-rendering-proof-of-concept.md) | The setup screens for definitions and the rendering proof of concept | Accepted | — |
+| [0076](0076-the-expression-engine-and-its-language.md) | The expression engine and its language | Accepted | architecture notes 3 and 6: `=` not `==`, no `SUM`, the clock for rules only |
+| [0077](0077-formula-fields-are-checked-and-are-edges-of-the-graph.md) | Formula fields are checked and are edges of the dependency graph | Accepted | ADR-0060 point 8 and the deferral of Sprint 11 carried out |
+| [0078](0078-validation-rules.md) | Validation rules | Accepted | note 6 reads the condition the other way round (true holds); the requirements are followed |
+| [0079](0079-checking-and-trying-expressions-without-records.md) | Checking and trying expressions without records | Accepted | — |
+| [0080](0080-the-metadata-runtime-compiled-artefacts-and-the-publish-event.md) | The metadata runtime, compiled artefacts and the publish event | Accepted | delivery plan: "invalidation" is the version in the database; the event warms the instance that claims it |
+| [0081](0081-security-review-of-the-expression-engine.md) | Security review of the expression engine | Accepted | — |

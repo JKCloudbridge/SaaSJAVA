@@ -86,7 +86,7 @@ class MetadataFlowsLogsAreCleanIT {
                 + "\"settings\":{\"values\":[{\"value\":\"" + pickValue + "\",\"label\":\"" + pickLabel
                 + "\",\"active\":true}]}}");
         admin.postJson(OBJECTS + "/Ledger__c/fields", "{\"name\":\"total\",\"label\":\"Total\",\"type\":\"FORMULA\","
-                + "\"settings\":{\"expression\":\"" + formula + "\",\"resultType\":\"TEXT\"}}");
+                + "\"settings\":{\"expression\":\"'" + formula + "'\",\"resultType\":\"TEXT\"}}");
         admin.request("PUT", OBJECTS + "/Ledger__c/fields/note__c", "{\"label\":\"" + refusedLabel + "\","
                 + "\"description\":\"" + fieldDescription + "\",\"required\":true,\"unique\":false,"
                 + "\"defaultValue\":\"" + defaultValue + "\",\"settings\":{\"maxLength\":300},\"version\":0}");

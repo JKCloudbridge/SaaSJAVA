@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import type { components } from "@/lib/api/generated/schema";
+import { ExpressionCheck } from "./ExpressionCheck";
 import type { FieldTypeView, FieldView } from "./objectText";
 
 type CreateFieldRequest = components["schemas"]["CreateFieldRequest"];
@@ -148,6 +149,7 @@ export function FieldForm({
   objects,
   editing,
   busy,
+  check,
   onCreate,
   onUpdate,
   onCancel,
@@ -156,6 +158,8 @@ export function FieldForm({
   objects: ObjectSummary[];
   editing?: FieldView;
   busy: boolean;
+  /** Where a formula is checked: the object whose fields it may use. Without it the form offers no check. */
+  check?: { objectApiName: string; fields: FieldView[] };
   onCreate: (request: CreateFieldRequest) => void;
   onUpdate: (request: UpdateFieldRequest) => void;
   onCancel: () => void;
@@ -279,9 +283,20 @@ export function FieldForm({
               aria-describedby="field-expression-hint"
             />
             <p className="hint" id="field-expression-hint">
-              The formula is stored now and worked out in a later release.
+              Write the formula with the API names of fields of this object, for example quantity__c * unitPrice__c. It is
+              checked when it is saved; the values are worked out when records are saved, in a later release.
             </p>
           </div>
+          {check ? (
+            <ExpressionCheck
+              objectApiName={check.objectApiName}
+              expression={draft.expression}
+              purpose="FORMULA"
+              resultType={draft.resultType}
+              fields={check.fields}
+              testId="formula-check"
+            />
+          ) : null}
           <div className="field">
             <label htmlFor="field-result">Result</label>
             <select id="field-result" value={draft.resultType} onChange={(event) => set("resultType", event.target.value)}>

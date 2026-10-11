@@ -59,8 +59,23 @@ public sealed interface FieldConfiguration {
         }
     }
 
-    /** A formula: its text and the type of its result. Stored only; nothing is calculated before Sprint 13. */
-    record FormulaConfiguration(String expression, FieldType resultType) implements FieldConfiguration {
+    /**
+     * A formula: its text and the type of its result. Since Sprint 13 the text is in the expression language and is
+     * checked every time the field is saved (ADR-0077); the type of the result cannot change once the field exists.
+     *
+     * @param expression the formula text
+     * @param resultType what the formula gives
+     * @param verified whether the formula was saved under the checks of Sprint 13. A formula stored before that was
+     *        never parsed: it keeps working as stored text, is reported when it does not pass, and is checked for good
+     *        the next time it is saved
+     */
+    record FormulaConfiguration(String expression, FieldType resultType, boolean verified)
+            implements FieldConfiguration {
+
+        /** A formula that was not saved under the checks of Sprint 13 (a stored one, or one in a test). */
+        public FormulaConfiguration(String expression, FieldType resultType) {
+            this(expression, resultType, false);
+        }
 
         /** Prints the result type only: the expression is text a person typed (ADR-0012). */
         @Override

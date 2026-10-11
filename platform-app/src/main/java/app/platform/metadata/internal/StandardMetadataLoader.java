@@ -1,5 +1,7 @@
 package app.platform.metadata.internal;
 
+import app.platform.expression.ExpressionEngine;
+import app.platform.expression.Limits;
 import app.platform.metadata.DefinitionKind;
 import app.platform.metadata.FieldDefinition;
 import app.platform.metadata.FieldType;
@@ -44,6 +46,9 @@ final class StandardMetadataLoader {
     private static final Pattern FIELD_NAME = Pattern.compile("[a-z][A-Za-z0-9]{0,39}");
     private static final int MAX_FIELDS = 200;
     private static final int MAX_PICKLIST_VALUES = 1000;
+
+    /** Reads the text of a formula a definition file might hold; stateless, so one engine serves every read. */
+    private static final ExpressionEngine SYNTAX = new ExpressionEngine(Limits.standard());
 
     private static final Set<String> OBJECT_KEYS = Set.of("apiName", "label", "pluralLabel", "description",
             "managedBy", "extensible", "fields");
@@ -193,7 +198,7 @@ final class StandardMetadataLoader {
                     .orElseThrow(() -> new IllegalStateException(where + ": 'type' is not a field type"));
             FieldSettings settings = settings(node);
             FieldRules.Context context = new FieldRules.Context(objectNames::contains, objectApiName, true, 0,
-                    MAX_PICKLIST_VALUES);
+                    MAX_PICKLIST_VALUES, SYNTAX);
             FieldRules.Checked checked;
             try {
                 checked = FieldRules.check(type, node.flag("required", false), node.flag("unique", false),

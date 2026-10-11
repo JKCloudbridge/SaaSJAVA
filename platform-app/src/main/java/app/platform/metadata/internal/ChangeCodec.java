@@ -12,6 +12,7 @@ import app.platformapi.CreateLayoutRequest;
 import app.platformapi.CreateObjectRequest;
 import app.platformapi.CreateRecordPageRequest;
 import app.platformapi.CreateRecordTypeRequest;
+import app.platformapi.CreateValidationRuleRequest;
 import app.platformapi.FieldSettings;
 import app.platformapi.FieldView;
 import app.platformapi.LayoutAssignmentView;
@@ -27,6 +28,8 @@ import app.platformapi.UpdateLayoutRequest;
 import app.platformapi.UpdateObjectRequest;
 import app.platformapi.UpdateRecordPageRequest;
 import app.platformapi.UpdateRecordTypeRequest;
+import app.platformapi.UpdateValidationRuleRequest;
+import app.platformapi.ValidationRuleView;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -83,7 +86,12 @@ final class ChangeCodec {
             case UPDATE_OBJECT -> new Change(kind, object, null,
                     write(required(request.updateObject(), "updateObject", kind)));
             case DELETE_OBJECT, DELETE_FIELD, DELETE_RECORD_TYPE, DELETE_LAYOUT, DELETE_RECORD_PAGE,
-                    DELETE_APPLICATION, DELETE_LAYOUT_ASSIGNMENT -> new Change(kind, object, item, EMPTY);
+                    DELETE_APPLICATION, DELETE_LAYOUT_ASSIGNMENT, DELETE_VALIDATION_RULE ->
+                    new Change(kind, object, item, EMPTY);
+            case CREATE_VALIDATION_RULE -> new Change(kind, object, null,
+                    write(required(request.createValidationRule(), "createValidationRule", kind)));
+            case UPDATE_VALIDATION_RULE -> new Change(kind, object, item,
+                    write(required(request.updateValidationRule(), "updateValidationRule", kind)));
             case CREATE_FIELD -> new Change(kind, object, null,
                     write(required(request.createField(), "createField", kind)));
             case UPDATE_FIELD -> new Change(kind, object, item,
@@ -163,6 +171,8 @@ final class ChangeCodec {
                     withSuffix(name), EMPTY));
             case CREATE_LAYOUT_ASSIGNMENT -> restoreKey(new Change(Change.Kind.UPDATE_LAYOUT_ASSIGNMENT,
                     creation.object(), creation.item(), EMPTY));
+            case CREATE_VALIDATION_RULE -> restoreKey(new Change(Change.Kind.UPDATE_VALIDATION_RULE,
+                    creation.object(), withSuffix(name), EMPTY));
             default -> throw new IllegalArgumentException("Not a creation: " + creation.kind());
         };
     }
@@ -315,6 +325,24 @@ final class ChangeCodec {
     Change restoreAssignment(String object, LayoutAssignmentView before, long afterVersion) {
         return new Change(Change.Kind.UPDATE_LAYOUT_ASSIGNMENT, object, before.key(), write(
                 new UpdateLayoutAssignmentRequest(before.layout(), afterVersion)));
+    }
+
+    // ---- validation rules (Sprint 13) ----
+
+    Change removeValidationRule(String object, String rule) {
+        return new Change(Change.Kind.DELETE_VALIDATION_RULE, object, rule, EMPTY);
+    }
+
+    Change makeValidationRule(ValidationRuleView view) {
+        return new Change(Change.Kind.CREATE_VALIDATION_RULE, view.objectApiName(), null, write(
+                new CreateValidationRuleRequest(withoutSuffix(view.apiName()), view.label(), view.description(),
+                        view.expression(), view.errorMessage(), view.errorField(), view.active())));
+    }
+
+    Change restoreValidationRule(ValidationRuleView before, long afterVersion) {
+        return new Change(Change.Kind.UPDATE_VALIDATION_RULE, before.objectApiName(), before.apiName(), write(
+                new UpdateValidationRuleRequest(before.label(), before.description(), before.expression(),
+                        before.errorMessage(), before.errorField(), before.active(), afterVersion)));
     }
 
     private static List<String> fieldsToSend(RecordTypeView view) {

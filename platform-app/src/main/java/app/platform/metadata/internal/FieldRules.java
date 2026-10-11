@@ -1,5 +1,8 @@
 package app.platform.metadata.internal;
 
+import app.platform.expression.ExpressionEngine;
+import app.platform.expression.ExpressionException;
+import app.platform.expression.Purpose;
 import app.platform.metadata.DeleteBehaviour;
 import app.platform.metadata.FieldConfiguration;
 import app.platform.metadata.FieldConfiguration.AutoNumberConfiguration;
@@ -78,9 +81,10 @@ final class FieldRules {
      *        own definitions may; a custom field added to a standard object may not)
      * @param otherMasterDetails how many master-detail fields the owner already has besides this one
      * @param maxPicklistValues the most values a picklist may have
+     * @param engine the expression engine that reads the text of a formula (ADR-0077)
      */
     record Context(Predicate<String> targetExists, String ownerApiName, boolean masterDetailAllowed,
-            int otherMasterDetails, int maxPicklistValues) {
+            int otherMasterDetails, int maxPicklistValues, ExpressionEngine engine) {
     }
 
     /**
@@ -209,7 +213,7 @@ final class FieldRules {
             case BOOLEAN, DATE, DATETIME, TIME -> new NoConfiguration();
             case PICKLIST, MULTI_PICKLIST -> picklist(problems, s, context);
             case LOOKUP, MASTER_DETAIL -> reference(problems, type, s, context, required);
-            case FORMULA -> formula(problems, s);
+            case FORMULA -> formula(problems, s, context.engine());
             case AUTO_NUMBER -> autoNumber(problems, s);
         };
     }
@@ -322,12 +326,25 @@ final class FieldRules {
         return label;
     }
 
-    private static FieldConfiguration formula(Map<String, List<String>> problems, FieldSettings s) {
+    /**
+     * A formula is saved only when its text follows the grammar of the expression language and does not use what a
+     * formula may not (the clock): this is what can be told from the text alone. Whether the fields it names exist, and
+     * whether it gives the type it is declared to give, is the dependency graph's question after the change
+     * (ADR-0077). What this returns is {@code verified}: it was saved under these checks.
+     */
+    private static FieldConfiguration formula(Map<String, List<String>> problems, FieldSettings s,
+            ExpressionEngine engine) {
         String expression = s.expression() == null ? "" : s.expression().strip();
         if (expression.isEmpty() || expression.length() > FORMULA_MAX) {
             add(problems, "settings.expression", "Write the formula (up to " + FORMULA_MAX + " characters).");
         } else if (hasControlExceptLayout(expression)) {
             add(problems, "settings.expression", "A formula contains no control characters.");
+        } else {
+            try {
+                engine.checkUse(engine.parse(expression), Purpose.FORMULA);
+            } catch (ExpressionException problem) {
+                add(problems, "settings.expression", problem.getMessage());
+            }
         }
         FieldType result = FieldType.fromCode(s.resultType()).filter(FORMULA_RESULTS::contains).orElse(null);
         if (result == null) {
@@ -335,7 +352,7 @@ final class FieldRules {
                     + "percent, checkbox, date, date and time or time.");
             result = FieldType.TEXT;
         }
-        return new FormulaConfiguration(expression, result);
+        return new FormulaConfiguration(expression, result, true);
     }
 
     private static FieldConfiguration autoNumber(Map<String, List<String>> problems, FieldSettings s) {
@@ -484,6 +501,11 @@ final class FieldRules {
         if (before instanceof ReferenceConfiguration was && after instanceof ReferenceConfiguration now
                 && !was.targetObject().equals(now.targetObject())) {
             add(problems, "settings.targetObject", "The object a field points to cannot be changed.");
+        }
+        if (before instanceof FormulaConfiguration was && after instanceof FormulaConfiguration now
+                && was.resultType() != now.resultType()) {
+            add(problems, "settings.resultType", "The type a formula gives cannot be changed, because other formulas "
+                    + "and rules may rely on it: add a new formula field instead.");
         }
     }
 

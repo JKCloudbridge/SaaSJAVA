@@ -1200,6 +1200,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/metadata/expressions/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Is this expression valid for an object?
+         * @description Answers valid or not, and when not, where it is wrong (line and column) and what kind of problem it is; when valid, the type it gives and the fields it uses. A formula may also name the type it must give. Nothing is stored and nothing is logged. Needs metadata.view and either metadata.manage or metadata.publish.
+         */
+        post: operations["checkExpression"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/expressions/functions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The functions of the expression language
+         * @description The fixed list: no function can be added by an organization. For members who may view objects and fields.
+         */
+        get: operations["listExpressionFunctions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/expressions/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try an expression that is not stored yet on sample values
+         * @description Answers what a formula would give (VALUE) or what a rule would do (REJECTED or PASSED), or ERROR with the place when the evaluation itself fails. There are no records yet, so the values are typed as text for the type of each field. Nothing is stored and nothing is logged. Needs metadata.view and either metadata.manage or metadata.publish.
+         */
+        post: operations["testExpression"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/metadata/field-types": {
         parameters: {
             query?: never;
@@ -1212,6 +1272,26 @@ export interface paths {
          * @description With the settings each type takes and the constraints it allows. For members who may view objects and fields. NOT_FOUND on the platform host, FORBIDDEN without the ability.
          */
         get: operations["listFieldTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/formula-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The stored formulas that do not pass the expression language
+         * @description Formulas saved before formulas were checked keep their text and are listed here with the place that is wrong; nothing is removed and they cannot be saved again until fixed. For members who may view objects and fields.
+         */
+        get: operations["listInvalidStoredFormulas"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1311,6 +1391,26 @@ export interface paths {
          * @description The permissions on the field end with it. FORBIDDEN for a field the platform defines. Audited.
          */
         delete: operations["deleteField"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/fields/{fieldApiName}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try a formula field on sample values
+         * @description Answers what the formula would give for a record with these values (VALUE), or ERROR with the place. VALIDATION_ERROR when the field is not a formula. Nothing is stored and nothing is logged. Needs metadata.view and either metadata.manage or metadata.publish.
+         */
+        post: operations["testFormulaField"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1558,6 +1658,78 @@ export interface paths {
         get: operations["getObjectRelationships"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/validation-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The validation rules of an object
+         * @description For members who may view objects and fields. NOT_FOUND for an object the organization does not have.
+         */
+        get: operations["listValidationRules"];
+        put?: never;
+        /**
+         * Add a validation rule to an object
+         * @description Live at once, as a release of one change. The name is turned into the permanent API name with the ending __c. The condition is in the expression language and is true when the record must be REJECTED; a blank answer does not reject. It is parsed here (a VALIDATION_ERROR names the place); whether its fields exist and whether it gives true or false is checked after the change, and a CONFLICT names what is wrong. CONFLICT for an object whose records belong to the platform, at the limit, or when the result would break a dependency. Audited by name and counts, never by the text.
+         */
+        post: operations["createValidationRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/validation-rules/{ruleApiName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One validation rule
+         * @description NOT_FOUND for a rule the object does not have.
+         */
+        get: operations["getValidationRule"];
+        /**
+         * Change a validation rule
+         * @description Live at once, as a release of one change. The API name and the object never change. The condition is in the expression language and is true when the record must be REJECTED; a blank answer does not reject. It is parsed here (a VALIDATION_ERROR names the place); whether its fields exist and whether it gives true or false is checked after the change, and a CONFLICT names what is wrong. CONCURRENT_MODIFICATION when someone changed it since it was read.
+         */
+        put: operations["updateValidationRule"];
+        post?: never;
+        /**
+         * Remove a validation rule
+         * @description Live at once, as a release of one change. The undo of the release makes it again.
+         */
+        delete: operations["deleteValidationRule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/validation-rules/{ruleApiName}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try a validation rule on sample values
+         * @description Answers what would happen to a record with these values: REJECTED with the message of the rule, PASSED, or ERROR with the place when the evaluation itself fails (for example a division by zero). There are no records yet, so the values are typed as text for the type of each field. Nothing is stored and nothing is logged. Needs metadata.view and either metadata.manage or metadata.publish.
+         */
+        post: operations["testValidationRule"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2501,6 +2673,12 @@ export interface components {
         ApiResponseDataCatalogue: {
             data: components["schemas"]["DataCatalogue"];
         };
+        ApiResponseExpressionCheckView: {
+            data: components["schemas"]["ExpressionCheckView"];
+        };
+        ApiResponseExpressionTestView: {
+            data: components["schemas"]["ExpressionTestView"];
+        };
         ApiResponseFieldView: {
             data: components["schemas"]["FieldView"];
         };
@@ -2542,6 +2720,12 @@ export interface components {
         };
         ApiResponseListFieldTypeView: {
             data: components["schemas"]["FieldTypeView"][];
+        };
+        ApiResponseListFormulaReportItemView: {
+            data: components["schemas"]["FormulaReportItemView"][];
+        };
+        ApiResponseListFunctionView: {
+            data: components["schemas"]["FunctionView"][];
         };
         ApiResponseListGroupView: {
             data: components["schemas"]["GroupView"][];
@@ -2600,6 +2784,9 @@ export interface components {
         ApiResponseListSupportAccessView: {
             data: components["schemas"]["SupportAccessView"][];
         };
+        ApiResponseListValidationRuleView: {
+            data: components["schemas"]["ValidationRuleView"][];
+        };
         ApiResponseMemberAccessView: {
             data: components["schemas"]["MemberAccessView"];
         };
@@ -2650,6 +2837,9 @@ export interface components {
         };
         ApiResponseTenantSummary: {
             data: components["schemas"]["TenantSummary"];
+        };
+        ApiResponseValidationRuleView: {
+            data: components["schemas"]["ValidationRuleView"];
         };
         /** @description What an application contains beyond its name: an icon, the profiles that see it, and its navigation in order. */
         ApplicationDefinition: {
@@ -2717,6 +2907,7 @@ export interface components {
             createObject?: components["schemas"]["CreateObjectRequest"];
             createRecordPage?: components["schemas"]["CreateRecordPageRequest"];
             createRecordType?: components["schemas"]["CreateRecordTypeRequest"];
+            createValidationRule?: components["schemas"]["CreateValidationRuleRequest"];
             itemApiName?: string;
             kind: string;
             objectApiName?: string;
@@ -2727,6 +2918,7 @@ export interface components {
             updateObject?: components["schemas"]["UpdateObjectRequest"];
             updateRecordPage?: components["schemas"]["UpdateRecordPageRequest"];
             updateRecordType?: components["schemas"]["UpdateRecordTypeRequest"];
+            updateValidationRule?: components["schemas"]["UpdateValidationRuleRequest"];
         };
         ChangeSetReportView: {
             items: components["schemas"]["ReleaseItemView"][];
@@ -2765,6 +2957,12 @@ export interface components {
             objectApiName: string;
             /** Format: int32 */
             position: number;
+        };
+        CheckExpressionRequest: {
+            expression: string;
+            objectApiName: string;
+            purpose: string;
+            resultType?: string;
         };
         CompleteSignUpRequest: {
             displayName: string;
@@ -2832,6 +3030,15 @@ export interface components {
             name: string;
             picklistSubsets?: components["schemas"]["PicklistSubset"][];
         };
+        CreateValidationRuleRequest: {
+            active?: boolean;
+            description?: string;
+            errorField?: string;
+            errorMessage: string;
+            expression: string;
+            label: string;
+            name: string;
+        };
         CurrentUser: {
             abilities: string[];
             displayName: string;
@@ -2875,6 +3082,28 @@ export interface components {
          * @enum {string}
          */
         ErrorCode: "VALIDATION_ERROR" | "MALFORMED_REQUEST" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "NOT_ACCEPTABLE" | "CONFLICT" | "CONCURRENT_MODIFICATION" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "TENANT_UNAVAILABLE";
+        ExpressionCheckView: {
+            fields: string[];
+            problem?: components["schemas"]["ExpressionProblemView"];
+            type?: string;
+            usesClock: boolean;
+            valid: boolean;
+        };
+        ExpressionProblemView: {
+            /** Format: int32 */
+            column?: number;
+            kind: string;
+            /** Format: int32 */
+            line?: number;
+            message: string;
+        };
+        ExpressionTestView: {
+            message?: string;
+            outcome: string;
+            problem?: components["schemas"]["ExpressionProblemView"];
+            type?: string;
+            value?: string;
+        };
         /** @description The API name of a field. */
         FieldNameShape: string;
         FieldSettings: {
@@ -2917,6 +3146,7 @@ export interface components {
             editable: boolean;
             kind: string;
             label: string;
+            problem?: string;
             required: boolean;
             retired: boolean;
             settings: components["schemas"]["FieldSettings"];
@@ -2939,6 +3169,17 @@ export interface components {
         };
         ForgotPasswordRequest: {
             email: string;
+        };
+        FormulaReportItemView: {
+            fieldApiName: string;
+            objectApiName: string;
+            problem: string;
+        };
+        FunctionView: {
+            description: string;
+            name: string;
+            rulesOnly: boolean;
+            signature: string;
         };
         GrantAbilityRequest: {
             ability: string;
@@ -3505,6 +3746,19 @@ export interface components {
             displayName: string;
             slug: string;
         };
+        TestExpressionRequest: {
+            expression: string;
+            objectApiName: string;
+            purpose: string;
+            values?: {
+                [key: string]: string;
+            };
+        };
+        TestValuesRequest: {
+            values?: {
+                [key: string]: string;
+            };
+        };
         UpdateApplicationRequest: {
             definition: components["schemas"]["ApplicationDefinition"];
             description?: string;
@@ -3556,6 +3810,28 @@ export interface components {
             label: string;
             layout?: string;
             picklistSubsets?: components["schemas"]["PicklistSubset"][];
+            /** Format: int64 */
+            version: number;
+        };
+        UpdateValidationRuleRequest: {
+            active: boolean;
+            description?: string;
+            errorField?: string;
+            errorMessage: string;
+            expression: string;
+            label: string;
+            /** Format: int64 */
+            version: number;
+        };
+        ValidationRuleView: {
+            active: boolean;
+            apiName: string;
+            description: string;
+            errorField?: string;
+            errorMessage: string;
+            expression: string;
+            label: string;
+            objectApiName: string;
             /** Format: int64 */
             version: number;
         };
@@ -5807,6 +6083,101 @@ export interface operations {
             };
         };
     };
+    checkExpression: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckExpressionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseExpressionCheckView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listExpressionFunctions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListFunctionView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    testExpression: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestExpressionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseExpressionTestView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     listFieldTypes: {
         parameters: {
             query?: never;
@@ -5823,6 +6194,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseListFieldTypeView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listInvalidStoredFormulas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListFormulaReportItemView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -6082,6 +6482,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    testFormulaField: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                fieldApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestValuesRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseExpressionTestView"];
+                };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {
@@ -6802,6 +7238,206 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseObjectRelationshipsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listValidationRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListValidationRuleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createValidationRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateValidationRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseValidationRuleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getValidationRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                ruleApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseValidationRuleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateValidationRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                ruleApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateValidationRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseValidationRuleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteValidationRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                ruleApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    testValidationRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                ruleApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestValuesRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseExpressionTestView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

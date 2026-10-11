@@ -21,7 +21,8 @@ import java.util.Optional;
 final class DependencyGraph {
 
     /** The kinds of thing that can be depended on (a layout assignment and an application only depend). */
-    enum Kind { OBJECT, FIELD, RECORD_TYPE, PICKLIST_VALUE, LAYOUT, RECORD_PAGE, APPLICATION, ASSIGNMENT }
+    enum Kind { OBJECT, FIELD, RECORD_TYPE, PICKLIST_VALUE, LAYOUT, RECORD_PAGE, APPLICATION, ASSIGNMENT,
+        VALIDATION_RULE }
 
     /**
      * A definition, by name only (never by what a person typed as a value).
@@ -65,6 +66,10 @@ final class DependencyGraph {
             return new Node(Kind.ASSIGNMENT, object, key, null);
         }
 
+        static Node validationRule(String object, String rule) {
+            return new Node(Kind.VALIDATION_RULE, object, rule, null);
+        }
+
         /** The words for a person, without any value. */
         String describe() {
             return switch (kind) {
@@ -76,6 +81,7 @@ final class DependencyGraph {
                 case RECORD_PAGE -> "record page " + item + " of " + object;
                 case APPLICATION -> "application " + item;
                 case ASSIGNMENT -> "the layout assignment " + item + " of " + object;
+                case VALIDATION_RULE -> "validation rule " + item + " of " + object;
             };
         }
     }
@@ -168,6 +174,7 @@ final class DependencyGraph {
             case APPLICATION -> snapshot.application(node.item()).isPresent();
             case ASSIGNMENT -> snapshot.assignments(node.object()).stream()
                     .anyMatch(assignment -> assignment.key().equals(node.item()));
+            case VALIDATION_RULE -> snapshot.validationRule(node.object(), node.item()).isPresent();
         };
     }
 

@@ -69,6 +69,32 @@ describe("the words for the new kinds of change", () => {
     expect(CHANGE_KIND_TEXT.DELETE_LAYOUT_ASSIGNMENT).toBe("Remove a layout choice");
   });
 
+  it("has words for the changes of validation rules, in the change sets and in the history", () => {
+    expect(CHANGE_KIND_TEXT.CREATE_VALIDATION_RULE).toBe("Add validation rule");
+    expect(CHANGE_KIND_TEXT.UPDATE_VALIDATION_RULE).toBe("Change validation rule");
+    expect(CHANGE_KIND_TEXT.DELETE_VALIDATION_RULE).toBe("Remove validation rule");
+    expect(
+      itemText({ action: "ADDED", kind: "VALIDATION_RULE", objectApiName: "Order__c", itemApiName: "NoNegative__c" }),
+    ).toBe("Added validation rule Order__c.NoNegative__c");
+  });
+
+  it("names the condition, the message and the field of a rule in the problems of the API", () => {
+    const response = new Response(null, { status: 400 });
+    const error = {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Wrong.",
+        fields: { expression: ["Line 1, column 3: Oops."], errorMessage: ["Must not be empty."], errorField: ["Give a field."] },
+      },
+    };
+
+    const text = problemText(error, response);
+
+    expect(text).toContain("Condition: Line 1, column 3: Oops.");
+    expect(text).toContain("Message: Must not be empty.");
+    expect(text).toContain("Field of the message: Give a field.");
+  });
+
   it("names an application by itself because it belongs to no object", () => {
     expect(itemText({ action: "ADDED", kind: "APPLICATION", objectApiName: "", itemApiName: "Sales__c" })).toBe(
       "Added application Sales__c",

@@ -7,6 +7,7 @@ import app.platform.metadata.ObjectDefinition;
 import app.platform.metadata.PageLayout;
 import app.platform.metadata.RecordPage;
 import app.platform.metadata.RecordType;
+import app.platform.metadata.ValidationRule;
 import app.platform.security.ObjectCatalog;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -15,6 +16,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 /**
  * The whole published metadata of one organization at one metadata version: the standard objects with the
@@ -32,15 +35,17 @@ final class MetadataSnapshot {
     private final Map<String, ObjectCatalog.ObjectInfo> catalogueByName = new LinkedHashMap<>();
 
     /**
-     * The definitions of Sprint 12, grouped by object (applications belong to the organization).
+     * The definitions of Sprints 12 and 13, grouped by object (applications belong to the organization).
      *
      * @param layouts page layouts by object
      * @param recordPages record pages by object
      * @param assignments layout assignments by object
      * @param applications the applications of the organization
+     * @param validationRules validation rules by object
      */
     record Definitions(Map<String, List<PageLayout>> layouts, Map<String, List<RecordPage>> recordPages,
-            Map<String, List<LayoutAssignment>> assignments, List<ApplicationDefinition> applications) {
+            Map<String, List<LayoutAssignment>> assignments, List<ApplicationDefinition> applications,
+            Map<String, List<ValidationRule>> validationRules) {
 
         /** Copies what is given, so that the snapshot cannot change after it is built. */
         Definitions {
@@ -48,10 +53,17 @@ final class MetadataSnapshot {
             recordPages = frozen(recordPages);
             assignments = frozen(assignments);
             applications = List.copyOf(applications);
+            validationRules = frozen(validationRules);
+        }
+
+        /** The definitions of Sprint 12 only (no validation rules). */
+        Definitions(Map<String, List<PageLayout>> layouts, Map<String, List<RecordPage>> recordPages,
+                Map<String, List<LayoutAssignment>> assignments, List<ApplicationDefinition> applications) {
+            this(layouts, recordPages, assignments, applications, Map.of());
         }
 
         static Definitions none() {
-            return new Definitions(Map.of(), Map.of(), Map.of(), List.of());
+            return new Definitions(Map.of(), Map.of(), Map.of(), List.of(), Map.of());
         }
 
         private static <T> Map<String, List<T>> frozen(Map<String, List<T>> grouped) {
@@ -62,6 +74,9 @@ final class MetadataSnapshot {
     }
 
     private final Definitions definitions;
+
+    /** Made from one object's definitions on demand (a pure function of the snapshot), so it is safe to share. */
+    private final Map<String, Object> artefacts = new ConcurrentHashMap<>();
 
     MetadataSnapshot(List<ObjectDefinition> objects, Map<String, List<RecordType>> recordTypes) {
         this(objects, recordTypes, Definitions.none());
@@ -135,6 +150,27 @@ final class MetadataSnapshot {
 
     List<ApplicationDefinition> applications() {
         return definitions.applications();
+    }
+
+    List<ValidationRule> validationRules(String objectApiName) {
+        return definitions.validationRules().getOrDefault(objectApiName, List.of());
+    }
+
+    List<ValidationRule> allValidationRules() {
+        return definitions.validationRules().values().stream().flatMap(List::stream).toList();
+    }
+
+    Optional<ValidationRule> validationRule(String objectApiName, String apiName) {
+        return validationRules(objectApiName).stream().filter(rule -> rule.apiName().equals(apiName)).findFirst();
+    }
+
+    /**
+     * What was made from the definitions of one object and is worth keeping with the snapshot (the compiled formulas
+     * and rules, ADR-0080). It is made on the first question and kept until the snapshot goes, which is when the
+     * metadata version moves on, so it can never be older than the definitions it was made from.
+     */
+    <T> T artefacts(String objectApiName, Function<String, T> build, Class<T> type) {
+        return type.cast(artefacts.computeIfAbsent(objectApiName, build::apply));
     }
 
     Optional<ApplicationDefinition> application(String apiName) {

@@ -10,6 +10,7 @@ import app.platformapi.CreateLayoutRequest;
 import app.platformapi.CreateObjectRequest;
 import app.platformapi.CreateRecordPageRequest;
 import app.platformapi.CreateRecordTypeRequest;
+import app.platformapi.CreateValidationRuleRequest;
 import app.platformapi.FieldView;
 import app.platformapi.LayoutAssignmentView;
 import app.platformapi.LayoutView;
@@ -24,6 +25,8 @@ import app.platformapi.UpdateLayoutRequest;
 import app.platformapi.UpdateObjectRequest;
 import app.platformapi.UpdateRecordPageRequest;
 import app.platformapi.UpdateRecordTypeRequest;
+import app.platformapi.UpdateValidationRuleRequest;
+import app.platformapi.ValidationRuleView;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Component;
@@ -42,7 +45,7 @@ class ChangeApplier {
      *
      * @param result the view the live endpoint returns (an {@code ObjectView}, {@code FieldView},
      *        {@code RecordTypeView}, {@code LayoutView}, {@code RecordPageView}, {@code ApplicationView},
-     *        {@code LayoutAssignmentView}, or {@code Boolean.TRUE} for a removal)
+     *        {@code LayoutAssignmentView}, {@code ValidationRuleView}, or {@code Boolean.TRUE} for a removal)
      * @param undo the changes that put things back, to be applied in this order; empty when nothing changed
      * @param items what was added, changed or removed
      */
@@ -53,10 +56,12 @@ class ChangeApplier {
     private final RecordTypeService recordTypes;
     private final DefinitionService definitions;
     private final AssignmentService assignments;
+    private final ValidationRuleService rules;
     private final ChangeCodec codec;
 
     ChangeApplier(MetadataService metadata, RecordTypeService recordTypes, DefinitionService definitions,
-            AssignmentService assignments, ChangeCodec codec) {
+            AssignmentService assignments, ValidationRuleService rules, ChangeCodec codec) {
+        this.rules = rules;
         this.metadata = metadata;
         this.recordTypes = recordTypes;
         this.definitions = definitions;
@@ -93,6 +98,9 @@ class ChangeApplier {
             case CREATE_LAYOUT_ASSIGNMENT -> createAssignment(caller, change);
             case UPDATE_LAYOUT_ASSIGNMENT -> updateAssignment(caller, change);
             case DELETE_LAYOUT_ASSIGNMENT -> deleteAssignment(caller, change);
+            case CREATE_VALIDATION_RULE -> createRule(caller, change);
+            case UPDATE_VALIDATION_RULE -> updateRule(caller, change);
+            case DELETE_VALIDATION_RULE -> deleteRule(caller, change);
         };
     }
 
@@ -315,6 +323,33 @@ class ChangeApplier {
         assignments.delete(caller, change.object(), change.item());
         return new Applied(Boolean.TRUE, List.of(codec.makeAssignment(change.object(), before)),
                 List.of(item("REMOVED", "LAYOUT_ASSIGNMENT", change.object(), change.item())));
+    }
+
+    // ---- validation rules ----
+
+    private Applied createRule(Caller caller, Change change) {
+        ValidationRuleView made = rules.create(caller, change.object(), codec.read(change,
+                CreateValidationRuleRequest.class));
+        return new Applied(made, List.of(codec.removeValidationRule(change.object(), made.apiName())),
+                List.of(item("ADDED", "VALIDATION_RULE", change.object(), made.apiName())));
+    }
+
+    private Applied updateRule(Caller caller, Change change) {
+        ValidationRuleView before = rules.rule(change.object(), change.item());
+        ValidationRuleView after = rules.update(caller, change.object(), change.item(),
+                codec.read(change, UpdateValidationRuleRequest.class));
+        if (after.version().equals(before.version())) {
+            return new Applied(after, List.of(), List.of());
+        }
+        return new Applied(after, List.of(codec.restoreValidationRule(before, after.version())),
+                List.of(item("CHANGED", "VALIDATION_RULE", change.object(), after.apiName())));
+    }
+
+    private Applied deleteRule(Caller caller, Change change) {
+        ValidationRuleView before = rules.rule(change.object(), change.item());
+        rules.delete(caller, change.object(), change.item());
+        return new Applied(Boolean.TRUE, List.of(codec.makeValidationRule(before)),
+                List.of(item("REMOVED", "VALIDATION_RULE", change.object(), change.item())));
     }
 
     private static ReleaseItemView item(String action, String kind, String object, String item) {

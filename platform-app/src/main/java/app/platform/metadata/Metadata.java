@@ -8,8 +8,8 @@ import java.util.UUID;
  * What objects, fields and record types exist for the organization of the current tenant context (ADR-0058, ADR-0064):
  * the standard ones of the platform and the custom ones of the organization, as one list. Only PUBLISHED metadata is
  * here: a draft in a change set is invisible to this contract (ADR-0066). This is the read contract of the metadata
- * module; the
- * data engine, the layouts and the rules (later sprints) read definitions only through it, and ask for nothing else.
+ * module; the data engine, the layouts and the rules (later sprints) read definitions only through it, and ask for
+ * nothing else.
  *
  * <p>Answers come from a snapshot that is kept together with the organization's metadata version and served only while
  * that version is unchanged (ADR-0061): a change is visible to the next question after it commits, on every instance.
@@ -38,6 +38,9 @@ public interface Metadata {
 
     /** The applications of the organization (Sprint 12), by API name. */
     List<ApplicationDefinition> applications();
+
+    /** The validation rules of the object (Sprint 13), by API name, active or not; empty when it has none. */
+    List<ValidationRule> validationRules(String objectApiName);
 
     /**
      * The layout the object uses for a profile and a record type (Sprint 12, ADR-0071). The rules are tried in this

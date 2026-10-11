@@ -12,7 +12,8 @@ import jakarta.validation.constraints.Size;
  * @param kind {@code CREATE_OBJECT}, {@code UPDATE_OBJECT}, {@code DELETE_OBJECT}, {@code CREATE_FIELD},
  *        {@code UPDATE_FIELD}, {@code DELETE_FIELD}, {@code CREATE_RECORD_TYPE}, {@code UPDATE_RECORD_TYPE} or
  *        {@code DELETE_RECORD_TYPE}, and since Sprint 12 the same three for {@code LAYOUT}, {@code RECORD_PAGE},
- *        {@code APPLICATION} and {@code LAYOUT_ASSIGNMENT} (for example {@code CREATE_LAYOUT})
+ *        {@code APPLICATION} and {@code LAYOUT_ASSIGNMENT} (for example {@code CREATE_LAYOUT}), and since Sprint 13 for
+ *        {@code VALIDATION_RULE}
  * @param objectApiName the API name of the object the change is about (for {@code CREATE_OBJECT}: the object to be
  *        made, with the ending __c); left out for the changes of applications
  * @param itemApiName the API name of the field, record type, layout, record page or application the change is about
@@ -31,6 +32,8 @@ import jakarta.validation.constraints.Size;
  * @param updateApplication the request of {@code UPDATE_APPLICATION}
  * @param createLayoutAssignment the request of {@code CREATE_LAYOUT_ASSIGNMENT}
  * @param updateLayoutAssignment the request of {@code UPDATE_LAYOUT_ASSIGNMENT}
+ * @param createValidationRule the request of {@code CREATE_VALIDATION_RULE}
+ * @param updateValidationRule the request of {@code UPDATE_VALIDATION_RULE}
  */
 public record ChangeRequest(@NotBlank @Size(max = 40) String kind, @Size(max = 60) String objectApiName,
         @Size(max = 60) String itemApiName, @Valid CreateObjectRequest createObject,
@@ -41,7 +44,9 @@ public record ChangeRequest(@NotBlank @Size(max = 40) String kind, @Size(max = 6
         @Valid UpdateRecordPageRequest updateRecordPage, @Valid CreateApplicationRequest createApplication,
         @Valid UpdateApplicationRequest updateApplication,
         @Valid CreateLayoutAssignmentRequest createLayoutAssignment,
-        @Valid UpdateLayoutAssignmentRequest updateLayoutAssignment) {
+        @Valid UpdateLayoutAssignmentRequest updateLayoutAssignment,
+        @Valid CreateValidationRuleRequest createValidationRule,
+        @Valid UpdateValidationRuleRequest updateValidationRule) {
 
     @Override
     public String toString() {

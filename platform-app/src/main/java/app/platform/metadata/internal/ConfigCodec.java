@@ -67,6 +67,7 @@ final class ConfigCodec {
             case FormulaConfiguration formula -> {
                 out.put("expression", formula.expression());
                 out.put("resultType", formula.resultType().name());
+                out.put("verified", formula.verified());
             }
             case AutoNumberConfiguration auto -> {
                 out.put("prefix", auto.prefix());
@@ -93,7 +94,8 @@ final class ConfigCodec {
             case PICKLIST, MULTI_PICKLIST -> new PicklistConfiguration(picklist(in));
             case LOOKUP, MASTER_DETAIL -> reference(type, in);
             case FORMULA -> new FormulaConfiguration(text(in, "expression", ""),
-                    FieldType.fromCode(text(in, "resultType", "TEXT")).orElse(FieldType.TEXT));
+                    FieldType.fromCode(text(in, "resultType", "TEXT")).orElse(FieldType.TEXT),
+                    Boolean.TRUE.equals(in.get("verified")));
             case AUTO_NUMBER -> new AutoNumberConfiguration(text(in, "prefix", ""), longNumber(in, "startAt", 1),
                     integer(in, "width", FieldRules.AUTO_NUMBER_WIDTH_DEFAULT));
         };

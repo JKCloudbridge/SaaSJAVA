@@ -137,6 +137,12 @@ public final class ApiPaths {
     /** The applications of the organization: definitions for those who manage metadata (Sprint 12). */
     public static final String METADATA_APPLICATIONS = V1 + "/metadata/applications";
 
+    /** Checking and trying expressions, and the list of functions of the expression language (Sprint 13). */
+    public static final String METADATA_EXPRESSIONS = V1 + "/metadata/expressions";
+
+    /** The stored formulas that do not pass the expression language (Sprint 13). */
+    public static final String METADATA_FORMULA_REPORT = V1 + "/metadata/formula-report";
+
     /** The applications the signed-in member may use, with their navigation (Sprint 12). */
     public static final String MY_APPLICATIONS = V1 + "/applications";
 

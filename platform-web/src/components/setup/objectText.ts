@@ -39,6 +39,9 @@ const FIELD_NAMES: Record<string, string> = {
   profileId: "Profile",
   recordType: "Record type",
   definition: "Definition",
+  expression: "Condition",
+  errorMessage: "Message",
+  errorField: "Field of the message",
 };
 
 /**
@@ -83,6 +86,9 @@ export const CHANGE_KIND_TEXT: Record<string, string> = {
   CREATE_LAYOUT_ASSIGNMENT: "Choose a layout",
   UPDATE_LAYOUT_ASSIGNMENT: "Change a layout choice",
   DELETE_LAYOUT_ASSIGNMENT: "Remove a layout choice",
+  CREATE_VALIDATION_RULE: "Add validation rule",
+  UPDATE_VALIDATION_RULE: "Change validation rule",
+  DELETE_VALIDATION_RULE: "Remove validation rule",
 };
 
 export const ACTION_TEXT: Record<string, string> = { ADDED: "Added", CHANGED: "Changed", REMOVED: "Removed" };
@@ -94,6 +100,7 @@ export const ITEM_TEXT: Record<string, string> = {
   RECORD_PAGE: "record page",
   APPLICATION: "application",
   LAYOUT_ASSIGNMENT: "layout choice",
+  VALIDATION_RULE: "validation rule",
 };
 export const RELEASE_KIND_TEXT: Record<string, string> = {
   QUICK: "A change made at once",

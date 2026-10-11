@@ -287,3 +287,19 @@ Short form; decisions in ADR-0063 to ADR-0068, the how-to in [metadata-guide.md]
   member is read with `MemberAccess.profileOf`.
 - **Drafts are not rows of these tables.** A layout in a change set is a row of `metadata_change`; the new tables hold what is published (ADR-0066, ADR-0069).
 - **Contributor notes:** a new check that depends on layouts goes into `DefinitionDependencies`; a new field of a definition goes into the schema file and nowhere else.
+
+## Validation rules, formulas and the metadata runtime (Sprint 13)
+
+- **One tenant-scoped table** (V035), built like the four of Sprint 12: `validation_rule` with `tenant_id not null default platform_current_tenant()`, row level security enabled **and forced**, the tenant guard, the
+  identity guard of V034 (the name and the object of a rule never change; a rule of a custom object names a live custom object of the same organization), a tenant-first partial unique index and the metadata
+  version trigger. It is registered in `TenantScopedTables`, so `TenantIsolationIT` probes it.
+- **The expression engine has no tenant.** It takes a map of values and a map of field types and touches nothing else (no database, no tenant context, no clock): there is nothing in it to isolate, and an
+  architecture test (`ExpressionSandboxTest`) keeps it that way. The check and try-it endpoints read only the caller's own catalogue; a forged tenant header changes nothing; a definition of another organization
+  does not exist for the caller (404).
+- **The compiled artefacts are per organization.** `MetadataResolver` answers for the thread's tenant context; the compiled rules and formulas are kept in the snapshot of that organization and in no other place
+  (`MetadataRuntimeIT.anotherOrganizationNeverGetsTheArtefactsOfThisOne`).
+- **The publish event** (`metadata.published`) is written through `EventPublisher` in the publishing transaction with the tenant of that transaction; the handler `MetadataWarmer` runs in the tenant context of the event and
+  never takes a tenant from the payload (the payload holds the release number and the version only). The outbox hands the event to one instance (ADR-0080).
+- **Text of the organization is never logged or audited:** the expression, the message of a rule, the sample values and the answers. The audit trail names the rule and the counts (`metadata.validationrule.*`).
+- **Contributor notes:** a new check that depends on formulas or rules goes into `ExpressionDependencies` (and reads `FormulaAnalysis`); a new function goes into `Functions` (guide section 12.6); a new kind of definition
+  follows the recipe of Sprint 12 (a table, three `Change.Kind`s, `ChangeApplier` and `ChangeCodec`, a contributor, a schema or checks).

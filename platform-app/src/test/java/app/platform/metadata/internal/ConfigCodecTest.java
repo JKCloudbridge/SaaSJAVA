@@ -53,6 +53,7 @@ class ConfigCodecTest {
                 Arguments.of(FieldType.MASTER_DETAIL, new ReferenceConfiguration("Employee__c",
                         DeleteBehaviour.CASCADE, true, "Lines")),
                 Arguments.of(FieldType.FORMULA, new FormulaConfiguration("a + \"b\"\n* 2", FieldType.NUMBER)),
+                Arguments.of(FieldType.FORMULA, new FormulaConfiguration("1 + 1", FieldType.NUMBER, true)),
                 Arguments.of(FieldType.AUTO_NUMBER, new AutoNumberConfiguration("INV-", 100, 5)));
     }
 
@@ -70,6 +71,14 @@ class ConfigCodecTest {
                 .isEqualTo(new ReferenceConfiguration("Account", DeleteBehaviour.CLEAR, false, ""));
         assertThat(codec.read(FieldType.MASTER_DETAIL, "{\"targetObject\":\"Account\"}"))
                 .isEqualTo(new ReferenceConfiguration("Account", DeleteBehaviour.CASCADE, false, ""));
+    }
+
+    @Test
+    void aFormulaStoredBeforeSprintThirteenReadsAsNotVerified() {
+        assertThat(codec.read(FieldType.FORMULA, "{\"expression\":\"a + b\",\"resultType\":\"NUMBER\"}"))
+                .isEqualTo(new FormulaConfiguration("a + b", FieldType.NUMBER, false));
+        assertThat(codec.read(FieldType.FORMULA, "{\"expression\":\"a + b\",\"resultType\":\"NUMBER\","
+                + "\"verified\":true}")).isEqualTo(new FormulaConfiguration("a + b", FieldType.NUMBER, true));
     }
 
     @Test

@@ -10,8 +10,8 @@ import java.util.Optional;
  *
  * @param kind what the change does
  * @param object the API name of the object it is about, empty for an application
- * @param item the API name of the field, record type, layout, record page or application it is about (for a layout
- *        assignment its key), or null
+ * @param item the API name of the field, record type, layout, record page, validation rule or application it is
+ *        about (for a layout assignment its key), or null
  * @param payload the JSON of the request ({@code {}} for a removal)
  */
 record Change(Kind kind, String object, String item, String payload) {
@@ -39,7 +39,10 @@ record Change(Kind kind, String object, String item, String payload) {
         /** A layout assignment is named by its key, also when it is made: the key is what the change is about. */
         CREATE_LAYOUT_ASSIGNMENT(Entity.LAYOUT_ASSIGNMENT, true),
         UPDATE_LAYOUT_ASSIGNMENT(Entity.LAYOUT_ASSIGNMENT, true),
-        DELETE_LAYOUT_ASSIGNMENT(Entity.LAYOUT_ASSIGNMENT, true);
+        DELETE_LAYOUT_ASSIGNMENT(Entity.LAYOUT_ASSIGNMENT, true),
+        CREATE_VALIDATION_RULE(Entity.VALIDATION_RULE, false),
+        UPDATE_VALIDATION_RULE(Entity.VALIDATION_RULE, true),
+        DELETE_VALIDATION_RULE(Entity.VALIDATION_RULE, true);
 
         private final Entity entity;
         private final boolean namesItem;
@@ -73,5 +76,5 @@ record Change(Kind kind, String object, String item, String payload) {
     }
 
     /** The kinds of definition. */
-    enum Entity { OBJECT, FIELD, RECORD_TYPE, LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT }
+    enum Entity { OBJECT, FIELD, RECORD_TYPE, LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT, VALIDATION_RULE }
 }
