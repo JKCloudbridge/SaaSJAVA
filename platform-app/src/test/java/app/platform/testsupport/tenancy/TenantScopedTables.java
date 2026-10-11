@@ -7,8 +7,8 @@ import java.util.UUID;
 /**
  * The register of every tenant-scoped table of the platform (a table with a {@code tenant_id} column).
  * Each entry is run through {@link CrossTenantLeakHarness} by {@code TenantIsolationIT}, and a second test fails when a
- * table with a
- * {@code tenant_id} column exists that is not listed here, so a new table cannot skip its isolation test.
+ * table with a {@code tenant_id} column exists that is not listed here, so a new table cannot skip its isolation
+ * test.
  *
  * <p><strong>Adding a table:</strong> add one {@link TenantScopedTable} below (the table name and how to insert one
  * valid row for a given tenant) and run {@code ./mvnw verify}. See {@code docs/tenant-isolation-testing.md}.
@@ -325,13 +325,24 @@ public final class TenantScopedTables {
                         tenant, object, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
             });
 
+    /** The validation rules of organizations (Sprint 13). A probe row needs a custom object, which it creates. */
+    public static final TenantScopedTable VALIDATION_RULE = new TenantScopedTable("validation_rule",
+            (connection, tenant) -> {
+                String object = probeObject(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into validation_rule (tenant_id, object_api_name, api_name, label, expression, "
+                                + "error_message, created_by, updated_by) values (?, ?, ?, 'Probe', 'TRUE', "
+                                + "'Probe', ?, ?)",
+                        tenant, object, probeName("Probe"), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
             MEMBER_ACCESS, MEMBER_ACCESS_POLICY, MEMBER_GRANT, PUBLIC_GROUP, PUBLIC_GROUP_MEMBER,
             PUBLIC_GROUP_ACCESS_POLICY, OBJECT_PERMISSION, FIELD_PERMISSION, SECURITY_VERSION, OBJECT_DEFINITION,
             FIELD_DEFINITION, METADATA_VERSION, RECORD_TYPE, METADATA_CHANGE_SET, METADATA_CHANGE,
-            METADATA_RELEASE, PAGE_LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT);
+            METADATA_RELEASE, PAGE_LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT, VALIDATION_RULE);
 
     private TenantScopedTables() {
     }

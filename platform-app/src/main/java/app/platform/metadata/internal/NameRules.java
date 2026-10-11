@@ -18,6 +18,7 @@ final class NameRules {
     private static final Pattern OBJECT_NAME = Pattern.compile("[A-Z][A-Za-z0-9]*(_[A-Za-z0-9]+)*");
     private static final Pattern FIELD_NAME = Pattern.compile("[a-z][A-Za-z0-9]*(_[A-Za-z0-9]+)*");
     private static final Pattern DEFINITION_API_NAME = Pattern.compile("[A-Z][A-Za-z0-9_]{0,55}__c");
+    private static final Pattern FIELD_REFERENCE = Pattern.compile("[A-Za-z][A-Za-z0-9_]{0,59}");
 
     private NameRules() {
     }
@@ -61,6 +62,38 @@ final class NameRules {
         }
         if (clean.length() > 80) {
             throw ApiException.validation(field, "Must be at most 80 characters.");
+        }
+        return clean;
+    }
+
+    /**
+     * A message a person typed for other people to read (the error message of a validation rule): not empty, at most
+     * 255 characters, no control characters.
+     */
+    static String message(String field, String text) {
+        String clean = plain(field, text);
+        if (clean.isEmpty()) {
+            throw ApiException.validation(field, "Must not be empty.");
+        }
+        if (clean.length() > 255) {
+            throw ApiException.validation(field, "Must be at most 255 characters.");
+        }
+        return clean;
+    }
+
+    /**
+     * The API name of a field named by a request (the field a validation rule shows its message on), or null for none
+     * (blank means none). Only the shape is checked here; that the field exists is the dependency graph's question
+     * (ADR-0065).
+     */
+    static String fieldReference(String field, String typed) {
+        String clean = typed == null ? "" : typed.strip();
+        if (clean.isEmpty()) {
+            return null;
+        }
+        if (!FIELD_REFERENCE.matcher(clean).matches()) {
+            throw ApiException.validation(field, "Give the API name of a field of this object, for example "
+                    + "closeDate or amount__c.");
         }
         return clean;
     }

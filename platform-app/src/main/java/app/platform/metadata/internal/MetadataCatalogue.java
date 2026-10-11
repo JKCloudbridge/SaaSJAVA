@@ -11,6 +11,7 @@ import app.platform.metadata.ObjectDefinition;
 import app.platform.metadata.PageLayout;
 import app.platform.metadata.RecordPage;
 import app.platform.metadata.RecordType;
+import app.platform.metadata.ValidationRule;
 import app.platform.security.ObjectCatalog;
 import app.platform.tenant.TenantContexts;
 import java.util.ArrayList;
@@ -32,7 +33,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * module, which is why the stand-in of Sprint 8 is gone (ADR-0049, ADR-0058).
  *
  * <p>The catalogue is assembled from the standard definitions (read once at start) and the organization's rows, and
- * kept in the {@link MetadataCache} with the version it was built under (ADR-0061).
+ * kept in the {@link MetadataCache} with the version it was built under (ADR-0061). Since Sprint 13 it holds the
+ * validation rules too.
  */
 @Component
 class MetadataCatalogue implements Metadata {
@@ -49,11 +51,14 @@ class MetadataCatalogue implements Metadata {
     private final DefinitionStore definitionStore;
     private final AssignmentStore assignmentStore;
     private final DefinitionCodec definitionCodec;
+    private final ValidationRuleStore validationRuleStore;
 
     MetadataCatalogue(StandardMetadata standard, MetadataStore store, MetadataVersions versions,
             MetadataCache cache, TenantContexts contexts, ConfigCodec codec, TransactionTemplate transaction,
             RecordTypeStore recordTypeStore, RecordTypeCodec recordTypeCodec, DefinitionStore definitionStore,
-            AssignmentStore assignmentStore, DefinitionCodec definitionCodec) {
+            AssignmentStore assignmentStore, DefinitionCodec definitionCodec,
+            ValidationRuleStore validationRuleStore) {
+        this.validationRuleStore = validationRuleStore;
         this.recordTypeStore = recordTypeStore;
         this.recordTypeCodec = recordTypeCodec;
         this.definitionStore = definitionStore;
@@ -101,6 +106,11 @@ class MetadataCatalogue implements Metadata {
     @Override
     public List<ApplicationDefinition> applications() {
         return snapshot().applications();
+    }
+
+    @Override
+    public List<ValidationRule> validationRules(String objectApiName) {
+        return snapshot().validationRules(objectApiName);
     }
 
     @Override
@@ -170,7 +180,11 @@ class MetadataCatalogue implements Metadata {
         }
         List<ApplicationDefinition> applications = definitionStore.all(DefinitionStore.Table.APPLICATION).stream()
                 .map(definitionCodec::application).toList();
-        return new MetadataSnapshot.Definitions(layouts, pages, assignments, applications);
+        Map<String, List<ValidationRule>> rules = new LinkedHashMap<>();
+        for (ValidationRule rule : validationRuleStore.all()) {
+            rules.computeIfAbsent(rule.objectApiName(), name -> new ArrayList<>()).add(rule);
+        }
+        return new MetadataSnapshot.Definitions(layouts, pages, assignments, applications, rules);
     }
 
     private FieldDefinition customField(MetadataStore.FieldRow row) {

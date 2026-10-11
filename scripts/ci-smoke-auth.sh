@@ -575,6 +575,80 @@ if [ -n "$mail" ]; then
   [ "$status" = "204" ] || fail "removing the layout object answered $status: $(cat "$body")"
   echo "ok: a layout is checked against its schema and read back, a record page and an application are made, the member's menu comes from the API, a link outside the organization is refused with its place, and a layout, a field and a record page that are still needed cannot be removed (the error names who needs them)"
 
+  # 19. Formulas, validation rules and the expression engine on the image (Sprint 13): a formula is checked and refused
+  # with its place, a field a formula uses cannot be removed and the error names the formula, a rule is made and tried on
+  # sample values, a circle of formulas is refused naming the fields, and checking an expression answers with the place.
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Invoice","label":"Invoice","pluralLabel":"Invoices","description":""}' "$base/api/v1/metadata/objects")"
+  [ "$status" = "201" ] || fail "creating the invoice object answered $status: $(cat "$body")"
+  for field in quantity:NUMBER unitPrice:CURRENCY status:TEXT; do
+    status="$(client_call -X POST -H "$group_json" \
+      -d "{\"name\":\"${field%%:*}\",\"label\":\"${field%%:*}\",\"type\":\"${field##*:}\"}" \
+      "$base/api/v1/metadata/objects/Invoice__c/fields")"
+    [ "$status" = "201" ] || fail "adding the field ${field%%:*} answered $status: $(cat "$body")"
+  done
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"total","label":"Total","type":"FORMULA","settings":{"expression":"quantity__c *","resultType":"NUMBER"}}' \
+    "$base/api/v1/metadata/objects/Invoice__c/fields")"
+  [ "$status" = "400" ] || fail "a formula with a mistake answered $status: $(cat "$body")"
+  grep -Fq 'Line 1, column 14' "$body" || fail "the refusal does not name the place of the formula: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"total","label":"Total","type":"FORMULA","settings":{"expression":"ghost__c * 2","resultType":"NUMBER"}}' \
+    "$base/api/v1/metadata/objects/Invoice__c/fields")"
+  [ "$status" = "409" ] || fail "a formula that names a missing field answered $status: $(cat "$body")"
+  grep -Fq 'field Invoice__c.total__c uses field Invoice__c.ghost__c, which does not exist' "$body" \
+    || fail "the refusal does not name the formula and the field: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"total","label":"Total","type":"FORMULA","settings":{"expression":"quantity__c * unitPrice__c","resultType":"CURRENCY"}}' \
+    "$base/api/v1/metadata/objects/Invoice__c/fields")"
+  [ "$status" = "201" ] || fail "adding a good formula answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Invoice__c/fields/quantity__c")"
+  [ "$status" = "409" ] || fail "removing a field a formula uses was not refused ($status): $(cat "$body")"
+  grep -Fq 'field Invoice__c.total__c uses field Invoice__c.quantity__c' "$body" \
+    || fail "the refusal does not name the formula: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"loop","label":"Loop","type":"FORMULA","settings":{"expression":"loop__c + 1","resultType":"NUMBER"}}' \
+    "$base/api/v1/metadata/objects/Invoice__c/fields")"
+  [ "$status" = "409" ] || fail "a formula that uses itself answered $status: $(cat "$body")"
+  grep -Fq 'use each other in a circle' "$body" || fail "the refusal does not name the circle: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"objectApiName":"Invoice__c","expression":"quantity__c * unitPrice__c","purpose":"FORMULA","resultType":"CURRENCY"}' \
+    "$base/api/v1/metadata/expressions/check")"
+  [ "$status" = "200" ] || fail "checking a formula answered $status: $(cat "$body")"
+  grep -Fq '"valid":true' "$body" || fail "a good formula was not valid: $(cat "$body")"
+  grep -Fq '"type":"NUMBER"' "$body" || fail "the check does not say the type: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"objectApiName":"Invoice__c","expression":"status__c * 2","purpose":"FORMULA"}' \
+    "$base/api/v1/metadata/expressions/check")"
+  grep -Fq '"valid":false' "$body" || fail "a formula that multiplies text was valid: $(cat "$body")"
+  grep -Fq 'Line 1, column 11' "$body" || fail "the check does not say where it is wrong: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"NotAnAnswer","label":"Not an answer","expression":"quantity__c + 1","errorMessage":"No."}' \
+    "$base/api/v1/metadata/objects/Invoice__c/validation-rules")"
+  [ "$status" = "409" ] || fail "a rule that does not give true or false answered $status: $(cat "$body")"
+  grep -Fq 'true or false' "$body" || fail "the refusal does not say what a rule must give: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"NoNegative","label":"No negatives","expression":"quantity__c < 0","errorMessage":"No negative quantities.","errorField":"quantity__c"}' \
+    "$base/api/v1/metadata/objects/Invoice__c/validation-rules")"
+  [ "$status" = "201" ] || fail "adding a validation rule answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"values":{"quantity__c":"-5"}}' \
+    "$base/api/v1/metadata/objects/Invoice__c/validation-rules/NoNegative__c/test")"
+  [ "$status" = "200" ] || fail "trying the rule answered $status: $(cat "$body")"
+  grep -Fq '"outcome":"REJECTED"' "$body" || fail "the rule did not reject a negative quantity: $(cat "$body")"
+  grep -Fq 'No negative quantities.' "$body" || fail "the rejection lacks the message: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"values":{"quantity__c":"5"}}' \
+    "$base/api/v1/metadata/objects/Invoice__c/validation-rules/NoNegative__c/test")"
+  grep -Fq '"outcome":"PASSED"' "$body" || fail "the rule did not pass a good quantity: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"values":{"quantity__c":"3","unitPrice__c":"2.50"}}' \
+    "$base/api/v1/metadata/objects/Invoice__c/fields/total__c/test")"
+  [ "$status" = "200" ] || fail "trying the formula answered $status: $(cat "$body")"
+  grep -Fq '"value":"7.5"' "$body" || fail "the formula did not give 7.5: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Invoice__c/validation-rules/NoNegative__c")"
+  [ "$status" = "204" ] || fail "removing the validation rule answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Invoice__c")"
+  [ "$status" = "204" ] || fail "removing the invoice object answered $status: $(cat "$body")"
+  echo "ok: a formula is checked and refused with its place, a field a formula uses cannot be removed (the error names the formula), a circle is refused naming the fields, a rule is made and tried on sample values, and the check says where an expression is wrong"
+
   stored="$(owner_sql -c "select t::text from account_token t union all select t::text from mail_queue t \
     union all select attributes::text from audit_record union all select t::text from invitation t")"
   if echo "$stored" | grep -q "$client_token"; then

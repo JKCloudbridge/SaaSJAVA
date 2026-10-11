@@ -38,7 +38,7 @@ class PlatformRulesTest {
 
     private static final String[] BUSINESS_MODULES = {
         "app.platform.tenant..", "app.platform.identity..", "app.platform.licensing..",
-        "app.platform.security..", "app.platform.metadata..", "app.platform.data..",
+        "app.platform.security..", "app.platform.expression..", "app.platform.metadata..", "app.platform.data..",
         "app.platform.application..", "app.platform.workflow..", "app.platform.approval..",
         "app.platform.notification..", "app.platform.integration..", "app.platform.audit..",
         "app.platform.platformadmin.."

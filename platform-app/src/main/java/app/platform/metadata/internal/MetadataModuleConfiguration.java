@@ -1,5 +1,6 @@
 package app.platform.metadata.internal;
 
+import app.platform.expression.ExpressionEngine;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -10,8 +11,14 @@ import org.springframework.context.annotation.Configuration;
  * that a mistake in a definition file stops it from starting instead of being found by an organization (ADR-0059).
  */
 @Configuration
-@EnableConfigurationProperties(MetadataProperties.class)
+@EnableConfigurationProperties({MetadataProperties.class, ExpressionProperties.class})
 class MetadataModuleConfiguration {
+
+    /** The one engine of the organization's formulas and rules (stateless, shared by every thread). */
+    @Bean
+    ExpressionEngine expressionEngine(ExpressionProperties properties) {
+        return new ExpressionEngine(properties.limits());
+    }
 
     @Bean
     StandardMetadata standardMetadata() {

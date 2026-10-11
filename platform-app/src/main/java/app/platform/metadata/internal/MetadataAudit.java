@@ -83,6 +83,27 @@ class MetadataAudit {
                 .onObject(path(object, name), null));
     }
 
+    // ---- validation rules (ADR-0078) ----
+
+    /** A rule was made: by name and counts only; the condition and the message are text the organization typed. */
+    void validationRuleCreated(UUID actor, String object, String name, boolean active, int fieldsUsed) {
+        write(AuditRecord.of("metadata.validationrule.created", AuditOutcome.SUCCESS).forUser(actor)
+                .onObject(object + "." + name, null).with("active", Boolean.toString(active))
+                .with("fields_used", Integer.toString(fieldsUsed)));
+    }
+
+    void validationRuleUpdated(UUID actor, String object, String name, String changed, boolean active,
+            int fieldsUsed) {
+        write(AuditRecord.of("metadata.validationrule.updated", AuditOutcome.SUCCESS).forUser(actor)
+                .onObject(object + "." + name, null).with("changed", changed)
+                .with("active", Boolean.toString(active)).with("fields_used", Integer.toString(fieldsUsed)));
+    }
+
+    void validationRuleDeleted(UUID actor, String object, String name) {
+        write(AuditRecord.of("metadata.validationrule.deleted", AuditOutcome.SUCCESS).forUser(actor)
+                .onObject(object + "." + name, null));
+    }
+
     /**
      * The audit object key of a definition: the object and the name, joined by a dot. The key of a layout assignment
      * has a tilde between the profile and the record type, which an audit key does not allow, so it becomes a dot.

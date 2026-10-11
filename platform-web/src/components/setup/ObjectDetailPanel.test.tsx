@@ -359,6 +359,45 @@ describe("ObjectDetailPanel", () => {
     expect(await screen.findByTestId("object-problem")).toHaveTextContent("record type Remote__c of Employee__c offers field");
   });
 
+  it("says in the API's words that a stored formula is not valid and is not calculated", async () => {
+    const formula = {
+      ...CODE_FIELD,
+      apiName: "total__c",
+      label: "Total",
+      type: "FORMULA",
+      required: false,
+      settings: { expression: "quantity * 2 +", resultType: "TEXT" },
+      problem: "Line 1, column 15: The expression ends where a value is missing.",
+    };
+    fakeApi(answers({ ...EMPLOYEE, fields: [SYSTEM_FIELD, formula] }));
+    render(<ObjectDetailPanel />);
+
+    const note = await screen.findByTestId("formula-problem");
+
+    expect(note).toHaveTextContent("This formula is not valid, so it is not calculated.");
+    expect(note).toHaveTextContent("Line 1, column 15: The expression ends where a value is missing.");
+  });
+
+  it("offers to check a formula when the type Formula is chosen and asks the API", async () => {
+    const calls = fakeApi(
+      answers(EMPLOYEE, {
+        "POST /api/v1/metadata/expressions/check": () =>
+          json({ data: { valid: true, type: "TEXT", fields: ["code__c"], usesClock: false } }),
+      }),
+    );
+    render(<ObjectDetailPanel />);
+    await screen.findAllByTestId("field-row");
+
+    fireEvent.change(addForm().getByLabelText("Type"), { target: { value: "FORMULA" } });
+    fireEvent.change(addForm().getByLabelText("Formula"), { target: { value: "code__c" } });
+    fireEvent.change(addForm().getByLabelText("Result"), { target: { value: "TEXT" } });
+    fireEvent.click(addForm().getByRole("button", { name: "Check the formula" }));
+
+    expect(await screen.findByTestId("formula-check-valid")).toHaveTextContent("It is valid. It gives text.");
+    const sent = JSON.parse(calls.find((call) => call.key === "POST /api/v1/metadata/expressions/check")?.body ?? "{}");
+    expect(sent).toEqual({ objectApiName: "Employee__c", expression: "code__c", purpose: "FORMULA", resultType: "TEXT" });
+  });
+
   it("shows what the API answered for an object that does not exist", async () => {
     state.object = "Ghost__c";
     fakeApi({

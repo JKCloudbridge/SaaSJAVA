@@ -383,7 +383,7 @@ class MetadataApiIT {
                         "$.data.settings.targetObject", "Target__c"),
                 Arguments.of("MASTER_DETAIL", ",\"settings\":{\"targetObject\":\"Target__c\"}",
                         "$.data.required", "true"),
-                Arguments.of("FORMULA", ",\"settings\":{\"expression\":\"a * 2\",\"resultType\":\"NUMBER\"}",
+                Arguments.of("FORMULA", ",\"settings\":{\"expression\":\"2 * 21\",\"resultType\":\"NUMBER\"}",
                         "$.data.settings.resultType", "NUMBER"),
                 Arguments.of("AUTO_NUMBER", ",\"settings\":{\"prefix\":\"INV-\",\"startAt\":100,\"width\":5}",
                         "$.data.settings.startAt", "100"));

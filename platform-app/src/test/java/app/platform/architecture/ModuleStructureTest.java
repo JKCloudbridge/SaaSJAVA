@@ -19,7 +19,7 @@ class ModuleStructureTest {
 
     /** The logical modules of the platform. Adding or removing one is a deliberate, reviewed change. */
     static final Set<String> EXPECTED_MODULES = Set.of(
-            "tenant", "identity", "licensing", "security", "metadata", "data", "application",
+            "tenant", "identity", "licensing", "security", "expression", "metadata", "data", "application",
             "workflow", "approval", "notification", "integration", "audit", "platformadmin",
             "web", "observability", "outbox", "sharedkernel");
 

@@ -13,6 +13,8 @@ import app.platformapi.ObjectView;
 import app.platformapi.ProblemView;
 import app.platformapi.ReleaseItemView;
 import app.platformapi.ReleaseView;
+import app.platform.sharedkernel.events.EventPublisher;
+import app.platform.sharedkernel.events.NewEvent;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -81,12 +83,14 @@ class MetadataLifecycle {
     private final MetadataProperties properties;
     private final List<DependencyGraph.Contributor> contributors;
     private final ObjectProvider<ObjectUsage> usage;
+    private final EventPublisher events;
     private final TransactionTemplate nested;
 
     MetadataLifecycle(LifecycleStore store, ChangeApplier applier, ChangeCodec codec, MetadataCatalogue catalogue,
             MetadataService metadata, MetadataAudit audit, MetadataProperties properties,
             List<DependencyGraph.Contributor> contributors, ObjectProvider<ObjectUsage> usage,
-            PlatformTransactionManager transactions) {
+            EventPublisher events, PlatformTransactionManager transactions) {
+        this.events = events;
         this.store = store;
         this.applier = applier;
         this.codec = codec;
@@ -109,8 +113,9 @@ class MetadataLifecycle {
      */
     <T> T applyNow(Caller caller, Change change, Class<T> type) {
         store.lockPublications();
+        MetadataSnapshot before = catalogue.snapshot();
         ChangeApplier.Applied applied = applier.apply(caller, change);
-        List<Problem> broken = dependencyProblems();
+        List<Problem> broken = dependencyProblems(before);
         if (!broken.isEmpty()) {
             throw new ApiException(ErrorCode.CONFLICT, broken.get(0).message()
                     + (broken.size() > 1 ? " (and " + (broken.size() - 1) + " more)" : ""),
@@ -243,6 +248,9 @@ class MetadataLifecycle {
      * decided here: the caller commits (publish) or rolls back (check) the surrounding transaction.
      */
     private Outcome applyAll(Caller caller, List<Change> changes, boolean checkRecords) {
+        // Read before anything in this batch is applied, so a dependency check can later tell whether something was
+        // already trusted going into the change (ADR-0077), not only whether it happens to still compile afterwards.
+        MetadataSnapshot before = catalogue.snapshot();
         List<Problem> problems = new ArrayList<>();
         List<ReleaseItemView> items = new ArrayList<>();
         List<List<Change>> undos = new ArrayList<>();
@@ -273,7 +281,7 @@ class MetadataLifecycle {
             }
         }
         if (problems.isEmpty()) {
-            problems.addAll(dependencyProblems());
+            problems.addAll(dependencyProblems(before));
         }
         return new Outcome(problems, items, undoOf(undos), touched);
     }
@@ -320,10 +328,10 @@ class MetadataLifecycle {
         return undo;
     }
 
-    private List<Problem> dependencyProblems() {
-        MetadataSnapshot snapshot = catalogue.snapshot();
+    private List<Problem> dependencyProblems(MetadataSnapshot before) {
+        MetadataSnapshot after = catalogue.snapshot();
         List<Problem> problems = new ArrayList<>();
-        for (DependencyGraph.Violation violation : DependencyGraph.of(snapshot, contributors).violations()) {
+        for (DependencyGraph.Violation violation : DependencyGraph.of(before, after, contributors).violations()) {
             problems.add(new Problem("DEPENDENCY", null, violation.needs().object(), violation.needs().item(),
                     violation.dependent().describe(), violation.message(), List.of()));
         }
@@ -387,8 +395,13 @@ class MetadataLifecycle {
     private long writeRelease(Caller caller, String kind, UUID changeSet, Long undoes, List<ReleaseItemView> items,
             List<Change> undo) {
         long number = store.nextReleaseNumber();
-        store.insertRelease(number, kind, changeSet, undoes, codec.write(items), codec.writeChanges(undo),
-                store.currentMetadataVersion(), caller.userId());
+        long version = store.currentMetadataVersion();
+        store.insertRelease(number, kind, changeSet, undoes, codec.write(items), codec.writeChanges(undo), version,
+                caller.userId());
+        // The event exists if and only if the release committed (the outbox, ADR-0016). It carries numbers only: the
+        // tenant is the one of the transaction, and what changed is read from the database, never from the event.
+        events.publish(new NewEvent(MetadataWarmer.EVENT_TYPE, "{\"release\":" + number + ",\"version\":" + version
+                + "}"));
         if (!kind.equals("ROLLBACK")) {
             audit.released(caller.userId(), number, kind, changeSet, items.size());
         }
