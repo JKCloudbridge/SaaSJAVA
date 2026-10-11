@@ -17,4 +17,10 @@ import java.util.UUID;
  */
 public record LayoutAssignmentView(@NotNull String key, UUID profileId, String profileName, String recordType,
         @NotNull String layout, @NotNull Long version) {
+
+    /** Prints nothing typed: the name of a profile is text the organization chose (ADR-0012). */
+    @Override
+    public String toString() {
+        return "LayoutAssignmentView[redacted]";
+    }
 }

@@ -14,4 +14,10 @@ import jakarta.validation.constraints.NotNull;
  */
 public record NavigationEntryView(@NotNull String type, @NotNull String label, String objectApiName,
         String pageApiName, String path) {
+
+    /** Prints nothing typed: the label is text the organization chose (ADR-0012). */
+    @Override
+    public String toString() {
+        return "NavigationEntryView[redacted]";
+    }
 }

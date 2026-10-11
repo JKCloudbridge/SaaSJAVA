@@ -18,4 +18,10 @@ public record MyApplicationView(@NotNull String apiName, @NotNull String label, 
     public MyApplicationView {
         items = items == null ? List.of() : List.copyOf(items);
     }
+
+    /** Prints nothing typed: the labels are text the organization chose (ADR-0012). */
+    @Override
+    public String toString() {
+        return "MyApplicationView[redacted]";
+    }
 }

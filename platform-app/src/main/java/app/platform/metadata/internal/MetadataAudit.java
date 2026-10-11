@@ -83,8 +83,13 @@ class MetadataAudit {
                 .onObject(path(object, name), null));
     }
 
+    /**
+     * The audit object key of a definition: the object and the name, joined by a dot. The key of a layout assignment
+     * has a tilde between the profile and the record type, which an audit key does not allow, so it becomes a dot.
+     */
     private static String path(String object, String name) {
-        return object == null || object.isEmpty() ? name : object + "." + name;
+        String clean = name.replace('~', '.');
+        return object == null || object.isEmpty() ? clean : object + "." + clean;
     }
 
     // ---- lifecycle: change sets and releases (ADR-0066, ADR-0067) ----
