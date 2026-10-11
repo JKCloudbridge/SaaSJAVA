@@ -113,8 +113,9 @@ class MetadataLifecycle {
      */
     <T> T applyNow(Caller caller, Change change, Class<T> type) {
         store.lockPublications();
+        MetadataSnapshot before = catalogue.snapshot();
         ChangeApplier.Applied applied = applier.apply(caller, change);
-        List<Problem> broken = dependencyProblems();
+        List<Problem> broken = dependencyProblems(before);
         if (!broken.isEmpty()) {
             throw new ApiException(ErrorCode.CONFLICT, broken.get(0).message()
                     + (broken.size() > 1 ? " (and " + (broken.size() - 1) + " more)" : ""),
@@ -247,6 +248,9 @@ class MetadataLifecycle {
      * decided here: the caller commits (publish) or rolls back (check) the surrounding transaction.
      */
     private Outcome applyAll(Caller caller, List<Change> changes, boolean checkRecords) {
+        // Read before anything in this batch is applied, so a dependency check can later tell whether something was
+        // already trusted going into the change (ADR-0077), not only whether it happens to still compile afterwards.
+        MetadataSnapshot before = catalogue.snapshot();
         List<Problem> problems = new ArrayList<>();
         List<ReleaseItemView> items = new ArrayList<>();
         List<List<Change>> undos = new ArrayList<>();
@@ -277,7 +281,7 @@ class MetadataLifecycle {
             }
         }
         if (problems.isEmpty()) {
-            problems.addAll(dependencyProblems());
+            problems.addAll(dependencyProblems(before));
         }
         return new Outcome(problems, items, undoOf(undos), touched);
     }
@@ -324,10 +328,10 @@ class MetadataLifecycle {
         return undo;
     }
 
-    private List<Problem> dependencyProblems() {
-        MetadataSnapshot snapshot = catalogue.snapshot();
+    private List<Problem> dependencyProblems(MetadataSnapshot before) {
+        MetadataSnapshot after = catalogue.snapshot();
         List<Problem> problems = new ArrayList<>();
-        for (DependencyGraph.Violation violation : DependencyGraph.of(snapshot, contributors).violations()) {
+        for (DependencyGraph.Violation violation : DependencyGraph.of(before, after, contributors).violations()) {
             problems.add(new Problem("DEPENDENCY", null, violation.needs().object(), violation.needs().item(),
                     violation.dependent().describe(), violation.message(), List.of()));
         }

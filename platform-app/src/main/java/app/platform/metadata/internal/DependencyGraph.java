@@ -106,10 +106,21 @@ final class DependencyGraph {
         void violation(Node dependent, Node needs, String message);
     }
 
-    /** One kind of dependent. A new kind (a layout, a rule) is one new implementation. */
+    /**
+     * One kind of dependent. A new kind (a layout, a rule) is one new implementation of the single-snapshot method.
+     */
     interface Contributor {
 
         void contribute(MetadataSnapshot snapshot, Sink sink);
+
+        /**
+         * Called with the snapshot as it was before the proposed change too (ADR-0077). Only a contributor that must
+         * tell whether something was already trusted going into the change (today: formulas) overrides this; every
+         * other one keeps asking only about the result, which is what the default does.
+         */
+        default void contribute(MetadataSnapshot before, MetadataSnapshot after, Sink sink) {
+            contribute(after, sink);
+        }
     }
 
     private final MetadataSnapshot snapshot;
@@ -120,9 +131,18 @@ final class DependencyGraph {
         this.snapshot = snapshot;
     }
 
-    /** Builds the graph of the snapshot from what every contributor says. */
+    /** Builds the graph of the result from what every contributor says, with no way to ask what came before it. */
     static DependencyGraph of(MetadataSnapshot snapshot, List<? extends Contributor> contributors) {
-        DependencyGraph graph = new DependencyGraph(snapshot);
+        return of(snapshot, snapshot, contributors);
+    }
+
+    /**
+     * Builds the graph of {@code after} (every existence check in {@link #violations()} is against it) from what
+     * every contributor says, handing each one {@code before} as well (ADR-0077).
+     */
+    static DependencyGraph of(MetadataSnapshot before, MetadataSnapshot after,
+            List<? extends Contributor> contributors) {
+        DependencyGraph graph = new DependencyGraph(after);
         Sink sink = new Sink() {
             @Override
             public void edge(Node dependent, String verb, Node needs) {
@@ -134,7 +154,7 @@ final class DependencyGraph {
                 graph.rules.add(new Violation(dependent, needs, message));
             }
         };
-        contributors.forEach(contributor -> contributor.contribute(snapshot, sink));
+        contributors.forEach(contributor -> contributor.contribute(before, after, sink));
         return graph;
     }
 

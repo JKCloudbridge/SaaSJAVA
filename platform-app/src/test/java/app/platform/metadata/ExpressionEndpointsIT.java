@@ -7,6 +7,7 @@ import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestHttp.Response;
 import com.jayway.jsonpath.JsonPath;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -117,7 +118,9 @@ class ExpressionEndpointsIT extends ExpressionTestSupport {
         assertThat(json(calculated, "$.data.value")).isEqualTo("7.5");
         assertThat(json(calculated, "$.data.type")).isEqualTo("NUMBER");
         assertThat(json(nothing, "$.data.outcome")).isEqualTo("VALUE");
-        assertThat(JsonPath.<Object>read(nothing.body(), "$.data.value")).isNull();
+        // A formula with no value leaves "value" out of the envelope entirely (ADR-0011: an absent field, not a
+        // written null), the same as every other optional field of the API.
+        assertThat(JsonPath.<Map<String, Object>>read(nothing.body(), "$.data")).doesNotContainKey("value");
         assertThat(json(text, "$.data.value")).isEqualTo("Open x4");
         assertThat(json(date, "$.data.value")).isEqualTo("2030-03-02");
     }

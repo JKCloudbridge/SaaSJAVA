@@ -94,13 +94,25 @@ final class FormulaAnalysis {
 
     /** Analyses every formula field of the object. */
     static FormulaAnalysis of(ObjectDefinition object, ExpressionEngine engine, int maxDepth) {
+        return of(object, object, engine, maxDepth);
+    }
+
+    /**
+     * Analyses every formula field that survives in {@code object}, compiled against the fields of
+     * {@code schemaObject} instead. A dependency check (ADR-0077) passes the object as it was <em>before</em> the
+     * proposed change here, so that a formula already trusted does not look broken only because the very change
+     * being checked is the one removing a field it uses; {@code object} still decides which formula fields are even
+     * asked about, so a formula removed together with the field it needs is correctly left out, exactly as before.
+     */
+    static FormulaAnalysis of(ObjectDefinition object, ObjectDefinition schemaObject, ExpressionEngine engine,
+            int maxDepth) {
         Map<String, Entry> entries = new LinkedHashMap<>();
         Map<String, ExpressionType> schema = null;
         for (FieldDefinition field : object.fields()) {
             if (field.configuration() instanceof FormulaConfiguration formula) {
                 if (schema == null) {
                     // Most objects have no formula, so the map of types is made only for the ones that have.
-                    schema = ExpressionSupport.schemaOf(object);
+                    schema = ExpressionSupport.schemaOf(schemaObject);
                 }
                 entries.put(field.apiName(), entry(engine, schema, field, formula));
             }

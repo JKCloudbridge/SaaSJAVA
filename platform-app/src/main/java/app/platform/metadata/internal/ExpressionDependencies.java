@@ -34,8 +34,19 @@ final class ExpressionDependencies {
 
         @Override
         public void contribute(MetadataSnapshot snapshot, DependencyGraph.Sink sink) {
-            for (ObjectDefinition object : snapshot.objects()) {
-                FormulaAnalysis analysis = FormulaAnalysis.of(object, support.engine(), support.maxFormulaDepth());
+            contribute(snapshot, snapshot, sink);
+        }
+
+        @Override
+        public void contribute(MetadataSnapshot before, MetadataSnapshot after, DependencyGraph.Sink sink) {
+            for (ObjectDefinition object : after.objects()) {
+                // Compiled against the fields as they were before this change (ADR-0077): an unverified formula
+                // that already passed is trusted from the start, not only once it is broken by something else. The
+                // object itself still decides which formula fields even survive, so one removed together with the
+                // field it needs is correctly left out, exactly as before.
+                ObjectDefinition schemaObject = before.object(object.apiName()).orElse(object);
+                FormulaAnalysis analysis = FormulaAnalysis.of(object, schemaObject, support.engine(),
+                        support.maxFormulaDepth());
                 for (FormulaAnalysis.Entry entry : analysis.entries().values()) {
                     contribute(object, entry, sink);
                 }
