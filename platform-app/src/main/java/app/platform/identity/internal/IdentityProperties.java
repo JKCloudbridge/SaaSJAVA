@@ -47,7 +47,7 @@ record IdentityProperties(
      * @param hashWait how long a request waits for a free hashing slot before it is refused as unavailable
      */
     record Password(
-            @DefaultValue("12") int minLength,
+            @DefaultValue("9") int minLength,
             @DefaultValue("128") int maxLength,
             @DefaultValue("32768") int memoryKib,
             @DefaultValue("3") int iterations,

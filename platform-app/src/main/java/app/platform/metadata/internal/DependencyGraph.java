@@ -15,12 +15,13 @@ import java.util.Optional;
  * removed something knows what still uses it.
  *
  * <p>Edges come from {@link Contributor} beans, one per kind of dependent (fields that point at objects, record types).
- * Layouts (Sprint 12) and validation rules (Sprint 13) add their own contributor; nothing else changes.
+ * Layouts, record pages, assignments and applications (Sprint 12, ADR-0072) added theirs; validation rules
+ * (Sprint 13) add one more and nothing else changes.
  */
 final class DependencyGraph {
 
-    /** The kinds of thing that can be depended on. */
-    enum Kind { OBJECT, FIELD, RECORD_TYPE, PICKLIST_VALUE }
+    /** The kinds of thing that can be depended on (a layout assignment and an application only depend). */
+    enum Kind { OBJECT, FIELD, RECORD_TYPE, PICKLIST_VALUE, LAYOUT, RECORD_PAGE, APPLICATION, ASSIGNMENT }
 
     /**
      * A definition, by name only (never by what a person typed as a value).
@@ -48,6 +49,22 @@ final class DependencyGraph {
             return new Node(Kind.PICKLIST_VALUE, object, field, value);
         }
 
+        static Node layout(String object, String layout) {
+            return new Node(Kind.LAYOUT, object, layout, null);
+        }
+
+        static Node recordPage(String object, String page) {
+            return new Node(Kind.RECORD_PAGE, object, page, null);
+        }
+
+        static Node application(String application) {
+            return new Node(Kind.APPLICATION, "", application, null);
+        }
+
+        static Node assignment(String object, String key) {
+            return new Node(Kind.ASSIGNMENT, object, key, null);
+        }
+
         /** The words for a person, without any value. */
         String describe() {
             return switch (kind) {
@@ -55,6 +72,10 @@ final class DependencyGraph {
                 case FIELD -> "field " + object + "." + item;
                 case RECORD_TYPE -> "record type " + item + " of " + object;
                 case PICKLIST_VALUE -> "a value of the picklist " + object + "." + item;
+                case LAYOUT -> "page layout " + item + " of " + object;
+                case RECORD_PAGE -> "record page " + item + " of " + object;
+                case APPLICATION -> "application " + item;
+                case ASSIGNMENT -> "the layout assignment " + item + " of " + object;
             };
         }
     }
@@ -142,6 +163,11 @@ final class DependencyGraph {
             case RECORD_TYPE -> snapshot.recordType(node.object(), node.item()).isPresent();
             case PICKLIST_VALUE -> object.flatMap(o -> o.field(node.item())).map(DependencyGraph::values)
                     .orElse(List.of()).contains(node.value());
+            case LAYOUT -> snapshot.layout(node.object(), node.item()).isPresent();
+            case RECORD_PAGE -> snapshot.recordPage(node.object(), node.item()).isPresent();
+            case APPLICATION -> snapshot.application(node.item()).isPresent();
+            case ASSIGNMENT -> snapshot.assignments(node.object()).stream()
+                    .anyMatch(assignment -> assignment.key().equals(node.item()));
         };
     }
 

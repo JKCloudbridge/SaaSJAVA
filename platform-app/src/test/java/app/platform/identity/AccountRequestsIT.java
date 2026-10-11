@@ -31,7 +31,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 class AccountRequestsIT {
 
     private static final ActorId ACTOR = new ActorId(UUID.randomUUID());
-    private static final String PASSWORD = "pw-" + UUID.randomUUID() + "-" + UUID.randomUUID();
+    private static final String PASSWORD = "Pw-" + UUID.randomUUID() + "-" + UUID.randomUUID();
 
     @LocalServerPort
     private int port;

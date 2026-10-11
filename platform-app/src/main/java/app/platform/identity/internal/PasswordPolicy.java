@@ -5,11 +5,12 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * The rules a new password must meet (story S3-SEC-03, ADR-0020): a minimum length, a maximum length that keeps
- * hashing bounded, no known common or breached password, not built from the user's own address. There are
- * deliberately no rules about upper case, digits or symbols ("composition theatre"): they make people choose
- * predictable passwords without making them stronger. The rule "not the current password" needs the stored hash and
- * is applied by the caller.
+ * The rules a new password must meet (story S3-SEC-03, ADR-0020, revised by the product owner on 2026-10-10): a
+ * minimum length, a maximum length that keeps hashing bounded, at least one upper case letter, one lower case
+ * letter, one digit and one symbol, no known common or breached password, not built from the user's own address.
+ * The original design (ADR-0020) argued against composition rules as "composition theatre" that pushes people
+ * toward predictable patterns without adding real strength; the product owner chose to require them anyway. The
+ * rule "not the current password" needs the stored hash and is applied by the caller.
  *
  * <p>The messages are written for the person choosing the password and say what to change. They never repeat the
  * password.
@@ -54,6 +55,18 @@ final class PasswordPolicy {
         }
         if (length >= 1 && length <= maxLength) {
             String text = new String(candidate);
+            if (!hasUpperCase(text)) {
+                problems.add("Must include at least one upper case letter.");
+            }
+            if (!hasLowerCase(text)) {
+                problems.add("Must include at least one lower case letter.");
+            }
+            if (!hasDigit(text)) {
+                problems.add("Must include at least one number.");
+            }
+            if (!hasSymbol(text)) {
+                problems.add("Must include at least one symbol (for example ! @ # $ % & *).");
+            }
             if (breached.contains(text)) {
                 problems.add("Is a very common password. Choose something that is not on lists of common passwords.");
             }
@@ -62,6 +75,22 @@ final class PasswordPolicy {
             }
         }
         return problems;
+    }
+
+    private static boolean hasUpperCase(String text) {
+        return text.chars().anyMatch(Character::isUpperCase);
+    }
+
+    private static boolean hasLowerCase(String text) {
+        return text.chars().anyMatch(Character::isLowerCase);
+    }
+
+    private static boolean hasDigit(String text) {
+        return text.chars().anyMatch(Character::isDigit);
+    }
+
+    private static boolean hasSymbol(String text) {
+        return text.chars().anyMatch(c -> !Character.isLetterOrDigit(c) && !Character.isWhitespace(c));
     }
 
     private static boolean containsLocalPart(String password, String email) {

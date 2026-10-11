@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { COMMON_TEXT } from "@/components/account/messages";
+import { api } from "@/lib/api/client";
 import { failureFromResponse } from "@/lib/api/errors";
 import { ensureForgeryCookie } from "@/lib/session/SessionProvider";
 
@@ -23,6 +24,12 @@ export interface ActionResult {
  * The shared shape of an administrator's action on a console or members page: one call at a time, the forgery cookie
  * first, the API's own words when it refuses, a short notice when it worked, and a reload afterwards. The page never
  * decides whether an action is allowed; it only reports what the API answered.
+ *
+ * <p>The access token behind the request is deliberately short-lived (ADR-0019) and is meant to be renewed silently
+ * through the refresh cookie, never noticed by the person using the page. A page load already does this once
+ * ({@code fetchSession}); an action taken after sitting on a page for a while needs the same treatment, since the
+ * token can have run out in the meantime. So a 401 here is tried exactly once more, after a silent refresh, before
+ * it is shown as a real refusal. If the refresh itself fails, the session has truly ended and the refusal stands.
  */
 export function useAction(onDone: () => Promise<void>) {
   const [busy, setBusy] = useState(false);
@@ -39,7 +46,14 @@ export function useAction(onDone: () => Promise<void>) {
       setProblem(undefined);
       try {
         await ensureForgeryCookie();
-        const result = await run();
+        let result = await run();
+        if (result.response.status === 401) {
+          const refreshed = await api.POST("/api/v1/auth/refresh");
+          if (refreshed.response.status === 204) {
+            await ensureForgeryCookie();
+            result = await run();
+          }
+        }
         if (result.response.ok) {
           setNotice(result.text);
           await onDone();

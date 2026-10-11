@@ -14,7 +14,12 @@ const PROBLEM_TEXT: Record<string, string> = {
 /** What an item adds, changes or removes, in words: "Added field Employee__c.code__c". */
 export function itemText(item: Item): string {
   const what = ITEM_TEXT[item.kind] ?? item.kind.toLowerCase();
-  const name = item.itemApiName ? `${item.objectApiName}.${item.itemApiName}` : item.objectApiName;
+  // An application belongs to no object: its object name is empty and the item names it alone.
+  const name = !item.objectApiName
+    ? (item.itemApiName ?? "")
+    : item.itemApiName
+      ? `${item.objectApiName}.${item.itemApiName}`
+      : item.objectApiName;
   return `${ACTION_TEXT[item.action] ?? item.action} ${what} ${name}`;
 }
 

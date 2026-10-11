@@ -5,6 +5,7 @@ import app.platformapi.AccessPolicyRef;
 import app.platformapi.MemberAccessView;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -155,6 +156,13 @@ public interface MemberAccess {
 
     /** Profile names by identifier, for the invitation list. */
     Map<UUID, String> profileNames();
+
+    /**
+     * The profile of a member, or empty for a membership without one (a deactivated member). Just the identifier, for
+     * a module that shows or chooses something by profile (Sprint 12: the applications a member sees); who may do what
+     * is still asked of {@link Permissions} and {@link Decisions}, never derived from the profile.
+     */
+    Optional<UUID> profileOf(UUID membershipId);
 
     /** Role names by identifier, for the invitation list. */
     Map<UUID, String> roleNames();

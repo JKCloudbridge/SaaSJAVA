@@ -11,9 +11,11 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
- * The dependents that exist in Sprint 11 (ADR-0065): a lookup or master-detail field depends on the object it points
- * to, and a record type depends on its object, on every field it offers and on every picklist value it allows. Layouts
- * and rules add their own {@link DependencyGraph.Contributor} in later sprints.
+ * The dependents that exist (ADR-0065, ADR-0072): a lookup or master-detail field depends on the object it points
+ * to; a record type on its object, every field it offers, every picklist value it allows and its layout; a page
+ * layout on its object and every field it shows; a record page on its layout, the relationships its related lists
+ * follow and the fields it names; a layout assignment on its layout and record type; an application on every object
+ * and record page its navigation opens. Rules add their own {@link DependencyGraph.Contributor} in Sprint 13.
  */
 final class Dependencies {
 

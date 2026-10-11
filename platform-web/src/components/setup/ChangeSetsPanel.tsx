@@ -236,7 +236,13 @@ export function ChangeSetsPanel() {
             <ol data-testid="changes">
               {detail.changes.map((change) => (
                 <li key={change.id} data-testid="change-row">
-                  {CHANGE_KIND_TEXT[change.kind] ?? change.kind} <code>{change.objectApiName}</code>
+                  {CHANGE_KIND_TEXT[change.kind] ?? change.kind}
+                  {change.objectApiName ? (
+                    <>
+                      {" "}
+                      <code>{change.objectApiName}</code>
+                    </>
+                  ) : null}
                   {change.itemApiName ? (
                     <>
                       {" "}

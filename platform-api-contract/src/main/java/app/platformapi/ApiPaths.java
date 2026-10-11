@@ -134,6 +134,12 @@ public final class ApiPaths {
     /** The releases of the organization's metadata: its history and rollback (Sprint 11). */
     public static final String METADATA_RELEASES = V1 + "/metadata/releases";
 
+    /** The applications of the organization: definitions for those who manage metadata (Sprint 12). */
+    public static final String METADATA_APPLICATIONS = V1 + "/metadata/applications";
+
+    /** The applications the signed-in member may use, with their navigation (Sprint 12). */
+    public static final String MY_APPLICATIONS = V1 + "/applications";
+
     /** The caller leaves the organization the host names (Sprint 7). */
     public static final String ORGANIZATION_LEAVE = V1 + "/organization/leave";
 

@@ -34,7 +34,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 class UsersIT {
 
     private static final ActorId ACTOR = new ActorId(UUID.randomUUID());
-    private static final String STRONG = "violet lantern ocean 77 mountain";
+    private static final String STRONG = "Violet-lantern-ocean-77-mountain!";
 
     @Autowired
     private Users users;
@@ -244,7 +244,7 @@ class UsersIT {
     @Test
     void changingThePasswordNeedsTheCurrentOneAndTheNewOneWorksAfterwards() {
         TestUsers.TestUser user = TestUsers.create(users);
-        String next = "another violet lantern 88 ocean";
+        String next = "Another-violet-lantern-88-ocean!";
 
         users.changePassword(user.user().id(), user.password().toCharArray(), next.toCharArray());
 
@@ -260,7 +260,7 @@ class UsersIT {
         TestUsers.TestUser user = TestUsers.create(users);
 
         assertThatThrownBy(() -> users.changePassword(user.user().id(), "not the password".toCharArray(),
-                "another violet lantern 88 ocean".toCharArray()))
+                "Another-violet-lantern-88-ocean!".toCharArray()))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.fields()).containsKey("currentPassword"));
 
         assertThat(IdentityDb.auditOf(user.user().id())).anyMatch(
@@ -289,7 +289,7 @@ class UsersIT {
         for (int i = 0; i < 12; i++) {
             try {
                 users.changePassword(user.user().id(), ("guess number " + i + " of the password").toCharArray(),
-                        "another violet lantern 88 ocean".toCharArray());
+                        "Another-violet-lantern-88-ocean!".toCharArray());
             } catch (ApiException e) {
                 last = e;
             }
@@ -306,10 +306,10 @@ class UsersIT {
 
         assertThatThrownBy(() -> users.resetPassword(user.user().id(), "password123456".toCharArray(), ACTOR))
                 .isInstanceOf(ApiException.class);
-        users.resetPassword(user.user().id(), "a reset violet lantern 99 sea".toCharArray(), ACTOR);
+        users.resetPassword(user.user().id(), "A-reset-violet-lantern-99-sea!".toCharArray(), ACTOR);
 
         assertThat(new TestBrowser(port, TestSignIn.PLATFORM_HOST)
-                .signInPassword(user.email(), "a reset violet lantern 99 sea").status()).isEqualTo(204);
+                .signInPassword(user.email(), "A-reset-violet-lantern-99-sea!").status()).isEqualTo(204);
     }
 
     // ---- audit ----

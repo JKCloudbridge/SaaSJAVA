@@ -286,13 +286,52 @@ public final class TenantScopedTables {
                             + "where tenant_id = ?",
                     tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value(), tenant));
 
+    /** The page layouts of organizations (Sprint 12). A probe row needs a custom object, which it creates. */
+    public static final TenantScopedTable PAGE_LAYOUT = new TenantScopedTable("page_layout",
+            (connection, tenant) -> {
+                String object = probeObject(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into page_layout (tenant_id, object_api_name, api_name, label, definition, "
+                                + "created_by, updated_by) values (?, ?, ?, 'Probe', '{\"sections\": []}'::jsonb, "
+                                + "?, ?)",
+                        tenant, object, probeName("Probe"), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** The record pages of organizations (Sprint 12). A probe row needs a custom object, which it creates. */
+    public static final TenantScopedTable RECORD_PAGE = new TenantScopedTable("record_page",
+            (connection, tenant) -> {
+                String object = probeObject(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into record_page (tenant_id, object_api_name, api_name, label, definition, "
+                                + "created_by, updated_by) values (?, ?, ?, 'Probe', '{\"components\": []}'::jsonb, "
+                                + "?, ?)",
+                        tenant, object, probeName("Probe"), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** The applications of organizations (Sprint 12). Each probe row has a name of its own. */
+    public static final TenantScopedTable APPLICATION = new TenantScopedTable("application",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into application (tenant_id, api_name, label, definition, created_by, updated_by) "
+                            + "values (?, ?, 'Probe', '{\"items\": []}'::jsonb, ?, ?)",
+                    tenant, probeName("Probe"), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
+    /** The layout assignments of organizations (Sprint 12). A probe row needs a custom object, which it creates. */
+    public static final TenantScopedTable LAYOUT_ASSIGNMENT = new TenantScopedTable("layout_assignment",
+            (connection, tenant) -> {
+                String object = probeObject(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into layout_assignment (tenant_id, object_api_name, layout_api_name, created_by, "
+                                + "updated_by) values (?, ?, 'Probe__c', ?, ?)",
+                        tenant, object, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
             MEMBER_ACCESS, MEMBER_ACCESS_POLICY, MEMBER_GRANT, PUBLIC_GROUP, PUBLIC_GROUP_MEMBER,
             PUBLIC_GROUP_ACCESS_POLICY, OBJECT_PERMISSION, FIELD_PERMISSION, SECURITY_VERSION, OBJECT_DEFINITION,
             FIELD_DEFINITION, METADATA_VERSION, RECORD_TYPE, METADATA_CHANGE_SET, METADATA_CHANGE,
-            METADATA_RELEASE);
+            METADATA_RELEASE, PAGE_LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT);
 
     private TenantScopedTables() {
     }

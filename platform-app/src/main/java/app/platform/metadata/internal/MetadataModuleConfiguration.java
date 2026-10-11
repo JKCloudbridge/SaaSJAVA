@@ -29,6 +29,11 @@ class MetadataModuleConfiguration {
     }
 
     @Bean
+    DefinitionCodec definitionCodec() {
+        return new DefinitionCodec();
+    }
+
+    @Bean
     ChangeCodec changeCodec() {
         return new ChangeCodec();
     }

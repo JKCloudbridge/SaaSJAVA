@@ -1,0 +1,951 @@
+{
+  "$comment": "The shape of page layouts, record pages and applications (Sprint 12, ADR-0069). One source of truth: the application checks every saved definition against these schemas (JSON Schema 2020-12), and the same schemas are copied into components.schemas of the OpenAPI document, so the generated TypeScript client has the same types. References are written as #/components/schemas/<Name> for that reason. Everything an organization can express is data from a closed list: there is no expression text and no address outside the organization.",
+  "schemas": {
+    "ApiNameShape": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Za-z0-9_]{0,55}__c$",
+      "description": "The permanent name of a layout, a record page or an application. It ends with __c."
+    },
+    "ObjectNameShape": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Za-z0-9_]{0,59}$",
+      "description": "The API name of an object."
+    },
+    "FieldNameShape": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,59}$",
+      "description": "The API name of a field."
+    },
+    "PageLayoutDefinition": {
+      "type": "object",
+      "description": "The structure of a record form: sections with the fields in them, and how each field behaves.",
+      "additionalProperties": false,
+      "required": [
+        "sections"
+      ],
+      "properties": {
+        "sections": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/components/schemas/LayoutSection"
+          }
+        }
+      }
+    },
+    "LayoutSection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "fields"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "columns": {
+          "type": "integer",
+          "enum": [
+            1,
+            2
+          ],
+          "description": "Left out: 1."
+        },
+        "fields": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/components/schemas/LayoutField"
+          }
+        }
+      }
+    },
+    "LayoutField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field"
+      ],
+      "properties": {
+        "field": {
+          "$ref": "#/components/schemas/FieldNameShape"
+        },
+        "behaviour": {
+          "type": "string",
+          "enum": [
+            "EDITABLE",
+            "READ_ONLY",
+            "REQUIRED",
+            "HIDDEN"
+          ],
+          "description": "EDITABLE: a person may change it. READ_ONLY: shown, never changed on this page. REQUIRED: must have a value on this page, whatever the field itself says. HIDDEN: kept in the layout but not shown. Left out: EDITABLE."
+        }
+      }
+    },
+    "VisibilityLeaf": {
+      "type": "object",
+      "description": "One condition: a field compared with a value, or the person holding an ability.",
+      "properties": {
+        "field": {
+          "$ref": "#/components/schemas/FieldNameShape"
+        },
+        "operator": {
+          "type": "string",
+          "enum": [
+            "EQUALS",
+            "NOT_EQUALS",
+            "IS_EMPTY",
+            "IS_NOT_EMPTY"
+          ]
+        },
+        "value": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ],
+          "maxLength": 255
+        },
+        "ability": {
+          "type": "string",
+          "pattern": "^[a-z]+(\\.[a-z-]+)+$",
+          "maxLength": 60
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "field",
+            "operator"
+          ]
+        },
+        {
+          "required": [
+            "ability"
+          ]
+        }
+      ],
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "operator"
+            ],
+            "properties": {
+              "operator": {
+                "enum": [
+                  "EQUALS",
+                  "NOT_EQUALS"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "value"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "operator"
+            ],
+            "properties": {
+              "operator": {
+                "enum": [
+                  "IS_EMPTY",
+                  "IS_NOT_EMPTY"
+                ]
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "value"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "ability"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "field"
+                  ]
+                },
+                {
+                  "required": [
+                    "operator"
+                  ]
+                },
+                {
+                  "required": [
+                    "value"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "VisibilityInner": {
+      "type": "object",
+      "description": "A condition, or a group of conditions combined with all (AND) or any (OR).",
+      "properties": {
+        "field": {
+          "$ref": "#/components/schemas/FieldNameShape"
+        },
+        "operator": {
+          "type": "string",
+          "enum": [
+            "EQUALS",
+            "NOT_EQUALS",
+            "IS_EMPTY",
+            "IS_NOT_EMPTY"
+          ]
+        },
+        "value": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ],
+          "maxLength": 255
+        },
+        "ability": {
+          "type": "string",
+          "pattern": "^[a-z]+(\\.[a-z-]+)+$",
+          "maxLength": 60
+        },
+        "all": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/components/schemas/VisibilityLeaf"
+          }
+        },
+        "any": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/components/schemas/VisibilityLeaf"
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "field",
+            "operator"
+          ]
+        },
+        {
+          "required": [
+            "ability"
+          ]
+        },
+        {
+          "required": [
+            "all"
+          ]
+        },
+        {
+          "required": [
+            "any"
+          ]
+        }
+      ],
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "operator"
+            ],
+            "properties": {
+              "operator": {
+                "enum": [
+                  "EQUALS",
+                  "NOT_EQUALS"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "value"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "operator"
+            ],
+            "properties": {
+              "operator": {
+                "enum": [
+                  "IS_EMPTY",
+                  "IS_NOT_EMPTY"
+                ]
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "value"
+              ]
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "VisibilityRule": {
+      "type": "object",
+      "description": "When a component or an action is shown. Closed data, never text that is evaluated: a condition, or all/any of conditions, nested once. The expression engine of Sprint 13 may add to this list, never replace it.",
+      "properties": {
+        "field": {
+          "$ref": "#/components/schemas/FieldNameShape"
+        },
+        "operator": {
+          "type": "string",
+          "enum": [
+            "EQUALS",
+            "NOT_EQUALS",
+            "IS_EMPTY",
+            "IS_NOT_EMPTY"
+          ]
+        },
+        "value": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ],
+          "maxLength": 255
+        },
+        "ability": {
+          "type": "string",
+          "pattern": "^[a-z]+(\\.[a-z-]+)+$",
+          "maxLength": 60
+        },
+        "all": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/components/schemas/VisibilityInner"
+          }
+        },
+        "any": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/components/schemas/VisibilityInner"
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "field",
+            "operator"
+          ]
+        },
+        {
+          "required": [
+            "ability"
+          ]
+        },
+        {
+          "required": [
+            "all"
+          ]
+        },
+        {
+          "required": [
+            "any"
+          ]
+        }
+      ],
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "operator"
+            ],
+            "properties": {
+              "operator": {
+                "enum": [
+                  "EQUALS",
+                  "NOT_EQUALS"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "value"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "operator"
+            ],
+            "properties": {
+              "operator": {
+                "enum": [
+                  "IS_EMPTY",
+                  "IS_NOT_EMPTY"
+                ]
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "value"
+              ]
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "PageComponent": {
+      "type": "object",
+      "description": "One building block of a record page. Its type decides which other properties it takes.",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "type"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,39}$",
+          "description": "Names the component inside the page; unique in the page."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "HEADER",
+            "DETAILS",
+            "RELATED_LIST",
+            "TABS",
+            "ACTIVITY",
+            "HISTORY"
+          ]
+        },
+        "region": {
+          "type": "string",
+          "enum": [
+            "MAIN",
+            "SIDEBAR"
+          ],
+          "description": "Left out: MAIN."
+        },
+        "visibleWhen": {
+          "$ref": "#/components/schemas/VisibilityRule"
+        },
+        "titleField": {
+          "$ref": "#/components/schemas/FieldNameShape"
+        },
+        "highlightFields": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "$ref": "#/components/schemas/FieldNameShape"
+          }
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "object": {
+          "$ref": "#/components/schemas/ObjectNameShape"
+        },
+        "field": {
+          "$ref": "#/components/schemas/FieldNameShape"
+        },
+        "columns": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/components/schemas/FieldNameShape"
+          }
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Left out: 5."
+        },
+        "tabs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/components/schemas/PageTab"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "const": "HEADER"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "label": false,
+              "object": false,
+              "field": false,
+              "columns": false,
+              "limit": false,
+              "tabs": false
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "DETAILS",
+                  "ACTIVITY",
+                  "HISTORY"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "label": false,
+              "object": false,
+              "field": false,
+              "columns": false,
+              "limit": false,
+              "titleField": false,
+              "highlightFields": false,
+              "tabs": false
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "const": "RELATED_LIST"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "object",
+              "field",
+              "columns"
+            ],
+            "properties": {
+              "titleField": false,
+              "highlightFields": false,
+              "tabs": false
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "const": "TABS"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "tabs"
+            ],
+            "properties": {
+              "titleField": false,
+              "highlightFields": false,
+              "label": false,
+              "object": false,
+              "field": false,
+              "columns": false,
+              "limit": false
+            }
+          }
+        }
+      ]
+    },
+    "PageTab": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "components"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/components/schemas/TabComponent"
+          }
+        }
+      }
+    },
+    "TabComponent": {
+      "type": "object",
+      "description": "A component inside a tab: anything but another set of tabs.",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "type"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,39}$"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "DETAILS",
+            "RELATED_LIST",
+            "ACTIVITY",
+            "HISTORY"
+          ]
+        },
+        "visibleWhen": {
+          "$ref": "#/components/schemas/VisibilityRule"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "object": {
+          "$ref": "#/components/schemas/ObjectNameShape"
+        },
+        "field": {
+          "$ref": "#/components/schemas/FieldNameShape"
+        },
+        "columns": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/components/schemas/FieldNameShape"
+          }
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Left out: 5."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "DETAILS",
+                  "ACTIVITY",
+                  "HISTORY"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "label": false,
+              "object": false,
+              "field": false,
+              "columns": false,
+              "limit": false
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "const": "RELATED_LIST"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "object",
+              "field",
+              "columns"
+            ]
+          }
+        }
+      ]
+    },
+    "PageAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action"
+      ],
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "EDIT",
+            "DELETE",
+            "CLONE"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "visibleWhen": {
+          "$ref": "#/components/schemas/VisibilityRule"
+        }
+      }
+    },
+    "RecordPageDefinition": {
+      "type": "object",
+      "description": "The structure of a record page: which layout its details show, its components in order, and its actions.",
+      "additionalProperties": false,
+      "required": [
+        "layout",
+        "components"
+      ],
+      "properties": {
+        "layout": {
+          "$ref": "#/components/schemas/ApiNameShape"
+        },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 30,
+          "items": {
+            "$ref": "#/components/schemas/PageComponent"
+          }
+        },
+        "actions": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/components/schemas/PageAction"
+          }
+        }
+      }
+    },
+    "NavigationItem": {
+      "type": "object",
+      "description": "One entry of an application's navigation.",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "OBJECT",
+            "RECORD_PAGE",
+            "LINK",
+            "HEADING"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "object": {
+          "$ref": "#/components/schemas/ObjectNameShape"
+        },
+        "page": {
+          "$ref": "#/components/schemas/ApiNameShape"
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^/[A-Za-z0-9_\\-]+(/[A-Za-z0-9_\\-]+)*$",
+          "maxLength": 200,
+          "description": "A page inside the organization: a path that starts with a slash. Never an address with a host."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "const": "OBJECT"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "object"
+            ],
+            "properties": {
+              "page": false,
+              "path": false
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "const": "RECORD_PAGE"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "object",
+              "page"
+            ],
+            "properties": {
+              "path": false
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "const": "LINK"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "label",
+              "path"
+            ],
+            "properties": {
+              "object": false,
+              "page": false
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "const": "HEADING"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "label"
+            ],
+            "properties": {
+              "object": false,
+              "page": false,
+              "path": false
+            }
+          }
+        }
+      ]
+    },
+    "ApplicationDefinition": {
+      "type": "object",
+      "description": "What an application contains beyond its name: an icon, the profiles that see it, and its navigation in order.",
+      "additionalProperties": false,
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "iconKey": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,39}$"
+        },
+        "profiles": {
+          "type": "array",
+          "maxItems": 50,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+          },
+          "description": "The profiles whose members see the application. Empty or left out: every member."
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/components/schemas/NavigationItem"
+          }
+        }
+      }
+    }
+  }
+}

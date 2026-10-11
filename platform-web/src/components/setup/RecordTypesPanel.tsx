@@ -12,6 +12,7 @@ type ObjectView = components["schemas"]["ObjectView"];
 type FieldView = components["schemas"]["FieldView"];
 type RecordTypeView = components["schemas"]["RecordTypeView"];
 type CreateRecordTypeRequest = components["schemas"]["CreateRecordTypeRequest"];
+type LayoutView = components["schemas"]["LayoutView"];
 
 interface Draft {
   name: string;
@@ -19,6 +20,8 @@ interface Draft {
   description: string;
   active: boolean;
   defaultType: boolean;
+  /** The API name of the page layout the record type uses, or empty for none. */
+  layout: string;
   allFields: boolean;
   fields: string[];
   /** The values a picklist is limited to; a picklist that is not here allows all its values. */
@@ -31,6 +34,7 @@ const EMPTY: Draft = {
   description: "",
   active: true,
   defaultType: false,
+  layout: "",
   allFields: true,
   fields: [],
   limits: {},
@@ -43,6 +47,7 @@ function draftOf(type: RecordTypeView): Draft {
     description: type.description,
     active: type.active,
     defaultType: type.defaultType,
+    layout: type.layout ?? "",
     allFields: type.allFields,
     fields: type.availableFields,
     limits: Object.fromEntries(type.picklistSubsets.map((subset) => [subset.field, subset.values])),
@@ -72,6 +77,7 @@ export function RecordTypesPanel({ object, onChanged }: { object: ObjectView; on
   const objectApiName = object.apiName;
   const { id: workingSet } = useWorkingSet();
   const [types, setTypes] = useState<RecordTypeView[] | undefined>();
+  const [layouts, setLayouts] = useState<LayoutView[]>([]);
   const [failure, setFailure] = useState<string | undefined>();
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [editing, setEditing] = useState<RecordTypeView | undefined>();
@@ -87,6 +93,10 @@ export function RecordTypesPanel({ object, onChanged }: { object: ObjectView; on
       }
       setFailure(undefined);
       setTypes(data.data);
+      const layoutList = await api.GET("/api/v1/metadata/objects/{objectApiName}/layouts", {
+        params: { path: { objectApiName } },
+      });
+      setLayouts(layoutList.data?.data ?? []);
     } catch {
       setFailure(COMMON_TEXT.network);
     }
@@ -138,6 +148,7 @@ export function RecordTypesPanel({ object, onChanged }: { object: ObjectView; on
       description: draft.description,
       active: draft.active,
       defaultType: draft.defaultType,
+      layout: draft.layout || undefined,
       availableFields: available,
       picklistSubsets: subsets,
     };
@@ -335,6 +346,21 @@ export function RecordTypesPanel({ object, onChanged }: { object: ObjectView; on
           />{" "}
           The default record type of this object
         </label>
+        <div className="field">
+          <label htmlFor="record-type-layout">Page layout of this record type</label>
+          <select
+            id="record-type-layout"
+            value={draft.layout}
+            onChange={(event) => setDraft({ ...draft, layout: event.target.value })}
+          >
+            <option value="">None (the layout of the profile or the default one applies)</option>
+            {layouts.map((layout) => (
+              <option key={layout.apiName} value={layout.apiName}>
+                {layout.label}
+              </option>
+            ))}
+          </select>
+        </div>
         <label>
           <input
             type="checkbox"

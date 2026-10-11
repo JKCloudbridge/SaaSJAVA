@@ -26,7 +26,7 @@ final class FlowSupport {
     }
 
     static String strongPassword() {
-        return "pw-" + UUID.randomUUID() + "-" + UUID.randomUUID();
+        return "Pw-" + UUID.randomUUID() + "-" + UUID.randomUUID();
     }
 
     static Response requestSignUp(TestBrowser browser, String email) {

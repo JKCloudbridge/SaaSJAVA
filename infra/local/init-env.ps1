@@ -16,8 +16,24 @@ function New-RandomSecret([int]$bytes = 24) {
     return ([Convert]::ToBase64String($buffer) -replace '[+/=]', 'x')
 }
 
+function New-RandomPassword {
+    # LOCAL_SEED_PASSWORD must satisfy PasswordPolicy (platform.identity.password): at least 9 characters, with an
+    # upper case letter, a lower case letter, a digit and a symbol. New-RandomSecret alone will not reliably contain
+    # a symbol (base64's only non-alphanumeric characters are stripped), so this builds one that always qualifies.
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    function Pick([string]$alphabet) {
+        $buffer = New-Object byte[] 1
+        $rng.GetBytes($buffer)
+        return $alphabet[$buffer[0] % $alphabet.Length]
+    }
+    $required = @((Pick 'ABCDEFGHJKLMNPQRSTUVWXYZ'), (Pick 'abcdefghijkmnopqrstuvwxyz'), (Pick '23456789'), (Pick '!@#$%^&*-_='))
+    $filler = (New-RandomSecret 20) -replace '[^A-Za-z0-9]', ''
+    $chars = ($required + $filler.ToCharArray()) | Sort-Object { Pick '0123456789' }
+    return -join $chars
+}
+
 # Which variables hold credentials, and how long a random value each gets.
-$secrets = @{ POSTGRES_PASSWORD = 24; REDIS_PASSWORD = 24; S3_ACCESS_KEY = 12; S3_SECRET_KEY = 30; APP_DB_PASSWORD = 24; LOCAL_SEED_PASSWORD = 24 }
+$secrets = @{ POSTGRES_PASSWORD = 24; REDIS_PASSWORD = 24; S3_ACCESS_KEY = 12; S3_SECRET_KEY = 30; APP_DB_PASSWORD = 24 }
 
 if ((Test-Path $target) -and -not $Force) {
     $existing = @{}
@@ -26,7 +42,8 @@ if ((Test-Path $target) -and -not $Force) {
     foreach ($line in (Get-Content $examplePath | Where-Object { $_ -match '^[A-Z0-9_]+=' })) {
         $key = ($line -split '=', 2)[0]
         if (-not $existing.ContainsKey($key)) {
-            if ($secrets.ContainsKey($key)) { $line = "$key=$(New-RandomSecret $secrets[$key])" }
+            if ($key -eq 'LOCAL_SEED_PASSWORD') { $line = "$key=$(New-RandomPassword)" }
+            elseif ($secrets.ContainsKey($key)) { $line = "$key=$(New-RandomSecret $secrets[$key])" }
             $added += $line
         }
     }
@@ -49,6 +66,7 @@ $content = Get-Content $examplePath -Raw
 foreach ($key in $secrets.Keys) {
     $content = $content -replace "(?m)^$key=.*$", "$key=$(New-RandomSecret $secrets[$key])"
 }
+$content = $content -replace '(?m)^LOCAL_SEED_PASSWORD=.*$', "LOCAL_SEED_PASSWORD=$(New-RandomPassword)"
 [System.IO.File]::WriteAllText($target, $content, (New-Object System.Text.UTF8Encoding($false)))
 Write-Host "Created $target with random local-only credentials."
 Write-Host "After 'docker compose up -d', run ./init-app-role.ps1 once to create the application database role."

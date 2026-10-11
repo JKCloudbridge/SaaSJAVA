@@ -9,6 +9,9 @@ import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
 import { FieldForm } from "./FieldForm";
 import { KIND_TEXT, problemText, settingsSummary, type FieldTypeView, type FieldView } from "./objectText";
+import { LayoutAssignmentsPanel } from "./LayoutAssignmentsPanel";
+import { LayoutsPanel } from "./LayoutsPanel";
+import { RecordPagesPanel } from "./RecordPagesPanel";
 import { RecordTypesPanel } from "./RecordTypesPanel";
 import { RelationshipsPanel } from "./RelationshipsPanel";
 import { addToSet, DRAFTED_TEXT, useWorkingSet } from "./workingSet";
@@ -318,6 +321,9 @@ export function ObjectDetailPanel() {
 
       <RelationshipsPanel objectApiName={objectApiName} refreshToken={refreshToken} />
       <RecordTypesPanel object={object} onChanged={reload} />
+      <LayoutsPanel object={object} onChanged={reload} />
+      <LayoutAssignmentsPanel object={object} refreshToken={refreshToken} />
+      <RecordPagesPanel object={object} onChanged={reload} />
     </div>
   );
 }

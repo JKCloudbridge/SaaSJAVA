@@ -1,17 +1,25 @@
 package app.platform.metadata.internal;
 
+import app.platform.metadata.ApplicationDefinition;
+import app.platform.metadata.LayoutAssignment;
+import app.platform.metadata.LayoutResolution;
 import app.platform.metadata.ObjectDefinition;
+import app.platform.metadata.PageLayout;
+import app.platform.metadata.RecordPage;
 import app.platform.metadata.RecordType;
 import app.platform.security.ObjectCatalog;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * The whole published metadata of one organization at one metadata version: the standard objects with the
- * organization's own fields added, its custom objects and its record types (ADR-0058, ADR-0061, ADR-0064). Immutable,
+ * organization's own fields added, its custom objects, its record types, and since Sprint 12 its page layouts, record
+ * pages, layout assignments and applications (ADR-0058, ADR-0061, ADR-0064, ADR-0069). Immutable,
  * so it can be shared between threads and kept by the cache. The answer in the shape the security module wants is
  * prepared with it.
  */
@@ -23,7 +31,45 @@ final class MetadataSnapshot {
     private final List<ObjectCatalog.ObjectInfo> catalogue;
     private final Map<String, ObjectCatalog.ObjectInfo> catalogueByName = new LinkedHashMap<>();
 
+    /**
+     * The definitions of Sprint 12, grouped by object (applications belong to the organization).
+     *
+     * @param layouts page layouts by object
+     * @param recordPages record pages by object
+     * @param assignments layout assignments by object
+     * @param applications the applications of the organization
+     */
+    record Definitions(Map<String, List<PageLayout>> layouts, Map<String, List<RecordPage>> recordPages,
+            Map<String, List<LayoutAssignment>> assignments, List<ApplicationDefinition> applications) {
+
+        /** Copies what is given, so that the snapshot cannot change after it is built. */
+        Definitions {
+            layouts = frozen(layouts);
+            recordPages = frozen(recordPages);
+            assignments = frozen(assignments);
+            applications = List.copyOf(applications);
+        }
+
+        static Definitions none() {
+            return new Definitions(Map.of(), Map.of(), Map.of(), List.of());
+        }
+
+        private static <T> Map<String, List<T>> frozen(Map<String, List<T>> grouped) {
+            Map<String, List<T>> copy = new LinkedHashMap<>();
+            grouped.forEach((object, list) -> copy.put(object, List.copyOf(list)));
+            return Collections.unmodifiableMap(copy);
+        }
+    }
+
+    private final Definitions definitions;
+
     MetadataSnapshot(List<ObjectDefinition> objects, Map<String, List<RecordType>> recordTypes) {
+        this(objects, recordTypes, Definitions.none());
+    }
+
+    MetadataSnapshot(List<ObjectDefinition> objects, Map<String, List<RecordType>> recordTypes,
+            Definitions definitions) {
+        this.definitions = definitions;
         this.objects = List.copyOf(objects);
         this.objects.forEach(object -> byName.put(object.apiName(), object));
         Map<String, List<RecordType>> kept = new LinkedHashMap<>();
@@ -53,6 +99,89 @@ final class MetadataSnapshot {
 
     Optional<RecordType> recordType(String objectApiName, String apiName) {
         return recordTypes(objectApiName).stream().filter(type -> type.apiName().equals(apiName)).findFirst();
+    }
+
+    List<PageLayout> layouts(String objectApiName) {
+        return definitions.layouts().getOrDefault(objectApiName, List.of());
+    }
+
+    List<PageLayout> allLayouts() {
+        return definitions.layouts().values().stream().flatMap(List::stream).toList();
+    }
+
+    Optional<PageLayout> layout(String objectApiName, String apiName) {
+        return layouts(objectApiName).stream().filter(layout -> layout.apiName().equals(apiName)).findFirst();
+    }
+
+    List<RecordPage> recordPages(String objectApiName) {
+        return definitions.recordPages().getOrDefault(objectApiName, List.of());
+    }
+
+    List<RecordPage> allRecordPages() {
+        return definitions.recordPages().values().stream().flatMap(List::stream).toList();
+    }
+
+    Optional<RecordPage> recordPage(String objectApiName, String apiName) {
+        return recordPages(objectApiName).stream().filter(page -> page.apiName().equals(apiName)).findFirst();
+    }
+
+    List<LayoutAssignment> assignments(String objectApiName) {
+        return definitions.assignments().getOrDefault(objectApiName, List.of());
+    }
+
+    List<LayoutAssignment> allAssignments() {
+        return definitions.assignments().values().stream().flatMap(List::stream).toList();
+    }
+
+    List<ApplicationDefinition> applications() {
+        return definitions.applications();
+    }
+
+    Optional<ApplicationDefinition> application(String apiName) {
+        return applications().stream().filter(application -> application.apiName().equals(apiName)).findFirst();
+    }
+
+    /**
+     * The layout for the profile and record type: the profile together with the record type, the record type alone,
+     * the profile alone, the default of the object, and nothing (ADR-0071). A rule that names a layout that is gone
+     * does not apply either; the dependency graph keeps that from happening in published metadata, so this is a second
+     * line of defence, not a decision.
+     */
+    LayoutResolution layoutFor(String objectApiName, UUID profileId, String recordType) {
+        List<LayoutAssignment> assignments = assignments(objectApiName);
+        if (profileId != null && recordType != null) {
+            Optional<String> both = assignment(assignments, profileId, recordType, objectApiName);
+            if (both.isPresent()) {
+                return new LayoutResolution(both, LayoutResolution.Rule.PROFILE_AND_RECORD_TYPE);
+            }
+        }
+        if (recordType != null) {
+            Optional<String> own = recordType(objectApiName, recordType).map(RecordType::layout)
+                    .filter(layout -> !layout.isEmpty()).filter(layout -> layout(objectApiName, layout).isPresent());
+            if (own.isPresent()) {
+                return new LayoutResolution(own, LayoutResolution.Rule.RECORD_TYPE);
+            }
+        }
+        if (profileId != null) {
+            Optional<String> byProfile = assignment(assignments, profileId, null, objectApiName);
+            if (byProfile.isPresent()) {
+                return new LayoutResolution(byProfile, LayoutResolution.Rule.PROFILE);
+            }
+        }
+        Optional<String> fallback = assignment(assignments, null, null, objectApiName);
+        if (fallback.isPresent()) {
+            return new LayoutResolution(fallback, LayoutResolution.Rule.DEFAULT);
+        }
+        return new LayoutResolution(Optional.empty(), LayoutResolution.Rule.NONE);
+    }
+
+    private Optional<String> assignment(List<LayoutAssignment> assignments, UUID profileId, String recordType,
+            String objectApiName) {
+        return assignments.stream()
+                .filter(assignment -> Objects.equals(assignment.profileId(), profileId)
+                        && Objects.equals(assignment.recordType(), recordType))
+                .map(LayoutAssignment::layout).filter(layout -> layout(objectApiName, layout).isPresent())
+                .findFirst();
     }
 
     List<ObjectCatalog.ObjectInfo> catalogue() {
