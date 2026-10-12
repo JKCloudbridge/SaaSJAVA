@@ -76,22 +76,24 @@ class RecycleBinRetention implements SmartLifecycle {
 
     private int purgeOne(Tenant tenant) {
         try {
-            return contexts.call(TenantContext.of(tenant.id()), () -> {
-                Integer count = transaction.execute(status -> {
-                    List<StorageStrategy.Purged> purged = storage.purgeDeletedOlderThan(settings.recycleBin(),
-                            settings.batchSize());
-                    purged.forEach(one -> changes.purgedByRetention(one.objectApiName(), one.id()));
-                    if (!purged.isEmpty()) {
-                        changes.retentionPass(tenant.id(), purged.size());
-                    }
-                    return purged.size();
-                });
-                return count == null ? 0 : count;
-            });
+            Integer count = contexts.call(TenantContext.of(tenant.id()),
+                    () -> transaction.execute(status -> removeFor(tenant)));
+            return count == null ? 0 : count;
         } catch (RuntimeException e) {
             LOG.warn("Emptying a recycle bin failed ({})", e.getClass().getSimpleName());
             return 0;
         }
+    }
+
+    /** Runs inside the organization's own context and transaction. */
+    private int removeFor(Tenant tenant) {
+        List<StorageStrategy.Purged> purged = storage.purgeDeletedOlderThan(settings.recycleBin(),
+                settings.batchSize());
+        purged.forEach(one -> changes.purgedByRetention(one.objectApiName(), one.id()));
+        if (!purged.isEmpty()) {
+            changes.retentionPass(tenant.id(), purged.size());
+        }
+        return purged.size();
     }
 
     @Override

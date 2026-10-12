@@ -86,10 +86,9 @@ class JsonbRecordStorage implements StorageStrategy {
     private static final String HAS_VALUES = "select exists (select 1 from object_record "
             + "where tenant_id = :tenant and object_api_name = :object and jsonb_exists(payload, :field))";
 
-    // Not "for update skip locked": under forced row level security PostgreSQL silently matches zero rows for this
-    // statement shape when a locking clause is added to the subquery (checked against a real login role, not a
-    // superuser). Two instances racing on the same rows is harmless without it too: the second delete matches
-    // whatever the first one left, which is nothing for a row the first one already removed.
+    // No "for update skip locked": it is not needed (two instances racing on the same rows is harmless: the second
+    // delete matches nothing of what the first one already removed), and in a stand-alone test on a table with the
+    // same forced row level security and a real login role the statement with the clause deleted nothing.
     private static final String PURGE_OLD = "delete from object_record where tenant_id = :tenant and id in ("
             + "select id from object_record where tenant_id = :tenant and deleted_at is not null "
             + "and deleted_at < now() - make_interval(secs => :seconds) order by deleted_at limit :limit) "
