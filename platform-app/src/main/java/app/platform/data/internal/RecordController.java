@@ -36,10 +36,10 @@ import org.springframework.web.bind.annotation.RestController;
  * their permissions on the object (the permission decision API), never by a role of the platform. The organization is
  * the host's, never a parameter: a record identifier is not proof of anything.
  *
- * <p>The write endpoints are the <strong>first, narrow form</strong>: they check that the object is one the generic
- * store holds, that every key is a writable field of the object and that the values have a shape the store can keep.
- * They do not yet check a value against the type of its field, required fields, relationships, validation rules or
- * formulas, and there is no field-level or record-level security: those are Sprints 15 and 17.
+ * <p>A write goes through the pipeline of Sprint 15 (ADR-0091): record type, field permission, the type of each value,
+ * required fields, linked records, validation rules and formulas, in that order, and a read leaves out the fields the
+ * caller may not read. There is still no record-level security (Sprint 17): until then a member who may read an object
+ * reads every record of it.
  */
 @RestController
 @Tag(name = "Records")
@@ -47,9 +47,14 @@ class RecordController {
 
     private static final String RECORDS = ApiPaths.OBJECTS + "/{objectApiName}/records";
     private static final String BIN = ApiPaths.OBJECTS + "/{objectApiName}/recycle-bin";
-    private static final String NARROW = "This is the first form of the endpoint: values are not yet checked against "
-            + "their field's type, required fields, relationships, validation rules or formulas (Sprint 15), and "
-            + "there is no record-level security (Sprint 17). ";
+    private static final String PIPELINE = "The write goes through these stages in this order, and the first stage "
+            + "that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and "
+            + "saves nothing: the record type (it exists, is in use and offers the fields written), the field "
+            + "permission (every field written must be one the caller may edit; a field the caller may not read is "
+            + "answered like a field that does not exist), the type of each value, the required fields (judged on "
+            + "the record as it will be), the linked records, the validation rules, then the formulas, which are "
+            + "calculated and stored. Defaults and auto-numbers are applied on create. Unique fields are not yet "
+            + "enforced (Sprint 16), and there is no record-level security (Sprint 17). ";
     private static final String UNKNOWN = "NOT_FOUND for an object that does not exist, that a platform module owns "
             + "(a user, a profile ...) or that the caller may not read: all three answer alike. ";
 
@@ -63,13 +68,12 @@ class RecordController {
     @Operation(
             operationId = "createRecord",
             summary = "Create a record of an object",
-            description = NARROW + UNKNOWN + "FORBIDDEN for a caller who may read the object but not create in it. "
-                    + "VALIDATION_ERROR names a key that is not a writable field (a system, calculated or retired "
-                    + "field cannot be written) and says why a value cannot be kept. The caller owns the record. "
+            description = PIPELINE + UNKNOWN + "FORBIDDEN for a caller who may read the object but not create in "
+                    + "it. The caller owns the record. The answer leaves out the fields the caller may not read. "
                     + "Audited and announced by object, identifier, version and field names, never by values.")
     ResponseEntity<ApiResponse<RecordView>> create(@PathVariable String objectApiName,
             @Valid @RequestBody CreateRecordRequest body) {
-        RecordView created = view(records.create(objectApiName, body.fields()));
+        RecordView created = view(records.create(objectApiName, body.recordType(), body.fields()));
         return ResponseEntity.status(HttpStatus.CREATED).header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .body(ApiResponse.of(created));
     }
@@ -80,7 +84,8 @@ class RecordController {
             summary = "The live records of an object, in identifier order",
             description = "One page at a time by the cursor of the previous page. No filter and no sorting: those are "
                     + "the query engine of Sprint 16. Until record-level security (Sprint 17) a member who may read "
-                    + "the object reads every record of it in the organization. " + UNKNOWN)
+                    + "the object reads every record of it in the organization. Fields the caller may not read are "
+                    + "left out of every record. " + UNKNOWN)
     ApiPageResponse<RecordView> list(@PathVariable String objectApiName, @ParameterObject PageRequest page) {
         return page(records.list(objectApiName, after(page), page.limit()), page);
     }
@@ -99,13 +104,14 @@ class RecordController {
     @Operation(
             operationId = "updateRecord",
             summary = "Change some values of a record",
-            description = NARROW + "Only the fields named change; a null value or a name in clear removes a value. "
+            description = PIPELINE + "Only the fields named change; a null value or a name in clear removes a value. "
                     + "The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the record "
                     + "has another version now, and nothing is changed. CONFLICT (409) when the record is in the "
                     + "recycle bin. " + UNKNOWN + "FORBIDDEN without permission to update the object.")
     ApiResponse<RecordView> update(@PathVariable String objectApiName, @PathVariable UUID id,
             @Valid @RequestBody UpdateRecordRequest body) {
-        return ApiResponse.of(view(records.update(objectApiName, id, body.version(), body.fields(), body.clear())));
+        return ApiResponse.of(view(records.update(objectApiName, id, body.version(), body.recordType(),
+                body.fields(), body.clear())));
     }
 
     @DeleteMapping(RECORDS + "/{id}")
@@ -173,7 +179,7 @@ class RecordController {
     }
 
     private static RecordView view(DataRecord record) {
-        return new RecordView(record.id().toString(), record.objectApiName(), record.version(),
+        return new RecordView(record.id().toString(), record.objectApiName(), record.recordType(), record.version(),
                 record.ownerId().toString(), record.fields(), record.createdAt(), record.updatedAt(),
                 record.deletedAt());
     }

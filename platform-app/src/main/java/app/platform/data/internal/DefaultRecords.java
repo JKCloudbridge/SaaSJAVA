@@ -4,6 +4,7 @@ import app.platform.data.DataRecord;
 import app.platform.data.RecordSlice;
 import app.platform.data.Records;
 import app.platform.data.StorageStrategy;
+import app.platform.security.ObjectAccess;
 import app.platform.security.ObjectAction;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
@@ -14,13 +15,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The record store's rules (ADR-0084 to ADR-0090): the gate, the checks of a write, the storage, the audit record and
- * the event, in one transaction per call. The storage is {@link StorageStrategy}; nothing here names a table.
+ * The record store's rules (ADR-0084 to ADR-0096): the gate, the write pipeline, the storage, the audit record and the
+ * event, in one transaction per call. The storage is {@link StorageStrategy}; nothing here names a table.
  *
- * <p>Sprint 14 checks only what the prompt of the sprint lists: the object is held by the store, every key is a field
- * the caller may name, the values can be kept safely, and the caller may use the object. The write pipeline of Sprint
- * 15 (types, required fields, relationships, validation rules, formulas, field security) goes between the gate and the
- * storage, in the order of the delivery plan.
+ * <p>A write goes through {@link WritePipeline} between the gate and the storage. Whatever is handed back, to the
+ * caller or to the endpoint, has the fields the member may not read left out ({@link FieldSecurity}): the stored
+ * record is complete, what a member sees of it is not.
  */
 @Service
 @Transactional
@@ -29,25 +29,29 @@ class DefaultRecords implements Records {
     private static final String NO_RECORD = "This record does not exist.";
 
     private final RecordGate gate;
-    private final RecordValues values;
+    private final WritePipeline pipeline;
+    private final FieldSecurity security;
     private final StorageStrategy storage;
     private final RecordChanges changes;
 
-    DefaultRecords(RecordGate gate, RecordValues values, StorageStrategy storage, RecordChanges changes) {
+    DefaultRecords(RecordGate gate, WritePipeline pipeline, FieldSecurity security, StorageStrategy storage,
+            RecordChanges changes) {
         this.gate = gate;
-        this.values = values;
+        this.pipeline = pipeline;
+        this.security = security;
         this.storage = storage;
         this.changes = changes;
     }
 
     @Override
-    public DataRecord create(String objectApiName, Map<String, Object> fields) {
+    public DataRecord create(String objectApiName, String recordType, Map<String, Object> fields) {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.CREATE);
-        RecordValues.Checked checked = values.check(passed.object(), fields, List.of(), false);
-        DataRecord created = storage.insert(passed.object().apiName(), passed.userId(), passed.userId(),
-                checked.set());
-        changes.created(passed.userId(), created.objectApiName(), created.id(), created.version(), checked.names());
-        return created;
+        ObjectAccess access = access(passed);
+        WritePipeline.Plan plan = pipeline.run(passed, access, null, recordType, fields, List.of());
+        DataRecord created = storage.insert(passed.object().apiName(), plan.recordType(), passed.userId(),
+                passed.userId(), plan.set());
+        changes.created(passed.userId(), created.objectApiName(), created.id(), created.version(), plan.names());
+        return FieldSecurity.visible(created, access);
     }
 
     @Override
@@ -58,21 +62,29 @@ class DefaultRecords implements Records {
         if (found == null || found.deleted()) {
             throw ApiException.notFound(NO_RECORD);
         }
-        return found;
+        return FieldSecurity.visible(found, access(passed));
     }
 
     @Override
-    public DataRecord update(String objectApiName, UUID id, long expectedVersion, Map<String, Object> set,
-            List<String> clear) {
+    public DataRecord update(String objectApiName, UUID id, long expectedVersion, String recordType,
+            Map<String, Object> set, List<String> clear) {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.UPDATE);
-        RecordValues.Checked checked = values.check(passed.object(), set, clear, true);
-        DataRecord updated = storage.update(passed.object().apiName(), id, expectedVersion, checked.set(),
-                checked.clear(), passed.userId());
+        DataRecord current = storage.find(passed.object().apiName(), id);
+        if (current == null || current.deleted()) {
+            throw whyNotChanged(current);
+        }
+        if (current.version() != expectedVersion) {
+            throw new ApiException(ErrorCode.CONCURRENT_MODIFICATION);
+        }
+        ObjectAccess access = access(passed);
+        WritePipeline.Plan plan = pipeline.run(passed, access, current, recordType, set, clear);
+        DataRecord updated = storage.update(passed.object().apiName(), id, expectedVersion, plan.recordType(),
+                plan.set(), plan.clear(), passed.userId());
         if (updated == null) {
             throw whyNotChanged(storage.find(passed.object().apiName(), id));
         }
-        changes.updated(passed.userId(), updated.objectApiName(), updated.id(), updated.version(), checked.names());
-        return updated;
+        changes.updated(passed.userId(), updated.objectApiName(), updated.id(), updated.version(), plan.names());
+        return FieldSecurity.visible(updated, access);
     }
 
     @Override
@@ -83,7 +95,7 @@ class DefaultRecords implements Records {
             throw whyNotChanged(storage.find(passed.object().apiName(), id));
         }
         changes.deleted(passed.userId(), deleted.objectApiName(), deleted.id(), deleted.version());
-        return deleted;
+        return FieldSecurity.visible(deleted, access(passed));
     }
 
     @Override
@@ -98,7 +110,7 @@ class DefaultRecords implements Records {
             throw new ApiException(ErrorCode.CONFLICT, "This record is not in the recycle bin.");
         }
         changes.restored(passed.userId(), restored.objectApiName(), restored.id(), restored.version());
-        return restored;
+        return FieldSecurity.visible(restored, access(passed));
     }
 
     @Override
@@ -122,19 +134,24 @@ class DefaultRecords implements Records {
     @Transactional(readOnly = true)
     public RecordSlice list(String objectApiName, UUID after, int limit) {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.READ);
-        return slice(storage.list(passed.object().apiName(), after, limit + 1), limit);
+        return slice(storage.list(passed.object().apiName(), after, limit + 1), limit, access(passed));
     }
 
     @Override
     @Transactional(readOnly = true)
     public RecordSlice listDeleted(String objectApiName, UUID after, int limit) {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.DELETE);
-        return slice(storage.listDeleted(passed.object().apiName(), after, limit + 1), limit);
+        return slice(storage.listDeleted(passed.object().apiName(), after, limit + 1), limit, access(passed));
     }
 
-    private static RecordSlice slice(List<DataRecord> fetched, int limit) {
+    /** What the member may do with the object's fields: one question per request, however many records follow. */
+    private ObjectAccess access(RecordGate.Passed passed) {
+        return security.accessOf(passed.membershipId(), passed.object().apiName());
+    }
+
+    private static RecordSlice slice(List<DataRecord> fetched, int limit, ObjectAccess access) {
         boolean more = fetched.size() > limit;
-        return new RecordSlice(more ? fetched.subList(0, limit) : fetched, more);
+        return new RecordSlice(FieldSecurity.visible(more ? fetched.subList(0, limit) : fetched, access), more);
     }
 
     /**

@@ -343,6 +343,13 @@ public final class TenantScopedTables {
                             + "values (?, 'Probe__c', ?, '{}'::jsonb, ?, ?)",
                     tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
 
+    /** The counters of auto-number fields (Sprint 15). A probe row is the counter of a made-up field. */
+    public static final TenantScopedTable AUTO_NUMBER_COUNTER = new TenantScopedTable("auto_number_counter",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into auto_number_counter (tenant_id, object_api_name, field_api_name, next_value, "
+                            + "created_by, updated_by) values (?, 'Probe__c', 'probe__c', 1, ?, ?)",
+                    tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
@@ -350,7 +357,7 @@ public final class TenantScopedTables {
             PUBLIC_GROUP_ACCESS_POLICY, OBJECT_PERMISSION, FIELD_PERMISSION, SECURITY_VERSION, OBJECT_DEFINITION,
             FIELD_DEFINITION, METADATA_VERSION, RECORD_TYPE, METADATA_CHANGE_SET, METADATA_CHANGE,
             METADATA_RELEASE, PAGE_LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT, VALIDATION_RULE,
-            OBJECT_RECORD);
+            OBJECT_RECORD, AUTO_NUMBER_COUNTER);
 
     private TenantScopedTables() {
     }

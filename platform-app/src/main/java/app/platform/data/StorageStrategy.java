@@ -1,8 +1,10 @@
 package app.platform.data;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -30,11 +32,12 @@ public interface StorageStrategy {
     /**
      * Stores a new record; the identifier is made by the storage.
      *
+     * @param recordType the API name of the record type, or null for a record without one
      * @param ownerId the owner
      * @param actor who creates it
      * @param fields the values (no null values)
      */
-    DataRecord insert(String objectApiName, UUID ownerId, UUID actor, Map<String, Object> fields);
+    DataRecord insert(String objectApiName, String recordType, UUID ownerId, UUID actor, Map<String, Object> fields);
 
     /** The record of the object with the identifier, live or in the recycle bin, or null when there is none. */
     DataRecord find(String objectApiName, UUID id);
@@ -42,13 +45,20 @@ public interface StorageStrategy {
     /**
      * Changes the values of a live record that has the expected version.
      *
+     * @param recordType the record type the record has afterwards (the same as before when it is not being changed)
      * @param set values to set
      * @param clear fields that lose their value
      * @return the changed record, or null when no live record of the object has that identifier and version (the
      *         caller finds out why with {@link #find})
      */
-    DataRecord update(String objectApiName, UUID id, long expectedVersion, Map<String, Object> set,
-            List<String> clear, UUID actor);
+    DataRecord update(String objectApiName, UUID id, long expectedVersion, String recordType,
+            Map<String, Object> set, List<String> clear, UUID actor);
+
+    /**
+     * Which of the identifiers are live records of the object in the organization. A record in the recycle bin, a
+     * record of another object and a record of another organization are not among them, and nothing tells them apart.
+     */
+    Set<UUID> liveIds(String objectApiName, Collection<UUID> ids);
 
     /** Moves a live record to the recycle bin; null when there is no live record with the identifier. */
     DataRecord softDelete(String objectApiName, UUID id, UUID actor);

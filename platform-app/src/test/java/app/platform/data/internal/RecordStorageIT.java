@@ -56,7 +56,7 @@ class RecordStorageIT extends RecordsSupport {
     @Test
     void aHostileObjectOrFieldNameIsOnlyEverData() {
         Organization organization = organization();
-        in(organization, () -> storage.insert("Thing__c", ACTOR, ACTOR, Map.of("name__c", "x")));
+        in(organization, () -> storage.insert("Thing__c", null, ACTOR, ACTOR, Map.of("name__c", "x")));
         long before = rows();
 
         assertThat(in(organization, () -> storage.find(HOSTILE_OBJECT, UUID.randomUUID()))).isNull();
@@ -65,7 +65,7 @@ class RecordStorageIT extends RecordsSupport {
         assertThat(in(organization, () -> storage.hasRecords(HOSTILE_OBJECT))).isFalse();
         assertThat(in(organization, () -> storage.hasValues("Thing__c", HOSTILE_FIELD))).isFalse();
         assertThat(in(organization, () -> storage.hasValues(HOSTILE_OBJECT, HOSTILE_FIELD))).isFalse();
-        assertThat(in(organization, () -> storage.update(HOSTILE_OBJECT, UUID.randomUUID(), 0, Map.of(),
+        assertThat(in(organization, () -> storage.update(HOSTILE_OBJECT, UUID.randomUUID(), 0, null, Map.of(),
                 List.of(HOSTILE_FIELD), ACTOR))).isNull();
         assertThat(in(organization, () -> storage.softDelete(HOSTILE_OBJECT, UUID.randomUUID(), ACTOR))).isNull();
         assertThat(in(organization, () -> storage.restore(HOSTILE_OBJECT, UUID.randomUUID(), ACTOR))).isNull();
@@ -79,11 +79,11 @@ class RecordStorageIT extends RecordsSupport {
         Organization organization = organization();
         Map<String, Object> hostile = Map.of(HOSTILE_FIELD, "value", "a\"b", "c");
 
-        DataRecord stored = in(organization, () -> storage.insert("Thing__c", ACTOR, ACTOR, hostile));
+        DataRecord stored = in(organization, () -> storage.insert("Thing__c", null, ACTOR, ACTOR, hostile));
 
         assertThat(stored.fields()).containsOnlyKeys(HOSTILE_FIELD, "a\"b");
         assertThat(in(organization, () -> storage.hasValues("Thing__c", HOSTILE_FIELD))).isTrue();
-        DataRecord cleared = in(organization, () -> storage.update("Thing__c", stored.id(), 0, Map.of(),
+        DataRecord cleared = in(organization, () -> storage.update("Thing__c", stored.id(), 0, null, Map.of(),
                 List.of(HOSTILE_FIELD), ACTOR));
         assertThat(cleared.fields()).containsOnlyKeys("a\"b");
         assertThat(in(organization, () -> storage.hasValues("Thing__c", HOSTILE_FIELD))).isFalse();
@@ -94,7 +94,7 @@ class RecordStorageIT extends RecordsSupport {
         Organization organization = organization();
         long before = rows();
 
-        assertThatThrownBy(() -> in(organization, () -> storage.insert(HOSTILE_OBJECT, ACTOR, ACTOR, Map.of())))
+        assertThatThrownBy(() -> in(organization, () -> storage.insert(HOSTILE_OBJECT, null, ACTOR, ACTOR, Map.of())))
                 .isInstanceOf(DataIntegrityViolationException.class);
 
         assertThat(rows()).isEqualTo(before);
@@ -106,12 +106,13 @@ class RecordStorageIT extends RecordsSupport {
     void anotherOrganizationsRecordIsNeverFoundChangedDeletedRestoredOrRemoved() {
         Organization mine = organization();
         Organization theirs = organization();
-        DataRecord live = in(theirs, () -> storage.insert("Thing__c", ACTOR, ACTOR, Map.of("name__c", "x")));
-        DataRecord binned = in(theirs, () -> storage.insert("Thing__c", ACTOR, ACTOR, Map.of("name__c", "y")));
+        DataRecord live = in(theirs, () -> storage.insert("Thing__c", null, ACTOR, ACTOR, Map.of("name__c", "x")));
+        DataRecord binned = in(theirs, () -> storage.insert("Thing__c", null, ACTOR, ACTOR, Map.of("name__c", "y")));
         in(theirs, () -> storage.softDelete("Thing__c", binned.id(), ACTOR));
 
         assertThat(in(mine, () -> storage.find("Thing__c", live.id()))).isNull();
-        assertThat(in(mine, () -> storage.update("Thing__c", live.id(), 0, Map.of("name__c", "z"), List.of(), ACTOR)))
+        assertThat(in(mine, () -> storage.update("Thing__c", live.id(), 0, null, Map.of("name__c", "z"), List.of(),
+                ACTOR)))
                 .isNull();
         assertThat(in(mine, () -> storage.softDelete("Thing__c", live.id(), ACTOR))).isNull();
         assertThat(in(mine, () -> storage.restore("Thing__c", binned.id(), ACTOR))).isNull();
@@ -135,7 +136,7 @@ class RecordStorageIT extends RecordsSupport {
     @Test
     void aRecordNeverChangesObjectOrOrganizationAndEveryChangeRaisesTheVersionByOne() {
         Organization organization = organization();
-        DataRecord stored = in(organization, () -> storage.insert("Thing__c", ACTOR, ACTOR, Map.of()));
+        DataRecord stored = in(organization, () -> storage.insert("Thing__c", null, ACTOR, ACTOR, Map.of()));
         String id = stored.id().toString();
 
         for (String statement : List.of(
@@ -155,10 +156,11 @@ class RecordStorageIT extends RecordsSupport {
     @Test
     void aRecordInTheRecycleBinIsReadOnlyUntilItIsRestored() {
         Organization organization = organization();
-        DataRecord stored = in(organization, () -> storage.insert("Thing__c", ACTOR, ACTOR, Map.of("name__c", "x")));
+        DataRecord stored = in(organization,
+                () -> storage.insert("Thing__c", null, ACTOR, ACTOR, Map.of("name__c", "x")));
         in(organization, () -> storage.softDelete("Thing__c", stored.id(), ACTOR));
 
-        assertThat(in(organization, () -> storage.update("Thing__c", stored.id(), 1, Map.of("name__c", "y"),
+        assertThat(in(organization, () -> storage.update("Thing__c", stored.id(), 1, null, Map.of("name__c", "y"),
                 List.of(), ACTOR))).as("the store does not change a record in the bin").isNull();
         assertThatThrownBy(() -> ownerRuns("update object_record set payload = '{}', version = version + 1 "
                 + "where id = '" + stored.id() + "'")).isNotNull();
@@ -168,7 +170,7 @@ class RecordStorageIT extends RecordsSupport {
     @Test
     void aPermanentDeleteTakesOnlyARecordInTheRecycleBin() {
         Organization organization = organization();
-        DataRecord live = in(organization, () -> storage.insert("Thing__c", ACTOR, ACTOR, Map.of()));
+        DataRecord live = in(organization, () -> storage.insert("Thing__c", null, ACTOR, ACTOR, Map.of()));
 
         assertThat(in(organization, () -> storage.purge("Thing__c", live.id()))).isFalse();
         assertThat(in(organization, () -> storage.find("Thing__c", live.id()))).isNotNull();
@@ -178,7 +180,7 @@ class RecordStorageIT extends RecordsSupport {
     void aPassOfTheCleanUpTakesAtMostTheLimitAndTheNextCallTakesTheRest() throws InterruptedException {
         Organization organization = organization();
         for (int i = 0; i < 5; i++) {
-            DataRecord stored = in(organization, () -> storage.insert("Thing__c", ACTOR, ACTOR, Map.of()));
+            DataRecord stored = in(organization, () -> storage.insert("Thing__c", null, ACTOR, ACTOR, Map.of()));
             in(organization, () -> storage.softDelete("Thing__c", stored.id(), ACTOR));
         }
         Thread.sleep(1_300);
@@ -199,7 +201,7 @@ class RecordStorageIT extends RecordsSupport {
     @Test
     void aRecordYoungerThanThePeriodIsNotTakenByTheCleanUp() {
         Organization organization = organization();
-        DataRecord stored = in(organization, () -> storage.insert("Thing__c", ACTOR, ACTOR, Map.of()));
+        DataRecord stored = in(organization, () -> storage.insert("Thing__c", null, ACTOR, ACTOR, Map.of()));
         in(organization, () -> storage.softDelete("Thing__c", stored.id(), ACTOR));
 
         assertThat(in(organization, () -> storage.purgeDeletedOlderThan(Duration.ofHours(1), 10))).isEmpty();
@@ -209,7 +211,7 @@ class RecordStorageIT extends RecordsSupport {
     @Test
     void anObjectNameIsMatchedExactlyNotByCase() {
         Organization organization = organization();
-        DataRecord stored = in(organization, () -> storage.insert("Thing__c", ACTOR, ACTOR, Map.of()));
+        DataRecord stored = in(organization, () -> storage.insert("Thing__c", null, ACTOR, ACTOR, Map.of()));
 
         assertThat(in(organization, () -> storage.find("thing__c", stored.id()))).isNull();
         assertThat(in(organization, () -> storage.find("Other__c", stored.id()))).as("another object").isNull();

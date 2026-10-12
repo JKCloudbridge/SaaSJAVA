@@ -1,8 +1,5 @@
 package app.platform.data.internal;
 
-import app.platform.metadata.DefinitionKind;
-import app.platform.metadata.FieldDefinition;
-import app.platform.metadata.ObjectDefinition;
 import app.platformapi.ApiException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -16,11 +13,10 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * What a write may contain in Sprint 14 (ADR-0089): every key is a field of the object that people may write, and every
- * value has a shape the store can keep safely and a size it can bear. Nothing here knows what a value <em>means</em>:
- * whether a text is an e-mail address, a number fits its field, a required field has a value, a lookup points at a
- * record, a rule is met or a formula is right is Sprint 15, which adds those checks to the write path in the documented
- * order.
+ * The first step of a write (ADR-0089, ADR-0091): every key is shaped like an API name and every value has a shape the
+ * store can keep safely and a size it can bear. Nothing here knows the object: which keys are fields, which the member
+ * may change and what a value <em>means</em> (an e-mail address, a number that fits, a required value, a linked record,
+ * a rule, a formula) is decided by the later steps of {@link WritePipeline}, in the documented order.
  *
  * <p>The shapes: a text (no NUL character, which the database cannot store, and bounded), a number (kept exactly, as a
  * decimal of at most 38 digits), true or false, or a list of those. Objects and lists inside lists are refused. The
@@ -39,7 +35,7 @@ final class RecordValues {
 
     private static final int MAX_DIGITS = 38;
     private static final Pattern KEY_SHAPE = Pattern.compile("[A-Za-z][A-Za-z0-9_]{0,59}");
-    private static final String PROBLEMS_KEY = "fields";
+    static final String PROBLEMS_KEY = "fields";
 
     /**
      * A write that passed.
@@ -71,21 +67,20 @@ final class RecordValues {
     }
 
     /**
-     * Checks a write against the object.
+     * Checks the keys and the values of a write for shape and size.
      *
-     * @param object the object the record belongs to
      * @param set values by field API name
      * @param clear fields to empty
      * @param requireSomething whether a write that changes nothing is refused (an update is, a create is not)
      * @throws ApiException {@code VALIDATION_ERROR} listing every problem
      */
-    Checked check(ObjectDefinition object, Map<String, Object> set, List<String> clear, boolean requireSomething) {
+    Checked check(Map<String, Object> set, List<String> clear, boolean requireSomething) {
         Map<String, List<String>> problems = new LinkedHashMap<>();
         Map<String, Object> accepted = new LinkedHashMap<>();
         List<String> cleared = new ArrayList<>();
         for (Map.Entry<String, Object> entry : set.entrySet()) {
             String key = entry.getKey();
-            if (writable(object, key, problems)) {
+            if (shaped(key, problems)) {
                 Object value = normalised(entry.getValue(), problemKey(key), problems);
                 if (value != null) {
                     accepted.put(key, value);
@@ -95,7 +90,7 @@ final class RecordValues {
         for (String key : clear) {
             if (set.containsKey(key)) {
                 add(problems, problemKey(key), "This field is both given a value and cleared.");
-            } else if (writable(object, key, problems)) {
+            } else if (shaped(key, problems)) {
                 cleared.add(key);
             }
         }
@@ -114,24 +109,15 @@ final class RecordValues {
         return new Checked(accepted, cleared);
     }
 
-    private static boolean writable(ObjectDefinition object, String key, Map<String, List<String>> problems) {
+    private static boolean shaped(String key, Map<String, List<String>> problems) {
         if (!KEY_SHAPE.matcher(key).matches()) {
             add(problems, PROBLEMS_KEY, "A key is not the name of a field.");
-            return false;
-        }
-        FieldDefinition field = object.field(key).orElse(null);
-        if (field == null) {
-            add(problems, key, "This is not a field of the object.");
-            return false;
-        }
-        if (field.kind() == DefinitionKind.SYSTEM || field.type().calculated() || field.retired()) {
-            add(problems, key, "This field cannot be written.");
             return false;
         }
         return true;
     }
 
-    private static String problemKey(String key) {
+    static String problemKey(String key) {
         return KEY_SHAPE.matcher(key).matches() ? key : PROBLEMS_KEY;
     }
 

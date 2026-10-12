@@ -11,7 +11,7 @@ import java.util.UUID;
  * @param id the identifier: opaque, time-ordered (version 7), never a count; unique across organizations, but never a
  *        proof of anything: the organization always comes from the host
  * @param objectApiName the object it belongs to; never changes
- * @param recordType the API name of its record type, or null (checking it is Sprint 15)
+ * @param recordType the API name of its record type, or null (checked on every write since Sprint 15)
  * @param ownerId the user who owns it (Sprint 17 reads it for record-level security)
  * @param fields the values by field API name; a field without a value is not here
  * @param version raised by one on every change; a change must carry the version it was based on
@@ -29,6 +29,12 @@ public record DataRecord(UUID id, String objectApiName, String recordType, UUID 
     /** Copies the values, so that they cannot be changed from outside. */
     public DataRecord {
         fields = Map.copyOf(fields);
+    }
+
+    /** The same record with other values (the values a member may see, Sprint 15). */
+    public DataRecord withFields(Map<String, Object> other) {
+        return new DataRecord(id, objectApiName, recordType, ownerId, other, version, createdAt, createdBy, updatedAt,
+                updatedBy, deletedAt, deletedBy);
     }
 
     /** Whether the record is in the recycle bin. */

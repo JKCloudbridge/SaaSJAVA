@@ -13,8 +13,10 @@ import java.util.UUID;
  * host and the token name, the object exists in the organization's metadata and is one the generic store holds (a
  * record of an object that a platform module owns, such as a user or a profile, is changed only through that module),
  * and the member may use the object (the permission decision API of the security module). A member who may not see an
- * object and an object that does not exist get the same answer. Sprint 15 adds its checks to the gate and to the write
- * path, in the documented order; Sprint 17 adds record-level security to the gate.
+ * object and an object that does not exist get the same answer. Since Sprint 15 a write passes the write pipeline
+ * after the gate (field permission, types, required fields, relationships, validation rules, formulas,
+ * auto-numbers, record types: ADR-0091) and a read leaves out the fields the member may not read; Sprint 17 adds
+ * record-level security to the gate.
  *
  * <p>Every call runs in one transaction that is opened after the tenant context. A change, its audit record and its
  * event commit together or not at all. Values never reach a log, an audit record, an event or an error message.
@@ -27,12 +29,13 @@ public interface Records {
      * Creates a record owned by the caller.
      *
      * @param objectApiName the object
+     * @param recordType the API name of the record type, or null for the default type of the object (if it has one)
      * @param fields the values by field API name
      * @throws app.platformapi.ApiException {@code NOT_FOUND} for an object the caller may not use or that the store
-     *         does not hold, {@code FORBIDDEN} for a caller who may read but not create, {@code VALIDATION_ERROR} for a
-     *         key that is not a writable field of the object (naming the key) or a value of the wrong shape or size
+     *         does not hold, {@code FORBIDDEN} for a caller who may read but not create, {@code VALIDATION_ERROR}
+     *         listing every problem of the first stage of the write pipeline that found any, each with its place
      */
-    DataRecord create(String objectApiName, Map<String, Object> fields);
+    DataRecord create(String objectApiName, String recordType, Map<String, Object> fields);
 
     /**
      * Reads a live record.
@@ -48,12 +51,13 @@ public interface Records {
      * lose theirs, the others keep theirs.
      *
      * @param expectedVersion the version the change is based on
+     * @param recordType the record type to move the record to, or null to leave it as it is
      * @throws app.platformapi.ApiException {@code CONCURRENT_MODIFICATION} when the record has another version now
      *         (nothing is changed), {@code CONFLICT} when the record is in the recycle bin, {@code NOT_FOUND},
      *         {@code FORBIDDEN} and {@code VALIDATION_ERROR} as for {@link #create}
      */
-    DataRecord update(String objectApiName, UUID id, long expectedVersion, Map<String, Object> set,
-            List<String> clear);
+    DataRecord update(String objectApiName, UUID id, long expectedVersion, String recordType,
+            Map<String, Object> set, List<String> clear);
 
     /**
      * Moves a live record to the recycle bin. The second call finds it there and answers {@code CONFLICT}.

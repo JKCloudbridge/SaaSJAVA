@@ -56,7 +56,7 @@ class RecordFlowsLogsAreCleanIT extends RecordsSupport {
         List<Response> refusals = new ArrayList<>();
 
         Response created = create(admin, "{\"name__c\":\"" + name + "\",\"department__c\":\"" + department
-                + "\",\"notes__c\":\"" + notes + "\",\"salary__c\":123456.789,\"tags__c\":[\"" + tag + "\"]}");
+                + "\",\"notes__c\":\"" + notes + "\",\"salary__c\":123456.78,\"tags__c\":[\"" + tag + "\"]}");
         String id = idOf(created);
         admin.get(RECORDS + "/" + id);
         admin.get(RECORDS);
@@ -85,7 +85,7 @@ class RecordFlowsLogsAreCleanIT extends RecordsSupport {
 
         assertThat(log).as("the log has content to check").contains("platform.http");
         for (String text : List.of(name, department, notes, changed, tag, refused, stale, nested, hostileKey,
-                "123456.789")) {
+                "123456.78")) {
             assertThat(log).as("a value is not logged: " + text).doesNotContain(text);
             assertThat(stored).as("a value is not in an event or an audit record: " + text).doesNotContain(text);
             assertThat(trail).as("a value is not in the audit trail: " + text).doesNotContain(text);

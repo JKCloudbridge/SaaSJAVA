@@ -3,11 +3,6 @@ package app.platform.data.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import app.platform.metadata.DefinitionKind;
-import app.platform.metadata.FieldConfiguration;
-import app.platform.metadata.FieldDefinition;
-import app.platform.metadata.FieldType;
-import app.platform.metadata.ObjectDefinition;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
 import java.math.BigDecimal;
@@ -19,9 +14,10 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * What a write may contain (Sprint 14, ADR-0089), without a database: which keys are accepted, which values the store
- * can keep and which it refuses, that an error names a key and never a value, and the bounds. Nothing here checks what
- * a value means: that is Sprint 15.
+ * The first step of a write (Sprint 14, ADR-0089; ADR-0091), without a database: which keys are shaped like a field
+ * name, which values the store can keep and which it refuses, that an error names a key and never a value, and the
+ * bounds. Which keys are fields, which the member may change and what a value means are later steps of the pipeline
+ * ({@code FieldSecurityTest}, {@code FieldValueTest}, {@code WritePipelineStagesIT}).
  */
 class RecordValuesTest {
 
@@ -29,22 +25,8 @@ class RecordValuesTest {
 
     private final RecordValues values = new RecordValues(new RecordJson(), MAX_BYTES);
 
-    private static FieldDefinition field(String name, FieldType type, DefinitionKind kind, boolean retired) {
-        return new FieldDefinition("Thing__c", name, name, "", kind, type, false, false, null,
-                new FieldConfiguration.NoConfiguration(), retired, 0);
-    }
-
-    private static final ObjectDefinition THING = new ObjectDefinition("Thing__c", "Thing", "Things", "",
-            DefinitionKind.CUSTOM, null, true, 0, List.of(
-                    field("id", FieldType.TEXT, DefinitionKind.SYSTEM, false),
-                    field("name__c", FieldType.TEXT, DefinitionKind.CUSTOM, false),
-                    field("count__c", FieldType.NUMBER, DefinitionKind.CUSTOM, false),
-                    field("tags__c", FieldType.MULTI_PICKLIST, DefinitionKind.CUSTOM, false),
-                    field("total__c", FieldType.FORMULA, DefinitionKind.CUSTOM, false),
-                    field("old__c", FieldType.TEXT, DefinitionKind.CUSTOM, true)));
-
     private RecordValues.Checked check(Map<String, Object> set) {
-        return values.check(THING, set, List.of(), false);
+        return values.check(set, List.of(), false);
     }
 
     private static Map<String, List<String>> problemsOf(Runnable refused) {
@@ -63,7 +45,7 @@ class RecordValuesTest {
     // ---- keys ----
 
     @Test
-    void aKeyThatIsAWritableFieldIsAccepted() {
+    void keysShapedLikeFieldNamesAreAccepted() {
         RecordValues.Checked checked = check(Map.of("name__c", "A", "count__c", 3, "tags__c", List.of("a", "b")));
 
         assertThat(checked.set()).containsOnlyKeys("name__c", "count__c", "tags__c");
@@ -72,42 +54,20 @@ class RecordValuesTest {
     }
 
     @Test
-    void anUnknownKeyIsRefusedAndNamed() {
-        Map<String, List<String>> problems = problemsOf(() -> check(Map.of("nope__c", "x")));
-
-        assertThat(problems).containsOnlyKeys("nope__c");
-        assertThat(problems.get("nope__c")).containsExactly("This is not a field of the object.");
-    }
-
-    @Test
-    void aSystemFieldACalculatedFieldAndARetiredFieldCannotBeWritten() {
-        Map<String, Object> all = new LinkedHashMap<>();
-        all.put("id", "x");
-        all.put("total__c", 1);
-        all.put("old__c", "x");
-
-        Map<String, List<String>> problems = problemsOf(() -> check(all));
-
-        assertThat(problems).containsOnlyKeys("id", "total__c", "old__c");
-        assertThat(problems.values()).allSatisfy(texts -> assertThat(texts).containsExactly(
-                "This field cannot be written."));
-    }
-
-    @Test
     void everyProblemIsReportedAtOnce() {
         Map<String, Object> bad = new LinkedHashMap<>();
-        bad.put("nope__c", "x");
-        bad.put("name__c", Map.of("deep", 1));
-        bad.put("total__c", 1);
+        bad.put("one__c", Map.of("deep", 1));
+        bad.put("two__c", new Object());
+        bad.put("three__c", List.of(List.of("x")));
 
-        assertThat(problemsOf(() -> check(bad))).containsOnlyKeys("nope__c", "name__c", "total__c");
+        assertThat(problemsOf(() -> check(bad))).containsOnlyKeys("one__c", "two__c", "three__c");
     }
 
     @Test
     void aKeyThatIsNotShapedLikeAFieldNameIsNeverRepeated() {
         for (String hostile : List.of("x'; drop table object_record; --", "a b", "", "1abc",
                 "<script>alert(1)</script>",
-                "a".repeat(61), "caf\u00e9__c", "..", "name__c ")) {
+                "a".repeat(61), "café__c", "..", "name__c ")) {
             Map<String, List<String>> problems = problemsOf(() -> check(Map.of(hostile, "x")));
 
             assertThat(problems).as("key: " + hostile.length() + " characters").containsOnlyKeys("fields");
@@ -116,21 +76,26 @@ class RecordValuesTest {
     }
 
     @Test
-    void theSameFieldCannotBeGivenAValueAndClearedAndAClearNamesOnlyWritableFields() {
-        Map<String, List<String>> both = problemsOf(() -> values.check(THING, Map.of("name__c", "x"),
+    void theSameFieldCannotBeGivenAValueAndCleared() {
+        Map<String, List<String>> both = problemsOf(() -> values.check(Map.of("name__c", "x"),
                 List.of("name__c"), true));
-        Map<String, List<String>> unknown = problemsOf(() -> values.check(THING, Map.of(),
-                List.of("nope__c", "id"), true));
 
         assertThat(both).containsOnlyKeys("name__c");
-        assertThat(unknown).containsOnlyKeys("nope__c", "id");
+    }
+
+    @Test
+    void aClearedKeyThatIsNotShapedLikeAFieldNameIsNeverRepeated() {
+        Map<String, List<String>> problems = problemsOf(() -> values.check(Map.of(), List.of("a b"), true));
+
+        assertThat(problems).containsOnlyKeys("fields");
+        assertThat(problems.toString()).doesNotContain("a b");
     }
 
     @Test
     void anUpdateMustChangeSomethingAndACreateMayNot() {
-        assertThat(values.check(THING, Map.of(), List.of(), false).set()).isEmpty();
-        assertThat(problemsOf(() -> values.check(THING, Map.of(), List.of(), true))).containsOnlyKeys("fields");
-        assertThat(values.check(THING, Map.of(), List.of("name__c"), true).clear()).containsExactly("name__c");
+        assertThat(values.check(Map.of(), List.of(), false).set()).isEmpty();
+        assertThat(problemsOf(() -> values.check(Map.of(), List.of(), true))).containsOnlyKeys("fields");
+        assertThat(values.check(Map.of(), List.of("name__c"), true).clear()).containsExactly("name__c");
     }
 
     // ---- values ----
@@ -138,13 +103,13 @@ class RecordValuesTest {
     @Test
     void textsNumbersAndBooleansAreKeptAndNumbersBecomeDecimals() {
         Map<String, Object> given = new HashMap<>();
-        given.put("name__c", "line one\nline \"two\" \u00e9 \u1f600");
+        given.put("name__c", "line one\nline \"two\" é ὠ0");
         given.put("count__c", 7);
         given.put("tags__c", List.of(true, "x", 1.5, 2L));
 
         Map<String, Object> kept = check(given).set();
 
-        assertThat(kept.get("name__c")).isEqualTo("line one\nline \"two\" \u00e9 \u1f600");
+        assertThat(kept.get("name__c")).isEqualTo("line one\nline \"two\" é ὠ0");
         assertThat(kept.get("count__c")).isEqualTo(new BigDecimal("7"));
         assertThat(kept.get("tags__c")).isEqualTo(List.of(true, "x", new BigDecimal("1.5"), new BigDecimal("2")));
     }
@@ -209,7 +174,7 @@ class RecordValuesTest {
     @Test
     void theBytesCountEncodedCharactersNotJavaCharacters() {
         // 1,200 emoji are 2,400 Java characters, 4,800 bytes of UTF-8 and more as escaped JSON: over the 4,096 bound.
-        Map<String, Object> emoji = Map.of("name__c", "\u1f600".repeat(1_200));
+        Map<String, Object> emoji = Map.of("name__c", "ὠ0".repeat(1_200));
 
         assertThat(problemsOf(() -> check(emoji))).containsOnlyKeys("fields");
     }

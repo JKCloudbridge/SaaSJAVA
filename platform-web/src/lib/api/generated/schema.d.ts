@@ -1805,13 +1805,13 @@ export interface paths {
         };
         /**
          * The live records of an object, in identifier order
-         * @description One page at a time by the cursor of the previous page. No filter and no sorting: those are the query engine of Sprint 16. Until record-level security (Sprint 17) a member who may read the object reads every record of it in the organization. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         * @description One page at a time by the cursor of the previous page. No filter and no sorting: those are the query engine of Sprint 16. Until record-level security (Sprint 17) a member who may read the object reads every record of it in the organization. Fields the caller may not read are left out of every record. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
          */
         get: operations["listRecords"];
         put?: never;
         /**
          * Create a record of an object
-         * @description This is the first form of the endpoint: values are not yet checked against their field's type, required fields, relationships, validation rules or formulas (Sprint 15), and there is no record-level security (Sprint 17). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN for a caller who may read the object but not create in it. VALIDATION_ERROR names a key that is not a writable field (a system, calculated or retired field cannot be written) and says why a value cannot be kept. The caller owns the record. Audited and announced by object, identifier, version and field names, never by values.
+         * @description The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. Unique fields are not yet enforced (Sprint 16), and there is no record-level security (Sprint 17). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN for a caller who may read the object but not create in it. The caller owns the record. The answer leaves out the fields the caller may not read. Audited and announced by object, identifier, version and field names, never by values.
          */
         post: operations["createRecord"];
         delete?: never;
@@ -1843,7 +1843,7 @@ export interface paths {
         head?: never;
         /**
          * Change some values of a record
-         * @description This is the first form of the endpoint: values are not yet checked against their field's type, required fields, relationships, validation rules or formulas (Sprint 15), and there is no record-level security (Sprint 17). Only the fields named change; a null value or a name in clear removes a value. The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the record has another version now, and nothing is changed. CONFLICT (409) when the record is in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN without permission to update the object.
+         * @description The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. Unique fields are not yet enforced (Sprint 16), and there is no record-level security (Sprint 17). Only the fields named change; a null value or a name in clear removes a value. The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the record has another version now, and nothing is changed. CONFLICT (409) when the record is in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN without permission to update the object.
          */
         patch: operations["updateRecord"];
         trace?: never;
@@ -3143,6 +3143,7 @@ export interface components {
             fields: {
                 [key: string]: unknown;
             };
+            recordType?: string;
         };
         CreateRecordTypeRequest: {
             active?: boolean;
@@ -3712,6 +3713,7 @@ export interface components {
             id: string;
             objectApiName: string;
             ownerId: string;
+            recordType?: string;
             /** Format: date-time */
             updatedAt: string;
             /** Format: int64 */
@@ -3947,6 +3949,7 @@ export interface components {
             fields?: {
                 [key: string]: unknown;
             };
+            recordType?: string;
             /** Format: int64 */
             version: number;
         };

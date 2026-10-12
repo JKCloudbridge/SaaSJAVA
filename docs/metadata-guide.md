@@ -329,3 +329,21 @@ type), `String`, `Boolean`, `LocalDate`, `Instant` or `LocalTime`; a field with 
 - *A formula or a rule is refused with "Line 1, column N: ..."*: the place is in the text you typed; section 12 lists what the language has and what it has not. "does not exist after this change" names a field the text uses
   that the object does not have (check the API name; case matters). "is stacked on N formulas" means formulas that use formulas are more than 5 high; "use each other in a circle" names the fields that depend on each other.
 - *`UnsafeCorpusTest` fails with a line number*: that construct is now accepted by the engine. Do not delete the line: find what widened the grammar or the library (section 12.6, ADR-0081).
+
+## 13. What a setup change does to records that exist (Sprint 15)
+
+Since Sprint 15 the setup you make in the object manager is enforced when a record is saved ([ADR-0091](adr/0091-the-write-pipeline-and-its-order.md) to [ADR-0097](adr/0097-links-between-records-on-write.md)).
+**Nothing is ever rewritten**: a record keeps reading as it was written. The **next save** of a record is judged by the setup of that moment.
+
+| You change | Existing records | The next save of a record |
+|------------|------------------|---------------------------|
+| a text gets shorter, a number gets fewer digits | keep their value | judges only the fields the save names |
+| a picklist value is switched off | keep the value | records that hold it keep it; nobody else can choose it |
+| a field becomes required | keep reading, without the value | refused until it has a value |
+| a field is taken out of a record type | keep their value | the value can be cleared, not written |
+| a formula is edited | keep the old result | every formula is recalculated at that save |
+| a rule is added or changed | untouched | the record is judged by it |
+
+Remember when you set up access: **a field permission is explicit.** A member who may read an object but was given no field permission reads and writes no field of it, and **a new field is invisible to everyone except
+administrators until someone grants it** (the matrix of the profile or access policy). A formula field is readable on its own permission: it can show a value derived from fields the member cannot read, so give it deliberately.
+**Unique** is stored but not yet enforced on records (Sprint 16), and a **lookup to a user, profile, role or other object the platform owns** cannot be given a value yet (Sprint 16).
