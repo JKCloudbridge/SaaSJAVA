@@ -38,7 +38,8 @@ class RecordEventsAndAuditIT extends RecordsSupport {
         assertThat(JsonPath.<String>read(createdEvent, "$.object")).isEqualTo("Employee__c");
         assertThat(JsonPath.<String>read(createdEvent, "$.recordId")).isEqualTo(id);
         assertThat(((Number) JsonPath.read(createdEvent, "$.version")).longValue()).isZero();
-        assertThat(JsonPath.<List<String>>read(createdEvent, "$.fields")).containsExactly("department__c", "name__c");
+        assertThat(JsonPath.<List<String>>read(createdEvent, "$.fields")).containsExactly("department__c", "name__c",
+                "sequence");
         String updatedEvent = eventsOf("record.updated", id).get(0);
         assertThat(((Number) JsonPath.read(updatedEvent, "$.version")).longValue()).isEqualTo(1);
         assertThat(JsonPath.<List<String>>read(updatedEvent, "$.fields")).containsExactly("name__c");

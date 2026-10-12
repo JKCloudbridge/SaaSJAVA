@@ -6,16 +6,19 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Creates a record of an object (Sprint 14). The values are typed by a person, so the record never prints.
+ * Creates a record of an object (Sprint 14, Sprint 15). The values are typed by a person, so the record never prints.
  *
- * <p>This is the first, narrow form of the endpoint: every key must be a field of the object that people can write
- * (not a system, calculated or retired field), a value is a text, a number, true or false, or a list of those, and the
- * whole record is bounded in size. Nothing yet checks a value against the type of its field, whether a required field
- * has a value, a lookup points at a record, or a validation rule is met: Sprint 15 adds those, in the documented order.
+ * <p>Every key must be a field of the object that the caller may edit and that people can write (not a system,
+ * calculated or retired field). A value is a text, a number, true or false, or a list of those, and the whole record is
+ * bounded in size. The write then goes through the pipeline in this order: the record type, the field permission, the
+ * type of each value, the required fields, the linked records, the validation rules, the formulas. The first stage that
+ * finds problems answers with all of its problems, each with its place; nothing is saved.
  *
  * @param fields the values by field API name; a key with no value (null) is the same as leaving it out
+ * @param recordType the API name of the record type of the new record; left out, the object's default record type is
+ *        used if it has one
  */
-public record CreateRecordRequest(@NotNull Map<String, Object> fields) {
+public record CreateRecordRequest(@NotNull Map<String, Object> fields, String recordType) {
 
     /** Copies the values, so that they cannot be changed from outside; a null value is no value. */
     public CreateRecordRequest {

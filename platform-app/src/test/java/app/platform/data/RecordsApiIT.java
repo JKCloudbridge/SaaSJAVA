@@ -128,7 +128,7 @@ class RecordsApiIT extends RecordsSupport {
     @Test
     void aValueIsKeptExactlyAsGiven() {
         TestBrowser admin = adminWithEmployee(organization());
-        String exact = "12345678901234.567890123";
+        String exact = "1234567890123456.78";
 
         String text = "{\"salary__c\":" + exact + ",\"name__c\":\"line one\\nline \\\"two\\\" \u00e9\"}";
         Response created = create(admin, text);
@@ -186,7 +186,7 @@ class RecordsApiIT extends RecordsSupport {
         assertThat(versionOf(cleared)).isEqualTo(2);
         assertThat(JsonPath.<String>read(read.body(), "$.data.fields.department__c")).isEqualTo("Support");
         assertThat(JsonPath.<java.util.Map<String, Object>>read(read.body(), "$.data.fields")).containsOnlyKeys(
-                "department__c");
+                "department__c", "sequence");
     }
 
     @Test

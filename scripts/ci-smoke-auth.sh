@@ -21,7 +21,8 @@
 # and a last step creates a profile and an access policy as the first administrator, gives the policy, reads
 # the access back and checks the audit records and that a platform token is refused on an organization host.
 # Since Sprint 14 a step makes a record, changes it with its version, deletes and restores it and proves that an object with
-# a record cannot be removed.
+# a record cannot be removed. Since Sprint 15 a step proves the write pipeline: a required field, a refused value, a rule,
+# a formula, an auto-number. Since Sprint 15A a step proves record type assignments.
 set -euo pipefail
 
 db="${1:?database container name}"
@@ -697,6 +698,103 @@ if [ -n "$mail" ]; then
     fail "a removed record is still stored"
   fi
   echo "ok: a record is created, read, changed with its version, a stale change is refused, the record is deleted and restored, an object with a record cannot be removed, and once the record is removed for good the object can be removed"
+
+  # 21. The write pipeline on the image (Sprint 15): a required field is enforced, a typed value is refused with its place,
+  # a validation rule rejects a record with its message, a formula is calculated and stored on write, an auto-number
+  # counts, and nobody can write a calculated value. (A member without permission on a field is refused: the integration
+  # tests prove it for all 19 types; this script holds one organization with one administrator.)
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Quote","label":"Quote","pluralLabel":"Quotes","description":""}' "$base/api/v1/metadata/objects")"
+  [ "$status" = "201" ] || fail "making the quote object answered $status: $(cat "$body")"
+  for field in \
+    '{"name":"title","label":"Title","type":"TEXT","required":true,"settings":{"maxLength":10}}' \
+    '{"name":"amount","label":"Amount","type":"NUMBER","settings":{"digits":6}}' \
+    '{"name":"tax","label":"Tax","type":"FORMULA","settings":{"expression":"amount__c * 2","resultType":"NUMBER"}}' \
+    '{"name":"number","label":"Number","type":"AUTO_NUMBER","settings":{"prefix":"Q-","startAt":1,"width":4}}'; do
+    status="$(client_call -X POST -H "$group_json" -d "$field" "$base/api/v1/metadata/objects/Quote__c/fields")"
+    [ "$status" = "201" ] || fail "adding a quote field answered $status: $(cat "$body")"
+  done
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"NoZero","label":"No zero","expression":"amount__c = 0","errorMessage":"Amount must not be zero.","errorField":"amount__c"}' \
+    "$base/api/v1/metadata/objects/Quote__c/validation-rules")"
+  [ "$status" = "201" ] || fail "making the quote rule answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{"amount__c":5}}' "$base/api/v1/objects/Quote__c/records")"
+  [ "$status" = "400" ] || fail "a record without its required title answered $status: $(cat "$body")"
+  grep -Fq '"title__c":["A value is required."]' "$body" || fail "the refusal does not name the title: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{"title__c":"far too long a title"}}' \
+    "$base/api/v1/objects/Quote__c/records")"
+  [ "$status" = "400" ] || fail "a title that is too long answered $status: $(cat "$body")"
+  grep -Fq '"title__c"' "$body" || fail "the refusal does not name the title: $(cat "$body")"
+  if grep -Fq 'far too long' "$body"; then fail "the refusal repeats the value"; fi
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{"title__c":"zero","amount__c":0}}' \
+    "$base/api/v1/objects/Quote__c/records")"
+  [ "$status" = "400" ] || fail "a record the rule rejects answered $status: $(cat "$body")"
+  grep -Fq 'Amount must not be zero.' "$body" || fail "the rejection lacks the rule's message: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{"title__c":"calculated","tax__c":1}}' \
+    "$base/api/v1/objects/Quote__c/records")"
+  [ "$status" = "400" ] || fail "writing a formula answered $status: $(cat "$body")"
+  grep -Fq 'cannot be written' "$body" || fail "writing a formula was not refused as such: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{"title__c":"first","amount__c":5}}' \
+    "$base/api/v1/objects/Quote__c/records")"
+  [ "$status" = "201" ] || fail "creating a good quote answered $status: $(cat "$body")"
+  grep -Fq '"tax__c":10' "$body" || fail "the formula was not calculated on write: $(cat "$body")"
+  grep -Fq '"number__c":"Q-0001"' "$body" || fail "the auto-number did not start: $(cat "$body")"
+  record_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{"title__c":"second","amount__c":7}}' \
+    "$base/api/v1/objects/Quote__c/records")"
+  [ "$status" = "201" ] || fail "creating a second quote answered $status: $(cat "$body")"
+  grep -Fq '"number__c":"Q-0002"' "$body" || fail "the auto-number did not count: $(cat "$body")"
+  second_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(client_call -X PATCH -H "$group_json" -d '{"version":0,"fields":{"amount__c":9}}' \
+    "$base/api/v1/objects/Quote__c/records/$record_id")"
+  [ "$status" = "200" ] || fail "changing a quote answered $status: $(cat "$body")"
+  grep -Fq '"tax__c":18' "$body" || fail "the formula was not recalculated on update: $(cat "$body")"
+  grep -Fq '"number__c":"Q-0001"' "$body" || fail "an update changed the auto-number: $(cat "$body")"
+  status="$(client_call -X PATCH -H "$group_json" -d '{"version":1,"clear":["title__c"]}' \
+    "$base/api/v1/objects/Quote__c/records/$record_id")"
+  [ "$status" = "400" ] || fail "clearing a required field answered $status: $(cat "$body")"
+  for id in "$record_id" "$second_id"; do
+    status="$(client_call -X DELETE "$base/api/v1/objects/Quote__c/records/$id")"
+    [ "$status" = "204" ] || fail "deleting a quote answered $status: $(cat "$body")"
+    status="$(client_call -X DELETE "$base/api/v1/objects/Quote__c/recycle-bin/$id")"
+    [ "$status" = "204" ] || fail "removing a quote for good answered $status: $(cat "$body")"
+  done
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Quote__c/validation-rules/NoZero__c")"
+  [ "$status" = "204" ] || fail "removing the quote rule answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Quote__c")"
+  [ "$status" = "204" ] || fail "removing the emptied quote object answered $status: $(cat "$body")"
+  echo "ok: a required field is enforced, a typed value is refused with its place and without being repeated, a validation rule rejects with its message, a formula is calculated on create and update, an auto-number counts and stays put on update, a calculated value cannot be written, and clearing a required field is refused"
+
+  # 22. Record type assignments on the image (Sprint 15A): a record type is open to every profile until a profile is
+  # assigned, the assignment is listed with its profile, a record type that has assignments cannot be removed (the
+  # refusal says why), and once the assignment is removed the type can go.
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Pipeline","label":"Pipeline","pluralLabel":"Pipelines","description":""}' "$base/api/v1/metadata/objects")"
+  [ "$status" = "201" ] || fail "making the pipeline object answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"Renewal","label":"Renewal"}' \
+    "$base/api/v1/metadata/objects/Pipeline__c/record-types")"
+  [ "$status" = "201" ] || fail "making the record type answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/metadata/objects/Pipeline__c/record-types/Renewal__c/profiles")"
+  [ "$status" = "200" ] || fail "listing the profiles of a record type answered $status: $(cat "$body")"
+  grep -Fq '"data":[]' "$body" || fail "a record type nobody is assigned should list nobody (open to every profile): $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d "{\"profileId\":\"$profile_id\",\"defaultForProfile\":true}" \
+    "$base/api/v1/metadata/objects/Pipeline__c/record-types/Renewal__c/profiles")"
+  [ "$status" = "201" ] || fail "assigning a profile to the record type answered $status: $(cat "$body")"
+  grep -Fq "\"key\":\"Renewal__c~$profile_id\"" "$body" || fail "the assignment lacks its key: $(cat "$body")"
+  grep -Fq '"defaultForProfile":true' "$body" || fail "the assignment is not the default of the profile: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d "{\"profileId\":\"$profile_id\"}" \
+    "$base/api/v1/metadata/objects/Pipeline__c/record-types/Renewal__c/profiles")"
+  [ "$status" = "400" ] || fail "assigning the same profile twice answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Pipeline__c/record-types/Renewal__c")"
+  [ "$status" = "409" ] || fail "removing a record type that has assignments answered $status: $(cat "$body")"
+  grep -Fq 'record type assignment' "$body" || fail "the refusal does not name the assignment: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Pipeline__c/record-types/Renewal__c/profiles/$profile_id")"
+  [ "$status" = "204" ] || fail "removing the assignment answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Pipeline__c/record-types/Renewal__c")"
+  [ "$status" = "204" ] || fail "removing the record type answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Pipeline__c")"
+  [ "$status" = "204" ] || fail "removing the pipeline object answered $status: $(cat "$body")"
+  echo "ok: a record type is open to every profile until one is assigned, an assignment is listed with its key and default, the same profile cannot be assigned twice, a record type that has assignments cannot be removed (the answer names them), and once the assignment is removed the type can be removed"
 
   stored="$(owner_sql -c "select t::text from account_token t union all select t::text from mail_queue t \
     union all select attributes::text from audit_record union all select t::text from invitation t")"

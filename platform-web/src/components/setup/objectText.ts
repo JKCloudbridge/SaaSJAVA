@@ -89,6 +89,9 @@ export const CHANGE_KIND_TEXT: Record<string, string> = {
   CREATE_VALIDATION_RULE: "Add validation rule",
   UPDATE_VALIDATION_RULE: "Change validation rule",
   DELETE_VALIDATION_RULE: "Remove validation rule",
+  CREATE_RECORD_TYPE_ASSIGNMENT: "Let a profile use a record type",
+  UPDATE_RECORD_TYPE_ASSIGNMENT: "Change a profile's default record type",
+  DELETE_RECORD_TYPE_ASSIGNMENT: "Stop a profile from using a record type",
 };
 
 export const ACTION_TEXT: Record<string, string> = { ADDED: "Added", CHANGED: "Changed", REMOVED: "Removed" };
@@ -101,6 +104,7 @@ export const ITEM_TEXT: Record<string, string> = {
   APPLICATION: "application",
   LAYOUT_ASSIGNMENT: "layout choice",
   VALIDATION_RULE: "validation rule",
+  RECORD_TYPE_ASSIGNMENT: "record type choice",
 };
 export const RELEASE_KIND_TEXT: Record<string, string> = {
   QUICK: "A change made at once",

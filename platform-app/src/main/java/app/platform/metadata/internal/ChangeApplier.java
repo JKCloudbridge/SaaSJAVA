@@ -9,6 +9,7 @@ import app.platformapi.CreateLayoutAssignmentRequest;
 import app.platformapi.CreateLayoutRequest;
 import app.platformapi.CreateObjectRequest;
 import app.platformapi.CreateRecordPageRequest;
+import app.platformapi.CreateRecordTypeAssignmentRequest;
 import app.platformapi.CreateRecordTypeRequest;
 import app.platformapi.CreateValidationRuleRequest;
 import app.platformapi.FieldView;
@@ -16,6 +17,7 @@ import app.platformapi.LayoutAssignmentView;
 import app.platformapi.LayoutView;
 import app.platformapi.ObjectView;
 import app.platformapi.RecordPageView;
+import app.platformapi.RecordTypeAssignmentView;
 import app.platformapi.RecordTypeView;
 import app.platformapi.ReleaseItemView;
 import app.platformapi.UpdateApplicationRequest;
@@ -24,6 +26,7 @@ import app.platformapi.UpdateLayoutAssignmentRequest;
 import app.platformapi.UpdateLayoutRequest;
 import app.platformapi.UpdateObjectRequest;
 import app.platformapi.UpdateRecordPageRequest;
+import app.platformapi.UpdateRecordTypeAssignmentRequest;
 import app.platformapi.UpdateRecordTypeRequest;
 import app.platformapi.UpdateValidationRuleRequest;
 import app.platformapi.ValidationRuleView;
@@ -56,16 +59,19 @@ class ChangeApplier {
     private final RecordTypeService recordTypes;
     private final DefinitionService definitions;
     private final AssignmentService assignments;
+    private final RecordTypeAssignmentService typeAssignments;
     private final ValidationRuleService rules;
     private final ChangeCodec codec;
 
     ChangeApplier(MetadataService metadata, RecordTypeService recordTypes, DefinitionService definitions,
-            AssignmentService assignments, ValidationRuleService rules, ChangeCodec codec) {
+            AssignmentService assignments, ValidationRuleService rules, RecordTypeAssignmentService typeAssignments,
+            ChangeCodec codec) {
         this.rules = rules;
         this.metadata = metadata;
         this.recordTypes = recordTypes;
         this.definitions = definitions;
         this.assignments = assignments;
+        this.typeAssignments = typeAssignments;
         this.codec = codec;
     }
 
@@ -101,6 +107,9 @@ class ChangeApplier {
             case CREATE_VALIDATION_RULE -> createRule(caller, change);
             case UPDATE_VALIDATION_RULE -> updateRule(caller, change);
             case DELETE_VALIDATION_RULE -> deleteRule(caller, change);
+            case CREATE_RECORD_TYPE_ASSIGNMENT -> createTypeAssignment(caller, change);
+            case UPDATE_RECORD_TYPE_ASSIGNMENT -> updateTypeAssignment(caller, change);
+            case DELETE_RECORD_TYPE_ASSIGNMENT -> deleteTypeAssignment(caller, change);
         };
     }
 
@@ -323,6 +332,56 @@ class ChangeApplier {
         assignments.delete(caller, change.object(), change.item());
         return new Applied(Boolean.TRUE, List.of(codec.makeAssignment(change.object(), before)),
                 List.of(item("REMOVED", "LAYOUT_ASSIGNMENT", change.object(), change.item())));
+    }
+
+    // ---- record type assignments (Sprint 15A) ----
+
+    private Applied createTypeAssignment(Caller caller, Change change) {
+        CreateRecordTypeAssignmentRequest request = codec.read(change, CreateRecordTypeAssignmentRequest.class);
+        RecordTypeAssignmentView previousDefault = Boolean.TRUE.equals(request.defaultForProfile())
+                ? typeAssignments.defaultOf(change.object(), request.profileId(), request.recordType().strip())
+                        .orElse(null) : null;
+        RecordTypeAssignmentView made = typeAssignments.create(caller, change.object(), request);
+        List<Change> undo = new ArrayList<>();
+        undo.add(codec.removeTypeAssignment(change.object(), made.key()));
+        giveTypeDefaultBack(undo, change.object(), previousDefault);
+        return new Applied(made, undo,
+                List.of(item("ADDED", "RECORD_TYPE_ASSIGNMENT", change.object(), made.key())));
+    }
+
+    private Applied updateTypeAssignment(Caller caller, Change change) {
+        RecordTypeAssignmentView before = typeAssignments.get(change.object(), change.item());
+        UpdateRecordTypeAssignmentRequest request = codec.read(change, UpdateRecordTypeAssignmentRequest.class);
+        RecordTypeAssignmentView previousDefault = Boolean.TRUE.equals(request.defaultForProfile())
+                ? typeAssignments.defaultOf(change.object(), before.profileId(), before.recordType()).orElse(null)
+                : null;
+        RecordTypeAssignmentView after = typeAssignments.update(caller, change.object(), change.item(), request);
+        if (after.version().equals(before.version())) {
+            return new Applied(after, List.of(), List.of());
+        }
+        List<Change> undo = new ArrayList<>();
+        undo.add(codec.restoreTypeAssignment(change.object(), before, after.version()));
+        giveTypeDefaultBack(undo, change.object(), previousDefault);
+        return new Applied(after, undo,
+                List.of(item("CHANGED", "RECORD_TYPE_ASSIGNMENT", change.object(), after.key())));
+    }
+
+    private Applied deleteTypeAssignment(Caller caller, Change change) {
+        RecordTypeAssignmentView before = typeAssignments.get(change.object(), change.item());
+        typeAssignments.delete(caller, change.object(), change.item());
+        return new Applied(Boolean.TRUE, List.of(codec.makeTypeAssignment(change.object(), before)),
+                List.of(item("REMOVED", "RECORD_TYPE_ASSIGNMENT", change.object(), change.item())));
+    }
+
+    /**
+     * Making an assignment the default of its profile takes the mark off the profile's old default; undoing it must
+     * put the mark back, so the old default is restored after the changed one is.
+     */
+    private void giveTypeDefaultBack(List<Change> undo, String object, RecordTypeAssignmentView previousDefault) {
+        if (previousDefault != null) {
+            RecordTypeAssignmentView now = typeAssignments.get(object, previousDefault.key());
+            undo.add(codec.restoreTypeAssignment(object, previousDefault, now.version()));
+        }
     }
 
     // ---- validation rules ----

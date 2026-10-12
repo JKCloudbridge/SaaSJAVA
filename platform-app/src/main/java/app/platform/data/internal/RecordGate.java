@@ -12,9 +12,10 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 /**
- * The one place every read and every write of a record passes before anything is touched (ADR-0089). Sprint 15 adds
- * field security here and the write pipeline after it; Sprint 17 adds record-level security (the owner is already
- * stored for it). Nothing in the record store reads or writes a record without a {@link Passed} from this class.
+ * The one place every read and every write of a record passes before anything is touched (ADR-0089). Since Sprint 15
+ * the write pipeline, which holds field security, runs after it (ADR-0091); Sprint 17 adds record-level security
+ * between the two (the owner is already stored for it). Nothing in the record store reads or writes a record without
+ * a {@link Passed} from this class.
  *
  * <p>What it decides, in this order:
  * <ol> <li>Who asks: the member behind the request, from the tenant context (the host and the token, never the

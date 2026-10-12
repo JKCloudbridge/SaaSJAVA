@@ -7,6 +7,7 @@ import app.platform.metadata.ObjectDefinition;
 import app.platform.metadata.PageLayout;
 import app.platform.metadata.RecordPage;
 import app.platform.metadata.RecordType;
+import app.platform.metadata.RecordTypeAssignment;
 import app.platform.metadata.ValidationRule;
 import app.platform.security.ObjectCatalog;
 import java.util.Collections;
@@ -35,17 +36,19 @@ final class MetadataSnapshot {
     private final Map<String, ObjectCatalog.ObjectInfo> catalogueByName = new LinkedHashMap<>();
 
     /**
-     * The definitions of Sprints 12 and 13, grouped by object (applications belong to the organization).
+     * The definitions of Sprints 12, 13 and 15A, grouped by object (applications belong to the organization).
      *
      * @param layouts page layouts by object
      * @param recordPages record pages by object
      * @param assignments layout assignments by object
      * @param applications the applications of the organization
      * @param validationRules validation rules by object
+     * @param recordTypeAssignments the profiles that may use record types, by object (Sprint 15A)
      */
     record Definitions(Map<String, List<PageLayout>> layouts, Map<String, List<RecordPage>> recordPages,
             Map<String, List<LayoutAssignment>> assignments, List<ApplicationDefinition> applications,
-            Map<String, List<ValidationRule>> validationRules) {
+            Map<String, List<ValidationRule>> validationRules,
+            Map<String, List<RecordTypeAssignment>> recordTypeAssignments) {
 
         /** Copies what is given, so that the snapshot cannot change after it is built. */
         Definitions {
@@ -54,6 +57,14 @@ final class MetadataSnapshot {
             assignments = frozen(assignments);
             applications = List.copyOf(applications);
             validationRules = frozen(validationRules);
+            recordTypeAssignments = frozen(recordTypeAssignments);
+        }
+
+        /** The definitions of Sprints 12 and 13 (no record type assignments). */
+        Definitions(Map<String, List<PageLayout>> layouts, Map<String, List<RecordPage>> recordPages,
+                Map<String, List<LayoutAssignment>> assignments, List<ApplicationDefinition> applications,
+                Map<String, List<ValidationRule>> validationRules) {
+            this(layouts, recordPages, assignments, applications, validationRules, Map.of());
         }
 
         /** The definitions of Sprint 12 only (no validation rules). */
@@ -63,7 +74,7 @@ final class MetadataSnapshot {
         }
 
         static Definitions none() {
-            return new Definitions(Map.of(), Map.of(), Map.of(), List.of(), Map.of());
+            return new Definitions(Map.of(), Map.of(), Map.of(), List.of(), Map.of(), Map.of());
         }
 
         private static <T> Map<String, List<T>> frozen(Map<String, List<T>> grouped) {
@@ -138,6 +149,52 @@ final class MetadataSnapshot {
 
     Optional<RecordPage> recordPage(String objectApiName, String apiName) {
         return recordPages(objectApiName).stream().filter(page -> page.apiName().equals(apiName)).findFirst();
+    }
+
+    // ---- which profiles may use which record type (Sprint 15A, ADR-0098) ----
+
+    List<RecordTypeAssignment> typeAssignments(String objectApiName) {
+        return definitions.recordTypeAssignments().getOrDefault(objectApiName, List.of());
+    }
+
+    List<RecordTypeAssignment> allTypeAssignments() {
+        return definitions.recordTypeAssignments().values().stream().flatMap(List::stream).toList();
+    }
+
+    /**
+     * The record types of the object a person with the profile may use. A type with no assignment is open to every
+     * profile; a type with at least one is open only to the profiles named. An assignment of a profile that no longer
+     * exists still counts as a restriction: the type then belongs to nobody until an administrator names a profile (it
+     * fails closed, and the administrator sees the assignment without a name and can remove it).
+     */
+    List<RecordType> recordTypesFor(String objectApiName, UUID profileId) {
+        List<RecordTypeAssignment> assignments = typeAssignments(objectApiName);
+        return recordTypes(objectApiName).stream().filter(type -> usable(assignments, type, profileId)).toList();
+    }
+
+    /**
+     * The record type a new record of a person with the profile gets when it names none: the type marked as the
+     * default of their profile if it is in use, otherwise the default type of the object if it is in use and the
+     * profile may use it, otherwise none.
+     */
+    Optional<RecordType> defaultRecordTypeFor(String objectApiName, UUID profileId) {
+        List<RecordTypeAssignment> assignments = typeAssignments(objectApiName);
+        Optional<RecordType> own = assignments.stream()
+                .filter(assignment -> assignment.defaultForProfile() && assignment.profileId().equals(profileId))
+                .map(assignment -> recordType(objectApiName, assignment.recordType())).flatMap(Optional::stream)
+                .filter(RecordType::active).findFirst();
+        if (own.isPresent()) {
+            return own;
+        }
+        return recordTypes(objectApiName).stream()
+                .filter(type -> type.defaultType() && type.active() && usable(assignments, type, profileId))
+                .findFirst();
+    }
+
+    private static boolean usable(List<RecordTypeAssignment> assignments, RecordType type, UUID profileId) {
+        List<RecordTypeAssignment> ofType = assignments.stream()
+                .filter(assignment -> assignment.recordType().equals(type.apiName())).toList();
+        return ofType.isEmpty() || ofType.stream().anyMatch(assignment -> assignment.profileId().equals(profileId));
     }
 
     List<LayoutAssignment> assignments(String objectApiName) {

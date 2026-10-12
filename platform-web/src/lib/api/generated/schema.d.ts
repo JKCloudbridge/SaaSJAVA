@@ -1592,6 +1592,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/metadata/objects/{objectApiName}/record-type-assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every record type assignment of an object
+         * @description A record type with no profile assigned is open to every profile; with at least one it is open only to the profiles named. A profile that no longer exists has no name here; its assignment still restricts the record type until it is removed. NOT_FOUND for an object the organization does not have.
+         */
+        get: operations["listRecordTypeAssignmentsOfObject"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/metadata/objects/{objectApiName}/record-types": {
         parameters: {
             query?: never;
@@ -1639,6 +1659,58 @@ export interface paths {
          * @description Live at once, as a release of one change. NOT_FOUND for a record type the object does not have. Audited.
          */
         delete: operations["deleteRecordType"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/record-types/{recordType}/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The profiles that may use a record type
+         * @description A record type with no profile assigned is open to every profile; with at least one it is open only to the profiles named. An empty list means the record type is open to every profile. NOT_FOUND for an object the organization does not have.
+         */
+        get: operations["listRecordTypeAssignments"];
+        put?: never;
+        /**
+         * Let a profile use a record type
+         * @description A record type with no profile assigned is open to every profile; with at least one it is open only to the profiles named. Live at once, as a release of one change. The first assignment of a record type closes it to every other profile; the record type in the path is the one meant. With defaultForProfile the record type becomes the one a new record of the profile gets when it names none, and the profile's previous default of the object loses the mark. CONFLICT when the record type does not exist. VALIDATION_ERROR for a profile that does not exist or a default that is not in use. Audited.
+         */
+        post: operations["createRecordTypeAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/record-types/{recordType}/profiles/{profileId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One profile's use of a record type
+         * @description NOT_FOUND for an assignment the record type does not have.
+         */
+        get: operations["getRecordTypeAssignment"];
+        /**
+         * Make a record type the default of a profile, or take the mark off
+         * @description Live at once, as a release of one change. Making it the default takes the mark off the profile's previous default of the object. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.
+         */
+        put: operations["updateRecordTypeAssignment"];
+        post?: never;
+        /**
+         * Stop a profile from using a record type
+         * @description A record type with no profile assigned is open to every profile; with at least one it is open only to the profiles named. Removing the last assignment of a record type opens it to every profile again. Records that already have the type keep it. Live at once, as a release of one change. Audited.
+         */
+        delete: operations["deleteRecordTypeAssignment"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1805,13 +1877,13 @@ export interface paths {
         };
         /**
          * The live records of an object, in identifier order
-         * @description One page at a time by the cursor of the previous page. No filter and no sorting: those are the query engine of Sprint 16. Until record-level security (Sprint 17) a member who may read the object reads every record of it in the organization. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         * @description One page at a time by the cursor of the previous page. No filter and no sorting: those are the query engine of Sprint 16. Until record-level security (Sprint 17) a member who may read the object reads every record of it in the organization. Fields the caller may not read are left out of every record. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
          */
         get: operations["listRecords"];
         put?: never;
         /**
          * Create a record of an object
-         * @description This is the first form of the endpoint: values are not yet checked against their field's type, required fields, relationships, validation rules or formulas (Sprint 15), and there is no record-level security (Sprint 17). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN for a caller who may read the object but not create in it. VALIDATION_ERROR names a key that is not a writable field (a system, calculated or retired field cannot be written) and says why a value cannot be kept. The caller owns the record. Audited and announced by object, identifier, version and field names, never by values.
+         * @description The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. Unique fields are not yet enforced (Sprint 16), and there is no record-level security (Sprint 17). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN for a caller who may read the object but not create in it. The caller owns the record. The answer leaves out the fields the caller may not read. Audited and announced by object, identifier, version and field names, never by values.
          */
         post: operations["createRecord"];
         delete?: never;
@@ -1843,7 +1915,7 @@ export interface paths {
         head?: never;
         /**
          * Change some values of a record
-         * @description This is the first form of the endpoint: values are not yet checked against their field's type, required fields, relationships, validation rules or formulas (Sprint 15), and there is no record-level security (Sprint 17). Only the fields named change; a null value or a name in clear removes a value. The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the record has another version now, and nothing is changed. CONFLICT (409) when the record is in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN without permission to update the object.
+         * @description The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. Unique fields are not yet enforced (Sprint 16), and there is no record-level security (Sprint 17). Only the fields named change; a null value or a name in clear removes a value. The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the record has another version now, and nothing is changed. CONFLICT (409) when the record is in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN without permission to update the object.
          */
         patch: operations["updateRecord"];
         trace?: never;
@@ -2885,6 +2957,9 @@ export interface components {
         ApiResponseListRecordPageView: {
             data: components["schemas"]["RecordPageView"][];
         };
+        ApiResponseListRecordTypeAssignmentView: {
+            data: components["schemas"]["RecordTypeAssignmentView"][];
+        };
         ApiResponseListRecordTypeView: {
             data: components["schemas"]["RecordTypeView"][];
         };
@@ -2935,6 +3010,9 @@ export interface components {
         };
         ApiResponseRecordPageView: {
             data: components["schemas"]["RecordPageView"];
+        };
+        ApiResponseRecordTypeAssignmentView: {
+            data: components["schemas"]["RecordTypeAssignmentView"];
         };
         ApiResponseRecordTypeView: {
             data: components["schemas"]["RecordTypeView"];
@@ -3026,6 +3104,7 @@ export interface components {
             createObject?: components["schemas"]["CreateObjectRequest"];
             createRecordPage?: components["schemas"]["CreateRecordPageRequest"];
             createRecordType?: components["schemas"]["CreateRecordTypeRequest"];
+            createRecordTypeAssignment?: components["schemas"]["CreateRecordTypeAssignmentRequest"];
             createValidationRule?: components["schemas"]["CreateValidationRuleRequest"];
             itemApiName?: string;
             kind: string;
@@ -3037,6 +3116,7 @@ export interface components {
             updateObject?: components["schemas"]["UpdateObjectRequest"];
             updateRecordPage?: components["schemas"]["UpdateRecordPageRequest"];
             updateRecordType?: components["schemas"]["UpdateRecordTypeRequest"];
+            updateRecordTypeAssignment?: components["schemas"]["UpdateRecordTypeAssignmentRequest"];
             updateValidationRule?: components["schemas"]["UpdateValidationRuleRequest"];
         };
         ChangeSetReportView: {
@@ -3143,6 +3223,13 @@ export interface components {
             fields: {
                 [key: string]: unknown;
             };
+            recordType?: string;
+        };
+        CreateRecordTypeAssignmentRequest: {
+            defaultForProfile?: boolean;
+            /** Format: uuid */
+            profileId: string;
+            recordType?: string;
         };
         CreateRecordTypeRequest: {
             active?: boolean;
@@ -3688,6 +3775,16 @@ export interface components {
             /** Format: int64 */
             version: number;
         };
+        RecordTypeAssignmentView: {
+            defaultForProfile?: boolean;
+            key: string;
+            /** Format: uuid */
+            profileId: string;
+            profileName?: string;
+            recordType: string;
+            /** Format: int64 */
+            version: number;
+        };
         RecordTypeView: {
             active: boolean;
             allFields: boolean;
@@ -3712,6 +3809,7 @@ export interface components {
             id: string;
             objectApiName: string;
             ownerId: string;
+            recordType?: string;
             /** Format: date-time */
             updatedAt: string;
             /** Format: int64 */
@@ -3947,6 +4045,12 @@ export interface components {
             fields?: {
                 [key: string]: unknown;
             };
+            recordType?: string;
+            /** Format: int64 */
+            version: number;
+        };
+        UpdateRecordTypeAssignmentRequest: {
+            defaultForProfile: boolean;
             /** Format: int64 */
             version: number;
         };
@@ -7204,6 +7308,37 @@ export interface operations {
             };
         };
     };
+    listRecordTypeAssignmentsOfObject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListRecordTypeAssignmentView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     listRecordTypes: {
         parameters: {
             query?: never;
@@ -7345,6 +7480,175 @@ export interface operations {
             path: {
                 objectApiName: string;
                 recordTypeApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listRecordTypeAssignments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                recordType: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListRecordTypeAssignmentView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createRecordTypeAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                recordType: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRecordTypeAssignmentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordTypeAssignmentView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getRecordTypeAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                recordType: string;
+                profileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordTypeAssignmentView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateRecordTypeAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                recordType: string;
+                profileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRecordTypeAssignmentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordTypeAssignmentView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteRecordTypeAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                recordType: string;
+                profileId: string;
             };
             cookie?: never;
         };

@@ -69,6 +69,20 @@ describe("the words for the new kinds of change", () => {
     expect(CHANGE_KIND_TEXT.DELETE_LAYOUT_ASSIGNMENT).toBe("Remove a layout choice");
   });
 
+  it("has words for the record type assignments of Sprint 15A", () => {
+    expect(CHANGE_KIND_TEXT.CREATE_RECORD_TYPE_ASSIGNMENT).toBe("Let a profile use a record type");
+    expect(CHANGE_KIND_TEXT.UPDATE_RECORD_TYPE_ASSIGNMENT).toBe("Change a profile's default record type");
+    expect(CHANGE_KIND_TEXT.DELETE_RECORD_TYPE_ASSIGNMENT).toBe("Stop a profile from using a record type");
+    expect(
+      itemText({
+        action: "ADDED",
+        kind: "RECORD_TYPE_ASSIGNMENT",
+        objectApiName: "Order__c",
+        itemApiName: "Renewal__c~0190c0de-0000-7000-8000-000000000001",
+      }),
+    ).toBe("Added record type choice Order__c.Renewal__c~0190c0de-0000-7000-8000-000000000001");
+  });
+
   it("has words for the changes of validation rules, in the change sets and in the history", () => {
     expect(CHANGE_KIND_TEXT.CREATE_VALIDATION_RULE).toBe("Add validation rule");
     expect(CHANGE_KIND_TEXT.UPDATE_VALIDATION_RULE).toBe("Change validation rule");

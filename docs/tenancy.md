@@ -339,3 +339,40 @@ organization sees nothing, not everything).
 **Tests:** `RecordsApiIT`, `RecordsAccessIT` (allowed, denied, cross-tenant, forged header, platform administrator refused, unauthenticated for every endpoint), `RecordsConcurrencyIT` (one request, eight at once, two real instances, a delete
 racing a change), `RecordStorageIT` (hostile names, the organization filtered by the store itself, the database guards), `RecordUsageIT` and `RollbackWithRecordsIT` (an object or field in use is not removed), `RecordEventsAndAuditIT`,
 `RecycleBinRetentionIT`, `RecordFlowsLogsAreCleanIT`, `RecordValuesTest`; the isolation harness lists `object_record`.
+
+## The write pipeline, field security and auto-numbers (Sprint 15)
+
+Short form; decisions in [ADR-0091](adr/0091-the-write-pipeline-and-its-order.md) to [ADR-0097](adr/0097-links-between-records-on-write.md).
+
+**Writing a record.** `DefaultRecords` runs `RecordGate` (who, object, permission), then `WritePipeline`, then the storage. The stages are `RecordValues` (shape), `RecordTypeCheck`, `FieldSecurity.checkWrite`, `FieldValue.check`
+(type), the required check, the link check (`StorageStrategy.liveIds`, one question per target object), `Calculations.rules` and `Calculations.formulas`; defaults and auto-numbers are applied on create. A stage reports every
+problem it finds in a `Findings`, and the pipeline stops after the first stage that found any. **Add a new check** as a step of the right stage, with its place and a message that never repeats a value; add a case to
+`WritePipelineStagesIT` for its position in the order.
+
+**Reading a record.** Everything handed back by `DefaultRecords` passes `FieldSecurity.visible(record, access)` with the `ObjectAccess` asked once per request. **Never return a `DataRecord` from `storage` to a caller without it.**
+
+**The seam for indexes.** `RecordSlots.copyIndexed(object, values)` is called after the last stage and before the storage; Sprint 16 plugs the index policy in there (ADR-0091).
+
+**Adding a stored shape for a field type** means a case in `FieldValue.check`, `defaultOf`, `toEngine` and `fromEngine`, the same rules in `FieldRules` (metadata) for the default, and a row in `FieldValueTest` and in
+`PipelineSupport.CASES` (the 19-type matrix of `FieldSecurityMatrixIT` then covers read and write for it).
+
+**Tables.** `auto_number_counter` (V037) is a tenant table like `object_record`: it is in `TenantScopedTables` and `TenantIsolationIT` probes it. Take a number only through `AutoNumbers.next`, in the transaction of the create, as
+the last step before the insert.
+
+**Tests (Sprint 15).** `WritePipelineStagesIT` (the order, defaults, required, rules, formulas, a record reads back as written), `FieldSecurityMatrixIT` (19 types by three kinds of member: edit, read, none; every path),
+`RecordTypesOnRecordsIT`, `RecordLinksIT`, `AutoNumberIT` (two real instances), `RecordsSetupChangeIT`, `RecordPipelineLogsAreCleanIT`, `RecordSlotsIT`; unit: `FieldValueTest`, `FieldSecurityTest`,
+`RecordTypeCheckTest`, `WritePipelineOrderTest`, `FieldWritePropertyTest` (jqwik); the isolation harness lists `auto_number_counter`.
+
+## Record type assignments and the reference directory (Sprint 15A)
+
+Short form; decisions in [ADR-0098](adr/0098-record-type-assignments-which-profiles-may-use-which-record-type.md) and [ADR-0099](adr/0099-the-reference-directory-links-to-objects-a-platform-module-owns.md).
+
+**Record type assignments** are published metadata like layout assignments: the table `record_type_assignment` (V038) is read into the metadata snapshot (`MetadataSnapshot.recordTypesFor`, `defaultRecordTypeFor`) and changes only through
+`MetadataLifecycle` (the change kinds `CREATE_`, `UPDATE_`, `DELETE_RECORD_TYPE_ASSIGNMENT`, the contributor `DefinitionDependencies.TypeAssignments`). **Ask which types a member may use only through `Metadata.recordTypesFor(object, profile)` and
+`defaultRecordTypeFor`**; never read the table. The write pipeline asks them in `RecordTypeCheck.resolve`, and only for an object that has record types.
+
+**To add a platform-owned object to the links that work:** implement `ReferenceDirectory` in the module that owns its rows (see `identity.internal.UserDirectory`): `object()` is the API name, `exists(UUID)` a yes or no for the current
+organization, nothing else. `WritePipeline` collects every implementation; no module edge is needed. Add a case next to `UserLinksIT`.
+
+**Tests (Sprint 15A).** `RecordTypeAssignmentsIT` (the API and the lifecycle: the rule, defaults, every refusal, the dependency with the type, a deleted profile, a change set, the rollback, who may do what),
+`RecordTypeProfilesOnRecordsIT` (what a write does with a profile), `UserLinksIT` (the directory), `MetadataSnapshotRecordTypesTest` and `RecordTypeCheckTest` (no database); the isolation harness lists `record_type_assignment`.

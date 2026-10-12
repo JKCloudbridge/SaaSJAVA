@@ -39,6 +39,16 @@ public abstract class RecordsSupport {
     private static final String PROFILES = "/api/v1/profiles";
     private static final String MEMBERS = "/api/v1/members";
 
+    /**
+     * What a member whose profile is made by {@link #holderWithActions} may do with the fields: edit the six fields
+     * people can write and read the formula. Field permissions are explicit (ADR-0049), so a profile with object
+     * actions and no field permissions would read and write no field at all (Sprint 15).
+     */
+    protected static final String ALL_EMPLOYEE_FIELDS = "[" + String.join(",", List.of("name__c", "department__c",
+            "salary__c", "active__c", "notes__c", "tags__c").stream()
+            .map(name -> "{\"key\":\"Employee__c." + name + "\",\"actions\":[\"edit\"]}").toList())
+            + ",{\"key\":\"Employee__c.doubled__c\",\"actions\":[\"read\"]}]";
+
     @LocalServerPort
     protected int port;
 
@@ -106,6 +116,15 @@ public abstract class RecordsSupport {
     }
 
     protected Holder holderWithActions(Organization organization, TestBrowser admin, String... actions) {
+        return holderWith(organization, admin, "Employee__c", ALL_EMPLOYEE_FIELDS, actions);
+    }
+
+    /**
+     * A member whose profile gives exactly these actions on the object and exactly these field permissions
+     * ({@code fieldsJson}: a JSON array of {@code {"key":"Object__c.field__c","actions":["read"|"edit"]}}).
+     */
+    protected Holder holderWith(Organization organization, TestBrowser admin, String object, String fieldsJson,
+            String... actions) {
         Member person = TestOrganizations.join(users, organization.tenant(), false);
         Response profile = admin.postJson(PROFILES, "{\"name\":\"profile-" + UUID.randomUUID() + "\","
                 + "\"description\":\"\",\"licenceType\":\"user\",\"abilities\":[]}");
@@ -117,7 +136,8 @@ public abstract class RecordsSupport {
         if (actions.length > 0) {
             String quoted = String.join(",", Arrays.stream(actions).map(action -> "\"" + action + "\"").toList());
             Response matrix = admin.request("PUT", PROFILES + "/" + profileId + "/data-access",
-                    "{\"objects\":[{\"key\":\"Employee__c\",\"actions\":[" + quoted + "]}],\"fields\":[]}");
+                    "{\"objects\":[{\"key\":\"" + object + "\",\"actions\":[" + quoted + "]}],\"fields\":"
+                            + fieldsJson + "}");
             assertThat(matrix.status()).as(matrix.body()).isEqualTo(200);
         }
         return new Holder(person, profileId);

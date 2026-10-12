@@ -52,4 +52,29 @@ public interface Metadata {
      * @param recordType the API name of the record type of the record, or null
      */
     LayoutResolution layoutFor(String objectApiName, UUID profileId, String recordType);
+
+    /**
+     * The profiles that may use the record types of the object (Sprint 15A, ADR-0098), by record type; empty when the
+     * object has none, in which case every record type of it is open to every profile.
+     */
+    List<RecordTypeAssignment> recordTypeAssignments(String objectApiName);
+
+    /**
+     * The record types of the object a person with the profile may use, active or not (Sprint 15A). A record type with
+     * no assignment is open to every profile; a type with at least one is open only to the profiles named. An
+     * assignment of a profile that no longer exists still restricts (it fails closed), so a type belongs to nobody
+     * until an administrator names a profile.
+     *
+     * @param profileId the profile of the person
+     */
+    List<RecordType> recordTypesFor(String objectApiName, UUID profileId);
+
+    /**
+     * The record type a new record of a person with the profile gets when it names none (Sprint 15A): the type marked
+     * as the default of their profile if it is in use, otherwise the default type of the object if it is in use and
+     * the profile may use it, otherwise none.
+     *
+     * @param profileId the profile of the person
+     */
+    Optional<RecordType> defaultRecordTypeFor(String objectApiName, UUID profileId);
 }

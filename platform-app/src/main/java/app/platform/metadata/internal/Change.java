@@ -42,7 +42,11 @@ record Change(Kind kind, String object, String item, String payload) {
         DELETE_LAYOUT_ASSIGNMENT(Entity.LAYOUT_ASSIGNMENT, true),
         CREATE_VALIDATION_RULE(Entity.VALIDATION_RULE, false),
         UPDATE_VALIDATION_RULE(Entity.VALIDATION_RULE, true),
-        DELETE_VALIDATION_RULE(Entity.VALIDATION_RULE, true);
+        DELETE_VALIDATION_RULE(Entity.VALIDATION_RULE, true),
+        /** A record type assignment is named by its key (the record type, a tilde, the profile), also when made. */
+        CREATE_RECORD_TYPE_ASSIGNMENT(Entity.RECORD_TYPE_ASSIGNMENT, true),
+        UPDATE_RECORD_TYPE_ASSIGNMENT(Entity.RECORD_TYPE_ASSIGNMENT, true),
+        DELETE_RECORD_TYPE_ASSIGNMENT(Entity.RECORD_TYPE_ASSIGNMENT, true);
 
         private final Entity entity;
         private final boolean namesItem;
@@ -76,5 +80,6 @@ record Change(Kind kind, String object, String item, String payload) {
     }
 
     /** The kinds of definition. */
-    enum Entity { OBJECT, FIELD, RECORD_TYPE, LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT, VALIDATION_RULE }
+    enum Entity { OBJECT, FIELD, RECORD_TYPE, LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT, VALIDATION_RULE,
+        RECORD_TYPE_ASSIGNMENT }
 }

@@ -9,9 +9,11 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -37,20 +39,26 @@ class JsonbRecordStorage implements StorageStrategy {
             + "deleted_at, deleted_by";
 
     private static final String INSERT = "insert into object_record "
-            + "(tenant_id, object_api_name, owner_id, payload, created_by, updated_by) "
-            + "values (:tenant, :object, :owner, cast(:payload as jsonb), :actor, :actor) returning " + COLUMNS;
+            + "(tenant_id, object_api_name, record_type, owner_id, payload, created_by, updated_by) "
+            + "values (:tenant, :object, cast(:type as text), :owner, cast(:payload as jsonb), :actor, :actor) "
+            + "returning " + COLUMNS;
 
     private static final String FIND = "select " + COLUMNS + " from object_record "
             + "where tenant_id = :tenant and object_api_name = :object and id = :id";
 
     // A null in the patch removes the field: the merge puts the null in, and stripping the nulls takes the key out.
     private static final String UPDATE = "update object_record "
-            + "set payload = jsonb_strip_nulls(payload || cast(:patch as jsonb)), version = version + 1, "
+            + "set payload = jsonb_strip_nulls(payload || cast(:patch as jsonb)), record_type = cast(:type as text), "
+            + "version = version + 1, "
             + "updated_by = :actor "
             + "where tenant_id = :tenant and object_api_name = :object and id = :id and version = :version "
             + "and deleted_at is null returning " + COLUMNS;
 
-    private static final String SOFT_DELETE = "update object_record "
+    // The identifiers are values (the list is expanded into parameters); the object is a parameter too.
+    private static final String LIVE_IDS = "select id from object_record where tenant_id = :tenant "
+            + "and object_api_name = :object and deleted_at is null and id in (:ids)";
+
+    private static final String SOFT_DELETE ="update object_record "
             + "set deleted_at = now(), deleted_by = :actor, version = version + 1, updated_by = :actor "
             + "where tenant_id = :tenant and object_api_name = :object and id = :id and deleted_at is null "
             + "returning " + COLUMNS;
@@ -108,10 +116,12 @@ class JsonbRecordStorage implements StorageStrategy {
     }
 
     @Override
-    public DataRecord insert(String objectApiName, UUID ownerId, UUID actor, Map<String, Object> fields) {
+    public DataRecord insert(String objectApiName, String recordType, UUID ownerId, UUID actor,
+            Map<String, Object> fields) {
         try {
             return jdbc.sql(INSERT).param("tenant", tenant()).param("object", objectApiName)
-                    .param("owner", ownerId).param("payload", json.write(fields)).param("actor", actor)
+                    .param("type", recordType).param("owner", ownerId).param("payload", json.write(fields))
+                    .param("actor", actor)
                     .query(this::map).single();
         } catch (DataIntegrityViolationException e) {
             throw tooLarge(e);
@@ -125,17 +135,27 @@ class JsonbRecordStorage implements StorageStrategy {
     }
 
     @Override
-    public DataRecord update(String objectApiName, UUID id, long expectedVersion, Map<String, Object> set,
-            List<String> clear, UUID actor) {
+    public DataRecord update(String objectApiName, UUID id, long expectedVersion, String recordType,
+            Map<String, Object> set, List<String> clear, UUID actor) {
         Map<String, Object> patch = new HashMap<>(set);
         clear.forEach(name -> patch.put(name, null));
         try {
             return jdbc.sql(UPDATE).param("tenant", tenant()).param("object", objectApiName).param("id", id)
-                    .param("version", expectedVersion).param("patch", json.write(patch)).param("actor", actor)
+                    .param("version", expectedVersion).param("type", recordType)
+                    .param("patch", json.write(patch)).param("actor", actor)
                     .query(this::map).optional().orElse(null);
         } catch (DataIntegrityViolationException e) {
             throw tooLarge(e);
         }
+    }
+
+    @Override
+    public Set<UUID> liveIds(String objectApiName, Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return Set.of();
+        }
+        return Set.copyOf(jdbc.sql(LIVE_IDS).param("tenant", tenant()).param("object", objectApiName)
+                .param("ids", List.copyOf(ids)).query(UUID.class).list());
     }
 
     @Override
