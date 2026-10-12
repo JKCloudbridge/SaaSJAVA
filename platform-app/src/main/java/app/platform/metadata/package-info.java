@@ -1,5 +1,8 @@
 /**
- * Metadata module: object and field definitions (Sprint 10), later layouts, applications and versioning.
+ * Metadata module: object and field definitions (Sprint 10), relationships, record types and the lifecycle
+ * (Sprint 11), page layouts, record pages, applications and layout assignments (Sprint 12), formula fields that are
+ * checked and validation rules, the compiled artefacts the runtime reads and the publish event that warms the cache
+ * (Sprint 13). The expression language itself is the {@code expression} module.
  *
  * <p>What exists for an organization: the standard objects and fields the platform defines (read from files inside the
  * application, protected, ADR-0059) and the objects and fields the organization defines for itself (tenant-scoped
@@ -15,7 +18,8 @@
             "sharedkernel",
             "tenant",
             "security",
-            "identity"
+            "identity",
+            "expression"
         })
 package app.platform.metadata;
 

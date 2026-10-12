@@ -257,3 +257,85 @@ Short form; decisions in ADR-0058 to ADR-0062, the how-to in [metadata-guide.md]
 - **Tests:** `StandardMetadataLoaderTest`, `StandardMetadataBaselineTest`, `StandardObjectsDocTest`, `FieldRulesTest`, `NameRulesTest`, `ConfigCodecTest`,
   `MetadataApiIT`, `MetadataCacheIT` (three real instances), `MetadataFlowsLogsAreCleanIT`, plus the isolation harness and `SecurityVersionIT` for the new tables.
   Tests that need objects to name get `ObjectA__c` and `ObjectB__c` from `TestObjects` (every `TestOrganizations.create`).
+
+## Relationships, record types and the lifecycle of metadata (Sprint 11)
+
+Short form; decisions in ADR-0063 to ADR-0068, the how-to in [metadata-guide.md](metadata-guide.md).
+
+- **Four more tenant-scoped tables (ADR-0015, V033):** `record_type`, `metadata_change_set`, `metadata_change` and `metadata_release`, each with forced row level security, the tenant
+  guard and a tenant-first index; registered in `TenantScopedTables`. `record_type` is **published** metadata (it raises the metadata version); the other three are the
+  lifecycle and never touch the version or the catalogue.
+- **A draft is invisible.** Only published rows are in the catalogue snapshot, the cache, the metadata version and the security version. A change set is rows in
+  `metadata_change_set` and `metadata_change`; checking and previewing apply the changes in a transaction that is **always rolled back** (`MetadataAdministration.rehearse`),
+  publishing commits the same work (ADR-0066). Never write to a definition table from anywhere but `MetadataService`, `RecordTypeService` and `ChangeApplier`.
+- **Every metadata change goes through the lifecycle** (`MetadataLifecycle`): the live endpoints are a publication of one change (`applyNow`), a change set is a publication
+  of many, a rollback is a publication of the undo. All take the organization's publication lock first and all end with the dependency check (ADR-0065).
+- **A new kind of dependent** (a layout, a validation rule) implements `DependencyGraph.Contributor` as a bean; nothing else needs to know. A rule it adds is a violation with a message
+  that names the dependent and never prints a typed value.
+- **Asking** record types and relationships: `Metadata.recordTypes(object)` (metadata root) and the relationships endpoint; relationships are computed from the fields, never stored.
+- **Abilities:** `metadata.view`, `metadata.manage` (draft) and `metadata.publish` (put live, roll back); a live change needs `manage` and `publish` (ADR-0068).
+- **Tests:** `RelationshipsIT`, `RecordTypesIT`, `ChangeSetLifecycleIT`, `RollbackIT`, `RollbackWithRecordsIT` (since Sprint 14 with real records), `LifecycleAccessIT` (allowed, denied, cross-tenant, forged
+  header, platform administrator, unauthenticated for every new endpoint), `LifecycleFlowsLogsAreCleanIT`, `DependencyGraphTest`, `RecordTypeRulesTest`, and the isolation harness for the four tables.
+
+## Layouts, record pages, applications and assignments (Sprint 12)
+
+- **Four tenant-scoped tables** (V034), each with `tenant_id not null default platform_current_tenant()`, row level security enabled **and forced**, the tenant guard, a tenant-first partial unique index and the
+  metadata version trigger: `page_layout`, `record_page`, `application`, `layout_assignment`. They are registered in `TenantScopedTables`, so `TenantIsolationIT` probes them.
+- **The tenant is never in a request.** Every endpoint is answered on an organization host only, derives the organization from the host and the token, and a definition of another organization does not exist
+  for the caller (404). The member's menu (`GET /api/v1/applications`) is the menu of the member the token names.
+- **A profile in an assignment or an application is a plain identifier** of the same organization's profile table; there is no foreign key, so deleting a profile is never blocked (ADR-0071). The profile of a
+  member is read with `MemberAccess.profileOf`.
+- **Drafts are not rows of these tables.** A layout in a change set is a row of `metadata_change`; the new tables hold what is published (ADR-0066, ADR-0069).
+- **Contributor notes:** a new check that depends on layouts goes into `DefinitionDependencies`; a new field of a definition goes into the schema file and nowhere else.
+
+## Validation rules, formulas and the metadata runtime (Sprint 13)
+
+- **One tenant-scoped table** (V035), built like the four of Sprint 12: `validation_rule` with `tenant_id not null default platform_current_tenant()`, row level security enabled **and forced**, the tenant guard, the
+  identity guard of V034 (the name and the object of a rule never change; a rule of a custom object names a live custom object of the same organization), a tenant-first partial unique index and the metadata
+  version trigger. It is registered in `TenantScopedTables`, so `TenantIsolationIT` probes it.
+- **The expression engine has no tenant.** It takes a map of values and a map of field types and touches nothing else (no database, no tenant context, no clock): there is nothing in it to isolate, and an
+  architecture test (`ExpressionSandboxTest`) keeps it that way. The check and try-it endpoints read only the caller's own catalogue; a forged tenant header changes nothing; a definition of another organization
+  does not exist for the caller (404).
+- **The compiled artefacts are per organization.** `MetadataResolver` answers for the thread's tenant context; the compiled rules and formulas are kept in the snapshot of that organization and in no other place
+  (`MetadataRuntimeIT.anotherOrganizationNeverGetsTheArtefactsOfThisOne`).
+- **The publish event** (`metadata.published`) is written through `EventPublisher` in the publishing transaction with the tenant of that transaction; the handler `MetadataWarmer` runs in the tenant context of the event and
+  never takes a tenant from the payload (the payload holds the release number and the version only). The outbox hands the event to one instance (ADR-0080).
+- **Text of the organization is never logged or audited:** the expression, the message of a rule, the sample values and the answers. The audit trail names the rule and the counts (`metadata.validationrule.*`).
+- **Contributor notes:** a new check that depends on formulas or rules goes into `ExpressionDependencies` (and reads `FormulaAnalysis`); a new function goes into `Functions` (guide section 12.6); a new kind of definition
+  follows the recipe of Sprint 12 (a table, three `Change.Kind`s, `ChangeApplier` and `ChangeCodec`, a contributor, a schema or checks).
+
+## Records: how one is stored, how to add a table that holds tenant records, how to read and write (Sprint 14)
+
+Decisions in ADR-0084 to ADR-0090; the benchmark that chose the shape is `benchmark/` (ADR-0082, ADR-0083).
+
+**How a record is stored.** One tenant-scoped table, `object_record` (V036): `tenant_id` (defaulted from the session, row level security forced), `object_api_name` (from the metadata catalogue, never changes),
+`id` (a version 7 UUID made by the database), `owner_id` (a user), `record_type` (null until Sprint 15), `payload` (a JSON object of the values keyed by field API name; a field without a value has no key), the version, the base
+columns and the soft delete (`deleted_at`, `deleted_by`). Eleven typed "slot" columns (`s_text_1`, `s_num_1`, `s_date_1`, `s_ref_1`, `s_bool_1` and the others) are empty until Sprint 16 copies the value of an indexed field into one and indexes
+it: with forced row level security an index on the JSON field operator is not usable (ADR-0083), so indexes live on plain typed columns. Live rows, the recycle bin and the age of the bin have a partial index each, tenant first.
+
+**What guards a record in the database, whatever the application does:** the tenant guard (a row never changes organization), the identity guard (a record never changes object), the row guard (the identifier and creation data are immutable, every
+update raises the version by exactly one, a record in the recycle bin is read-only until restored), the shape checks (an API-name-shaped object and record type, a JSON object of at most 512 KiB), and forced row level security (a statement that forgets the
+organization sees nothing, not everything).
+
+**How to read and write records: through `Records` only.**
+
+- Another module that needs records (a workflow action, an integration mapping) injects `app.platform.data.Records` and calls it. It gets the permission check of the signed-in member, the checks of a write, the audit record and the event, in the transaction
+  of the call. It never injects `StorageStrategy`, never writes SQL against `object_record`, and never reads the table of another module (a standing rule).
+- The tenant context must be open **before** the transaction begins (as everywhere); `Records` throws `ApiException` (`NOT_FOUND` for an object the caller may not read, `FORBIDDEN`, `VALIDATION_ERROR`, `CONFLICT`, `CONCURRENT_MODIFICATION`).
+- The values are a map of field API name to a text, a number (a `BigDecimal` is kept exactly), a boolean or a list of those. Do not put a value in a log, an audit record, an event or an error message.
+- Changing storage (a typed table for one object, say) means a second `StorageStrategy` behind `Records`; nothing outside the `data` module changes.
+
+**How to add a table that holds tenant records** (for a store other than the generic one, or an association table such as the many-to-many junctions of Sprint 16):
+
+1. A migration `V<nnn>` with `tenant_id not null default platform_current_tenant()`, the base columns and the `platform_row_guard`, the tenant guard, row level security **enabled and forced** with the four policies of V036, a tenant-first index, and partial unique indexes.
+2. An entry in `TenantScopedTables` (name and a way to insert one valid row with an explicit tenant) so that `TenantIsolationIT` probes it; the schema scanner fails the build if a table with a `tenant_id` is missing there.
+3. Statements that are constants with parameters only, and that filter by `tenant_id` from the tenant context in addition to row level security (`JsonbRecordStorage` is the model); a test with a hostile object and field name.
+4. If the table feeds an answer of `Permissions` or `Decisions`, a security version trigger (Sprint 9); records do not.
+5. If it holds the records of an object, `RecordObjectUsage` must count it (or the object could be removed with records in it).
+
+**The clean-up of the recycle bin** (`RecycleBinRetention`) works organization by organization in that organization's own tenant context and its own transaction; it uses no system scope. Settings: `platform.data.retention.recycle-bin` (30d),
+`interval` (1h), `batch-size` (500), `enabled` (true), and `platform.data.limits.max-record-bytes` (262144).
+
+**Tests:** `RecordsApiIT`, `RecordsAccessIT` (allowed, denied, cross-tenant, forged header, platform administrator refused, unauthenticated for every endpoint), `RecordsConcurrencyIT` (one request, eight at once, two real instances, a delete
+racing a change), `RecordStorageIT` (hostile names, the organization filtered by the store itself, the database guards), `RecordUsageIT` and `RollbackWithRecordsIT` (an object or field in use is not removed), `RecordEventsAndAuditIT`,
+`RecycleBinRetentionIT`, `RecordFlowsLogsAreCleanIT`, `RecordValuesTest`; the isolation harness lists `object_record`.

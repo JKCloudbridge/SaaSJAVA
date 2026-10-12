@@ -68,3 +68,31 @@ A decision that is still open has status **Proposed** and names the gate or spri
 | [0060](0060-field-types-and-their-configuration.md) | Field types and their configuration | Accepted | — |
 | [0061](0061-the-metadata-version-and-the-catalogue-cache.md) | The metadata version and the catalogue cache (with the cost note) | Accepted | — |
 | [0062](0062-removing-objects-and-fields.md) | Removing objects and fields | Accepted | — |
+| [0063](0063-relationships.md) | Relationships: read from the fields; delete behaviour, re-parenting, both directions | Accepted | — |
+| [0064](0064-record-types.md) | Record types | Accepted | — |
+| [0065](0065-the-dependency-graph-and-pre-publish-validation.md) | The dependency graph and pre-publish validation | Accepted | ADR-0062 point 6 carried out |
+| [0066](0066-change-sets-and-the-publication-of-metadata.md) | Change sets and the publication of metadata (draft, check, preview, publish) | Accepted | architecture note 3: no `status` column on the live tables |
+| [0067](0067-releases-history-and-rollback.md) | Releases, history and rollback | Accepted | — |
+| [0068](0068-the-publish-ability-and-changes-made-at-once.md) | The ability to publish, and changes made at once | Accepted | — |
+| [0069](0069-layouts-record-pages-applications-and-where-they-live.md) | Page layouts, record pages, applications and layout assignments, and where they live | Accepted | architecture note 3: no `status` column, no version per definition |
+| [0070](0070-definitions-are-json-checked-by-a-schema.md) | Definitions are JSON, checked against a schema that is published with the API | Accepted | — |
+| [0071](0071-which-layout-a-person-gets.md) | Which layout a person gets (layout assignment and the order of the rules) | Accepted | — |
+| [0072](0072-the-dependency-graph-learns-layouts-pages-and-applications.md) | The dependency graph learns layouts, record pages, assignments and applications | Accepted | ADR-0065 contributors carried out |
+| [0073](0073-applications-navigation-and-the-members-menu.md) | Applications, navigation and the member's menu | Accepted | — |
+| [0074](0074-definitions-the-version-counter-and-the-cache.md) | Definitions, the version counter and the cache; abilities | Accepted | — |
+| [0075](0075-the-setup-screens-and-the-rendering-proof-of-concept.md) | The setup screens for definitions and the rendering proof of concept | Accepted | — |
+| [0076](0076-the-expression-engine-and-its-language.md) | The expression engine and its language | Accepted | architecture notes 3 and 6: `=` not `==`, no `SUM`, the clock for rules only |
+| [0077](0077-formula-fields-are-checked-and-are-edges-of-the-graph.md) | Formula fields are checked and are edges of the dependency graph | Accepted | ADR-0060 point 8 and the deferral of Sprint 11 carried out |
+| [0078](0078-validation-rules.md) | Validation rules | Accepted | note 6 reads the condition the other way round (true holds); the requirements are followed |
+| [0079](0079-checking-and-trying-expressions-without-records.md) | Checking and trying expressions without records | Accepted | — |
+| [0080](0080-the-metadata-runtime-compiled-artefacts-and-the-publish-event.md) | The metadata runtime, compiled artefacts and the publish event | Accepted | delivery plan: "invalidation" is the version in the database; the event warms the instance that claims it |
+| [0081](0081-security-review-of-the-expression-engine.md) | Security review of the expression engine | Accepted | — |
+| [0082](0082-storage-benchmark-specification-gate-g1.md) | Storage benchmark specification and pass/fail thresholds (gate G1) | Accepted | delivery plan S14 thresholds kept; join, bloat, degradation thresholds added; amendments 1 and 2 before any run |
+| [0083](0083-storage-benchmark-result-gate-g1.md) | Storage benchmark result (gate G1) | Accepted | run 1 FAIL (undersized container), run 2 PASS 24 of 24; six conditions, managed-hardware confirmation before production |
+| [0084](0084-the-record-store.md) | The record store: one table, the values as JSON, typed copies reserved for indexes | Accepted | architecture note 4, sections 6 and 39: the table of the gate (ADR-0083) with typed slots; platform-owned objects are not served |
+| [0085](0085-the-record-identifier.md) | The record identifier | Accepted | — |
+| [0086](0086-soft-delete-the-recycle-bin-and-its-retention.md) | Soft delete, the recycle bin and its retention | Accepted | — |
+| [0087](0087-optimistic-concurrency-and-how-a-record-changes.md) | Optimistic concurrency and how a record changes | Accepted | — |
+| [0088](0088-the-storage-strategy.md) | The storage strategy | Accepted | — |
+| [0089](0089-what-a-record-may-write-and-what-it-may-never-leak.md) | What a record may write, and what it may never leak | Accepted | delivery plan S15 owns the full write pipeline; S14 checks the object, the keys, the shape and the permission only |
+| [0090](0090-the-answer-to-object-usage.md) | The answer to `ObjectUsage`: an object or a field in use is not removed | Accepted | ADR-0062 point on fields carried out: removing a field with values is now refused live and in a change set |

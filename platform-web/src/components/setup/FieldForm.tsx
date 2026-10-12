@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import type { components } from "@/lib/api/generated/schema";
+import { ExpressionCheck } from "./ExpressionCheck";
 import type { FieldTypeView, FieldView } from "./objectText";
 
 type CreateFieldRequest = components["schemas"]["CreateFieldRequest"];
@@ -35,6 +36,9 @@ interface Draft {
   prefix: string;
   startAt: string;
   width: string;
+  onDelete: string;
+  reparentable: boolean;
+  listLabel: string;
   values: ValueRow[];
 }
 
@@ -66,6 +70,9 @@ function emptyDraft(type: string): Draft {
     prefix: "",
     startAt: "",
     width: "",
+    onDelete: "",
+    reparentable: false,
+    listLabel: "",
     values: [],
   };
 }
@@ -90,6 +97,9 @@ function draftOf(field: FieldView): Draft {
     prefix: s.prefix ?? "",
     startAt: s.startAt?.toString() ?? "",
     width: s.width?.toString() ?? "",
+    onDelete: s.onDelete ?? "",
+    reparentable: s.reparentable ?? false,
+    listLabel: s.listLabel ?? "",
     values: (s.values ?? []).map((value) => ({ ...value, existing: true })),
   };
 }
@@ -117,6 +127,15 @@ function settingsOf(spec: FieldTypeView, draft: Draft): FieldSettings {
   if (spec.settings.includes("prefix")) {
     settings.prefix = draft.prefix;
   }
+  if (spec.settings.includes("onDelete") && draft.onDelete !== "") {
+    settings.onDelete = draft.onDelete;
+  }
+  if (spec.settings.includes("reparentable")) {
+    settings.reparentable = draft.reparentable;
+  }
+  if (spec.settings.includes("listLabel") && draft.listLabel !== "") {
+    settings.listLabel = draft.listLabel;
+  }
   return settings;
 }
 
@@ -130,6 +149,7 @@ export function FieldForm({
   objects,
   editing,
   busy,
+  check,
   onCreate,
   onUpdate,
   onCancel,
@@ -138,6 +158,8 @@ export function FieldForm({
   objects: ObjectSummary[];
   editing?: FieldView;
   busy: boolean;
+  /** Where a formula is checked: the object whose fields it may use. Without it the form offers no check. */
+  check?: { objectApiName: string; fields: FieldView[] };
   onCreate: (request: CreateFieldRequest) => void;
   onUpdate: (request: UpdateFieldRequest) => void;
   onCancel: () => void;
@@ -261,9 +283,20 @@ export function FieldForm({
               aria-describedby="field-expression-hint"
             />
             <p className="hint" id="field-expression-hint">
-              The formula is stored now and worked out in a later release.
+              Write the formula with the API names of fields of this object, for example quantity__c * unitPrice__c. It is
+              checked when it is saved; the values are worked out when records are saved, in a later release.
             </p>
           </div>
+          {check ? (
+            <ExpressionCheck
+              objectApiName={check.objectApiName}
+              expression={draft.expression}
+              purpose="FORMULA"
+              resultType={draft.resultType}
+              fields={check.fields}
+              testId="formula-check"
+            />
+          ) : null}
           <div className="field">
             <label htmlFor="field-result">Result</label>
             <select id="field-result" value={draft.resultType} onChange={(event) => set("resultType", event.target.value)}>
@@ -295,6 +328,41 @@ export function FieldForm({
               </option>
             ))}
           </select>
+        </div>
+      ) : null}
+      {spec.settings.includes("onDelete") ? (
+        <div className="field">
+          <label htmlFor="field-on-delete">When the other record is removed</label>
+          <select id="field-on-delete" value={draft.onDelete} onChange={(event) => set("onDelete", event.target.value)}>
+            <option value="">The usual: empty the link (refuse the removal when required)</option>
+            <option value="CLEAR">Empty the link and keep the record</option>
+            <option value="REFUSE">Refuse the removal while records point to it</option>
+          </select>
+        </div>
+      ) : null}
+      {spec.settings.includes("reparentable") ? (
+        <label>
+          <input
+            type="checkbox"
+            checked={draft.reparentable}
+            onChange={(event) => set("reparentable", event.target.checked)}
+          />{" "}
+          A record may be moved to another master
+        </label>
+      ) : null}
+      {spec.settings.includes("listLabel") ? (
+        <div className="field">
+          <label htmlFor="field-list-label">Label of the list on the other object</label>
+          <input
+            id="field-list-label"
+            value={draft.listLabel}
+            maxLength={80}
+            onChange={(event) => set("listLabel", event.target.value)}
+            aria-describedby="field-list-label-hint"
+          />
+          <p className="hint" id="field-list-label-hint">
+            Empty means the plural label of this object. The records that point to a record are listed on it under this name.
+          </p>
         </div>
       ) : null}
       {spec.settings.includes("values") ? (
@@ -353,6 +421,7 @@ export function FieldForm({
       {spec.allowsUnique ? (
         <label>
           <input type="checkbox" checked={draft.unique} onChange={(event) => set("unique", event.target.checked)} /> Unique
+          {spec.settings.includes("targetObject") ? " (makes the link one-to-one)" : ""}
         </label>
       ) : null}
       {spec.allowsDefault ? (

@@ -128,6 +128,29 @@ public final class ApiPaths {
 
     /** The field types an organization can choose from, with the settings each takes (Sprint 10). */
     public static final String METADATA_FIELD_TYPES = V1 + "/metadata/field-types";
+    /** Change sets: named groups of metadata changes that are published together (Sprint 11). */
+    public static final String METADATA_CHANGE_SETS = V1 + "/metadata/change-sets";
+
+    /** The releases of the organization's metadata: its history and rollback (Sprint 11). */
+    public static final String METADATA_RELEASES = V1 + "/metadata/releases";
+
+    /** The applications of the organization: definitions for those who manage metadata (Sprint 12). */
+    public static final String METADATA_APPLICATIONS = V1 + "/metadata/applications";
+
+    /** Checking and trying expressions, and the list of functions of the expression language (Sprint 13). */
+    public static final String METADATA_EXPRESSIONS = V1 + "/metadata/expressions";
+
+    /** The stored formulas that do not pass the expression language (Sprint 13). */
+    public static final String METADATA_FORMULA_REPORT = V1 + "/metadata/formula-report";
+
+    /**
+     * The records of an object: {@code /objects/{objectApiName}/records} and its recycle bin
+     * {@code /objects/{objectApiName}/recycle-bin} (Sprint 14).
+     */
+    public static final String OBJECTS = V1 + "/objects";
+
+    /** The applications the signed-in member may use, with their navigation (Sprint 12). */
+    public static final String MY_APPLICATIONS = V1 + "/applications";
 
     /** The caller leaves the organization the host names (Sprint 7). */
     public static final String ORGANIZATION_LEAVE = V1 + "/organization/leave";

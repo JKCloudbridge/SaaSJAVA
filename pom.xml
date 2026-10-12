@@ -50,6 +50,8 @@
     <datasource-micrometer.version>2.3.0</datasource-micrometer.version>
     <!-- Sprint 3: the cryptography library behind the Argon2id password hash (Spring's encoder needs it; the JDK has none). -->
     <bouncycastle.version>1.86</bouncycastle.version>
+    <!-- Sprint 12: validates page layouts, record pages and applications against their JSON schema (ADR-0070). -->
+    <json-schema-validator.version>3.0.8</json-schema-validator.version>
 
     <!-- Build plugin versions. -->
     <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
@@ -88,6 +90,13 @@
         <groupId>org.springdoc</groupId>
         <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
         <version>${springdoc.version}</version>
+      </dependency>
+      <dependency>
+        <!-- Checks a definition against the JSON schema of its kind and names the place that is wrong (ADR-0070). It is
+             built on the same Jackson line as the application (3.x); it brings no other runtime library. -->
+        <groupId>com.networknt</groupId>
+        <artifactId>json-schema-validator</artifactId>
+        <version>${json-schema-validator.version}</version>
       </dependency>
       <dependency>
         <!-- One span per SQL statement, so a trace reaches the database (ADR-0012). -->

@@ -9,6 +9,13 @@ import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
 import { FieldForm } from "./FieldForm";
 import { KIND_TEXT, problemText, settingsSummary, type FieldTypeView, type FieldView } from "./objectText";
+import { LayoutAssignmentsPanel } from "./LayoutAssignmentsPanel";
+import { LayoutsPanel } from "./LayoutsPanel";
+import { RecordPagesPanel } from "./RecordPagesPanel";
+import { RecordTypesPanel } from "./RecordTypesPanel";
+import { RelationshipsPanel } from "./RelationshipsPanel";
+import { ValidationRulesPanel } from "./ValidationRulesPanel";
+import { addToSet, DRAFTED_TEXT, useWorkingSet } from "./workingSet";
 
 type ObjectView = components["schemas"]["ObjectView"];
 type ObjectSummary = components["schemas"]["ObjectSummaryView"];
@@ -29,11 +36,15 @@ export function ObjectDetailPanel() {
   const params = useParams<{ objectApiName: string }>();
   const objectApiName = params.objectApiName;
   const router = useRouter();
+  const { id: workingSet } = useWorkingSet();
   const [loaded, setLoaded] = useState<Loaded | undefined>();
   const [failure, setFailure] = useState<string | undefined>();
   const [editingField, setEditingField] = useState<FieldView | undefined>();
   const [labels, setLabels] = useState({ label: "", pluralLabel: "", description: "" });
   const [confirmRemove, setConfirmRemove] = useState(false);
+  // Bumped every time a reload actually refreshes the object, so RelationshipsPanel (which reads the fields of
+  // every object, not only this one) knows to ask again instead of showing what it fetched at mount.
+  const [refreshToken, setRefreshToken] = useState(0);
 
   const reload = useCallback(async () => {
     try {
@@ -50,6 +61,7 @@ export function ObjectDetailPanel() {
       }
       setFailure(undefined);
       setLoaded({ object: one.data.data, types: types.data.data, objects: objects.data.data });
+      setRefreshToken((token) => token + 1);
       setLabels({ label: one.data.data.label, pluralLabel: one.data.data.pluralLabel, description: one.data.data.description });
     } catch {
       setFailure(COMMON_TEXT.network);
@@ -67,34 +79,51 @@ export function ObjectDetailPanel() {
     if (!loaded) {
       return;
     }
+    const body = { ...labels, version: loaded.object.version };
     void act(async () => {
-      const { error, response } = await api.PUT("/api/v1/metadata/objects/{objectApiName}", {
-        params: { path: { objectApiName } },
-        body: { ...labels, version: loaded.object.version },
-      });
-      return { error, response, text: "The object was saved.", problem: problemText(error, response) };
+      const { error, response } = workingSet
+        ? await addToSet(workingSet, { kind: "UPDATE_OBJECT", objectApiName, updateObject: body })
+        : await api.PUT("/api/v1/metadata/objects/{objectApiName}", { params: { path: { objectApiName } }, body });
+      return {
+        error,
+        response,
+        text: workingSet ? DRAFTED_TEXT : "The object was saved.",
+        problem: problemText(error, response),
+      };
     });
   }
 
   function removeObject() {
     void act(async () => {
-      const { error, response } = await api.DELETE("/api/v1/metadata/objects/{objectApiName}", {
-        params: { path: { objectApiName } },
-      });
-      if (response.ok) {
+      const { error, response } = workingSet
+        ? await addToSet(workingSet, { kind: "DELETE_OBJECT", objectApiName })
+        : await api.DELETE("/api/v1/metadata/objects/{objectApiName}", { params: { path: { objectApiName } } });
+      if (response.ok && !workingSet) {
         router.push("/setup/objects");
       }
-      return { error, response, text: "The object was removed.", problem: problemText(error, response) };
+      return {
+        error,
+        response,
+        text: workingSet ? DRAFTED_TEXT : "The object was removed.",
+        problem: problemText(error, response),
+      };
     });
     setConfirmRemove(false);
   }
 
   function removeField(field: FieldView) {
     void act(async () => {
-      const { error, response } = await api.DELETE("/api/v1/metadata/objects/{objectApiName}/fields/{fieldApiName}", {
-        params: { path: { objectApiName, fieldApiName: field.apiName } },
-      });
-      return { error, response, text: "The field was removed.", problem: problemText(error, response) };
+      const { error, response } = workingSet
+        ? await addToSet(workingSet, { kind: "DELETE_FIELD", objectApiName, itemApiName: field.apiName })
+        : await api.DELETE("/api/v1/metadata/objects/{objectApiName}/fields/{fieldApiName}", {
+            params: { path: { objectApiName, fieldApiName: field.apiName } },
+          });
+      return {
+        error,
+        response,
+        text: workingSet ? DRAFTED_TEXT : "The field was removed.",
+        problem: problemText(error, response),
+      };
     });
   }
 
@@ -215,6 +244,11 @@ export function ObjectDetailPanel() {
                     .filter(Boolean)
                     .join("; ")}
                   {field.defaultValue ? <div className="hint">default {field.defaultValue}</div> : null}
+                  {field.problem ? (
+                    <div className="form-message" role="note" data-testid="formula-problem">
+                      This formula is not valid, so it is not calculated. {field.problem}
+                    </div>
+                  ) : null}
                 </td>
                 <td>
                   {field.editable ? (
@@ -243,26 +277,47 @@ export function ObjectDetailPanel() {
             objects={objects}
             editing={editingField}
             busy={busy}
+            check={{ objectApiName, fields: object.fields }}
             onCancel={() => setEditingField(undefined)}
             onCreate={(body) =>
               void act(async () => {
-                const { error, response } = await api.POST("/api/v1/metadata/objects/{objectApiName}/fields", {
-                  params: { path: { objectApiName } },
-                  body,
-                });
-                return { error, response, text: "The field was added.", problem: problemText(error, response) };
+                const { error, response } = workingSet
+                  ? await addToSet(workingSet, { kind: "CREATE_FIELD", objectApiName, createField: body })
+                  : await api.POST("/api/v1/metadata/objects/{objectApiName}/fields", {
+                      params: { path: { objectApiName } },
+                      body,
+                    });
+                return {
+                  error,
+                  response,
+                  text: workingSet ? DRAFTED_TEXT : "The field was added.",
+                  problem: problemText(error, response),
+                };
               })
             }
             onUpdate={(body) =>
               void act(async () => {
-                const { error, response } = await api.PUT("/api/v1/metadata/objects/{objectApiName}/fields/{fieldApiName}", {
-                  params: { path: { objectApiName, fieldApiName: editingField?.apiName ?? "" } },
-                  body,
-                });
+                const fieldApiName = editingField?.apiName ?? "";
+                const { error, response } = workingSet
+                  ? await addToSet(workingSet, {
+                      kind: "UPDATE_FIELD",
+                      objectApiName,
+                      itemApiName: fieldApiName,
+                      updateField: body,
+                    })
+                  : await api.PUT("/api/v1/metadata/objects/{objectApiName}/fields/{fieldApiName}", {
+                      params: { path: { objectApiName, fieldApiName } },
+                      body,
+                    });
                 if (response.ok) {
                   setEditingField(undefined);
                 }
-                return { error, response, text: "The field was saved.", problem: problemText(error, response) };
+                return {
+                  error,
+                  response,
+                  text: workingSet ? DRAFTED_TEXT : "The field was saved.",
+                  problem: problemText(error, response),
+                };
               })
             }
           />
@@ -270,6 +325,13 @@ export function ObjectDetailPanel() {
       ) : (
         <p className="hint">The platform does not allow extra fields on this object.</p>
       )}
+
+      <RelationshipsPanel objectApiName={objectApiName} refreshToken={refreshToken} />
+      <RecordTypesPanel object={object} onChanged={reload} />
+      <LayoutsPanel object={object} onChanged={reload} />
+      <LayoutAssignmentsPanel object={object} refreshToken={refreshToken} />
+      <RecordPagesPanel object={object} onChanged={reload} />
+      <ValidationRulesPanel object={object} onChanged={reload} />
     </div>
   );
 }

@@ -47,10 +47,14 @@ class MetadataService {
     private final DataPermissionCleanup cleanup;
     private final ObjectProvider<ObjectUsage> usage;
     private final MetadataProperties properties;
+    private final RecordTypeStore recordTypeStore;
+    private final ExpressionSupport support;
 
     MetadataService(MetadataStore store, MetadataCatalogue catalogue, MetadataVersions versions, ConfigCodec codec,
             MetadataAudit audit, DataPermissionCleanup cleanup, ObjectProvider<ObjectUsage> usage,
-            MetadataProperties properties) {
+            MetadataProperties properties, RecordTypeStore recordTypeStore, ExpressionSupport support) {
+        this.support = support;
+        this.recordTypeStore = recordTypeStore;
         this.store = store;
         this.catalogue = catalogue;
         this.versions = versions;
@@ -149,10 +153,11 @@ class MetadataService {
         }
         versions.wrote();
         ActorId actor = new ActorId(caller.userId());
+        int recordTypes = recordTypeStore.deleteOf(apiName, caller.userId());
         int fields = store.deleteFieldsOf(apiName, caller.userId());
         int lines = cleanup.forgetObject(apiName, actor);
         store.deleteObject(row.id(), caller.userId());
-        audit.objectDeleted(caller.userId(), apiName, fields, lines);
+        audit.objectDeleted(caller.userId(), apiName, fields, recordTypes, lines);
     }
 
     // ---- fields ----
@@ -190,7 +195,7 @@ class MetadataService {
         }
         audit.fieldCreated(caller.userId(), objectApiName, apiName, type.name(), checked.required(),
                 checked.unique());
-        return fieldView(definition(objectApiName).field(row.apiName()).orElseThrow());
+        return fieldView(definition(objectApiName), row.apiName());
     }
 
     FieldView updateField(Caller caller, String objectApiName, String fieldApiName, UpdateFieldRequest request) {
@@ -222,7 +227,7 @@ class MetadataService {
             throw new ApiException(ErrorCode.CONCURRENT_MODIFICATION);
         }
         if (changed.isEmpty()) {
-            return fieldView(field);
+            return fieldView(definition, fieldApiName);
         }
         versions.wrote();
         if (!store.updateField(row.id(), request.version(), label, description, checked.required(),
@@ -230,7 +235,7 @@ class MetadataService {
             throw new ApiException(ErrorCode.CONCURRENT_MODIFICATION);
         }
         audit.fieldUpdated(caller.userId(), objectApiName, fieldApiName, String.join(",", changed), null, null);
-        return fieldView(definition(objectApiName).field(fieldApiName).orElseThrow());
+        return fieldView(definition(objectApiName), fieldApiName);
     }
 
     void deleteField(Caller caller, String objectApiName, String fieldApiName) {
@@ -241,6 +246,15 @@ class MetadataService {
         }
         MetadataStore.FieldRow row = store.field(objectApiName, fieldApiName)
                 .orElseThrow(MetadataService::missingField);
+        // A field that records still hold values in keeps its definition: the values would stay in the records with
+        // nothing to explain them (ADR-0062, ADR-0090). The type of a field never changes, so this is also what keeps
+        // a field from being "retyped" by removing and adding it.
+        ObjectUsage records = usage.getIfAvailable();
+        if (records != null && records.hasValues(objectApiName, fieldApiName)) {
+            throw new ApiException(ErrorCode.CONFLICT, "Records still hold values in this field, so it cannot be "
+                    + "removed. Empty the field in those records first, and remove records in the recycle bin for "
+                    + "good.");
+        }
         versions.wrote();
         int lines = cleanup.forgetField(objectApiName, fieldApiName, new ActorId(caller.userId()));
         store.deleteField(row.id(), caller.userId());
@@ -255,7 +269,7 @@ class MetadataService {
 
     private FieldRules.Context context(ObjectDefinition owner, int otherMasterDetails) {
         return new FieldRules.Context(name -> catalogue.object(name).isPresent(), owner.apiName(), owner.isCustom(),
-                otherMasterDetails, properties.limits().maxPicklistValues());
+                otherMasterDetails, properties.limits().maxPicklistValues(), support.engine());
     }
 
     private static void requireCustomObject(Caller caller, String action, ObjectDefinition definition) {
@@ -290,17 +304,36 @@ class MetadataService {
                 object.managedBy(), object.fields().size(), (int) custom);
     }
 
-    private static ObjectView view(ObjectDefinition object) {
+    private ObjectView view(ObjectDefinition object) {
+        FormulaAnalysis formulas = FormulaAnalysis.of(object, support.engine(), support.maxFormulaDepth());
         return new ObjectView(object.apiName(), object.label(), object.pluralLabel(), object.description(),
                 object.kind().name(), object.managedBy(), object.isCustom(), object.extensible(), object.version(),
-                object.fields().stream().map(MetadataService::fieldView).toList());
+                object.fields().stream().map(field -> fieldView(field, formulas)).toList());
     }
 
-    private static FieldView fieldView(FieldDefinition field) {
+    private FieldView fieldView(ObjectDefinition object, String fieldApiName) {
+        FormulaAnalysis formulas = FormulaAnalysis.of(object, support.engine(), support.maxFormulaDepth());
+        return fieldView(object.field(fieldApiName).orElseThrow(), formulas);
+    }
+
+    private static FieldView fieldView(FieldDefinition field, FormulaAnalysis formulas) {
         FieldConfiguration configuration = field.configuration();
-        FieldSettings settings = FieldRules.settingsOf(configuration);
+        FieldSettings settings = FieldRules.settingsOf(field.type(), configuration);
         return new FieldView(field.apiName(), field.label(), field.description(), field.kind().name(),
                 field.type().name(), field.required(), field.unique(), field.defaultValue(), settings,
-                field.retired(), field.kind() == DefinitionKind.CUSTOM, field.version());
+                field.retired(), field.kind() == DefinitionKind.CUSTOM, field.version(),
+                storedProblem(field, formulas));
+    }
+
+    /**
+     * Why a formula that was stored before formulas were checked does not pass the language, or null: a formula saved
+     * under the checks cannot be in that state (ADR-0077).
+     */
+    private static String storedProblem(FieldDefinition field, FormulaAnalysis formulas) {
+        FormulaAnalysis.Entry entry = formulas.entries().get(field.apiName());
+        if (entry == null || entry.verified() || entry.valid()) {
+            return null;
+        }
+        return entry.problem().getMessage();
     }
 }

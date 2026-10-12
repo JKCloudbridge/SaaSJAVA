@@ -152,7 +152,9 @@ class SignUpFlowIT {
         String older = tokenFor(email);
         requestSignUp(browser(), email);
         drain(relay);
-        String newer = awaitMails(email, 2).get(1).token().orElseThrow();
+        // Not "the second mail": the catcher orders by a timestamp that can tie, so take the one that is not the older.
+        String newer = awaitMails(email, 2).stream().map(mail -> mail.token().orElseThrow())
+                .filter(token -> !token.equals(older)).findFirst().orElseThrow();
 
         assertThat(completeSignUp(browser(), older, "Person A", strongPassword()).status()).isEqualTo(400);
         assertThat(completeSignUp(browser(), newer, "Person A", strongPassword()).status()).isEqualTo(204);

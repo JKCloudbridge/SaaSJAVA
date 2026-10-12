@@ -31,7 +31,7 @@ class HashUpgradeIT {
     /** A user whose password fits the old algorithm (it takes at most 72 bytes). */
     private TestUser userWithShortPassword() {
         TestUser generated = TestUsers.create(users);
-        String password = "violet lantern " + generated.user().id().toString().substring(0, 8);
+        String password = "Violet-lantern-" + generated.user().id().toString().substring(0, 8) + "!";
         users.resetPassword(generated.user().id(), password.toCharArray(), app.platform.sharedkernel.ActorId.SYSTEM);
         return new TestUser(generated.user(), generated.email(), password);
     }

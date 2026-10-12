@@ -31,7 +31,7 @@ class AuthEndpointsAuthorizationIT {
             new Protected("GET", "/api/v1/auth/me", null, 200),
             new Protected("POST", "/api/v1/auth/sign-out-all", "{}", 204),
             new Protected("POST", "/api/v1/auth/password",
-                    "{\"currentPassword\":\"wrong current password\",\"newPassword\":\"a violet lantern 4321 ocean\"}",
+                    "{\"currentPassword\":\"wrong current password\",\"newPassword\":\"A-violet-lantern-4321-ocean!\"}",
                     400));
 
     @LocalServerPort

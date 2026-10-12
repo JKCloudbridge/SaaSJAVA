@@ -115,7 +115,10 @@ class StandardMetadataBaselineTest {
 
     private static Map<String, String> parse(String text) {
         Map<String, String> lines = new LinkedHashMap<>();
-        for (String line : text.split("\n")) {
+        for (String raw : text.split("\n")) {
+            // A checkout with core.autocrlf=true leaves a trailing \r on every line; strip it so the comparison
+            // in theDefinitionFilesKeepEverythingThatWasReleased is never fooled by the platform's line ending.
+            String line = raw.stripTrailing();
             if (line.isBlank() || line.startsWith("#")) {
                 continue;
             }

@@ -369,6 +369,11 @@ class DefaultMemberAccess implements MemberAccess {
     }
 
     @Override
+    public Optional<UUID> profileOf(UUID membershipId) {
+        return work.run(() -> store.memberAccess(membershipId).map(AccessStore.MemberAccessRow::profileId));
+    }
+
+    @Override
     public Map<UUID, String> roleNames() {
         return work.run(() -> store.roles().stream()
                 .collect(Collectors.toMap(AccessStore.RoleRow::id, AccessStore.RoleRow::name)));

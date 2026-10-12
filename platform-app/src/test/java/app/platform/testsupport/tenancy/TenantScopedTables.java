@@ -7,8 +7,8 @@ import java.util.UUID;
 /**
  * The register of every tenant-scoped table of the platform (a table with a {@code tenant_id} column).
  * Each entry is run through {@link CrossTenantLeakHarness} by {@code TenantIsolationIT}, and a second test fails when a
- * table with a
- * {@code tenant_id} column exists that is not listed here, so a new table cannot skip its isolation test.
+ * table with a {@code tenant_id} column exists that is not listed here, so a new table cannot skip its isolation
+ * test.
  *
  * <p><strong>Adding a table:</strong> add one {@link TenantScopedTable} below (the table name and how to insert one
  * valid row for a given tenant) and run {@code ./mvnw verify}. See {@code docs/tenant-isolation-testing.md}.
@@ -252,12 +252,105 @@ public final class TenantScopedTables {
                         tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
             });
 
+    /** The record types of organizations (Sprint 11). A probe row needs a custom object, which it creates. */
+    public static final TenantScopedTable RECORD_TYPE = new TenantScopedTable("record_type",
+            (connection, tenant) -> {
+                String object = probeObject(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into record_type (tenant_id, object_api_name, api_name, label, created_by, "
+                                + "updated_by) values (?, ?, ?, 'Probe', ?, ?)",
+                        tenant, object, probeName("Probe"), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** The change sets of organizations (Sprint 11). Each probe row is an open set with a name of its own. */
+    public static final TenantScopedTable METADATA_CHANGE_SET = new TenantScopedTable("metadata_change_set",
+            (connection, tenant) -> probeChangeSet(connection, tenant));
+
+    /** The changes inside change sets (Sprint 11). A probe row needs an open change set, which it creates. */
+    public static final TenantScopedTable METADATA_CHANGE = new TenantScopedTable("metadata_change",
+            (connection, tenant) -> {
+                UUID set = probeChangeSet(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into metadata_change (tenant_id, change_set_id, position, kind, object_api_name, "
+                                + "item_api_name, payload, created_by, updated_by) values (?, ?, 1, 'DELETE_FIELD', "
+                                + "'Account', 'probe__c', '{}'::jsonb, ?, ?)",
+                        tenant, set, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** The releases of organizations (Sprint 11). Each probe row takes the next release number of the tenant. */
+    public static final TenantScopedTable METADATA_RELEASE = new TenantScopedTable("metadata_release",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into metadata_release (tenant_id, release_number, kind, summary, undo, "
+                            + "metadata_version, created_by, updated_by) select ?, coalesce(max(release_number), 0) "
+                            + "+ 1, 'QUICK', '[]'::jsonb, '[]'::jsonb, 0, ?, ? from metadata_release "
+                            + "where tenant_id = ?",
+                    tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value(), tenant));
+
+    /** The page layouts of organizations (Sprint 12). A probe row needs a custom object, which it creates. */
+    public static final TenantScopedTable PAGE_LAYOUT = new TenantScopedTable("page_layout",
+            (connection, tenant) -> {
+                String object = probeObject(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into page_layout (tenant_id, object_api_name, api_name, label, definition, "
+                                + "created_by, updated_by) values (?, ?, ?, 'Probe', '{\"sections\": []}'::jsonb, "
+                                + "?, ?)",
+                        tenant, object, probeName("Probe"), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** The record pages of organizations (Sprint 12). A probe row needs a custom object, which it creates. */
+    public static final TenantScopedTable RECORD_PAGE = new TenantScopedTable("record_page",
+            (connection, tenant) -> {
+                String object = probeObject(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into record_page (tenant_id, object_api_name, api_name, label, definition, "
+                                + "created_by, updated_by) values (?, ?, ?, 'Probe', '{\"components\": []}'::jsonb, "
+                                + "?, ?)",
+                        tenant, object, probeName("Probe"), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** The applications of organizations (Sprint 12). Each probe row has a name of its own. */
+    public static final TenantScopedTable APPLICATION = new TenantScopedTable("application",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into application (tenant_id, api_name, label, definition, created_by, updated_by) "
+                            + "values (?, ?, 'Probe', '{\"items\": []}'::jsonb, ?, ?)",
+                    tenant, probeName("Probe"), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
+    /** The layout assignments of organizations (Sprint 12). A probe row needs a custom object, which it creates. */
+    public static final TenantScopedTable LAYOUT_ASSIGNMENT = new TenantScopedTable("layout_assignment",
+            (connection, tenant) -> {
+                String object = probeObject(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into layout_assignment (tenant_id, object_api_name, layout_api_name, created_by, "
+                                + "updated_by) values (?, ?, 'Probe__c', ?, ?)",
+                        tenant, object, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** The validation rules of organizations (Sprint 13). A probe row needs a custom object, which it creates. */
+    public static final TenantScopedTable VALIDATION_RULE = new TenantScopedTable("validation_rule",
+            (connection, tenant) -> {
+                String object = probeObject(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into validation_rule (tenant_id, object_api_name, api_name, label, expression, "
+                                + "error_message, created_by, updated_by) values (?, ?, ?, 'Probe', 'TRUE', "
+                                + "'Probe', ?, ?)",
+                        tenant, object, probeName("Probe"), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** The records of the generic store (Sprint 14). A probe row is a record of a made-up object, owned by nobody. */
+    public static final TenantScopedTable OBJECT_RECORD = new TenantScopedTable("object_record",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into object_record (tenant_id, object_api_name, owner_id, payload, created_by, updated_by) "
+                            + "values (?, 'Probe__c', ?, '{}'::jsonb, ?, ?)",
+                    tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
             MEMBER_ACCESS, MEMBER_ACCESS_POLICY, MEMBER_GRANT, PUBLIC_GROUP, PUBLIC_GROUP_MEMBER,
             PUBLIC_GROUP_ACCESS_POLICY, OBJECT_PERMISSION, FIELD_PERMISSION, SECURITY_VERSION, OBJECT_DEFINITION,
-            FIELD_DEFINITION, METADATA_VERSION);
+            FIELD_DEFINITION, METADATA_VERSION, RECORD_TYPE, METADATA_CHANGE_SET, METADATA_CHANGE,
+            METADATA_RELEASE, PAGE_LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT, VALIDATION_RULE,
+            OBJECT_RECORD);
 
     private TenantScopedTables() {
     }
@@ -270,6 +363,21 @@ public final class TenantScopedTables {
                         + "values (?, ?, 'Probe', 'Probes', ?, ?)",
                 tenant, name, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
         return name;
+    }
+
+    /** A name for a probe row that no other probe row has. */
+    private static String probeName(String prefix) {
+        return prefix + UUID.randomUUID().toString().replace("-", "").substring(0, 12) + "__c";
+    }
+
+    /** An open change set of the tenant for a probe row, with a name of its own; returns it. */
+    private static UUID probeChangeSet(java.sql.Connection connection, UUID tenant) throws java.sql.SQLException {
+        UUID set = UUID.randomUUID();
+        TenantFixtures.update(connection,
+                "insert into metadata_change_set (id, tenant_id, name, created_by, updated_by) "
+                        + "values (?, ?, ?, ?, ?)",
+                set, tenant, "probe-" + set, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        return set;
     }
 
     /** A user and an active membership of the tenant for a probe row; returns the membership. */

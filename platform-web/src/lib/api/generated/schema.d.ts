@@ -96,6 +96,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The applications the signed-in member may use, with their navigation
+         * @description An application is listed when it names the profile of the member or names no profile. Items that point to something that no longer exists are left out. Presentation only: every page a link opens is decided again by the server. NOT_FOUND on the platform host.
+         */
+        get: operations["getMyApplications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audit-events": {
         parameters: {
             query?: never;
@@ -980,6 +1000,266 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/metadata/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The applications of the organization, as defined
+         * @description For members who may view objects and fields: the whole definition, including the profiles that see each application. A member's own menu is GET /api/v1/applications.
+         */
+        get: operations["listApplicationDefinitions"];
+        put?: never;
+        /**
+         * Add an application
+         * @description Live at once, as a release of one change. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. A navigation item opens an object, a record page or a path inside the organization, never an arbitrary address. CONFLICT when an object or record page it opens does not exist, or at the limit. Audited.
+         */
+        post: operations["createApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/applications/{applicationApiName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One application, as defined
+         * @description NOT_FOUND for an application the organization does not have.
+         */
+        get: operations["getApplicationDefinition"];
+        /**
+         * Change an application
+         * @description Live at once, as a release of one change. The API name never changes. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.
+         */
+        put: operations["updateApplication"];
+        post?: never;
+        /**
+         * Remove an application
+         * @description Live at once, as a release of one change. NOT_FOUND for an application the organization does not have. Audited.
+         */
+        delete: operations["deleteApplication"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/change-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The change sets of the organization
+         * @description Open drafts first, then published and discarded ones. For members who may view objects and fields. NOT_FOUND on the platform host.
+         */
+        get: operations["listChangeSets"];
+        put?: never;
+        /**
+         * Start a change set
+         * @description A named group of intended changes that is published all together or not at all. A draft is invisible to everything that reads the organization's metadata until it is published. VALIDATION_ERROR for a name in use, CONFLICT at the limit of open change sets. Audited.
+         */
+        post: operations["createChangeSet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/change-sets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One change set with its changes
+         * @description NOT_FOUND for a change set the organization does not have.
+         */
+        get: operations["getChangeSet"];
+        put?: never;
+        post?: never;
+        /**
+         * Discard an open change set
+         * @description Nothing it holds was ever live. CONFLICT for one that was published or discarded. Audited.
+         */
+        delete: operations["discardChangeSet"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/change-sets/{id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a change to an open change set
+         * @description The change carries the request the live endpoint takes. It is not applied: nothing is checked beyond its shape until the set is checked or published. VALIDATION_ERROR for a change that does not say what it needs, CONFLICT for a set that is no longer open or full. Audited.
+         */
+        post: operations["addChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/change-sets/{id}/changes/{changeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Take a change out of an open change set
+         * @description NOT_FOUND for a change the set does not have. Audited.
+         */
+        delete: operations["removeChange"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/change-sets/{id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Show what a change set would make, without keeping anything
+         * @description The same check as validate, and in addition the affected objects as they would be after publishing. Needs the ability to view and either to manage or to publish.
+         */
+        post: operations["previewChangeSet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/change-sets/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish a change set
+         * @description Puts all of it live or none of it, as one release. CONFLICT with every problem (each naming what depends on it) when it cannot be published, or when it is no longer open. Needs the abilities to publish and to view. Audited.
+         */
+        post: operations["publishChangeSet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/change-sets/{id}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a change set without keeping anything
+         * @description Applies the changes by the real rules, checks what depends on what, and rolls everything back. The answer lists every problem (each naming what depends on it) and what would be added, changed or removed. Needs the ability to view and either to manage or to publish.
+         */
+        post: operations["validateChangeSet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/expressions/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Is this expression valid for an object?
+         * @description Answers valid or not, and when not, where it is wrong (line and column) and what kind of problem it is; when valid, the type it gives and the fields it uses. A formula may also name the type it must give. Nothing is stored and nothing is logged. Needs metadata.view and either metadata.manage or metadata.publish.
+         */
+        post: operations["checkExpression"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/expressions/functions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The functions of the expression language
+         * @description The fixed list: no function can be added by an organization. For members who may view objects and fields.
+         */
+        get: operations["listExpressionFunctions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/expressions/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try an expression that is not stored yet on sample values
+         * @description Answers what a formula would give (VALUE) or what a rule would do (REJECTED or PASSED), or ERROR with the place when the evaluation itself fails. There are no records yet, so the values are typed as text for the type of each field. Nothing is stored and nothing is logged. Needs metadata.view and either metadata.manage or metadata.publish.
+         */
+        post: operations["testExpression"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/metadata/field-types": {
         parameters: {
             query?: never;
@@ -992,6 +1272,26 @@ export interface paths {
          * @description With the settings each type takes and the constraints it allows. For members who may view objects and fields. NOT_FOUND on the platform host, FORBIDDEN without the ability.
          */
         get: operations["listFieldTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/formula-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The stored formulas that do not pass the expression language
+         * @description Formulas saved before formulas were checked keep their text and are listed here with the place that is wrong; nothing is removed and they cannot be saved again until fixed. For members who may view objects and fields.
+         */
+        get: operations["listInvalidStoredFormulas"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1091,6 +1391,518 @@ export interface paths {
          * @description The permissions on the field end with it. FORBIDDEN for a field the platform defines. Audited.
          */
         delete: operations["deleteField"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/fields/{fieldApiName}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try a formula field on sample values
+         * @description Answers what the formula would give for a record with these values (VALUE), or ERROR with the place. VALIDATION_ERROR when the field is not a formula. Nothing is stored and nothing is logged. Needs metadata.view and either metadata.manage or metadata.publish.
+         */
+        post: operations["testFormulaField"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/layout-assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The layout assignments of an object
+         * @description The default layout of the object and the layouts chosen for profiles, with or without a record type. A profile that no longer exists has no name here and is ignored when a layout is chosen. NOT_FOUND for an object the organization does not have.
+         */
+        get: operations["listLayoutAssignments"];
+        put?: never;
+        /**
+         * Choose a layout for a profile (and a record type), or the default layout of the object
+         * @description Live at once, as a release of one change. With no profile it is the default layout of the object. A record type needs a profile: a layout for a record type alone is set on the record type. CONFLICT when the layout or record type does not exist. Audited.
+         */
+        post: operations["createLayoutAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/layout-assignments/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One layout assignment
+         * @description The key is default, the identifier of the profile, or the identifier of the profile, a tilde and the API name of the record type. NOT_FOUND for an assignment the object does not have.
+         */
+        get: operations["getLayoutAssignment"];
+        /**
+         * Point a layout assignment at another layout
+         * @description The key is default, the identifier of the profile, or the identifier of the profile, a tilde and the API name of the record type. Live at once, as a release of one change. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.
+         */
+        put: operations["updateLayoutAssignment"];
+        post?: never;
+        /**
+         * Remove a layout assignment
+         * @description The key is default, the identifier of the profile, or the identifier of the profile, a tilde and the API name of the record type. Live at once, as a release of one change. Audited.
+         */
+        delete: operations["deleteLayoutAssignment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/layout-resolution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Which layout an object uses for a profile and a record type
+         * @description The first rule of this order that applies: the profile together with the record type, the record type alone (the layout of the record type), the profile alone, the default layout of the object. The answer names the rule; NONE when the object has no layout.
+         */
+        get: operations["resolveLayout"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/layouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The page layouts of an object
+         * @description For members who may view objects and fields. NOT_FOUND for an object the organization does not have.
+         */
+        get: operations["listLayouts"];
+        put?: never;
+        /**
+         * Add a page layout to an object
+         * @description Live at once, as a release of one change. The name is turned into the permanent API name with the ending __c. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. CONFLICT for an object whose records belong to the platform, at the limit, or when the result would break a dependency (a required field the layout does not show). Audited.
+         */
+        post: operations["createLayout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/layouts/{layoutApiName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One page layout
+         * @description NOT_FOUND for a layout the object does not have.
+         */
+        get: operations["getLayout"];
+        /**
+         * Change a page layout
+         * @description Live at once, as a release of one change. The API name and the object never change. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.
+         */
+        put: operations["updateLayout"];
+        post?: never;
+        /**
+         * Remove a page layout
+         * @description Live at once, as a release of one change. CONFLICT, naming what still uses it, when a record type, record page or assignment depends on it. Audited.
+         */
+        delete: operations["deleteLayout"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/record-pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The record pages of an object
+         * @description For members who may view objects and fields. NOT_FOUND for an object the organization does not have.
+         */
+        get: operations["listRecordPages"];
+        put?: never;
+        /**
+         * Add a record page to an object
+         * @description Live at once, as a release of one change. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. Conditions that decide when a component or action is shown are closed data (a field compared with a value, or an ability, combined with all/any to two levels); there is no expression text. CONFLICT when the layout or a field it names does not exist or a related list does not follow a relationship. Audited.
+         */
+        post: operations["createRecordPage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/record-pages/{pageApiName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One record page
+         * @description NOT_FOUND for a record page the object does not have.
+         */
+        get: operations["getRecordPage"];
+        /**
+         * Change a record page
+         * @description Live at once, as a release of one change. The API name and the object never change. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.
+         */
+        put: operations["updateRecordPage"];
+        post?: never;
+        /**
+         * Remove a record page
+         * @description Live at once, as a release of one change. CONFLICT, naming the application, when a navigation item opens it. Audited.
+         */
+        delete: operations["deleteRecordPage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/record-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The record types of an object
+         * @description For members who may view objects and fields. NOT_FOUND for an object the organization does not have, on the platform host.
+         */
+        get: operations["listRecordTypes"];
+        put?: never;
+        /**
+         * Add a record type to an object
+         * @description Live at once, as a release of one change. The name is turned into the permanent API name with the ending __c. VALIDATION_ERROR lists every problem with the fields and picklist values named; CONFLICT for an object whose records belong to the platform, at the limit, or when the result would break a dependency. Audited.
+         */
+        post: operations["createRecordType"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/record-types/{recordTypeApiName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One record type
+         * @description NOT_FOUND for a record type the object does not have.
+         */
+        get: operations["getRecordType"];
+        /**
+         * Change a record type
+         * @description Live at once, as a release of one change. The API name and the object never change. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.
+         */
+        put: operations["updateRecordType"];
+        post?: never;
+        /**
+         * Remove a record type
+         * @description Live at once, as a release of one change. NOT_FOUND for a record type the object does not have. Audited.
+         */
+        delete: operations["deleteRecordType"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/relationships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The relationships of an object, in both directions
+         * @description The objects this one points at (parents), the lists of other objects that point at it (children), and the objects related through a junction object (many-to-many). Read from the lookup and master-detail fields, with what happens to a child when its parent is removed. NOT_FOUND for an object the organization does not have.
+         */
+        get: operations["getObjectRelationships"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/validation-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The validation rules of an object
+         * @description For members who may view objects and fields. NOT_FOUND for an object the organization does not have.
+         */
+        get: operations["listValidationRules"];
+        put?: never;
+        /**
+         * Add a validation rule to an object
+         * @description Live at once, as a release of one change. The name is turned into the permanent API name with the ending __c. The condition is in the expression language and is true when the record must be REJECTED; a blank answer does not reject. It is parsed here (a VALIDATION_ERROR names the place); whether its fields exist and whether it gives true or false is checked after the change, and a CONFLICT names what is wrong. CONFLICT for an object whose records belong to the platform, at the limit, or when the result would break a dependency. Audited by name and counts, never by the text.
+         */
+        post: operations["createValidationRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/validation-rules/{ruleApiName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One validation rule
+         * @description NOT_FOUND for a rule the object does not have.
+         */
+        get: operations["getValidationRule"];
+        /**
+         * Change a validation rule
+         * @description Live at once, as a release of one change. The API name and the object never change. The condition is in the expression language and is true when the record must be REJECTED; a blank answer does not reject. It is parsed here (a VALIDATION_ERROR names the place); whether its fields exist and whether it gives true or false is checked after the change, and a CONFLICT names what is wrong. CONCURRENT_MODIFICATION when someone changed it since it was read.
+         */
+        put: operations["updateValidationRule"];
+        post?: never;
+        /**
+         * Remove a validation rule
+         * @description Live at once, as a release of one change. The undo of the release makes it again.
+         */
+        delete: operations["deleteValidationRule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/validation-rules/{ruleApiName}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try a validation rule on sample values
+         * @description Answers what would happen to a record with these values: REJECTED with the message of the rule, PASSED, or ERROR with the place when the evaluation itself fails (for example a division by zero). There are no records yet, so the values are typed as text for the type of each field. Nothing is stored and nothing is logged. Needs metadata.view and either metadata.manage or metadata.publish.
+         */
+        post: operations["testValidationRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The history of publications
+         * @description Newest first: each release says what it added, changed or removed, whether it was rolled back, and whether it is the latest. For members who may view objects and fields.
+         */
+        get: operations["listReleases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/releases/latest/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Roll back the latest release
+         * @description Undoes the latest release as a new release. Only the latest can be rolled back; rolling back a rollback redoes it. CONFLICT with every problem when it cannot be undone. Needs the abilities to publish and to view. Audited.
+         */
+        post: operations["rollbackLatestRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/releases/latest/rollback-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check what rolling back the latest release would do
+         * @description Applies the undo by the real rules and rolls everything back. The answer lists every problem, including records or values that would be lost, and what would be undone.
+         */
+        post: operations["checkRollback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The live records of an object, in identifier order
+         * @description One page at a time by the cursor of the previous page. No filter and no sorting: those are the query engine of Sprint 16. Until record-level security (Sprint 17) a member who may read the object reads every record of it in the organization. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         */
+        get: operations["listRecords"];
+        put?: never;
+        /**
+         * Create a record of an object
+         * @description This is the first form of the endpoint: values are not yet checked against their field's type, required fields, relationships, validation rules or formulas (Sprint 15), and there is no record-level security (Sprint 17). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN for a caller who may read the object but not create in it. VALIDATION_ERROR names a key that is not a writable field (a system, calculated or retired field cannot be written) and says why a value cannot be kept. The caller owns the record. Audited and announced by object, identifier, version and field names, never by values.
+         */
+        post: operations["createRecord"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/records/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One record
+         * @description NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. NOT_FOUND also for a record that does not exist in this organization, or that is in the recycle bin.
+         */
+        get: operations["getRecord"];
+        put?: never;
+        post?: never;
+        /**
+         * Move a record to the recycle bin
+         * @description The record can be restored for the retention period, then it is removed for good. A second delete of the same record is a CONFLICT (409): it is already in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN without permission to delete in the object.
+         */
+        delete: operations["deleteRecord"];
+        options?: never;
+        head?: never;
+        /**
+         * Change some values of a record
+         * @description This is the first form of the endpoint: values are not yet checked against their field's type, required fields, relationships, validation rules or formulas (Sprint 15), and there is no record-level security (Sprint 17). Only the fields named change; a null value or a name in clear removes a value. The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the record has another version now, and nothing is changed. CONFLICT (409) when the record is in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN without permission to update the object.
+         */
+        patch: operations["updateRecord"];
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/recycle-bin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The records of an object that are in the recycle bin
+         * @description In identifier order, one page at a time. Needs permission to delete in the object. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         */
+        get: operations["listDeletedRecords"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/recycle-bin/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a record in the recycle bin for good
+         * @description Needs permission to delete in the object. CONFLICT (409) for a live record: delete it first. This cannot be undone. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         */
+        delete: operations["purgeRecord"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/recycle-bin/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a record out of the recycle bin
+         * @description Needs permission to delete in the object. CONFLICT (409) for a record that is not in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         */
+        post: operations["restoreRecord"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1939,6 +2751,8 @@ export interface components {
         ApiErrorResponse: {
             error: components["schemas"]["ApiError"];
         };
+        /** @description The permanent name of a layout, a record page or an application. It ends with __c. */
+        ApiNameShape: string;
         ApiPageResponseAuditEventView: {
             data: components["schemas"]["AuditEventView"][];
             pagination: components["schemas"]["Pagination"];
@@ -1947,11 +2761,24 @@ export interface components {
             data: components["schemas"]["PlatformOrganizationSummary"][];
             pagination: components["schemas"]["Pagination"];
         };
+        ApiPageResponseRecordView: {
+            data: components["schemas"]["RecordView"][];
+            pagination: components["schemas"]["Pagination"];
+        };
         ApiResponseAccessPolicyView: {
             data: components["schemas"]["AccessPolicyView"];
         };
+        ApiResponseApplicationView: {
+            data: components["schemas"]["ApplicationView"];
+        };
         ApiResponseCatalogueItem: {
             data: components["schemas"]["CatalogueItem"];
+        };
+        ApiResponseChangeSetReportView: {
+            data: components["schemas"]["ChangeSetReportView"];
+        };
+        ApiResponseChangeSetView: {
+            data: components["schemas"]["ChangeSetView"];
         };
         ApiResponseCurrentUser: {
             data: components["schemas"]["CurrentUser"];
@@ -1961,6 +2788,12 @@ export interface components {
         };
         ApiResponseDataCatalogue: {
             data: components["schemas"]["DataCatalogue"];
+        };
+        ApiResponseExpressionCheckView: {
+            data: components["schemas"]["ExpressionCheckView"];
+        };
+        ApiResponseExpressionTestView: {
+            data: components["schemas"]["ExpressionTestView"];
         };
         ApiResponseFieldView: {
             data: components["schemas"]["FieldView"];
@@ -1974,6 +2807,15 @@ export interface components {
         ApiResponseInvitationPreview: {
             data: components["schemas"]["InvitationPreview"];
         };
+        ApiResponseLayoutAssignmentView: {
+            data: components["schemas"]["LayoutAssignmentView"];
+        };
+        ApiResponseLayoutResolutionView: {
+            data: components["schemas"]["LayoutResolutionView"];
+        };
+        ApiResponseLayoutView: {
+            data: components["schemas"]["LayoutView"];
+        };
         ApiResponseLicenceTypeItem: {
             data: components["schemas"]["LicenceTypeItem"];
         };
@@ -1983,17 +2825,35 @@ export interface components {
         ApiResponseListAccessPolicyView: {
             data: components["schemas"]["AccessPolicyView"][];
         };
+        ApiResponseListApplicationView: {
+            data: components["schemas"]["ApplicationView"][];
+        };
         ApiResponseListCatalogueItem: {
             data: components["schemas"]["CatalogueItem"][];
         };
+        ApiResponseListChangeSetView: {
+            data: components["schemas"]["ChangeSetView"][];
+        };
         ApiResponseListFieldTypeView: {
             data: components["schemas"]["FieldTypeView"][];
+        };
+        ApiResponseListFormulaReportItemView: {
+            data: components["schemas"]["FormulaReportItemView"][];
+        };
+        ApiResponseListFunctionView: {
+            data: components["schemas"]["FunctionView"][];
         };
         ApiResponseListGroupView: {
             data: components["schemas"]["GroupView"][];
         };
         ApiResponseListInvitationView: {
             data: components["schemas"]["InvitationView"][];
+        };
+        ApiResponseListLayoutAssignmentView: {
+            data: components["schemas"]["LayoutAssignmentView"][];
+        };
+        ApiResponseListLayoutView: {
+            data: components["schemas"]["LayoutView"][];
         };
         ApiResponseListLicencePoolView: {
             data: components["schemas"]["LicencePoolView"][];
@@ -2003,6 +2863,9 @@ export interface components {
         };
         ApiResponseListMemberView: {
             data: components["schemas"]["MemberView"][];
+        };
+        ApiResponseListMyApplicationView: {
+            data: components["schemas"]["MyApplicationView"][];
         };
         ApiResponseListObjectSummaryView: {
             data: components["schemas"]["ObjectSummaryView"][];
@@ -2019,6 +2882,15 @@ export interface components {
         ApiResponseListProfileView: {
             data: components["schemas"]["ProfileView"][];
         };
+        ApiResponseListRecordPageView: {
+            data: components["schemas"]["RecordPageView"][];
+        };
+        ApiResponseListRecordTypeView: {
+            data: components["schemas"]["RecordTypeView"][];
+        };
+        ApiResponseListReleaseView: {
+            data: components["schemas"]["ReleaseView"][];
+        };
         ApiResponseListRoleView: {
             data: components["schemas"]["RoleView"][];
         };
@@ -2028,8 +2900,14 @@ export interface components {
         ApiResponseListSupportAccessView: {
             data: components["schemas"]["SupportAccessView"][];
         };
+        ApiResponseListValidationRuleView: {
+            data: components["schemas"]["ValidationRuleView"][];
+        };
         ApiResponseMemberAccessView: {
             data: components["schemas"]["MemberAccessView"];
+        };
+        ApiResponseObjectRelationshipsView: {
+            data: components["schemas"]["ObjectRelationshipsView"];
         };
         ApiResponseObjectView: {
             data: components["schemas"]["ObjectView"];
@@ -2055,6 +2933,18 @@ export interface components {
         ApiResponseProfileView: {
             data: components["schemas"]["ProfileView"];
         };
+        ApiResponseRecordPageView: {
+            data: components["schemas"]["RecordPageView"];
+        };
+        ApiResponseRecordTypeView: {
+            data: components["schemas"]["RecordTypeView"];
+        };
+        ApiResponseRecordView: {
+            data: components["schemas"]["RecordView"];
+        };
+        ApiResponseReleaseView: {
+            data: components["schemas"]["ReleaseView"];
+        };
         ApiResponseRequestAccepted: {
             data: components["schemas"]["RequestAccepted"];
         };
@@ -2066,6 +2956,24 @@ export interface components {
         };
         ApiResponseTenantSummary: {
             data: components["schemas"]["TenantSummary"];
+        };
+        ApiResponseValidationRuleView: {
+            data: components["schemas"]["ValidationRuleView"];
+        };
+        /** @description What an application contains beyond its name: an icon, the profiles that see it, and its navigation in order. */
+        ApplicationDefinition: {
+            iconKey?: string;
+            items: components["schemas"]["NavigationItem"][];
+            /** @description The profiles whose members see the application. Empty or left out: every member. */
+            profiles?: string[];
+        };
+        ApplicationView: {
+            apiName: string;
+            definition: components["schemas"]["ApplicationDefinition"];
+            description: string;
+            label: string;
+            /** Format: int64 */
+            version: number;
         };
         ApproveSupportAccessRequest: {
             /** Format: int32 */
@@ -2110,6 +3018,48 @@ export interface components {
             currentPassword: string;
             newPassword: string;
         };
+        ChangeRequest: {
+            createApplication?: components["schemas"]["CreateApplicationRequest"];
+            createField?: components["schemas"]["CreateFieldRequest"];
+            createLayout?: components["schemas"]["CreateLayoutRequest"];
+            createLayoutAssignment?: components["schemas"]["CreateLayoutAssignmentRequest"];
+            createObject?: components["schemas"]["CreateObjectRequest"];
+            createRecordPage?: components["schemas"]["CreateRecordPageRequest"];
+            createRecordType?: components["schemas"]["CreateRecordTypeRequest"];
+            createValidationRule?: components["schemas"]["CreateValidationRuleRequest"];
+            itemApiName?: string;
+            kind: string;
+            objectApiName?: string;
+            updateApplication?: components["schemas"]["UpdateApplicationRequest"];
+            updateField?: components["schemas"]["UpdateFieldRequest"];
+            updateLayout?: components["schemas"]["UpdateLayoutRequest"];
+            updateLayoutAssignment?: components["schemas"]["UpdateLayoutAssignmentRequest"];
+            updateObject?: components["schemas"]["UpdateObjectRequest"];
+            updateRecordPage?: components["schemas"]["UpdateRecordPageRequest"];
+            updateRecordType?: components["schemas"]["UpdateRecordTypeRequest"];
+            updateValidationRule?: components["schemas"]["UpdateValidationRuleRequest"];
+        };
+        ChangeSetReportView: {
+            items: components["schemas"]["ReleaseItemView"][];
+            objects: components["schemas"]["ObjectView"][];
+            problems: components["schemas"]["ProblemView"][];
+            valid: boolean;
+        };
+        ChangeSetView: {
+            /** Format: int32 */
+            changeCount: number;
+            changes: components["schemas"]["ChangeView"][];
+            /** Format: date-time */
+            createdAt: string;
+            description: string;
+            id: string;
+            name: string;
+            /** Format: int64 */
+            releaseNumber?: number;
+            status: string;
+            /** Format: int64 */
+            version: number;
+        };
         ChangeSubscriptionRequest: {
             /** Format: date-time */
             periodEndsAt?: string;
@@ -2119,6 +3069,20 @@ export interface components {
             /** Format: date-time */
             trialEndsAt?: string;
         };
+        ChangeView: {
+            id: string;
+            itemApiName?: string;
+            kind: string;
+            objectApiName: string;
+            /** Format: int32 */
+            position: number;
+        };
+        CheckExpressionRequest: {
+            expression: string;
+            objectApiName: string;
+            purpose: string;
+            resultType?: string;
+        };
         CompleteSignUpRequest: {
             displayName: string;
             password: string;
@@ -2126,6 +3090,16 @@ export interface components {
         };
         CompleteSwitchRequest: {
             token: string;
+        };
+        CreateApplicationRequest: {
+            definition: components["schemas"]["ApplicationDefinition"];
+            description?: string;
+            label: string;
+            name: string;
+        };
+        CreateChangeSetRequest: {
+            description?: string;
+            name: string;
         };
         CreateFieldRequest: {
             defaultValue?: string;
@@ -2137,6 +3111,18 @@ export interface components {
             type: string;
             unique?: boolean;
         };
+        CreateLayoutAssignmentRequest: {
+            layout: string;
+            /** Format: uuid */
+            profileId?: string;
+            recordType?: string;
+        };
+        CreateLayoutRequest: {
+            definition: components["schemas"]["PageLayoutDefinition"];
+            description?: string;
+            label: string;
+            name: string;
+        };
         CreateObjectRequest: {
             description?: string;
             label: string;
@@ -2146,6 +3132,36 @@ export interface components {
         CreateOrganizationRequest: {
             displayName: string;
             slug: string;
+        };
+        CreateRecordPageRequest: {
+            definition: components["schemas"]["RecordPageDefinition"];
+            description?: string;
+            label: string;
+            name: string;
+        };
+        CreateRecordRequest: {
+            fields: {
+                [key: string]: unknown;
+            };
+        };
+        CreateRecordTypeRequest: {
+            active?: boolean;
+            availableFields?: string[];
+            defaultType?: boolean;
+            description?: string;
+            label: string;
+            layout?: string;
+            name: string;
+            picklistSubsets?: components["schemas"]["PicklistSubset"][];
+        };
+        CreateValidationRuleRequest: {
+            active?: boolean;
+            description?: string;
+            errorField?: string;
+            errorMessage: string;
+            expression: string;
+            label: string;
+            name: string;
         };
         CurrentUser: {
             abilities: string[];
@@ -2190,15 +3206,42 @@ export interface components {
          * @enum {string}
          */
         ErrorCode: "VALIDATION_ERROR" | "MALFORMED_REQUEST" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "NOT_ACCEPTABLE" | "CONFLICT" | "CONCURRENT_MODIFICATION" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "TENANT_UNAVAILABLE";
+        ExpressionCheckView: {
+            fields: string[];
+            problem?: components["schemas"]["ExpressionProblemView"];
+            type?: string;
+            usesClock: boolean;
+            valid: boolean;
+        };
+        ExpressionProblemView: {
+            /** Format: int32 */
+            column?: number;
+            kind: string;
+            /** Format: int32 */
+            line?: number;
+            message: string;
+        };
+        ExpressionTestView: {
+            message?: string;
+            outcome: string;
+            problem?: components["schemas"]["ExpressionProblemView"];
+            type?: string;
+            value?: string;
+        };
+        /** @description The API name of a field. */
+        FieldNameShape: string;
         FieldSettings: {
             /** Format: int32 */
             digits?: number;
             expression?: string;
+            listLabel?: string;
             /** Format: int32 */
             maxLength?: number;
+            onDelete?: string;
             /** Format: int32 */
             precision?: number;
             prefix?: string;
+            reparentable?: boolean;
             resultType?: string;
             /** Format: int32 */
             scale?: number;
@@ -2227,6 +3270,7 @@ export interface components {
             editable: boolean;
             kind: string;
             label: string;
+            problem?: string;
             required: boolean;
             retired: boolean;
             settings: components["schemas"]["FieldSettings"];
@@ -2249,6 +3293,17 @@ export interface components {
         };
         ForgotPasswordRequest: {
             email: string;
+        };
+        FormulaReportItemView: {
+            fieldApiName: string;
+            objectApiName: string;
+            problem: string;
+        };
+        FunctionView: {
+            description: string;
+            name: string;
+            rulesOnly: boolean;
+            signature: string;
         };
         GrantAbilityRequest: {
             ability: string;
@@ -2319,6 +3374,46 @@ export interface components {
             /** Format: uuid */
             roleId?: string;
         };
+        LayoutAssignmentView: {
+            key: string;
+            layout: string;
+            /** Format: uuid */
+            profileId?: string;
+            profileName?: string;
+            recordType?: string;
+            /** Format: int64 */
+            version: number;
+        };
+        LayoutField: {
+            /**
+             * @description EDITABLE: a person may change it. READ_ONLY: shown, never changed on this page. REQUIRED: must have a value on this page, whatever the field itself says. HIDDEN: kept in the layout but not shown. Left out: EDITABLE.
+             * @enum {string}
+             */
+            behaviour?: "EDITABLE" | "READ_ONLY" | "REQUIRED" | "HIDDEN";
+            field: components["schemas"]["FieldNameShape"];
+        };
+        LayoutResolutionView: {
+            layout?: string;
+            rule: string;
+        };
+        LayoutSection: {
+            /**
+             * @description Left out: 1.
+             * @enum {integer}
+             */
+            columns?: 1 | 2;
+            fields: components["schemas"]["LayoutField"][];
+            label: string;
+        };
+        LayoutView: {
+            apiName: string;
+            definition: components["schemas"]["PageLayoutDefinition"];
+            description: string;
+            label: string;
+            objectApiName: string;
+            /** Format: int64 */
+            version: number;
+        };
         LicencePoolView: {
             /** Format: int32 */
             assigned?: number;
@@ -2375,6 +3470,36 @@ export interface components {
             status: string;
             you?: boolean;
         };
+        MyApplicationView: {
+            apiName: string;
+            iconKey?: string;
+            items: components["schemas"]["NavigationEntryView"][];
+            label: string;
+        };
+        NavigationEntryView: {
+            label: string;
+            objectApiName?: string;
+            pageApiName?: string;
+            path?: string;
+            type: string;
+        };
+        /** @description One entry of an application's navigation. */
+        NavigationItem: {
+            label?: string;
+            object?: components["schemas"]["ObjectNameShape"];
+            page?: components["schemas"]["ApiNameShape"];
+            /** @description A page inside the organization: a path that starts with a slash. Never an address with a host. */
+            path?: string;
+            /** @enum {string} */
+            type: "OBJECT" | "RECORD_PAGE" | "LINK" | "HEADING";
+        } & (unknown & unknown & unknown & unknown);
+        /** @description The API name of an object. */
+        ObjectNameShape: string;
+        ObjectRelationshipsView: {
+            children: components["schemas"]["RelationshipView"][];
+            manyToMany: components["schemas"]["RelationshipView"][];
+            parents: components["schemas"]["RelationshipView"][];
+        };
         ObjectSummaryView: {
             apiName: string;
             /** Format: int32 */
@@ -2409,6 +3534,42 @@ export interface components {
             host: string;
             slug: string;
         };
+        PageAction: {
+            /** @enum {string} */
+            action: "EDIT" | "DELETE" | "CLONE";
+            label?: string;
+            visibleWhen?: components["schemas"]["VisibilityRule"];
+        };
+        /** @description One building block of a record page. Its type decides which other properties it takes. */
+        PageComponent: {
+            columns?: components["schemas"]["FieldNameShape"][];
+            field?: components["schemas"]["FieldNameShape"];
+            highlightFields?: components["schemas"]["FieldNameShape"][];
+            /** @description Names the component inside the page; unique in the page. */
+            key: string;
+            label?: string;
+            /** @description Left out: 5. */
+            limit?: number;
+            object?: components["schemas"]["ObjectNameShape"];
+            /**
+             * @description Left out: MAIN.
+             * @enum {string}
+             */
+            region?: "MAIN" | "SIDEBAR";
+            tabs?: components["schemas"]["PageTab"][];
+            titleField?: components["schemas"]["FieldNameShape"];
+            /** @enum {string} */
+            type: "HEADER" | "DETAILS" | "RELATED_LIST" | "TABS" | "ACTIVITY" | "HISTORY";
+            visibleWhen?: components["schemas"]["VisibilityRule"];
+        } & (unknown & unknown & unknown & unknown);
+        /** @description The structure of a record form: sections with the fields in them, and how each field behaves. */
+        PageLayoutDefinition: {
+            sections: components["schemas"]["LayoutSection"][];
+        };
+        PageTab: {
+            components: components["schemas"]["TabComponent"][];
+            label: string;
+        };
         Pagination: {
             hasMore: boolean;
             /** Format: int32 */
@@ -2423,6 +3584,10 @@ export interface components {
             active: boolean;
             label: string;
             value: string;
+        };
+        PicklistSubset: {
+            field: string;
+            values: string[];
         };
         PlanInfo: {
             features: string[];
@@ -2476,6 +3641,16 @@ export interface components {
             serverTime: string;
             service: string;
         };
+        ProblemView: {
+            dependent?: string;
+            fields: string[];
+            itemApiName?: string;
+            kind: string;
+            message: string;
+            objectApiName?: string;
+            /** Format: int32 */
+            position?: number;
+        };
         ProfileView: {
             abilities: string[];
             defaultProfile?: boolean;
@@ -2497,6 +3672,84 @@ export interface components {
         };
         ReasonRequest: {
             reason: string;
+        };
+        /** @description The structure of a record page: which layout its details show, its components in order, and its actions. */
+        RecordPageDefinition: {
+            actions?: components["schemas"]["PageAction"][];
+            components: components["schemas"]["PageComponent"][];
+            layout: components["schemas"]["ApiNameShape"];
+        };
+        RecordPageView: {
+            apiName: string;
+            definition: components["schemas"]["RecordPageDefinition"];
+            description: string;
+            label: string;
+            objectApiName: string;
+            /** Format: int64 */
+            version: number;
+        };
+        RecordTypeView: {
+            active: boolean;
+            allFields: boolean;
+            apiName: string;
+            availableFields: string[];
+            defaultType: boolean;
+            description: string;
+            label: string;
+            layout?: string;
+            picklistSubsets: components["schemas"]["PicklistSubset"][];
+            /** Format: int64 */
+            version: number;
+        };
+        RecordView: {
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            deletedAt?: string;
+            fields: {
+                [key: string]: unknown;
+            };
+            id: string;
+            objectApiName: string;
+            ownerId: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
+        };
+        RelationshipView: {
+            childObject: string;
+            field: string;
+            fieldLabel: string;
+            fieldType: string;
+            listLabel: string;
+            onDelete: string;
+            otherObject: string;
+            parentObject: string;
+            reparentable: boolean;
+            required: boolean;
+            type: string;
+            viaObject?: string;
+        };
+        ReleaseItemView: {
+            action: string;
+            itemApiName?: string;
+            kind: string;
+            objectApiName: string;
+        };
+        ReleaseView: {
+            changeSetName?: string;
+            /** Format: date-time */
+            createdAt: string;
+            items: components["schemas"]["ReleaseItemView"][];
+            kind: string;
+            latest: boolean;
+            /** Format: int64 */
+            number: number;
+            /** Format: int64 */
+            rolledBackBy?: number;
+            /** Format: int64 */
+            undoesRelease?: number;
         };
         RequestAccepted: {
             message: string;
@@ -2616,9 +3869,42 @@ export interface components {
             host: string;
             token: string;
         };
+        /** @description A component inside a tab: anything but another set of tabs. */
+        TabComponent: {
+            columns?: components["schemas"]["FieldNameShape"][];
+            field?: components["schemas"]["FieldNameShape"];
+            key: string;
+            label?: string;
+            /** @description Left out: 5. */
+            limit?: number;
+            object?: components["schemas"]["ObjectNameShape"];
+            /** @enum {string} */
+            type: "DETAILS" | "RELATED_LIST" | "ACTIVITY" | "HISTORY";
+            visibleWhen?: components["schemas"]["VisibilityRule"];
+        } & (unknown & unknown);
         TenantSummary: {
             displayName: string;
             slug: string;
+        };
+        TestExpressionRequest: {
+            expression: string;
+            objectApiName: string;
+            purpose: string;
+            values?: {
+                [key: string]: string;
+            };
+        };
+        TestValuesRequest: {
+            values?: {
+                [key: string]: string;
+            };
+        };
+        UpdateApplicationRequest: {
+            definition: components["schemas"]["ApplicationDefinition"];
+            description?: string;
+            label: string;
+            /** Format: int64 */
+            version: number;
         };
         UpdateFieldRequest: {
             defaultValue?: string;
@@ -2630,6 +3916,18 @@ export interface components {
             /** Format: int64 */
             version: number;
         };
+        UpdateLayoutAssignmentRequest: {
+            layout: string;
+            /** Format: int64 */
+            version: number;
+        };
+        UpdateLayoutRequest: {
+            definition: components["schemas"]["PageLayoutDefinition"];
+            description?: string;
+            label: string;
+            /** Format: int64 */
+            version: number;
+        };
         UpdateObjectRequest: {
             description?: string;
             label: string;
@@ -2637,6 +3935,82 @@ export interface components {
             /** Format: int64 */
             version: number;
         };
+        UpdateRecordPageRequest: {
+            definition: components["schemas"]["RecordPageDefinition"];
+            description?: string;
+            label: string;
+            /** Format: int64 */
+            version: number;
+        };
+        UpdateRecordRequest: {
+            clear?: string[];
+            fields?: {
+                [key: string]: unknown;
+            };
+            /** Format: int64 */
+            version: number;
+        };
+        UpdateRecordTypeRequest: {
+            active?: boolean;
+            availableFields?: string[];
+            defaultType?: boolean;
+            description?: string;
+            label: string;
+            layout?: string;
+            picklistSubsets?: components["schemas"]["PicklistSubset"][];
+            /** Format: int64 */
+            version: number;
+        };
+        UpdateValidationRuleRequest: {
+            active: boolean;
+            description?: string;
+            errorField?: string;
+            errorMessage: string;
+            expression: string;
+            label: string;
+            /** Format: int64 */
+            version: number;
+        };
+        ValidationRuleView: {
+            active: boolean;
+            apiName: string;
+            description: string;
+            errorField?: string;
+            errorMessage: string;
+            expression: string;
+            label: string;
+            objectApiName: string;
+            /** Format: int64 */
+            version: number;
+        };
+        /** @description A condition, or a group of conditions combined with all (AND) or any (OR). */
+        VisibilityInner: ({
+            ability?: string;
+            all?: components["schemas"]["VisibilityLeaf"][];
+            any?: components["schemas"]["VisibilityLeaf"][];
+            field?: components["schemas"]["FieldNameShape"];
+            /** @enum {string} */
+            operator?: "EQUALS" | "NOT_EQUALS" | "IS_EMPTY" | "IS_NOT_EMPTY";
+            value?: string | number | boolean;
+        } & (unknown & unknown)) & (unknown | unknown | unknown | unknown);
+        /** @description One condition: a field compared with a value, or the person holding an ability. */
+        VisibilityLeaf: ({
+            ability?: string;
+            field?: components["schemas"]["FieldNameShape"];
+            /** @enum {string} */
+            operator?: "EQUALS" | "NOT_EQUALS" | "IS_EMPTY" | "IS_NOT_EMPTY";
+            value?: string | number | boolean;
+        } & (unknown & unknown & unknown)) & (unknown | unknown);
+        /** @description When a component or an action is shown. Closed data, never text that is evaluated: a condition, or all/any of conditions, nested once. The expression engine of Sprint 13 may add to this list, never replace it. */
+        VisibilityRule: ({
+            ability?: string;
+            all?: components["schemas"]["VisibilityInner"][];
+            any?: components["schemas"]["VisibilityInner"][];
+            field?: components["schemas"]["FieldNameShape"];
+            /** @enum {string} */
+            operator?: "EQUALS" | "NOT_EQUALS" | "IS_EMPTY" | "IS_NOT_EMPTY";
+            value?: string | number | boolean;
+        } & (unknown & unknown)) & (unknown | unknown | unknown | unknown);
     };
     responses: never;
     parameters: never;
@@ -2854,6 +4228,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDataAccessView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getMyApplications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListMyApplicationView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -4389,6 +5792,540 @@ export interface operations {
             };
         };
     };
+    listApplicationDefinitions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListApplicationView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApplicationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApplicationView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getApplicationDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApplicationView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateApplicationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApplicationView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listChangeSets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListChangeSetView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createChangeSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateChangeSetRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeSetView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getChangeSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeSetView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    discardChangeSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    addChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeSetView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    removeChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                changeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeSetView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    previewChangeSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeSetReportView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    publishChangeSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeSetView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    validateChangeSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeSetReportView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    checkExpression: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckExpressionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseExpressionCheckView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listExpressionFunctions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListFunctionView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    testExpression: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestExpressionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseExpressionTestView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     listFieldTypes: {
         parameters: {
             query?: never;
@@ -4405,6 +6342,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseListFieldTypeView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listInvalidStoredFormulas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListFormulaReportItemView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -4664,6 +6630,1313 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    testFormulaField: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                fieldApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestValuesRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseExpressionTestView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listLayoutAssignments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListLayoutAssignmentView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createLayoutAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLayoutAssignmentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseLayoutAssignmentView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getLayoutAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseLayoutAssignmentView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateLayoutAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLayoutAssignmentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseLayoutAssignmentView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteLayoutAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    resolveLayout: {
+        parameters: {
+            query?: {
+                profileId?: string;
+                recordType?: string;
+            };
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseLayoutResolutionView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listLayouts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListLayoutView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLayoutRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseLayoutView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                layoutApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseLayoutView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                layoutApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLayoutRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseLayoutView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                layoutApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listRecordPages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListRecordPageView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createRecordPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRecordPageRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordPageView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getRecordPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                pageApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordPageView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateRecordPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                pageApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRecordPageRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordPageView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteRecordPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                pageApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listRecordTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListRecordTypeView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createRecordType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRecordTypeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordTypeView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getRecordType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                recordTypeApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordTypeView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateRecordType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                recordTypeApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRecordTypeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordTypeView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteRecordType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                recordTypeApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getObjectRelationships: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseObjectRelationshipsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listValidationRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListValidationRuleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createValidationRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateValidationRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseValidationRuleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getValidationRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                ruleApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseValidationRuleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateValidationRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                ruleApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateValidationRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseValidationRuleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteValidationRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                ruleApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    testValidationRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                ruleApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestValuesRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseExpressionTestView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listReleases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListReleaseView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    rollbackLatestRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseReleaseView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    checkRollback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeSetReportView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listRecords: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiPageResponseRecordView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRecordRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRecordRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listDeletedRecords: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiPageResponseRecordView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    purgeRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    restoreRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordView"];
+                };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {

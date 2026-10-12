@@ -1,5 +1,7 @@
 package app.platform.metadata.internal;
 
+import app.platform.expression.ExpressionEngine;
+import app.platform.expression.Limits;
 import app.platform.metadata.DefinitionKind;
 import app.platform.metadata.FieldDefinition;
 import app.platform.metadata.FieldType;
@@ -38,12 +40,15 @@ final class StandardMetadataLoader {
     static final String SYSTEM_FIELDS_FILE = "_system-fields.yml";
 
     /** The parts of the platform that may own the records of a standard object. */
-    static final Set<String> OWNERS = Set.of("identity", "security", "licensing");
+    static final Set<String> OWNERS = Set.of("identity", "security", "licensing", "metadata");
 
     private static final Pattern OBJECT_NAME = Pattern.compile("[A-Z][A-Za-z0-9]{0,39}");
     private static final Pattern FIELD_NAME = Pattern.compile("[a-z][A-Za-z0-9]{0,39}");
     private static final int MAX_FIELDS = 200;
     private static final int MAX_PICKLIST_VALUES = 1000;
+
+    /** Reads the text of a formula a definition file might hold; stateless, so one engine serves every read. */
+    private static final ExpressionEngine SYNTAX = new ExpressionEngine(Limits.standard());
 
     private static final Set<String> OBJECT_KEYS = Set.of("apiName", "label", "pluralLabel", "description",
             "managedBy", "extensible", "fields");
@@ -51,7 +56,8 @@ final class StandardMetadataLoader {
     private static final Set<String> FIELD_KEYS = Set.of("apiName", "label", "description", "type", "required",
             "unique", "default", "settings", "retired");
     private static final Set<String> SETTING_KEYS = Set.of("maxLength", "digits", "precision", "scale", "values",
-            "targetObject", "expression", "resultType", "prefix", "startAt", "width");
+            "targetObject", "expression", "resultType", "prefix", "startAt", "width", "onDelete", "reparentable",
+            "listLabel");
     private static final Set<String> VALUE_KEYS = Set.of("value", "label", "active");
 
     private StandardMetadataLoader() {
@@ -192,7 +198,7 @@ final class StandardMetadataLoader {
                     .orElseThrow(() -> new IllegalStateException(where + ": 'type' is not a field type"));
             FieldSettings settings = settings(node);
             FieldRules.Context context = new FieldRules.Context(objectNames::contains, objectApiName, true, 0,
-                    MAX_PICKLIST_VALUES);
+                    MAX_PICKLIST_VALUES, SYNTAX);
             FieldRules.Checked checked;
             try {
                 checked = FieldRules.check(type, node.flag("required", false), node.flag("unique", false),
@@ -221,7 +227,9 @@ final class StandardMetadataLoader {
                     node.optionalInteger("precision"), node.optionalInteger("scale"), values,
                     node.optionalText("targetObject"), node.optionalText("expression"),
                     node.optionalText("resultType"), node.optionalText("prefix"), node.optionalLong("startAt"),
-                    node.optionalInteger("width"));
+                    node.optionalInteger("width"), node.optionalText("onDelete"),
+                    node.has("reparentable") ? node.flag("reparentable", false) : null,
+                    node.optionalText("listLabel"));
         }
 
         private static String limited(YamlNode node, String key, int max) {

@@ -264,6 +264,140 @@ describe("ObjectDetailPanel", () => {
     expect(calls.some((call) => call.key === "DELETE /api/v1/metadata/objects/Employee__c")).toBe(true);
   });
 
+  it("asks for what happens to a record when the other record is removed, and for the list label, from the type", async () => {
+    const calls = fakeApi(
+      answers(EMPLOYEE, {
+        "GET /api/v1/metadata/field-types": () =>
+          json({
+            data: [
+              ...TYPES.data,
+              { type: "REF", label: "Link", description: "A link.", settings: ["targetObject", "onDelete", "listLabel"], allowsRequired: true, allowsUnique: true, allowsDefault: false, calculated: false, formulaResult: false },
+              { type: "OWNED", label: "Owned link", description: "A link to the owner.", settings: ["targetObject", "reparentable", "listLabel"], allowsRequired: false, allowsUnique: true, allowsDefault: false, calculated: false, formulaResult: false },
+            ],
+          }),
+        "POST /api/v1/metadata/objects/Employee__c/fields": () => json({ data: CODE_FIELD }, 201),
+      }),
+    );
+    render(<ObjectDetailPanel />);
+    await screen.findAllByTestId("field-row");
+
+    fireEvent.change(addForm().getByLabelText("Type"), { target: { value: "REF" } });
+    expect(addForm().queryByLabelText("A record may be moved to another master")).toBeNull();
+    fireEvent.change(addForm().getByLabelText("Name"), { target: { value: "department" } });
+    fireEvent.change(addForm().getByLabelText("Label"), { target: { value: "Department" } });
+    fireEvent.change(addForm().getByLabelText("Points to"), { target: { value: "Account" } });
+    fireEvent.change(addForm().getByLabelText("When the other record is removed"), { target: { value: "REFUSE" } });
+    fireEvent.change(addForm().getByLabelText("Label of the list on the other object"), { target: { value: "Staff" } });
+    fireEvent.click(addForm().getByLabelText(/Unique/));
+    fireEvent.click(addForm().getByRole("button", { name: "Add the field" }));
+
+    await screen.findByTestId("object-notice");
+    const sent = JSON.parse(calls.find((call) => call.key.startsWith("POST"))?.body ?? "{}");
+    expect(sent.unique).toBe(true);
+    expect(sent.settings).toEqual({ targetObject: "Account", onDelete: "REFUSE", listLabel: "Staff" });
+
+    fireEvent.change(addForm().getByLabelText("Type"), { target: { value: "OWNED" } });
+    expect(addForm().queryByLabelText("When the other record is removed")).toBeNull();
+    fireEvent.click(addForm().getByLabelText("A record may be moved to another master"));
+    fireEvent.click(addForm().getByRole("button", { name: "Add the field" }));
+    await vi.waitFor(() => expect(calls.filter((call) => call.key.startsWith("POST"))).toHaveLength(2));
+    const second = JSON.parse(calls.filter((call) => call.key.startsWith("POST"))[1]?.body ?? "{}");
+    expect(second.settings.reparentable).toBe(true);
+    expect(second.settings.onDelete).toBeUndefined();
+  });
+
+  it("records a change in the chosen change set instead of making it live", async () => {
+    window.sessionStorage.setItem("platform.workingChangeSet", "set-1");
+    const calls = fakeApi(
+      answers(EMPLOYEE, {
+        "POST /api/v1/metadata/change-sets/set-1/changes": () => json({ data: {} }, 201),
+        "DELETE /api/v1/metadata/objects/Employee__c/fields/code__c": () => new Response(null, { status: 204 }),
+      }),
+    );
+    render(<ObjectDetailPanel />);
+    const rows = await screen.findAllByTestId("field-row");
+
+    fireEvent.click(within(rows[1] as HTMLElement).getByRole("button", { name: "Remove" }));
+
+    expect(await screen.findByTestId("object-notice")).toHaveTextContent("goes live when the set is published");
+    expect(calls.some((call) => call.key.startsWith("DELETE"))).toBe(false);
+    const sent = JSON.parse(calls.find((call) => call.key.endsWith("/changes"))?.body ?? "{}");
+    expect(sent).toEqual({ kind: "DELETE_FIELD", objectApiName: "Employee__c", itemApiName: "code__c" });
+    window.sessionStorage.clear();
+  });
+
+  it("shows the relationships and the record types of the object", async () => {
+    fakeApi(
+      answers(EMPLOYEE, {
+        "GET /api/v1/metadata/objects/Employee__c/relationships": () =>
+          json({ data: { parents: [], children: [], manyToMany: [] } }),
+        "GET /api/v1/metadata/objects/Employee__c/record-types": () => json({ data: [] }),
+      }),
+    );
+    render(<ObjectDetailPanel />);
+
+    expect(await screen.findByRole("heading", { name: "Relationships" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Record types" })).toBeInTheDocument();
+  });
+
+  it("says in the API's words when removing a field is refused because a record type needs it", async () => {
+    fakeApi(
+      answers(EMPLOYEE, {
+        "DELETE /api/v1/metadata/objects/Employee__c/fields/code__c": () =>
+          refusal(
+            "CONFLICT",
+            "record type Remote__c of Employee__c offers field Employee__c.code__c, which does not exist after this change.",
+            409,
+          ),
+      }),
+    );
+    render(<ObjectDetailPanel />);
+    const rows = await screen.findAllByTestId("field-row");
+
+    fireEvent.click(within(rows[1] as HTMLElement).getByRole("button", { name: "Remove" }));
+
+    expect(await screen.findByTestId("object-problem")).toHaveTextContent("record type Remote__c of Employee__c offers field");
+  });
+
+  it("says in the API's words that a stored formula is not valid and is not calculated", async () => {
+    const formula = {
+      ...CODE_FIELD,
+      apiName: "total__c",
+      label: "Total",
+      type: "FORMULA",
+      required: false,
+      settings: { expression: "quantity * 2 +", resultType: "TEXT" },
+      problem: "Line 1, column 15: The expression ends where a value is missing.",
+    };
+    fakeApi(answers({ ...EMPLOYEE, fields: [SYSTEM_FIELD, formula] }));
+    render(<ObjectDetailPanel />);
+
+    const note = await screen.findByTestId("formula-problem");
+
+    expect(note).toHaveTextContent("This formula is not valid, so it is not calculated.");
+    expect(note).toHaveTextContent("Line 1, column 15: The expression ends where a value is missing.");
+  });
+
+  it("offers to check a formula when the type Formula is chosen and asks the API", async () => {
+    const calls = fakeApi(
+      answers(EMPLOYEE, {
+        "POST /api/v1/metadata/expressions/check": () =>
+          json({ data: { valid: true, type: "TEXT", fields: ["code__c"], usesClock: false } }),
+      }),
+    );
+    render(<ObjectDetailPanel />);
+    await screen.findAllByTestId("field-row");
+
+    fireEvent.change(addForm().getByLabelText("Type"), { target: { value: "FORMULA" } });
+    fireEvent.change(addForm().getByLabelText("Formula"), { target: { value: "code__c" } });
+    fireEvent.change(addForm().getByLabelText("Result"), { target: { value: "TEXT" } });
+    fireEvent.click(addForm().getByRole("button", { name: "Check the formula" }));
+
+    expect(await screen.findByTestId("formula-check-valid")).toHaveTextContent("It is valid. It gives text.");
+    const sent = JSON.parse(calls.find((call) => call.key === "POST /api/v1/metadata/expressions/check")?.body ?? "{}");
+    expect(sent).toEqual({ objectApiName: "Employee__c", expression: "code__c", purpose: "FORMULA", resultType: "TEXT" });
+  });
+
   it("shows what the API answered for an object that does not exist", async () => {
     state.object = "Ghost__c";
     fakeApi({

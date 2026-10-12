@@ -171,6 +171,23 @@ The base of a member's access, meaning the licence they hold and the abilities a
 | `isSystem` | System profile | BOOLEAN |  |  |  |
 | `isDefault` | Default profile | BOOLEAN |  |  |  |
 
+## RecordType
+
+A variant of an object with its own available fields and picklist values.
+
+- Label: Record type / Record types
+- Records managed by: metadata
+- Own fields: no
+
+| API name | Label | Type | Required | Unique | Details |
+|----------|-------|------|----------|--------|---------|
+| `label` | Record type name | TEXT | yes |  | up to 80 characters |
+| `apiName` | API name | TEXT | yes |  | up to 60 characters |
+| `objectApiName` | Object | TEXT | yes |  | up to 60 characters |
+| `active` | Active | BOOLEAN |  |  |  |
+| `isDefault` | Default | BOOLEAN |  |  |  |
+| `layoutRef` | Page layout | TEXT |  |  | up to 120 characters |
+
 ## Role
 
 A place in the role hierarchy. It decides which records a member can see, never what they may do.

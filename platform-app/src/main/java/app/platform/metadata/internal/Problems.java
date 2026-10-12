@@ -32,6 +32,14 @@ final class Problems {
         }
     }
 
+    /** Keeps one problem about a place (a field of the request or a path inside a definition). */
+    void add(String field, String text) {
+        List<String> kept = found.computeIfAbsent(field, key -> new ArrayList<>());
+        if (!kept.contains(text)) {
+            kept.add(text);
+        }
+    }
+
     /** Whether any check has refused so far. */
     boolean any() {
         return !found.isEmpty();

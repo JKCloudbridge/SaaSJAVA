@@ -62,6 +62,16 @@ own settings so they can be raised later, and must not become a way to exhaust t
 8. **Changing a password** needs the current one, is rate limited (it would otherwise be a way to guess the current password with a
    stolen session), and ends every session and token of the user, including the one that made the change.
 
+## Amendment (2026-10-10): composition rules added, minimum length lowered
+
+The product owner reviewed decision 5 and chose to require composition rules after all, against the recommendation in this ADR and
+repeated at the time of the change. The policy is now: **at least 9** and at most 128 characters; **at least one upper case letter, one
+lower case letter, one digit and one symbol are mandatory**; the common-password list, the address check and the "must differ from the
+current password" rule are unchanged. The reasoning in decision 5 (composition rules push people toward predictable, guessable patterns
+without making passwords meaningfully stronger; NIST 800-63B recommends length over composition) still stands as a record of the
+trade-off that was knowingly accepted, not as the rule actually enforced. `infra/local/init-env.ps1` was updated so the generated
+`LOCAL_SEED_PASSWORD` always satisfies the new rule (a plain base64 string will not reliably contain a symbol).
+
 ## Consequences
 
 - A sign-in costs about 175 ms of CPU on the instance, the same for every outcome (ADR-0021).

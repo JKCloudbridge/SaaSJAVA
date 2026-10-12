@@ -26,6 +26,86 @@ const FIELD_NAMES: Record<string, string> = {
   "settings.prefix": "Prefix",
   "settings.startAt": "First number",
   "settings.width": "Width",
+  "settings.onDelete": "When the other record is removed",
+  "settings.reparentable": "Moving to another master",
+  "settings.listLabel": "List label",
+  availableFields: "Available fields",
+  picklistSubsets: "Picklist values",
+  defaultType: "Default",
+  active: "Active",
+  problems: "Problem",
+  dependencies: "Needed by",
+  layout: "Layout",
+  profileId: "Profile",
+  recordType: "Record type",
+  definition: "Definition",
+  expression: "Condition",
+  errorMessage: "Message",
+  errorField: "Field of the message",
+};
+
+/**
+ * The place a problem is about. A problem inside a definition arrives under its path (for example
+ * {@code definition.sections[1].fields[0].behaviour}); the path is shown as it is, without its first word, because it is
+ * the one thing that tells the person where to look.
+ */
+function placeOf(field: string): string {
+  if (field.startsWith("definition.")) {
+    return field.slice("definition.".length);
+  }
+  return FIELD_NAMES[field] ?? field;
+}
+
+/** What happens to a record that points at a removed one, in words, for the two choices of a lookup and the master-detail. */
+export const ON_DELETE_TEXT: Record<string, string> = {
+  CLEAR: "the link is emptied",
+  REFUSE: "the removal is refused",
+  CASCADE: "the record is removed too",
+};
+
+/** The words for the kinds of change and the actions in the history, from what the API sent. */
+export const CHANGE_KIND_TEXT: Record<string, string> = {
+  CREATE_OBJECT: "Create object",
+  UPDATE_OBJECT: "Change object",
+  DELETE_OBJECT: "Remove object",
+  CREATE_FIELD: "Add field",
+  UPDATE_FIELD: "Change field",
+  DELETE_FIELD: "Remove field",
+  CREATE_RECORD_TYPE: "Add record type",
+  UPDATE_RECORD_TYPE: "Change record type",
+  DELETE_RECORD_TYPE: "Remove record type",
+  CREATE_LAYOUT: "Add page layout",
+  UPDATE_LAYOUT: "Change page layout",
+  DELETE_LAYOUT: "Remove page layout",
+  CREATE_RECORD_PAGE: "Add record page",
+  UPDATE_RECORD_PAGE: "Change record page",
+  DELETE_RECORD_PAGE: "Remove record page",
+  CREATE_APPLICATION: "Add application",
+  UPDATE_APPLICATION: "Change application",
+  DELETE_APPLICATION: "Remove application",
+  CREATE_LAYOUT_ASSIGNMENT: "Choose a layout",
+  UPDATE_LAYOUT_ASSIGNMENT: "Change a layout choice",
+  DELETE_LAYOUT_ASSIGNMENT: "Remove a layout choice",
+  CREATE_VALIDATION_RULE: "Add validation rule",
+  UPDATE_VALIDATION_RULE: "Change validation rule",
+  DELETE_VALIDATION_RULE: "Remove validation rule",
+};
+
+export const ACTION_TEXT: Record<string, string> = { ADDED: "Added", CHANGED: "Changed", REMOVED: "Removed" };
+export const ITEM_TEXT: Record<string, string> = {
+  OBJECT: "object",
+  FIELD: "field",
+  RECORD_TYPE: "record type",
+  LAYOUT: "page layout",
+  RECORD_PAGE: "record page",
+  APPLICATION: "application",
+  LAYOUT_ASSIGNMENT: "layout choice",
+  VALIDATION_RULE: "validation rule",
+};
+export const RELEASE_KIND_TEXT: Record<string, string> = {
+  QUICK: "A change made at once",
+  CHANGE_SET: "A change set",
+  ROLLBACK: "A rollback",
 };
 
 /**
@@ -35,7 +115,7 @@ const FIELD_NAMES: Record<string, string> = {
 export function problemText(error: unknown, response: Response): string {
   const failure = failureFromResponse(error, response);
   const lines = Object.entries(failure.fields ?? {}).flatMap(([field, problems]) =>
-    problems.map((problem) => `${FIELD_NAMES[field] ?? field}: ${problem}`),
+    problems.map((problem) => `${placeOf(field)}: ${problem}`),
   );
   return lines.length > 0 ? `${failure.message} ${lines.join(" ")}` : failure.message;
 }
@@ -58,6 +138,12 @@ export function settingsSummary(field: FieldView): string {
   }
   if (s.targetObject) {
     parts.push(`points to ${s.targetObject}`);
+  }
+  if (s.onDelete) {
+    parts.push(`when it is removed: ${ON_DELETE_TEXT[s.onDelete] ?? s.onDelete}`);
+  }
+  if (s.reparentable) {
+    parts.push("may move to another master");
   }
   if (s.expression) {
     parts.push(`result: ${s.resultType ?? "text"}`);

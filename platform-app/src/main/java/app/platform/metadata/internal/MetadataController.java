@@ -7,6 +7,7 @@ import app.platformapi.CreateFieldRequest;
 import app.platformapi.CreateObjectRequest;
 import app.platformapi.FieldTypeView;
 import app.platformapi.FieldView;
+import app.platformapi.ObjectRelationshipsView;
 import app.platformapi.ObjectSummaryView;
 import app.platformapi.ObjectView;
 import app.platformapi.UpdateFieldRequest;
@@ -37,12 +38,22 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Metadata")
 class MetadataController {
 
+    /** A change made at once is a publication of one change, so it needs both abilities (ADR-0068). */
+    private static final List<Ability> LIVE = List.of(Ability.METADATA_MANAGE, Ability.METADATA_PUBLISH);
+
     private final MetadataService service;
     private final MetadataAdministration administration;
+    private final MetadataLifecycle lifecycle;
+    private final ChangeCodec codec;
+    private final Relationships relationships;
 
-    MetadataController(MetadataService service, MetadataAdministration administration) {
+    MetadataController(MetadataService service, MetadataAdministration administration, MetadataLifecycle lifecycle,
+            ChangeCodec codec, Relationships relationships) {
         this.service = service;
         this.administration = administration;
+        this.lifecycle = lifecycle;
+        this.codec = codec;
+        this.relationships = relationships;
     }
 
     @GetMapping(ApiPaths.METADATA_FIELD_TYPES)
@@ -74,8 +85,8 @@ class MetadataController {
             description = "The name is turned into the permanent API name with the ending __c. VALIDATION_ERROR for a "
                     + "name in use or not allowed, CONFLICT at the limit of objects. Audited.")
     ResponseEntity<ApiResponse<ObjectView>> create(@Valid @RequestBody CreateObjectRequest body) {
-        ObjectView created = administration.run("metadata.object.create", Ability.METADATA_MANAGE,
-                caller -> service.createObject(caller, body));
+        ObjectView created = administration.runAll("metadata.object.create", LIVE, caller -> lifecycle.applyNow(
+                caller, codec.now(Change.Kind.CREATE_OBJECT, body.name(), null, body), ObjectView.class));
         return ResponseEntity.status(HttpStatus.CREATED).header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .body(ApiResponse.of(created));
     }
@@ -98,8 +109,8 @@ class MetadataController {
             description = "The API name never changes. FORBIDDEN for an object the platform defines, "
                     + "CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.")
     ApiResponse<ObjectView> update(@PathVariable String objectApiName, @Valid @RequestBody UpdateObjectRequest body) {
-        return ApiResponse.of(administration.run("metadata.object.update", Ability.METADATA_MANAGE,
-                caller -> service.updateObject(caller, objectApiName, body)));
+        return ApiResponse.of(administration.runAll("metadata.object.update", LIVE, caller -> lifecycle.applyNow(
+                caller, codec.now(Change.Kind.UPDATE_OBJECT, objectApiName, null, body), ObjectView.class)));
     }
 
     @DeleteMapping(ApiPaths.METADATA_OBJECTS + "/{objectApiName}")
@@ -109,11 +120,22 @@ class MetadataController {
             description = "The permissions on the object and its fields end with it. CONFLICT while fields of other "
                     + "objects point to it or it has records. FORBIDDEN for an object the platform defines. Audited.")
     ResponseEntity<Void> delete(@PathVariable String objectApiName) {
-        administration.run("metadata.object.delete", Ability.METADATA_MANAGE, caller -> {
-            service.deleteObject(caller, objectApiName);
-            return Boolean.TRUE;
-        });
+        administration.runAll("metadata.object.delete", LIVE, caller -> lifecycle.applyNow(caller,
+                codec.now(Change.Kind.DELETE_OBJECT, objectApiName, null, null), Boolean.class));
         return ResponseEntity.noContent().header(HttpHeaders.CACHE_CONTROL, "no-store").build();
+    }
+
+    @GetMapping(ApiPaths.METADATA_OBJECTS + "/{objectApiName}/relationships")
+    @Operation(
+            operationId = "getObjectRelationships",
+            summary = "The relationships of an object, in both directions",
+            description = "The objects this one points at (parents), the lists of other objects that point at it "
+                    + "(children), and the objects related through a junction object (many-to-many). Read from the "
+                    + "lookup and master-detail fields, with what happens to a child when its parent is removed. "
+                    + "NOT_FOUND for an object the organization does not have.")
+    ApiResponse<ObjectRelationshipsView> relationships(@PathVariable String objectApiName) {
+        return ApiResponse.of(administration.run("metadata.view", Ability.METADATA_VIEW,
+                caller -> relationships.of(objectApiName)));
     }
 
     @PostMapping(ApiPaths.METADATA_OBJECTS + "/{objectApiName}/fields")
@@ -125,8 +147,8 @@ class MetadataController {
                     + "settings and its constraints. Audited.")
     ResponseEntity<ApiResponse<FieldView>> createField(@PathVariable String objectApiName,
             @Valid @RequestBody CreateFieldRequest body) {
-        FieldView created = administration.run("metadata.field.create", Ability.METADATA_MANAGE,
-                caller -> service.createField(caller, objectApiName, body));
+        FieldView created = administration.runAll("metadata.field.create", LIVE, caller -> lifecycle.applyNow(caller,
+                codec.now(Change.Kind.CREATE_FIELD, objectApiName, null, body), FieldView.class));
         return ResponseEntity.status(HttpStatus.CREATED).header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .body(ApiResponse.of(created));
     }
@@ -140,8 +162,8 @@ class MetadataController {
                     + "since it was read. Audited.")
     ApiResponse<FieldView> updateField(@PathVariable String objectApiName, @PathVariable String fieldApiName,
             @Valid @RequestBody UpdateFieldRequest body) {
-        return ApiResponse.of(administration.run("metadata.field.update", Ability.METADATA_MANAGE,
-                caller -> service.updateField(caller, objectApiName, fieldApiName, body)));
+        return ApiResponse.of(administration.runAll("metadata.field.update", LIVE, caller -> lifecycle.applyNow(
+                caller, codec.now(Change.Kind.UPDATE_FIELD, objectApiName, fieldApiName, body), FieldView.class)));
     }
 
     @DeleteMapping(ApiPaths.METADATA_OBJECTS + "/{objectApiName}/fields/{fieldApiName}")
@@ -151,10 +173,8 @@ class MetadataController {
             description = "The permissions on the field end with it. FORBIDDEN for a field the platform defines. "
                     + "Audited.")
     ResponseEntity<Void> deleteField(@PathVariable String objectApiName, @PathVariable String fieldApiName) {
-        administration.run("metadata.field.delete", Ability.METADATA_MANAGE, caller -> {
-            service.deleteField(caller, objectApiName, fieldApiName);
-            return Boolean.TRUE;
-        });
+        administration.runAll("metadata.field.delete", LIVE, caller -> lifecycle.applyNow(caller,
+                codec.now(Change.Kind.DELETE_FIELD, objectApiName, fieldApiName, null), Boolean.class));
         return ResponseEntity.noContent().header(HttpHeaders.CACHE_CONTROL, "no-store").build();
     }
 }

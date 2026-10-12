@@ -3,6 +3,9 @@ package app.platform.metadata.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import app.platform.expression.ExpressionEngine;
+import app.platform.expression.Limits;
+import app.platform.metadata.DeleteBehaviour;
 import app.platform.metadata.FieldConfiguration;
 import app.platform.metadata.FieldConfiguration.AutoNumberConfiguration;
 import app.platform.metadata.FieldConfiguration.DecimalConfiguration;
@@ -27,10 +30,11 @@ import org.junit.jupiter.params.provider.MethodSource;
 class FieldRulesTest {
 
     private static final Set<String> OBJECTS = Set.of("Account", "Employee__c");
+    private static final ExpressionEngine ENGINE = new ExpressionEngine(Limits.standard());
     private static final FieldRules.Context CUSTOM_OBJECT = new FieldRules.Context(OBJECTS::contains, "Employee__c",
-            true, 0, 1000);
+            true, 0, 1000, ENGINE);
     private static final FieldRules.Context STANDARD_OBJECT = new FieldRules.Context(OBJECTS::contains, "Account",
-            false, 0, 1000);
+            false, 0, 1000, ENGINE);
 
     private static FieldSettings text(Integer maxLength) {
         return new FieldSettings(maxLength, null, null, null, null, null, null, null, null, null, null);
@@ -192,7 +196,7 @@ class FieldRulesTest {
                 .containsKey("settings.values");
         assertThat(problems(FieldType.PICKLIST, false, false, null, picklist(option(" ", true)), CUSTOM_OBJECT))
                 .containsKey("settings.values");
-        FieldRules.Context small = new FieldRules.Context(OBJECTS::contains, "Employee__c", true, 0, 2);
+        FieldRules.Context small = new FieldRules.Context(OBJECTS::contains, "Employee__c", true, 0, 2, ENGINE);
         assertThat(problems(FieldType.PICKLIST, false, false, null,
                 picklist(option("A", true), option("B", true), option("C", true)), small))
                 .containsKey("settings.values");
@@ -222,25 +226,72 @@ class FieldRulesTest {
                 .containsKey("settings.targetObject");
         assertThat(problems(FieldType.MASTER_DETAIL, false, false, null, target("Account"), STANDARD_OBJECT))
                 .containsKey("type");
-        FieldRules.Context full = new FieldRules.Context(OBJECTS::contains, "Employee__c", true, 2, 1000);
+        FieldRules.Context full = new FieldRules.Context(OBJECTS::contains, "Employee__c", true, 2, 1000, ENGINE);
         assertThat(problems(FieldType.MASTER_DETAIL, false, false, null, target("Account"), full))
                 .containsKey("type");
     }
 
-    @Test
-    void aFormulaIsStoredAsTextWithAResultTypeAndNothingIsRun() {
-        FieldRules.Checked checked = FieldRules.check(FieldType.FORMULA, false, false, null,
-                new FieldSettings(null, null, null, null, null, null, "  quantity * unitPrice  ", "CURRENCY", null,
-                        null, null), CUSTOM_OBJECT);
+    private static FieldSettings formula(String expression, String resultType) {
+        return new FieldSettings(null, null, null, null, null, null, expression, resultType, null, null, null);
+    }
 
-        assertThat(checked.configuration()).isEqualTo(new FormulaConfiguration("quantity * unitPrice",
-                FieldType.CURRENCY));
-        assertThat(problems(FieldType.FORMULA, false, false, null,
-                new FieldSettings(null, null, null, null, null, null, "1", "PICKLIST", null, null, null),
-                CUSTOM_OBJECT)).containsKey("settings.resultType");
-        assertThat(problems(FieldType.FORMULA, false, false, null,
-                new FieldSettings(null, null, null, null, null, null, " ", "NUMBER", null, null, null),
-                CUSTOM_OBJECT)).containsKey("settings.expression");
+    @Test
+    void aFormulaIsReadByTheGrammarStoredAsVerifiedAndNothingIsRun() {
+        FieldRules.Checked checked = FieldRules.check(FieldType.FORMULA, false, false, null,
+                formula("  quantity__c * unitPrice__c  ", "CURRENCY"), CUSTOM_OBJECT);
+
+        assertThat(checked.configuration()).isEqualTo(new FormulaConfiguration("quantity__c * unitPrice__c",
+                FieldType.CURRENCY, true));
+        assertThat(problems(FieldType.FORMULA, false, false, null, formula("1", "PICKLIST"), CUSTOM_OBJECT))
+                .containsKey("settings.resultType");
+        assertThat(problems(FieldType.FORMULA, false, false, null, formula(" ", "NUMBER"), CUSTOM_OBJECT))
+                .containsKey("settings.expression");
+    }
+
+    @Test
+    void aFormulaThatBreaksTheGrammarIsRefusedWithThePlaceAndWithoutRepeatingTheText() {
+        Map<String, List<String>> problems = problems(FieldType.FORMULA, false, false, null,
+                formula("quantity__c *\n  'secret-text-123' +", "NUMBER"), CUSTOM_OBJECT);
+
+        assertThat(problems).containsOnlyKeys("settings.expression");
+        assertThat(problems.get("settings.expression")).singleElement().asString()
+                .startsWith("Line 2, column ").doesNotContain("secret-text-123");
+        assertThat(problems(FieldType.FORMULA, false, false, null, formula("a.b()", "TEXT"), CUSTOM_OBJECT))
+                .containsKey("settings.expression");
+        assertThat(problems(FieldType.FORMULA, false, false, null, formula("x = 1; y = 2", "TEXT"), CUSTOM_OBJECT))
+                .containsKey("settings.expression");
+    }
+
+    @Test
+    void aFormulaMayNotAskForTheClockBecauseAStoredValueWouldGoStale() {
+        Map<String, List<String>> problems = problems(FieldType.FORMULA, false, false, null,
+                formula("closeDate__c < TODAY()", "BOOLEAN"), CUSTOM_OBJECT);
+
+        assertThat(problems.get("settings.expression")).singleElement().asString().contains("TODAY")
+                .contains("formula");
+        assertThat(problems(FieldType.FORMULA, false, false, null, formula("NOW()", "DATETIME"), CUSTOM_OBJECT))
+                .containsKey("settings.expression");
+    }
+
+    @Test
+    void theTypeAFormulaGivesCannotChangeOnceTheFieldExists() {
+        FormulaConfiguration before = new FormulaConfiguration("1 + 1", FieldType.NUMBER, true);
+
+        assertThatThrownBy(() -> FieldRules.checkChange(FieldType.FORMULA, before, false, false, null,
+                formula("1 + 1", "TEXT"), CUSTOM_OBJECT)).isInstanceOfSatisfying(ApiException.class,
+                e -> assertThat(e.fields()).containsKey("settings.resultType"));
+        assertThat(FieldRules.checkChange(FieldType.FORMULA, before, false, false, null, formula("2 + 2", "NUMBER"),
+                CUSTOM_OBJECT).configuration()).isEqualTo(new FormulaConfiguration("2 + 2", FieldType.NUMBER, true));
+    }
+
+    @Test
+    void aStoredFormulaThatWasNeverCheckedBecomesVerifiedWhenItIsSavedAgain() {
+        FormulaConfiguration stored = new FormulaConfiguration("quantity * unitPrice", FieldType.NUMBER);
+
+        assertThat(stored.verified()).isFalse();
+        assertThat(FieldRules.checkChange(FieldType.FORMULA, stored, false, false, null,
+                formula("quantity__c * unitPrice__c", "NUMBER"), CUSTOM_OBJECT).configuration())
+                .isEqualTo(new FormulaConfiguration("quantity__c * unitPrice__c", FieldType.NUMBER, true));
     }
 
     @Test
@@ -284,6 +335,80 @@ class FieldRulesTest {
                 .satisfies(e -> assertThat(((ApiException) e).fields()).containsKey("settings.targetObject"));
         assertThat(FieldRules.checkChange(FieldType.LOOKUP, before, true, false, null, target("Account"),
                 CUSTOM_OBJECT).required()).isTrue();
+    }
+
+    // ---- relationship behaviour (ADR-0063) ----
+
+    private static FieldSettings behaviour(String onDelete, Boolean reparentable, String listLabel) {
+        return FieldSettings.reference("Account", onDelete, reparentable, listLabel);
+    }
+
+    @Test
+    void aLookupClearsByDefaultAndAMasterDetailAlwaysCascades() {
+        assertThat(((ReferenceConfiguration) FieldRules.check(FieldType.LOOKUP, false, false, null, target("Account"),
+                CUSTOM_OBJECT).configuration()).onDelete()).isEqualTo(DeleteBehaviour.CLEAR);
+        assertThat(((ReferenceConfiguration) FieldRules.check(FieldType.MASTER_DETAIL, false, false, null,
+                target("Account"), CUSTOM_OBJECT).configuration()).onDelete()).isEqualTo(DeleteBehaviour.CASCADE);
+    }
+
+    @Test
+    void aLookupMayRefuseButNeverCascadeAndTheWordsMustBeKnown() {
+        assertThat(((ReferenceConfiguration) FieldRules.check(FieldType.LOOKUP, false, false, null,
+                behaviour("REFUSE", null, null), CUSTOM_OBJECT).configuration()).onDelete())
+                .isEqualTo(DeleteBehaviour.REFUSE);
+        assertThat(problems(FieldType.LOOKUP, false, false, null, behaviour("CASCADE", null, null), CUSTOM_OBJECT))
+                .containsKey("settings.onDelete");
+        assertThat(problems(FieldType.LOOKUP, false, false, null, behaviour("keep", null, null), CUSTOM_OBJECT))
+                .containsKey("settings.onDelete");
+    }
+
+    @Test
+    void aRequiredLookupRefusesByDefaultAndCannotClear() {
+        assertThat(((ReferenceConfiguration) FieldRules.check(FieldType.LOOKUP, true, false, null, target("Account"),
+                CUSTOM_OBJECT).configuration()).onDelete()).isEqualTo(DeleteBehaviour.REFUSE);
+        assertThat(problems(FieldType.LOOKUP, true, false, null, behaviour("CLEAR", null, null), CUSTOM_OBJECT))
+                .containsEntry("settings.onDelete", List.of("A required lookup cannot empty its link: choose REFUSE."));
+    }
+
+    @Test
+    void onlyAMasterDetailCanBeReparentedAndOnlyALookupHasADeleteChoice() {
+        assertThat(((ReferenceConfiguration) FieldRules.check(FieldType.MASTER_DETAIL, false, false, null,
+                behaviour(null, true, null), CUSTOM_OBJECT).configuration()).reparentable()).isTrue();
+        assertThat(problems(FieldType.LOOKUP, false, false, null, behaviour(null, true, null), CUSTOM_OBJECT))
+                .containsKey("settings.reparentable");
+        assertThat(problems(FieldType.MASTER_DETAIL, false, false, null, behaviour("CLEAR", null, null),
+                CUSTOM_OBJECT)).containsKey("settings.onDelete");
+    }
+
+    @Test
+    void theListLabelIsTrimmedAndBounded() {
+        assertThat(((ReferenceConfiguration) FieldRules.check(FieldType.LOOKUP, false, false, null,
+                behaviour(null, null, "  Staff  "), CUSTOM_OBJECT).configuration()).listLabel()).isEqualTo("Staff");
+        assertThat(problems(FieldType.LOOKUP, false, false, null, behaviour(null, null, "x".repeat(81)),
+                CUSTOM_OBJECT)).containsKey("settings.listLabel");
+    }
+
+    @Test
+    void aUniqueReferenceIsAllowedBecauseThatIsHowOneToOneIsMade() {
+        assertThat(FieldRules.check(FieldType.LOOKUP, false, true, null, target("Account"), CUSTOM_OBJECT).unique())
+                .isTrue();
+        assertThat(problems(FieldType.LOOKUP, false, true, "x", target("Account"), CUSTOM_OBJECT))
+                .containsKey("defaultValue");
+    }
+
+    @Test
+    void theApiShowsOnlyTheSettingsTheTypeTakes() {
+        ReferenceConfiguration lookup = new ReferenceConfiguration("Account", DeleteBehaviour.REFUSE, false, "L");
+        ReferenceConfiguration detail = new ReferenceConfiguration("Account", DeleteBehaviour.CASCADE, true, "L");
+
+        FieldSettings forLookup = FieldRules.settingsOf(FieldType.LOOKUP, lookup);
+        FieldSettings forDetail = FieldRules.settingsOf(FieldType.MASTER_DETAIL, detail);
+
+        assertThat(forLookup.onDelete()).isEqualTo("REFUSE");
+        assertThat(forLookup.reparentable()).isNull();
+        assertThat(forDetail.onDelete()).isNull();
+        assertThat(forDetail.reparentable()).isTrue();
+        assertThat(forDetail.listLabel()).isEqualTo("L");
     }
 
     @Test

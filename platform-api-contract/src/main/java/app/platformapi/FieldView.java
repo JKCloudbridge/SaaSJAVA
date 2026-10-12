@@ -18,11 +18,14 @@ import jakarta.validation.constraints.NotNull;
  * @param retired whether the platform no longer offers the field for new use (it still exists)
  * @param editable whether the organization may change or remove it (only custom fields)
  * @param version the version to send back when changing it
+ * @param problem for a formula that does not pass the expression language (it was saved before formulas were
+ *        checked): what is wrong and where; it is not calculated and cannot be saved until fixed. Null otherwise
  */
 public record FieldView(@NotNull String apiName, @NotNull String label, @NotNull String description,
         @NotNull String kind, @NotNull String type, @NotNull Boolean required, @NotNull Boolean unique,
         String defaultValue,
-        @NotNull FieldSettings settings, @NotNull Boolean retired, @NotNull Boolean editable, @NotNull Long version) {
+        @NotNull FieldSettings settings, @NotNull Boolean retired, @NotNull Boolean editable, @NotNull Long version,
+        String problem) {
 
     @Override
     public String toString() {

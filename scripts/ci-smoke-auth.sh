@@ -20,6 +20,8 @@
 # set with OWNER_USER. Since Sprint 7 the invitation chooses a profile for the invited person (the administrator profile here),
 # and a last step creates a profile and an access policy as the first administrator, gives the policy, reads
 # the access back and checks the audit records and that a platform token is refused on an organization host.
+# Since Sprint 14 a step makes a record, changes it with its version, deletes and restores it and proves that an object with
+# a record cannot be removed.
 set -euo pipefail
 
 db="${1:?database container name}"
@@ -134,7 +136,7 @@ echo "ok: the rate-limit counters live in Redis"
 # asynchronously) arrives with a link on the platform host; completing it creates the account; the person signs in.
 if [ -n "$mail" ]; then
   address="smoke-$(date +%s)@example.test"
-  password="a-long-smoke-test-passphrase-$RANDOM-$RANDOM"
+  password="A-long-smoke-test-passphrase-$RANDOM-$RANDOM"
   json_headers=(-H 'Content-Type: application/json' -H "Cookie: XSRF-TOKEN=$token" -H "X-XSRF-TOKEN: $token")
   status="$(call -X POST "${json_headers[@]}" -d "{\"email\":\"$address\"}" "$base/api/v1/auth/sign-up")"
   [ "$status" = "202" ] || fail "a sign-up request answered $status: $(cat "$body")"
@@ -198,7 +200,7 @@ if [ -n "$mail" ]; then
   admin_profile="$(grep -o '"id":"[^"]*","name":"Organization administrator"' "$body" | head -1 | cut -d'"' -f4)"
   [ -n "$admin_profile" ] || fail "the organization has no administrator profile: $(cat "$body")"
   invitee="smoke-invitee-$(date +%s)@example.test"
-  invitee_password="a-long-invited-passphrase-$RANDOM-$RANDOM"
+  invitee_password="A-long-invited-passphrase-$RANDOM-$RANDOM"
   status="$(call_host="$org_host" call -X POST -H "Authorization: Bearer $org_token" -H 'Content-Type: application/json' \
     -d "{\"email\":\"$invitee\",\"displayName\":\"Invited Person\",\"profileId\":\"$admin_profile\"}" \
     "$base/api/v1/invitations")"
@@ -291,7 +293,7 @@ if [ -n "$mail" ]; then
   client="smoke-client-$(date +%s)"
   client_slug="smoke-client"
   client_admin="smoke-client-admin-$(date +%s)@example.test"
-  client_password="a-long-client-passphrase-$RANDOM-$RANDOM"
+  client_password="A-long-client-passphrase-$RANDOM-$RANDOM"
   status="$(call -X POST -H "Authorization: Bearer $console_token" -H 'Content-Type: application/json' \
     -d "{\"displayName\":\"Smoke Client\",\"slug\":\"$client_slug-$RANDOM\",\"planKey\":\"trial\",\"email\":\"$client_admin\"}" \
     "$base/api/v1/platform/organizations")"
@@ -447,6 +449,254 @@ if [ -n "$mail" ]; then
   status="$(client_call "$base/api/v1/metadata/objects/Employee__c")"
   [ "$status" = "404" ] || fail "a removed object is still there ($status)"
   echo "ok: the standard objects are listed, an object and a field are made, a change to a standard object is refused in words, the changes are audited without typed text, and the object is removed"
+
+  # 17. The metadata lifecycle on the image (Sprint 11): a record type offers a field, so a change set that removes the
+  # field is refused with the record type named and nothing is kept; a good change set is checked, published as one
+  # release, appears in the history and is rolled back.
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Deal","label":"Deal","pluralLabel":"Deals","description":""}' "$base/api/v1/metadata/objects")"
+  [ "$status" = "201" ] || fail "creating the lifecycle object answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"department","label":"Department","type":"TEXT"}' \
+    "$base/api/v1/metadata/objects/Deal__c/fields")"
+  [ "$status" = "201" ] || fail "adding the lifecycle field answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Core","label":"Core","availableFields":["department__c"],"picklistSubsets":[]}' \
+    "$base/api/v1/metadata/objects/Deal__c/record-types")"
+  [ "$status" = "201" ] || fail "adding a record type answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Deal__c/fields/department__c")"
+  [ "$status" = "409" ] || fail "removing a field a record type offers was not refused ($status): $(cat "$body")"
+  grep -Fq 'record type Core__c of Deal__c offers field Deal__c.department__c' "$body" \
+    || fail "the refusal does not name the record type: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"Drop","description":""}' \
+    "$base/api/v1/metadata/change-sets")"
+  [ "$status" = "201" ] || fail "starting a change set answered $status: $(cat "$body")"
+  set_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  [ -n "$set_id" ] || fail "the change set has no identifier: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"kind":"DELETE_FIELD","objectApiName":"Deal__c","itemApiName":"department__c"}' \
+    "$base/api/v1/metadata/change-sets/$set_id/changes")"
+  [ "$status" = "201" ] || fail "adding a change answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/metadata/change-sets/$set_id/validate")"
+  [ "$status" = "200" ] || fail "checking the change set answered $status: $(cat "$body")"
+  grep -Fq '"valid":false' "$body" || fail "an invalid change set was reported valid: $(cat "$body")"
+  grep -Fq 'record type Core__c of Deal__c' "$body" || fail "the report does not name the dependent: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/metadata/change-sets/$set_id/publish")"
+  [ "$status" = "409" ] || fail "publishing an invalid change set answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/metadata/objects/Deal__c")"
+  grep -Fq '"apiName":"department__c"' "$body" || fail "a refused publication removed the field: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/change-sets/$set_id")"
+  [ "$status" = "204" ] || fail "discarding the change set answered $status"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"Extra","description":""}' \
+    "$base/api/v1/metadata/change-sets")"
+  set_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"kind":"CREATE_FIELD","objectApiName":"Deal__c","createField":{"name":"region","label":"Region","type":"TEXT"}}' \
+    "$base/api/v1/metadata/change-sets/$set_id/changes")"
+  [ "$status" = "201" ] || fail "adding the second change answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/metadata/change-sets/$set_id/publish")"
+  [ "$status" = "200" ] || fail "publishing a good change set answered $status: $(cat "$body")"
+  grep -Fq '"status":"PUBLISHED"' "$body" || fail "the published change set is not marked published: $(cat "$body")"
+  status="$(client_call "$base/api/v1/metadata/releases")"
+  [ "$status" = "200" ] || fail "the history answered $status: $(cat "$body")"
+  grep -Fq '"kind":"CHANGE_SET"' "$body" || fail "the history lacks the change set release: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/metadata/releases/latest/rollback")"
+  [ "$status" = "200" ] || fail "rolling back answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/metadata/objects/Deal__c")"
+  if grep -Fq '"apiName":"region__c"' "$body"; then
+    fail "the rolled back field is still there"
+  fi
+  status="$(client_call "$base/api/v1/audit-events?kind=metadata&limit=200")"
+  grep -Fq '"type":"metadata.publish.refused"' "$body" || fail "the refused publication is not in the trail: $(cat "$body")"
+  grep -Fq '"type":"metadata.release.rolledback"' "$body" || fail "the rollback is not in the trail: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Deal__c/record-types/Core__c")"
+  [ "$status" = "204" ] || fail "removing the record type answered $status"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Deal__c")"
+  [ "$status" = "204" ] || fail "removing the lifecycle object answered $status: $(cat "$body")"
+  echo "ok: a field a record type offers cannot be removed (live or in a change set) and the error names the record type, a good change set publishes as one release and is rolled back, and the trail shows it"
+
+  # 18. Layouts, record pages and applications on the image (Sprint 12): a layout is checked against its schema (the
+  # refusal names the place), a record page and an application are made, the member's own menu comes from the API, a
+  # layout that is shown cannot lose its field and the error names the layout, a record page keeps its layout, and the
+  # default layout is chosen.
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Deal","label":"Deal","pluralLabel":"Deals","description":""}' "$base/api/v1/metadata/objects")"
+  [ "$status" = "201" ] || fail "creating the layout object answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"department","label":"Department","type":"TEXT"}' \
+    "$base/api/v1/metadata/objects/Deal__c/fields")"
+  [ "$status" = "201" ] || fail "adding the layout field answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Main","label":"Main","description":"","definition":{"sections":[{"label":"Main","fields":[{"field":"department__c","behaviour":"SHOUT"}]}]}}' \
+    "$base/api/v1/metadata/objects/Deal__c/layouts")"
+  [ "$status" = "400" ] || fail "a layout with a wrong behaviour answered $status: $(cat "$body")"
+  grep -Fq 'definition.sections[0].fields[0].behaviour' "$body" || fail "the refusal does not name the place: $(cat "$body")"
+  layout_json='{"name":"Main","label":"Main","description":"","definition":{"sections":[{"label":"Main","fields":[{"field":"department__c","behaviour":"REQUIRED"}]}]}}'
+  status="$(client_call -X POST -H "$group_json" -d "$layout_json" "$base/api/v1/metadata/objects/Deal__c/layouts")"
+  [ "$status" = "201" ] || fail "adding the layout answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/metadata/objects/Deal__c/layouts/Main__c")"
+  [ "$status" = "200" ] || fail "reading the layout back answered $status: $(cat "$body")"
+  grep -Fq '"behaviour":"REQUIRED"' "$body" || fail "the layout did not come back as it was sent: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Overview","label":"Overview","description":"","definition":{"layout":"Main__c","components":[{"key":"details","type":"DETAILS"}]}}' \
+    "$base/api/v1/metadata/objects/Deal__c/record-pages")"
+  [ "$status" = "201" ] || fail "adding the record page answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Sales","label":"Sales","description":"","definition":{"iconKey":"briefcase","items":[{"type":"OBJECT","object":"Deal__c"},{"type":"LINK","label":"Members","path":"/members"}]}}' \
+    "$base/api/v1/metadata/applications")"
+  [ "$status" = "201" ] || fail "adding the application answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Bad","label":"Bad","description":"","definition":{"items":[{"type":"LINK","label":"Away","path":"https://example.test"}]}}' \
+    "$base/api/v1/metadata/applications")"
+  [ "$status" = "400" ] || fail "a link outside the organization answered $status: $(cat "$body")"
+  grep -Fq 'definition.items[0].path' "$body" || fail "the refusal does not name the link: $(cat "$body")"
+  status="$(client_call "$base/api/v1/applications")"
+  [ "$status" = "200" ] || fail "the member's menu answered $status: $(cat "$body")"
+  grep -Fq '"apiName":"Sales__c"' "$body" || fail "the menu lacks the application: $(cat "$body")"
+  grep -Fq '"path":"/members"' "$body" || fail "the menu lacks the link: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"layout":"Main__c"}' \
+    "$base/api/v1/metadata/objects/Deal__c/layout-assignments")"
+  [ "$status" = "201" ] || fail "choosing the default layout answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/metadata/objects/Deal__c/layout-resolution")"
+  grep -Fq '"rule":"DEFAULT"' "$body" || fail "the default layout is not the answer: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Deal__c/fields/department__c")"
+  [ "$status" = "409" ] || fail "removing a field a layout shows was not refused ($status): $(cat "$body")"
+  grep -Fq 'page layout Main__c of Deal__c shows field Deal__c.department__c' "$body" \
+    || fail "the refusal does not name the layout: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Deal__c/layouts/Main__c")"
+  [ "$status" = "409" ] || fail "removing a layout a page uses was not refused ($status): $(cat "$body")"
+  grep -Fq 'record page Overview__c of Deal__c shows the details of page layout Main__c' "$body" \
+    || fail "the refusal does not name the record page: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/applications/Sales__c")"
+  [ "$status" = "204" ] || fail "removing the application answered $status"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Deal__c/layout-assignments/default")"
+  [ "$status" = "204" ] || fail "removing the layout choice answered $status"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Deal__c/record-pages/Overview__c")"
+  [ "$status" = "204" ] || fail "removing the record page answered $status"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Deal__c/layouts/Main__c")"
+  [ "$status" = "204" ] || fail "removing the layout answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Deal__c")"
+  [ "$status" = "204" ] || fail "removing the layout object answered $status: $(cat "$body")"
+  echo "ok: a layout is checked against its schema and read back, a record page and an application are made, the member's menu comes from the API, a link outside the organization is refused with its place, and a layout, a field and a record page that are still needed cannot be removed (the error names who needs them)"
+
+  # 19. Formulas, validation rules and the expression engine on the image (Sprint 13): a formula is checked and refused
+  # with its place, a field a formula uses cannot be removed and the error names the formula, a rule is made and tried on
+  # sample values, a circle of formulas is refused naming the fields, and checking an expression answers with the place.
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Invoice","label":"Invoice","pluralLabel":"Invoices","description":""}' "$base/api/v1/metadata/objects")"
+  [ "$status" = "201" ] || fail "creating the invoice object answered $status: $(cat "$body")"
+  for field in quantity:NUMBER unitPrice:CURRENCY status:TEXT; do
+    status="$(client_call -X POST -H "$group_json" \
+      -d "{\"name\":\"${field%%:*}\",\"label\":\"${field%%:*}\",\"type\":\"${field##*:}\"}" \
+      "$base/api/v1/metadata/objects/Invoice__c/fields")"
+    [ "$status" = "201" ] || fail "adding the field ${field%%:*} answered $status: $(cat "$body")"
+  done
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"total","label":"Total","type":"FORMULA","settings":{"expression":"quantity__c *","resultType":"NUMBER"}}' \
+    "$base/api/v1/metadata/objects/Invoice__c/fields")"
+  [ "$status" = "400" ] || fail "a formula with a mistake answered $status: $(cat "$body")"
+  grep -Fq 'Line 1, column 14' "$body" || fail "the refusal does not name the place of the formula: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"total","label":"Total","type":"FORMULA","settings":{"expression":"ghost__c * 2","resultType":"NUMBER"}}' \
+    "$base/api/v1/metadata/objects/Invoice__c/fields")"
+  [ "$status" = "409" ] || fail "a formula that names a missing field answered $status: $(cat "$body")"
+  grep -Fq 'field Invoice__c.total__c uses field Invoice__c.ghost__c, which does not exist' "$body" \
+    || fail "the refusal does not name the formula and the field: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"total","label":"Total","type":"FORMULA","settings":{"expression":"quantity__c * unitPrice__c","resultType":"CURRENCY"}}' \
+    "$base/api/v1/metadata/objects/Invoice__c/fields")"
+  [ "$status" = "201" ] || fail "adding a good formula answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Invoice__c/fields/quantity__c")"
+  [ "$status" = "409" ] || fail "removing a field a formula uses was not refused ($status): $(cat "$body")"
+  grep -Fq 'field Invoice__c.total__c uses field Invoice__c.quantity__c' "$body" \
+    || fail "the refusal does not name the formula: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"loop","label":"Loop","type":"FORMULA","settings":{"expression":"loop__c + 1","resultType":"NUMBER"}}' \
+    "$base/api/v1/metadata/objects/Invoice__c/fields")"
+  [ "$status" = "409" ] || fail "a formula that uses itself answered $status: $(cat "$body")"
+  grep -Fq 'use each other in a circle' "$body" || fail "the refusal does not name the circle: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"objectApiName":"Invoice__c","expression":"quantity__c * unitPrice__c","purpose":"FORMULA","resultType":"CURRENCY"}' \
+    "$base/api/v1/metadata/expressions/check")"
+  [ "$status" = "200" ] || fail "checking a formula answered $status: $(cat "$body")"
+  grep -Fq '"valid":true' "$body" || fail "a good formula was not valid: $(cat "$body")"
+  grep -Fq '"type":"NUMBER"' "$body" || fail "the check does not say the type: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"objectApiName":"Invoice__c","expression":"status__c * 2","purpose":"FORMULA"}' \
+    "$base/api/v1/metadata/expressions/check")"
+  grep -Fq '"valid":false' "$body" || fail "a formula that multiplies text was valid: $(cat "$body")"
+  grep -Fq 'Line 1, column 11' "$body" || fail "the check does not say where it is wrong: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"NotAnAnswer","label":"Not an answer","expression":"quantity__c + 1","errorMessage":"No."}' \
+    "$base/api/v1/metadata/objects/Invoice__c/validation-rules")"
+  [ "$status" = "409" ] || fail "a rule that does not give true or false answered $status: $(cat "$body")"
+  grep -Fq 'true or false' "$body" || fail "the refusal does not say what a rule must give: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"NoNegative","label":"No negatives","expression":"quantity__c < 0","errorMessage":"No negative quantities.","errorField":"quantity__c"}' \
+    "$base/api/v1/metadata/objects/Invoice__c/validation-rules")"
+  [ "$status" = "201" ] || fail "adding a validation rule answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"values":{"quantity__c":"-5"}}' \
+    "$base/api/v1/metadata/objects/Invoice__c/validation-rules/NoNegative__c/test")"
+  [ "$status" = "200" ] || fail "trying the rule answered $status: $(cat "$body")"
+  grep -Fq '"outcome":"REJECTED"' "$body" || fail "the rule did not reject a negative quantity: $(cat "$body")"
+  grep -Fq 'No negative quantities.' "$body" || fail "the rejection lacks the message: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"values":{"quantity__c":"5"}}' \
+    "$base/api/v1/metadata/objects/Invoice__c/validation-rules/NoNegative__c/test")"
+  grep -Fq '"outcome":"PASSED"' "$body" || fail "the rule did not pass a good quantity: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"values":{"quantity__c":"3","unitPrice__c":"2.50"}}' \
+    "$base/api/v1/metadata/objects/Invoice__c/fields/total__c/test")"
+  [ "$status" = "200" ] || fail "trying the formula answered $status: $(cat "$body")"
+  grep -Fq '"value":"7.5"' "$body" || fail "the formula did not give 7.5: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Invoice__c/validation-rules/NoNegative__c")"
+  [ "$status" = "204" ] || fail "removing the validation rule answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Invoice__c")"
+  [ "$status" = "204" ] || fail "removing the invoice object answered $status: $(cat "$body")"
+  echo "ok: a formula is checked and refused with its place, a field a formula uses cannot be removed (the error names the formula), a circle is refused naming the fields, a rule is made and tried on sample values, and the check says where an expression is wrong"
+
+  # 20. Records on the image (Sprint 14): a record is created, read, changed with its version, a stale change is refused,
+  # the record is deleted and restored, an object that has a record cannot be removed (the answer says so), and once the
+  # record is removed for good the object can be removed.
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Ticket","label":"Ticket","pluralLabel":"Tickets","description":""}' "$base/api/v1/metadata/objects")"
+  [ "$status" = "201" ] || fail "making the ticket object answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"title","label":"Title","type":"TEXT"}' \
+    "$base/api/v1/metadata/objects/Ticket__c/fields")"
+  [ "$status" = "201" ] || fail "adding the title field answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{"title__c":"First ticket"}}' \
+    "$base/api/v1/objects/Ticket__c/records")"
+  [ "$status" = "201" ] || fail "creating a record answered $status: $(cat "$body")"
+  record_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  [ -n "$record_id" ] || fail "the new record has no identifier: $(cat "$body")"
+  status="$(client_call "$base/api/v1/objects/Ticket__c/records/$record_id")"
+  [ "$status" = "200" ] || fail "reading the record answered $status: $(cat "$body")"
+  grep -Fq '"title__c":"First ticket"' "$body" || fail "the record lacks its value: $(cat "$body")"
+  status="$(client_call -X PATCH -H "$group_json" -d '{"version":0,"fields":{"title__c":"Second title"}}' \
+    "$base/api/v1/objects/Ticket__c/records/$record_id")"
+  [ "$status" = "200" ] || fail "changing the record answered $status: $(cat "$body")"
+  grep -Fq '"version":1' "$body" || fail "the change did not raise the version: $(cat "$body")"
+  status="$(client_call -X PATCH -H "$group_json" -d '{"version":0,"fields":{"title__c":"Stale title"}}' \
+    "$base/api/v1/objects/Ticket__c/records/$record_id")"
+  [ "$status" = "409" ] || fail "a stale change answered $status: $(cat "$body")"
+  grep -Fq 'CONCURRENT_MODIFICATION' "$body" || fail "the stale change was not named as such: $(cat "$body")"
+  if grep -Fq 'Stale title' "$body"; then fail "the refusal repeats a value"; fi
+  status="$(client_call -X DELETE "$base/api/v1/objects/Ticket__c/records/$record_id")"
+  [ "$status" = "204" ] || fail "deleting the record answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/objects/Ticket__c/records/$record_id")"
+  [ "$status" = "404" ] || fail "a deleted record was still readable ($status)"
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/objects/Ticket__c/recycle-bin/$record_id/restore")"
+  [ "$status" = "200" ] || fail "restoring the record answered $status: $(cat "$body")"
+  grep -Fq '"title__c":"Second title"' "$body" || fail "the restored record lost its value: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Ticket__c")"
+  [ "$status" = "409" ] || fail "removing an object with a record answered $status: $(cat "$body")"
+  grep -Fq 'still has records' "$body" || fail "the refusal does not say why: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/objects/Ticket__c/records/$record_id")"
+  [ "$status" = "204" ] || fail "deleting the record again answered $status"
+  status="$(client_call -X DELETE "$base/api/v1/objects/Ticket__c/recycle-bin/$record_id")"
+  [ "$status" = "204" ] || fail "removing the record for good answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Ticket__c")"
+  [ "$status" = "204" ] || fail "removing the emptied object answered $status: $(cat "$body")"
+  if owner_sql -c "select count(*) from object_record where payload::text like '%First ticket%' or payload::text like '%Second title%'" | grep -Eq '^ *[1-9]'; then
+    fail "a removed record is still stored"
+  fi
+  echo "ok: a record is created, read, changed with its version, a stale change is refused, the record is deleted and restored, an object with a record cannot be removed, and once the record is removed for good the object can be removed"
 
   stored="$(owner_sql -c "select t::text from account_token t union all select t::text from mail_queue t \
     union all select attributes::text from audit_record union all select t::text from invitation t")"
