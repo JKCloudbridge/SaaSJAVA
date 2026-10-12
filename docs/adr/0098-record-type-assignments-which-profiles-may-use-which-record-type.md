@@ -18,7 +18,8 @@ record type and a profile. ADR-0093 recorded the design and left it for a side s
 2. **The rule: a record type with no assignment is open to every profile; with at least one it is open only to the profiles named.** Nothing built before this sprint changes behaviour, and the first assignment of a type is what closes it.
    The administrator's profile is a profile like any other: once a type is restricted, an administrator who is not named cannot create records of it.
 3. **It changes only through the lifecycle** (ADR-0066): three change kinds (`CREATE_`, `UPDATE_`, `DELETE_RECORD_TYPE_ASSIGNMENT`) with their undo, a dependency contributor, and the same `applyNow` for the live endpoints. The key of an assignment is
-   the record type, a tilde and the profile (`Renewal__c~<profile>`). A change set may create a type and its assignments together; a publication that assigns a type nobody makes is refused whole.
+   the record type, a tilde and the profile (`Renewal__c~<profile>`). A change set may create a type and its assignments together; a publication that assigns a type nobody makes is refused whole. **The three kinds had to be added to the database check constraint
+   that lists every valid `metadata_change.kind`** (`metadata_change_kind_known`, V039), the same way every earlier sprint that added a kind did (V035); CI found this missing on the first run, fixed the same day.
 4. **The dependency edges:** an assignment *belongs to* its object and *applies to* its record type, so a record type (or an object) that still has assignments cannot be removed and the refusal names them. The profile is only an identifier
    (ADR-0071): **deleting a profile is never blocked** by an assignment. The assignment of a deleted profile stays visible without a name so an administrator can remove it, and it **still restricts** the type (it fails closed: a
    restriction that silently dissolved when a profile was deleted would open a type to everyone).
