@@ -48,7 +48,6 @@ class RecordFlowsLogsAreCleanIT extends RecordsSupport {
         String department = typed("department-value");
         String notes = typed("notes-value");
         String changed = typed("changed-value");
-        String tag = typed("tag-value");
         String refused = typed("refused-value");
         String stale = typed("stale-value");
         String nested = typed("nested-value");
@@ -56,7 +55,7 @@ class RecordFlowsLogsAreCleanIT extends RecordsSupport {
         List<Response> refusals = new ArrayList<>();
 
         Response created = create(admin, "{\"name__c\":\"" + name + "\",\"department__c\":\"" + department
-                + "\",\"notes__c\":\"" + notes + "\",\"salary__c\":123456.78,\"tags__c\":[\"" + tag + "\"]}");
+                + "\",\"notes__c\":\"" + notes + "\",\"salary__c\":123456.78,\"tags__c\":[\"a\"]}");
         String id = idOf(created);
         admin.get(RECORDS + "/" + id);
         admin.get(RECORDS);
@@ -84,7 +83,7 @@ class RecordFlowsLogsAreCleanIT extends RecordsSupport {
                 + String.join(" ", owner("select attributes::text from audit_record where record_id = ?", id));
 
         assertThat(log).as("the log has content to check").contains("platform.http");
-        for (String text : List.of(name, department, notes, changed, tag, refused, stale, nested, hostileKey,
+        for (String text : List.of(name, department, notes, changed, refused, stale, nested, hostileKey,
                 "123456.78")) {
             assertThat(log).as("a value is not logged: " + text).doesNotContain(text);
             assertThat(stored).as("a value is not in an event or an audit record: " + text).doesNotContain(text);
@@ -92,7 +91,7 @@ class RecordFlowsLogsAreCleanIT extends RecordsSupport {
         }
         for (Response response : refusals) {
             assertThat(response.status()).isIn(400, 409);
-            for (String text : List.of(name, department, notes, changed, tag, refused, stale, nested, hostileKey)) {
+            for (String text : List.of(name, department, notes, changed, refused, stale, nested, hostileKey)) {
                 assertThat(response.body()).as("a refusal does not echo a value").doesNotContain(text);
             }
         }

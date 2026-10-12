@@ -186,7 +186,7 @@ class RecordsApiIT extends RecordsSupport {
         assertThat(versionOf(cleared)).isEqualTo(2);
         assertThat(JsonPath.<String>read(read.body(), "$.data.fields.department__c")).isEqualTo("Support");
         assertThat(JsonPath.<java.util.Map<String, Object>>read(read.body(), "$.data.fields")).containsOnlyKeys(
-                "department__c");
+                "department__c", "sequence");
     }
 
     @Test

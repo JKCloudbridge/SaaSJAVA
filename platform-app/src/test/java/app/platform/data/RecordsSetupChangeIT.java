@@ -27,7 +27,7 @@ class RecordsSetupChangeIT extends PipelineSupport {
     }
 
     private static Response edit(TestBrowser admin, String api, String body) {
-        long version = versionOf(admin.get(FIELDS + "/" + api));
+        long version = fieldVersion(admin, "Policy__c", api);
         Response changed = admin.request("PUT", FIELDS + "/" + api, body.replace("VERSION", Long.toString(version)));
         assertThat(changed.status()).as(api + ": " + changed.body()).isEqualTo(200);
         return changed;

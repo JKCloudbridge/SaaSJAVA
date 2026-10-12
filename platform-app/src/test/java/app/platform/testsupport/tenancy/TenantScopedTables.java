@@ -343,12 +343,23 @@ public final class TenantScopedTables {
                             + "values (?, 'Probe__c', ?, '{}'::jsonb, ?, ?)",
                     tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
 
-    /** The counters of auto-number fields (Sprint 15). A probe row is the counter of a made-up field. */
+    /**
+     * The counters of auto-number fields (Sprint 15). There is one live row per organization, object and field (a
+     * partial unique index enforces it), so each call retires the live probe row and adds a new one, as for
+     * {@link #SECURITY_VERSION} and {@link #METADATA_VERSION}.
+     */
     public static final TenantScopedTable AUTO_NUMBER_COUNTER = new TenantScopedTable("auto_number_counter",
-            (connection, tenant) -> TenantFixtures.update(connection,
-                    "insert into auto_number_counter (tenant_id, object_api_name, field_api_name, next_value, "
-                            + "created_by, updated_by) values (?, 'Probe__c', 'probe__c', 1, ?, ?)",
-                    tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+            (connection, tenant) -> {
+                TenantFixtures.update(connection,
+                        "update auto_number_counter set deleted_at = now(), deleted_by = ?, version = version + 1, "
+                                + "updated_by = ? where tenant_id = ? and object_api_name = 'Probe__c' "
+                                + "and field_api_name = 'probe__c' and deleted_at is null",
+                        ActorId.SYSTEM.value(), ActorId.SYSTEM.value(), tenant);
+                TenantFixtures.update(connection,
+                        "insert into auto_number_counter (tenant_id, object_api_name, field_api_name, next_value, "
+                                + "created_by, updated_by) values (?, 'Probe__c', 'probe__c', 1, ?, ?)",
+                        tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
 
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,

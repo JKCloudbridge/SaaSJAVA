@@ -136,6 +136,17 @@ public abstract class PipelineSupport extends RecordsSupport {
         return versionOf(browser.get(records + "/" + id));
     }
 
+    /**
+     * The version of one field of an object, read from the object (there is no single-field GET endpoint). Needed to
+     * carry the version a field update is based on.
+     */
+    protected static long fieldVersion(TestBrowser admin, String objectApiName, String fieldApiName) {
+        Response object = admin.get(METADATA_OBJECTS + "/" + objectApiName);
+        List<Number> versions = JsonPath.read(object.body(),
+                "$.data.fields[?(@.apiName=='" + fieldApiName + "')].version");
+        return versions.get(0).longValue();
+    }
+
     protected static Map<String, Object> fieldsOf(Response read) {
         return JsonPath.read(read.body(), "$.data.fields");
     }

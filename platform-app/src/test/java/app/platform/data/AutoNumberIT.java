@@ -118,11 +118,11 @@ class AutoNumberIT extends PipelineSupport {
         TestBrowser admin = invoices(organization());
         invoice(admin);
         invoice(admin);
-        Response field = admin.get(METADATA_OBJECTS + "/Invoice__c/fields/number__c");
+        long version = fieldVersion(admin, "Invoice__c", "number__c");
 
         Response changed = admin.request("PUT", METADATA_OBJECTS + "/Invoice__c/fields/number__c",
                 "{\"label\":\"number\",\"description\":\"\",\"settings\":{\"prefix\":\"BILL-\",\"startAt\":1,"
-                        + "\"width\":5},\"version\":" + versionOf(field) + "}");
+                        + "\"width\":5},\"version\":" + version + "}");
         assertThat(changed.status()).as(changed.body()).isEqualTo(200);
 
         assertThat(code(invoice(admin), "number__c")).isEqualTo("BILL-00003");

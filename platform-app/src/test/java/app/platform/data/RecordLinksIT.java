@@ -93,7 +93,7 @@ class RecordLinksIT extends PipelineSupport {
         String id = idOf(withLink(admin, matrix.targetId(), linked));
         admin.request("DELETE", TARGET_RECORDS + "/" + linked, null);
 
-        Response saved = patchIn(admin, MATRIX_RECORDS, id, 0, "{\"txt__c\":\"still saves\"}");
+        Response saved = patchIn(admin, MATRIX_RECORDS, id, 0, "{\"txt__c\":\"stillsave\"}");
         Response relinked = patchIn(admin, MATRIX_RECORDS, id, 1, "{\"link__c\":\"" + linked + "\"}");
 
         assertThat(saved.status()).as(saved.body()).isEqualTo(200);
