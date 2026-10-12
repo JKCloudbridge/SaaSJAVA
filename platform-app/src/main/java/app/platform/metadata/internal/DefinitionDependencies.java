@@ -7,6 +7,7 @@ import app.platform.metadata.FieldConfiguration.ReferenceConfiguration;
 import app.platform.metadata.FieldDefinition;
 import app.platform.metadata.FieldType;
 import app.platform.metadata.LayoutAssignment;
+import app.platform.metadata.RecordTypeAssignment;
 import app.platform.metadata.ObjectDefinition;
 import app.platform.metadata.PageLayout;
 import app.platform.metadata.RecordPage;
@@ -180,6 +181,24 @@ final class DefinitionDependencies {
                 if (assignment.recordType() != null) {
                     sink.edge(self, "applies to", DependencyGraph.Node.recordType(object, assignment.recordType()));
                 }
+            }
+        }
+    }
+
+    /**
+     * A record type assignment (Sprint 15A, ADR-0098): the object it belongs to and the record type it applies to. A
+     * record type that still has assignments cannot be removed, and the refusal names them.
+     */
+    @Component
+    static class TypeAssignments implements DependencyGraph.Contributor {
+
+        @Override
+        public void contribute(MetadataSnapshot snapshot, DependencyGraph.Sink sink) {
+            for (RecordTypeAssignment assignment : snapshot.allTypeAssignments()) {
+                String object = assignment.objectApiName();
+                DependencyGraph.Node self = DependencyGraph.Node.typeAssignment(object, assignment.key());
+                sink.edge(self, "belongs to", DependencyGraph.Node.object(object));
+                sink.edge(self, "applies to", DependencyGraph.Node.recordType(object, assignment.recordType()));
             }
         }
     }

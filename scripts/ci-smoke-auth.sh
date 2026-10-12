@@ -22,7 +22,7 @@
 # the access back and checks the audit records and that a platform token is refused on an organization host.
 # Since Sprint 14 a step makes a record, changes it with its version, deletes and restores it and proves that an object with
 # a record cannot be removed. Since Sprint 15 a step proves the write pipeline: a required field, a refused value, a rule,
-# a formula, an auto-number.
+# a formula, an auto-number. Since Sprint 15A a step proves record type assignments.
 set -euo pipefail
 
 db="${1:?database container name}"
@@ -764,6 +764,37 @@ if [ -n "$mail" ]; then
   status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Quote__c")"
   [ "$status" = "204" ] || fail "removing the emptied quote object answered $status: $(cat "$body")"
   echo "ok: a required field is enforced, a typed value is refused with its place and without being repeated, a validation rule rejects with its message, a formula is calculated on create and update, an auto-number counts and stays put on update, a calculated value cannot be written, and clearing a required field is refused"
+
+  # 22. Record type assignments on the image (Sprint 15A): a record type is open to every profile until a profile is
+  # assigned, the assignment is listed with its profile, a record type that has assignments cannot be removed (the
+  # refusal says why), and once the assignment is removed the type can go.
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Pipeline","label":"Pipeline","pluralLabel":"Pipelines","description":""}' "$base/api/v1/metadata/objects")"
+  [ "$status" = "201" ] || fail "making the pipeline object answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"Renewal","label":"Renewal"}' \
+    "$base/api/v1/metadata/objects/Pipeline__c/record-types")"
+  [ "$status" = "201" ] || fail "making the record type answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/metadata/objects/Pipeline__c/record-types/Renewal__c/profiles")"
+  [ "$status" = "200" ] || fail "listing the profiles of a record type answered $status: $(cat "$body")"
+  grep -Fq '"data":[]' "$body" || fail "a record type nobody is assigned should list nobody (open to every profile): $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d "{\"profileId\":\"$profile_id\",\"defaultForProfile\":true}" \
+    "$base/api/v1/metadata/objects/Pipeline__c/record-types/Renewal__c/profiles")"
+  [ "$status" = "201" ] || fail "assigning a profile to the record type answered $status: $(cat "$body")"
+  grep -Fq "\"key\":\"Renewal__c~$profile_id\"" "$body" || fail "the assignment lacks its key: $(cat "$body")"
+  grep -Fq '"defaultForProfile":true' "$body" || fail "the assignment is not the default of the profile: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d "{\"profileId\":\"$profile_id\"}" \
+    "$base/api/v1/metadata/objects/Pipeline__c/record-types/Renewal__c/profiles")"
+  [ "$status" = "400" ] || fail "assigning the same profile twice answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Pipeline__c/record-types/Renewal__c")"
+  [ "$status" = "409" ] || fail "removing a record type that has assignments answered $status: $(cat "$body")"
+  grep -Fq 'record type assignment' "$body" || fail "the refusal does not name the assignment: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Pipeline__c/record-types/Renewal__c/profiles/$profile_id")"
+  [ "$status" = "204" ] || fail "removing the assignment answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Pipeline__c/record-types/Renewal__c")"
+  [ "$status" = "204" ] || fail "removing the record type answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Pipeline__c")"
+  [ "$status" = "204" ] || fail "removing the pipeline object answered $status: $(cat "$body")"
+  echo "ok: a record type is open to every profile until one is assigned, an assignment is listed with its key and default, the same profile cannot be assigned twice, a record type that has assignments cannot be removed (the answer names them), and once the assignment is removed the type can be removed"
 
   stored="$(owner_sql -c "select t::text from account_token t union all select t::text from mail_queue t \
     union all select attributes::text from audit_record union all select t::text from invitation t")"

@@ -37,7 +37,7 @@ class FieldWritePropertyTest {
             DefinitionKind.CUSTOM, null, true, 0, NAMES.stream().map(FieldWritePropertyTest::field).toList());
 
     private final FieldSecurity security = new FieldSecurity(null);
-    private final RecordTypeCheck types = new RecordTypeCheck(null);
+    private final RecordTypeCheck types = new RecordTypeCheck(null, null);
 
     private static FieldDefinition field(String name) {
         return new FieldDefinition("Thing__c", name, name, "", DefinitionKind.CUSTOM, FieldType.TEXT, false, false,

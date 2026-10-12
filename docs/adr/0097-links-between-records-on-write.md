@@ -14,7 +14,7 @@
 3. **A master-detail is always required** (ADR-0060) and its master does not change unless the field is `reparentable`: moving a detail to another master is refused otherwise ("The master of this record cannot be changed."). Clearing
    a master-detail is a missing required value.
 4. **No delete behaviours.** `CLEAR`, `REFUSE` and `CASCADE` (ADR-0063) are carried out by the query engine of Sprint 16, with the index of who points at whom; this sprint only refuses a bad link on write.
-5. **Targets a platform module owns are refused.** A lookup to a user, a profile, an access policy, a role, a licence type or a record type (objects with `managedBy`) points at rows that live in another module's tables; the record
+5. **Targets a platform module owns are refused** (Sprint 15; since Sprint 15A a `User` is answered by the reference directory of [ADR-0099](0099-the-reference-directory-links-to-objects-a-platform-module-owns.md) and the others are still refused). A lookup to a user, a profile, an access policy, a role, a licence type or a record type (objects with `managedBy`) points at rows that live in another module's tables; the record
    store may not read them, and the module graph does not allow `data` to ask. Writing a value to such a field is refused with "Links to this kind of object are not available yet." rather than accepted unchecked. Sprint 16 (lookup
    resolution) decides how: a membership/user directory contract is the likely answer. A field of that kind that is left empty works as before.
 6. **Uniqueness is not enforced** (a unique field can be written twice). It needs an index on a typed slot, which is the index policy of Sprint 16; the API description and the sprint documents say so.

@@ -11,6 +11,7 @@ import app.platform.metadata.Metadata;
 import app.platform.metadata.ObjectDefinition;
 import app.platform.metadata.RecordType;
 import app.platform.security.ObjectAccess;
+import app.platform.sharedkernel.directory.ReferenceDirectory;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -87,10 +88,11 @@ class WritePipeline {
     private final StorageStrategy storage;
     private final Metadata metadata;
     private final RecordSlots slots;
+    private final Map<String, ReferenceDirectory> directories;
 
     WritePipeline(RecordValues shape, RecordTypeCheck recordTypes, FieldSecurity security,
             Calculations calculations, AutoNumbers autoNumbers, StorageStrategy storage, Metadata metadata,
-            RecordSlots slots) {
+            RecordSlots slots, List<ReferenceDirectory> directories) {
         this.shape = shape;
         this.recordTypes = recordTypes;
         this.security = security;
@@ -99,6 +101,9 @@ class WritePipeline {
         this.storage = storage;
         this.metadata = metadata;
         this.slots = slots;
+        Map<String, ReferenceDirectory> byObject = new HashMap<>();
+        directories.forEach(directory -> byObject.put(directory.object(), directory));
+        this.directories = Map.copyOf(byObject);
     }
 
     /**
@@ -124,7 +129,8 @@ class WritePipeline {
 
         // 2. record type
         Findings typeFindings = new Findings();
-        Optional<RecordType> resolved = recordTypes.resolve(object, requestedType, heldType, typeFindings);
+        Optional<RecordType> resolved = recordTypes.resolve(object, passed.membershipId(), requestedType, heldType,
+                typeFindings);
         typeFindings.throwIfAny();
         RecordType type = resolved.orElse(null);
         String typeName = resolved.map(RecordType::apiName).orElse(heldType);
@@ -291,7 +297,12 @@ class WritePipeline {
             if (target.isEmpty()) {
                 findings.add(field.apiName(), MISSING_LINK);
             } else if (target.get().managedBy() != null) {
-                findings.add(field.apiName(), "Links to this kind of object are not available yet.");
+                ReferenceDirectory directory = directories.get(target.get().apiName());
+                if (directory == null) {
+                    findings.add(field.apiName(), "Links to this kind of object are not available yet.");
+                } else if (!directory.exists(UUID.fromString((String) entry.getValue()))) {
+                    findings.add(field.apiName(), MISSING_LINK);
+                }
             } else {
                 wanted.computeIfAbsent(target.get().apiName(), name -> new LinkedHashMap<>())
                         .put(field.apiName(), UUID.fromString((String) entry.getValue()));

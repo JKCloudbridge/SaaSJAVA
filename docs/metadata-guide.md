@@ -347,3 +347,16 @@ Since Sprint 15 the setup you make in the object manager is enforced when a reco
 Remember when you set up access: **a field permission is explicit.** A member who may read an object but was given no field permission reads and writes no field of it, and **a new field is invisible to everyone except
 administrators until someone grants it** (the matrix of the profile or access policy). A formula field is readable on its own permission: it can show a value derived from fields the member cannot read, so give it deliberately.
 **Unique** is stored but not yet enforced on records (Sprint 16), and a **lookup to a user, profile, role or other object the platform owns** cannot be given a value yet (Sprint 16).
+
+## 14. Which profiles may use a record type (Sprint 15A)
+
+By default every record type is open to every profile. **The first time you let a profile use a type, the type closes to every other profile** (the administrators' profile too): from then on only the profiles you listed may create a record of that type
+or move a record to it. Remove the last profile and the type is open again. Records that already have the type keep it, and everybody who may read the object still reads them.
+
+- **A default per profile.** Mark one of a profile's types as its default: a new record of that profile gets it when the person names no type. Without a default of its own, the profile gets the object's default type, **unless the profile may not use
+  that type**; then the record has no type.
+- **A deleted profile.** Its assignment stays in the list without a name and keeps the type closed until you remove it, so deleting a profile never opens a type by accident.
+- **Where.** For now through the API (`/api/v1/metadata/objects/{object}/record-types/{type}/profiles`) or a change set; the screen comes with the object manager of Sprint 19. A change made at once is a release and can be rolled back, and rolling
+  back a default change puts the previous default back.
+- **Users in lookups.** A lookup to the `User` object now takes the identifier of a person who is an **active member** of the organization. Lookups to profiles, roles and other objects the platform owns still cannot be given a value (they are added when a real
+  field needs them).

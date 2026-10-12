@@ -22,7 +22,7 @@ final class DependencyGraph {
 
     /** The kinds of thing that can be depended on (a layout assignment and an application only depend). */
     enum Kind { OBJECT, FIELD, RECORD_TYPE, PICKLIST_VALUE, LAYOUT, RECORD_PAGE, APPLICATION, ASSIGNMENT,
-        VALIDATION_RULE }
+        VALIDATION_RULE, TYPE_ASSIGNMENT }
 
     /**
      * A definition, by name only (never by what a person typed as a value).
@@ -70,6 +70,10 @@ final class DependencyGraph {
             return new Node(Kind.VALIDATION_RULE, object, rule, null);
         }
 
+        static Node typeAssignment(String object, String key) {
+            return new Node(Kind.TYPE_ASSIGNMENT, object, key, null);
+        }
+
         /** The words for a person, without any value. */
         String describe() {
             return switch (kind) {
@@ -82,6 +86,7 @@ final class DependencyGraph {
                 case APPLICATION -> "application " + item;
                 case ASSIGNMENT -> "the layout assignment " + item + " of " + object;
                 case VALIDATION_RULE -> "validation rule " + item + " of " + object;
+                case TYPE_ASSIGNMENT -> "the record type assignment " + item + " of " + object;
             };
         }
     }
@@ -195,6 +200,8 @@ final class DependencyGraph {
             case ASSIGNMENT -> snapshot.assignments(node.object()).stream()
                     .anyMatch(assignment -> assignment.key().equals(node.item()));
             case VALIDATION_RULE -> snapshot.validationRule(node.object(), node.item()).isPresent();
+            case TYPE_ASSIGNMENT -> snapshot.typeAssignments(node.object()).stream()
+                    .anyMatch(assignment -> assignment.key().equals(node.item()));
         };
     }
 

@@ -11,6 +11,7 @@ import app.platform.metadata.ObjectDefinition;
 import app.platform.metadata.PageLayout;
 import app.platform.metadata.RecordPage;
 import app.platform.metadata.RecordType;
+import app.platform.metadata.RecordTypeAssignment;
 import app.platform.metadata.ValidationRule;
 import app.platform.security.ObjectCatalog;
 import app.platform.tenant.TenantContexts;
@@ -52,13 +53,15 @@ class MetadataCatalogue implements Metadata {
     private final AssignmentStore assignmentStore;
     private final DefinitionCodec definitionCodec;
     private final ValidationRuleStore validationRuleStore;
+    private final RecordTypeAssignmentStore typeAssignmentStore;
 
     MetadataCatalogue(StandardMetadata standard, MetadataStore store, MetadataVersions versions,
             MetadataCache cache, TenantContexts contexts, ConfigCodec codec, TransactionTemplate transaction,
             RecordTypeStore recordTypeStore, RecordTypeCodec recordTypeCodec, DefinitionStore definitionStore,
             AssignmentStore assignmentStore, DefinitionCodec definitionCodec,
-            ValidationRuleStore validationRuleStore) {
+            ValidationRuleStore validationRuleStore, RecordTypeAssignmentStore typeAssignmentStore) {
         this.validationRuleStore = validationRuleStore;
+        this.typeAssignmentStore = typeAssignmentStore;
         this.recordTypeStore = recordTypeStore;
         this.recordTypeCodec = recordTypeCodec;
         this.definitionStore = definitionStore;
@@ -116,6 +119,21 @@ class MetadataCatalogue implements Metadata {
     @Override
     public LayoutResolution layoutFor(String objectApiName, UUID profileId, String recordType) {
         return snapshot().layoutFor(objectApiName, profileId, recordType);
+    }
+
+    @Override
+    public List<RecordTypeAssignment> recordTypeAssignments(String objectApiName) {
+        return snapshot().typeAssignments(objectApiName);
+    }
+
+    @Override
+    public List<RecordType> recordTypesFor(String objectApiName, UUID profileId) {
+        return snapshot().recordTypesFor(objectApiName, profileId);
+    }
+
+    @Override
+    public Optional<RecordType> defaultRecordTypeFor(String objectApiName, UUID profileId) {
+        return snapshot().defaultRecordTypeFor(objectApiName, profileId);
     }
 
     /**
@@ -184,7 +202,13 @@ class MetadataCatalogue implements Metadata {
         for (ValidationRule rule : validationRuleStore.all()) {
             rules.computeIfAbsent(rule.objectApiName(), name -> new ArrayList<>()).add(rule);
         }
-        return new MetadataSnapshot.Definitions(layouts, pages, assignments, applications, rules);
+        Map<String, List<RecordTypeAssignment>> typeAssignments = new LinkedHashMap<>();
+        for (RecordTypeAssignmentStore.Row row : typeAssignmentStore.all()) {
+            typeAssignments.computeIfAbsent(row.objectApiName(), name -> new ArrayList<>())
+                    .add(definitionCodec.typeAssignment(row));
+        }
+        return new MetadataSnapshot.Definitions(layouts, pages, assignments, applications, rules,
+                typeAssignments);
     }
 
     private FieldDefinition customField(MetadataStore.FieldRow row) {

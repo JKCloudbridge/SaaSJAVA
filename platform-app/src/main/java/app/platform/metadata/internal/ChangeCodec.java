@@ -2,6 +2,7 @@ package app.platform.metadata.internal;
 
 import app.platform.metadata.FieldType;
 import app.platform.metadata.LayoutAssignment;
+import app.platform.metadata.RecordTypeAssignment;
 import app.platformapi.ApiException;
 import app.platformapi.ApplicationView;
 import app.platformapi.ChangeRequest;
@@ -11,6 +12,7 @@ import app.platformapi.CreateLayoutAssignmentRequest;
 import app.platformapi.CreateLayoutRequest;
 import app.platformapi.CreateObjectRequest;
 import app.platformapi.CreateRecordPageRequest;
+import app.platformapi.CreateRecordTypeAssignmentRequest;
 import app.platformapi.CreateRecordTypeRequest;
 import app.platformapi.CreateValidationRuleRequest;
 import app.platformapi.FieldSettings;
@@ -27,6 +29,8 @@ import app.platformapi.UpdateLayoutAssignmentRequest;
 import app.platformapi.UpdateLayoutRequest;
 import app.platformapi.UpdateObjectRequest;
 import app.platformapi.UpdateRecordPageRequest;
+import app.platformapi.RecordTypeAssignmentView;
+import app.platformapi.UpdateRecordTypeAssignmentRequest;
 import app.platformapi.UpdateRecordTypeRequest;
 import app.platformapi.UpdateValidationRuleRequest;
 import app.platformapi.ValidationRuleView;
@@ -66,7 +70,8 @@ final class ChangeCodec {
         String item = request.itemApiName() == null || request.itemApiName().isBlank() ? null
                 : request.itemApiName().strip();
         // The key of a new layout assignment comes from its request, so it is not asked for twice.
-        if (kind.namesItem() && item == null && kind != Change.Kind.CREATE_LAYOUT_ASSIGNMENT) {
+        if (kind.namesItem() && item == null && kind != Change.Kind.CREATE_LAYOUT_ASSIGNMENT
+                && kind != Change.Kind.CREATE_RECORD_TYPE_ASSIGNMENT) {
             throw ApiException.validation("itemApiName", "Name the field, record type, layout, record page, "
                     + "application or assignment this change is about.");
         }
@@ -86,7 +91,8 @@ final class ChangeCodec {
             case UPDATE_OBJECT -> new Change(kind, object, null,
                     write(required(request.updateObject(), "updateObject", kind)));
             case DELETE_OBJECT, DELETE_FIELD, DELETE_RECORD_TYPE, DELETE_LAYOUT, DELETE_RECORD_PAGE,
-                    DELETE_APPLICATION, DELETE_LAYOUT_ASSIGNMENT, DELETE_VALIDATION_RULE ->
+                    DELETE_APPLICATION, DELETE_LAYOUT_ASSIGNMENT, DELETE_VALIDATION_RULE,
+                    DELETE_RECORD_TYPE_ASSIGNMENT ->
                     new Change(kind, object, item, EMPTY);
             case CREATE_VALIDATION_RULE -> new Change(kind, object, null,
                     write(required(request.createValidationRule(), "createValidationRule", kind)));
@@ -121,6 +127,18 @@ final class ChangeCodec {
             }
             case UPDATE_LAYOUT_ASSIGNMENT -> new Change(kind, object, item,
                     write(required(request.updateLayoutAssignment(), "updateLayoutAssignment", kind)));
+            case CREATE_RECORD_TYPE_ASSIGNMENT -> {
+                CreateRecordTypeAssignmentRequest body = required(request.createRecordTypeAssignment(),
+                        "createRecordTypeAssignment", kind);
+                if (body.recordType() == null || body.recordType().isBlank()) {
+                    throw ApiException.validation("createRecordTypeAssignment.recordType",
+                            "Name the record type this assignment is for.");
+                }
+                yield new Change(kind, object, RecordTypeAssignment.keyOf(body.recordType().strip(),
+                        body.profileId()), write(body));
+            }
+            case UPDATE_RECORD_TYPE_ASSIGNMENT -> new Change(kind, object, item,
+                    write(required(request.updateRecordTypeAssignment(), "updateRecordTypeAssignment", kind)));
         };
     }
 
@@ -170,6 +188,8 @@ final class ChangeCodec {
             case CREATE_APPLICATION -> restoreKey(new Change(Change.Kind.UPDATE_APPLICATION, creation.object(),
                     withSuffix(name), EMPTY));
             case CREATE_LAYOUT_ASSIGNMENT -> restoreKey(new Change(Change.Kind.UPDATE_LAYOUT_ASSIGNMENT,
+                    creation.object(), creation.item(), EMPTY));
+            case CREATE_RECORD_TYPE_ASSIGNMENT -> restoreKey(new Change(Change.Kind.UPDATE_RECORD_TYPE_ASSIGNMENT,
                     creation.object(), creation.item(), EMPTY));
             case CREATE_VALIDATION_RULE -> restoreKey(new Change(Change.Kind.UPDATE_VALIDATION_RULE,
                     creation.object(), withSuffix(name), EMPTY));
@@ -325,6 +345,22 @@ final class ChangeCodec {
     Change restoreAssignment(String object, LayoutAssignmentView before, long afterVersion) {
         return new Change(Change.Kind.UPDATE_LAYOUT_ASSIGNMENT, object, before.key(), write(
                 new UpdateLayoutAssignmentRequest(before.layout(), afterVersion)));
+    }
+
+    // ---- record type assignments (Sprint 15A) ----
+
+    Change removeTypeAssignment(String object, String key) {
+        return new Change(Change.Kind.DELETE_RECORD_TYPE_ASSIGNMENT, object, key, EMPTY);
+    }
+
+    Change makeTypeAssignment(String object, RecordTypeAssignmentView view) {
+        return new Change(Change.Kind.CREATE_RECORD_TYPE_ASSIGNMENT, object, view.key(), write(
+                new CreateRecordTypeAssignmentRequest(view.recordType(), view.profileId(), view.defaultForProfile())));
+    }
+
+    Change restoreTypeAssignment(String object, RecordTypeAssignmentView before, long afterVersion) {
+        return new Change(Change.Kind.UPDATE_RECORD_TYPE_ASSIGNMENT, object, before.key(), write(
+                new UpdateRecordTypeAssignmentRequest(before.defaultForProfile(), afterVersion)));
     }
 
     // ---- validation rules (Sprint 13) ----

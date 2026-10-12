@@ -29,19 +29,23 @@ record MetadataProperties(@DefaultValue Limits limits, @DefaultValue Cache cache
      * @param maxValidationRulesPerObject validation rules per object (default 50, Sprint 13)
      * @param maxFormulaDepth how many formula fields may be stacked, a formula using a formula using a formula
      *        (default 5, Sprint 13)
+     * @param maxRecordTypeAssignmentsPerObject record type assignments (a profile allowed a record type) per object
+     *        (default 500, Sprint 15A)
      */
     record Limits(@DefaultValue("200") int maxObjects, @DefaultValue("500") int maxFieldsPerObject,
             @DefaultValue("1000") int maxPicklistValues, @DefaultValue("50") int maxRecordTypesPerObject,
             @DefaultValue("200") int maxChangesPerSet, @DefaultValue("50") int maxOpenChangeSets,
             @DefaultValue("50") int maxLayoutsPerObject, @DefaultValue("20") int maxRecordPagesPerObject,
             @DefaultValue("20") int maxApplications, @DefaultValue("200") int maxAssignmentsPerObject,
-            @DefaultValue("50") int maxValidationRulesPerObject, @DefaultValue("5") int maxFormulaDepth) {
+            @DefaultValue("50") int maxValidationRulesPerObject, @DefaultValue("5") int maxFormulaDepth,
+            @DefaultValue("500") int maxRecordTypeAssignmentsPerObject) {
 
         Limits {
             if (maxObjects < 1 || maxFieldsPerObject < 1 || maxPicklistValues < 1 || maxRecordTypesPerObject < 1
                     || maxChangesPerSet < 1 || maxOpenChangeSets < 1 || maxLayoutsPerObject < 1
                     || maxRecordPagesPerObject < 1 || maxApplications < 1 || maxAssignmentsPerObject < 1
-                    || maxValidationRulesPerObject < 1 || maxFormulaDepth < 1) {
+                    || maxValidationRulesPerObject < 1 || maxFormulaDepth < 1
+                    || maxRecordTypeAssignmentsPerObject < 1) {
                 throw new IllegalArgumentException("platform.metadata.limits.* must be at least 1");
             }
         }

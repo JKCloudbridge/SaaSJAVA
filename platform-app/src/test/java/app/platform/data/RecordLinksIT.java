@@ -101,7 +101,7 @@ class RecordLinksIT extends PipelineSupport {
     }
 
     @Test
-    void aLinkToAnObjectThatAPlatformModuleOwnsIsRefusedNotAcceptedUnchecked() {
+    void aLinkToAUserWhoIsNotAMemberIsRefusedLikeAnyMissingRecordAndAnEmptyFieldWorks() {
         Matrix matrix = matrix();
         TestBrowser admin = matrix.admin();
         Response field = admin.postJson(METADATA_OBJECTS + "/Target__c/fields",
@@ -113,7 +113,7 @@ class RecordLinksIT extends PipelineSupport {
         Response empty = createIn(admin, TARGET_RECORDS, "{}");
 
         assertThat(refused.status()).isEqualTo(400);
-        assertThat(problemAt(refused, "owner__c")).isEqualTo("Links to this kind of object are not available yet.");
+        assertThat(problemAt(refused, "owner__c")).isEqualTo(MISSING);
         assertThat(empty.status()).isEqualTo(201);
     }
 }

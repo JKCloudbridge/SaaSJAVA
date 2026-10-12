@@ -3910,6 +3910,44 @@
         "tags" : [ "Metadata" ]
       }
     },
+    "/api/v1/metadata/objects/{objectApiName}/record-type-assignments" : {
+      "get" : {
+        "description" : "A record type with no profile assigned is open to every profile; with at least one it is open only to the profiles named. A profile that no longer exists has no name here; its assignment still restricts the record type until it is removed. NOT_FOUND for an object the organization does not have.",
+        "operationId" : "listRecordTypeAssignmentsOfObject",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListRecordTypeAssignmentView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Every record type assignment of an object",
+        "tags" : [ "Metadata" ]
+      }
+    },
     "/api/v1/metadata/objects/{objectApiName}/record-types" : {
       "get" : {
         "description" : "For members who may view objects and fields. NOT_FOUND for an object the organization does not have, on the platform host.",
@@ -4125,6 +4163,261 @@
           }
         },
         "summary" : "Change a record type",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/record-types/{recordType}/profiles" : {
+      "get" : {
+        "description" : "A record type with no profile assigned is open to every profile; with at least one it is open only to the profiles named. An empty list means the record type is open to every profile. NOT_FOUND for an object the organization does not have.",
+        "operationId" : "listRecordTypeAssignments",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "recordType",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListRecordTypeAssignmentView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The profiles that may use a record type",
+        "tags" : [ "Metadata" ]
+      },
+      "post" : {
+        "description" : "A record type with no profile assigned is open to every profile; with at least one it is open only to the profiles named. Live at once, as a release of one change. The first assignment of a record type closes it to every other profile; the record type in the path is the one meant. With defaultForProfile the record type becomes the one a new record of the profile gets when it names none, and the profile's previous default of the object loses the mark. CONFLICT when the record type does not exist. VALIDATION_ERROR for a profile that does not exist or a default that is not in use. Audited.",
+        "operationId" : "createRecordTypeAssignment",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "recordType",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateRecordTypeAssignmentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordTypeAssignmentView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Let a profile use a record type",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/record-types/{recordType}/profiles/{profileId}" : {
+      "delete" : {
+        "description" : "A record type with no profile assigned is open to every profile; with at least one it is open only to the profiles named. Removing the last assignment of a record type opens it to every profile again. Records that already have the type keep it. Live at once, as a release of one change. Audited.",
+        "operationId" : "deleteRecordTypeAssignment",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "recordType",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "profileId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Stop a profile from using a record type",
+        "tags" : [ "Metadata" ]
+      },
+      "get" : {
+        "description" : "NOT_FOUND for an assignment the record type does not have.",
+        "operationId" : "getRecordTypeAssignment",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "recordType",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "profileId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordTypeAssignmentView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One profile's use of a record type",
+        "tags" : [ "Metadata" ]
+      },
+      "put" : {
+        "description" : "Live at once, as a release of one change. Making it the default takes the mark off the profile's previous default of the object. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.",
+        "operationId" : "updateRecordTypeAssignment",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "recordType",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "profileId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateRecordTypeAssignmentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordTypeAssignmentView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Make a record type the default of a profile, or take the mark off",
         "tags" : [ "Metadata" ]
       }
     },
@@ -7427,6 +7720,18 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListRecordTypeAssignmentView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordTypeAssignmentView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListRecordTypeView" : {
         "type" : "object",
         "properties" : {
@@ -7594,6 +7899,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/RecordPageView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseRecordTypeAssignmentView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/RecordTypeAssignmentView"
           }
         },
         "required" : [ "data" ]
@@ -7862,6 +8176,9 @@
           "createRecordType" : {
             "$ref" : "#/components/schemas/CreateRecordTypeRequest"
           },
+          "createRecordTypeAssignment" : {
+            "$ref" : "#/components/schemas/CreateRecordTypeAssignmentRequest"
+          },
           "createValidationRule" : {
             "$ref" : "#/components/schemas/CreateValidationRuleRequest"
           },
@@ -7900,6 +8217,9 @@
           },
           "updateRecordType" : {
             "$ref" : "#/components/schemas/UpdateRecordTypeRequest"
+          },
+          "updateRecordTypeAssignment" : {
+            "$ref" : "#/components/schemas/UpdateRecordTypeAssignmentRequest"
           },
           "updateValidationRule" : {
             "$ref" : "#/components/schemas/UpdateValidationRuleRequest"
@@ -8285,6 +8605,24 @@
           }
         },
         "required" : [ "fields" ]
+      },
+      "CreateRecordTypeAssignmentRequest" : {
+        "type" : "object",
+        "properties" : {
+          "defaultForProfile" : {
+            "type" : "boolean"
+          },
+          "profileId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "recordType" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "profileId" ]
       },
       "CreateRecordTypeRequest" : {
         "type" : "object",
@@ -10144,6 +10482,32 @@
         },
         "required" : [ "apiName", "definition", "description", "label", "objectApiName", "version" ]
       },
+      "RecordTypeAssignmentView" : {
+        "type" : "object",
+        "properties" : {
+          "defaultForProfile" : {
+            "type" : "boolean"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "profileId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "profileName" : {
+            "type" : "string"
+          },
+          "recordType" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "key", "profileId", "recordType", "version" ]
+      },
       "RecordTypeView" : {
         "type" : "object",
         "properties" : {
@@ -11007,6 +11371,19 @@
           }
         },
         "required" : [ "version" ]
+      },
+      "UpdateRecordTypeAssignmentRequest" : {
+        "type" : "object",
+        "properties" : {
+          "defaultForProfile" : {
+            "type" : "boolean"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "defaultForProfile", "version" ]
       },
       "UpdateRecordTypeRequest" : {
         "type" : "object",

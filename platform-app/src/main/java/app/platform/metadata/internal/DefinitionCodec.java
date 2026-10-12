@@ -4,6 +4,7 @@ import app.platform.metadata.ApplicationDefinition;
 import app.platform.metadata.ApplicationDefinition.ItemType;
 import app.platform.metadata.ApplicationDefinition.NavigationItem;
 import app.platform.metadata.LayoutAssignment;
+import app.platform.metadata.RecordTypeAssignment;
 import app.platform.metadata.PageLayout;
 import app.platform.metadata.RecordPage;
 import app.platformapi.ApplicationView;
@@ -69,6 +70,11 @@ final class DefinitionCodec {
     LayoutAssignment assignment(AssignmentStore.Row row) {
         return new LayoutAssignment(row.objectApiName(), row.profileId(), row.recordType(), row.layout(),
                 row.version());
+    }
+
+    RecordTypeAssignment typeAssignment(RecordTypeAssignmentStore.Row row) {
+        return new RecordTypeAssignment(row.objectApiName(), row.recordType(), row.profileId(),
+                row.defaultForProfile(), row.version());
     }
 
     // ---- views ----

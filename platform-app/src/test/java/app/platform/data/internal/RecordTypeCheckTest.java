@@ -1,7 +1,10 @@
 package app.platform.data.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import app.platform.metadata.DefinitionKind;
@@ -11,16 +14,23 @@ import app.platform.metadata.FieldType;
 import app.platform.metadata.Metadata;
 import app.platform.metadata.ObjectDefinition;
 import app.platform.metadata.RecordType;
+import app.platform.security.MemberAccess;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 /**
- * Record types on records, without a database (Sprint 15, ADR-0093): which type a write leaves a record with, which
- * fields a type offers, which picklist values it allows.
+ * Record types on records, without a database (Sprint 15, ADR-0093; Sprint 15A, ADR-0098): which type a write leaves a
+ * record with, which fields a type offers, which picklist values it allows, and what the member's profile adds. Which
+ * types a profile may use is the metadata module's answer ({@code MetadataSnapshotRecordTypesTest}); here the answer
+ * is given and the stage is judged on what it does with it.
  */
 class RecordTypeCheckTest {
+
+    private static final UUID MEMBER = UUID.randomUUID();
+    private static final UUID PROFILE = UUID.randomUUID();
 
     private static FieldDefinition field(String name) {
         return new FieldDefinition("Thing__c", name, name, "", DefinitionKind.CUSTOM, FieldType.TEXT, false, false,
@@ -39,39 +49,60 @@ class RecordTypeCheckTest {
     private static final RecordType NARROW = type("Narrow__c", true, false, false, List.of("a__c"),
             Map.of("a__c", List.of("x", "y")));
     private static final RecordType OFF = type("Off__c", false, false, true, List.of(), Map.of());
+    private static final RecordType SECRET = type("Secret__c", true, false, true, List.of(), Map.of());
 
-    private static RecordTypeCheck check(RecordType... types) {
-        Metadata metadata = mock(Metadata.class);
-        when(metadata.recordTypes("Thing__c")).thenReturn(List.of(types));
-        return new RecordTypeCheck(metadata);
+    private final MemberAccess members = mock(MemberAccess.class);
+    private final Metadata metadata = mock(Metadata.class);
+    private final RecordTypeCheck check = new RecordTypeCheck(metadata, members);
+
+    /** The object has these types; the member's profile may use only {@code usable}, and gets {@code byDefault}. */
+    private void given(List<RecordType> all, List<RecordType> usable, RecordType byDefault) {
+        when(members.profileOf(MEMBER)).thenReturn(Optional.of(PROFILE));
+        when(metadata.recordTypes("Thing__c")).thenReturn(all);
+        when(metadata.recordTypesFor("Thing__c", PROFILE)).thenReturn(usable);
+        when(metadata.defaultRecordTypeFor("Thing__c", PROFILE)).thenReturn(Optional.ofNullable(byDefault));
+    }
+
+    private Optional<RecordType> resolve(String requested, String held, Findings findings) {
+        return check.resolve(THING, MEMBER, requested, held, findings);
     }
 
     @Test
-    void aNewRecordGetsTheDefaultTypeWhenNoneIsNamed() {
+    void aNewRecordGetsTheDefaultTheMetadataGivesTheProfile() {
+        given(List.of(STANDARD, NARROW), List.of(STANDARD, NARROW), NARROW);
         Findings findings = new Findings();
 
-        Optional<RecordType> resolved = check(STANDARD, NARROW).resolve(THING, null, null, findings);
+        Optional<RecordType> resolved = resolve(null, null, findings);
 
-        assertThat(resolved).contains(STANDARD);
+        assertThat(resolved).contains(NARROW);
         assertThat(findings.isEmpty()).isTrue();
     }
 
     @Test
-    void aNewRecordHasNoTypeWhenThereIsNoDefaultOrNoType() {
-        assertThat(check(NARROW).resolve(THING, null, null, new Findings())).isEmpty();
-        assertThat(check().resolve(THING, null, null, new Findings())).isEmpty();
+    void aNewRecordHasNoTypeWhenThereIsNoDefaultForTheProfile() {
+        given(List.of(NARROW, SECRET), List.of(NARROW), null);
+
+        assertThat(resolve(null, null, new Findings())).isEmpty();
     }
 
     @Test
-    void aTypeThatIsNamedMustExistAndBeInUse() {
+    void anObjectWithNoTypesNeverAsksForTheProfile() {
+        when(metadata.recordTypes("Thing__c")).thenReturn(List.of());
+
+        assertThat(resolve(null, null, new Findings())).isEmpty();
+        verify(members, never()).profileOf(any());
+    }
+
+    @Test
+    void aTypeThatIsNamedMustExistAndBeInUseAndBeWellWritten() {
+        given(List.of(STANDARD, OFF), List.of(STANDARD, OFF), STANDARD);
         Findings unknown = new Findings();
         Findings off = new Findings();
         Findings shape = new Findings();
-        RecordTypeCheck check = check(STANDARD, OFF);
 
-        assertThat(check.resolve(THING, "Nope__c", null, unknown)).isEmpty();
-        check.resolve(THING, "Off__c", null, off);
-        check.resolve(THING, "no way", null, shape);
+        assertThat(resolve("Nope__c", null, unknown)).isEmpty();
+        resolve("Off__c", null, off);
+        resolve("no way", null, shape);
 
         assertThat(unknown.at("recordType")).containsExactly("This object has no such record type.");
         assertThat(off.at("recordType")).containsExactly("This record type is not in use.");
@@ -79,20 +110,50 @@ class RecordTypeCheckTest {
     }
 
     @Test
-    void aRecordKeepsItsTypeEvenWhenTheTypeIsSwitchedOffButNoOtherRecordCanBeGivenIt() {
-        RecordTypeCheck check = check(STANDARD, OFF);
+    void aTypeTheProfileMayNotUseAnswersAsATypeThatDoesNotExist() {
+        given(List.of(STANDARD, SECRET), List.of(STANDARD), STANDARD);
+        Findings hidden = new Findings();
+        Findings unknown = new Findings();
+
+        assertThat(resolve("Secret__c", null, hidden)).isEmpty();
+        resolve("Nope__c", null, unknown);
+
+        assertThat(hidden.at("recordType")).containsExactly("This object has no such record type.");
+        assertThat(hidden.at("recordType")).as("the same words, so nobody learns what exists")
+                .isEqualTo(unknown.at("recordType"));
+    }
+
+    @Test
+    void aRecordKeepsATypeThatWasSwitchedOffOrThatTheProfileHasLost() {
+        given(List.of(STANDARD, OFF, SECRET), List.of(STANDARD, OFF), STANDARD);
         Findings kept = new Findings();
         Findings named = new Findings();
+        Findings lost = new Findings();
 
-        assertThat(check.resolve(THING, null, "Off__c", kept)).contains(OFF);
-        assertThat(check.resolve(THING, "Off__c", "Off__c", named)).contains(OFF);
-        assertThat(kept.isEmpty() && named.isEmpty()).isTrue();
+        assertThat(resolve(null, "Off__c", kept)).contains(OFF);
+        assertThat(resolve("Off__c", "Off__c", named)).contains(OFF);
+        assertThat(resolve("Secret__c", "Secret__c", lost)).as("naming the type it has changes nothing")
+                .contains(SECRET);
+
+        assertThat(kept.isEmpty() && named.isEmpty() && lost.isEmpty()).isTrue();
+    }
+
+    @Test
+    void aRecordCannotBeMovedToATypeTheProfileMayNotUse() {
+        given(List.of(STANDARD, SECRET), List.of(STANDARD), STANDARD);
+        Findings findings = new Findings();
+
+        resolve("Secret__c", "Standard__c", findings);
+
+        assertThat(findings.at("recordType")).containsExactly("This object has no such record type.");
     }
 
     @Test
     void anUpdateWithoutATypeKeepsTheTypeAndDoesNotTakeTheDefault() {
-        assertThat(check(STANDARD, NARROW).resolve(THING, null, "Narrow__c", new Findings())).contains(NARROW);
-        assertThat(check(STANDARD).resolve(THING, null, "Gone__c", new Findings())).isEmpty();
+        given(List.of(STANDARD, NARROW), List.of(STANDARD, NARROW), STANDARD);
+
+        assertThat(resolve(null, "Narrow__c", new Findings())).contains(NARROW);
+        assertThat(resolve(null, "Gone__c", new Findings())).isEmpty();
     }
 
     @Test
@@ -107,12 +168,12 @@ class RecordTypeCheckTest {
     void aWriteMayNameOnlyTheFieldsTheTypeOffers() {
         Findings findings = new Findings();
 
-        check(NARROW).checkOffered(NARROW, THING, List.of("a__c", "b__c", "c__c"), findings);
+        check.checkOffered(NARROW, THING, List.of("a__c", "b__c", "c__c"), findings);
 
         assertThat(findings.places()).containsExactlyInAnyOrder("b__c", "c__c");
         Findings open = new Findings();
-        check(STANDARD).checkOffered(STANDARD, THING, List.of("a__c", "b__c"), open);
-        check(STANDARD).checkOffered(null, THING, List.of("a__c", "b__c"), open);
+        check.checkOffered(STANDARD, THING, List.of("a__c", "b__c"), open);
+        check.checkOffered(null, THING, List.of("a__c", "b__c"), open);
         assertThat(open.isEmpty()).isTrue();
     }
 

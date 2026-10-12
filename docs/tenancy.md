@@ -362,3 +362,17 @@ the last step before the insert.
 **Tests (Sprint 15).** `WritePipelineStagesIT` (the order, defaults, required, rules, formulas, a record reads back as written), `FieldSecurityMatrixIT` (19 types by three kinds of member: edit, read, none; every path),
 `RecordTypesOnRecordsIT`, `RecordLinksIT`, `AutoNumberIT` (two real instances), `RecordsSetupChangeIT`, `RecordPipelineLogsAreCleanIT`, `RecordSlotsIT`; unit: `FieldValueTest`, `FieldSecurityTest`,
 `RecordTypeCheckTest`, `WritePipelineOrderTest`, `FieldWritePropertyTest` (jqwik); the isolation harness lists `auto_number_counter`.
+
+## Record type assignments and the reference directory (Sprint 15A)
+
+Short form; decisions in [ADR-0098](adr/0098-record-type-assignments-which-profiles-may-use-which-record-type.md) and [ADR-0099](adr/0099-the-reference-directory-links-to-objects-a-platform-module-owns.md).
+
+**Record type assignments** are published metadata like layout assignments: the table `record_type_assignment` (V038) is read into the metadata snapshot (`MetadataSnapshot.recordTypesFor`, `defaultRecordTypeFor`) and changes only through
+`MetadataLifecycle` (the change kinds `CREATE_`, `UPDATE_`, `DELETE_RECORD_TYPE_ASSIGNMENT`, the contributor `DefinitionDependencies.TypeAssignments`). **Ask which types a member may use only through `Metadata.recordTypesFor(object, profile)` and
+`defaultRecordTypeFor`**; never read the table. The write pipeline asks them in `RecordTypeCheck.resolve`, and only for an object that has record types.
+
+**To add a platform-owned object to the links that work:** implement `ReferenceDirectory` in the module that owns its rows (see `identity.internal.UserDirectory`): `object()` is the API name, `exists(UUID)` a yes or no for the current
+organization, nothing else. `WritePipeline` collects every implementation; no module edge is needed. Add a case next to `UserLinksIT`.
+
+**Tests (Sprint 15A).** `RecordTypeAssignmentsIT` (the API and the lifecycle: the rule, defaults, every refusal, the dependency with the type, a deleted profile, a change set, the rollback, who may do what),
+`RecordTypeProfilesOnRecordsIT` (what a write does with a profile), `UserLinksIT` (the directory), `MetadataSnapshotRecordTypesTest` and `RecordTypeCheckTest` (no database); the isolation harness lists `record_type_assignment`.

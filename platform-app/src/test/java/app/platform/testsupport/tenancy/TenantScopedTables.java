@@ -361,6 +361,17 @@ public final class TenantScopedTables {
                         tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
             });
 
+    /**
+     * Which profiles may use a record type (Sprint 15A). A probe row is the assignment of a made-up profile to a
+     * made-up record type of a standard object (so no custom object is needed); each call uses a profile of its own
+     * because there is one live row per object, record type and profile.
+     */
+    public static final TenantScopedTable RECORD_TYPE_ASSIGNMENT = new TenantScopedTable("record_type_assignment",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into record_type_assignment (tenant_id, object_api_name, record_type_api_name, "
+                            + "profile_id, created_by, updated_by) values (?, 'Account', 'Probe__c', ?, ?, ?)",
+                    tenant, UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
@@ -368,7 +379,7 @@ public final class TenantScopedTables {
             PUBLIC_GROUP_ACCESS_POLICY, OBJECT_PERMISSION, FIELD_PERMISSION, SECURITY_VERSION, OBJECT_DEFINITION,
             FIELD_DEFINITION, METADATA_VERSION, RECORD_TYPE, METADATA_CHANGE_SET, METADATA_CHANGE,
             METADATA_RELEASE, PAGE_LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT, VALIDATION_RULE,
-            OBJECT_RECORD, AUTO_NUMBER_COUNTER);
+            OBJECT_RECORD, AUTO_NUMBER_COUNTER, RECORD_TYPE_ASSIGNMENT);
 
     private TenantScopedTables() {
     }

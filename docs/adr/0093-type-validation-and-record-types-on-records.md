@@ -40,13 +40,13 @@ pipeline (Sprint 14 data) reads as "no value" when a rule or formula looks at it
 4. **A type allows picklist values:** for a picklist field the type lists, a value must be in that subset, unless the record holds it already. A picklist the type does not list allows all its values.
 5. **Which layout a person sees for a record type and profile** is unchanged (ADR-0071: profile with record type, record type, profile, object default). That is a different question from *which record types a profile may choose*; see below.
 
-## Decision: record types and profiles (differs from the sprint prompt)
+## Decision: record types and profiles (differs from the sprint prompt; built in Sprint 15A as [ADR-0098](0098-record-type-assignments-which-profiles-may-use-which-record-type.md))
 
 The sprint prompt asks that a record type be checked against "the member's profile". Neither ADR-0064 nor the metadata has any link between a record type and a profile (only layout assignment names a profile), so there is nothing to
 check against. The product owner asked, on 2026-10-12, that this behave like a production-grade CRM, where an administrator assigns the record types a profile may use. That is a new kind of definition (a table of record types per profile
-that goes through the change-set lifecycle with its own change kinds, undo, dependency edges and schema) and it is **not part of this sprint's build**: it is recorded in the delivery plan as a decision for Sprint 16 or a side sprint,
-with this design: *a record type with no profile assignments is open to every profile; with at least one, only to those profiles; a profile may have a default among its types.* Until then every member who may create in an object
-may choose any record type of it in use.
+that goes through the change-set lifecycle with its own change kinds, undo, dependency edges and schema) and it was **not part of Sprint 15's build**. It was built as the side sprint S15A with this design: *a record type with no profile
+assignments is open to every profile; with at least one, only to those profiles; a profile may have a default among its types.* From Sprint 15A on the rule is enforced; in Sprint 15 every member who may create in an object could choose any
+record type of it in use.
 
 ## Consequences
 
