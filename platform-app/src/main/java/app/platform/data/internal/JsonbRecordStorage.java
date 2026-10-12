@@ -86,12 +86,17 @@ class JsonbRecordStorage implements StorageStrategy {
     private static final String HAS_VALUES = "select exists (select 1 from object_record "
             + "where tenant_id = :tenant and object_api_name = :object and jsonb_exists(payload, :field))";
 
+    // Not "for update skip locked": under forced row level security PostgreSQL silently matches zero rows for this
+    // statement shape when a locking clause is added to the subquery (checked against a real login role, not a
+    // superuser). Two instances racing on the same rows is harmless without it too: the second delete matches
+    // whatever the first one left, which is nothing for a row the first one already removed.
     private static final String PURGE_OLD = "delete from object_record where tenant_id = :tenant and id in ("
             + "select id from object_record where tenant_id = :tenant and deleted_at is not null "
-            + "and deleted_at < now() - make_interval(secs => :seconds) order by deleted_at limit :limit "
-            + "for update skip locked) returning object_api_name, id";
+            + "and deleted_at < now() - make_interval(secs => :seconds) order by deleted_at limit :limit) "
+            + "returning object_api_name, id";
 
     private static final String CHECK_VIOLATION = "23514";
+    private static final String PAYLOAD_SIZE_CONSTRAINT = "object_record_payload_size";
 
     private final JdbcClient jdbc;
     private final TenantContexts contexts;
@@ -208,9 +213,14 @@ class JsonbRecordStorage implements StorageStrategy {
         return time == null ? null : time.toInstant();
     }
 
-    /** The one check the database makes that a request can trip: the size of the values (nothing else is named). */
+    /**
+     * The one check the database makes that a request can trip: the size of the values (nothing else is named). A
+     * hostile object name is also refused by a database check (a different constraint, the same SQLSTATE), and that
+     * is a programming mistake, not a request to report as "too large": only the size constraint is translated.
+     */
     private static RuntimeException tooLarge(DataIntegrityViolationException e) {
-        if (e.getMostSpecificCause() instanceof SQLException sql && CHECK_VIOLATION.equals(sql.getSQLState())) {
+        if (e.getMostSpecificCause() instanceof SQLException sql && CHECK_VIOLATION.equals(sql.getSQLState())
+                && sql.getMessage() != null && sql.getMessage().contains(PAYLOAD_SIZE_CONSTRAINT)) {
             return ApiException.validation("fields", "The values are too large for one record.");
         }
         return e;

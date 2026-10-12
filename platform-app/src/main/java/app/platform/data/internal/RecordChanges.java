@@ -6,6 +6,8 @@ import app.platform.sharedkernel.audit.AuditRecord;
 import app.platform.sharedkernel.audit.AuditRecorder;
 import app.platform.sharedkernel.events.EventPublisher;
 import app.platform.sharedkernel.events.NewEvent;
+import app.platform.tenant.TenantContext;
+import app.platform.tenant.TenantContexts;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,11 +30,13 @@ class RecordChanges {
     private final AuditRecorder audit;
     private final EventPublisher events;
     private final RecordJson json;
+    private final TenantContexts contexts;
 
-    RecordChanges(AuditRecorder audit, EventPublisher events, RecordJson json) {
+    RecordChanges(AuditRecorder audit, EventPublisher events, RecordJson json, TenantContexts contexts) {
         this.audit = audit;
         this.events = events;
         this.json = json;
+        this.contexts = contexts;
     }
 
     void created(UUID actor, String object, UUID id, long version, List<String> fields) {
@@ -70,8 +74,9 @@ class RecordChanges {
     }
 
     private void write(String kind, UUID actor, String object, UUID id, long version, List<String> fields) {
+        TenantId tenant = contexts.current().map(TenantContext::tenantId).orElse(null);
         AuditRecord record = AuditRecord.of("data.record." + kind, AuditOutcome.SUCCESS).forUser(actor)
-                .onObject(object, id.toString()).with("version", Long.toString(version));
+                .inTenant(tenant).onObject(object, id.toString()).with("version", Long.toString(version));
         if (!fields.isEmpty()) {
             record = record.with("field_count", Integer.toString(fields.size()))
                     .with("fields", String.join(",", fields));

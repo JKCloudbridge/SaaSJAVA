@@ -177,8 +177,8 @@ class RecordUsageIT extends RecordsSupport {
         Response removed = removeField(admin, "salary__c");
 
         assertThat(retype.status()).as("a type is not something a change can carry").isIn(200, 400, 409);
-        assertThat(JsonPath.<String>read(admin.get(METADATA_OBJECTS + "/Employee__c").body(),
-                "$.data.fields[?(@.apiName=='salary__c')].type[0]")).isEqualTo("DECIMAL");
+        assertThat(JsonPath.<List<String>>read(admin.get(METADATA_OBJECTS + "/Employee__c").body(),
+                "$.data.fields[?(@.apiName=='salary__c')].type").get(0)).isEqualTo("DECIMAL");
         assertThat(removed.status()).isEqualTo(409);
     }
 }

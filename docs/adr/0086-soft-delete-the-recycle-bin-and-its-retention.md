@@ -26,7 +26,7 @@ the database in the end.
   finished product will be, like reading (ADR-0089).
 - **A deleted record is read-only** in the database too (the row guard of ADR-0010), so a bug cannot edit a record in the bin. Deleting and restoring are changes: each raises the version.
 - **Retention.** A clean-up (`RecycleBinRetention`) removes records that have been in the bin longer than `platform.data.retention.recycle-bin` (default **30 days**, at least one second), at most `batch-size` (default 500) per organization per pass,
-  every `interval` (default one hour), on every instance that has `enabled` on (two instances at once is harmless: rows are locked with skip-locked, and a row that is gone is not there). It works organization by organization **in that
+  every `interval` (default one hour), on every instance that has `enabled` on (two instances at once is harmless: the second delete matches nothing the first one already removed; a locking clause was tried and dropped, because under forced row level security it made PostgreSQL match no rows at all). It works organization by organization **in that
   organization's own tenant context and transaction**: row level security stays on, no system scope is needed, and one organization failing does not stop the others.
 - **What a removal leaves.** Every record removed for good, by a person or by the clean-up, writes the event `record.purged` in the same transaction; a person's removal writes an audit record (`data.record.purged`); a pass of the clean-up writes one
   audit record per organization (`retention.record.purged`, with the count), visible to the organization and the platform. Nothing of the record's values.

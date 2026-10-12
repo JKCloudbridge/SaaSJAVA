@@ -175,6 +175,38 @@ class RecordStorageIT extends RecordsSupport {
     }
 
     @Test
+    void aPassOfTheCleanUpTakesAtMostTheLimitAndTheNextCallTakesTheRest() throws InterruptedException {
+        Organization organization = organization();
+        for (int i = 0; i < 5; i++) {
+            DataRecord stored = in(organization, () -> storage.insert("Thing__c", ACTOR, ACTOR, Map.of()));
+            in(organization, () -> storage.softDelete("Thing__c", stored.id(), ACTOR));
+        }
+        Thread.sleep(1_300);
+
+        List<StorageStrategy.Purged> first = in(organization,
+                () -> storage.purgeDeletedOlderThan(Duration.ofSeconds(1), 3));
+        List<StorageStrategy.Purged> second = in(organization,
+                () -> storage.purgeDeletedOlderThan(Duration.ofSeconds(1), 3));
+        List<StorageStrategy.Purged> third = in(organization,
+                () -> storage.purgeDeletedOlderThan(Duration.ofSeconds(1), 3));
+
+        assertThat(first).hasSize(3);
+        assertThat(second).hasSize(2);
+        assertThat(third).isEmpty();
+        assertThat(in(organization, () -> storage.hasRecords("Thing__c"))).isFalse();
+    }
+
+    @Test
+    void aRecordYoungerThanThePeriodIsNotTakenByTheCleanUp() {
+        Organization organization = organization();
+        DataRecord stored = in(organization, () -> storage.insert("Thing__c", ACTOR, ACTOR, Map.of()));
+        in(organization, () -> storage.softDelete("Thing__c", stored.id(), ACTOR));
+
+        assertThat(in(organization, () -> storage.purgeDeletedOlderThan(Duration.ofHours(1), 10))).isEmpty();
+        assertThat(in(organization, () -> storage.find("Thing__c", stored.id())).deleted()).isTrue();
+    }
+
+    @Test
     void anObjectNameIsMatchedExactlyNotByCase() {
         Organization organization = organization();
         DataRecord stored = in(organization, () -> storage.insert("Thing__c", ACTOR, ACTOR, Map.of()));

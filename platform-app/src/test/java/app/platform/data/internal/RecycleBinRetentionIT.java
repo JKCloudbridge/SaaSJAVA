@@ -8,7 +8,6 @@ import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestHttp.Response;
 import app.platform.testsupport.TestOrganizations.Organization;
 import com.jayway.jsonpath.JsonPath;
-import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,13 +16,12 @@ import org.springframework.test.context.TestPropertySource;
 /**
  * The clean-up of the recycle bin (Sprint 14, ADR-0086): a record that has been in the bin longer than the period is
  * removed for good, in the context of its own organization, with an event for each record and one audit record for the
- * pass. The period is two seconds and the batch three records here; the real defaults are 30 days and 500. The timer is
- * switched off: the tests run the pass themselves.
+ * pass. The period is two seconds here; the real default is 30 days. The batch bound is tested at the storage
+ * (RecordStorageIT). The timer is switched off: the tests run the pass themselves.
  */
 @PlatformIntegrationTest
 @TestPropertySource(properties = {
     "platform.data.retention.recycle-bin=PT2S",
-    "platform.data.retention.batch-size=3",
     "platform.data.retention.enabled=false"})
 class RecycleBinRetentionIT extends RecordsSupport {
 
@@ -84,24 +82,6 @@ class RecycleBinRetentionIT extends RecordsSupport {
         Response trail = admin.get("/api/v1/audit-events?limit=200");
         assertThat(trail.body()).as("the organization sees that its recycle bin was emptied")
                 .contains("retention.record.purged");
-    }
-
-    @Test
-    void aPassRemovesAtMostTheBatchSizePerOrganizationAndTheNextPassTakesTheRest() throws InterruptedException {
-        TestBrowser admin = adminWithEmployee(organization());
-        List<String> ids = new ArrayList<>();
-        for (int i = 0; i < 5; i++) {
-            String id = newRecord(admin, "Person " + i);
-            admin.request("DELETE", RECORDS + "/" + id, null);
-            ids.add(id);
-        }
-        waitForThePeriod();
-
-        retention.runOnce();
-        assertThat(binOf(admin)).as("three of five were taken").hasSize(2);
-
-        retention.runOnce();
-        assertThat(binOf(admin)).isEmpty();
     }
 
     @Test

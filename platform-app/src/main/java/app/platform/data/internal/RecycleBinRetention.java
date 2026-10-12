@@ -19,8 +19,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Empties the recycle bin: removes, for good, records that have been in it longer than the retention period ({@link
  * RecordProperties.Retention}, ADR-0086). Runs on every instance that has it switched on; two instances doing the same
- * work at once is harmless (a row is locked and skipped by the other, and a row that is already gone is not there to
- * remove).
+ * work at once is harmless (the second delete matches nothing of what the first one already removed).
  *
  * <p>It works organization by organization, in that organization's own tenant context and its own transaction: row
  * level security stays on, no system scope is needed, and an organization that fails does not hold up the others. Every
