@@ -143,6 +143,12 @@ public final class ApiPaths {
     /** The stored formulas that do not pass the expression language (Sprint 13). */
     public static final String METADATA_FORMULA_REPORT = V1 + "/metadata/formula-report";
 
+    /**
+     * The records of an object: {@code /objects/{objectApiName}/records} and its recycle bin
+     * {@code /objects/{objectApiName}/recycle-bin} (Sprint 14).
+     */
+    public static final String OBJECTS = V1 + "/objects";
+
     /** The applications the signed-in member may use, with their navigation (Sprint 12). */
     public static final String MY_APPLICATIONS = V1 + "/applications";
 

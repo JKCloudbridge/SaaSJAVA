@@ -336,13 +336,21 @@ public final class TenantScopedTables {
                         tenant, object, probeName("Probe"), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
             });
 
+    /** The records of the generic store (Sprint 14). A probe row is a record of a made-up object, owned by nobody. */
+    public static final TenantScopedTable OBJECT_RECORD = new TenantScopedTable("object_record",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into object_record (tenant_id, object_api_name, owner_id, payload, created_by, updated_by) "
+                            + "values (?, 'Probe__c', ?, '{}'::jsonb, ?, ?)",
+                    tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
             MEMBER_ACCESS, MEMBER_ACCESS_POLICY, MEMBER_GRANT, PUBLIC_GROUP, PUBLIC_GROUP_MEMBER,
             PUBLIC_GROUP_ACCESS_POLICY, OBJECT_PERMISSION, FIELD_PERMISSION, SECURITY_VERSION, OBJECT_DEFINITION,
             FIELD_DEFINITION, METADATA_VERSION, RECORD_TYPE, METADATA_CHANGE_SET, METADATA_CHANGE,
-            METADATA_RELEASE, PAGE_LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT, VALIDATION_RULE);
+            METADATA_RELEASE, PAGE_LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT, VALIDATION_RULE,
+            OBJECT_RECORD);
 
     private TenantScopedTables() {
     }

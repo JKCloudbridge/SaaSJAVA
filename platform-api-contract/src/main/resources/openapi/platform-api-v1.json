@@ -4529,6 +4529,388 @@
         "tags" : [ "Metadata" ]
       }
     },
+    "/api/v1/objects/{objectApiName}/records" : {
+      "get" : {
+        "description" : "One page at a time by the cursor of the previous page. No filter and no sorting: those are the query engine of Sprint 16. Until record-level security (Sprint 17) a member who may read the object reads every record of it in the organization. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "operationId" : "listRecords",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 200,
+            "minimum" : 1
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 512,
+            "minLength" : 0
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiPageResponseRecordView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The live records of an object, in identifier order",
+        "tags" : [ "Records" ]
+      },
+      "post" : {
+        "description" : "This is the first form of the endpoint: values are not yet checked against their field's type, required fields, relationships, validation rules or formulas (Sprint 15), and there is no record-level security (Sprint 17). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN for a caller who may read the object but not create in it. VALIDATION_ERROR names a key that is not a writable field (a system, calculated or retired field cannot be written) and says why a value cannot be kept. The caller owns the record. Audited and announced by object, identifier, version and field names, never by values.",
+        "operationId" : "createRecord",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateRecordRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Create a record of an object",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/records/{id}" : {
+      "delete" : {
+        "description" : "The record can be restored for the retention period, then it is removed for good. A second delete of the same record is a CONFLICT (409): it is already in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN without permission to delete in the object.",
+        "operationId" : "deleteRecord",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Move a record to the recycle bin",
+        "tags" : [ "Records" ]
+      },
+      "get" : {
+        "description" : "NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. NOT_FOUND also for a record that does not exist in this organization, or that is in the recycle bin.",
+        "operationId" : "getRecord",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One record",
+        "tags" : [ "Records" ]
+      },
+      "patch" : {
+        "description" : "This is the first form of the endpoint: values are not yet checked against their field's type, required fields, relationships, validation rules or formulas (Sprint 15), and there is no record-level security (Sprint 17). Only the fields named change; a null value or a name in clear removes a value. The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the record has another version now, and nothing is changed. CONFLICT (409) when the record is in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN without permission to update the object.",
+        "operationId" : "updateRecord",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateRecordRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change some values of a record",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/recycle-bin" : {
+      "get" : {
+        "description" : "In identifier order, one page at a time. Needs permission to delete in the object. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "operationId" : "listDeletedRecords",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 200,
+            "minimum" : 1
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 512,
+            "minLength" : 0
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiPageResponseRecordView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The records of an object that are in the recycle bin",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/recycle-bin/{id}" : {
+      "delete" : {
+        "description" : "Needs permission to delete in the object. CONFLICT (409) for a live record: delete it first. This cannot be undone. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "operationId" : "purgeRecord",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a record in the recycle bin for good",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/recycle-bin/{id}/restore" : {
+      "post" : {
+        "description" : "Needs permission to delete in the object. CONFLICT (409) for a record that is not in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "operationId" : "restoreRecord",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Take a record out of the recycle bin",
+        "tags" : [ "Records" ]
+      }
+    },
     "/api/v1/organization/leave" : {
       "post" : {
         "description" : "The caller's membership ends: they are signed out of this organization, their licences go back to the pool, and an administrator can let them back in. Their other organizations are untouched. CONFLICT for the last member who can manage access. Any active member may leave.",
@@ -6604,6 +6986,21 @@
         },
         "required" : [ "data", "pagination" ]
       },
+      "ApiPageResponseRecordView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordView"
+            }
+          },
+          "pagination" : {
+            "$ref" : "#/components/schemas/Pagination"
+          }
+        },
+        "required" : [ "data", "pagination" ]
+      },
       "ApiResponseAccessPolicyView" : {
         "type" : "object",
         "properties" : {
@@ -7206,6 +7603,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/RecordTypeView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseRecordView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/RecordView"
           }
         },
         "required" : [ "data" ]
@@ -7866,6 +8272,16 @@
           }
         },
         "required" : [ "definition", "label", "name" ]
+      },
+      "CreateRecordRequest" : {
+        "type" : "object",
+        "properties" : {
+          "fields" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          }
+        },
+        "required" : [ "fields" ]
       },
       "CreateRecordTypeRequest" : {
         "type" : "object",
@@ -9768,6 +10184,41 @@
         },
         "required" : [ "active", "allFields", "apiName", "availableFields", "defaultType", "description", "label", "picklistSubsets", "version" ]
       },
+      "RecordView" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "deletedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "fields" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "ownerId" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "createdAt", "fields", "id", "objectApiName", "ownerId", "updatedAt", "version" ]
+      },
       "RelationshipView" : {
         "type" : "object",
         "properties" : {
@@ -10527,6 +10978,26 @@
           }
         },
         "required" : [ "definition", "label", "version" ]
+      },
+      "UpdateRecordRequest" : {
+        "type" : "object",
+        "properties" : {
+          "clear" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "fields" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "version" ]
       },
       "UpdateRecordTypeRequest" : {
         "type" : "object",

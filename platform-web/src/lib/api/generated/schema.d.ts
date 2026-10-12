@@ -1796,6 +1796,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/objects/{objectApiName}/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The live records of an object, in identifier order
+         * @description One page at a time by the cursor of the previous page. No filter and no sorting: those are the query engine of Sprint 16. Until record-level security (Sprint 17) a member who may read the object reads every record of it in the organization. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         */
+        get: operations["listRecords"];
+        put?: never;
+        /**
+         * Create a record of an object
+         * @description This is the first form of the endpoint: values are not yet checked against their field's type, required fields, relationships, validation rules or formulas (Sprint 15), and there is no record-level security (Sprint 17). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN for a caller who may read the object but not create in it. VALIDATION_ERROR names a key that is not a writable field (a system, calculated or retired field cannot be written) and says why a value cannot be kept. The caller owns the record. Audited and announced by object, identifier, version and field names, never by values.
+         */
+        post: operations["createRecord"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/records/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One record
+         * @description NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. NOT_FOUND also for a record that does not exist in this organization, or that is in the recycle bin.
+         */
+        get: operations["getRecord"];
+        put?: never;
+        post?: never;
+        /**
+         * Move a record to the recycle bin
+         * @description The record can be restored for the retention period, then it is removed for good. A second delete of the same record is a CONFLICT (409): it is already in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN without permission to delete in the object.
+         */
+        delete: operations["deleteRecord"];
+        options?: never;
+        head?: never;
+        /**
+         * Change some values of a record
+         * @description This is the first form of the endpoint: values are not yet checked against their field's type, required fields, relationships, validation rules or formulas (Sprint 15), and there is no record-level security (Sprint 17). Only the fields named change; a null value or a name in clear removes a value. The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the record has another version now, and nothing is changed. CONFLICT (409) when the record is in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN without permission to update the object.
+         */
+        patch: operations["updateRecord"];
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/recycle-bin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The records of an object that are in the recycle bin
+         * @description In identifier order, one page at a time. Needs permission to delete in the object. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         */
+        get: operations["listDeletedRecords"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/recycle-bin/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a record in the recycle bin for good
+         * @description Needs permission to delete in the object. CONFLICT (409) for a live record: delete it first. This cannot be undone. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         */
+        delete: operations["purgeRecord"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/recycle-bin/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a record out of the recycle bin
+         * @description Needs permission to delete in the object. CONFLICT (409) for a record that is not in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         */
+        post: operations["restoreRecord"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organization/leave": {
         parameters: {
             query?: never;
@@ -2649,6 +2761,10 @@ export interface components {
             data: components["schemas"]["PlatformOrganizationSummary"][];
             pagination: components["schemas"]["Pagination"];
         };
+        ApiPageResponseRecordView: {
+            data: components["schemas"]["RecordView"][];
+            pagination: components["schemas"]["Pagination"];
+        };
         ApiResponseAccessPolicyView: {
             data: components["schemas"]["AccessPolicyView"];
         };
@@ -2822,6 +2938,9 @@ export interface components {
         };
         ApiResponseRecordTypeView: {
             data: components["schemas"]["RecordTypeView"];
+        };
+        ApiResponseRecordView: {
+            data: components["schemas"]["RecordView"];
         };
         ApiResponseReleaseView: {
             data: components["schemas"]["ReleaseView"];
@@ -3019,6 +3138,11 @@ export interface components {
             description?: string;
             label: string;
             name: string;
+        };
+        CreateRecordRequest: {
+            fields: {
+                [key: string]: unknown;
+            };
         };
         CreateRecordTypeRequest: {
             active?: boolean;
@@ -3577,6 +3701,22 @@ export interface components {
             /** Format: int64 */
             version: number;
         };
+        RecordView: {
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            deletedAt?: string;
+            fields: {
+                [key: string]: unknown;
+            };
+            id: string;
+            objectApiName: string;
+            ownerId: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
+        };
         RelationshipView: {
             childObject: string;
             field: string;
@@ -3799,6 +3939,14 @@ export interface components {
             definition: components["schemas"]["RecordPageDefinition"];
             description?: string;
             label: string;
+            /** Format: int64 */
+            version: number;
+        };
+        UpdateRecordRequest: {
+            clear?: string[];
+            fields?: {
+                [key: string]: unknown;
+            };
             /** Format: int64 */
             version: number;
         };
@@ -7525,6 +7673,269 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseChangeSetReportView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listRecords: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiPageResponseRecordView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRecordRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRecordRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listDeletedRecords: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiPageResponseRecordView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    purgeRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    restoreRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

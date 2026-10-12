@@ -246,6 +246,15 @@ class MetadataService {
         }
         MetadataStore.FieldRow row = store.field(objectApiName, fieldApiName)
                 .orElseThrow(MetadataService::missingField);
+        // A field that records still hold values in keeps its definition: the values would stay in the records with
+        // nothing to explain them (ADR-0062, ADR-0090). The type of a field never changes, so this is also what keeps
+        // a field from being "retyped" by removing and adding it.
+        ObjectUsage records = usage.getIfAvailable();
+        if (records != null && records.hasValues(objectApiName, fieldApiName)) {
+            throw new ApiException(ErrorCode.CONFLICT, "Records still hold values in this field, so it cannot be "
+                    + "removed. Empty the field in those records first, and remove records in the recycle bin for "
+                    + "good.");
+        }
         versions.wrote();
         int lines = cleanup.forgetField(objectApiName, fieldApiName, new ActorId(caller.userId()));
         store.deleteField(row.id(), caller.userId());

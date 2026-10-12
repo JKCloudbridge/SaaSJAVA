@@ -1,6 +1,6 @@
 # ADR-0082: Storage benchmark specification and pass/fail thresholds (gate G1)
 
-- **Status:** Draft (written and committed before any measurement is run; the thresholds below are not changed after a number has been seen)
+- **Status:** Accepted (written and committed before any measurement was run; the thresholds were not changed after a number was seen; result in ADR-0083)
 - **Date:** 2026-10-11
 - **Sprint:** S14
 - **Related:** [ADR-0002](0002-hybrid-data-store.md), [ADR-0003](0003-rls-defence-in-depth.md), [ADR-0010](0010-base-schema-conventions.md), [ADR-0015](0015-row-level-security-implementation.md); the result is recorded in ADR-0083

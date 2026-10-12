@@ -87,4 +87,12 @@ A decision that is still open has status **Proposed** and names the gate or spri
 | [0079](0079-checking-and-trying-expressions-without-records.md) | Checking and trying expressions without records | Accepted | — |
 | [0080](0080-the-metadata-runtime-compiled-artefacts-and-the-publish-event.md) | The metadata runtime, compiled artefacts and the publish event | Accepted | delivery plan: "invalidation" is the version in the database; the event warms the instance that claims it |
 | [0081](0081-security-review-of-the-expression-engine.md) | Security review of the expression engine | Accepted | — |
-| [0082](0082-storage-benchmark-specification-gate-g1.md) | Storage benchmark specification and pass/fail thresholds (gate G1) | Draft | delivery plan S14 thresholds kept; join, bloat and degradation thresholds added before any run |
+| [0082](0082-storage-benchmark-specification-gate-g1.md) | Storage benchmark specification and pass/fail thresholds (gate G1) | Accepted | delivery plan S14 thresholds kept; join, bloat, degradation thresholds added; amendments 1 and 2 before any run |
+| [0083](0083-storage-benchmark-result-gate-g1.md) | Storage benchmark result (gate G1) | Accepted | run 1 FAIL (undersized container), run 2 PASS 24 of 24; six conditions, managed-hardware confirmation before production |
+| [0084](0084-the-record-store.md) | The record store: one table, the values as JSON, typed copies reserved for indexes | Accepted | architecture note 4, sections 6 and 39: the table of the gate (ADR-0083) with typed slots; platform-owned objects are not served |
+| [0085](0085-the-record-identifier.md) | The record identifier | Accepted | — |
+| [0086](0086-soft-delete-the-recycle-bin-and-its-retention.md) | Soft delete, the recycle bin and its retention | Accepted | — |
+| [0087](0087-optimistic-concurrency-and-how-a-record-changes.md) | Optimistic concurrency and how a record changes | Accepted | — |
+| [0088](0088-the-storage-strategy.md) | The storage strategy | Accepted | — |
+| [0089](0089-what-a-record-may-write-and-what-it-may-never-leak.md) | What a record may write, and what it may never leak | Accepted | delivery plan S15 owns the full write pipeline; S14 checks the object, the keys, the shape and the permission only |
+| [0090](0090-the-answer-to-object-usage.md) | The answer to `ObjectUsage`: an object or a field in use is not removed | Accepted | ADR-0062 point on fields carried out: removing a field with values is now refused live and in a change set |
