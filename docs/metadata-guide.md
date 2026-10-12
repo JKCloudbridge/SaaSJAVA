@@ -166,7 +166,7 @@ The defaults are in brackets. The authority is `FieldRules`; the unit tests in `
 - A custom name is typed without `__c`; the platform adds it. Letters and digits with single underscores; objects start with a capital, fields with a lower case letter.
 - Names are unique without regard to case, per organization (objects) and per object (fields).
 - Up to 200 custom objects, 500 custom fields per object, 1000 values per picklist (`platform.metadata.limits.*`).
-- A custom object or field can be removed; its permissions end with it; an object other fields point to cannot be removed until those fields are.
+- A custom object or field can be removed; its permissions end with it; an object other fields point to cannot be removed until those fields are. **Since Sprint 14 an object that still has records, live or in the recycle bin, cannot be removed, and a field that records still hold values in cannot be removed** (live or in a change set); a rollback that would lose either is refused with the reason (`ObjectUsage`, [ADR-0090](adr/0090-the-answer-to-object-usage.md)). Empty the field in those records, or remove the records for good, and the removal works. The type of a field never changes, so "retyping" means removing and adding, which this blocks while values exist.
 - A picklist value can be switched off, never removed; the target of a lookup never changes.
 - An organization may add fields to a standard object only where the file says `extensible: true`, and a master-detail only on its own objects.
 - A lookup or master-detail also has a delete behaviour, a re-parenting flag and a list label (section 10); a unique one is one-to-one.
@@ -180,7 +180,7 @@ The defaults are in brackets. The authority is `FieldRules`; the unit tests in `
 | Draft, validate, publish, versions, rollback; dependency check before a removal | 11 (built) | section 10; the check runs after every change in `MetadataLifecycle` |
 | Page layouts, record pages, applications, navigation | 12 (built) | section 11; rendering with records 19 and 20, builder 21, security-aware navigation 18 |
 | The metadata runtime, expression engine, validation rules, formula checks | 13 (built) | section 12; the engine is the module `expression`; `MetadataResolver` hands out the compiled rules and formulas |
-| Records (the `id` in the record address, the `sequence` counting) | 14 | `ObjectUsage` is the seam that keeps an object with records from being removed |
+| Records (the `id` in the record address, the `sequence` counting) | 14 (built) | the record store ([ADR-0084](adr/0084-the-record-store.md)); `ObjectUsage` is answered, so an object with records or a field with values cannot be removed ([ADR-0090](adr/0090-the-answer-to-object-usage.md)). The `sequence` counting is Sprint 15 |
 | Required, unique, default and formulas enforced on records; field security | 15 | |
 | Record-level security (view-all, modify-all start to work) | 17 | |
 
@@ -217,7 +217,7 @@ Plain words first, then what to change.
   never an address elsewhere) or a heading. Make them at **Setup, Applications**. Members see their menu in the navigation.
 - **Which layout is used.** Choose a default for the object, a layout for a profile, and for a profile a layout per record type. The layout of a record type alone is chosen on the record type. The order
   is: the profile with the record type, the record type, the profile, the default. "Which layout would a person get?" answers and names the rule.
-- **Preview.** Each layout and record page has a preview that draws the structure with made-up values. It is a picture of the structure; no records exist yet.
+- **Preview.** Each layout and record page has a preview that draws the structure with made-up values. It is a picture of the structure; the screens that show real records are Sprints 18 to 21.
 - **Everything goes through the working set.** Choose a change set in "Changes on the object pages go" and the new things are drafted, checked, previewed and published with the rest; otherwise they go live at once
   (an administrator who may manage and publish). A rollback puts the latest release back, including layouts, pages, applications and choices.
 - **When something is still needed.** Removing a field a layout shows, a layout a record page, a record type or a choice uses, a record page or an object an application opens, or the relationship a related list

@@ -20,6 +20,8 @@
 # set with OWNER_USER. Since Sprint 7 the invitation chooses a profile for the invited person (the administrator profile here),
 # and a last step creates a profile and an access policy as the first administrator, gives the policy, reads
 # the access back and checks the audit records and that a platform token is refused on an organization host.
+# Since Sprint 14 a step makes a record, changes it with its version, deletes and restores it and proves that an object with
+# a record cannot be removed.
 set -euo pipefail
 
 db="${1:?database container name}"
@@ -648,6 +650,53 @@ if [ -n "$mail" ]; then
   status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Invoice__c")"
   [ "$status" = "204" ] || fail "removing the invoice object answered $status: $(cat "$body")"
   echo "ok: a formula is checked and refused with its place, a field a formula uses cannot be removed (the error names the formula), a circle is refused naming the fields, a rule is made and tried on sample values, and the check says where an expression is wrong"
+
+  # 20. Records on the image (Sprint 14): a record is created, read, changed with its version, a stale change is refused,
+  # the record is deleted and restored, an object that has a record cannot be removed (the answer says so), and once the
+  # record is removed for good the object can be removed.
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Ticket","label":"Ticket","pluralLabel":"Tickets","description":""}' "$base/api/v1/metadata/objects")"
+  [ "$status" = "201" ] || fail "making the ticket object answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"title","label":"Title","type":"TEXT"}' \
+    "$base/api/v1/metadata/objects/Ticket__c/fields")"
+  [ "$status" = "201" ] || fail "adding the title field answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{"title__c":"First ticket"}}' \
+    "$base/api/v1/objects/Ticket__c/records")"
+  [ "$status" = "201" ] || fail "creating a record answered $status: $(cat "$body")"
+  record_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  [ -n "$record_id" ] || fail "the new record has no identifier: $(cat "$body")"
+  status="$(client_call "$base/api/v1/objects/Ticket__c/records/$record_id")"
+  [ "$status" = "200" ] || fail "reading the record answered $status: $(cat "$body")"
+  grep -Fq '"title__c":"First ticket"' "$body" || fail "the record lacks its value: $(cat "$body")"
+  status="$(client_call -X PATCH -H "$group_json" -d '{"version":0,"fields":{"title__c":"Second title"}}' \
+    "$base/api/v1/objects/Ticket__c/records/$record_id")"
+  [ "$status" = "200" ] || fail "changing the record answered $status: $(cat "$body")"
+  grep -Fq '"version":1' "$body" || fail "the change did not raise the version: $(cat "$body")"
+  status="$(client_call -X PATCH -H "$group_json" -d '{"version":0,"fields":{"title__c":"Stale title"}}' \
+    "$base/api/v1/objects/Ticket__c/records/$record_id")"
+  [ "$status" = "409" ] || fail "a stale change answered $status: $(cat "$body")"
+  grep -Fq 'CONCURRENT_MODIFICATION' "$body" || fail "the stale change was not named as such: $(cat "$body")"
+  if grep -Fq 'Stale title' "$body"; then fail "the refusal repeats a value"; fi
+  status="$(client_call -X DELETE "$base/api/v1/objects/Ticket__c/records/$record_id")"
+  [ "$status" = "204" ] || fail "deleting the record answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/objects/Ticket__c/records/$record_id")"
+  [ "$status" = "404" ] || fail "a deleted record was still readable ($status)"
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/objects/Ticket__c/recycle-bin/$record_id/restore")"
+  [ "$status" = "200" ] || fail "restoring the record answered $status: $(cat "$body")"
+  grep -Fq '"title__c":"Second title"' "$body" || fail "the restored record lost its value: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Ticket__c")"
+  [ "$status" = "409" ] || fail "removing an object with a record answered $status: $(cat "$body")"
+  grep -Fq 'still has records' "$body" || fail "the refusal does not say why: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/objects/Ticket__c/records/$record_id")"
+  [ "$status" = "204" ] || fail "deleting the record again answered $status"
+  status="$(client_call -X DELETE "$base/api/v1/objects/Ticket__c/recycle-bin/$record_id")"
+  [ "$status" = "204" ] || fail "removing the record for good answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/metadata/objects/Ticket__c")"
+  [ "$status" = "204" ] || fail "removing the emptied object answered $status: $(cat "$body")"
+  if owner_sql -c "select count(*) from object_record where payload::text like '%First ticket%' or payload::text like '%Second title%'" | grep -Eq '^ *[1-9]'; then
+    fail "a removed record is still stored"
+  fi
+  echo "ok: a record is created, read, changed with its version, a stale change is refused, the record is deleted and restored, an object with a record cannot be removed, and once the record is removed for good the object can be removed"
 
   stored="$(owner_sql -c "select t::text from account_token t union all select t::text from mail_queue t \
     union all select attributes::text from audit_record union all select t::text from invitation t")"

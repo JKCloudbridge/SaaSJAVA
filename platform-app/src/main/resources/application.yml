@@ -9,6 +9,9 @@ spring:
   jackson:
     # A null field is left out of the JSON; the generated client types such fields as optional.
     default-property-inclusion: non_null
+    deserialization:
+      # A decimal in a request is a decimal, not a floating point number: a record keeps what it was given (ADR-0089).
+      use-big-decimal-for-floats: true
   datasource:
     # Runtime connection: the application role. It must never own tables or run schema changes (ADR-0009).
     url: ${PLATFORM_DB_URL}
