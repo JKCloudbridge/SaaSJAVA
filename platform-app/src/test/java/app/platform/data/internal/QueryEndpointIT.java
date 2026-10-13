@@ -92,7 +92,8 @@ class QueryEndpointIT extends QuerySupport {
 
         assertThat(denied.status()).isEqualTo(404);
         assertThat(unknown.status()).isEqualTo(404);
-        assertThat(denied.body()).isEqualTo(unknown.body().replace("Nothing__c", "Item__c"));
+        assertThat(withoutIdentifiers(denied.body()))
+                .isEqualTo(withoutIdentifiers(unknown.body().replace("Nothing__c", "Item__c")));
     }
 
     @Test
@@ -177,8 +178,8 @@ class QueryEndpointIT extends QuerySupport {
         assertThat(JsonPath.<Map<String, Object>>read(answer.body(), "$.data[0].record.fields").keySet())
                 .containsExactly("name__c");
         assertThat(JsonPath.<String>read(answer.body(), "$.data[0].linked['link__c'].id")).isEqualTo(target);
-        assertThat(JsonPath.<Map<String, Object>>read(answer.body(), "$.data[1].linked['link__c'].fields"))
-                .as("a link to nothing looks like any link that shows nothing").isEmpty();
+        assertThat(JsonPath.<Map<String, Object>>read(answer.body(), "$.data[1].linked"))
+                .as("removing the target cleared the pointer, so there is nothing to show").isEmpty();
     }
 
     @Test
@@ -209,5 +210,10 @@ class QueryEndpointIT extends QuerySupport {
         assertThat(ids(value)).isEmpty();
         assertThat(ids(percent)).as("a percent sign is only text").isEmpty();
         assertThat(ids(query(admin, "{}"))).hasSize(1);
+    }
+
+    /** The answer without the identifiers that differ by request (the request and trace identifiers). */
+    private static String withoutIdentifiers(String body) {
+        return body.replaceAll("\"(requestId|traceId)\":\"[^\"]*\"", "");
     }
 }

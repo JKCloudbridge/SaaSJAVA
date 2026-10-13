@@ -259,7 +259,7 @@ class RecordController {
             }
         }
         List<Object> values = node.values() == null ? List.of() : node.values();
-        if (values.contains(null)) {
+        if (values.stream().anyMatch(value -> value == null)) {
             throw ApiException.validation(place + ".values", "A value is missing.");
         }
         return new QueryFilter(op, items, node.field(), values);

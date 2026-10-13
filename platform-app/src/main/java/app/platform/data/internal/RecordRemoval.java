@@ -52,6 +52,9 @@ class RecordRemoval {
 
     static final String REFERRED_TO = "Other records refer to this record, so it cannot be removed. Remove or change "
             + "those records first.";
+    /** The batches of the link fill a removal may run itself before it asks the caller to try again. */
+    private static final int INLINE_BATCHES = 2;
+
     static final String NOT_READY = "The links of this kind of record are still being prepared. Try again in a few "
             + "minutes.";
     static final String NOT_ALLOWED = "You may not remove the records that belong to this one.";
@@ -74,9 +77,11 @@ class RecordRemoval {
     private final Metadata metadata;
     private final Decisions decisions;
     private final RecordProperties.Links limits;
+    private final LinkBackfill linkFill;
 
     RecordRemoval(StorageStrategy storage, RecordLinks links, RecordSlots slots, RecordChanges changes,
-            Metadata metadata, Decisions decisions, RecordProperties properties) {
+            Metadata metadata, Decisions decisions, RecordProperties properties, LinkBackfill linkFill) {
+        this.linkFill = linkFill;
         this.storage = storage;
         this.links = links;
         this.slots = slots;
@@ -128,7 +133,11 @@ class RecordRemoval {
         while (!queue.isEmpty()) {
             Doomed current = queue.poll();
             if (links.incomplete(current.object())) {
-                throw new ApiException(ErrorCode.CONFLICT, NOT_READY);
+                // A new field, or one on a small object, is finished here; only a large object waits for the sweep.
+                linkFill.fill(INLINE_BATCHES);
+                if (links.incomplete(current.object())) {
+                    throw new ApiException(ErrorCode.CONFLICT, NOT_READY);
+                }
             }
             List<RecordLinkStore.Incoming> pointing = links.incoming(current.id(), max + 1);
             Map<String, Set<UUID>> live = liveAmong(pointing);

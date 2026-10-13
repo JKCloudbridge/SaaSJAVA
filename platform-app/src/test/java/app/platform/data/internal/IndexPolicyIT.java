@@ -83,7 +83,9 @@ class IndexPolicyIT extends QuerySupport {
         backfill.workOn(items.organization().id());
         settle(items.organization(), admin);
 
-        assertThat(slotOf(id, "s_text_1")).as("never reused with the old values in it").isEqualTo("c1");
+        // A slot is reused only once it is empty, so the new field may sit in the same slot or in the next one.
+        assertThat(java.util.Arrays.asList(slotOf(id, "s_text_1"), slotOf(id, "s_text_2")))
+                .as("never reused with the old values in it").contains("c1").doesNotContain("alpha");
         assertThat(states(admin)).doesNotContain("CLEARING");
     }
 

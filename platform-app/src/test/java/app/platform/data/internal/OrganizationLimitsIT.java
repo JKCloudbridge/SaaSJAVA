@@ -35,17 +35,22 @@ class OrganizationLimitsIT extends QuerySupport {
         put(flooder.admin(), "{\"name__c\":\"a\"}");
         try (TestApplication small = TestApplication.start("platform.tenancy.limits.max-concurrent=2",
                 "platform.tenancy.limits.max-waiting=1", "platform.tenancy.limits.max-wait=200ms")) {
-            TestBrowser flood = TestOrganizations.signedIn(small.port(), flooder.organization().host(),
-                    flooder.organization().admin().person());
             TestBrowser other = TestOrganizations.signedIn(small.port(), bystander.organization().host(),
                     bystander.organization().admin().person());
             AtomicBoolean stop = new AtomicBoolean();
             List<CompletableFuture<List<Integer>>> floods = new ArrayList<>();
-            for (int thread = 0; thread < 12; thread++) {
+            // One browser per thread (a browser's cookies are not made for several threads at once); five sessions
+            // are more than the two running and one waiting that the instance allows.
+            List<TestBrowser> sessions = new ArrayList<>();
+            for (int thread = 0; thread < 5; thread++) {
+                sessions.add(TestOrganizations.signedIn(small.port(), flooder.organization().host(),
+                        flooder.organization().admin().person()));
+            }
+            for (TestBrowser own : sessions) {
                 floods.add(CompletableFuture.supplyAsync(() -> {
                     List<Integer> statuses = new ArrayList<>();
                     while (!stop.get()) {
-                        statuses.add(flood.postJson(ITEM_QUERY, "{}").status());
+                        statuses.add(own.postJson(ITEM_QUERY, "{}").status());
                     }
                     return statuses;
                 }));
@@ -67,7 +72,7 @@ class OrganizationLimitsIT extends QuerySupport {
 
             assertThat(all).contains(429);
             assertThat(worst).as("the other organization is not slowed to a crawl").isLessThan(3000);
-            Response refused = refusedOnce(flood, small);
+            Response refused = refusedOnce(sessions);
             if (refused != null) {
                 assertThat(refused.header("Retry-After")).isPresent();
                 assertThat(refused.body()).contains("too many requests in progress");
@@ -75,10 +80,10 @@ class OrganizationLimitsIT extends QuerySupport {
         }
     }
 
-    private static Response refusedOnce(TestBrowser flood, TestApplication small) throws Exception {
+    private static Response refusedOnce(List<TestBrowser> sessions) throws Exception {
         List<CompletableFuture<Response>> burst = new ArrayList<>();
-        for (int i = 0; i < 15; i++) {
-            burst.add(CompletableFuture.supplyAsync(() -> flood.postJson(ITEM_QUERY, "{}")));
+        for (TestBrowser own : sessions) {
+            burst.add(CompletableFuture.supplyAsync(() -> own.postJson(ITEM_QUERY, "{}")));
         }
         for (CompletableFuture<Response> one : burst) {
             if (one.get().status() == 429) {

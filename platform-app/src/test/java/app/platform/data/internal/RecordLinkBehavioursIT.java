@@ -54,6 +54,8 @@ class RecordLinkBehavioursIT extends PipelineSupport {
         field(admin, "Refuser__c", "parent", "LOOKUP", settings("REFUSE"));
         field(admin, "Link__c", "left", "MASTER_DETAIL", settings(null));
         field(admin, "Link__c", "right", "MASTER_DETAIL", ",\"settings\":{\"targetObject\":\"Other__c\"}");
+        // In operation the published-change event does this within seconds; a test does not wait for it.
+        backfill.workOn(organization.id());
         return admin;
     }
 
@@ -214,7 +216,7 @@ class RecordLinkBehavioursIT extends PipelineSupport {
     }
 
     @Test
-    void olderRecordsWhosePointersAreStillBeingWrittenBlockARemovalUntilTheyAreKnown() {
+    void olderRecordsWhosePointersAreNotWrittenYetAreFoundByTheRemovalItself() {
         Organization organization = organization();
         TestBrowser admin = world(organization);
         String parent = record(admin, PARENT, "{}");
@@ -222,15 +224,12 @@ class RecordLinkBehavioursIT extends PipelineSupport {
         ownerRuns("delete from record_link where source_record = '" + clearer + "'");
         ownerRuns("delete from link_index where tenant_id = '" + organization.id().value() + "'");
         backfill.workOn(organization.id());
-        ownerRuns("update link_index set state = 'FILLING', cursor_id = null where tenant_id = '"
+        ownerRuns("update link_index set state = 'FILLING', cursor_id = null, version = version + 1 where tenant_id = '"
                 + organization.id().value() + "'");
 
         Response early = remove(admin, PARENT, parent);
 
-        assertThat(early.status()).isEqualTo(409);
-        assertThat(early.body()).contains("still being prepared");
-        backfill.workOn(organization.id());
-        assertThat(remove(admin, PARENT, parent).status()).isEqualTo(204);
+        assertThat(early.status()).as("a small object is finished by the removal itself").isEqualTo(204);
         assertThat(fieldsOf(admin.get(CLEARER + "/" + clearer))).as("found by the fill, then cleared")
                 .doesNotContainKey("parent__c");
     }

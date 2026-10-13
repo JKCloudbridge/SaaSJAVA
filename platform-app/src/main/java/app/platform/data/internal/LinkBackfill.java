@@ -72,22 +72,30 @@ class LinkBackfill {
      * @return how many batches were run
      */
     int fill() {
+        return fill(settings.batchesPerPass());
+    }
+
+    /**
+     * The same with a smaller budget, for a request that finds the links of an object not yet complete: a field that
+     * is new, or on an object with few records, is finished inside the request; a large one is left to the sweep.
+     */
+    int fill(int maxBatches) {
         transaction.executeWithoutResult(status -> noteFields());
         List<RecordLinkStore.Index> indexes = transaction.execute(status -> store.indexes());
         int batches = 0;
         for (RecordLinkStore.Index index : indexes == null ? List.<RecordLinkStore.Index>of() : indexes) {
             if (index.state() == RecordLinkStore.State.FILLING) {
-                batches += pass(index);
+                batches += pass(index, maxBatches);
             }
         }
         return batches;
     }
 
-    private int pass(RecordLinkStore.Index seen) {
+    private int pass(RecordLinkStore.Index seen, int maxBatches) {
         int batches = 0;
         long records = 0;
         boolean done = false;
-        while (!done && batches < settings.batchesPerPass()) {
+        while (!done && batches < maxBatches) {
             long[] result = new long[1];
             Boolean finished = transaction.execute(status -> batch(seen, result));
             if (finished == null) {

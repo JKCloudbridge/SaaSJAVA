@@ -73,7 +73,8 @@ class SlotGuardAndSeamIT extends QuerySupport {
     @Test
     void aMemberWithoutAnAbilityCannotSeeTheIndexStatus() {
         Items items = items();
-        TestBrowser member = as(items.organization(), memberWithActions(items.organization(), items.admin(), "read"));
+        TestBrowser member = as(items.organization(),
+                holderWith(items.organization(), items.admin(), "Item__c", "[]", "read").member());
 
         assertThat(member.get(ITEM_STATUS).status()).isEqualTo(403);
     }
