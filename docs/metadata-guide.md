@@ -360,3 +360,18 @@ or move a record to it. Remove the last profile and the type is open again. Reco
   back a default change puts the previous default back.
 - **Users in lookups.** A lookup to the `User` object now takes the identifier of a person who is an **active member** of the organization. Lookups to profiles, roles and other objects the platform owns still cannot be given a value (they are added when a real
   field needs them).
+
+## 15. Indexed fields, filters and links on records (Sprint 16)
+
+**For an administrator.** Flag a field "indexed" when people will filter or sort records by it and the object has many records. Behind the scenes the platform gives the field a column of its own with an index and copies the value of every record into it; for the records that already exist this takes a little while (the status page of the object, `GET /api/v1/objects/{object}/index-status`, shows *filling* with the number of records done, then *complete*). Until it is complete, filters on the field behave as if it were not flagged.
+
+- **Which fields.** Text, e-mail, phone, web address, picklist, auto-number, number, decimal, currency, percent, date, date and time, lookup, master-detail and checkbox. **Not** long text, multi-select picklist, time of day or formula (a formula result is only current for records somebody has saved since the formula changed).
+- **How many.** Per object at most 8 text fields, 4 numbers, 2 days, 2 days with time, 4 links and 2 checkboxes. Every master-detail field counts as a link whether or not it was flagged (the records that belong to a master are listed by it). A change that would go over the limit is refused with the kind and the fields that use the slots; stop indexing one of them first.
+- **Stopping.** Un-flagging a field empties its copy first; the column is free for another field only when that is done.
+- **Large objects.** A filter or order on a field that is not indexed (or whose index is not complete) is allowed on an object with up to 20,000 records and refused above that, with the name of the field to flag. Searches such as *contains* and *starts with*, *not equal* and *is empty* can never use an index; combine them with a condition on an indexed field.
+
+**Removing a record that others point at.** A lookup *clears* (the default) or *refuses*; a master-detail removes its details together with the master and brings them back together with it (the ones removed on purpose before stay removed). A required lookup always refuses. The answer to a refusal says that records refer to the record and names none. A record cannot be removed while the pointers of an older object are still being prepared; try again in a few minutes.
+
+**Many-to-many.** An object with exactly two master-detail fields links two other objects. Read it from either side by filtering the junction on that field; the same two records cannot be linked twice.
+
+**What this does not do yet.** Uniqueness of a field and the recalculation of stored formula results (Sprint 16A); record-level security (Sprint 17); screens (Sprints 19 and 20).

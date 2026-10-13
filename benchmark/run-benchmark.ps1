@@ -140,6 +140,7 @@ function Wait-Bench($run) {
 
 function Run-Bench { Wait-Bench (Start-Bench @args) }
 function Get-Row([string]$id) { return $script:Results | Where-Object { $_.Id -eq $id } | Select-Object -First 1 }
+function P95([string]$id) { $r = Get-Row $id; if ($null -eq $r) { return $null } else { return [Math]::Round($r.P95, 2) } }
 function Median([double[]]$values) {
     $s = $values | Sort-Object
     return $s[[int][Math]::Floor(($s.Count - 1) / 2)]
@@ -156,6 +157,11 @@ function Judge([string]$id, [string]$what, $measured, [string]$unit, $limit, [st
             'zero'  { if ($measured -eq 0) { $result = 'PASS' } else { $result = 'FAIL' } }
             default { throw "unknown rule $rule" }
         }
+    }
+    # Sprint 16 (ADR-0083, condition 2): a pass within 10 percent of its limit is reported as a warning.
+    if ($null -ne $measured -and $result -eq 'PASS') {
+        if ($rule -eq 'le' -and $limit -gt 0 -and $measured -ge 0.9 * $limit) { $result = 'PASS (warning: within 10 percent of the limit)' }
+        if ($rule -eq 'ge' -and $limit -gt 0 -and $measured -le 1.1 * $limit) { $result = 'PASS (warning: within 10 percent of the limit)' }
     }
     $script:Verdicts.Add([pscustomobject]@{ Id = $id; What = $what; Measured = $measured; Unit = $unit; Limit = $limit; Rule = $rule; Result = $result })
 }
@@ -203,6 +209,24 @@ if (-not $ready) { throw 'PostgreSQL did not become ready.' }
 & docker exec $Container mkdir -p /bench /tmp/bench | Out-Null
 & docker cp (Join-Path $Root 'sql') "${Container}:/bench/sql" | Out-Null
 & docker cp (Join-Path $Root 'scenarios') "${Container}:/bench/scenarios" | Out-Null
+
+# The query scenarios and the statements of an update and an insert come from the PRODUCTION code (Sprint 16, ADR-0109):
+# the real analyzer, planner and statement builder write them. The generated files replace the hand-written ones of
+# the same name. Needs the JDK and Maven (the repository's wrapper).
+Say 'Generating the scenarios from the production query code'
+$generated = Join-Path $Root 'scenarios\generated'
+Push-Location $Repo
+try {
+    & .\mvnw -q -B -ntp -pl platform-app -am test-compile
+    if ($LASTEXITCODE -ne 0) { throw 'The application did not compile; the scenarios cannot be generated.' }
+    & .\mvnw -q -B -ntp -pl platform-app -am dependency:build-classpath '-Dmdep.outputFile=target/benchmark-classpath.txt' '-Dmdep.includeScope=test'
+    if ($LASTEXITCODE -ne 0) { throw 'Could not build the class path.' }
+    $classes = "platform-app/target/test-classes;platform-app/target/classes;platform-api-contract/target/classes;platform-shared-kernel/target/classes;" + (Get-Content -Raw 'platform-app/target/benchmark-classpath.txt').Trim()
+    & java -cp $classes app.platform.data.internal.BenchmarkStatements $generated
+    if ($LASTEXITCODE -ne 0) { throw 'The scenario generator failed.' }
+}
+finally { Pop-Location }
+& docker cp "$generated/." "${Container}:/bench/scenarios/" | Out-Null
 & docker cp (Join-Path $Root 'container/setup.sh') "${Container}:/bench/setup.sh" | Out-Null
 & docker cp (Join-Path $Root 'container/run.sh') "${Container}:/bench/run.sh" | Out-Null
 & docker cp (Join-Path $Repo 'platform-app/src/main/resources/db/migration') "${Container}:/bench/migration" | Out-Null
@@ -349,6 +373,41 @@ Phase 'S9 bulk insert and upsert (batches of 1,000)' {
     Sql "delete from object_record where object_api_name = 'Import__c'" | Out-Null
 }
 
+Phase 'Sprint 16: the cost of the typed copies, and what the limits of an organization do to the noisy neighbour' {
+    # The statements of the application (all twenty-two typed copies in the same statement), against the hand-written
+    # ones of Sprint 14 that wrote none (ADR-0102, ADR-0109).
+    $upd = Run-Bench 's02p-update-production' 's02p-update-production.sql' $Clients $Seconds
+    $ins = Run-Bench 's09p-insert-production' 's09p-insert-production.sql' 1 $Seconds
+    Sql "delete from object_record where object_api_name = 'Import__c'" | Out-Null
+    $oldUpd = Get-Row 's02-update-by-id'
+    if ($oldUpd -and $oldUpd.P95 -gt 0) {
+        $script:Info.Add(("Cost of the typed copies, S2 (update by id, p95): {0} ms with the statement of the application against {1} ms for the Sprint 14 statement without copies ({2} times)." -f `
+            $upd.P95.ToString('0.00', $inv), $oldUpd.P95.ToString('0.00', $inv), ([Math]::Round($upd.P95 / $oldUpd.P95, 2)).ToString('0.00', $inv)))
+    }
+    $script:Info.Add(("Cost of the typed copies, S9 (single-record insert with the statement of the application): {0} records per second at one session (the bulk statement of S9a is the storage ceiling; there is no bulk path in the application before Sprint 17)." -f `
+        ([Math]::Round($ins.Tps)).ToString('0', $inv)))
+    # The limits (ADR-0108): one organization may have 6 requests running on an instance and the database stops a
+    # statement after 5 seconds. The same background load as the flat-out run, but with at most 6 sessions and the time
+    # limit, against 12 sessions without it. The application's own filter is proved by OrganizationLimitsIT; this is what
+    # the database sees when the filter does its work.
+    $alone = Get-Row 's07-alone'
+    $bgSeconds = $Seconds + $WarmupSeconds + 10
+    $lim1 = Start-Bench 's07-bg-limited-indexed' 's03a-filter-text.sql' 4 $bgSeconds -Warm 0 -PgOptions '-c statement_timeout=5000'
+    $lim2 = Start-Bench 's07-bg-limited-scan' 's04b-nonindexed-rare.sql' 2 $bgSeconds -Warm 0 -PgOptions '-c statement_timeout=5000'
+    Start-Sleep -Seconds 5
+    $limited = Run-Bench 's07-loaded-limited' 's07-small-mix.sql' $Clients $Seconds
+    $null = Wait-Bench $lim1
+    $null = Wait-Bench $lim2
+    $flat = Get-Row 's07-loaded-flatout'
+    if ($alone -and $alone.P95 -gt 0 -and $flat -and $limited) {
+        $script:Info.Add(("Noisy neighbour (S7), small organizations' p95 divided by their p95 alone: {0} times with the large organization flat out on 12 sessions and no limits, {1} times with the limits (at most 6 sessions, statements stopped after 5 seconds)." -f `
+            ([Math]::Round($flat.P95 / $alone.P95, 2)).ToString('0.00', $inv), ([Math]::Round($limited.P95 / $alone.P95, 2)).ToString('0.00', $inv)))
+    }
+    Judge 'S2 production' 'Update one record by id with the statement of the application (typed copies written), p95' (P95 's02p-update-production') 'ms' 40
+    $null = Run-Bench 's03g-scan-guard' 's03g-scan-guard.sql' $Clients $Seconds
+    Judge 'S3 guard' 'The count that decides whether a scan is allowed (at most 20,001 index entries), p95' (P95 's03g-scan-guard') 'ms' 20
+}
+
 Phase 'Carried notes: round trips, host lookup, authentication, membership (one client: the cost of one request, without queueing)' {
     $null = Run-Bench 'c0a-read-bare' 'c0a-read-bare.sql' 1 $Seconds 'bench_bypass'
     $null = Run-Bench 'c0b-read-tenant-only' 'c0b-read-tenant-only.sql' 1 $Seconds 'bench_bypass'
@@ -406,7 +465,6 @@ Phase 'S12 storage, bloat and vacuum under an update-heavy load' {
 }
 
 # ---- judgement -------------------------------------------------------------------------------------------------
-function P95([string]$id) { $r = Get-Row $id; if ($null -eq $r) { return $null } else { return [Math]::Round($r.P95, 2) } }
 Judge 'S1' 'Read one record by id, p95' (P95 's01-read-by-id') 'ms' 20
 Judge 'S2' 'Update one record by id with its version, p95' (P95 's02-update-by-id') 'ms' 40
 foreach ($pair in @(@('s03a-filter-text', 'text'), @('s03b-filter-unique-text', 'unique text'), @('s03c-filter-number', 'number'),
@@ -475,7 +533,7 @@ Set-Content -Path (Join-Path $ResultDir 'raw.csv') -Value $csv -Encoding UTF8
 Set-Content -Path (Join-Path $ResultDir 'environment.txt') -Value $env -Encoding UTF8
 
 $md = New-Object System.Collections.Generic.List[string]
-$md.Add("# Gate G1 benchmark result ($Size run, $stamp)")
+$md.Add("# Benchmark result: gate G1 and the regression suite of Sprint 16 ($Size run, $stamp)")
 $md.Add('')
 $md.Add('Judged against ADR-0082 exactly as written. A PASS is a PASS only for what was measured, on the machine and data size below.')
 $md.Add('')
@@ -492,6 +550,7 @@ foreach ($v in $script:Verdicts) {
     $md.Add("| $($v.Id) | $($v.What) | $measured | $limit | **$($v.Result)** |")
 }
 $failed = @($script:Verdicts | Where-Object { $_.Result -eq 'FAIL' })
+$warned = @($script:Verdicts | Where-Object { $_.Result -like 'PASS (warning*' })
 $unmeasured = @($script:Verdicts | Where-Object { $_.Result -eq 'NOT MEASURED' })
 $md.Add('')
 if ($failed.Count -eq 0 -and $unmeasured.Count -eq 0 -and $script:Notes.Count -eq 0) {
@@ -500,6 +559,7 @@ if ($failed.Count -eq 0 -and $unmeasured.Count -eq 0 -and $script:Notes.Count -e
     $md.Add("**The gate does not pass on this result file:** $($failed.Count) threshold(s) failed, $($unmeasured.Count) not measured, $($script:Notes.Count) phase(s) failed.")
 }
 $md.Add('')
+if ($warned.Count -gt 0) { $md.Add('## Warnings: within 10 percent of a limit'); $md.Add(''); foreach ($w in $warned) { $md.Add("- $($w.Id): $($w.Measured) $($w.Unit) against $($w.Limit)") }; $md.Add('') }
 if ($script:Notes.Count -gt 0) { $md.Add('## Problems while running'); $md.Add(''); foreach ($n in $script:Notes) { $md.Add("- $n") }; $md.Add('') }
 if ($script:Info.Count -gt 0) { $md.Add('## Facts reported (not pass or fail)'); $md.Add(''); foreach ($n in $script:Info) { $md.Add("- $n") }; $md.Add('') }
 if ($carried.Count -gt 0) { $md.Add('## Carried notes (Sprints 2, 3 and 5)'); $md.Add(''); foreach ($n in $carried) { $md.Add($n) }; $md.Add('') }

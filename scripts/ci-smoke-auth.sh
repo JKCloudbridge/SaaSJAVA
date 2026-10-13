@@ -174,6 +174,103 @@ if [ -n "$mail" ]; then
   [ "$status" = "204" ] || fail "the new person could not sign in ($status)"
   echo "ok: the new person signs in"
 
+
+
+  # 23. The query engine, the index policy, delete behaviours and the limits on the image (Sprint 16): a query
+  # filters, sorts and pages; a flagged field becomes indexed (the background fill finishes) and the answer does not
+  # change; a master with a detail shows the delete behaviour; an organization that floods the server gets answers of
+  # the model. (The refusal of a filter on a large object without an index needs more than 20,000 records and is
+  # proved by QueryEndpointIT.)
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Ledger","label":"Ledger","pluralLabel":"Ledgers","description":""}' "$base/api/v1/metadata/objects")"
+  [ "$status" = "201" ] || fail "making the ledger object answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"code","label":"code","type":"TEXT"}' \
+    "$base/api/v1/metadata/objects/Ledger__c/fields")"
+  [ "$status" = "201" ] || fail "making the code field answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"amount","label":"amount","type":"NUMBER"}' \
+    "$base/api/v1/metadata/objects/Ledger__c/fields")"
+  [ "$status" = "201" ] || fail "making the amount field answered $status: $(cat "$body")"
+  for n in 1 2 3 4 5; do
+    status="$(client_call -X POST -H "$group_json" -d "{\"fields\":{\"code__c\":\"c$n\",\"amount__c\":$((n * 10))}}" \
+      "$base/api/v1/objects/Ledger__c/records")"
+    [ "$status" = "201" ] || fail "creating a ledger record answered $status: $(cat "$body")"
+  done
+  query='{"filter":{"op":"GTE","field":"amount__c","values":[20]},"sort":[{"field":"code__c","descending":true}],"limit":2}'
+  status="$(client_call -X POST -H "$group_json" -d "$query" "$base/api/v1/objects/Ledger__c/records/query")"
+  [ "$status" = "200" ] || fail "a query answered $status: $(cat "$body")"
+  before="$(grep -o '"code__c":"[^"]*"' "$body" | tr '\n' ' ')"
+  grep -Fq '"hasMore":true' "$body" || fail "the first page does not say there is more: $(cat "$body")"
+  cursor="$(grep -o '"nextCursor":"[^"]*"' "$body" | cut -d'"' -f4)"
+  [ -n "$cursor" ] || fail "the first page has no cursor"
+  status="$(client_call -X POST -H "$group_json" -d "${query%\}},\"cursor\":\"$cursor\"}" \
+    "$base/api/v1/objects/Ledger__c/records/query")"
+  [ "$status" = "200" ] || fail "the second page answered $status: $(cat "$body")"
+  grep -Fq '"hasMore":false' "$body" || fail "the last page says there is more: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"filter":{"op":"EQ","field":"nothing__c","values":["x"]}}' \
+    "$base/api/v1/objects/Ledger__c/records/query")"
+  [ "$status" = "400" ] || fail "a query on a field that does not exist answered $status: $(cat "$body")"
+  grep -Fq 'This is not a field of the object.' "$body" || fail "the refusal lacks its words: $(cat "$body")"
+  for field in code amount; do
+    status="$(client_call "$base/api/v1/metadata/objects/Ledger__c")"
+    version="$(grep -o "\"apiName\":\"${field}__c\"[^}]*\"version\":[0-9]*" "$body" | grep -o '"version":[0-9]*' | cut -d: -f2)"
+    status="$(client_call -X PUT -H "$group_json" \
+      -d "{\"label\":\"$field\",\"description\":\"\",\"indexed\":true,\"version\":$version}" \
+      "$base/api/v1/metadata/objects/Ledger__c/fields/${field}__c")"
+    [ "$status" = "200" ] || fail "flagging $field as indexed answered $status: $(cat "$body")"
+  done
+  filled=""
+  for attempt in $(seq 1 60); do
+    status="$(client_call "$base/api/v1/objects/Ledger__c/index-status")"
+    [ "$status" = "200" ] || fail "the index status answered $status: $(cat "$body")"
+    if [ "$(grep -o '"state":"FILLED"' "$body" | wc -l)" = "2" ]; then filled=yes; break; fi
+    sleep 2
+  done
+  [ -n "$filled" ] || fail "the indexes did not become complete: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d "$query" "$base/api/v1/objects/Ledger__c/records/query")"
+  [ "$status" = "200" ] || fail "the same query after indexing answered $status: $(cat "$body")"
+  after="$(grep -o '"code__c":"[^"]*"' "$body" | tr '\n' ' ')"
+  [ "$before" = "$after" ] || fail "indexing changed the answer: $before became $after"
+  # A master with a detail: removing the master removes the detail with it, and restoring brings it back.
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Folder","label":"Folder","pluralLabel":"Folders","description":""}' "$base/api/v1/metadata/objects")"
+  [ "$status" = "201" ] || fail "making the folder object answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Sheet","label":"Sheet","pluralLabel":"Sheets","description":""}' "$base/api/v1/metadata/objects")"
+  [ "$status" = "201" ] || fail "making the sheet object answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"folder","label":"folder","type":"MASTER_DETAIL","settings":{"targetObject":"Folder__c"}}' \
+    "$base/api/v1/metadata/objects/Sheet__c/fields")"
+  [ "$status" = "201" ] || fail "making the master-detail answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{}}' "$base/api/v1/objects/Folder__c/records")"
+  [ "$status" = "201" ] || fail "creating a folder answered $status: $(cat "$body")"
+  folder_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(client_call -X POST -H "$group_json" -d "{\"fields\":{\"folder__c\":\"$folder_id\"}}" \
+    "$base/api/v1/objects/Sheet__c/records")"
+  [ "$status" = "201" ] || fail "creating a sheet answered $status: $(cat "$body")"
+  sheet_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(client_call -X DELETE "$base/api/v1/objects/Folder__c/records/$folder_id")"
+  [ "$status" = "204" ] || fail "removing a folder with a sheet answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/objects/Sheet__c/records/$sheet_id")"
+  [ "$status" = "404" ] || fail "the sheet is still there after its folder was removed ($status)"
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/objects/Folder__c/recycle-bin/$folder_id/restore")"
+  [ "$status" = "200" ] || fail "restoring the folder answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/objects/Sheet__c/records/$sheet_id")"
+  [ "$status" = "200" ] || fail "the sheet did not come back with its folder ($status)"
+  # An organization that floods the server: forty requests at once; each answer is 200 or the 429 of the limit.
+  flood_dir="$(mktemp -d)"
+  for n in $(seq 1 40); do
+    curl -s -o /dev/null -w '%{http_code}\n' -H "Host: $client_host" -H "Authorization: Bearer $client_access" \
+      -H 'Content-Type: application/json' -d '{"limit":1}' "$base/api/v1/objects/Ledger__c/records/query" \
+      > "$flood_dir/$n" &
+  done
+  wait
+  codes="$(cat "$flood_dir"/* | sort | uniq -c | tr '\n' ' ')"
+  rm -rf "$flood_dir"
+  case "$codes" in *" 5"[0-9][0-9]*) fail "a flood produced a server error: $codes" ;; esac
+  status="$(client_call -X POST -H "$group_json" -d '{"limit":1}' "$base/api/v1/objects/Ledger__c/records/query")"
+  [ "$status" = "200" ] || fail "the organization does not answer again after the flood ($status)"
+  echo "ok: a query filters, sorts and pages with a cursor, a field that does not exist is refused in the words of the platform, a flagged field became indexed and the answer did not change, removing a master removed its detail and restoring brought it back, and a flood of requests ended in answers of the model (counts: $codes)"
+
   stored="$(owner_sql -c "select t::text from account_token t union all select t::text from mail_queue t \
     union all select attributes::text from audit_record")"
   if echo "$stored" | grep -q "$link_token"; then

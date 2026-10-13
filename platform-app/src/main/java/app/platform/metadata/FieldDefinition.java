@@ -16,15 +16,26 @@ package app.platform.metadata;
  * @param configuration the settings of the type
  * @param retired whether the platform no longer offers it for new use (it still exists)
  * @param version the version, for concurrent changes (0 for fields the platform defines)
+ * @param indexed whether records filtered or sorted by this field are meant to be fast: an intent of the
+ *        organization (or of the platform's own definition file); the slot that serves it, and whether it is complete
+ *        yet, is state of the data module (Sprint 16, ADR-0101)
  */
 public record FieldDefinition(String objectApiName, String apiName, String label, String description,
         DefinitionKind kind, FieldType type, boolean required, boolean unique, String defaultValue,
-        FieldConfiguration configuration, boolean retired, long version) {
+        FieldConfiguration configuration, boolean retired, long version, boolean indexed) {
+
+    /** A field that is not flagged as indexed. */
+    public FieldDefinition(String objectApiName, String apiName, String label, String description,
+            DefinitionKind kind, FieldType type, boolean required, boolean unique, String defaultValue,
+            FieldConfiguration configuration, boolean retired, long version) {
+        this(objectApiName, apiName, label, description, kind, type, required, unique, defaultValue, configuration,
+                retired, version, false);
+    }
 
     /** The same field on another object: the system fields are defined once and every object has them. */
     public FieldDefinition forObject(String otherObjectApiName) {
         return new FieldDefinition(otherObjectApiName, apiName, label, description, kind, type, required, unique,
-                defaultValue, configuration, retired, version);
+                defaultValue, configuration, retired, version, indexed);
     }
 
     /** The key of permissions on this field: the object, a dot and the field. */

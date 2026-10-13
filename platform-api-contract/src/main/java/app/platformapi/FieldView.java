@@ -13,6 +13,8 @@ import jakarta.validation.constraints.NotNull;
  * @param type the field type, for example {@code TEXT}
  * @param required whether a record must have a value
  * @param unique whether no two records may have the same value
+ * @param indexed whether records filtered or sorted by this field are meant to be fast; left out means no. It serves
+ *        queries only once its copy is complete (the index status endpoint of the object says when)
  * @param defaultValue the value a new record gets, or null
  * @param settings the settings of the type
  * @param retired whether the platform no longer offers the field for new use (it still exists)
@@ -23,7 +25,7 @@ import jakarta.validation.constraints.NotNull;
  */
 public record FieldView(@NotNull String apiName, @NotNull String label, @NotNull String description,
         @NotNull String kind, @NotNull String type, @NotNull Boolean required, @NotNull Boolean unique,
-        String defaultValue,
+        Boolean indexed, String defaultValue,
         @NotNull FieldSettings settings, @NotNull Boolean retired, @NotNull Boolean editable, @NotNull Long version,
         String problem) {
 

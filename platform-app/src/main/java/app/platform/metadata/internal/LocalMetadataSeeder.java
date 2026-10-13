@@ -87,7 +87,8 @@ class LocalMetadataSeeder implements ApplicationRunner {
                     int order = 10;
                     for (Field field : fields) {
                         store.insertField(apiName, field.name(), field.label(), "", field.type().name(),
-                                field.required(), field.unique(), null, codec.write(field.configuration()), order,
+                                field.required(), field.unique(), false, null, codec.write(field.configuration()),
+                                order,
                                 actor);
                         order += 10;
                     }

@@ -2,7 +2,7 @@
 
 The permanent benchmark of the record store. Specification and thresholds: [ADR-0082](../docs/adr/0082-storage-benchmark-specification-gate-g1.md);
 the result of each judged run is recorded in ADR-0083. It is **not** part of the Maven build and **not** run by CI: it needs a container
-runtime, free disk space and about an hour. Sprint 16 promotes it to a regression suite that runs through the real query engine.
+runtime, free disk space and about an hour. Since Sprint 16 it is a regression suite: the query scenarios and the statements of an update and an insert are generated from the production code (the real analyzer, planner and statement builder, `BenchmarkStatements`), a result within 10 percent of a limit is reported as a warning, and it also measures the cost of the typed copies and what the limits per organization do to the noisy neighbour (ADR-0109). It needs the JDK and Maven as well as Docker. Disk: about 10 GB at its peak.
 
 ## Run it
 
@@ -39,10 +39,10 @@ The run ends by removing the container and its volume, so the disk comes back. T
 |------|---------|
 | `run-benchmark.ps1` | Orchestrator: container, setup, phases, judgement, files |
 | `container\setup.sh`, `container\run.sh` | Run inside the container: build and load; run one scenario and compute percentiles |
-| `sql\01-proof-schema.sql` | The proof table and helpers; applied after the repository's real migrations V001 to V035 and manual migration M001 |
-| `sql\02-indexes.sql` | The tenant-first indexes of the proof |
+| `sql\01-proof-schema.sql` | Helpers of the proof (association table, generator functions, bypass role); applied after the repository's real migrations and manual migration M001. The record table is the real one |
 | `sql\10-load.sql` | The data generator |
 | `scenarios\*.sql` | One `pgbench` script per scenario (`s` = judged, `c` = carried notes, `x` = diagnostic) |
+| `scenarios\generated\*.sql` | Written by every run from the production planner (`BenchmarkStatements`); they replace the hand-written files of the same name |
 
 ## Reading a result
 

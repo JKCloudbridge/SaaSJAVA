@@ -90,7 +90,7 @@ class StandardMetadataBaselineTest {
             case AutoNumberConfiguration auto -> " prefix=" + auto.prefix() + " width=" + auto.width();
             default -> "";
         };
-        return field.type() + more;
+        return field.type() + (field.indexed() ? " indexed" : "") + more;
     }
 
     /** Whether the current detail keeps everything the released one promised. */

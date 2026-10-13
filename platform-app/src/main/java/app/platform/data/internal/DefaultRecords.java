@@ -1,6 +1,8 @@
 package app.platform.data.internal;
 
 import app.platform.data.DataRecord;
+import app.platform.data.QueryResult;
+import app.platform.data.RecordQuery;
 import app.platform.data.RecordSlice;
 import app.platform.data.Records;
 import app.platform.data.StorageStrategy;
@@ -33,14 +35,23 @@ class DefaultRecords implements Records {
     private final FieldSecurity security;
     private final StorageStrategy storage;
     private final RecordChanges changes;
+    private final QueryService queries;
+    private final RecordVisibility visibility;
+    private final RecordLinks links;
+    private final RecordRemoval removal;
 
     DefaultRecords(RecordGate gate, WritePipeline pipeline, FieldSecurity security, StorageStrategy storage,
-            RecordChanges changes) {
+            RecordChanges changes, QueryService queries, RecordVisibility visibility,
+            RecordLinks links, RecordRemoval removal) {
         this.gate = gate;
         this.pipeline = pipeline;
         this.security = security;
         this.storage = storage;
         this.changes = changes;
+        this.queries = queries;
+        this.visibility = visibility;
+        this.links = links;
+        this.removal = removal;
     }
 
     @Override
@@ -49,7 +60,8 @@ class DefaultRecords implements Records {
         ObjectAccess access = access(passed);
         WritePipeline.Plan plan = pipeline.run(passed, access, null, recordType, fields, List.of());
         DataRecord created = storage.insert(passed.object().apiName(), plan.recordType(), passed.userId(),
-                passed.userId(), plan.set());
+                passed.userId(), plan.set(), plan.slots());
+        links.sync(passed.object(), created.id(), plan.set(), plan.clear(), passed.userId());
         changes.created(passed.userId(), created.objectApiName(), created.id(), created.version(), plan.names());
         return FieldSecurity.visible(created, access);
     }
@@ -58,11 +70,15 @@ class DefaultRecords implements Records {
     @Transactional(readOnly = true)
     public DataRecord get(String objectApiName, UUID id) {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.READ);
+        ObjectAccess access = access(passed);
+        // The same stage the list and the query ask what the member may see (ADR-0100). Until Sprint 17 the answer
+        // is always "no extra condition"; then it is applied to this read as to the others.
+        visibility.constraintFor(passed, access);
         DataRecord found = storage.find(passed.object().apiName(), id);
         if (found == null || found.deleted()) {
             throw ApiException.notFound(NO_RECORD);
         }
-        return FieldSecurity.visible(found, access(passed));
+        return FieldSecurity.visible(found, access);
     }
 
     @Override
@@ -79,10 +95,11 @@ class DefaultRecords implements Records {
         ObjectAccess access = access(passed);
         WritePipeline.Plan plan = pipeline.run(passed, access, current, recordType, set, clear);
         DataRecord updated = storage.update(passed.object().apiName(), id, expectedVersion, plan.recordType(),
-                plan.set(), plan.clear(), passed.userId());
+                plan.set(), plan.clear(), passed.userId(), plan.slots());
         if (updated == null) {
             throw whyNotChanged(storage.find(passed.object().apiName(), id));
         }
+        links.sync(passed.object(), updated.id(), plan.set(), plan.clear(), passed.userId());
         changes.updated(passed.userId(), updated.objectApiName(), updated.id(), updated.version(), plan.names());
         return FieldSecurity.visible(updated, access);
     }
@@ -90,7 +107,7 @@ class DefaultRecords implements Records {
     @Override
     public DataRecord delete(String objectApiName, UUID id) {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.DELETE);
-        DataRecord deleted = storage.softDelete(passed.object().apiName(), id, passed.userId());
+        DataRecord deleted = removal.delete(passed, id);
         if (deleted == null) {
             throw whyNotChanged(storage.find(passed.object().apiName(), id));
         }
@@ -101,12 +118,15 @@ class DefaultRecords implements Records {
     @Override
     public DataRecord restore(String objectApiName, UUID id) {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.DELETE);
-        DataRecord restored = storage.restore(passed.object().apiName(), id, passed.userId());
+        DataRecord binned = storage.find(passed.object().apiName(), id);
+        if (binned == null) {
+            throw ApiException.notFound(NO_RECORD);
+        }
+        if (!binned.deleted()) {
+            throw new ApiException(ErrorCode.CONFLICT, "This record is not in the recycle bin.");
+        }
+        DataRecord restored = removal.restore(passed, binned);
         if (restored == null) {
-            DataRecord found = storage.find(passed.object().apiName(), id);
-            if (found == null) {
-                throw ApiException.notFound(NO_RECORD);
-            }
             throw new ApiException(ErrorCode.CONFLICT, "This record is not in the recycle bin.");
         }
         changes.restored(passed.userId(), restored.objectApiName(), restored.id(), restored.version());
@@ -134,7 +154,14 @@ class DefaultRecords implements Records {
     @Transactional(readOnly = true)
     public RecordSlice list(String objectApiName, UUID after, int limit) {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.READ);
-        return slice(storage.list(passed.object().apiName(), after, limit + 1), limit, access(passed));
+        return queries.list(passed, access(passed), after, limit);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public QueryResult query(String objectApiName, RecordQuery query) {
+        RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.READ);
+        return queries.run(passed, access(passed), query);
     }
 
     @Override
