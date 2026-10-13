@@ -121,12 +121,19 @@ final class JsonbQuerySql {
         return switch (test.compare()) {
             case EQ -> "(" + column + " = " + doubles.get(0) + " and " + exact + " = " + numerics.get(0) + ")";
             case NE -> exact + " <> " + numerics.get(0);
-            case GT -> "(" + column + " >= " + doubles.get(0) + " and " + exact + " > " + numerics.get(0) + ")";
-            case GTE -> "(" + column + " >= " + doubles.get(0) + " and " + exact + " >= " + numerics.get(0) + ")";
-            case LT -> "(" + column + " <= " + doubles.get(0) + " and " + exact + " < " + numerics.get(0) + ")";
-            case LTE -> "(" + column + " <= " + doubles.get(0) + " and " + exact + " <= " + numerics.get(0) + ")";
-            case BETWEEN -> "(" + column + " between " + doubles.get(0) + " and " + doubles.get(1) + " and " + exact
-                    + " between " + numerics.get(0) + " and " + numerics.get(1) + ")";
+            // Rounding to double precision never reverses the order of two numbers, so a copy strictly beyond the
+            // double of a bound is certainly beyond the bound itself; only a copy equal to it needs the exact value.
+            case GT -> "(" + column + " >= " + doubles.get(0) + " and (" + column + " > " + doubles.get(0) + " or "
+                    + exact + " > " + numerics.get(0) + "))";
+            case GTE -> "(" + column + " >= " + doubles.get(0) + " and (" + column + " > " + doubles.get(0) + " or "
+                    + exact + " >= " + numerics.get(0) + "))";
+            case LT -> "(" + column + " <= " + doubles.get(0) + " and (" + column + " < " + doubles.get(0) + " or "
+                    + exact + " < " + numerics.get(0) + "))";
+            case LTE -> "(" + column + " <= " + doubles.get(0) + " and (" + column + " < " + doubles.get(0) + " or "
+                    + exact + " <= " + numerics.get(0) + "))";
+            case BETWEEN -> "(" + column + " between " + doubles.get(0) + " and " + doubles.get(1) + " and ("
+                    + column + " > " + doubles.get(0) + " and " + column + " < " + doubles.get(1) + " or " + exact
+                    + " between " + numerics.get(0) + " and " + numerics.get(1) + "))";
             case IN -> "(" + column + " in (" + String.join(", ", doubles) + ") and " + exact + " in ("
                     + String.join(", ", numerics) + "))";
             case IS_EMPTY -> column + " is null";

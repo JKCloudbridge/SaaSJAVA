@@ -143,7 +143,8 @@ class QueryDifferentialIT extends QuerySupport {
         before.forEach((name, expected) -> {
             if (name.startsWith("pages by qty__c") || name.startsWith("pages by price__c")) {
                 // A number held in a slot is ordered as a double (ADR-0103): two numbers that differ only beyond
-                // fifteen digits tie there and follow in the order of the identifiers. The same records come (ADR-0103).
+                // fifteen digits tie there and follow in the order of the identifiers. The same records come
+                // (ADR-0103).
                 assertThat(after.get(name)).as(name).containsExactlyInAnyOrderElementsOf(expected);
             } else {
                 assertThat(after.get(name)).as(name).isEqualTo(expected);

@@ -13,7 +13,6 @@ import app.platform.metadata.FieldDefinition;
 import app.platform.metadata.FieldType;
 import app.platform.metadata.ObjectDefinition;
 import app.platform.security.ObjectAccess;
-import app.platformapi.ApiException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

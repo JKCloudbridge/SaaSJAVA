@@ -134,6 +134,19 @@ class JsonbQuerySqlTest {
     }
 
     @org.junit.jupiter.api.Test
+    void aNumberStrictlyInsideTheRangeOfTheSlotNeedsNoExactCheck() {
+        Slot slot = new Slot("s_num_1", "salary__c", ValueKind.NUMBER);
+
+        String between = JsonbQuerySql.build(new QueryPlan("Thing__c", new QueryPlan.Test(slot, Compare.BETWEEN,
+                List.of("1000", "3000")), List.of(), null, 10)).filter();
+
+        // The copy decides alone unless it equals a bound: the exact value is the second alternative of an "or".
+        assertThat(between).contains("s_num_1 > cast(cast(:p0 as numeric) as double precision) and s_num_1 < "
+                + "cast(cast(:p1 as numeric) as double precision) or ");
+        assertThat(between.indexOf("or ")).isLessThan(between.indexOf("pg_input_is_valid"));
+    }
+
+    @org.junit.jupiter.api.Test
     void aTextSearchIsAFunctionOfTheValueNeverAPattern() {
         String sql = JsonbQuerySql.build(new QueryPlan("Thing__c", new Group(false, List.of(
                 new QueryPlan.Test(new Payload("name__c", ValueKind.TEXT), Compare.STARTS_WITH, List.of("50%_off")),

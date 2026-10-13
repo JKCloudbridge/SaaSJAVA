@@ -97,13 +97,13 @@ class LinkBackfill {
         boolean done = false;
         while (!done && batches < maxBatches) {
             long[] result = new long[1];
-            Boolean finished = transaction.execute(status -> batch(seen, result));
-            if (finished == null) {
+            Progress progress = transaction.execute(status -> batch(seen, result));
+            if (progress == null || progress == Progress.TAKEN) {
                 break;
             }
             batches++;
             records += result[0];
-            done = finished;
+            done = progress == Progress.COMPLETE;
         }
         if (batches > 0) {
             long total = records;
@@ -116,14 +116,16 @@ class LinkBackfill {
         return batches;
     }
 
-    /** One batch; true when the field is complete, false when more remains, null when another instance has it. */
-    private Boolean batch(RecordLinkStore.Index seen, long[] result) {
+    /** What one batch leaves: the field complete, more to do, or another instance has it. */
+    private enum Progress { COMPLETE, MORE, TAKEN }
+
+    private Progress batch(RecordLinkStore.Index seen, long[] result) {
         if (!store.tryWorkLock(seen.objectApiName(), seen.fieldApiName())) {
-            return null;
+            return Progress.TAKEN;
         }
         RecordLinkStore.Index index = store.index(seen.id()).orElse(null);
         if (index == null || index.state() == RecordLinkStore.State.FILLED) {
-            return Boolean.TRUE;
+            return Progress.COMPLETE;
         }
         FieldDefinition field = metadata.object(index.objectApiName()).flatMap(o -> o.field(index.fieldApiName()))
                 .orElse(null);
@@ -131,7 +133,7 @@ class LinkBackfill {
         if (field == null || !(field.configuration() instanceof ReferenceConfiguration reference)) {
             // The field is gone: nothing to fill, and nothing points through it.
             store.indexFilled(index.id(), actor);
-            return Boolean.TRUE;
+            return Progress.COMPLETE;
         }
         StorageStrategy.Filled filled = storage.backfillLinks(index.objectApiName(), index.fieldApiName(),
                 reference.targetObject(), index.cursor(), linkSettings.backfillBatchSize(), actor);
@@ -141,8 +143,8 @@ class LinkBackfill {
         }
         if (filled.processed() < linkSettings.backfillBatchSize()) {
             store.indexFilled(index.id(), actor);
-            return Boolean.TRUE;
+            return Progress.COMPLETE;
         }
-        return Boolean.FALSE;
+        return Progress.MORE;
     }
 }
