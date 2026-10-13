@@ -1868,6 +1868,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/objects/{objectApiName}/formula-recalculation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether the stored formula results of an object are current
+         * @description Editing a formula leaves the results stored in existing records as they were; a background pass rewrites the ones that differ, without a new version and without an audit record per record (one audit record per pass, with counts). The state says whether the results belong to the formulas as they are now (CURRENT) or not (NEEDED, PENDING, RUNNING, CLOSING), the progress of the pass in flight and the counts of the last one. While the results are not current a filter or an order on a formula field is refused. There is no screen for this yet. Needs the ability to view metadata. Organization hosts only. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         */
+        get: operations["getFormulaRecalculation"];
+        put?: never;
+        /**
+         * Start the recalculation of the stored formula results of an object
+         * @description Starts a pass over the live records of the object even when the results are believed to be current, for example after records were changed by a path that does not calculate formulas. A pass that is already waiting or running does the work: asking again changes nothing. The answer is the state (the pass runs in the background, in batches). CONFLICT for an object without formulas. There is no screen for this yet. Needs the ability to publish metadata. Organization hosts only. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         */
+        post: operations["startFormulaRecalculation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/objects/{objectApiName}/index-status": {
         parameters: {
             query?: never;
@@ -1877,7 +1901,7 @@ export interface paths {
         };
         /**
          * Where the indexed fields of an object stand
-         * @description For each field flagged as indexed (and each field whose index is being removed): waiting, filling with the number of records done, complete, or clearing. Queries use a field's index only when it is complete. Needs the ability to view metadata. Organization hosts only. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         * @description For each field flagged as indexed (and each field whose index is being removed): waiting, filling with the number of records done, complete, or clearing. Queries use a field's index only when it is complete. Also, for each unique field and each junction: waiting for the copy of the field to be complete, enforcing (existing records are being checked in; new values are refused already), conflict (two existing records hold the same value: the count is given and the check resumes when the data is fixed) or enforced. Needs the ability to view metadata. Organization hosts only. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
          */
         get: operations["getObjectIndexStatus"];
         put?: never;
@@ -1903,7 +1927,7 @@ export interface paths {
         put?: never;
         /**
          * Create a record of an object
-         * @description The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. Unique fields are not yet enforced (Sprint 16), and there is no record-level security (Sprint 17). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN for a caller who may read the object but not create in it. The caller owns the record. The answer leaves out the fields the caller may not read. Audited and announced by object, identifier, version and field names, never by values.
+         * @description The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the unique fields (no other live record may hold the same value; a record in the recycle bin does not count, and a text is compared exactly), the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. There is no record-level security (Sprint 17). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN for a caller who may read the object but not create in it. The caller owns the record. The answer leaves out the fields the caller may not read. Audited and announced by object, identifier, version and field names, never by values.
          */
         post: operations["createRecord"];
         delete?: never;
@@ -1923,7 +1947,7 @@ export interface paths {
         put?: never;
         /**
          * Ask a question of the records of an object: filter, order, fields, links, one page at a time
-         * @description The body is a query model, never SQL: a tree of conditions (AND, OR, and comparisons by the kind of field), at most two sort keys, the fields to bring and the links to follow (one level). Names are looked up in the metadata and values are data. A field the caller may not read is answered like a field that does not exist, in a filter, an order, a field list or a link, so the answer never reveals what the caller may not see; records leave out such fields. The first stage that finds problems answers VALIDATION_ERROR with all its problems and their places, in the order: shape, fields, operators and values. A filter or an order on a field without a complete index is allowed only on an object with few records; on a larger one the answer is VALIDATION_ERROR at 'query' saying which field to flag as indexed (or which condition to add), never a slow request. A formula field cannot be used in a filter or an order yet. Records without a value come last in both directions; ties are broken by the identifier. There is no total: the page says whether another follows and gives a cursor that is good only for the same query. Not built yet: record-level security (Sprint 17), uniqueness (Sprint 16A). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         * @description The body is a query model, never SQL: a tree of conditions (AND, OR, and comparisons by the kind of field), at most two sort keys, the fields to bring and the links to follow (one level). Names are looked up in the metadata and values are data. A field the caller may not read is answered like a field that does not exist, in a filter, an order, a field list or a link, so the answer never reveals what the caller may not see; records leave out such fields. The first stage that finds problems answers VALIDATION_ERROR with all its problems and their places, in the order: shape, fields, operators and values. A filter or an order on a field without a complete index is allowed only on an object with few records; on a larger one the answer is VALIDATION_ERROR at 'query' saying which field to flag as indexed (or which condition to add), never a slow request. A formula field can be used in a filter or an order (it is read from the stored result, without an index, so the same rule applies), but only while the stored results are current for the object's formulas: after a formula is edited the answer is VALIDATION_ERROR saying the results are being brought up to date, until the recalculation has finished (see the formula-recalculation endpoint). Records without a value come last in both directions; ties are broken by the identifier. There is no total: the page says whether another follows and gives a cursor that is good only for the same query. Not built yet: record-level security (Sprint 17). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
          */
         post: operations["queryRecords"];
         delete?: never;
@@ -1955,7 +1979,7 @@ export interface paths {
         head?: never;
         /**
          * Change some values of a record
-         * @description The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. Unique fields are not yet enforced (Sprint 16), and there is no record-level security (Sprint 17). Only the fields named change; a null value or a name in clear removes a value. The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the record has another version now, and nothing is changed. CONFLICT (409) when the record is in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN without permission to update the object.
+         * @description The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the unique fields (no other live record may hold the same value; a record in the recycle bin does not count, and a text is compared exactly), the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. There is no record-level security (Sprint 17). Only the fields named change; a null value or a name in clear removes a value. The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the record has another version now, and nothing is changed. CONFLICT (409) when the record is in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN without permission to update the object.
          */
         patch: operations["updateRecord"];
         trace?: never;
@@ -2914,6 +2938,9 @@ export interface components {
         ApiResponseFieldView: {
             data: components["schemas"]["FieldView"];
         };
+        ApiResponseFormulaRecalculationView: {
+            data: components["schemas"]["FormulaRecalculationView"];
+        };
         ApiResponseGroupView: {
             data: components["schemas"]["GroupView"];
         };
@@ -3405,6 +3432,15 @@ export interface components {
             settings: string[];
             type: string;
         };
+        FieldUniquenessStatusView: {
+            /** Format: int64 */
+            collidingRecords: number;
+            field: string;
+            partner?: string;
+            /** Format: int64 */
+            recordsDone: number;
+            state: string;
+        };
         FieldView: {
             apiName: string;
             defaultValue?: string;
@@ -3436,6 +3472,29 @@ export interface components {
         };
         ForgotPasswordRequest: {
             email: string;
+        };
+        FormulaRecalculationView: {
+            /** Format: int32 */
+            formulaFields: number;
+            /** Format: date-time */
+            lastFinishedAt?: string;
+            /** Format: int64 */
+            lastRecordsChanged: number;
+            /** Format: int64 */
+            lastRecordsExamined: number;
+            /** Format: int64 */
+            lastRecordsUnavailable: number;
+            objectApiName: string;
+            /** Format: int64 */
+            recordsChanged: number;
+            /** Format: int64 */
+            recordsExamined: number;
+            /** Format: int64 */
+            recordsUnavailable: number;
+            /** Format: date-time */
+            startedAt?: string;
+            startedBy?: string;
+            state: string;
         };
         FormulaReportItemView: {
             fieldApiName: string;
@@ -3648,6 +3707,7 @@ export interface components {
             slots: {
                 [key: string]: number;
             };
+            uniqueness: components["schemas"]["FieldUniquenessStatusView"][];
         };
         /** @description The API name of an object. */
         ObjectNameShape: string;
@@ -8076,6 +8136,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseChangeSetReportView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getFormulaRecalculation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseFormulaRecalculationView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    startFormulaRecalculation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseFormulaRecalculationView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

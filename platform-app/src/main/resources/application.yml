@@ -147,6 +147,11 @@ logging:
     # The mail library prints the recipients of every message when it is switched to debug. An address is personal
     # data and never goes to a log (ADR-0012), so it stays at warnings whatever else is switched on.
     org.eclipse.angus.mail: WARN
+    # When it is switched to debug the SQL error translator prints the database's own message of every failed
+    # statement, and the message of a duplicate value quotes the value (ADR-0111). A value an organization typed never
+    # goes to a log (ADR-0012), so it stays at warnings whatever else is switched on.
+    org.springframework.jdbc.support.SQLErrorCodeSQLExceptionTranslator: WARN
+    org.springframework.jdbc.support.SQLExceptionSubclassTranslator: WARN
 
 springdoc:
   # The OpenAPI document is the contract's source of truth (ADR-0011); the interactive documentation page is not served.

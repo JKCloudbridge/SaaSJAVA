@@ -8,6 +8,7 @@ import app.platform.data.QueryResolve;
 import app.platform.data.QuerySort;
 import app.platform.data.RecordQuery;
 import app.platform.metadata.DefinitionKind;
+import app.platform.metadata.FieldConfiguration.FormulaConfiguration;
 import app.platform.metadata.FieldConfiguration.ReferenceConfiguration;
 import app.platform.metadata.FieldDefinition;
 import app.platform.metadata.FieldType;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 import org.springframework.stereotype.Component;
 
 /**
@@ -57,8 +59,9 @@ class QueryAnalyzer {
     static final String NOT_A_FIELD = "This is not a field of the object.";
     static final String NOT_A_LINK = "This is not a link to another object.";
     static final String CANNOT_FILTER = "This field cannot be used in a filter or an order.";
-    static final String FORMULA = "A formula result is stored when a record is saved, so it is not current for "
-            + "records nobody has saved since the formula changed. It cannot be used in a filter or an order yet.";
+    static final String FORMULA_NOT_CURRENT = "The results of this object's formulas are being brought up to date, "
+            + "so a formula field cannot be used in a filter or an order for a short while. Try again in a few "
+            + "minutes.";
 
     private static final int MAX_TEXT = 255;
     private static final int MAX_NUMBER_DIGITS = 38;
@@ -149,11 +152,43 @@ class QueryAnalyzer {
         this.limits = properties.query();
     }
 
-    /** Runs the first three stages. */
+    /**
+     * Whether the stored results of the object's formulas are current for its formulas now (Sprint 16A, ADR-0113).
+     * Asked at most once per query, and only when the query uses a formula field.
+     */
+    static final class Freshness {
+
+        private final BooleanSupplier source;
+        private Boolean value;
+
+        Freshness(BooleanSupplier source) {
+            this.source = source;
+        }
+
+        boolean current() {
+            if (value == null) {
+                value = source.getAsBoolean();
+            }
+            return value;
+        }
+    }
+
+    /** Runs the first three stages; formula results are taken as current. */
     Analyzed analyze(ObjectDefinition object, ObjectAccess access, RecordQuery query) {
+        return analyze(object, access, query, () -> true);
+    }
+
+    /**
+     * Runs the first three stages.
+     *
+     * @param formulasCurrent whether the stored results of the object's formulas are current: a formula field is used
+     *        in a filter or an order only while they are (the answer is read only when the query uses one)
+     */
+    Analyzed analyze(ObjectDefinition object, ObjectAccess access, RecordQuery query,
+            BooleanSupplier formulasCurrent) {
         shape(query);
         Map<String, Ref> refs = fields(object, access, query);
-        return operators(object, refs, query);
+        return operators(object, refs, query, new Freshness(formulasCurrent));
     }
 
     // ---- stage 1: shape ----
@@ -318,7 +353,10 @@ class QueryAnalyzer {
                 case ID, OWNER, CREATED_BY, UPDATED_BY -> ValueKind.UUID;
             };
         }
-        return switch (field.type()) {
+        // A formula is compared as the type of its result, which is what is stored (ADR-0095).
+        FieldType type = field.configuration() instanceof FormulaConfiguration formula ? formula.resultType()
+                : field.type();
+        return switch (type) {
             case TEXT, EMAIL, PHONE, URL, PICKLIST, AUTO_NUMBER -> ValueKind.TEXT;
             case NUMBER, DECIMAL, CURRENCY, PERCENT -> ValueKind.NUMBER;
             case DATE -> ValueKind.DATE;
@@ -331,9 +369,10 @@ class QueryAnalyzer {
 
     // ---- stage 3: operators and values, by the kind of each field ----
 
-    private Analyzed operators(ObjectDefinition object, Map<String, Ref> refs, RecordQuery query) {
+    private Analyzed operators(ObjectDefinition object, Map<String, Ref> refs, RecordQuery query,
+            Freshness freshness) {
         Findings findings = new Findings();
-        Node where = query.filter() == null ? null : node(query.filter(), "filter", refs, findings);
+        Node where = query.filter() == null ? null : node(query.filter(), "filter", refs, findings, freshness);
         List<Key> keys = new ArrayList<>();
         Set<String> sorted = new HashSet<>();
         for (int index = 0; index < query.sort().size(); index++) {
@@ -343,7 +382,9 @@ class QueryAnalyzer {
             if (!sorted.add(sort.field())) {
                 findings.add(place, "Each field can be used once in the order.");
             } else if (ref.kind() == null) {
-                findings.add(place, ref.field().type() == FieldType.FORMULA ? FORMULA : CANNOT_FILTER);
+                findings.add(place, CANNOT_FILTER);
+            } else if (ref.field().type() == FieldType.FORMULA && !freshness.current()) {
+                findings.add(place, FORMULA_NOT_CURRENT);
             } else if (ref.kind() == ValueKind.UUID && ref.system() != SystemColumn.ID) {
                 findings.add(place, "A link cannot be used in an order.");
             } else {
@@ -367,18 +408,24 @@ class QueryAnalyzer {
                 query.cursor(), signature(object, where, keys));
     }
 
-    private Node node(QueryFilter filter, String place, Map<String, Ref> refs, Findings findings) {
+    private Node node(QueryFilter filter, String place, Map<String, Ref> refs, Findings findings,
+            Freshness freshness) {
         if (filter.op().isGroup()) {
             List<Node> items = new ArrayList<>();
             for (int index = 0; index < filter.items().size(); index++) {
-                items.add(node(filter.items().get(index), place + ".items[" + index + "]", refs, findings));
+                items.add(node(filter.items().get(index), place + ".items[" + index + "]", refs, findings,
+                        freshness));
             }
             return new Group(filter.op() == QueryFilter.Op.AND, items);
         }
         Ref ref = refs.get(filter.field());
         Compare compare = Compare.valueOf(filter.op().name());
         if (ref.kind() == null) {
-            findings.add(place + ".field", ref.field().type() == FieldType.FORMULA ? FORMULA : CANNOT_FILTER);
+            findings.add(place + ".field", CANNOT_FILTER);
+            return new Cond(ref, compare, List.of());
+        }
+        if (ref.field().type() == FieldType.FORMULA && !freshness.current()) {
+            findings.add(place + ".field", FORMULA_NOT_CURRENT);
             return new Cond(ref, compare, List.of());
         }
         if (!allowed(ref.kind(), ref.system()).contains(compare)) {

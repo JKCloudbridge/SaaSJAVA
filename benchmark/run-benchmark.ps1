@@ -104,7 +104,7 @@ function Start-Bench([string]$Name, [string]$Script, [int]$ClientCount, [int]$Se
 
 $script:Results = New-Object System.Collections.Generic.List[object]
 
-function Wait-Bench($run) {
+function Wait-Bench($run, [switch]$AllowEmpty) {
     $run.Process.WaitForExit()
     $text = Get-Content -Raw -Path $run.File
     $row = [pscustomobject]@{
@@ -127,6 +127,13 @@ function Wait-Bench($run) {
         $row.Thirds += [double]$m.Groups[3].Value / 1000.0
     }
     if ($row.Count -eq 0) {
+        if ($AllowEmpty) {
+            # The limit cancelled every statement of this scenario before it finished: the limit is working, not a
+            # failed run (ADR-0108). Keep the row (zero counts) and move on.
+            Say "  $($run.Name) produced no transactions: every statement was cancelled by the limit, as intended."
+            $script:Results.Add($row)
+            return $row
+        }
         $err = ''
         if (Test-Path "$($run.File).err") { $err = Get-Content -Raw "$($run.File).err" }
         throw "Scenario $($run.Name) produced no transactions. Output: $($text.Substring(0, [Math]::Min(600, $text.Length))) $err"
@@ -379,6 +386,13 @@ Phase 'Sprint 16: the cost of the typed copies, and what the limits of an organi
     $upd = Run-Bench 's02p-update-production' 's02p-update-production.sql' $Clients $Seconds
     $ins = Run-Bench 's09p-insert-production' 's09p-insert-production.sql' 1 $Seconds
     Sql "delete from object_record where object_api_name = 'Import__c'" | Out-Null
+    # The same statements with a unique field (Sprint 16A, ADR-0111): the bit of the constraint rides in the same
+    # statement and the unique index of the e-mail slot takes an entry for every record written.
+    $updUnique = Run-Bench 's02u-update-unique' 's02u-update-unique.sql' $Clients $Seconds
+    $insUnique = Run-Bench 's09u-insert-unique' 's09u-insert-unique.sql' 1 $Seconds
+    Sql "delete from object_record where object_api_name = 'Import__c'" | Out-Null
+    $script:Info.Add(("Cost of uniqueness, S2 (update by id, p95): {0} ms with one unique field against {1} ms without; S9 (single-record insert): {2} records per second against {3}." -f `
+        $updUnique.P95.ToString('0.00', $inv), $upd.P95.ToString('0.00', $inv), ([Math]::Round($insUnique.Tps)).ToString('0', $inv), ([Math]::Round($ins.Tps)).ToString('0', $inv)))
     $oldUpd = Get-Row 's02-update-by-id'
     if ($oldUpd -and $oldUpd.P95 -gt 0) {
         $script:Info.Add(("Cost of the typed copies, S2 (update by id, p95): {0} ms with the statement of the application against {1} ms for the Sprint 14 statement without copies ({2} times)." -f `
@@ -397,13 +411,14 @@ Phase 'Sprint 16: the cost of the typed copies, and what the limits of an organi
     Start-Sleep -Seconds 5
     $limited = Run-Bench 's07-loaded-limited' 's07-small-mix.sql' $Clients $Seconds
     $null = Wait-Bench $lim1
-    $null = Wait-Bench $lim2
+    $null = Wait-Bench $lim2 -AllowEmpty
     $flat = Get-Row 's07-loaded-flatout'
     if ($alone -and $alone.P95 -gt 0 -and $flat -and $limited) {
         $script:Info.Add(("Noisy neighbour (S7), small organizations' p95 divided by their p95 alone: {0} times with the large organization flat out on 12 sessions and no limits, {1} times with the limits (at most 6 sessions, statements stopped after 5 seconds)." -f `
             ([Math]::Round($flat.P95 / $alone.P95, 2)).ToString('0.00', $inv), ([Math]::Round($limited.P95 / $alone.P95, 2)).ToString('0.00', $inv)))
     }
     Judge 'S2 production' 'Update one record by id with the statement of the application (typed copies written), p95' (P95 's02p-update-production') 'ms' 40
+    Judge 'S2 unique' 'The same with a unique field (the unique index takes an entry), p95' (P95 's02u-update-unique') 'ms' 40
     $null = Run-Bench 's03g-scan-guard' 's03g-scan-guard.sql' $Clients $Seconds
     Judge 'S3 guard' 'The count that decides whether a scan is allowed (at most 20,001 index entries), p95' (P95 's03g-scan-guard') 'ms' 20
 }

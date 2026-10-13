@@ -411,6 +411,41 @@ public final class TenantScopedTables {
                         tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
             });
 
+    /**
+     * Which unique field or junction an object enforces (Sprint 16A). One live row per organization, object and bit, so
+     * each call retires the live probe row and adds a new one.
+     */
+    public static final TenantScopedTable UNIQUE_ENFORCEMENT = new TenantScopedTable("unique_enforcement",
+            (connection, tenant) -> {
+                TenantFixtures.update(connection,
+                        "update unique_enforcement set deleted_at = now(), deleted_by = ?, version = version + 1, "
+                                + "updated_by = ? where tenant_id = ? and object_api_name = 'Probe__c' "
+                                + "and deleted_at is null",
+                        ActorId.SYSTEM.value(), ActorId.SYSTEM.value(), tenant);
+                TenantFixtures.update(connection,
+                        "insert into unique_enforcement (tenant_id, object_api_name, kind, field_api_name, "
+                                + "constraint_bit, created_by, updated_by) values (?, 'Probe__c', 'VALUE', "
+                                + "'probe__c', 0, ?, ?)",
+                        tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /**
+     * Whether the stored formula results of an object are current (Sprint 16A). One live row per organization and
+     * object: retire, then add.
+     */
+    public static final TenantScopedTable FORMULA_RECALCULATION = new TenantScopedTable("formula_recalculation",
+            (connection, tenant) -> {
+                TenantFixtures.update(connection,
+                        "update formula_recalculation set deleted_at = now(), deleted_by = ?, version = version + 1, "
+                                + "updated_by = ? where tenant_id = ? and object_api_name = 'Probe__c' "
+                                + "and deleted_at is null",
+                        ActorId.SYSTEM.value(), ActorId.SYSTEM.value(), tenant);
+                TenantFixtures.update(connection,
+                        "insert into formula_recalculation (tenant_id, object_api_name, created_by, updated_by) "
+                                + "values (?, 'Probe__c', ?, ?)",
+                        tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
@@ -418,7 +453,8 @@ public final class TenantScopedTables {
             PUBLIC_GROUP_ACCESS_POLICY, OBJECT_PERMISSION, FIELD_PERMISSION, SECURITY_VERSION, OBJECT_DEFINITION,
             FIELD_DEFINITION, METADATA_VERSION, RECORD_TYPE, METADATA_CHANGE_SET, METADATA_CHANGE,
             METADATA_RELEASE, PAGE_LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT, VALIDATION_RULE,
-            OBJECT_RECORD, AUTO_NUMBER_COUNTER, RECORD_TYPE_ASSIGNMENT, FIELD_SLOT, RECORD_LINK, LINK_INDEX);
+            OBJECT_RECORD, AUTO_NUMBER_COUNTER, RECORD_TYPE_ASSIGNMENT, FIELD_SLOT, RECORD_LINK, LINK_INDEX,
+            UNIQUE_ENFORCEMENT, FORMULA_RECALCULATION);
 
     private TenantScopedTables() {
     }

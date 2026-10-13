@@ -25,7 +25,8 @@ final class QueryTestSupport {
             new RecordProperties.Retention(true, Duration.ofDays(30), Duration.ofHours(1), 500),
             new RecordProperties.Index(true, 1000, 100, Duration.ofMinutes(5)),
             new RecordProperties.Query(50, 200, 4, 50, 100, 100, 20_000),
-            new RecordProperties.Links(10_000, 1000));
+            new RecordProperties.Links(10_000, 1000),
+            new RecordProperties.Recalculation(true, 500, 100, Duration.ofMinutes(5), Duration.ofSeconds(30)));
 
     /** The fields of the test object that a member can read. */
     static final Set<String> READABLE = Set.of("id", "createdAt", "ownerId", "updatedAt", "name__c", "qty__c",

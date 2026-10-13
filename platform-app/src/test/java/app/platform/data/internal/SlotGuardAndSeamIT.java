@@ -41,11 +41,47 @@ class SlotGuardAndSeamIT extends QuerySupport {
         String source = owner("select pg_get_functiondef('platform_record_only_slots_changed(object_record,"
                 + "object_record)'::regprocedure)").get(0);
         List<String> columns = owner("select column_name from information_schema.columns "
-                + "where table_name = 'object_record' and column_name !~ '^s_(text|num|date|ts|ref|bool)_'");
+                + "where table_name = 'object_record' and column_name !~ '^s_(text|num|date|ts|ref|bool)_' "
+                + "and column_name <> 'unique_mask'");
 
         for (String column : columns) {
             assertThat(source).as("a column added to the record table must be added to the helper").contains(column);
         }
+        assertThat(source).as("the mask is maintenance like the copies: it keeps the version")
+                .doesNotContain("unique_mask");
+    }
+
+    @Test
+    void theHelperThatSaysOnlyTheResultsChangedNamesEveryColumnButThePayloadAndTheCopies() {
+        String source = owner("select pg_get_functiondef('platform_record_only_results_changed(object_record,"
+                + "object_record)'::regprocedure)").get(0);
+        List<String> columns = owner("select column_name from information_schema.columns "
+                + "where table_name = 'object_record' and column_name !~ '^s_(text|num|date|ts|ref|bool)_' "
+                + "and column_name not in ('unique_mask', 'payload')");
+
+        for (String column : columns) {
+            assertThat(source).as("a column added to the record table must be added to the helper").contains(column);
+        }
+    }
+
+    @Test
+    void theRecalculationKeepsTheVersionOnlyInsideATransactionThatSaysSoAndOnlyForThePayload() {
+        Items items = items();
+        String id = put(items.admin(), "{\"name__c\":\"a\"}");
+        String before = owner("select version || ' ' || updated_at from object_record where id = ?::uuid", id).get(0);
+
+        // Without the setting a change of the payload needs the next version, as always.
+        assertThatThrownBy(() -> ownerRuns("update object_record set payload = '{\"x\":1}' where id = '" + id + "'"))
+                .hasMessageContaining("must increase version");
+        // With it, the payload may change and the version and the time stay.
+        ownerRuns("begin; set local platform.record_recalculation = 'on'; "
+                + "update object_record set payload = '{\"x\":2}' where id = '" + id + "'; commit");
+        assertThat(owner("select version || ' ' || updated_at from object_record where id = ?::uuid", id).get(0))
+                .isEqualTo(before);
+        // Even with it nothing else may change without the next version.
+        assertThatThrownBy(() -> ownerRuns("begin; set local platform.record_recalculation = 'on'; "
+                + "update object_record set owner_id = gen_random_uuid() where id = '" + id + "'; commit"))
+                .hasMessageContaining("must increase version");
     }
 
     @Test

@@ -156,7 +156,7 @@ class QueryEndpointIT extends QuerySupport {
         Response notes = query(items.admin(), ask(on("notes__c", "EQ", "\"x\""), null, 10));
         Response link = query(items.admin(), ask(null, by("link__c", false), 10));
 
-        assertThat(problemAt(formula, "filter.field")).contains("not current");
+        assertThat(problemAt(formula, "filter.field")).as("no pass has finished yet").contains("brought up to date");
         assertThat(problemAt(notes, "filter.field")).contains("cannot be used");
         assertThat(problemAt(link, "sort[0].field")).contains("link");
     }

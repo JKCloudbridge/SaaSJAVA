@@ -51,7 +51,8 @@ public enum SlotClass {
     /**
      * The kind of slot a field of the type would use, or empty when a field of that type cannot be indexed: long
      * text and multi-select picklists are too big or not single values, a time of day has no column, and a formula
-     * result is stored on write only, so an index on it would be stale until the recalculation of Sprint 16A.
+     * result is rewritten in the background by the recalculation (Sprint 16A, ADR-0113), which does not maintain
+     * typed copies: a filter or an order on a formula reads the stored result without an index.
      */
     public static Optional<SlotClass> of(FieldType type) {
         return Optional.ofNullable(switch (type) {
@@ -66,12 +67,52 @@ public enum SlotClass {
     }
 
     /**
-     * Whether a field is served by a slot: a field an administrator flagged, and every master-detail field, which is
-     * indexed by the platform because the records that belong to a master are listed by it (a related list) and a
-     * junction is read from either of its parents. A master-detail therefore uses one reference slot whether or not it
-     * was flagged.
+     * Whether a field is served by a slot: a field an administrator flagged, a field that is unique (the database
+     * enforces uniqueness on the typed copy, so a unique field is indexed by being unique), and every master-detail
+     * field, which is indexed by the platform because the records that belong to a master are listed by it (a related
+     * list) and a junction is read from either of its parents. A master-detail therefore uses one reference slot
+     * whether or not it was flagged.
      */
     public static boolean served(FieldDefinition field) {
-        return (field.indexed() || field.type() == FieldType.MASTER_DETAIL) && of(field.type()).isPresent();
+        return (field.indexed() || field.type() == FieldType.MASTER_DETAIL || enforcesUnique(field))
+                && of(field.type()).isPresent();
+    }
+
+    /** The most digits of a unique number: a slot holds a double, which tells every number of 15 digits apart. */
+    public static final int UNIQUE_NUMBER_DIGITS = 15;
+
+    /**
+     * Why a field of the type and setup cannot be unique, in plain words, or empty when it can (Sprint 16A, ADR-0111).
+     * The type table says which types may be unique at all; this adds what the check of a slot needs. A number is
+     * compared as a double, which is exact up to 15 digits: a wider one could call two different numbers equal. A web
+     * address can be longer than an index entry may be.
+     */
+    public static Optional<String> uniqueProblem(FieldType type, FieldConfiguration configuration) {
+        if (type == FieldType.URL) {
+            return Optional.of("A web address can be longer than the check for duplicates can handle, so it cannot "
+                    + "be unique.");
+        }
+        int digits = switch (configuration) {
+            case FieldConfiguration.NumberConfiguration number -> number.digits();
+            case FieldConfiguration.DecimalConfiguration decimal -> decimal.precision();
+            case null, default -> 0;
+        };
+        if (digits > UNIQUE_NUMBER_DIGITS) {
+            return Optional.of("A unique number can have at most " + UNIQUE_NUMBER_DIGITS + " digits, so that two "
+                    + "different numbers are never taken for the same one.");
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Whether the database enforces the uniqueness of a field: it is flagged unique, its type and setup allow the check
+     * and it is neither a system field (the identifier is a column of its own, kept unique by the table) nor an
+     * auto-number (the counter hands out a number once and nobody writes the field, so its uniqueness needs no check
+     * and no slot).
+     */
+    public static boolean enforcesUnique(FieldDefinition field) {
+        return field.unique() && field.kind() != DefinitionKind.SYSTEM && field.type() != FieldType.AUTO_NUMBER
+                && field.type().allowsUnique()
+                && of(field.type()).isPresent() && uniqueProblem(field.type(), field.configuration()).isEmpty();
     }
 }

@@ -100,6 +100,9 @@ final class Dependencies {
         @Override
         public void contribute(MetadataSnapshot snapshot, DependencyGraph.Sink sink) {
             for (ObjectDefinition object : snapshot.objects()) {
+                if (object.managedBy() != null) {
+                    continue; // the records of a platform-owned object are not in the generic store: no slots
+                }
                 Map<SlotClass, List<String>> used = new EnumMap<>(SlotClass.class);
                 for (FieldDefinition field : object.fields()) {
                     if (!SlotClass.served(field) && !field.indexed()) {
@@ -125,9 +128,9 @@ final class Dependencies {
 
         /** The words for a person: the kind, the limit and the fields that use the slots (names only). */
         static String tooMany(ObjectDefinition object, SlotClass kind, List<String> names) {
-            return object.apiName() + " has " + names.size() + " indexed " + kind.words() + " fields, and an object "
-                    + "can have at most " + kind.capacity() + " of them (" + String.join(", ", names)
-                    + "). Stop indexing one of them first.";
+            return object.apiName() + " has " + names.size() + " indexed or unique " + kind.words() + " fields, and "
+                    + "an object can have at most " + kind.capacity() + " of them (" + String.join(", ", names)
+                    + "). Stop indexing one of them, or make it not unique, first.";
         }
     }
 }

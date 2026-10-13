@@ -23,8 +23,9 @@ architecture notes between the gate and the storage (note 4, sections 20, 21 and
 | 4 | type | each value belongs in its field's type and configuration; a picklist value is one the record type allows | `FieldValue`, `RecordTypeCheck` |
 | 5 | required | a required field and a master-detail have a value after the write | `WritePipeline` |
 | 6 | relationship | a linked record exists, is live and is of the target object, in this organization | `WritePipeline`, `StorageStrategy.liveIds` |
-| 7 | rule | every active validation rule is judged | `Calculations` |
-| 8 | formula | formulas are calculated in order and stored with the record | `Calculations` |
+| 7 | unique | no other live record holds the value of a unique field, or links the same two parents of a junction (Sprint 16A, ADR-0111, ADR-0112) | `WritePipeline`, `RecordSlots`, `StorageStrategy.valueTaken` |
+| 8 | rule | every active validation rule is judged | `Calculations` |
+| 9 | formula | formulas are calculated in order and stored with the record | `Calculations` |
 | – | persist | auto-numbers are taken, the seam for typed copies is called, the record is stored, audit and event are written | `AutoNumbers`, `RecordSlots`, `DefaultRecords` |
 
 `WritePipeline.STAGES` lists the stages and a test holds the order (`WritePipelineStagesIT`).
@@ -33,7 +34,7 @@ architecture notes between the gate and the storage (note 4, sections 20, 21 and
 endpoints do; the pipeline does not go on to the next stage, because a later stage would judge values an earlier one has already called wrong. Nothing is changed by a refused write.
 
 **Update judges the record after the change.** An update reads the current record first (a record that does not exist, is in the recycle bin or has another version is answered before any value is judged, as in Sprint 14), merges
-the change into it and runs stages 4 to 8 on the result. The storage still merges in the database and still checks the version: a lost race is `CONCURRENT_MODIFICATION` and changes nothing.
+the change into it and runs stages 4 to 9 on the result. The storage still merges in the database and still checks the version: a lost race is `CONCURRENT_MODIFICATION` and changes nothing.
 
 **Defaults and empty text.** On create, a field default (ADR-0060) applies when the key is absent and the field is one the record type offers; it is validated like a value typed by a person and applies even to a field the member
 may not edit (the default is the organization's choice, not the member's). An empty text is no value: it clears the field and never satisfies a required field.
@@ -54,7 +55,7 @@ a record (`INSERT` and `UPDATE` in `JsonbRecordStorage`) so that the copy is wri
 - The write costs more than in Sprint 14: one `accessTo` call (cached since Sprint 9), at most one existence query per target object of the links written, at most one counter statement per auto-number field, and the evaluation of the
   object's rules and formulas, which are compiled once per metadata version and bounded (ADR-0076). The benchmark's write scenarios are the yardstick; the full benchmark was not run for this sprint.
 - Rules that read a formula field judge the value this save gives that field (ADR-0094).
-- Not built, on purpose: uniqueness of a field (needs the index policy of Sprint 16), links to objects a platform module owns (ADR-0097), what deleting a record that others point at does (Sprint 16), record-level security (Sprint 17).
+- Built later: uniqueness of a field (needs the index policy; Sprint 16A, the stage "unique" above), links to objects a platform module owns (Sprint 15A, ADR-0099), what deleting a record that others point at does (Sprint 16, ADR-0106). Not built yet: record-level security (Sprint 17).
 
 ## Alternatives considered
 

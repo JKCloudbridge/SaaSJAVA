@@ -1,7 +1,14 @@
 package app.platform.data.internal;
 
 import app.platform.data.StorageStrategy;
+import app.platform.metadata.FieldDefinition;
+import app.platform.metadata.Metadata;
 import app.platform.metadata.ObjectUsage;
+import app.platform.metadata.SlotClass;
+import app.platformapi.ApiException;
+import app.platformapi.ErrorCode;
+import java.util.Optional;
+import org.springframework.dao.QueryTimeoutException;
 import org.springframework.stereotype.Component;
 
 /**
@@ -22,9 +29,11 @@ import org.springframework.stereotype.Component;
 class RecordObjectUsage implements ObjectUsage {
 
     private final StorageStrategy storage;
+    private final Metadata metadata;
 
-    RecordObjectUsage(StorageStrategy storage) {
+    RecordObjectUsage(StorageStrategy storage, Metadata metadata) {
         this.storage = storage;
+        this.metadata = metadata;
     }
 
     @Override
@@ -35,5 +44,26 @@ class RecordObjectUsage implements ObjectUsage {
     @Override
     public boolean hasValues(String objectApiName, String fieldApiName) {
         return storage.hasValues(objectApiName, fieldApiName);
+    }
+
+    /**
+     * Reads the stored values (the field may have no complete copy yet), comparing them the way the slot of the field's
+     * kind does. An object nobody holds records of has none; a field of a kind that cannot be unique has none either.
+     */
+    @Override
+    public long duplicates(String objectApiName, String fieldApiName) {
+        FieldDefinition field = metadata.object(objectApiName).flatMap(object -> object.field(fieldApiName))
+                .orElse(null);
+        Optional<SlotClass> kind = field == null ? Optional.empty() : SlotClass.of(field.type());
+        if (kind.isEmpty() || !storage.hasValues(objectApiName, fieldApiName)) {
+            return 0;
+        }
+        String slotColumn = SlotColumn.of(kind.get()).get(0).column();
+        try {
+            return storage.duplicateRecords(objectApiName, fieldApiName, slotColumn);
+        } catch (QueryTimeoutException tooSlow) {
+            throw new ApiException(ErrorCode.CONFLICT, "The records could not be checked for duplicates in the time "
+                    + "allowed. Try again when the organization is less busy.");
+        }
     }
 }

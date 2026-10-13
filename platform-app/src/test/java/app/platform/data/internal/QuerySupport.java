@@ -78,6 +78,47 @@ abstract class QuerySupport extends PipelineSupport {
                 + ",\"version\":" + version + "}");
     }
 
+    /** Sets whether a field of {@code Item__c} is unique (a live change by the administrator). */
+    protected static Response setUnique(TestBrowser admin, String name, boolean unique) {
+        String[] definition = ITEM_FIELDS.get(name);
+        long version = fieldVersion(admin, "Item__c", name + "__c");
+        return admin.request("PUT", METADATA_OBJECTS + "/Item__c/fields/" + name + "__c", "{\"label\":\"" + name
+                + "\",\"description\":\"\",\"unique\":" + unique + (definition[1].isEmpty() ? "" : definition[1])
+                + ",\"version\":" + version + "}");
+    }
+
+    /** The state of the enforcement of each unique field of {@code Item__c}, by field, as the status endpoint says. */
+    protected static Map<String, String> uniquenessOf(TestBrowser admin) {
+        Response status = admin.get(ITEM_STATUS);
+        assertThat(status.status()).as(status.body()).isEqualTo(200);
+        List<String> fields = JsonPath.read(status.body(), "$.data.uniqueness[*].field");
+        List<String> states = JsonPath.read(status.body(), "$.data.uniqueness[*].state");
+        Map<String, String> byField = new LinkedHashMap<>();
+        for (int index = 0; index < fields.size(); index++) {
+            byField.put(fields.get(index), states.get(index));
+        }
+        return byField;
+    }
+
+    /**
+     * Runs the background work of the organization until every copy is complete and every unique field is enforced (or
+     * gives up). A field whose state is in {@code except} is not waited for.
+     */
+    protected void settleUniqueness(Organization organization, TestBrowser admin, String... except) {
+        List<String> skipped = List.of(except);
+        for (int round = 0; round < 40; round++) {
+            backfill.workOn(organization.id());
+            List<String> states = JsonPath.read(admin.get(ITEM_STATUS).body(), "$.data.fields[*].state");
+            boolean copies = states.stream().allMatch("FILLED"::equals);
+            boolean enforced = uniquenessOf(admin).entrySet().stream()
+                    .allMatch(entry -> "ENFORCED".equals(entry.getValue()) || skipped.contains(entry.getKey()));
+            if (copies && enforced) {
+                return;
+            }
+        }
+        throw new AssertionError("uniqueness did not settle: " + admin.get(ITEM_STATUS).body());
+    }
+
     protected static void flagAll(TestBrowser admin, String... names) {
         for (String name : names) {
             Response flagged = flag(admin, name, true);

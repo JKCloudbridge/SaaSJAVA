@@ -374,4 +374,24 @@ or move a record to it. Remove the last profile and the type is open again. Reco
 
 **Many-to-many.** An object with exactly two master-detail fields links two other objects. Read it from either side by filtering the junction on that field; the same two records cannot be linked twice.
 
-**What this does not do yet.** Uniqueness of a field and the recalculation of stored formula results (Sprint 16A); record-level security (Sprint 17); screens (Sprints 19 and 20).
+**What this does not do yet.** Record-level security (Sprint 17); screens (Sprints 19 and 20). Uniqueness and the recalculation of stored formula results came in Sprint 16A (section 16).
+
+## 16. Unique fields and the results of formulas (Sprint 16A)
+
+**Unique fields.** Tick "Unique" on a text, e-mail, phone, number, decimal, lookup or master-detail field and no two live records can hold the same value in it. The platform checks every new value before it saves and the database refuses what two people save at the same moment, with the same answer: "Another record already has this value."
+shown at the field, never saying which record or what the value is. Things to know:
+- **Exact match.** "ABC" and "abc" are different values, as in every comparison on the platform. An empty field is not a value: any number of records may leave it empty.
+- **Making a field unique** is refused if two live records already share a value, and the answer says **how many** records collide (not which), so you can fix the data first. Records in the recycle bin do not count.
+- **After you publish**, the platform gives the field a copy of its own (it counts against the limit of fields per kind that can be indexed, which now says "indexed or unique") and checks in the records that existed. The status page of the object (`index-status`) shows each unique field as *waiting*, *enforcing*, *conflict* or *enforced*.
+  New values are refused from the first moment; if a duplicate got in during that window the field shows *conflict* with the number of records, and the check finishes by itself once you have fixed the data.
+- **The recycle bin.** A deleted record does not block its value. Restoring it is refused if another record has taken the value meanwhile ("This record cannot be brought back ..."): change or remove the other record first.
+- **Limits.** A number can be unique only with at most 15 digits; a web address cannot be unique; an auto-number needs no tick (it never repeats); a field flagged unique under an older setup that cannot be checked shows *not enforced* until you edit it.
+- **Many-to-many.** The same two records cannot be linked twice by a junction object; the status page shows this as the pair of its two parents.
+- Record-level security (Sprint 17) will not hide the fact that a value is taken: a unique field cannot do that.
+
+**Results of formulas after an edit.** When you change a formula the results stored in existing records are brought up to date in the background, a batch at a time, without changing the record's version or its "last changed" time and without an audit record per record (one per finished pass, with counts). Until it has finished:
+- a **filter or a sort on a formula field is refused**, with the reason ("The results of this object's formulas are being brought up to date ..."); everything else works, and records show the stored result they had;
+- `GET /api/v1/objects/{object}/formula-recalculation` says where it is (`NEEDED`, `PENDING`, `RUNNING`, `CLOSING`, then `CURRENT`) and how many records were looked at, rewritten and could not be calculated. `POST` on the same path starts a pass by hand (ability: publish metadata), for example after records were changed by a path that
+  does not calculate formulas. There is no screen for this yet.
+- A record whose formula **cannot be calculated** (a division by zero) loses the stored result of that formula and is counted. A record that was in the recycle bin comes back with the results of today.
+- Once the formulas are current, a formula field can be used in a filter or a sort like any other field (read from the stored result, so the rule for fields without an index applies: allowed on an object with up to 20,000 live records).

@@ -105,7 +105,7 @@ class IndexedFieldsRulesTest {
 
         assertThat(found).hasSize(1);
         String message = found.get(0).message();
-        assertThat(message).contains("Thing__c has 9 indexed text fields").contains("at most 8");
+        assertThat(message).contains("Thing__c has 9 indexed or unique text fields").contains("at most 8");
         for (int i = 0; i < 9; i++) {
             assertThat(message).contains("t" + i + "__c");
         }
@@ -133,7 +133,7 @@ class IndexedFieldsRulesTest {
         List<DependencyGraph.Violation> found = violations(object(fields));
 
         assertThat(found).hasSize(1);
-        assertThat(found.get(0).message()).contains("5 indexed link fields").contains("at most 4");
+        assertThat(found.get(0).message()).contains("5 indexed or unique link fields").contains("at most 4");
     }
 
     @Test
@@ -147,6 +147,59 @@ class IndexedFieldsRulesTest {
 
         assertThat(found).hasSize(2);
         assertThat(found.get(0).dependent().describe()).isEqualTo("field Thing__c.notes__c");
+    }
+
+    private static FieldDefinition uniqueText(String name) {
+        return new FieldDefinition("Thing__c", name, name, "", DefinitionKind.CUSTOM, FieldType.TEXT, false, true,
+                null, new TextConfiguration(255), false, 0, false);
+    }
+
+    @Test
+    void aUniqueFieldIsIndexedByBeingUniqueAndCountsAgainstTheSlots() {
+        List<FieldDefinition> fields = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            fields.add(text("t" + i + "__c", true));
+        }
+        for (int i = 0; i < 4; i++) {
+            fields.add(uniqueText("u" + i + "__c"));
+        }
+
+        List<DependencyGraph.Violation> found = violations(object(fields));
+
+        assertThat(found).hasSize(1);
+        assertThat(found.get(0).message()).contains("9 indexed or unique text fields").contains("at most 8")
+                .contains("u0__c").contains("t0__c");
+    }
+
+    @Test
+    void aFieldFlaggedBothWaysUsesOneSlot() {
+        FieldDefinition both = new FieldDefinition("Thing__c", "both__c", "both", "", DefinitionKind.CUSTOM,
+                FieldType.TEXT, false, true, null, new TextConfiguration(255), false, 0, true);
+        List<FieldDefinition> fields = new ArrayList<>();
+        for (int i = 0; i < 7; i++) {
+            fields.add(text("t" + i + "__c", true));
+        }
+        fields.add(both);
+
+        assertThat(violations(object(fields))).isEmpty();
+    }
+
+    @Test
+    void anAutoNumberTheSystemIdentifierAndTheFieldsOfAPlatformObjectNeverTakeASlot() {
+        FieldDefinition sequence = new FieldDefinition("Thing__c", "number__c", "number", "", DefinitionKind.CUSTOM,
+                FieldType.AUTO_NUMBER, false, true, null,
+                new app.platform.metadata.FieldConfiguration.AutoNumberConfiguration("", 1, 6), false, 0, false);
+        List<FieldDefinition> fields = new ArrayList<>();
+        for (int i = 0; i < 8; i++) {
+            fields.add(text("t" + i + "__c", true));
+        }
+        fields.add(sequence);
+        ObjectDefinition managed = new ObjectDefinition("User", "User", "Users", "", DefinitionKind.STANDARD,
+                "identity", false, 0, new ArrayList<>(List.of(uniqueText("a__c"), uniqueText("b__c"),
+                        uniqueText("c__c"), uniqueText("d__c"), uniqueText("e__c"), uniqueText("f__c"),
+                        uniqueText("g__c"), uniqueText("h__c"), uniqueText("i__c"))));
+
+        assertThat(violations(object(fields), managed)).isEmpty();
     }
 
     @Test
