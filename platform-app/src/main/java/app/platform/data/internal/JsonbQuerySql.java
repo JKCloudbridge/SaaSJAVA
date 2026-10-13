@@ -106,6 +106,13 @@ final class JsonbQuerySql {
      */
     private String numberInSlot(Slot slot, Test test) {
         String column = slot.column();
+        // The slot alone answers these, so no parameter for the payload is registered (nothing would use it).
+        if (test.compare() == Compare.IS_EMPTY) {
+            return column + " is null";
+        }
+        if (test.compare() == Compare.IS_NOT_EMPTY) {
+            return column + " is not null";
+        }
         String exact = expression(new Payload(slot.field(), ValueKind.NUMBER));
         List<String> names = test.values().stream().map(this::bind).toList();
         List<String> doubles = names.stream().map(name -> "cast(cast(:" + name + " as numeric) as double precision)")
