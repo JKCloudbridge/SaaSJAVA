@@ -222,10 +222,12 @@ class MetadataService {
         Problems problems = new Problems();
         String label = problems.check(() -> NameRules.label("label", request.label()));
         String description = problems.check(() -> NameRules.description(request.description()));
+        // Every independent check runs before the one throw (as in createField), so a field that is wrong in two
+        // ways at once (for example a date flagged both unique and an external identifier) is reported at both
+        // places and not just the first one found.
         FieldRules.Checked checked = problems.check(() -> FieldRules.checkChange(field.type(),
                 field.configuration(), flag(request.required()), flag(request.unique()) || flag(request.externalId()),
                 request.defaultValue(), request.settings(), context(definition, otherMasterDetails)));
-        problems.throwIfAny();
         boolean indexed = Boolean.TRUE.equals(problems.check(
                 () -> FieldRules.checkIndexed(field.type(), flag(request.indexed()))));
         boolean externalId = Boolean.TRUE.equals(problems.check(

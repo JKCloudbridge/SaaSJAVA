@@ -74,16 +74,18 @@ class BulkRecords {
             throw ApiException.validation("records", "A call carries at most " + properties.maxRecords()
                     + " records.");
         }
-        // The object and the operation are judged once for the whole call, as a single request would be: a caller who
-        // may not do this to the object gets the refusal, not a list of identical failures.
-        gate.pass(objectApiName, switch (operation) {
-            case CREATE -> ObjectAction.CREATE;
-            case UPDATE -> ObjectAction.UPDATE;
-            case DELETE -> ObjectAction.DELETE;
-        });
         boolean allOrNone = Boolean.TRUE.equals(request.allOrNone());
         List<BulkRecordResult> results = new ArrayList<>();
         Boolean committed = call.execute(status -> {
+            // The object and the operation are judged once for the whole call, as a single request would be: a
+            // caller who may not do this to the object gets the refusal, not a list of identical failures. Inside
+            // the transaction: on a cache miss this reads forced-row-level-security tables, which needs the tenant
+            // in the database session (TenantSessionListener only sets it once a transaction has begun).
+            gate.pass(objectApiName, switch (operation) {
+                case CREATE -> ObjectAction.CREATE;
+                case UPDATE -> ObjectAction.UPDATE;
+                case DELETE -> ObjectAction.DELETE;
+            });
             boolean failed = false;
             for (int position = 0; position < request.records().size(); position++) {
                 BulkRecordResult result = one(objectApiName, operation, position, request.records().get(position));

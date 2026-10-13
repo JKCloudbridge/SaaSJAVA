@@ -184,7 +184,7 @@ class ImportIT extends RecordSecuritySupport {
     @Test
     void anUpsertUpdatesTheRecordWithTheExternalIdentifierAndMakesTheRestAndASecondRunChangesNothingNew() {
         Items items = itemsWithExternalId();
-        Person person = worker(items.organization(), items.admin());
+        Person person = workerWith(items.organization(), items.admin(), "ext__c");
         String existing = put(person.browser(), "{\"ext__c\":\"E1\",\"name__c\":\"old\"}");
 
         String first = run(items.organization(), person.browser(), start("UPSERT", false, "ext__c", null),
@@ -203,7 +203,7 @@ class ImportIT extends RecordSecuritySupport {
     @Test
     void anUpsertRowWithoutItsExternalIdentifierFailsAlone() {
         Items items = itemsWithExternalId();
-        Person person = worker(items.organization(), items.admin());
+        Person person = workerWith(items.organization(), items.admin(), "ext__c");
 
         String id = run(items.organization(), person.browser(), start("UPSERT", false, "ext__c", null),
                 "ext__c,name__c\n,nobody\nE9,somebody\n");
@@ -220,7 +220,16 @@ class ImportIT extends RecordSecuritySupport {
                 "{\"name\":\"ext\",\"label\":\"ext\",\"type\":\"TEXT\",\"externalId\":true}");
         assertThat(targetField.status()).as(targetField.body()).isEqualTo(201);
         settleUniqueness(items.organization(), items.admin());
-        Person person = person(items.organization(), items.admin(), "read", "create", "update", "delete");
+        // Resolving the link reads Target__c through the same gated path as any other read, so the importing
+        // member needs the right to read that object and its external identifier field too.
+        String fields = "[" + String.join(",", ITEM_FIELDS.keySet().stream()
+                .map(name -> "{\"key\":\"Item__c." + name + "__c\",\"actions\":[\""
+                        + ("calc".equals(name) ? "read" : "edit") + "\"]}").toList())
+                + ",{\"key\":\"Target__c.ext__c\",\"actions\":[\"read\"]}]";
+        Holder holder = holderWithMatrix(items.organization(), items.admin(), "{\"objects\":["
+                + "{\"key\":\"Item__c\",\"actions\":[\"read\",\"create\",\"update\",\"delete\"]},"
+                + "{\"key\":\"Target__c\",\"actions\":[\"read\"]}],\"fields\":" + fields + "}");
+        Person person = new Person(holder.member(), as(items.organization(), holder.member()), holder.profileId());
         Response target = items.admin().postJson("/api/v1/objects/Target__c/records",
                 "{\"fields\":{\"ext__c\":\"T1\"}}");
         assertThat(target.status()).as(target.body()).isEqualTo(201);
@@ -374,8 +383,8 @@ class ImportIT extends RecordSecuritySupport {
     void theRowsAreWrittenWithThePermissionsOfTheStarterSoARecordTheyMayNotChangeFailsTheRow() {
         Items items = itemsWithExternalId();
         share(items.admin(), "PRIVATE", false);
-        Person owner = worker(items.organization(), items.admin());
-        Person starter = worker(items.organization(), items.admin());
+        Person owner = workerWith(items.organization(), items.admin(), "ext__c");
+        Person starter = workerWith(items.organization(), items.admin(), "ext__c");
         put(owner.browser(), "{\"ext__c\":\"E1\",\"name__c\":\"theirs\"}");
 
         String id = run(items.organization(), starter.browser(), start("UPSERT", false, "ext__c", null),

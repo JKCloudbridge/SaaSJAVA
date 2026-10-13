@@ -36,9 +36,11 @@ alter table member_access add column user_id uuid;
 -- they read tables whose forced row level security binds the owner too (a migration has no tenant). As in V013 and V018
 -- forcing is switched off for this statement and back on in the same transaction.
 alter table membership no force row level security;
+alter table member_access no force row level security;
 alter table member_access disable trigger user;
 update member_access ma set user_id = m.user_id from membership m where m.id = ma.membership_id;
 alter table member_access enable trigger user;
+alter table member_access force row level security;
 alter table membership force row level security;
 
 alter table member_access alter column user_id set not null;

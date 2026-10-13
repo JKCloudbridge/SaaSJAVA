@@ -159,7 +159,11 @@ class S3ObjectStore implements ObjectStore {
                 .forcePathStyle(properties.pathStyle())
                 .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED)
                 .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED)
-                .overrideConfiguration(configuration -> configuration.apiCallTimeout(properties.callTimeout()));
+                // No retries: an upload streams the body once (it cannot be replayed, so a retried attempt would
+                // fail with its own confusing error instead of the clean one this class gives); a failure of any
+                // call is answered the same way to the caller whether it is the first attempt or a retry.
+                .overrideConfiguration(configuration -> configuration.apiCallTimeout(properties.callTimeout())
+                        .retryStrategy(retry -> retry.maxAttempts(1)));
         if (!properties.endpoint().isBlank()) {
             builder.endpointOverride(URI.create(properties.endpoint()));
         }

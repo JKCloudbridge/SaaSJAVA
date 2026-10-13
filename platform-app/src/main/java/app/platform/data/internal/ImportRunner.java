@@ -208,13 +208,19 @@ class ImportRunner implements SmartLifecycle {
                 fail(job, "The object no longer exists.");
                 return;
             }
-            if (!starterIsMember(job)) {
+            // Its own transaction: starterIsMember reads a forced-row-level-security table, and only a transaction
+            // puts the tenant into the database session (TenantSessionListener); a plain call outside one would see
+            // no rows at all and always answer "no longer a member".
+            if (!Boolean.TRUE.equals(transaction.execute(status -> starterIsMember(job)))) {
                 fail(job, "The person who started the import is no longer a member of the organization.");
                 return;
             }
             char delimiter = delimiter(job.delimiter());
             Map<String, String> mapping = json.readValue(job.mapping(), MAPPING);
-            ObjectAccess access = decisions.accessTo(job.membershipId(), object.apiName());
+            // Its own transaction too: on a cache miss (or the cache switched off) this reads forced-row-level
+            // security tables, which needs the same tenant session as starterIsMember above.
+            ObjectAccess access = transaction.execute(status -> decisions.accessTo(job.membershipId(),
+                    object.apiName()));
             List<String> header;
             long headerEnd;
             try (ObjectStore.Stored stored = open(job, 0)) {

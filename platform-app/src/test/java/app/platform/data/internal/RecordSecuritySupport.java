@@ -52,6 +52,21 @@ abstract class RecordSecuritySupport extends QuerySupport {
         return person(organization, admin, "read", "create", "update", "delete");
     }
 
+    /**
+     * A member who may read, create, change and delete records of {@code Item__c}, with edit permission also on the
+     * named extra fields (for a field a test adds to the object itself, such as an external identifier, which is not
+     * part of the fixed set {@link #ITEM_FIELD_PERMISSIONS} already covers).
+     */
+    protected Person workerWith(Organization organization, TestBrowser admin, String... extraFieldApiNames) {
+        String fields = extraFieldApiNames.length == 0 ? ITEM_FIELD_PERMISSIONS
+                : ITEM_FIELD_PERMISSIONS.substring(0, ITEM_FIELD_PERMISSIONS.length() - 1) + ","
+                        + String.join(",", java.util.Arrays.stream(extraFieldApiNames)
+                                .map(field -> "{\"key\":\"Item__c." + field + "\",\"actions\":[\"edit\"]}").toList())
+                        + "]";
+        Holder holder = holderWith(organization, admin, "Item__c", fields, "read", "create", "update", "delete");
+        return new Person(holder.member(), as(organization, holder.member()), holder.profileId());
+    }
+
     // ---- how the object is shared ----
 
     /** Sets the organization-wide default and the hierarchy switch of {@code Item__c}. */

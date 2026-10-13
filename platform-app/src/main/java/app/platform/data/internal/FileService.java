@@ -116,18 +116,22 @@ class FileService {
                 throw new ObjectStoreException();
             }
             UploadStream sent = stream;
-            Boolean stored = transaction.execute(status -> {
+            // The read is in the same transaction as the write: a bare call afterwards would run without the
+            // tenant ever reaching the database session (TenantSessionListener needs a transaction to hook into),
+            // and forced row level security would hide the very row just activated.
+            FileStore.FileRow row = transaction.execute(status -> {
                 boolean active = files.activate(started.row().id(), announcedLength, sent.sha256(), started.actor());
-                if (active) {
-                    changes.fileUploaded(started.actor(), started.object(), recordId, started.row().id(),
-                            announcedLength);
+                if (!active) {
+                    return null;
                 }
-                return active;
+                changes.fileUploaded(started.actor(), started.object(), recordId, started.row().id(),
+                        announcedLength);
+                return files.activeFile(recordId, started.row().id()).orElseThrow();
             });
-            if (!Boolean.TRUE.equals(stored)) {
+            if (row == null) {
                 throw new ApiException(ErrorCode.CONFLICT, "The upload took too long and was cancelled.");
             }
-            return files.activeFile(recordId, started.row().id()).orElseThrow();
+            return row;
         } catch (IOException | UncheckedIOException e) {
             abandon(started);
             throw new ApiException(ErrorCode.MALFORMED_REQUEST, "The upload could not be read to the end.");
@@ -139,6 +143,7 @@ class FileService {
             LOG.warn("The object store failed while storing a file");
             throw ApiException.unavailable(30);
         } catch (RuntimeException e) {
+            LOG.warn("TEMP-DIAGNOSTIC upload RuntimeException", e);
             abandon(started);
             throw e;
         }

@@ -117,11 +117,18 @@ class ImportRows {
      *
      * @param mapping header name to {@code field} or {@code field:externalIdFieldOfTheLinkedObject}; empty means the
      *        header names are the API names of the fields
-     * @param header the names in the first row of the file, or null when only the mapping is being checked
+     * @param header the names in the first row of the file, or null when only the mapping is being checked (before
+     *        the file arrives, so an empty mapping is not yet judged: it is a promise kept open until the header is
+     *        known, when this is called again)
      * @throws Problems every problem found
      */
     Plan plan(ObjectDefinition object, ObjectAccess access, String operation, String externalIdField,
             Map<String, String> mapping, List<String> header) {
+        // Checked at start time, before the file (and so the header) is known: an empty mapping is not yet wrong,
+        // it is a promise to use the header's own names once they arrive. Only once the header is known (here, or
+        // again when the file is read) can "nothing is mapped" or "the external identifier is not among the mapped
+        // columns" be judged.
+        boolean deferred = header == null && mapping.isEmpty();
         List<String> problems = new ArrayList<>();
         Map<String, String> effective = mapping;
         if (header != null && mapping.isEmpty()) {
@@ -153,11 +160,11 @@ class ImportRows {
             external = object.field(externalIdField).filter(FieldDefinition::externalId).orElse(null);
             if (external == null) {
                 problems.add("An upsert needs a field flagged as an external identifier.");
-            } else if (!mappedFields.contains(external.apiName())) {
+            } else if (!deferred && !mappedFields.contains(external.apiName())) {
                 problems.add("The external identifier of an upsert must be one of the mapped columns.");
             }
         }
-        if (columns.isEmpty() && problems.isEmpty()) {
+        if (!deferred && columns.isEmpty() && problems.isEmpty()) {
             problems.add("Nothing is mapped.");
         }
         if (!problems.isEmpty()) {
@@ -218,25 +225,33 @@ class ImportRows {
         if (cells.size() != plan.width()) {
             return failed("The row has " + cells.size() + " values and the header has " + plan.width() + ".");
         }
-        Map<String, Object> values = new LinkedHashMap<>();
-        List<String> problems = new ArrayList<>();
-        for (Column column : plan.columns()) {
-            String cell = cells.get(column.index());
-            if (cell.isBlank()) {
-                continue;
-            }
-            try {
-                values.put(column.field().apiName(), CsvValues.convert(column.field(), cell,
-                        column.lookupBy() == null ? null : text -> resolve(plan, column, text)));
-            } catch (CsvValues.Problem e) {
-                problems.add(column.field().apiName() + ": " + e.getMessage());
-            }
-        }
-        if (!problems.isEmpty()) {
-            return failed(String.join(" ", problems));
-        }
+        // The whole row, reading the cells and writing them, runs in one savepoint: resolving a link by the other
+        // object's external identifier reads through the same gated, transactional path as any other read, and a
+        // read that is refused must not poison the batch's own transaction for the rows after it, only this row's
+        // savepoint.
         try {
-            return savepoint.execute(status -> write(plan, values));
+            return savepoint.execute(status -> {
+                Map<String, Object> values = new LinkedHashMap<>();
+                List<String> problems = new ArrayList<>();
+                for (Column column : plan.columns()) {
+                    String cell = cells.get(column.index());
+                    if (cell.isBlank()) {
+                        continue;
+                    }
+                    try {
+                        values.put(column.field().apiName(), CsvValues.convert(column.field(), cell,
+                                column.lookupBy() == null ? null : text -> resolve(plan, column, text)));
+                    } catch (CsvValues.Problem e) {
+                        problems.add(column.field().apiName() + ": " + e.getMessage());
+                    }
+                }
+                if (!problems.isEmpty()) {
+                    throw new CsvValues.Problem(String.join(" ", problems));
+                }
+                return write(plan, values);
+            });
+        } catch (CsvValues.Problem e) {
+            return failed(e.getMessage());
         } catch (ApiException e) {
             if (e.code().httpStatus() >= 500 || e.code().httpStatus() == 429) {
                 throw e;

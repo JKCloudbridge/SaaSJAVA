@@ -89,7 +89,7 @@ class BulkRecordsIT extends RecordSecuritySupport {
         assertThat(JsonPath.<Number>read(answer.body(), "$.data.succeeded").intValue()).isZero();
         assertThat(listed(person.browser())).isEmpty();
         assertThat(owner("select count(*) from audit_record where event_type = 'data.record.created' and "
-                + "tenant_id = ?::uuid", items.organization().id().value().toString()))
+                + "context_tenant_id = ?::uuid", items.organization().id().value().toString()))
                 .as("the audit records of the undone records are undone too").containsExactly("0");
     }
 
@@ -113,7 +113,7 @@ class BulkRecordsIT extends RecordSecuritySupport {
 
         List<String> summaries = owner("select (attributes ->> 'operation') || '/' || (attributes ->> 'failed') "
                 + "|| '/' || (attributes ->> 'committed') || '/' || attributes::text from audit_record "
-                + "where event_type = 'data.bulk.completed' and tenant_id = ?::uuid",
+                + "where event_type = 'data.bulk.completed' and context_tenant_id = ?::uuid",
                 items.organization().id().value().toString());
 
         assertThat(summaries).hasSize(1);
