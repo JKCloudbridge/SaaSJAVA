@@ -138,7 +138,7 @@ class JunctionPairIT extends PipelineSupport {
     void aRecordInTheRecycleBinDoesNotHoldThePairButARestoreThatWouldLinkItTwiceIsRefused() {
         World world = world(true);
         String first = idOf(link(world.admin(), world.parent(), world.other()));
-        assertThat(world.admin().request("DELETE", LINKS + "/" + first, null).status()).isEqualTo(200);
+        assertThat(world.admin().request("DELETE", LINKS + "/" + first, null).status()).isEqualTo(204);
 
         Response again = link(world.admin(), world.parent(), world.other());
         assertThat(again.status()).as("the bin does not hold the pair").isEqualTo(201);

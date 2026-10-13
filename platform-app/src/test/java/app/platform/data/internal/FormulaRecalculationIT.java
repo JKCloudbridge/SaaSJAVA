@@ -258,7 +258,7 @@ class FormulaRecalculationIT extends QuerySupport {
         Items items = itemsWithCurrentResults(3);
         TestBrowser admin = items.admin();
         String binned = idsByQuantity(items.organization()).get(1);
-        assertThat(admin.request("DELETE", ITEM_RECORDS + "/" + binned, null).status()).isEqualTo(200);
+        assertThat(admin.request("DELETE", ITEM_RECORDS + "/" + binned, null).status()).isEqualTo(204);
         assertThat(editFormula(admin, "qty__c * 3").status()).isEqualTo(200);
         settleResults(items.organization(), admin);
 

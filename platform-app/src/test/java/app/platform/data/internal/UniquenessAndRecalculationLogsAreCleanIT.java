@@ -97,6 +97,9 @@ class UniquenessAndRecalculationLogsAreCleanIT extends QuerySupport {
         for (int quantity = 1; quantity <= 3; quantity++) {
             put(admin, "{\"qty__c\":" + quantity + ",\"name__c\":\"" + name + quantity + "\"}");
         }
+        // Created under the old formula (qty__c * 2, which a zero quantity can calculate); the edit below makes it
+        // unavailable under the new one, without the create itself being refused for dividing by zero.
+        put(admin, "{\"qty__c\":0,\"name__c\":\"" + name + "zero\"}");
         for (int step = 0; step < 50; step++) {
             recalculation.workOn(items.organization().id());
         }
@@ -104,7 +107,6 @@ class UniquenessAndRecalculationLogsAreCleanIT extends QuerySupport {
         assertThat(admin.request("PUT", METADATA_OBJECTS + "/Item__c/fields/calc__c", "{\"label\":\"calc\","
                 + "\"description\":\"\",\"settings\":{\"expression\":\"10 / qty__c\",\"resultType\":\"NUMBER\"},"
                 + "\"version\":" + version + "}").status()).isEqualTo(200);
-        put(admin, "{\"qty__c\":0,\"name__c\":\"" + name + "zero\"}");
 
         for (int step = 0; step < 50; step++) {
             recalculation.workOn(items.organization().id());

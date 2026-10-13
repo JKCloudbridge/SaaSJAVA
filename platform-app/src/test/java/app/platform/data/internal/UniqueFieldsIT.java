@@ -147,7 +147,7 @@ class UniqueFieldsIT extends QuerySupport {
         Items items = uniqueCode();
         TestBrowser admin = items.admin();
         String first = put(admin, "{\"code__c\":\"BIN-VALUE\"}");
-        assertThat(admin.request("DELETE", ITEM_RECORDS + "/" + first, null).status()).isEqualTo(200);
+        assertThat(admin.request("DELETE", ITEM_RECORDS + "/" + first, null).status()).isEqualTo(204);
 
         Response again = codeCreate(admin, "BIN-VALUE");
         assertThat(again.status()).as("the bin does not count").isEqualTo(201);
@@ -160,7 +160,7 @@ class UniqueFieldsIT extends QuerySupport {
         assertThat(restore.body()).doesNotContain("BIN-VALUE").doesNotContain(second);
         assertThat(admin.get(ITEM_RECORDS + "/" + first).status()).as("it is still in the bin").isEqualTo(404);
 
-        assertThat(admin.request("DELETE", ITEM_RECORDS + "/" + second, null).status()).isEqualTo(200);
+        assertThat(admin.request("DELETE", ITEM_RECORDS + "/" + second, null).status()).isEqualTo(204);
         assertThat(admin.postJson(ITEM_BIN + "/" + first + "/restore", "{}").status())
                 .as("with the other record gone the value is free").isEqualTo(200);
         assertThat(admin.postJson(ITEM_BIN + "/" + second + "/restore", "{}").status())
@@ -177,7 +177,7 @@ class UniqueFieldsIT extends QuerySupport {
         String twin = put(admin, "{\"code__c\":\"DUP-SECRET\"}");
         put(admin, "{\"code__c\":\"alone\"}");
         String binned = put(admin, "{\"code__c\":\"alone\"}");
-        assertThat(admin.request("DELETE", ITEM_RECORDS + "/" + binned, null).status()).isEqualTo(200);
+        assertThat(admin.request("DELETE", ITEM_RECORDS + "/" + binned, null).status()).isEqualTo(204);
 
         Response refused = setUnique(admin, "code", true);
 
