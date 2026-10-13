@@ -28,7 +28,7 @@ through fixed steps: query model, validation against the metadata, field securit
    list screens (Sprints 19 and 20).
 7. **The seam for record-level security** is `RecordVisibility.constraintFor(passed, access)`, asked by the list, the query and the single read alike, after the fields and operators are checked and before the plan, which adds the answer to the
    filter. Sprint 17 fills it; until then it answers "no extra condition". A test holds all three readers to calling it.
-8. **A formula field cannot be used in a filter or an order** (ADR-0095: its stored result is not current for records nobody has saved since the formula changed). The refusal says why. Sprint 16A lifts it with the recalculation job.
+8. **A formula field can be used in a filter or an order since Sprint 16A**, while its stored results are current for the object's formulas ([ADR-0114](0114-formula-fields-in-filters-and-orders.md)); until then it was refused (ADR-0095: the stored result is not current for records nobody has saved since the formula changed).
 
 ## Consequences
 

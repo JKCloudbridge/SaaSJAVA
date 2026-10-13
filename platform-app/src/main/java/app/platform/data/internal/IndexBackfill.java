@@ -1,6 +1,7 @@
 package app.platform.data.internal;
 
 import app.platform.data.StorageStrategy;
+import app.platform.data.UniqueValueTakenException;
 import app.platform.sharedkernel.ActorId;
 import app.platform.sharedkernel.TenantId;
 import app.platform.sharedkernel.audit.AuditOutcome;
@@ -56,6 +57,7 @@ class IndexBackfill implements SmartLifecycle {
     private final Tenants tenants;
     private final TenantContexts contexts;
     private final FieldSlotStore store;
+    private final UniqueStore uniques;
     private final StorageStrategy storage;
     private final IndexPolicy policy;
     private final LinkBackfill linkFill;
@@ -65,12 +67,13 @@ class IndexBackfill implements SmartLifecycle {
     private final Set<TenantId> requested = ConcurrentHashMap.newKeySet();
     private ScheduledExecutorService executor;
 
-    IndexBackfill(Tenants tenants, TenantContexts contexts, FieldSlotStore store, StorageStrategy storage,
-            IndexPolicy policy, LinkBackfill linkFill, AuditRecorder audit, PlatformTransactionManager transactions,
-            RecordProperties properties) {
+    IndexBackfill(Tenants tenants, TenantContexts contexts, FieldSlotStore store, UniqueStore uniques,
+            StorageStrategy storage, IndexPolicy policy, LinkBackfill linkFill, AuditRecorder audit,
+            PlatformTransactionManager transactions, RecordProperties properties) {
         this.tenants = tenants;
         this.contexts = contexts;
         this.store = store;
+        this.uniques = uniques;
         this.storage = storage;
         this.policy = policy;
         this.linkFill = linkFill;
@@ -148,6 +151,18 @@ class IndexBackfill implements SmartLifecycle {
                         case FILLING -> pass(row, true);
                         case CLEARING -> pass(row, false);
                         case FILLED -> 0;
+                    };
+                }
+                if (batches > 0) {
+                    // A copy that has just become complete may start the uniqueness constraint that waits for it.
+                    transaction.executeWithoutResult(status -> policy.reconcile());
+                }
+                List<UniqueStore.Row> constraints = transaction.execute(status -> uniques.all());
+                for (UniqueStore.Row row : constraints == null ? List.<UniqueStore.Row>of() : constraints) {
+                    batches += switch (row.state()) {
+                        case ENFORCING -> enforce(row);
+                        case CONFLICT -> recheck(row);
+                        case ENFORCED -> 0;
                     };
                 }
                 return batches + linkFill.fill();
@@ -239,6 +254,113 @@ class IndexBackfill implements SmartLifecycle {
         }
         store.progress(row.id(), null, cleared, actor);
         return Step.MORE;
+    }
+
+    // ---- uniqueness (ADR-0111) ----
+
+    /**
+     * Switches a constraint on for the records that existed before it: their bit is written in batches, like the fill
+     * of a copy. Writes carry the bit and check existing values from the moment the constraint row exists, so the only
+     * records left are the old ones. Two records that hold the same value make a batch fail as a whole; the constraint
+     * then goes to CONFLICT with the count, and the work resumes when the data was fixed ({@link #recheck}).
+     */
+    private int enforce(UniqueStore.Row row) {
+        int batches = 0;
+        long records = 0;
+        while (batches < settings.batchesPerPass()) {
+            long[] result = new long[1];
+            Step step;
+            try {
+                step = transaction.execute(status -> maskBatch(row, result));
+            } catch (UniqueValueTakenException duplicate) {
+                conflict(row);
+                break;
+            }
+            if (step == Step.BUSY) {
+                break;
+            }
+            batches++;
+            records += result[0];
+            if (step == Step.DONE) {
+                break;
+            }
+        }
+        if (batches > 0) {
+            long total = records;
+            int count = batches;
+            transaction.executeWithoutResult(status -> audit.record(AuditRecord.of("data.unique.mask.pass",
+                    AuditOutcome.SUCCESS).inTenant(contexts.require().tenantId())
+                    .onObject(row.objectApiName() + "." + row.fieldApiName(), null)
+                    .with("batches", Integer.toString(count)).with("records", Long.toString(total))));
+        }
+        return batches;
+    }
+
+    private Step maskBatch(UniqueStore.Row seen, long[] result) {
+        if (!store.tryWorkLock(seen.objectApiName())) {
+            return Step.BUSY;
+        }
+        UniqueStore.Row row = uniques.find(seen.id()).orElse(null);
+        if (row == null || row.state() != UniqueStore.State.ENFORCING) {
+            return Step.DONE;
+        }
+        UUID actor = ActorId.SYSTEM.value();
+        StorageStrategy.Filled done = storage.maskUnique(row.objectApiName(), row.bit(), row.cursor(),
+                settings.batchSize());
+        result[0] = done.processed();
+        if (done.processed() > 0) {
+            uniques.progress(row.id(), done.lastId(), done.processed(), actor);
+        }
+        if (done.processed() < settings.batchSize()) {
+            if (storage.hasUnmasked(row.objectApiName(), row.bit())) {
+                // Nothing should be left. If something is, the constraint is not trusted: start over (and say so).
+                LOG.warn("A uniqueness constraint was not complete after its pass; starting over");
+                uniques.restart(row.id(), actor);
+                return Step.MORE;
+            }
+            if (uniques.markEnforced(row.id(), actor)) {
+                audit.record(AuditRecord.of("data.unique.enforced", AuditOutcome.SUCCESS)
+                        .inTenant(contexts.require().tenantId())
+                        .onObject(row.objectApiName() + "." + row.fieldApiName(), null)
+                        .with("records", Long.toString(row.recordsDone() + done.processed())));
+            }
+            return Step.DONE;
+        }
+        return Step.MORE;
+    }
+
+    /** Records that two records hold the same value: counts them, and says so (a count, never a value). */
+    private void conflict(UniqueStore.Row row) {
+        transaction.executeWithoutResult(status -> {
+            long colliding = storage.collidingRecords(row.objectApiName(), row.bit());
+            if (uniques.markConflict(row.id(), colliding, ActorId.SYSTEM.value())) {
+                audit.record(AuditRecord.of("data.unique.conflict", AuditOutcome.FAILURE)
+                        .inTenant(contexts.require().tenantId())
+                        .onObject(row.objectApiName() + "." + row.fieldApiName(), null)
+                        .with("records", Long.toString(colliding)));
+            }
+        });
+        LOG.warn("A uniqueness constraint found records with the same value; it waits until the data is fixed");
+    }
+
+    /**
+     * A constraint in CONFLICT: counts the records that still share a value (one read of the typed copy), and starts
+     * the pass again when there are none. The count in the status follows the data.
+     */
+    private int recheck(UniqueStore.Row row) {
+        transaction.executeWithoutResult(status -> {
+            if (!store.tryWorkLock(row.objectApiName())) {
+                return;
+            }
+            long colliding = storage.collidingRecords(row.objectApiName(), row.bit());
+            UUID actor = ActorId.SYSTEM.value();
+            if (colliding == 0) {
+                uniques.restart(row.id(), actor);
+            } else if (colliding != row.conflicts()) {
+                uniques.markConflict(row.id(), colliding, actor);
+            }
+        });
+        return 0;
     }
 
     @Override

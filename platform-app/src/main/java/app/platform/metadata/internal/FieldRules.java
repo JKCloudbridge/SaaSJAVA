@@ -175,6 +175,9 @@ final class FieldRules {
         } else if (unique && !type.allowsUnique()) {
             add(problems, "unique", "A field of this type cannot be unique.");
             storedUnique = false;
+        } else if (unique && configuration != null) {
+            // What the check for duplicates can handle: the setup of the field, not only its type (ADR-0111).
+            SlotClass.uniqueProblem(type, configuration).ifPresent(reason -> add(problems, "unique", reason));
         }
         String storedDefault = blankToNull(defaultValue);
         if (storedDefault != null) {

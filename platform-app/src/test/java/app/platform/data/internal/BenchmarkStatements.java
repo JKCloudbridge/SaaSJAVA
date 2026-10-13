@@ -57,7 +57,8 @@ public final class BenchmarkStatements {
                 new RecordProperties.Retention(true, Duration.ofDays(30), Duration.ofHours(1), 500),
                 new RecordProperties.Index(true, 1000, 100, Duration.ofMinutes(5)),
                 new RecordProperties.Query(50, 200, 4, 50, 100, 100, 20_000),
-                new RecordProperties.Links(10_000, 1000));
+                new RecordProperties.Links(10_000, 1000),
+                new RecordProperties.Recalculation(true, 500, 100, Duration.ofMinutes(5), Duration.ofSeconds(30)));
         analyzer = new QueryAnalyzer(settings);
         Set<String> readable = new HashSet<>();
         employee.fields().forEach(field -> readable.add(field.apiName()));
@@ -179,6 +180,7 @@ public final class BenchmarkStatements {
         update.put("id", "bench_id(:i)");
         update.put("version", ":v");
         update.put("actor", "bench_tenant(0)");
+        update.put("umask", "0");
         update.put("patch", "(jsonb_build_object('Notes__c', 'updated ' || :v))::text");
         update.put("s_text_1", "'Dept ' || lpad((:i % 50)::text, 2, '0')");
         update.put("s_text_2", "'user' || lpad((:i)::text, 9, '0') || '@example.test'");
@@ -191,11 +193,20 @@ public final class BenchmarkStatements {
                 + "tenant_id = bench_tenant(1) and object_api_name = 'Employee__c' and id = bench_id(:i) and "
                 + "deleted_at is null;\n\\gset\n"
                 + fill(JsonbRecordStorage.updateStatement(), Map.of(), update) + ";\ncommit;\n");
+        Map<String, String> uniqueUpdate = new LinkedHashMap<>(update);
+        uniqueUpdate.put("umask", Integer.toString(UniqueKey.of(SlotColumn.TEXT_2).mask()));
+        files.put("s02u-update-unique", "-- S2 with the statement of the application when the e-mail field is unique "
+                + "(ADR-0111): the same copies and the bit of the constraint, so the unique index takes an entry.\n"
+                + "\\set i random(1, :big_n)\n" + SETTINGS + "select version as v from object_record where "
+                + "tenant_id = bench_tenant(1) and object_api_name = 'Employee__c' and id = bench_id(:i) and "
+                + "deleted_at is null;\n\\gset\n"
+                + fill(JsonbRecordStorage.updateStatement(), Map.of(), uniqueUpdate) + ";\ncommit;\n");
         Map<String, String> insert = new LinkedHashMap<>();
         insert.put("tenant", "bench_tenant(1)");
         insert.put("object", "'Import__c'");
         insert.put("owner", "bench_tenant(0)");
         insert.put("actor", "bench_tenant(0)");
+        insert.put("umask", "0");
         insert.put("payload", "(bench_payload(:base))::text");
         insert.put("s_text_1", "(bench_row(:base)).s_text_1");
         insert.put("s_text_2", "(bench_row(:base)).s_text_2");
@@ -206,6 +217,12 @@ public final class BenchmarkStatements {
                 + "(there is no bulk path before Sprint 17): the typed copies are written in the same statement.\n"
                 + "\\set base random(1000000000, 2000000000)\n" + SETTINGS
                 + fill(JsonbRecordStorage.insertStatement(), Map.of(), insert) + ";\ncommit;\n");
+        Map<String, String> uniqueInsert = new LinkedHashMap<>(insert);
+        uniqueInsert.put("umask", Integer.toString(UniqueKey.of(SlotColumn.TEXT_2).mask()));
+        files.put("s09u-insert-unique", "-- S9 with the statement of the application when the e-mail field is unique "
+                + "(ADR-0111): one record per statement, the bit of the constraint in the same statement.\n"
+                + "\\set base random(1000000000, 2000000000)\n" + SETTINGS
+                + fill(JsonbRecordStorage.insertStatement(), Map.of(), uniqueInsert) + ";\ncommit;\n");
         return files;
     }
 

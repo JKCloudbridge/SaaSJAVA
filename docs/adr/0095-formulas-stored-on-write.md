@@ -31,8 +31,7 @@ Nothing is rewritten when a definition changes. Every record keeps reading as it
 | a formula edited | the stored result stays what it was | **recalculated on the next write of that record** (all formulas of the object are recalculated on every write) |
 | a validation rule added or changed | untouched | the record is judged by the rule on its next write |
 
-A formula's stored result is therefore **lazily** brought up to date. A **recalculation job per object** (so that a filter on a formula sees new results for records nobody writes) is **Sprint 16 or later**, together with the index
-policy, because that is when a stored result is first read by something other than a person (`RecordsSetupChangeIT` holds the table: "records written before the change keep reading").
+A formula's stored result is therefore **lazily** brought up to date. A **recalculation job per object** (so that a filter on a formula sees new results for records nobody writes) was built in **Sprint 16A** ([ADR-0113](0113-recalculation-of-stored-formula-results.md), [ADR-0114](0114-formula-fields-in-filters-and-orders.md)); `RecordsSetupChangeIT` holds the table: "records written before the change keep reading". Until the pass has finished a filter or an order on a formula field is refused.
 
 ## Consequences
 

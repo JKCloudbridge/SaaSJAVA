@@ -22,7 +22,7 @@
 # the access back and checks the audit records and that a platform token is refused on an organization host.
 # Since Sprint 14 a step makes a record, changes it with its version, deletes and restores it and proves that an object with
 # a record cannot be removed. Since Sprint 15 a step proves the write pipeline: a required field, a refused value, a rule,
-# a formula, an auto-number. Since Sprint 15A a step proves record type assignments.
+# a formula, an auto-number. Since Sprint 15A a step proves record type assignments. Since Sprint 16A a step proves uniqueness and the recalculation of stored formula results.
 set -euo pipefail
 
 db="${1:?database container name}"
@@ -904,4 +904,77 @@ if [ -n "$mail" ]; then
   status="$(client_call -X POST -H "$group_json" -d '{"limit":1}' "$base/api/v1/objects/Ledger__c/records/query")"
   [ "$status" = "200" ] || fail "the organization does not answer again after the flood ($status)"
   echo "ok: a query filters, sorts and pages with a cursor, a field that does not exist is refused in the words of the platform, a flagged field became indexed and the answer did not change, removing a master removed its detail and restoring brought it back, and a flood of requests ended in answers of the model (counts: $codes)"
+
+  # 24. Uniqueness and the recalculation of stored formula results on the image (Sprint 16A): a unique field is
+  # checked in by the background pass and then refuses a duplicate in the words of the platform; the recycle bin does
+  # not hold the value but a restore that would duplicate it is refused; editing a formula leaves the stored results
+  # until the background pass has rewritten them, and the state endpoint says when they are current.
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Badge","label":"Badge","pluralLabel":"Badges","description":""}' "$base/api/v1/metadata/objects")"
+  [ "$status" = "201" ] || fail "making the badge object answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"tag","label":"tag","type":"TEXT","unique":true}' \
+    "$base/api/v1/metadata/objects/Badge__c/fields")"
+  [ "$status" = "201" ] || fail "making the unique tag field answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"size","label":"size","type":"NUMBER"}' \
+    "$base/api/v1/metadata/objects/Badge__c/fields")"
+  [ "$status" = "201" ] || fail "making the size field answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"dbl","label":"dbl","type":"FORMULA","settings":{"expression":"size__c * 2","resultType":"NUMBER"}}' \
+    "$base/api/v1/metadata/objects/Badge__c/fields")"
+  [ "$status" = "201" ] || fail "making the formula field answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{"tag__c":"t1","size__c":3}}' \
+    "$base/api/v1/objects/Badge__c/records")"
+  [ "$status" = "201" ] || fail "creating the first badge answered $status: $(cat "$body")"
+  badge_one="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  enforced=""
+  for attempt in $(seq 1 60); do
+    status="$(client_call "$base/api/v1/objects/Badge__c/index-status")"
+    [ "$status" = "200" ] || fail "the index status of the badges answered $status: $(cat "$body")"
+    if grep -Fq '"uniqueness":[{"field":"tag__c"' "$body" && grep -Fq '"state":"ENFORCED"' "$body"; then
+      enforced=yes
+      break
+    fi
+    sleep 2
+  done
+  [ -n "$enforced" ] || fail "the uniqueness of the tag did not become enforced: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{"tag__c":"t1"}}' "$base/api/v1/objects/Badge__c/records")"
+  [ "$status" = "400" ] || fail "a duplicate tag answered $status: $(cat "$body")"
+  grep -Fq 'Another record already has this value' "$body" || fail "the refusal lacks its words: $(cat "$body")"
+  if grep -Fq "$badge_one" "$body"; then fail "the refusal of a duplicate names the other record: $(cat "$body")"; fi
+  status="$(client_call -X DELETE "$base/api/v1/objects/Badge__c/records/$badge_one")"
+  [ "$status" = "204" ] || fail "removing the first badge answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{"tag__c":"t1","size__c":4}}' \
+    "$base/api/v1/objects/Badge__c/records")"
+  [ "$status" = "201" ] || fail "the recycle bin held the tag: a new badge with it answered $status: $(cat "$body")"
+  badge_two="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/objects/Badge__c/recycle-bin/$badge_one/restore")"
+  [ "$status" = "409" ] || fail "a restore that would duplicate the tag answered $status: $(cat "$body")"
+  grep -Fq 'cannot be brought back' "$body" || fail "the refusal of the restore lacks its words: $(cat "$body")"
+  # Editing the formula: the results are rewritten by the background pass, and the state says when they are current.
+  status="$(client_call -X PUT -H "$group_json" \
+    -d '{"label":"dbl","description":"","settings":{"expression":"size__c * 3","resultType":"NUMBER"},"version":0}' \
+    "$base/api/v1/metadata/objects/Badge__c/fields/dbl__c")"
+  [ "$status" = "200" ] || fail "editing the formula answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"filter":{"op":"GT","field":"dbl__c","values":[1]}}' \
+    "$base/api/v1/objects/Badge__c/records/query")"
+  if [ "$status" = "400" ]; then
+    grep -Fq 'brought up to date' "$body" || fail "a filter on a formula whose results are old lacks its words: $(cat "$body")"
+  fi
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/objects/Badge__c/formula-recalculation")"
+  [ "$status" = "202" ] || fail "starting the recalculation answered $status: $(cat "$body")"
+  current=""
+  for attempt in $(seq 1 90); do
+    status="$(client_call "$base/api/v1/objects/Badge__c/formula-recalculation")"
+    [ "$status" = "200" ] || fail "the state of the recalculation answered $status: $(cat "$body")"
+    if grep -Fq '"state":"CURRENT"' "$body"; then current=yes; break; fi
+    sleep 2
+  done
+  [ -n "$current" ] || fail "the stored results did not become current: $(cat "$body")"
+  status="$(client_call "$base/api/v1/objects/Badge__c/records/$badge_two")"
+  [ "$status" = "200" ] || fail "reading the second badge answered $status: $(cat "$body")"
+  grep -Eq '"dbl__c":12(\.0+)?[,}]' "$body" || fail "the stored result was not rewritten by the pass (4 * 3 = 12): $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"filter":{"op":"GT","field":"dbl__c","values":[1]}}' \
+    "$base/api/v1/objects/Badge__c/records/query")"
+  [ "$status" = "200" ] || fail "a filter on the formula answered $status once the results are current: $(cat "$body")"
+  echo "ok: a unique field was checked in and refuses a duplicate in the words of the platform without naming the other record, the recycle bin did not hold the value and a restore that would duplicate it was refused, and after the formula was edited the background pass rewrote the stored result and the state became current"
 fi

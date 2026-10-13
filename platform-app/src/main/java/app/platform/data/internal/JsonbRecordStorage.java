@@ -4,6 +4,7 @@ import app.platform.data.DataRecord;
 import app.platform.data.QueryPlan;
 import app.platform.data.SlotCopy;
 import app.platform.data.StorageStrategy;
+import app.platform.data.UniqueValueTakenException;
 import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiException;
 import java.sql.ResultSet;
@@ -21,7 +22,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -58,9 +62,9 @@ class JsonbRecordStorage implements StorageStrategy {
             .collect(Collectors.joining(", "));
 
     private static final String INSERT = "insert into object_record "
-            + "(tenant_id, object_api_name, record_type, owner_id, payload, created_by, updated_by, " + SLOT_COLUMNS
-            + ") values (:tenant, :object, cast(:type as text), :owner, cast(:payload as jsonb), :actor, :actor, "
-            + SLOT_VALUES + ") returning " + COLUMNS;
+            + "(tenant_id, object_api_name, record_type, owner_id, payload, created_by, updated_by, unique_mask, "
+            + SLOT_COLUMNS + ") values (:tenant, :object, cast(:type as text), :owner, cast(:payload as jsonb), "
+            + ":actor, :actor, :umask, " + SLOT_VALUES + ") returning " + COLUMNS;
 
     private static final String FIND = "select " + COLUMNS + " from object_record "
             + "where tenant_id = :tenant and object_api_name = :object and id = :id";
@@ -68,7 +72,7 @@ class JsonbRecordStorage implements StorageStrategy {
     // A null in the patch removes the field: the merge puts the null in, and stripping the nulls takes the key out.
     private static final String UPDATE = "update object_record "
             + "set payload = jsonb_strip_nulls(payload || cast(:patch as jsonb)), record_type = cast(:type as text), "
-            + SLOT_ASSIGNMENTS + ", version = version + 1, "
+            + SLOT_ASSIGNMENTS + ", unique_mask = :umask, version = version + 1, "
             + "updated_by = :actor "
             + "where tenant_id = :tenant and object_api_name = :object and id = :id and version = :version "
             + "and deleted_at is null returning " + COLUMNS;
@@ -110,7 +114,7 @@ class JsonbRecordStorage implements StorageStrategy {
     private static final String RESTORE = "update object_record "
             + "set deleted_at = null, deleted_by = null, deleted_with = null, version = version + 1, "
             + "updated_by = :actor, "
-            + SLOT_ASSIGNMENTS + " "
+            + SLOT_ASSIGNMENTS + ", unique_mask = :umask "
             + "where tenant_id = :tenant and object_api_name = :object and id = :id and deleted_at is not null "
             + "returning " + COLUMNS;
 
@@ -162,10 +166,14 @@ class JsonbRecordStorage implements StorageStrategy {
             + "select (select count(*) from batch) as processed, "
             + "(select id from batch order by id desc limit 1) as last_id");
 
+    // Emptying a slot also switches off every uniqueness constraint that covers it: a slot is never reused with a bit
+    // of the field before it still set (ADR-0111).
     private static final Map<SlotColumn, String> CLEAR = statements(slot -> "with batch as (select id "
             + "from object_record where tenant_id = :tenant and object_api_name = :object and deleted_at is null "
-            + "and " + slot.column() + " is not null limit :limit) update object_record r set " + slot.column()
-            + " = null from batch where r.id = batch.id and r.tenant_id = :tenant");
+            + "and (" + slot.column() + " is not null or (unique_mask & " + UniqueKey.maskTouching(slot)
+            + ") <> 0) limit :limit) update object_record r set " + slot.column() + " = null, unique_mask = "
+            + "r.unique_mask & " + ~UniqueKey.maskTouching(slot)
+            + " from batch where r.id = batch.id and r.tenant_id = :tenant");
 
     private static final Map<SlotColumn, String> UNFILLED = statements(slot -> "select exists (select 1 "
             + "from object_record where tenant_id = :tenant and object_api_name = :object and deleted_at is null "
@@ -173,7 +181,70 @@ class JsonbRecordStorage implements StorageStrategy {
 
     private static final Map<SlotColumn, String> HAS_SLOT_VALUES = statements(slot -> "select exists (select 1 "
             + "from object_record where tenant_id = :tenant and object_api_name = :object and deleted_at is null "
-            + "and " + slot.column() + " is not null)");
+            + "and (" + slot.column() + " is not null or (unique_mask & " + UniqueKey.maskTouching(slot)
+            + ") <> 0))");
+
+    // ---- uniqueness (ADR-0111): one constant statement per constraint, built from the fixed list of constraints ----
+
+    private static String all(UniqueKey key, String prefix) {
+        return key.columns().stream().map(column -> prefix + column.column() + " is not null")
+                .collect(Collectors.joining(" and "));
+    }
+
+    private static Map<Integer, String> keyed(Function<UniqueKey, String> builder) {
+        Map<Integer, String> built = new HashMap<>();
+        for (UniqueKey key : UniqueKey.every()) {
+            built.put(key.bit(), builder.apply(key));
+        }
+        return Map.copyOf(built);
+    }
+
+    // The values are parameters v0 and v1, converted the way a write converts them; the record being written may keep
+    // its own value (the identifier of a record that does not exist yet is the nil identifier, which no record has).
+    private static final Map<Integer, String> VALUE_TAKEN = keyed(key -> "select exists (select 1 from object_record "
+            + "where tenant_id = :tenant and object_api_name = :object and deleted_at is null and id <> :except and "
+            + IntStream.range(0, key.columns().size())
+                    .mapToObj(index -> key.columns().get(index).column() + " = "
+                            + key.columns().get(index).fromParameter("v" + index))
+                    .collect(Collectors.joining(" and ")) + ")");
+
+    // The next records in identifier order get their bit. Only records that have a copy in every column of the
+    // constraint, whose bit is not set yet. A batch that meets two equal values fails as a whole (23505).
+    private static final Map<Integer, String> MASK = keyed(key -> "with batch as (select id from object_record "
+            + "where tenant_id = :tenant and object_api_name = :object and deleted_at is null and id > :after "
+            + "order by id limit :limit), written as (update object_record r set unique_mask = r.unique_mask | "
+            + key.mask() + " from batch where r.id = batch.id and r.tenant_id = :tenant and (r.unique_mask & "
+            + key.mask() + ") = 0 and " + all(key, "r.") + " returning r.id) "
+            + "select (select count(*) from batch) as processed, "
+            + "(select id from batch order by id desc limit 1) as last_id, (select count(*) from written) as written");
+
+    private static final Map<Integer, String> UNMASKED = keyed(key -> "select exists (select 1 from object_record "
+            + "where tenant_id = :tenant and object_api_name = :object and deleted_at is null and " + all(key, "")
+            + " and (unique_mask & " + key.mask() + ") = 0)");
+
+    private static final Map<Integer, String> COLLIDING = keyed(key -> "select coalesce(sum(n), 0) from (select "
+            + "count(*) as n from object_record where tenant_id = :tenant and object_api_name = :object "
+            + "and deleted_at is null and " + all(key, "") + " group by "
+            + key.columns().stream().map(SlotColumn::column).collect(Collectors.joining(", "))
+            + " having count(*) > 1) groups");
+
+    // The records that share a value of the field, from the stored values, in the conversion of the slot's kind
+    // (a number is compared as a number, so 1.0 and 1.00 are the same value).
+    private static final Map<SlotColumn, String> DUPLICATES = statements(slot -> "select coalesce(sum(n), 0) from "
+            + "(select count(*) as n from object_record where tenant_id = :tenant and object_api_name = :object "
+            + "and deleted_at is null and " + slot.fromPayload("field") + " is not null group by "
+            + slot.fromPayload("field") + " having count(*) > 1) groups");
+
+    // The recalculation: only the formula results of the payload change. The setting that lets the database accept it
+    // without a new version is switched on before and off after, in the transaction of the caller.
+    private static final String CALCULATED_ON = "select set_config('platform.record_recalculation', 'on', true)";
+
+    private static final String CALCULATED_OFF = "select set_config('platform.record_recalculation', 'off', true)";
+
+    private static final String CALCULATED = "update object_record "
+            + "set payload = jsonb_strip_nulls(payload || cast(:patch as jsonb)) "
+            + "where tenant_id = :tenant and object_api_name = :object and id = :id and version = :version "
+            + "and deleted_at is null";
 
     private static final String LIVE_COUNT = "select count(*) from (select 1 from object_record "
             + "where tenant_id = :tenant and object_api_name = :object and deleted_at is null limit :cap) live";
@@ -186,6 +257,9 @@ class JsonbRecordStorage implements StorageStrategy {
         return Map.copyOf(built);
     }
 
+    private static final String UNIQUE_VIOLATION = "23505";
+    private static final Pattern UNIQUE_INDEX = Pattern
+            .compile("object_record_u_(p_ref_[1-4]_ref_[1-4]|s_[a-z]+_[1-8])");
     private static final String CHECK_VIOLATION = "23514";
     private static final String PAYLOAD_SIZE_CONSTRAINT = "object_record_payload_size";
 
@@ -208,7 +282,7 @@ class JsonbRecordStorage implements StorageStrategy {
                     .param("actor", actor)
                     .query(this::map).single();
         } catch (DataIntegrityViolationException e) {
-            throw tooLarge(e);
+            throw refused(e);
         }
     }
 
@@ -229,7 +303,7 @@ class JsonbRecordStorage implements StorageStrategy {
                     .param("patch", json.write(patch)).param("actor", actor)
                     .query(this::map).optional().orElse(null);
         } catch (DataIntegrityViolationException e) {
-            throw tooLarge(e);
+            throw refused(e);
         }
     }
 
@@ -244,8 +318,12 @@ class JsonbRecordStorage implements StorageStrategy {
 
     @Override
     public DataRecord restore(String objectApiName, UUID id, UUID actor, SlotCopy slots) {
-        return slotted(jdbc.sql(RESTORE), slots).param("tenant", tenant()).param("object", objectApiName)
-                .param("id", id).param("actor", actor).query(this::map).optional().orElse(null);
+        try {
+            return slotted(jdbc.sql(RESTORE), slots).param("tenant", tenant()).param("object", objectApiName)
+                    .param("id", id).param("actor", actor).query(this::map).optional().orElse(null);
+        } catch (DataIntegrityViolationException e) {
+            throw refused(e);
+        }
     }
 
     @Override
@@ -407,13 +485,79 @@ class JsonbRecordStorage implements StorageStrategy {
         return SlotColumn.byColumn(column).orElseThrow(() -> new IllegalArgumentException("not a slot column"));
     }
 
-    /** Adds the twenty-two slot parameters of a write: the copies given, and an empty value for every other slot. */
+    /**
+     * Adds the parameters of the typed copies of a write: the twenty-two slots (the copies given, and an empty value
+     * for every other slot) and the mask of the uniqueness constraints the record takes part in.
+     */
     private static JdbcClient.StatementSpec slotted(JdbcClient.StatementSpec spec, SlotCopy slots) {
-        JdbcClient.StatementSpec bound = spec;
+        JdbcClient.StatementSpec bound = spec.param("umask", slots.uniqueMask());
         for (SlotColumn slot : SlotColumn.values()) {
             bound = bound.param(slot.column(), slots.columns().get(slot.column()));
         }
         return bound;
+    }
+
+    // ---- uniqueness (ADR-0111) ----
+
+    @Override
+    public long duplicateRecords(String objectApiName, String fieldApiName, String slotColumn) {
+        return jdbc.sql(DUPLICATES.get(slot(slotColumn))).param("tenant", tenant()).param("object", objectApiName)
+                .param("field", fieldApiName).query(Long.class).single();
+    }
+
+    @Override
+    public boolean valueTaken(String objectApiName, int constraint, List<String> values, UUID except) {
+        UniqueKey key = constraint(constraint);
+        JdbcClient.StatementSpec spec = jdbc.sql(VALUE_TAKEN.get(key.bit())).param("tenant", tenant())
+                .param("object", objectApiName).param("except", except == null ? NIL : except);
+        for (int index = 0; index < key.columns().size(); index++) {
+            spec = spec.param("v" + index, values.get(index));
+        }
+        return spec.query(Boolean.class).single();
+    }
+
+    @Override
+    public Filled maskUnique(String objectApiName, int constraint, UUID after, int limit) {
+        UniqueKey key = constraint(constraint);
+        try {
+            return jdbc.sql(MASK.get(key.bit())).param("tenant", tenant()).param("object", objectApiName)
+                    .param("after", after == null ? NIL : after).param("limit", limit)
+                    .query((rs, row) -> new Filled(rs.getInt("processed"), rs.getObject("last_id", UUID.class)))
+                    .single();
+        } catch (DataIntegrityViolationException e) {
+            throw refused(e);
+        }
+    }
+
+    @Override
+    public boolean hasUnmasked(String objectApiName, int constraint) {
+        return jdbc.sql(UNMASKED.get(constraint(constraint).bit())).param("tenant", tenant())
+                .param("object", objectApiName).query(Boolean.class).single();
+    }
+
+    @Override
+    public long collidingRecords(String objectApiName, int constraint) {
+        return jdbc.sql(COLLIDING.get(constraint(constraint).bit())).param("tenant", tenant())
+                .param("object", objectApiName).query(Long.class).single();
+    }
+
+    /** The constraint with this number: it comes from the enforcement table, never from a request. */
+    private static UniqueKey constraint(int bit) {
+        return UniqueKey.ofBit(bit).orElseThrow(() -> new IllegalArgumentException("not a constraint"));
+    }
+
+    // ---- the recalculation of stored formula results (ADR-0113) ----
+
+    @Override
+    public boolean updateCalculated(String objectApiName, UUID id, long expectedVersion, Map<String, Object> set,
+            List<String> clear) {
+        Map<String, Object> patch = new HashMap<>(set);
+        clear.forEach(name -> patch.put(name, null));
+        jdbc.sql(CALCULATED_ON).query(String.class).single();
+        int written = jdbc.sql(CALCULATED).param("tenant", tenant()).param("object", objectApiName).param("id", id)
+                .param("version", expectedVersion).param("patch", json.write(patch)).update();
+        jdbc.sql(CALCULATED_OFF).query(String.class).single();
+        return written == 1;
     }
 
     private List<DataRecord> page(String statement, String objectApiName, UUID after, int limit) {
@@ -443,9 +587,30 @@ class JsonbRecordStorage implements StorageStrategy {
     }
 
     /**
-     * The one check the database makes that a request can trip: the size of the values (nothing else is named). A
-     * hostile object name is also refused by a database check (a different constraint, the same SQLSTATE), and that
-     * is a programming mistake, not a request to report as "too large": only the size constraint is translated.
+     * What a request can trip in the database: a value that another live record holds in a unique field (the number of
+     * the constraint goes on, never the database's own message, which quotes the value), or the size of the values.
+     */
+    private static RuntimeException refused(DataIntegrityViolationException e) {
+        UniqueKey taken = uniqueKeyOf(e);
+        return taken != null ? new UniqueValueTakenException(taken.bit()) : tooLarge(e);
+    }
+
+    /** The constraint a unique violation was about, or null when the failure was another one. */
+    private static UniqueKey uniqueKeyOf(DataIntegrityViolationException e) {
+        if (e.getMostSpecificCause() instanceof SQLException sql && UNIQUE_VIOLATION.equals(sql.getSQLState())
+                && sql.getMessage() != null) {
+            Matcher index = UNIQUE_INDEX.matcher(sql.getMessage());
+            if (index.find()) {
+                return UniqueKey.ofIndex(index.group()).orElse(null);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The size of the values (nothing else is named). A hostile object name is also refused by a database check (a
+     * different constraint, the same SQLSTATE), and that is a programming mistake, not a request to report as "too
+     * large": only the size constraint is translated.
      */
     private static RuntimeException tooLarge(DataIntegrityViolationException e) {
         if (e.getMostSpecificCause() instanceof SQLException sql && CHECK_VIOLATION.equals(sql.getSQLState())

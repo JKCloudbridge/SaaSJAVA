@@ -10,6 +10,7 @@ import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
 import app.platformapi.FieldIndexStatusView;
+import app.platformapi.FieldUniquenessStatusView;
 import app.platformapi.ObjectIndexStatusView;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -61,6 +62,9 @@ class IndexStatusService {
         for (SlotClass kind : SlotClass.values()) {
             slots.put(kind.words(), kind.capacity());
         }
-        return new ObjectIndexStatusView(object.apiName(), fields, slots);
+        List<FieldUniquenessStatusView> uniqueness = policy.uniqueStatusOf(object).stream()
+                .map(status -> new FieldUniquenessStatusView(status.field(), status.partner(), status.state(),
+                        status.recordsDone(), status.collidingRecords())).toList();
+        return new ObjectIndexStatusView(object.apiName(), fields, slots, uniqueness);
     }
 }

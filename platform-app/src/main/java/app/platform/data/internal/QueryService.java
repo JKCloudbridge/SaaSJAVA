@@ -3,6 +3,7 @@ package app.platform.data.internal;
 import app.platform.data.DataRecord;
 import app.platform.data.LinkedRecord;
 import app.platform.data.QueriedRecord;
+import app.platform.data.QueryFilter;
 import app.platform.data.QueryPlan;
 import app.platform.data.QueryPlan.After;
 import app.platform.data.QueryResult;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /**
@@ -46,10 +48,12 @@ class QueryService {
     private final IndexPolicy policy;
     private final StorageStrategy storage;
     private final LookupResolver resolver;
+    private final FormulaCurrency currency;
     private final RecordProperties.Query limits;
 
     QueryService(QueryAnalyzer analyzer, QueryPlanner planner, QueryCursor cursors, RecordVisibility visibility,
-            IndexPolicy policy, StorageStrategy storage, LookupResolver resolver, RecordProperties properties) {
+            IndexPolicy policy, StorageStrategy storage, LookupResolver resolver, FormulaCurrency currency,
+            RecordProperties properties) {
         this.analyzer = analyzer;
         this.planner = planner;
         this.cursors = cursors;
@@ -57,12 +61,14 @@ class QueryService {
         this.policy = policy;
         this.storage = storage;
         this.resolver = resolver;
+        this.currency = currency;
         this.limits = properties.query();
     }
 
     /** Runs a query for a member who passed the gate. */
     QueryResult run(RecordGate.Passed passed, ObjectAccess access, RecordQuery query) {
-        QueryAnalyzer.Analyzed analyzed = analyzer.analyze(passed.object(), access, query);
+        QueryAnalyzer.Analyzed analyzed = analyzer.analyze(passed.object(), access, query,
+                () -> currency.isCurrent(passed.object()));
         List<QueryPlan.Node> constraint = visibility.constraintFor(passed, access).stream().toList();
         After after = analyzed.cursor() == null ? null
                 : cursors.decode(analyzed.cursor(), analyzed.signature(), analyzed.keys().size());
@@ -101,6 +107,29 @@ class QueryService {
         List<DataRecord> page = (more ? rows.subList(0, limit) : rows).stream()
                 .map(row -> FieldSecurity.visible(row.record(), access)).toList();
         return new RecordSlice(page, more);
+    }
+
+    /**
+     * One page of the live records of the object after an identifier, for the platform's own background work (the
+     * recalculation of stored formula results, ADR-0113): the same stages and the same statement as a member's query,
+     * with a member who may read every field and no record security, and without the refusal of a scan of a large
+     * object (the work is bounded by its batch, not by what a person's request may cost). Never reachable from a
+     * request.
+     *
+     * @param filter a condition, or null for every record
+     * @param afterId the identifier the page continues after, or null for the first page
+     * @param limit the page size
+     */
+    List<DataRecord> scan(ObjectDefinition object, QueryFilter filter, UUID afterId, int limit) {
+        ObjectAccess everything = new ObjectAccess(object.apiName(), Set.of(), object.fields().stream()
+                .map(FieldDefinition::apiName).collect(Collectors.toSet()), Set.of());
+        QueryAnalyzer.Analyzed analyzed = analyzer.analyze(object, everything,
+                new RecordQuery(filter, List.of(), null, List.of(), 0, null));
+        QueryAnalyzer.Analyzed sized = new QueryAnalyzer.Analyzed(analyzed.object(), analyzed.where(),
+                analyzed.keys(), null, List.of(), limit, null, analyzed.signature());
+        QueryPlanner.Planned planned = planner.plan(sized, policy.completeSlots(object.apiName()), null,
+                afterId == null ? null : new After(List.of(), afterId), limit);
+        return storage.query(planned.plan()).stream().map(StorageStrategy.StoredRow::record).toList();
     }
 
     private List<StorageStrategy.StoredRow> fetch(ObjectDefinition object, QueryAnalyzer.Analyzed analyzed,

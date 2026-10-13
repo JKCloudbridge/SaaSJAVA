@@ -29,11 +29,11 @@ ADR-0063 stores, with each link field, what happens to a record that points at a
 8. **Moving a detail to another master** (`reparentable`) updates its row in the write; a link written for the first time inserts it.
 9. **The junction.** An object with exactly two master-detail fields is a many-to-many association between the two parents. Both of its master-detail fields are served by a slot automatically (ADR-0101), so it is **queryable from either parent** with a filter on the field (`EQ` on the identifier) and a bounded page, like any
    query. **One link per pair** is enforced by the write pipeline: when a write creates a junction record or moves either master it takes a transaction lock on the pair and refuses a second record for the same two parents ("These two records are already linked"); two writes of the same pair at once cannot both pass.
-   A database unique constraint on the pair is part of the uniqueness work of Sprint 16A, which will replace the lock.
+   Sprint 16A replaced the lock by a database unique constraint on the pair once both link copies are complete ([ADR-0112](0112-the-pair-of-parents-of-a-junction-is-unique.md)); the lock remains only until then.
 10. **A link to a record of another organization is never counted:** the rows are tenant-scoped (forced row level security) and a pointer to another organization cannot be written (ADR-0097).
 
 ## Consequences
 
 - One statement more per write that sets or clears a link; one per removal to find who points at the record, and one batched question per pointing object to learn which of them are alive.
-- A formula on a record whose lookup was cleared keeps its stored result until the record is written or the recalculation of Sprint 16A runs (ADR-0095).
+- A formula on a record whose lookup was cleared keeps its stored result until the record is written or a recalculation is started by hand (ADR-0113 point 12).
 - Platform-owned targets (a user) are recorded in `record_link` too; removing a user is not a removal of a record of the store, so no behaviour applies to them.

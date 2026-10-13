@@ -4822,9 +4822,83 @@
         "tags" : [ "Metadata" ]
       }
     },
+    "/api/v1/objects/{objectApiName}/formula-recalculation" : {
+      "get" : {
+        "description" : "Editing a formula leaves the results stored in existing records as they were; a background pass rewrites the ones that differ, without a new version and without an audit record per record (one audit record per pass, with counts). The state says whether the results belong to the formulas as they are now (CURRENT) or not (NEEDED, PENDING, RUNNING, CLOSING), the progress of the pass in flight and the counts of the last one. While the results are not current a filter or an order on a formula field is refused. There is no screen for this yet. Needs the ability to view metadata. Organization hosts only. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "operationId" : "getFormulaRecalculation",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseFormulaRecalculationView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Whether the stored formula results of an object are current",
+        "tags" : [ "Records" ]
+      },
+      "post" : {
+        "description" : "Starts a pass over the live records of the object even when the results are believed to be current, for example after records were changed by a path that does not calculate formulas. A pass that is already waiting or running does the work: asking again changes nothing. The answer is the state (the pass runs in the background, in batches). CONFLICT for an object without formulas. There is no screen for this yet. Needs the ability to publish metadata. Organization hosts only. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "operationId" : "startFormulaRecalculation",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseFormulaRecalculationView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Start the recalculation of the stored formula results of an object",
+        "tags" : [ "Records" ]
+      }
+    },
     "/api/v1/objects/{objectApiName}/index-status" : {
       "get" : {
-        "description" : "For each field flagged as indexed (and each field whose index is being removed): waiting, filling with the number of records done, complete, or clearing. Queries use a field's index only when it is complete. Needs the ability to view metadata. Organization hosts only. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "description" : "For each field flagged as indexed (and each field whose index is being removed): waiting, filling with the number of records done, complete, or clearing. Queries use a field's index only when it is complete. Also, for each unique field and each junction: waiting for the copy of the field to be complete, enforcing (existing records are being checked in; new values are refused already), conflict (two existing records hold the same value: the count is given and the check resumes when the data is fixed) or enforced. Needs the ability to view metadata. Organization hosts only. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
         "operationId" : "getObjectIndexStatus",
         "parameters" : [ {
           "in" : "path",
@@ -4917,7 +4991,7 @@
         "tags" : [ "Records" ]
       },
       "post" : {
-        "description" : "The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. Unique fields are not yet enforced (Sprint 16), and there is no record-level security (Sprint 17). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN for a caller who may read the object but not create in it. The caller owns the record. The answer leaves out the fields the caller may not read. Audited and announced by object, identifier, version and field names, never by values.",
+        "description" : "The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the unique fields (no other live record may hold the same value; a record in the recycle bin does not count, and a text is compared exactly), the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. There is no record-level security (Sprint 17). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN for a caller who may read the object but not create in it. The caller owns the record. The answer leaves out the fields the caller may not read. Audited and announced by object, identifier, version and field names, never by values.",
         "operationId" : "createRecord",
         "parameters" : [ {
           "in" : "path",
@@ -4965,7 +5039,7 @@
     },
     "/api/v1/objects/{objectApiName}/records/query" : {
       "post" : {
-        "description" : "The body is a query model, never SQL: a tree of conditions (AND, OR, and comparisons by the kind of field), at most two sort keys, the fields to bring and the links to follow (one level). Names are looked up in the metadata and values are data. A field the caller may not read is answered like a field that does not exist, in a filter, an order, a field list or a link, so the answer never reveals what the caller may not see; records leave out such fields. The first stage that finds problems answers VALIDATION_ERROR with all its problems and their places, in the order: shape, fields, operators and values. A filter or an order on a field without a complete index is allowed only on an object with few records; on a larger one the answer is VALIDATION_ERROR at 'query' saying which field to flag as indexed (or which condition to add), never a slow request. A formula field cannot be used in a filter or an order yet. Records without a value come last in both directions; ties are broken by the identifier. There is no total: the page says whether another follows and gives a cursor that is good only for the same query. Not built yet: record-level security (Sprint 17), uniqueness (Sprint 16A). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "description" : "The body is a query model, never SQL: a tree of conditions (AND, OR, and comparisons by the kind of field), at most two sort keys, the fields to bring and the links to follow (one level). Names are looked up in the metadata and values are data. A field the caller may not read is answered like a field that does not exist, in a filter, an order, a field list or a link, so the answer never reveals what the caller may not see; records leave out such fields. The first stage that finds problems answers VALIDATION_ERROR with all its problems and their places, in the order: shape, fields, operators and values. A filter or an order on a field without a complete index is allowed only on an object with few records; on a larger one the answer is VALIDATION_ERROR at 'query' saying which field to flag as indexed (or which condition to add), never a slow request. A formula field can be used in a filter or an order (it is read from the stored result, without an index, so the same rule applies), but only while the stored results are current for the object's formulas: after a formula is edited the answer is VALIDATION_ERROR saying the results are being brought up to date, until the recalculation has finished (see the formula-recalculation endpoint). Records without a value come last in both directions; ties are broken by the identifier. There is no total: the page says whether another follows and gives a cursor that is good only for the same query. Not built yet: record-level security (Sprint 17). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
         "operationId" : "queryRecords",
         "parameters" : [ {
           "in" : "path",
@@ -5094,7 +5168,7 @@
         "tags" : [ "Records" ]
       },
       "patch" : {
-        "description" : "The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. Unique fields are not yet enforced (Sprint 16), and there is no record-level security (Sprint 17). Only the fields named change; a null value or a name in clear removes a value. The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the record has another version now, and nothing is changed. CONFLICT (409) when the record is in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN without permission to update the object.",
+        "description" : "The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the unique fields (no other live record may hold the same value; a record in the recycle bin does not count, and a text is compared exactly), the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. There is no record-level security (Sprint 17). Only the fields named change; a null value or a name in clear removes a value. The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the record has another version now, and nothing is changed. CONFLICT (409) when the record is in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN without permission to update the object.",
         "operationId" : "updateRecord",
         "parameters" : [ {
           "in" : "path",
@@ -7494,6 +7568,15 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseFormulaRecalculationView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/FormulaRecalculationView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseGroupView" : {
         "type" : "object",
         "properties" : {
@@ -9167,6 +9250,29 @@
         },
         "required" : [ "allowsDefault", "allowsRequired", "allowsUnique", "calculated", "description", "formulaResult", "label", "settings", "type" ]
       },
+      "FieldUniquenessStatusView" : {
+        "type" : "object",
+        "properties" : {
+          "collidingRecords" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "field" : {
+            "type" : "string"
+          },
+          "partner" : {
+            "type" : "string"
+          },
+          "recordsDone" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "state" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "collidingRecords", "field", "recordsDone", "state" ]
+      },
       "FieldView" : {
         "type" : "object",
         "properties" : {
@@ -9258,6 +9364,57 @@
           }
         },
         "required" : [ "email" ]
+      },
+      "FormulaRecalculationView" : {
+        "type" : "object",
+        "properties" : {
+          "formulaFields" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "lastFinishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastRecordsChanged" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "lastRecordsExamined" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "lastRecordsUnavailable" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "recordsChanged" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "recordsExamined" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "recordsUnavailable" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "startedBy" : {
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "formulaFields", "lastRecordsChanged", "lastRecordsExamined", "lastRecordsUnavailable", "objectApiName", "recordsChanged", "recordsExamined", "recordsUnavailable", "state" ]
       },
       "FormulaReportItemView" : {
         "type" : "object",
@@ -9939,9 +10096,15 @@
               "type" : "integer",
               "format" : "int32"
             }
+          },
+          "uniqueness" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldUniquenessStatusView"
+            }
           }
         },
-        "required" : [ "fields", "objectApiName", "slots" ]
+        "required" : [ "fields", "objectApiName", "slots", "uniqueness" ]
       },
       "ObjectNameShape" : {
         "type" : "string",

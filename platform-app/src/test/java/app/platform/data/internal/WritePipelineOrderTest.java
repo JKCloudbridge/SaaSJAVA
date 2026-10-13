@@ -15,7 +15,7 @@ class WritePipelineOrderTest {
     @Test
     void theStagesAreInTheDocumentedOrder() {
         assertThat(WritePipeline.STAGES).containsExactly("shape", "record type", "field permission", "type",
-                "required", "relationship", "rule", "formula");
+                "required", "relationship", "unique", "rule", "formula");
     }
 
     @Test

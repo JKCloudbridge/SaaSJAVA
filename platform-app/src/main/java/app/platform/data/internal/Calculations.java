@@ -98,6 +98,8 @@ class Calculations {
             if (!outcome.calculated() || (outcome.value() != null && stored == null)) {
                 findings.add(FieldSecurity.place(access, formula.fieldApiName()),
                         "This field's formula could not be calculated from these values.");
+                // A formula that uses this one must not read the result it had before.
+                values.remove(formula.fieldApiName());
             } else if (stored == null) {
                 values.remove(formula.fieldApiName());
                 results.put(formula.fieldApiName(), null);

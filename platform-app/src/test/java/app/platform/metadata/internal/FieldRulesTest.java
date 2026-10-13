@@ -182,6 +182,35 @@ class FieldRulesTest {
     }
 
     @Test
+    void aUniqueNumberHasAtMostFifteenDigitsSoTwoDifferentNumbersAreNeverTakenForTheSame() {
+        FieldSettings fifteen = new FieldSettings(null, 15, null, null, null, null, null, null, null, null, null);
+        FieldSettings sixteen = new FieldSettings(null, 16, null, null, null, null, null, null, null, null, null);
+        FieldSettings precise = new FieldSettings(null, null, 16, 2, null, null, null, null, null, null, null);
+
+        assertThat(FieldRules.check(FieldType.NUMBER, false, true, null, fifteen, CUSTOM_OBJECT).unique()).isTrue();
+        assertThat(problems(FieldType.NUMBER, sixteen)).containsKey("unique");
+        assertThat(problems(FieldType.DECIMAL, precise)).containsKey("unique");
+        assertThat(FieldRules.check(FieldType.NUMBER, false, false, null, sixteen, CUSTOM_OBJECT).unique())
+                .as("a number that is not unique may have as many digits as it likes").isFalse();
+    }
+
+    @Test
+    void aWebAddressCannotBeUniqueBecauseItCanBeLongerThanTheCheckCanHandle() {
+        assertThat(problems(FieldType.URL, null)).containsKey("unique");
+        assertThat(FieldRules.check(FieldType.EMAIL, false, true, null, null, CUSTOM_OBJECT).unique()).isTrue();
+        assertThat(FieldRules.check(FieldType.TEXT, false, true, null, null, CUSTOM_OBJECT).unique()).isTrue();
+    }
+
+    private static java.util.Map<String, List<String>> problems(FieldType type, FieldSettings settings) {
+        try {
+            FieldRules.check(type, false, true, null, settings, CUSTOM_OBJECT);
+        } catch (app.platformapi.ApiException refused) {
+            return refused.fields();
+        }
+        throw new AssertionError("the field was accepted");
+    }
+
+    @Test
     void aBlankDefaultMeansNoDefault() {
         assertThat(FieldRules.check(FieldType.TEXT, false, false, "   ", null, CUSTOM_OBJECT).defaultValue()).isNull();
     }

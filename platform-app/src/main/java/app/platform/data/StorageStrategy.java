@@ -219,4 +219,56 @@ public interface StorageStrategy {
      * the cap, the cap otherwise. Used to decide whether a scan is allowed (ADR-0105).
      */
     int liveCountUpTo(String objectApiName, int cap);
+
+    // ---- uniqueness (Sprint 16A, ADR-0111) ----
+
+    /**
+     * How many live records of the object hold, in the field, a value that another live record holds too: the number
+     * of records in groups of two or more. Read from the stored values, so it works before the field has a complete
+     * copy. A full scan of the object: only a change that makes a field unique asks it.
+     *
+     * @param slotColumn any slot of the kind of the field; it tells the storage how to compare values (a number as a
+     *        number, never as text), and nothing else
+     */
+    long duplicateRecords(String objectApiName, String fieldApiName, String slotColumn);
+
+    /**
+     * Whether a live record of the object other than {@code except} already holds these copies in the constraint.
+     *
+     * @param constraint the number of the constraint (the bit of {@link SlotCopy#uniqueMask})
+     * @param values the copy of each column of the constraint, as text, in the order of its columns (one value, or
+     *        the two parents of a junction)
+     * @param except the record being written (it may keep its own value), or null for a record that does not exist yet
+     */
+    boolean valueTaken(String objectApiName, int constraint, List<String> values, UUID except);
+
+    /**
+     * Switches the constraint on for up to {@code limit} live records of the object after the identifier, in
+     * identifier order, that have a copy in each of its columns. The version and the time of last change of a record do
+     * not change.
+     *
+     * @throws UniqueValueTakenException when two records hold the same value (nothing of the batch is written)
+     */
+    Filled maskUnique(String objectApiName, int constraint, UUID after, int limit);
+
+    /** Whether a live record of the object has a copy in each column of the constraint and does not carry its bit. */
+    boolean hasUnmasked(String objectApiName, int constraint);
+
+    /** How many live records of the object share their copies with another live record in the constraint. */
+    long collidingRecords(String objectApiName, int constraint);
+
+    // ---- the recalculation of stored formula results (Sprint 16A, ADR-0113) ----
+
+    /**
+     * Rewrites stored formula results of a live record without a new version and without a new time of last change:
+     * the recalculation is not a change a person made.
+     *
+     * @param expectedVersion the version the results were calculated from
+     * @param set the new results
+     * @param clear the formula fields that have no result any more
+     * @return false when the record has another version now, is in the recycle bin or is gone (nothing is written;
+     *         whoever changed it recalculated the formulas on the way, or the next pass will)
+     */
+    boolean updateCalculated(String objectApiName, UUID id, long expectedVersion, Map<String, Object> set,
+            List<String> clear);
 }

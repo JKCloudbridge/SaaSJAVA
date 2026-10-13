@@ -15,4 +15,13 @@ public interface ObjectUsage {
 
     /** Whether at least one record of the object holds a value in the field. */
     boolean hasValues(String objectApiName, String fieldApiName);
+
+    /**
+     * How many live records of the object hold, in the field, a value that another live record holds too. A field can
+     * be made unique only when the answer is zero (Sprint 16A, ADR-0111). A record in the recycle bin does not count:
+     * it never blocks a value. Reads the whole object; the answer may take a moment on a large one.
+     *
+     * @throws app.platformapi.ApiException {@code CONFLICT} when the records could not be checked in the time allowed
+     */
+    long duplicates(String objectApiName, String fieldApiName);
 }

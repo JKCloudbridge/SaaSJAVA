@@ -11,9 +11,6 @@ ratearg=""
 if [ "$rate" -gt 0 ]; then ratearg="-R $rate"; fi
 mkdir -p /tmp/bench
 rm -f /tmp/bench/"$name".*
-# A scan that the limit of the organization cancels is the limit working, not a failed run: the others go on.
-continuearg=""
-if [ "$name" = "s07-bg-limited-scan" ]; then continuearg="--continue-on-error"; fi
 threads=$(( clients < 4 ? clients : 4 ))
 vars=$(cat /bench/vars)
 
@@ -23,7 +20,7 @@ if [ "$warm" -gt 0 ]; then
 fi
 
 pgbench -n -M prepared -U "$user" -d bench -c "$clients" -j "$threads" -T "$seconds" \
-    -l --log-prefix=/tmp/bench/"$name" $continuearg $ratearg $vars -f "$file" 2>&1
+    -l --log-prefix=/tmp/bench/"$name" $ratearg $vars -f "$file" 2>&1
 
 echo "---LATENCY---"
 cat /tmp/bench/"$name".* 2>/dev/null | awk '$3 ~ /^[0-9]+$/ {print $3}' | sort -n | awk '

@@ -235,6 +235,9 @@ class MetadataService {
         if (changed.isEmpty()) {
             return fieldView(definition, fieldApiName);
         }
+        if (checked.unique() && !row.unique() && field.type() != FieldType.AUTO_NUMBER) {
+            refuseWhileDuplicates(objectApiName, fieldApiName);
+        }
         versions.wrote();
         if (!store.updateField(row.id(), request.version(), label, description, checked.required(),
                 checked.unique(), indexed, checked.defaultValue(), newConfig, caller.userId())) {
@@ -242,6 +245,23 @@ class MetadataService {
         }
         audit.fieldUpdated(caller.userId(), objectApiName, fieldApiName, String.join(",", changed), null, null);
         return fieldView(definition(objectApiName), fieldApiName);
+    }
+
+    /**
+     * A field becomes unique only when no two live records hold the same value in it (ADR-0111). The answer says how
+     * many records collide, never which values or which records, so an administrator can fix the data first.
+     */
+    private void refuseWhileDuplicates(String objectApiName, String fieldApiName) {
+        ObjectUsage records = usage.getIfAvailable();
+        if (records == null) {
+            return;
+        }
+        long colliding = records.duplicates(objectApiName, fieldApiName);
+        if (colliding > 0) {
+            throw ApiException.validation("unique", colliding + " records have a value in this field that another "
+                    + "record has too, so it cannot be made unique yet. Change or remove the duplicates first; "
+                    + "records in the recycle bin do not count.");
+        }
     }
 
     void deleteField(Caller caller, String objectApiName, String fieldApiName) {

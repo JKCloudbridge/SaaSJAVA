@@ -3,6 +3,7 @@ package app.platform.data.internal;
 import app.platform.data.DataRecord;
 import app.platform.data.SlotCopy;
 import app.platform.data.StorageStrategy;
+import app.platform.data.UniqueValueTakenException;
 import app.platform.metadata.FieldConfiguration.ReferenceConfiguration;
 import app.platform.metadata.FieldDefinition;
 import app.platform.metadata.FieldType;
@@ -78,10 +79,13 @@ class RecordRemoval {
     private final Decisions decisions;
     private final RecordProperties.Links limits;
     private final LinkBackfill linkFill;
+    private final FormulaResults formulas;
 
     RecordRemoval(StorageStrategy storage, RecordLinks links, RecordSlots slots, RecordChanges changes,
-            Metadata metadata, Decisions decisions, RecordProperties properties, LinkBackfill linkFill) {
+            Metadata metadata, Decisions decisions, RecordProperties properties, LinkBackfill linkFill,
+            FormulaResults formulas) {
         this.linkFill = linkFill;
+        this.formulas = formulas;
         this.storage = storage;
         this.links = links;
         this.slots = slots;
@@ -266,16 +270,27 @@ class RecordRemoval {
             }
         }
         SlotCopy copies = slots.copyIndexed(definition, binned.fields());
-        DataRecord restored = storage.restore(definition.apiName(), binned.id(), actor, copies);
+        DataRecord restored;
+        try {
+            restored = storage.restore(definition.apiName(), binned.id(), actor, copies);
+        } catch (UniqueValueTakenException refused) {
+            // A record in the recycle bin never blocked the value, so another record may hold it now (ADR-0111).
+            throw new ApiException(ErrorCode.CONFLICT, "This record cannot be brought back: another record has the "
+                    + "same value in a unique field (" + copies.uniquePlaces().getOrDefault(refused.constraint(),
+                    "a unique field") + "), or links the same two records. Change or remove that record first.");
+        }
         if (restored == null) {
             return null;
         }
         links.syncAll(definition, restored, actor);
+        // The formulas may have changed while the record was in the bin, and the recalculation reads only live
+        // records: the record comes back with results that belong to the formulas of today (ADR-0113).
+        boolean refreshed = formulas.refresh(definition, restored).written();
         for (String field : dangling) {
             clearPointer(definition.apiName(), restored.id(), field, actor);
             cleared[0]++;
         }
-        return dangling.isEmpty() ? restored : storage.find(definition.apiName(), restored.id());
+        return dangling.isEmpty() && !refreshed ? restored : storage.find(definition.apiName(), restored.id());
     }
 
     private boolean targetIsAlive(FieldDefinition field, UUID target) {

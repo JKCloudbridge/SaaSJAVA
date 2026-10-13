@@ -395,3 +395,24 @@ Contributor notes; the decisions are ADR-0100 to ADR-0108.
 **Limits.** `OrganizationLimits.requestFilter()` is added to the API security chain after `UserContextFilter`; `TenantSessionListener` sets `statement_timeout` per transaction (5 s reading, 30 s changing, per organization overrides). In tests the numbers are out of the way (`application-test.yml`); `OrganizationLimitsIT` starts an instance with small ones.
 
 **A new indexable kind or comparison.** Slot kind: `SlotClass`, `SlotColumn`, a migration for the columns and their partial index, the conversion in `SlotColumn.fromParameter` / `fromPayload`, a case in `QueryDifferentialIT`. Comparison: see the engineering guide.
+
+## Uniqueness and the recalculation of stored formula results (Sprint 16A)
+
+Contributor notes; the decisions are ADR-0111 to ADR-0114.
+
+**New tables (tenant-scoped, forced row level security, in `TenantScopedTables`).** `unique_enforcement` (V043): which unique field or junction pair an object enforces, the bit, and how far the check of the existing records is (`ENFORCING`, `CONFLICT`, `ENFORCED`). `formula_recalculation` (V043): per object, the fingerprint
+of the formulas the stored results are current for and the pass in flight.
+
+**A write and its mask.** `WritePipeline` calls `RecordSlots.begin(object)` (shared advisory lock of the object, then the slots and the constraints), asks `probes` for the values it changes and `StorageStrategy.valueTaken` about each, and finishes with `copyIndexed(active, ...)`; the `SlotCopy` carries the typed copies, the mask and the
+place of each constraint to `JsonbRecordStorage`, which writes them in the same statement. A path that writes a record without the pipeline (a restore, the clearing of a pointer) calls `copyIndexed(object, values)` and so carries the mask. When the database refuses a duplicate the storage throws `UniqueValueTakenException`;
+`DefaultRecords` (create, update) answers it as the pipeline would, `RecordRemoval` (restore) as a 409. Do not catch `DataIntegrityViolationException` for this anywhere else, and never add the database's message to anything.
+
+**Starting and stopping a constraint.** `IndexPolicy.reconcile` compares `IndexPolicy.wantedConstraints` (unique fields whose copy is `FILLED`, the pair of a junction whose two copies are) with `unique_enforcement`, under the exclusive lock of the object, in the same transaction as the slot assignments. `IndexBackfill` writes the bit
+for the older records in batches (`StorageStrategy.maskUnique`, resumable by the cursor) and handles `CONFLICT` (`collidingRecords`, resume at zero). To add a kind of constraint: a bit (`UniqueKey`), its static index in a migration, the way the write builds its value in `RecordSlots`, and a case in `UniqueFieldsIT`.
+
+**The recalculation.** `FormulaRecalculation.noteChanges` marks objects whose `FormulaStamp` differs from their row; `workOn` (per organization, in its own tenant context) runs bounded batches: `QueryService.scan` reads, `FormulaResults.refresh` calculates with `Calculations.formulas` and `StorageStrategy.updateCalculated` writes under the
+transaction-local setting that the row guard requires (`platform.record_recalculation`). If you add a column to `object_record`, add it to **both** helpers of the row guard unless it is a typed copy or the mask (`SlotGuardAndSeamIT` fails otherwise). `FormulaCurrency.isCurrent` is what a query asks; `QueryAnalyzer.analyze(..., formulasCurrent)`
+passes it and asks it only when the query names a formula field. Tests drive the job (`workOn`) with the timer off (`platform.data.recalculation.enabled=false`), tiny batches and `closing-delay=0s`.
+
+**Tests (Sprint 16A).** Without a database: `UniqueKeyTest`, `RecordSlotsUniquenessTest`, `WantedConstraintsTest`, `FormulaStampTest`, `IndexedFieldsRulesTest`, `FieldRulesTest`, `QueryAnalyzerTest`. With one: `UniqueFieldsIT` (the API, the database, two instances racing), `JunctionPairIT`, `FormulaRecalculationIT`,
+`FormulaRecalculationAccessIT`, `UniquenessAndRecalculationLogsAreCleanIT`, `SlotGuardAndSeamIT`.

@@ -40,6 +40,8 @@ import org.springframework.stereotype.Component;
  * ({@link FieldValue});</li>
  * <li><b>required</b>: a required field and a master-detail have a value after the write;</li>
  * <li><b>relationship</b>: a linked record exists, is live and is of the target object, in this organization;</li>
+ * <li><b>unique</b>: no other live record holds the value of a unique field, or links the same two parents of a
+ * junction (ADR-0111; the database refuses what slips past, with the same answer);</li>
  * <li><b>rules</b>: every validation rule is judged ({@link Calculations});</li>
  * <li><b>formulas</b>: calculated in order, each result before the next, and stored with the record.</li>
  * </ol>
@@ -55,9 +57,11 @@ class WritePipeline {
 
     /** The stages in the order they run and answer. Tests hold the pipeline to this list. */
     static final List<String> STAGES = List.of("shape", "record type", "field permission", "type", "required",
-            "relationship", "rule", "formula");
+            "relationship", "unique", "rule", "formula");
 
     private static final String MISSING_LINK = "The linked record does not exist.";
+    static final String VALUE_TAKEN = "Another record already has this value. This field must be unique.";
+    static final String PAIR_TAKEN = "These two records are already linked.";
 
     /**
      * What a write that passed will store.
@@ -181,14 +185,29 @@ class WritePipeline {
                 required);
         required.throwIfAny();
 
+        // The shared lock of the object and the constraints that are enforced, read together (ADR-0101, ADR-0111).
+        RecordSlots.Active active = slots.begin(object);
+
         // 6. relationship
         Findings links = new Findings();
         checkLinks(object, typed, held, links);
-        if (links.isEmpty() && RecordLinks.isJunction(object) && masterChanged(object, typed, held)
+        // Until the database enforces the pair of parents of a junction, a lock in the pipeline keeps it unique.
+        boolean pairEnforced = active.constraints().stream().anyMatch(row -> row.kind() == UniqueStore.Kind.PAIR);
+        if (links.isEmpty() && !pairEnforced && RecordLinks.isJunction(object) && masterChanged(object, typed, held)
                 && recordLinks.pairTaken(object, merged, current == null ? null : current.id())) {
-            links.add(RecordLinks.masterDetails(object).get(1).apiName(), "These two records are already linked.");
+            links.add(RecordLinks.masterDetails(object).get(1).apiName(), PAIR_TAKEN);
         }
         links.throwIfAny();
+
+        // 7. unique (the database refuses a duplicate that slips past this, and the answer is the same)
+        Findings unique = new Findings();
+        UUID self = current == null ? null : current.id();
+        for (RecordSlots.Probe probe : slots.probes(active, object, merged, held)) {
+            if (storage.valueTaken(object.apiName(), probe.bit(), probe.values(), self)) {
+                unique.add(FieldSecurity.place(access, probe.place()), probe.pair() ? PAIR_TAKEN : VALUE_TAKEN);
+            }
+        }
+        unique.throwIfAny();
 
         // 7. rules (a rule that reads a formula field judges the value this save gives it)
         Findings rules = new Findings();
@@ -229,7 +248,7 @@ class WritePipeline {
                 after.put(field, result);
             }
         });
-        SlotCopy copies = slots.copyIndexed(object, after);
+        SlotCopy copies = slots.copyIndexed(active, object, after);
         return new Plan(typeName, toStore, toClear, copies);
     }
 
@@ -348,7 +367,8 @@ class WritePipeline {
         return numbers;
     }
 
-    private static boolean sameValue(Object before, Object after) {
+    /** Whether a stored value and a calculated one are the same value (numbers by value, not by spelling). */
+    static boolean sameValue(Object before, Object after) {
         if (before instanceof Number left && after instanceof Number right) {
             return new BigDecimal(left.toString()).compareTo(new BigDecimal(right.toString())) == 0;
         }

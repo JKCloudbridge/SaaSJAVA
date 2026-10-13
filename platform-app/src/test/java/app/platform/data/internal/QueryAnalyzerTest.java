@@ -196,13 +196,54 @@ class QueryAnalyzerTest {
     }
 
     @Test
-    void aFormulaALongTextAndALinkCannotBeUsedWhereTheyCannotWork() {
-        assertThat(refused(filtered(QueryFilter.on("calc__c", Op.GT, 1))).get("filter.field"))
-                .containsExactly(QueryAnalyzer.FORMULA);
+    void aFormulaIsUsedAsTheTypeOfItsResultWhileItsStoredResultsAreCurrent() {
+        QueryAnalyzer.Analyzed filter = analyzer.analyze(thing(), access(),
+                filtered(QueryFilter.on("calc__c", Op.GT, 1)), () -> true);
+        QueryAnalyzer.Analyzed order = analyzer.analyze(thing(), access(), new RecordQuery(null,
+                List.of(new QuerySort("calc__c", false)), null, List.of(), 0, null), () -> true);
+
+        assertThat(filter.where()).isInstanceOf(QueryAnalyzer.Cond.class);
+        assertThat(((QueryAnalyzer.Cond) filter.where()).values()).containsExactly("1");
+        assertThat(order.keys()).hasSize(1);
+        assertThat(refused(filtered(QueryFilter.on("calc__c", Op.CONTAINS, "x"))).get("filter.op"))
+                .as("a number result is compared as a number").isNotEmpty();
+    }
+
+    @Test
+    void aFormulaCannotBeUsedWhileItsStoredResultsBelongToAnOlderFormula() {
+        RecordQuery filter = filtered(QueryFilter.on("calc__c", Op.GT, 1));
+        RecordQuery order = new RecordQuery(null, List.of(new QuerySort("calc__c", false)), null, List.of(), 0,
+                null);
+
+        assertThat(((ApiException) catchThrowable(
+                () -> analyzer.analyze(thing(), access(), filter, () -> false))).fields().get("filter.field"))
+                .containsExactly(QueryAnalyzer.FORMULA_NOT_CURRENT);
+        assertThat(((ApiException) catchThrowable(
+                () -> analyzer.analyze(thing(), access(), order, () -> false))).fields().get("sort[0].field"))
+                .containsExactly(QueryAnalyzer.FORMULA_NOT_CURRENT);
+    }
+
+    @Test
+    void theStateOfTheStoredResultsIsAskedOnlyWhenTheQueryUsesAFormula() {
+        int[] asked = {0};
+
+        analyzer.analyze(thing(), access(), filtered(QueryFilter.on("name__c", Op.EQ, "x")), () -> {
+            asked[0]++;
+            return true;
+        });
+        analyzer.analyze(thing(), access(), filtered(QueryFilter.and(List.of(QueryFilter.on("calc__c", Op.GT, 1),
+                QueryFilter.on("calc__c", Op.LT, 9)))), () -> {
+                    asked[0]++;
+                    return true;
+                });
+
+        assertThat(asked[0]).as("once, for the query that uses a formula; never for the other").isEqualTo(1);
+    }
+
+    @Test
+    void aLongTextAndALinkCannotBeUsedWhereTheyCannotWork() {
         assertThat(refused(filtered(QueryFilter.on("notes__c", Op.EQ, "x"))).get("filter.field"))
                 .containsExactly(QueryAnalyzer.CANNOT_FILTER);
-        assertThat(refused(new RecordQuery(null, List.of(new QuerySort("calc__c", false)), null, List.of(), 0,
-                null)).get("sort[0].field")).containsExactly(QueryAnalyzer.FORMULA);
         assertThat(refused(new RecordQuery(null, List.of(new QuerySort("owner__c", false)), null, List.of(), 0,
                 null)).get("sort[0].field")).containsExactly("A link cannot be used in an order.");
         assertThat(refused(new RecordQuery(null, List.of(new QuerySort("name__c", false),

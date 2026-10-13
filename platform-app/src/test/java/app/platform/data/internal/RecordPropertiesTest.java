@@ -46,6 +46,32 @@ class RecordPropertiesTest {
     }
 
     @Test
+    void theRecalculationSettingsHaveTheirDefaultsBindFromTheirNamesAndRefuseNonsense() {
+        RecordProperties.Recalculation defaults = bind(Map.of()).recalculation();
+        RecordProperties.Recalculation set = bind(Map.of(
+                "platform.data.recalculation.enabled", "false",
+                "platform.data.recalculation.batch-size", "2",
+                "platform.data.recalculation.batches-per-pass", "1",
+                "platform.data.recalculation.interval", "10m",
+                "platform.data.recalculation.closing-delay", "0s")).recalculation();
+
+        assertThat(defaults.enabled()).isTrue();
+        assertThat(defaults.batchSize()).isEqualTo(500);
+        assertThat(defaults.batchesPerPass()).isEqualTo(100);
+        assertThat(defaults.interval()).isEqualTo(Duration.ofMinutes(5));
+        assertThat(defaults.closingDelay()).isEqualTo(Duration.ofSeconds(30));
+        assertThat(set.enabled()).isFalse();
+        assertThat(set.batchSize()).isEqualTo(2);
+        assertThat(set.batchesPerPass()).isEqualTo(1);
+        assertThat(set.interval()).isEqualTo(Duration.ofMinutes(10));
+        assertThat(set.closingDelay()).isZero();
+        assertThatThrownBy(() -> bind(Map.of("platform.data.recalculation.batch-size", "0")))
+                .isInstanceOf(BindException.class);
+        assertThatThrownBy(() -> bind(Map.of("platform.data.recalculation.closing-delay", "-1s")))
+                .isInstanceOf(BindException.class);
+    }
+
+    @Test
     void nonsenseIsRefused() {
         assertThatThrownBy(() -> bind(Map.of("platform.data.limits.max-record-bytes", "10")))
                 .isInstanceOf(BindException.class);

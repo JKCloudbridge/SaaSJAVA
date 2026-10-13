@@ -15,6 +15,7 @@ import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
 import app.platformapi.CreateRecordRequest;
 import app.platformapi.Cursors;
+import app.platformapi.FormulaRecalculationView;
 import app.platformapi.LinkedRecordView;
 import app.platformapi.ObjectIndexStatusView;
 import app.platformapi.QueriedRecordView;
@@ -66,18 +67,21 @@ class RecordController {
             + "saves nothing: the record type (it exists, is in use and offers the fields written), the field "
             + "permission (every field written must be one the caller may edit; a field the caller may not read is "
             + "answered like a field that does not exist), the type of each value, the required fields (judged on "
-            + "the record as it will be), the linked records, the validation rules, then the formulas, which are "
-            + "calculated and stored. Defaults and auto-numbers are applied on create. Unique fields are not yet "
-            + "enforced (Sprint 16), and there is no record-level security (Sprint 17). ";
+            + "the record as it will be), the linked records, the unique fields (no other live record may hold the "
+            + "same value; a record in the recycle bin does not count, and a text is compared exactly), the "
+            + "validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are "
+            + "applied on create. There is no record-level security (Sprint 17). ";
     private static final String UNKNOWN = "NOT_FOUND for an object that does not exist, that a platform module owns "
             + "(a user, a profile ...) or that the caller may not read: all three answer alike. ";
 
     private final Records records;
     private final IndexStatusService indexes;
+    private final FormulaRecalculationAdmin recalculation;
 
-    RecordController(Records records, IndexStatusService indexes) {
+    RecordController(Records records, IndexStatusService indexes, FormulaRecalculationAdmin recalculation) {
         this.records = records;
         this.indexes = indexes;
+        this.recalculation = recalculation;
     }
 
     @PostMapping(RECORDS)
@@ -119,11 +123,14 @@ class RecordController {
                     + "places, in the order: shape, fields, operators and values. A filter or an order on a field "
                     + "without a complete index is allowed only on an object with few records; on a larger one the "
                     + "answer is VALIDATION_ERROR at 'query' saying which field to flag as indexed (or which "
-                    + "condition to add), never a slow request. A formula field cannot be used in a filter or an "
-                    + "order yet. Records without a value come last in both directions; ties are broken by the "
-                    + "identifier. There is no total: the page says whether another follows and gives a cursor that "
-                    + "is good only for the same query. Not built yet: record-level security (Sprint 17), "
-                    + "uniqueness (Sprint 16A). " + UNKNOWN)
+                    + "condition to add), never a slow request. A formula field can be used in a filter or an order "
+                    + "(it is read from the stored result, without an index, so the same rule applies), but only "
+                    + "while the stored results are current for the object's formulas: after a formula is edited "
+                    + "the answer is VALIDATION_ERROR saying the results are being brought up to date, until the "
+                    + "recalculation has finished (see the formula-recalculation endpoint). Records without a value "
+                    + "come last in both directions; ties are broken by the identifier. There is no total: the "
+                    + "page says whether another follows and gives a cursor that is good only for the same query. "
+                    + "Not built yet: record-level security (Sprint 17). " + UNKNOWN)
     ApiPageResponse<QueriedRecordView> query(@PathVariable String objectApiName,
             @Valid @RequestBody QueryRequest body) {
         QueryResult result = records.query(objectApiName, toQuery(body));
@@ -139,10 +146,44 @@ class RecordController {
             summary = "Where the indexed fields of an object stand",
             description = "For each field flagged as indexed (and each field whose index is being removed): waiting, "
                     + "filling with the number of records done, complete, or clearing. Queries use a field's index "
-                    + "only when it is complete. Needs the ability to view metadata. Organization hosts only. "
-                    + UNKNOWN)
+                    + "only when it is complete. Also, for each unique field and each junction: waiting for the copy "
+                    + "of the field to be complete, enforcing (existing records are being checked in; new values "
+                    + "are refused already), conflict (two existing records hold the same value: the count is "
+                    + "given and the check resumes when the data is fixed) or enforced. Needs the ability to view "
+                    + "metadata. Organization hosts only. " + UNKNOWN)
     ApiResponse<ObjectIndexStatusView> indexStatus(@PathVariable String objectApiName) {
         return ApiResponse.of(indexes.statusOf(objectApiName));
+    }
+
+    @GetMapping(ApiPaths.OBJECTS + "/{objectApiName}/formula-recalculation")
+    @Operation(
+            operationId = "getFormulaRecalculation",
+            summary = "Whether the stored formula results of an object are current",
+            description = "Editing a formula leaves the results stored in existing records as they were; a background "
+                    + "pass rewrites the ones that differ, without a new version and without an audit record per "
+                    + "record (one audit record per pass, with counts). The state says whether the results belong "
+                    + "to the formulas as they are now (CURRENT) or not (NEEDED, PENDING, RUNNING, CLOSING), the "
+                    + "progress of the pass in flight and the counts of the last one. While the results are not "
+                    + "current a filter or an order on a formula field is refused. There is no screen for this "
+                    + "yet. Needs the ability to view metadata. Organization hosts only. " + UNKNOWN)
+    ApiResponse<FormulaRecalculationView> formulaRecalculation(@PathVariable String objectApiName) {
+        return ApiResponse.of(recalculation.statusOf(objectApiName));
+    }
+
+    @PostMapping(ApiPaths.OBJECTS + "/{objectApiName}/formula-recalculation")
+    @Operation(
+            operationId = "startFormulaRecalculation",
+            summary = "Start the recalculation of the stored formula results of an object",
+            description = "Starts a pass over the live records of the object even when the results are believed to be "
+                    + "current, for example after records were changed by a path that does not calculate formulas. A "
+                    + "pass that is already waiting or running does the work: asking again changes nothing. The "
+                    + "answer is the state (the pass runs in the background, in batches). CONFLICT for an object "
+                    + "without formulas. There is no screen for this yet. Needs the ability to publish metadata. "
+                    + "Organization hosts only. " + UNKNOWN)
+    ResponseEntity<ApiResponse<FormulaRecalculationView>> startFormulaRecalculation(
+            @PathVariable String objectApiName) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED).header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(ApiResponse.of(recalculation.start(objectApiName)));
     }
 
     @GetMapping(RECORDS + "/{id}")

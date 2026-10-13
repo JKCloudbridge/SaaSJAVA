@@ -12,10 +12,11 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param index how the typed copies of indexed fields are filled and emptied (ADR-0101)
  * @param query the bounds of a query (ADR-0100, ADR-0105)
  * @param links the bounds of what removing a record does to the records that point at it (ADR-0106)
+ * @param recalculation how the stored results of edited formulas are brought up to date (ADR-0113)
  */
 @ConfigurationProperties("platform.data")
 record RecordProperties(@DefaultValue Limits limits, @DefaultValue Retention retention, @DefaultValue Index index,
-        @DefaultValue Query query, @DefaultValue Links links) {
+        @DefaultValue Query query, @DefaultValue Links links, @DefaultValue Recalculation recalculation) {
 
     /**
      * Bounds on what one request may store.
@@ -114,6 +115,33 @@ record RecordProperties(@DefaultValue Limits limits, @DefaultValue Retention ret
         Links {
             if (maxAffected < 1 || maxAffected > 100_000 || backfillBatchSize < 1 || backfillBatchSize > 10_000) {
                 throw new IllegalArgumentException("platform.data.links: a setting is outside its range");
+            }
+        }
+    }
+
+    /**
+     * The recalculation of stored formula results after a formula was edited (Sprint 16A, ADR-0113).
+     *
+     * @param enabled whether this instance does the work (two instances sharing it is safe: each batch is taken under a
+     *        lock and is repeatable)
+     * @param batchSize how many records one batch looks at, and rewrites in one transaction (default 500)
+     * @param batchesPerPass the most batches one pass runs per object before it gives the instance back (default 100)
+     * @param interval how often the sweep over all organizations runs (default 5 minutes); a published change starts
+     *        the work at once through its event, and the sweep also finds an object whose formulas changed without one
+     * @param closingDelay how long after the first sweep the records changed meanwhile are looked at again: longer than
+     *        the longest write can take, so that a write that began before the change and ended after it is found
+     *        (default 30 seconds, the time limit of a write)
+     */
+    record Recalculation(@DefaultValue("true") boolean enabled, @DefaultValue("500") int batchSize,
+            @DefaultValue("100") int batchesPerPass, @DefaultValue("5m") Duration interval,
+            @DefaultValue("30s") Duration closingDelay) {
+
+        Recalculation {
+            if (batchSize < 1 || batchSize > 5_000 || batchesPerPass < 1 || batchesPerPass > 100_000
+                    || interval.compareTo(Duration.ofSeconds(1)) < 0 || closingDelay.isNegative()) {
+                throw new IllegalArgumentException("platform.data.recalculation: a batch size of 1 to 5000, 1 to "
+                        + "100000 batches per pass, an interval of at least one second and a delay that is not "
+                        + "negative");
             }
         }
     }

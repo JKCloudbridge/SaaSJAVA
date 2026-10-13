@@ -5,7 +5,9 @@ import app.platform.data.QueryResult;
 import app.platform.data.RecordQuery;
 import app.platform.data.RecordSlice;
 import app.platform.data.Records;
+import app.platform.data.SlotCopy;
 import app.platform.data.StorageStrategy;
+import app.platform.data.UniqueValueTakenException;
 import app.platform.security.ObjectAccess;
 import app.platform.security.ObjectAction;
 import app.platformapi.ApiException;
@@ -59,8 +61,13 @@ class DefaultRecords implements Records {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.CREATE);
         ObjectAccess access = access(passed);
         WritePipeline.Plan plan = pipeline.run(passed, access, null, recordType, fields, List.of());
-        DataRecord created = storage.insert(passed.object().apiName(), plan.recordType(), passed.userId(),
-                passed.userId(), plan.set(), plan.slots());
+        DataRecord created;
+        try {
+            created = storage.insert(passed.object().apiName(), plan.recordType(), passed.userId(),
+                    passed.userId(), plan.set(), plan.slots());
+        } catch (UniqueValueTakenException e) {
+            throw taken(e, plan.slots(), access);
+        }
         links.sync(passed.object(), created.id(), plan.set(), plan.clear(), passed.userId());
         changes.created(passed.userId(), created.objectApiName(), created.id(), created.version(), plan.names());
         return FieldSecurity.visible(created, access);
@@ -94,8 +101,13 @@ class DefaultRecords implements Records {
         }
         ObjectAccess access = access(passed);
         WritePipeline.Plan plan = pipeline.run(passed, access, current, recordType, set, clear);
-        DataRecord updated = storage.update(passed.object().apiName(), id, expectedVersion, plan.recordType(),
-                plan.set(), plan.clear(), passed.userId(), plan.slots());
+        DataRecord updated;
+        try {
+            updated = storage.update(passed.object().apiName(), id, expectedVersion, plan.recordType(),
+                    plan.set(), plan.clear(), passed.userId(), plan.slots());
+        } catch (UniqueValueTakenException e) {
+            throw taken(e, plan.slots(), access);
+        }
         if (updated == null) {
             throw whyNotChanged(storage.find(passed.object().apiName(), id));
         }
@@ -169,6 +181,17 @@ class DefaultRecords implements Records {
     public RecordSlice listDeleted(String objectApiName, UUID after, int limit) {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.DELETE);
         return slice(storage.listDeleted(passed.object().apiName(), after, limit + 1), limit, access(passed));
+    }
+
+    /**
+     * The answer to a duplicate the pipeline did not see (two writes at the same moment): the same words, at the same
+     * place, as the pipeline's own answer. Nothing is stored; the transaction ends with the exception.
+     */
+    private static ApiException taken(UniqueValueTakenException refused, SlotCopy copies, ObjectAccess access) {
+        String place = copies.uniquePlaces().get(refused.constraint());
+        boolean pair = UniqueKey.ofBit(refused.constraint()).map(UniqueKey::isPair).orElse(false);
+        return ApiException.validation(place == null ? RecordValues.PROBLEMS_KEY : FieldSecurity.place(access, place),
+                pair ? WritePipeline.PAIR_TAKEN : WritePipeline.VALUE_TAKEN);
     }
 
     /** What the member may do with the object's fields: one question per request, however many records follow. */
