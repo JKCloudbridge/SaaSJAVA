@@ -21,12 +21,12 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * The recalculation of stored formula results after a formula was edited (Sprint 16A, ADR-0113, ADR-0114), through the
- * real API and the real background pass: every record has the new result without anybody saving it, a second pass
- * changes nothing, a record is written only when its result changed and then without a new version, the pass is bounded
- * and resumable, a filter or an order on a formula field is refused until the results are current, one audit record
- * describes a whole pass, and nothing a record holds reaches it. The timer is switched off and the batches are tiny: the
- * tests run the pass themselves, a step at a time.
+ * The recalculation of stored formula results after a formula was edited (Sprint 16A, ADR-0113, ADR-0114),
+ * through the real API and the real background pass: every record has the new result without anybody saving it,
+ * a second pass changes nothing, a record is written only when its result changed and then without a new version,
+ * the pass is bounded and resumable, a filter or an order on a formula field is refused until the results are
+ * current, one audit record describes a whole pass, and nothing a record holds reaches it. The timer is switched
+ * off and the batches are tiny: the tests run the pass themselves, a step at a time.
  */
 @PlatformIntegrationTest
 @TestPropertySource(properties = {
@@ -160,7 +160,7 @@ class FormulaRecalculationIT extends QuerySupport {
     void aRecordIsWrittenOnlyWhenItsResultChanged() {
         Items items = itemsWithCurrentResults(4);
         TestBrowser admin = items.admin();
-        // 1 -> 2, 2 -> 4, 3 -> 6, 4 -> 8 before; now the formula gives the same for quantity 2 and different for the rest.
+        // Before: 2, 4, 6, 8. Now the formula gives the same for quantity 2 and a different result for the rest.
         assertThat(editFormula(admin, "qty__c * qty__c").status()).isEqualTo(200);
 
         settleResults(items.organization(), admin);
