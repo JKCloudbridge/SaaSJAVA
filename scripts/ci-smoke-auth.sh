@@ -174,6 +174,13 @@ if [ -n "$mail" ]; then
   [ "$status" = "204" ] || fail "the new person could not sign in ($status)"
   echo "ok: the new person signs in"
 
+  stored="$(owner_sql -c "select t::text from account_token t union all select t::text from mail_queue t \
+    union all select attributes::text from audit_record")"
+  if echo "$stored" | grep -q "$link_token"; then
+    fail "a link token was stored in clear"
+  fi
+  echo "ok: no token is stored in clear (tokens, queue, audit)"
+
 
 
   # 11. An invitation round trip on the image (Sprint 5). The first person founds an organization and signs in on its
@@ -826,9 +833,10 @@ if [ -n "$mail" ]; then
   query='{"filter":{"op":"GTE","field":"amount__c","values":[20]},"sort":[{"field":"code__c","descending":true}],"limit":2}'
   status="$(client_call -X POST -H "$group_json" -d "$query" "$base/api/v1/objects/Ledger__c/records/query")"
   [ "$status" = "200" ] || fail "a query answered $status: $(cat "$body")"
-  before="$(grep -o '"code__c":"[^"]*"' "$body" | tr '\n' ' ')"
+  before="$(grep -o '"code__c":"[^"]*"' "$body" | tr '\n' ' ' || true)"
+  [ -n "$before" ] || fail "the first query returned no code values: $(cat "$body")"
   grep -Fq '"hasMore":true' "$body" || fail "the first page does not say there is more: $(cat "$body")"
-  cursor="$(grep -o '"nextCursor":"[^"]*"' "$body" | cut -d'"' -f4)"
+  cursor="$(grep -o '"nextCursor":"[^"]*"' "$body" | cut -d'"' -f4 || true)"
   [ -n "$cursor" ] || fail "the first page has no cursor"
   status="$(client_call -X POST -H "$group_json" -d "${query%\}},\"cursor\":\"$cursor\"}" \
     "$base/api/v1/objects/Ledger__c/records/query")"
@@ -839,10 +847,8 @@ if [ -n "$mail" ]; then
   [ "$status" = "400" ] || fail "a query on a field that does not exist answered $status: $(cat "$body")"
   grep -Fq 'This is not a field of the object.' "$body" || fail "the refusal lacks its words: $(cat "$body")"
   for field in code amount; do
-    status="$(client_call "$base/api/v1/metadata/objects/Ledger__c")"
-    version="$(grep -o "\"apiName\":\"${field}__c\"[^}]*\"version\":[0-9]*" "$body" | grep -o '"version":[0-9]*' | cut -d: -f2)"
     status="$(client_call -X PUT -H "$group_json" \
-      -d "{\"label\":\"$field\",\"description\":\"\",\"indexed\":true,\"version\":$version}" \
+      -d "{\"label\":\"$field\",\"description\":\"\",\"indexed\":true,\"version\":0}" \
       "$base/api/v1/metadata/objects/Ledger__c/fields/${field}__c")"
     [ "$status" = "200" ] || fail "flagging $field as indexed answered $status: $(cat "$body")"
   done
@@ -856,7 +862,7 @@ if [ -n "$mail" ]; then
   [ -n "$filled" ] || fail "the indexes did not become complete: $(cat "$body")"
   status="$(client_call -X POST -H "$group_json" -d "$query" "$base/api/v1/objects/Ledger__c/records/query")"
   [ "$status" = "200" ] || fail "the same query after indexing answered $status: $(cat "$body")"
-  after="$(grep -o '"code__c":"[^"]*"' "$body" | tr '\n' ' ')"
+  after="$(grep -o '"code__c":"[^"]*"' "$body" | tr '\n' ' ' || true)"
   [ "$before" = "$after" ] || fail "indexing changed the answer: $before became $after"
   # A master with a detail: removing the master removes the detail with it, and restoring brings it back.
   status="$(client_call -X POST -H "$group_json" \
@@ -898,11 +904,4 @@ if [ -n "$mail" ]; then
   status="$(client_call -X POST -H "$group_json" -d '{"limit":1}' "$base/api/v1/objects/Ledger__c/records/query")"
   [ "$status" = "200" ] || fail "the organization does not answer again after the flood ($status)"
   echo "ok: a query filters, sorts and pages with a cursor, a field that does not exist is refused in the words of the platform, a flagged field became indexed and the answer did not change, removing a master removed its detail and restoring brought it back, and a flood of requests ended in answers of the model (counts: $codes)"
-
-  stored="$(owner_sql -c "select t::text from account_token t union all select t::text from mail_queue t \
-    union all select attributes::text from audit_record")"
-  if echo "$stored" | grep -q "$link_token"; then
-    fail "a link token was stored in clear"
-  fi
-  echo "ok: no token is stored in clear (tokens, queue, audit)"
 fi
