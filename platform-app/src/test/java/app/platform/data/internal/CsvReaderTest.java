@@ -155,7 +155,9 @@ class CsvReaderTest {
 
     @Test
     void theRowPrintsNothingOfItsValues() throws IOException {
-        assertThat(all("secret,value\n").get(0).toString()).doesNotContain("secret").doesNotContain("value");
+        // Not "value": the print format itself says "2 values", so that word is not a fair thing to look for here.
+        assertThat(all("secret,confidential\n").get(0).toString()).doesNotContain("secret")
+                .doesNotContain("confidential");
     }
 
     // ---- whatever the writer writes, the reader reads back ----
