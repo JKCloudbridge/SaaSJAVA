@@ -10,6 +10,7 @@ import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
 import app.platformapi.FieldIndexStatusView;
+import app.platformapi.FieldSearchStatusView;
 import app.platformapi.FieldUniquenessStatusView;
 import app.platformapi.ObjectIndexStatusView;
 import java.util.LinkedHashMap;
@@ -33,12 +34,15 @@ class IndexStatusService {
     private final IndexPolicy policy;
     private final Permissions permissions;
     private final TenantContexts contexts;
+    private final SearchStore searchStore;
 
-    IndexStatusService(Metadata metadata, IndexPolicy policy, Permissions permissions, TenantContexts contexts) {
+    IndexStatusService(Metadata metadata, IndexPolicy policy, Permissions permissions, TenantContexts contexts,
+            SearchStore searchStore) {
         this.metadata = metadata;
         this.policy = policy;
         this.permissions = permissions;
         this.contexts = contexts;
+        this.searchStore = searchStore;
     }
 
     /**
@@ -65,6 +69,14 @@ class IndexStatusService {
         List<FieldUniquenessStatusView> uniqueness = policy.uniqueStatusOf(object).stream()
                 .map(status -> new FieldUniquenessStatusView(status.field(), status.partner(), status.state(),
                         status.recordsDone(), status.collidingRecords())).toList();
-        return new ObjectIndexStatusView(object.apiName(), fields, slots, uniqueness);
+        Map<String, SearchStore.Field> noted = new LinkedHashMap<>();
+        searchStore.fields().stream().filter(row -> row.objectApiName().equals(object.apiName()))
+                .forEach(row -> noted.put(row.fieldApiName(), row));
+        List<FieldSearchStatusView> search = SearchIndexer.searchable(object).stream().map(field -> {
+            SearchStore.Field row = noted.get(field.apiName());
+            String state = row == null ? "WAITING" : row.state() == SearchStore.State.FILLED ? "COMPLETE" : "FILLING";
+            return new FieldSearchStatusView(field.apiName(), state, row == null ? 0 : row.recordsDone());
+        }).toList();
+        return new ObjectIndexStatusView(object.apiName(), fields, slots, uniqueness, search);
     }
 }

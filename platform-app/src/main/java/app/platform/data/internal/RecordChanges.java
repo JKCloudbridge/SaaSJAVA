@@ -67,6 +67,94 @@ class RecordChanges {
         events.publish(new NewEvent("record.purged", payload(object, id, null, List.of())));
     }
 
+    // ---- sharing and ownership (Sprint 17, ADR-0117): identifiers and kinds, never a name or a value ----
+
+    // ---- bulk calls and imports (Sprint 17, ADR-0122, ADR-0123): kinds and counts, never a value ----
+
+    /** One audit record for a whole bulk call, written whether or not it was saved. */
+    void bulkSummary(UUID actor, String object, String operation, int records, int succeeded, int failed,
+            boolean allOrNone, boolean committed) {
+        audit.record(AuditRecord.of("data.bulk.completed", AuditOutcome.SUCCESS).forUser(actor).inTenant(tenantId())
+                .onObject(object, null).with("operation", operation).with("records", Integer.toString(records))
+                .with("succeeded", Integer.toString(succeeded)).with("failed", Integer.toString(failed))
+                .with("all_or_none", Boolean.toString(allOrNone)).with("committed", Boolean.toString(committed)));
+    }
+
+    /** An import was sent and queued. */
+    void importStarted(UUID actor, String object, UUID job, String operation, boolean dryRun, long bytes) {
+        audit.record(AuditRecord.of("data.import.started", AuditOutcome.SUCCESS).forUser(actor).inTenant(tenantId())
+                .onObject(object, null).with("import", job.toString()).with("operation", operation)
+                .with("dry_run", Boolean.toString(dryRun)).with("bytes", Long.toString(bytes)));
+    }
+
+    /** An import ended, in whatever state: the counts, never a value of the file. */
+    void importFinished(UUID actor, String object, UUID job, String operation, boolean dryRun, String state,
+            int processed, int created, int updated, int failed) {
+        audit.record(AuditRecord.of("data.import.finished", AuditOutcome.SUCCESS).forUser(actor).inTenant(tenantId())
+                .onObject(object, null).with("import", job.toString()).with("operation", operation)
+                .with("dry_run", Boolean.toString(dryRun)).with("state", state)
+                .with("processed", Integer.toString(processed)).with("created", Integer.toString(created))
+                .with("updated", Integer.toString(updated)).with("failed", Integer.toString(failed)));
+    }
+
+    /** A person asked an import to stop. */
+    void importCancelled(UUID actor, String object, UUID job) {
+        audit.record(AuditRecord.of("data.import.cancel_requested", AuditOutcome.SUCCESS).forUser(actor)
+                .inTenant(tenantId()).onObject(object, null).with("import", job.toString()));
+    }
+
+    // ---- files (Sprint 17, ADR-0120): identifiers and a size, never a name or a byte ----
+
+    /** A file was stored on a record. */
+    void fileUploaded(UUID actor, String object, UUID record, UUID file, long size) {
+        audit.record(AuditRecord.of("data.file.uploaded", AuditOutcome.SUCCESS).forUser(actor).inTenant(tenantId())
+                .onObject(object, record.toString()).with("file", file.toString())
+                .with("size", Long.toString(size)));
+    }
+
+    /** A file was handed out. */
+    void fileDownloaded(UUID actor, String object, UUID record, UUID file) {
+        audit.record(AuditRecord.of("data.file.downloaded", AuditOutcome.SUCCESS).forUser(actor)
+                .inTenant(tenantId()).onObject(object, record.toString()).with("file", file.toString()));
+    }
+
+    /** A file was removed from a record. */
+    void fileDeleted(UUID actor, String object, UUID record, UUID file) {
+        audit.record(AuditRecord.of("data.file.deleted", AuditOutcome.SUCCESS).forUser(actor).inTenant(tenantId())
+                .onObject(object, record.toString()).with("file", file.toString()));
+    }
+
+    /** The pass that removed bytes whose files are gone and uploads that never finished: counts only. */
+    void fileCleanupPass(TenantId tenant, int bytesRemoved, int uploadsExpired) {
+        audit.record(AuditRecord.of("retention.file.cleaned", AuditOutcome.SUCCESS).inTenant(tenant)
+                .with("bytes_removed", Integer.toString(bytesRemoved))
+                .with("uploads_expired", Integer.toString(uploadsExpired)));
+    }
+
+    /** A record was shared with a user or a group at a level. */
+    void shared(UUID actor, String object, UUID id, String granteeType, String level) {
+        audit.record(AuditRecord.of("data.record.shared", AuditOutcome.SUCCESS).forUser(actor).inTenant(tenantId())
+                .onObject(object, id.toString()).with("grantee_type", granteeType).with("level", level));
+    }
+
+    /** A share was taken back. */
+    void unshared(UUID actor, String object, UUID id, String granteeType) {
+        audit.record(AuditRecord.of("data.record.unshared", AuditOutcome.SUCCESS).forUser(actor).inTenant(tenantId())
+                .onObject(object, id.toString()).with("grantee_type", granteeType));
+    }
+
+    /** A record was given to another owner: the change of the record, and an audit record naming both owners. */
+    void ownerChanged(UUID actor, String object, UUID id, long version, UUID from, UUID to) {
+        audit.record(AuditRecord.of("data.record.owner_changed", AuditOutcome.SUCCESS).forUser(actor)
+                .inTenant(tenantId()).onObject(object, id.toString()).with("version", Long.toString(version))
+                .with("from_owner", from.toString()).with("to_owner", to.toString()));
+        events.publish(new NewEvent("record.updated", payload(object, id, version, List.of("ownerId"))));
+    }
+
+    private TenantId tenantId() {
+        return contexts.current().map(TenantContext::tenantId).orElse(null);
+    }
+
     /** One audit record for a whole pass of the clean-up in one organization. */
     void retentionPass(TenantId tenant, int removed) {
         audit.record(AuditRecord.of("retention.record.purged", AuditOutcome.SUCCESS).inTenant(tenant)

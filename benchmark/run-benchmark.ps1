@@ -294,6 +294,16 @@ Phase 'S4 pool test: the whole-object scan at 16 clients with a read beside it' 
     $null = Wait-Bench $probe
 }
 
+Phase 'S17: record-level security and search (8 clients each)' {
+    # Sprint 17 (ADR-0119, ADR-0124): the first page of a Private object for a member who owns 2,000 records, for one who
+    # reads 50 people's records, for one who also has 100 records shared with them; and the search of one rare word, of a
+    # rare and a common word, and of one word on 2 percent of the records. The statements are the application's own.
+    foreach ($s in @('s17a-private-owner', 's17b-private-hierarchy', 's17c-private-shared', 's17d-search-rare-word',
+                     's17e-search-two-words', 's17f-search-near-the-bound')) {
+        $null = Run-Bench $s "$s.sql" $Clients $Seconds
+    }
+}
+
 Phase 'Diagnostic: filters written against the JSON payload (not judged)' {
     # Why the typed copies of indexed fields exist (ADR-0082, amendment 1): with row level security PostgreSQL does not use
     # an index on the JSON field operator or on the containment operator, because neither is leakproof.
@@ -495,6 +505,15 @@ Judge 'S6 AND' 'Two indexed fields with AND, p95' (P95 's06a-and') 'ms' 150
 Judge 'S6 OR' 'Two indexed fields with OR, p95' (P95 's06b-or') 'ms' 150
 $alone = Get-Row 's07-alone'; $loaded = Get-Row 's07-loaded'
 if ($alone -and $loaded -and $alone.P95 -gt 0) { Judge 'S7' 'Small organizations: p95 with the large organization under load divided by p95 alone' ([Math]::Round($loaded.P95 / $alone.P95, 2)) 'x' 1.25 'le' } else { Judge 'S7' 'Small organizations under load vs alone' $null 'x' 1.25 'le' }
+# Sprint 17. The limits were fixed before any number was seen: the page of a Private object is held to the limit of an
+# indexed filter, a search of a rare word to the same, and a word on 2 percent of the records (the largest the engine
+# answers) to a third of a second.
+Judge 'S17 owner' 'A Private object, the member owns the records of one person, first page, p95' (P95 's17a-private-owner') 'ms' 150
+Judge 'S17 hierarchy' 'A Private object, the member reads the records of 50 people, first page, p95' (P95 's17b-private-hierarchy') 'ms' 150
+Judge 'S17 shared' 'A Private object, own records and 100 shared with the member, first page, p95' (P95 's17c-private-shared') 'ms' 150
+Judge 'S17 search rare' 'Search, one rare word, p95' (P95 's17d-search-rare-word') 'ms' 150
+Judge 'S17 search two' 'Search, a rare and a common word, p95' (P95 's17e-search-two-words') 'ms' 150
+Judge 'S17 search near the bound' 'Search, one word on 2 percent of the records, p95' (P95 's17f-search-near-the-bound') 'ms' 350
 Judge 'S10 forward' 'Many-to-many join, forward, p95' (P95 's10a-join-forward') 'ms' 150
 Judge 'S10 reverse' 'Many-to-many join, reverse, p95' (P95 's10b-join-reverse') 'ms' 150
 foreach ($s in @('s01', 's03a', 's04b')) {

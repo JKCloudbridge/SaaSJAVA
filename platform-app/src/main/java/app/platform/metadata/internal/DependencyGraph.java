@@ -22,7 +22,7 @@ final class DependencyGraph {
 
     /** The kinds of thing that can be depended on (a layout assignment and an application only depend). */
     enum Kind { OBJECT, FIELD, RECORD_TYPE, PICKLIST_VALUE, LAYOUT, RECORD_PAGE, APPLICATION, ASSIGNMENT,
-        VALIDATION_RULE, TYPE_ASSIGNMENT }
+        VALIDATION_RULE, TYPE_ASSIGNMENT, SHARING_RULE }
 
     /**
      * A definition, by name only (never by what a person typed as a value).
@@ -74,6 +74,10 @@ final class DependencyGraph {
             return new Node(Kind.TYPE_ASSIGNMENT, object, key, null);
         }
 
+        static Node sharingRule(String object, String rule) {
+            return new Node(Kind.SHARING_RULE, object, rule, null);
+        }
+
         /** The words for a person, without any value. */
         String describe() {
             return switch (kind) {
@@ -87,6 +91,7 @@ final class DependencyGraph {
                 case ASSIGNMENT -> "the layout assignment " + item + " of " + object;
                 case VALIDATION_RULE -> "validation rule " + item + " of " + object;
                 case TYPE_ASSIGNMENT -> "the record type assignment " + item + " of " + object;
+                case SHARING_RULE -> "sharing rule " + item + " of " + object;
             };
         }
     }
@@ -202,6 +207,8 @@ final class DependencyGraph {
             case VALIDATION_RULE -> snapshot.validationRule(node.object(), node.item()).isPresent();
             case TYPE_ASSIGNMENT -> snapshot.typeAssignments(node.object()).stream()
                     .anyMatch(assignment -> assignment.key().equals(node.item()));
+            // A sharing rule only depends on fields; nothing needs it, so it is never asked for.
+            case SHARING_RULE -> true;
         };
     }
 

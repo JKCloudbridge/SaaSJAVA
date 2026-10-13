@@ -111,6 +111,12 @@ public final class ApiPaths {
     /** The public groups of the organization the host names: list, create, change, remove, members, policies (S8). */
     public static final String GROUPS = V1 + "/groups";
 
+    /**
+     * Record-level security setup (Sprint 17): the organization-wide defaults {@code /sharing/objects} and the sharing
+     * rules {@code /sharing/rules}.
+     */
+    public static final String SHARING = V1 + "/sharing";
+
     /** What a permission matrix can be about: the objects with their fields and the actions (Sprint 8). */
     public static final String DATA_CATALOGUE = V1 + "/data-catalogue";
 

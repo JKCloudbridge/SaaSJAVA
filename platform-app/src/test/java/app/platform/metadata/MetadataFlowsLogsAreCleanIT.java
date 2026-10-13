@@ -117,7 +117,8 @@ class MetadataFlowsLogsAreCleanIT {
             assertThat(refused.body()).as("a refusal does not echo what was typed").doesNotContain(refusedLabel);
         }
         assertThat(new app.platformapi.CreateFieldRequest("n", objectLabel, objectDescription, "TEXT", false, false,
-                false, defaultValue, null).toString()).doesNotContain(objectLabel).doesNotContain(defaultValue);
+                false, false, false, defaultValue, null).toString()).doesNotContain(objectLabel)
+                .doesNotContain(defaultValue);
         assertThat(new PicklistValue(pickValue, pickLabel, true).toString()).doesNotContain(pickValue);
     }
 }

@@ -31,7 +31,7 @@ select bench_tenant(k), 0, bench_tenant(0), bench_tenant(0) from generate_series
 -- records of the large organization
 insert into object_record (id, tenant_id, object_api_name, owner_id, payload, s_text_1, s_text_2, s_num_1, s_date_1, s_ref_1,
                            created_by, updated_by)
-select bench_id(g), bench_tenant(1), 'Employee__c', bench_tenant(0), r.payload, r.s_text_1, r.s_text_2, r.s_num_1, r.s_date_1,
+select bench_id(g), bench_tenant(1), 'Employee__c', bench_id(300000000 + 1 + g % 1000), r.payload, r.s_text_1, r.s_text_2, r.s_num_1, r.s_date_1,
        r.s_ref_1, bench_tenant(0), bench_tenant(0)
   from generate_series(1::bigint, :big_n) g cross join lateral bench_row(g) r;
 
@@ -49,6 +49,25 @@ select bench_id(200000000::bigint + k * 100000 + o * 50000 + j), bench_tenant(k)
        r.payload, r.s_text_1, r.s_text_2, r.s_num_1, r.s_date_1, r.s_ref_1, bench_tenant(0), bench_tenant(0)
   from generate_series(2, :small_t + 1) k, generate_series(0, 1) o, generate_series(1, :small_n) j
        cross join lateral bench_row(200000000::bigint + k * 100000 + o * 50000 + j) r;
+
+-- Sprint 17: the records of the large organization are owned by 1,000 people (person n owns the records whose number
+-- is n modulo 1,000), a member (person 1) has 100 more records shared with them, and the searchable field Title__c has
+-- two words for every record: a rare one (about twenty records at the default size) and one on 2 percent of the records.
+insert into record_share (tenant_id, object_api_name, record_id, grantee_type, grantee_id, access_level, created_by,
+                          updated_by)
+select bench_tenant(1), 'Employee__c', bench_id(2 + (n * 9973) % (:big_n - 2)), 'USER', bench_id(300000000 + 1), 1,
+       bench_tenant(0), bench_tenant(0)
+  from generate_series(1, 100) n
+on conflict do nothing;
+
+insert into search_term (tenant_id, object_api_name, record_id, field_api_name, term, created_by, updated_by)
+select bench_tenant(1), 'Employee__c', bench_id(g), 'Title__c', 'w' || lpad((g % 100000)::text, 5, '0'),
+       bench_tenant(0), bench_tenant(0)
+  from generate_series(1::bigint, :big_n) g;
+insert into search_term (tenant_id, object_api_name, record_id, field_api_name, term, created_by, updated_by)
+select bench_tenant(1), 'Employee__c', bench_id(g), 'Title__c', 'tag' || lpad((g % 50)::text, 2, '0'),
+       bench_tenant(0), bench_tenant(0)
+  from generate_series(1::bigint, :big_n) g;
 
 -- many-to-many: every case points at two employees
 insert into object_record_link (tenant_id, junction, left_id, right_id, created_by, updated_by)

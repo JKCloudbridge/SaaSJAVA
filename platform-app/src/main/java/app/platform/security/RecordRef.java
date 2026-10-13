@@ -3,9 +3,11 @@ package app.platform.security;
 import java.util.UUID;
 
 /**
- * A reference to one record of an object, for the decision API (ADR-0050). Record-level security arrives in Sprint 17;
- * until then a decision is accepted with a record and answered exactly as without one, so the callers (the data engine,
- * Sprint 14) can already pass it and nothing about their calls changes when the rule starts to apply.
+ * A reference to one record of an object, for the decision API (ADR-0050). Since Sprint 17 a decision that is given a
+ * record is judged by record-level security as well (ADR-0118): the record must be among the records the member may
+ * reach for the action. Only the identifier travels; what is needed to judge the record (its owner, its shares, its
+ * values) is read from the record store by the data module, so a caller cannot make a record look different from what
+ * it is.
  *
  * @param id the record's identifier
  */

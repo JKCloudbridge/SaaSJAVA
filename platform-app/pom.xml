@@ -41,6 +41,27 @@
       <artifactId>spring-modulith-starter-core</artifactId>
     </dependency>
 
+    <!-- Sprint 17: the bytes of files live in S3-compatible object storage (ADR-0120). The small HTTP client of the
+         library is used on purpose; the two heavier ones it brings along are left out. -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>s3</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>software.amazon.awssdk</groupId>
+          <artifactId>apache-client</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>software.amazon.awssdk</groupId>
+          <artifactId>netty-nio-client</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>url-connection-client</artifactId>
+    </dependency>
+
     <!-- Database: connection pool, versioned migrations (run as the owner role) and the PostgreSQL driver. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>

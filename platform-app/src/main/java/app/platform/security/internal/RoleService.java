@@ -29,11 +29,13 @@ class RoleService {
     private final AccessGate gate;
     private final AccessStore store;
     private final AccessAudit audit;
+    private final SharingStore sharing;
 
-    RoleService(AccessGate gate, AccessStore store, AccessAudit audit) {
+    RoleService(AccessGate gate, AccessStore store, AccessAudit audit, SharingStore sharing) {
         this.gate = gate;
         this.store = store;
         this.audit = audit;
+        this.sharing = sharing;
     }
 
     List<RoleView> list() {
@@ -87,6 +89,10 @@ class RoleService {
             }
             if (role.members() > 0) {
                 throw new ApiException(ErrorCode.CONFLICT, "Members still hold this role. Move them first.");
+            }
+            if (sharing.ruleUsing(id).isPresent()) {
+                throw new ApiException(ErrorCode.CONFLICT,
+                        "A sharing rule uses this role. Change or remove the rule first.");
             }
             store.deleteRole(id, new ActorId(caller.userId()));
             audit.roleDeleted(caller.userId(), id, role.name());

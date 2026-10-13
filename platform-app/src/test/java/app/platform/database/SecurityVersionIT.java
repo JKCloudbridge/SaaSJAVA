@@ -34,7 +34,8 @@ class SecurityVersionIT {
     private static final Set<String> TABLES = new TreeSet<>(Set.of("profile", "access_policy", "member_access",
             "member_access_policy", "member_grant", "public_group", "public_group_member",
             "public_group_access_policy", "object_permission", "field_permission", "licence_assignment",
-            "membership", "object_definition", "field_definition"));
+            "membership", "object_definition", "field_definition", "security_role", "object_sharing_setting",
+            "sharing_rule"));
 
     static Stream<TenantScopedTable> decidingTables() {
         return TenantScopedTables.ALL.stream().filter(table -> TABLES.contains(table.name()));

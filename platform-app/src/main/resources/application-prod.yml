@@ -3,8 +3,21 @@
 #   Required: PLATFORM_DB_URL, PLATFORM_DB_APP_USER, PLATFORM_DB_APP_PASSWORD,
 #             PLATFORM_DB_OWNER_USER, PLATFORM_DB_OWNER_PASSWORD
 #             PLATFORM_BASE_DOMAIN (the platform domain; organizations live at <slug>.<domain>)
-#   Optional: PLATFORM_TRUST_FORWARDED_HOST (only behind a trusted proxy), PLATFORM_OUTBOX_ENABLED, PLATFORM_ENVIRONMENT, PLATFORM_TRACE_EXPORT, PLATFORM_TRACE_ENDPOINT, PLATFORM_TRACE_SAMPLING
+#             PLATFORM_STORAGE_BUCKET, PLATFORM_STORAGE_ACCESS_KEY, PLATFORM_STORAGE_SECRET_KEY (the object storage of files)
+#   Optional: PLATFORM_STORAGE_ENDPOINT, PLATFORM_STORAGE_REGION, PLATFORM_STORAGE_PATH_STYLE, PLATFORM_TRUST_FORWARDED_HOST (only behind a trusted proxy), PLATFORM_OUTBOX_ENABLED, PLATFORM_ENVIRONMENT, PLATFORM_TRACE_EXPORT, PLATFORM_TRACE_ENDPOINT, PLATFORM_TRACE_SAMPLING
 springdoc:
   api-docs:
     # The API description is published deliberately (developer portal, Sprint 30), not by accident.
     enabled: false
+
+platform:
+  storage:
+    # The S3-compatible object storage that holds the bytes of files (ADR-0120). The bucket and the credentials come from
+    # the deployment's secret store; the endpoint is only for a store that is not the provider's own (a self-hosted
+    # one, which also needs path style).
+    endpoint: ${PLATFORM_STORAGE_ENDPOINT:}
+    region: ${PLATFORM_STORAGE_REGION:us-east-1}
+    bucket: ${PLATFORM_STORAGE_BUCKET}
+    access-key: ${PLATFORM_STORAGE_ACCESS_KEY}
+    secret-key: ${PLATFORM_STORAGE_SECRET_KEY}
+    path-style: ${PLATFORM_STORAGE_PATH_STYLE:false}

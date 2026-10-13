@@ -87,9 +87,8 @@ class LocalMetadataSeeder implements ApplicationRunner {
                     int order = 10;
                     for (Field field : fields) {
                         store.insertField(apiName, field.name(), field.label(), "", field.type().name(),
-                                field.required(), field.unique(), false, null, codec.write(field.configuration()),
-                                order,
-                                actor);
+                                field.required(), field.unique(), false, false, false, null,
+                                codec.write(field.configuration()), order, actor);
                         order += 10;
                     }
                     LOG.info("Local organization {} has its sample object {}", slug, apiName);

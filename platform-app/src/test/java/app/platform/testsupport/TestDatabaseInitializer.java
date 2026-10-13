@@ -23,7 +23,13 @@ public class TestDatabaseInitializer implements ApplicationContextInitializer<Co
                         "spring.data.redis.port=" + TestRedis.port(),
                         "spring.data.redis.password=" + TestRedis.password(),
                         "spring.mail.host=" + TestMail.host(),
-                        "spring.mail.port=" + TestMail.smtpPort())
+                        "spring.mail.port=" + TestMail.smtpPort(),
+                        "platform.storage.endpoint=" + TestStorage.endpoint(),
+                        "platform.storage.region=us-east-1",
+                        "platform.storage.bucket=" + TestStorage.bucket(),
+                        "platform.storage.access-key=" + TestStorage.accessKey(),
+                        "platform.storage.secret-key=" + TestStorage.secretKey(),
+                        "platform.storage.path-style=true")
                 .applyTo(context);
     }
 }

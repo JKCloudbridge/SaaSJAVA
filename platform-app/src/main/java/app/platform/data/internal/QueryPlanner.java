@@ -5,7 +5,10 @@ import app.platform.data.QueryPlan.After;
 import app.platform.data.QueryPlan.Column;
 import app.platform.data.QueryPlan.Compare;
 import app.platform.data.QueryPlan.Group;
+import app.platform.data.QueryPlan.NoRecords;
+import app.platform.data.QueryPlan.OwnedByAny;
 import app.platform.data.QueryPlan.Payload;
+import app.platform.data.QueryPlan.SharedWithAny;
 import app.platform.data.QueryPlan.Slot;
 import app.platform.data.QueryPlan.SortKey;
 import app.platform.data.QueryPlan.Source;
@@ -120,6 +123,9 @@ class QueryPlanner {
             case Group group -> group.all() ? group.items().stream().anyMatch(QueryPlanner::indexed)
                     : group.items().stream().allMatch(QueryPlanner::indexed);
             case Test test -> usesIndex(test.source(), test.compare());
+            case OwnedByAny owned -> true;
+            case SharedWithAny shared -> true;
+            case NoRecords none -> true;
         };
     }
 
@@ -129,7 +135,9 @@ class QueryPlanner {
         }
         return switch (source) {
             case Slot slot -> true;
-            case Column column -> column.column() == SystemColumn.ID || column.column() == SystemColumn.CREATED_AT;
+            // The owner has its own index since Sprint 17 (object_record_owner, ADR-0119): equality and "one of".
+            case Column column -> column.column() == SystemColumn.ID || column.column() == SystemColumn.CREATED_AT
+                    || column.column() == SystemColumn.OWNER;
             case Payload payload -> false;
         };
     }

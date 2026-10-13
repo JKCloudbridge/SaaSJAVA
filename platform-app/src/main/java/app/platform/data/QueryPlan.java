@@ -31,7 +31,51 @@ public record QueryPlan(String objectApiName, Node where, List<SortKey> order, A
     public enum SystemColumn { ID, OWNER, CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY }
 
     /** A condition or a group of conditions. */
-    public sealed interface Node permits Group, Test {
+    public sealed interface Node permits Group, Test, OwnedByAny, SharedWithAny, NoRecords {
+    }
+
+    /**
+     * The record is owned by one of the users (record-level security, Sprint 17, ADR-0119). The owner is a column of
+     * the record with its own index.
+     *
+     * @param owners at least one user identifier, in a fixed order so that the same set gives the same statement
+     */
+    public record OwnedByAny(List<UUID> owners) implements Node {
+
+        /** Copies the list. */
+        public OwnedByAny {
+            owners = List.copyOf(owners);
+        }
+
+        /** Prints the size only. */
+        @Override
+        public String toString() {
+            return "OwnedByAny[" + owners.size() + "]";
+        }
+    }
+
+    /**
+     * The record is shared with one of the grantees at least at the level (explicit shares, Sprint 17, ADR-0117).
+     *
+     * @param grantees at least one user or group identifier, in a fixed order
+     * @param level the least level of the share: 1 read, 2 read and write
+     */
+    public record SharedWithAny(List<UUID> grantees, int level) implements Node {
+
+        /** Copies the list. */
+        public SharedWithAny {
+            grantees = List.copyOf(grantees);
+        }
+
+        /** Prints the size only. */
+        @Override
+        public String toString() {
+            return "SharedWithAny[" + grantees.size() + ", " + level + "]";
+        }
+    }
+
+    /** No record at all. */
+    public record NoRecords() implements Node {
     }
 
     /**

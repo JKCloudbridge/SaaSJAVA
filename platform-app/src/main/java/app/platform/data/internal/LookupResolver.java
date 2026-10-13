@@ -2,12 +2,14 @@ package app.platform.data.internal;
 
 import app.platform.data.DataRecord;
 import app.platform.data.LinkedRecord;
+import app.platform.data.QueryPlan;
 import app.platform.data.StorageStrategy;
 import app.platform.metadata.Metadata;
 import app.platform.metadata.ObjectDefinition;
 import app.platform.security.Decisions;
 import app.platform.security.ObjectAccess;
 import app.platform.security.ObjectAction;
+import app.platform.security.RecordAction;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -15,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
@@ -36,11 +39,13 @@ class LookupResolver {
     private final Metadata metadata;
     private final Decisions decisions;
     private final StorageStrategy storage;
+    private final RecordVisibility visibility;
 
-    LookupResolver(Metadata metadata, Decisions decisions, StorageStrategy storage) {
+    LookupResolver(Metadata metadata, Decisions decisions, StorageStrategy storage, RecordVisibility visibility) {
         this.metadata = metadata;
         this.decisions = decisions;
         this.storage = storage;
+        this.visibility = visibility;
     }
 
     /**
@@ -87,7 +92,12 @@ class LookupResolver {
         ObjectAccess access = decisions.accessTo(membershipId, target.apiName());
         Set<String> wanted = new HashSet<>(follow.fields());
         Map<UUID, Map<String, Object>> found = new HashMap<>();
-        for (DataRecord record : storage.liveRecords(target.apiName(), ids)) {
+        // A linked record the member may not reach is answered like one that does not exist: the identifier alone.
+        Optional<QueryPlan.Node> reachable = visibility.constraintFor(target, membershipId, access, RecordAction.READ);
+        List<DataRecord> records = reachable.isPresent()
+                ? storage.liveRecords(target.apiName(), ids, reachable.get())
+                : storage.liveRecords(target.apiName(), ids);
+        for (DataRecord record : records) {
             Map<String, Object> fields = new LinkedHashMap<>();
             FieldSecurity.visible(record, access).fields().forEach((name, value) -> {
                 if (wanted.contains(name)) {

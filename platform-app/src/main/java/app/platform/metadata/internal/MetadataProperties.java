@@ -38,14 +38,15 @@ record MetadataProperties(@DefaultValue Limits limits, @DefaultValue Cache cache
             @DefaultValue("50") int maxLayoutsPerObject, @DefaultValue("20") int maxRecordPagesPerObject,
             @DefaultValue("20") int maxApplications, @DefaultValue("200") int maxAssignmentsPerObject,
             @DefaultValue("50") int maxValidationRulesPerObject, @DefaultValue("5") int maxFormulaDepth,
-            @DefaultValue("500") int maxRecordTypeAssignmentsPerObject) {
+            @DefaultValue("500") int maxRecordTypeAssignmentsPerObject,
+            @DefaultValue("4") int maxSearchableFieldsPerObject) {
 
         Limits {
             if (maxObjects < 1 || maxFieldsPerObject < 1 || maxPicklistValues < 1 || maxRecordTypesPerObject < 1
                     || maxChangesPerSet < 1 || maxOpenChangeSets < 1 || maxLayoutsPerObject < 1
                     || maxRecordPagesPerObject < 1 || maxApplications < 1 || maxAssignmentsPerObject < 1
                     || maxValidationRulesPerObject < 1 || maxFormulaDepth < 1
-                    || maxRecordTypeAssignmentsPerObject < 1) {
+                    || maxRecordTypeAssignmentsPerObject < 1 || maxSearchableFieldsPerObject < 1) {
                 throw new IllegalArgumentException("platform.metadata.limits.* must be at least 1");
             }
         }

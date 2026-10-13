@@ -1892,6 +1892,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/objects/{objectApiName}/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's latest imports into an object
+         * @description Newest first, at most twenty. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read, and for an import that is not the caller's. FORBIDDEN for a caller who may read the object but not create records in it.
+         */
+        get: operations["listImports"];
+        put?: never;
+        /**
+         * Start a CSV import into an object
+         * @description Checks the mapping against the object at once (VALIDATION_ERROR lists every problem). The import waits for its file: send it with the next request. Every row of the file will be written by the same steps as a record written through the API, as the caller, with the caller's permissions: a field the caller may not write, a formula or an auto-number cannot be mapped. CREATE makes a record for every row; UPSERT finds the record by the value of a field flagged as an external identifier (one indexed read) and updates it, or makes it. A link can be written as the other record's identifier or, with a mapping such as 'field:externalIdField', as its external identifier. An empty cell leaves a field as it is. A dry run checks every row by the real write and saves nothing. CONFLICT at the most imports an organization can run at once. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read, and for an import that is not the caller's. FORBIDDEN for a caller who may read the object but not create records in it.
+         */
+        post: operations["startImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/imports/{importId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How far an import has got
+         * @description The state, the rows read, made, changed and refused, and why it stopped when it failed. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read, and for an import that is not the caller's. FORBIDDEN for a caller who may read the object but not create records in it.
+         */
+        get: operations["getImport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/imports/{importId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop an import
+         * @description The import stops at the end of the batch it is in; what it already wrote stays (there is no undo). CONFLICT when it is not waiting or running. Audited. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read, and for an import that is not the caller's. FORBIDDEN for a caller who may read the object but not create records in it.
+         */
+        post: operations["cancelImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/imports/{importId}/errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The report of the rows of an import that failed
+         * @description A CSV file: the number of the row (data rows, from 1), the reason, and the row as the file had it, so it can be corrected and sent again. A reason is a message of the write steps and never repeats a value. Removed some days after the import ended. NOT_FOUND when there is no report. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read, and for an import that is not the caller's. FORBIDDEN for a caller who may read the object but not create records in it.
+         */
+        get: operations["downloadImportErrors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/imports/{importId}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Send the file of an import
+         * @description The body is the CSV file as it is (UTF-8, the delimiter chosen when the import was started, a header row first, values that hold the delimiter or a line break in double quotes), with its length announced (chunked bodies are refused), at most 20 MiB and 100,000 rows. A file that is not text is refused. CONFLICT when the file was already sent or when another import of the object is waiting or running. The import is queued and runs in the background; watch it with the import endpoint. SERVICE_UNAVAILABLE (503) when the object store does not answer. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read, and for an import that is not the caller's. FORBIDDEN for a caller who may read the object but not create records in it.
+         */
+        put: operations["sendImportFile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/objects/{objectApiName}/index-status": {
         parameters: {
             query?: never;
@@ -1921,15 +2025,35 @@ export interface paths {
         };
         /**
          * The live records of an object, in identifier order
-         * @description One page at a time by the cursor of the previous page. For a filter, an order or links use the query endpoint. Until record-level security (Sprint 17) a member who may read the object reads every record of it in the organization. Fields the caller may not read are left out of every record. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         * @description One page at a time by the cursor of the previous page. For a filter, an order or links use the query endpoint. Only the records the caller may reach are listed: the ones they own, the ones below them in the role hierarchy, the ones a sharing rule or an explicit share gives them and, when the object is public, all of them. Fields the caller may not read are left out of every record. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
          */
         get: operations["listRecords"];
         put?: never;
         /**
          * Create a record of an object
-         * @description The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the unique fields (no other live record may hold the same value; a record in the recycle bin does not count, and a text is compared exactly), the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. There is no record-level security (Sprint 17). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN for a caller who may read the object but not create in it. The caller owns the record. The answer leaves out the fields the caller may not read. Audited and announced by object, identifier, version and field names, never by values.
+         * @description The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the unique fields (no other live record may hold the same value; a record in the recycle bin does not count, and a text is compared exactly), the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. Whether the caller may change this particular record is judged by the next sprint (17A); reads are already limited to the records the caller may reach. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN for a caller who may read the object but not create in it. The caller owns the record. The answer leaves out the fields the caller may not read. Audited and announced by object, identifier, version and field names, never by values.
          */
         post: operations["createRecord"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/records/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create, change or delete many records of an object in one call
+         * @description Every record goes through exactly the steps the same single request goes through (the gate, field permissions, types, required fields, links, unique values, validation rules, formulas, auto-numbers) and is audited and announced like it, once for each record; there is no faster private path. The answer gives the outcome of each record at its position in the request: CREATED, UPDATED, DELETED, FAILED (with the code, message and problems a single request would have answered) or ROLLED_BACK. By default each record stands on its own: one that is refused is undone alone and the others are saved. With allOrNone one refusal undoes the whole call (committed is false, nothing is saved). A change carries the version that was read; a conflict is the outcome of that record. At most 200 records and 8 MiB per call (settings of the deployment): above that the call is refused before anything is read (400 VALIDATION_ERROR for the count, 413 PAYLOAD_TOO_LARGE for the size). One audit record per call counts what it did, never a value. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read; FORBIDDEN for a caller who may read the object but not do the operation in it (decided once for the whole call, by the same gate as a single request). Whether the caller may change this particular record is judged by the next sprint (17A), for bulk as for single requests.
+         */
+        post: operations["bulkRecords"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1947,9 +2071,29 @@ export interface paths {
         put?: never;
         /**
          * Ask a question of the records of an object: filter, order, fields, links, one page at a time
-         * @description The body is a query model, never SQL: a tree of conditions (AND, OR, and comparisons by the kind of field), at most two sort keys, the fields to bring and the links to follow (one level). Names are looked up in the metadata and values are data. A field the caller may not read is answered like a field that does not exist, in a filter, an order, a field list or a link, so the answer never reveals what the caller may not see; records leave out such fields. The first stage that finds problems answers VALIDATION_ERROR with all its problems and their places, in the order: shape, fields, operators and values. A filter or an order on a field without a complete index is allowed only on an object with few records; on a larger one the answer is VALIDATION_ERROR at 'query' saying which field to flag as indexed (or which condition to add), never a slow request. A formula field can be used in a filter or an order (it is read from the stored result, without an index, so the same rule applies), but only while the stored results are current for the object's formulas: after a formula is edited the answer is VALIDATION_ERROR saying the results are being brought up to date, until the recalculation has finished (see the formula-recalculation endpoint). Records without a value come last in both directions; ties are broken by the identifier. There is no total: the page says whether another follows and gives a cursor that is good only for the same query. Not built yet: record-level security (Sprint 17). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         * @description The body is a query model, never SQL: a tree of conditions (AND, OR, and comparisons by the kind of field), at most two sort keys, the fields to bring and the links to follow (one level). Names are looked up in the metadata and values are data. A field the caller may not read is answered like a field that does not exist, in a filter, an order, a field list or a link, so the answer never reveals what the caller may not see; records leave out such fields. The first stage that finds problems answers VALIDATION_ERROR with all its problems and their places, in the order: shape, fields, operators and values. A filter or an order on a field without a complete index is allowed only on an object with few records; on a larger one the answer is VALIDATION_ERROR at 'query' saying which field to flag as indexed (or which condition to add), never a slow request. A formula field can be used in a filter or an order (it is read from the stored result, without an index, so the same rule applies), but only while the stored results are current for the object's formulas: after a formula is edited the answer is VALIDATION_ERROR saying the results are being brought up to date, until the recalculation has finished (see the formula-recalculation endpoint). Records without a value come last in both directions; ties are broken by the identifier. There is no total: the page says whether another follows and gives a cursor that is good only for the same query. Only the records the caller may reach are searched. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
          */
         post: operations["queryRecords"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/records/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search the words of the searchable fields of an object
+         * @description A record must have every word of the text (accents and case do not matter); the last word counts as the beginning of a word, so a search can be run while a person types. The best matches come first (a match in the first searchable field counts most), then by identifier, one page at a time. Only the fields flagged as searchable that the caller may read are searched (a record never matches on a field the caller cannot see), and only the records the caller may reach are found; what comes back is shaped like the answer of a query and nothing is highlighted. A field is searched once its words are complete (the index status of the object says when). VALIDATION_ERROR for a text with no word, for an object with no searchable field the caller may read, and for a search whose every word is very common (type more). Search across objects is not offered. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         */
+        post: operations["searchRecords"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1979,9 +2123,137 @@ export interface paths {
         head?: never;
         /**
          * Change some values of a record
-         * @description The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the unique fields (no other live record may hold the same value; a record in the recycle bin does not count, and a text is compared exactly), the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. There is no record-level security (Sprint 17). Only the fields named change; a null value or a name in clear removes a value. The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the record has another version now, and nothing is changed. CONFLICT (409) when the record is in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN without permission to update the object.
+         * @description The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the unique fields (no other live record may hold the same value; a record in the recycle bin does not count, and a text is compared exactly), the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. Whether the caller may change this particular record is judged by the next sprint (17A); reads are already limited to the records the caller may reach. Only the fields named change; a null value or a name in clear removes a value. The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the record has another version now, and nothing is changed. CONFLICT (409) when the record is in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN without permission to update the object.
          */
         patch: operations["updateRecord"];
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/records/{id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The files of a record
+         * @description In the order they were stored. Needs the right to read the record. NOT_FOUND for an object or record that does not exist, that the caller may not reach, or that is in the recycle bin: all answer alike. SERVICE_UNAVAILABLE (503, with Retry-After) when the object store does not answer; nothing is stored then.
+         */
+        get: operations["listRecordFiles"];
+        put?: never;
+        /**
+         * Store a file on a record
+         * @description The body is the bytes of the file, as they are (not a form), with the length announced (Content-Length; chunked bodies are refused). The name is the query parameter 'name', the type the Content-Type of the request. The server cleans the name (only its last part is kept), decides the type, refuses names and types on the denied list and files that start like a program or a page a browser would run (VALIDATION_ERROR), refuses a file above the largest size (PAYLOAD_TOO_LARGE, checked on the announced length and on the bytes that pass) and a record that has the most files (CONFLICT). The size and the SHA-256 in the answer are those of the bytes that were stored. A failed upload leaves nothing. Needs the right to change the record. Audited by identifiers and size, never by name or content. NOT_FOUND for an object or record that does not exist, that the caller may not reach, or that is in the recycle bin: all answer alike. SERVICE_UNAVAILABLE (503, with Retry-After) when the object store does not answer; nothing is stored then.
+         */
+        post: operations["uploadRecordFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/records/{id}/files/{fileId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a file from a record
+         * @description The file is gone at once; its bytes are removed from the object store by a background pass. Needs the right to change the record. Audited. NOT_FOUND for an object or record that does not exist, that the caller may not reach, or that is in the recycle bin: all answer alike. SERVICE_UNAVAILABLE (503, with Retry-After) when the object store does not answer; nothing is stored then.
+         */
+        delete: operations["deleteRecordFile"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/records/{id}/files/{fileId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The bytes of a file
+         * @description Sent as an attachment with the type the server decided, with nosniff and a sandbox policy, never to be shown in the page. Authorized on every request: needs the right to read the record. Audited by identifiers. NOT_FOUND for an object or record that does not exist, that the caller may not reach, or that is in the recycle bin: all answer alike. SERVICE_UNAVAILABLE (503, with Retry-After) when the object store does not answer; nothing is stored then.
+         */
+        get: operations["downloadRecordFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/records/{id}/owner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a record to another owner
+         * @description The new owner must be an active member. The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the record has another version now. Needs the right to change the record. The record keeps its shares. Audited and announced like a change of the record. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         */
+        post: operations["changeRecordOwner"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/records/{id}/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who a record is shared with
+         * @description For whoever may change the record. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. NOT_FOUND also for a record the caller cannot reach; FORBIDDEN for a caller who can read the record but not change it.
+         */
+        get: operations["listRecordShares"];
+        /**
+         * Share a record with a user or a public group
+         * @description Sharing again with the same user or group changes the level. READ lets them read the record, READ_WRITE lets them read and change it; a share never gives the right to delete. Visible at the next question on every instance. Needs the right to change the record. VALIDATION_ERROR for the owner, for someone who is not a member, for a group that does not exist; CONFLICT at the most shares a record can have. Audited by identifiers, never by values. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         */
+        put: operations["shareRecord"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/records/{id}/shares/{granteeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Take a share back
+         * @description NOT_FOUND when the record is not shared with that user or group. Needs the right to change the record. Audited. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         */
+        delete: operations["unshareRecord"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/objects/{objectApiName}/recycle-bin": {
@@ -2728,6 +3000,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sharing/objects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How the records of every object are shared by default
+         * @description One entry per object of the organization: the organization-wide default and the hierarchy switch, and whether an administrator has set the object up (an object nobody set up is PUBLIC_READ_WRITE with the hierarchy on: every member who may read the object reads every record). NOT_FOUND on the platform host, FORBIDDEN without the ability to manage sharing.
+         */
+        get: operations["listObjectSharing"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sharing/objects/{objectApiName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How the records of one object are shared by default
+         * @description NOT_FOUND for an object that does not exist. NOT_FOUND on the platform host, FORBIDDEN without the ability to manage sharing.
+         */
+        get: operations["getObjectSharing"];
+        /**
+         * Set the organization-wide default of an object
+         * @description PRIVATE: members reach only the records they own, the records of the people below them (when the hierarchy switch is on), the records a rule gives them and the records shared with them or with a group they are in. PUBLIC_READ: every member reads every record, changes need the same mechanisms. PUBLIC_READ_WRITE: every member reads and changes every record. Members who hold view-all or modify-all on the object are not held by the default. The change is immediate on every instance and no record is rewritten. The request carries the version that was read once the object has been set up (CONCURRENT_MODIFICATION otherwise). Audited. NOT_FOUND on the platform host, FORBIDDEN without the ability to manage sharing.
+         */
+        put: operations["setObjectSharing"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sharing/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The sharing rules of the organization
+         * @description All of them, or those of one object. NOT_FOUND on the platform host, FORBIDDEN without the ability to manage sharing.
+         */
+        get: operations["listSharingRules"];
+        put?: never;
+        /**
+         * Create a sharing rule
+         * @description OWNER: the records owned by the members of a role (or of a role and its subordinates) are given to a role, a role and its subordinates or a public group. GROUP: the same for the records owned by the members of a public group. CRITERIA: the records that meet a condition on their fields (the model of the record query, on fields flagged as indexed) are given. The level is READ or READ_WRITE; a rule never gives the right to delete. VALIDATION_ERROR lists every problem with its place. CONFLICT at the most rules per object. Audited by names, never by the condition. NOT_FOUND on the platform host, FORBIDDEN without the ability to manage sharing.
+         */
+        post: operations["createSharingRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sharing/rules/{ruleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One sharing rule
+         * @description NOT_FOUND for a rule of another organization. NOT_FOUND on the platform host, FORBIDDEN without the ability to manage sharing.
+         */
+        get: operations["getSharingRule"];
+        /**
+         * Change a sharing rule
+         * @description The object and the kind of a rule do not change. The request carries the version that was read (CONCURRENT_MODIFICATION otherwise). Takes effect at the next question on every instance. Audited. NOT_FOUND on the platform host, FORBIDDEN without the ability to manage sharing.
+         */
+        put: operations["updateSharingRule"];
+        post?: never;
+        /**
+         * Remove a sharing rule
+         * @description What the rule gave is taken back at the next question. Audited. NOT_FOUND on the platform host, FORBIDDEN without the ability to manage sharing.
+         */
+        delete: operations["deleteSharingRule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/support-access": {
         parameters: {
             query?: never;
@@ -2911,6 +3279,9 @@ export interface components {
         ApiResponseApplicationView: {
             data: components["schemas"]["ApplicationView"];
         };
+        ApiResponseBulkRecordsResponse: {
+            data: components["schemas"]["BulkRecordsResponse"];
+        };
         ApiResponseCatalogueItem: {
             data: components["schemas"]["CatalogueItem"];
         };
@@ -2943,6 +3314,9 @@ export interface components {
         };
         ApiResponseGroupView: {
             data: components["schemas"]["GroupView"];
+        };
+        ApiResponseImportJobView: {
+            data: components["schemas"]["ImportJobView"];
         };
         ApiResponseInvitationAccepted: {
             data: components["schemas"]["InvitationAccepted"];
@@ -2989,6 +3363,9 @@ export interface components {
         ApiResponseListGroupView: {
             data: components["schemas"]["GroupView"][];
         };
+        ApiResponseListImportJobView: {
+            data: components["schemas"]["ImportJobView"][];
+        };
         ApiResponseListInvitationView: {
             data: components["schemas"]["InvitationView"][];
         };
@@ -3010,6 +3387,9 @@ export interface components {
         ApiResponseListMyApplicationView: {
             data: components["schemas"]["MyApplicationView"][];
         };
+        ApiResponseListObjectSharingView: {
+            data: components["schemas"]["ObjectSharingView"][];
+        };
         ApiResponseListObjectSummaryView: {
             data: components["schemas"]["ObjectSummaryView"][];
         };
@@ -3025,8 +3405,14 @@ export interface components {
         ApiResponseListProfileView: {
             data: components["schemas"]["ProfileView"][];
         };
+        ApiResponseListRecordFileView: {
+            data: components["schemas"]["RecordFileView"][];
+        };
         ApiResponseListRecordPageView: {
             data: components["schemas"]["RecordPageView"][];
+        };
+        ApiResponseListRecordShareView: {
+            data: components["schemas"]["RecordShareView"][];
         };
         ApiResponseListRecordTypeAssignmentView: {
             data: components["schemas"]["RecordTypeAssignmentView"][];
@@ -3043,6 +3429,9 @@ export interface components {
         ApiResponseListSessionInfo: {
             data: components["schemas"]["SessionInfo"][];
         };
+        ApiResponseListSharingRuleView: {
+            data: components["schemas"]["SharingRuleView"][];
+        };
         ApiResponseListSupportAccessView: {
             data: components["schemas"]["SupportAccessView"][];
         };
@@ -3057,6 +3446,9 @@ export interface components {
         };
         ApiResponseObjectRelationshipsView: {
             data: components["schemas"]["ObjectRelationshipsView"];
+        };
+        ApiResponseObjectSharingView: {
+            data: components["schemas"]["ObjectSharingView"];
         };
         ApiResponseObjectView: {
             data: components["schemas"]["ObjectView"];
@@ -3082,8 +3474,14 @@ export interface components {
         ApiResponseProfileView: {
             data: components["schemas"]["ProfileView"];
         };
+        ApiResponseRecordFileView: {
+            data: components["schemas"]["RecordFileView"];
+        };
         ApiResponseRecordPageView: {
             data: components["schemas"]["RecordPageView"];
+        };
+        ApiResponseRecordShareView: {
+            data: components["schemas"]["RecordShareView"];
         };
         ApiResponseRecordTypeAssignmentView: {
             data: components["schemas"]["RecordTypeAssignmentView"];
@@ -3102,6 +3500,9 @@ export interface components {
         };
         ApiResponseRoleView: {
             data: components["schemas"]["RoleView"];
+        };
+        ApiResponseSharingRuleView: {
+            data: components["schemas"]["SharingRuleView"];
         };
         ApiResponseSwitchTarget: {
             data: components["schemas"]["SwitchTarget"];
@@ -3162,9 +3563,55 @@ export interface components {
             source: string;
             type: string;
         };
+        BulkRecordItem: {
+            clear?: string[];
+            fields?: {
+                [key: string]: unknown;
+            };
+            /** Format: uuid */
+            id?: string;
+            recordType?: string;
+            /** Format: int64 */
+            version?: number;
+        };
+        BulkRecordResult: {
+            code?: string;
+            fields?: {
+                [key: string]: string[];
+            };
+            /** Format: uuid */
+            id?: string;
+            message?: string;
+            /** Format: int32 */
+            position?: number;
+            status: string;
+            /** Format: int64 */
+            version?: number;
+        };
+        BulkRecordsRequest: {
+            allOrNone?: boolean;
+            operation: string;
+            records: components["schemas"]["BulkRecordItem"][];
+        };
+        BulkRecordsResponse: {
+            allOrNone?: boolean;
+            committed?: boolean;
+            /** Format: int32 */
+            failed?: number;
+            operation: string;
+            results: components["schemas"]["BulkRecordResult"][];
+            /** Format: int32 */
+            succeeded?: number;
+        };
         CatalogueItem: {
             key: string;
             name: string;
+        };
+        ChangeOwnerRequest: {
+            /** Format: uuid */
+            ownerId: string;
+            /** Format: int64 */
+            version: number;
         };
         ChangePasswordRequest: {
             currentPassword: string;
@@ -3258,10 +3705,12 @@ export interface components {
         CreateFieldRequest: {
             defaultValue?: string;
             description?: string;
+            externalId?: boolean;
             indexed?: boolean;
             label: string;
             name: string;
             required?: boolean;
+            searchable?: boolean;
             settings?: components["schemas"]["FieldSettings"];
             type: string;
             unique?: boolean;
@@ -3399,6 +3848,12 @@ export interface components {
         };
         /** @description The API name of a field. */
         FieldNameShape: string;
+        FieldSearchStatusView: {
+            field: string;
+            /** Format: int64 */
+            recordsDone?: number;
+            state: string;
+        };
         FieldSettings: {
             /** Format: int32 */
             digits?: number;
@@ -3446,12 +3901,14 @@ export interface components {
             defaultValue?: string;
             description: string;
             editable: boolean;
+            externalId?: boolean;
             indexed?: boolean;
             kind: string;
             label: string;
             problem?: string;
             required: boolean;
             retired: boolean;
+            searchable?: boolean;
             settings: components["schemas"]["FieldSettings"];
             type: string;
             unique: boolean;
@@ -3535,6 +3992,33 @@ export interface components {
             name: string;
             people: string[];
             policies: components["schemas"]["AccessPolicyRef"][];
+        };
+        ImportJobView: {
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int32 */
+            createdRows?: number;
+            dryRun?: boolean;
+            errorsAvailable?: boolean;
+            /** Format: date-time */
+            expiresAt?: string;
+            externalIdField?: string;
+            /** Format: int32 */
+            failedRows?: number;
+            failure?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            /** Format: uuid */
+            id: string;
+            object: string;
+            operation: string;
+            /** Format: int32 */
+            processedRows?: number;
+            state: string;
+            /** Format: int32 */
+            totalRows?: number;
+            /** Format: int32 */
+            updatedRows?: number;
         };
         InvitationAccepted: {
             displayName: string;
@@ -3704,6 +4188,7 @@ export interface components {
         ObjectIndexStatusView: {
             fields: components["schemas"]["FieldIndexStatusView"][];
             objectApiName: string;
+            search: components["schemas"]["FieldSearchStatusView"][];
             slots: {
                 [key: string]: number;
             };
@@ -3715,6 +4200,14 @@ export interface components {
             children: components["schemas"]["RelationshipView"][];
             manyToMany: components["schemas"]["RelationshipView"][];
             parents: components["schemas"]["RelationshipView"][];
+        };
+        ObjectSharingView: {
+            configured?: boolean;
+            defaultAccess: string;
+            grantViaHierarchy?: boolean;
+            object: string;
+            /** Format: int64 */
+            version?: number;
         };
         ObjectSummaryView: {
             apiName: string;
@@ -3918,6 +4411,19 @@ export interface components {
         ReasonRequest: {
             reason: string;
         };
+        RecordFileView: {
+            contentType: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            createdBy: string;
+            /** Format: uuid */
+            id: string;
+            name: string;
+            sha256: string;
+            /** Format: int64 */
+            size?: number;
+        };
         /** @description The structure of a record page: which layout its details show, its components in order, and its actions. */
         RecordPageDefinition: {
             actions?: components["schemas"]["PageAction"][];
@@ -3932,6 +4438,18 @@ export interface components {
             objectApiName: string;
             /** Format: int64 */
             version: number;
+        };
+        RecordShareView: {
+            accessLevel: string;
+            /** Format: uuid */
+            granteeId: string;
+            granteeType: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            sharedAt: string;
+            /** Format: uuid */
+            sharedBy: string;
         };
         RecordTypeAssignmentView: {
             defaultForProfile?: boolean;
@@ -4038,6 +4556,12 @@ export interface components {
             description?: string;
             name: string;
         };
+        SaveObjectSharingRequest: {
+            defaultAccess: string;
+            grantViaHierarchy: boolean;
+            /** Format: int64 */
+            version?: number;
+        };
         SavePlanRequest: {
             features: string[];
             licences: {
@@ -4058,6 +4582,28 @@ export interface components {
             name: string;
             /** Format: uuid */
             parentId?: string;
+        };
+        SaveSharingRuleRequest: {
+            accessLevel: string;
+            active?: boolean;
+            criterion?: components["schemas"]["QueryFilterNode"];
+            kind?: string;
+            name: string;
+            object?: string;
+            /** Format: uuid */
+            sourceId?: string;
+            sourceType?: string;
+            /** Format: uuid */
+            targetId: string;
+            targetType: string;
+            /** Format: int64 */
+            version?: number;
+        };
+        SearchRecordsRequest: {
+            cursor?: string;
+            /** Format: int32 */
+            limit?: number;
+            text: string;
         };
         SessionInfo: {
             /** Format: date-time */
@@ -4080,12 +4626,45 @@ export interface components {
             quantity: number;
             reason: string;
         };
+        ShareRecordRequest: {
+            accessLevel: string;
+            /** Format: uuid */
+            granteeId: string;
+            granteeType: string;
+        };
+        SharingRuleView: {
+            accessLevel: string;
+            active?: boolean;
+            criterion?: components["schemas"]["QueryFilterNode"];
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            name: string;
+            object: string;
+            /** Format: uuid */
+            sourceId?: string;
+            sourceType?: string;
+            /** Format: uuid */
+            targetId: string;
+            targetType: string;
+            /** Format: int64 */
+            version?: number;
+        };
         SignInRequest: {
             email: string;
             password: string;
         };
         SignUpRequest: {
             email: string;
+        };
+        StartImportRequest: {
+            delimiter?: string;
+            dryRun?: boolean;
+            externalIdField?: string;
+            mapping?: {
+                [key: string]: string;
+            };
+            operation: string;
         };
         SubscriptionInfo: {
             /** Format: date-time */
@@ -4165,9 +4744,11 @@ export interface components {
         UpdateFieldRequest: {
             defaultValue?: string;
             description?: string;
+            externalId?: boolean;
             indexed?: boolean;
             label: string;
             required?: boolean;
+            searchable?: boolean;
             settings?: components["schemas"]["FieldSettings"];
             unique?: boolean;
             /** Format: int64 */
@@ -8211,6 +8792,204 @@ export interface operations {
             };
         };
     };
+    listImports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListImportJobView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    startImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartImportRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseImportJobView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseImportJobView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    cancelImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseImportJobView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    downloadImportErrors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    sendImportFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "text/csv": string;
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseImportJobView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     getObjectIndexStatus: {
         parameters: {
             query?: never;
@@ -8311,6 +9090,41 @@ export interface operations {
             };
         };
     };
+    bulkRecords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkRecordsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseBulkRecordsResponse"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     queryRecords: {
         parameters: {
             query?: never;
@@ -8323,6 +9137,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["QueryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiPageResponseQueriedRecordView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    searchRecords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchRecordsRequest"];
             };
         };
         responses: {
@@ -8432,6 +9281,275 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiResponseRecordView"];
                 };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listRecordFiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListRecordFileView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    uploadRecordFile: {
+        parameters: {
+            query: {
+                name: string;
+            };
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordFileView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteRecordFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+                fileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    downloadRecordFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+                fileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bytes of the file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    changeRecordOwner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeOwnerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listRecordShares: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListRecordShareView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    shareRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShareRecordRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordShareView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    unshareRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+                granteeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {
@@ -9885,6 +11003,260 @@ export interface operations {
             header?: never;
             path: {
                 roleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listObjectSharing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListObjectSharingView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getObjectSharing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseObjectSharingView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    setObjectSharing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveObjectSharingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseObjectSharingView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listSharingRules: {
+        parameters: {
+            query?: {
+                object?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListSharingRuleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createSharingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveSharingRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseSharingRuleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getSharingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseSharingRuleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateSharingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveSharingRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseSharingRuleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteSharingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ruleId: string;
             };
             cookie?: never;
         };

@@ -49,6 +49,20 @@ platform:
   outbox:
     # Tests drive the relay themselves, or switch it on for the one context that wants it to poll.
     enabled: false
+  storage:
+    # Short, so a test that pauses the store does not wait a minute for every attempt.
+    socket-timeout: 2s
+    call-timeout: 6s
+  data:
+    # Tests drive the clean-up of files and the runner of imports themselves (runOnce, workOn), or switch them on for
+    # the one context that wants them to run by themselves.
+    files:
+      # Small, so that a test of the largest size sends kilobytes and not megabytes.
+      max-bytes: 100000
+      cleanup:
+        enabled: false
+    imports:
+      enabled: false
   identity:
     # Tests come from made-up sources named in X-Forwarded-For, so that every test has its own rate-limit allowance.
     trust-forwarded-for: true

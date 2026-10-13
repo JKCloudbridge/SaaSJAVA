@@ -144,6 +144,37 @@ final class FieldRules {
         return indexed;
     }
 
+    /**
+     * Checks the flag that makes a field the external identifier of its records (Sprint 17, ADR-0123): the identifier
+     * the record has in another system, which an import finds the record by. Only text and number fields can be one,
+     * and one is unique and indexed by being one.
+     *
+     * @throws ApiException {@code VALIDATION_ERROR} at {@code externalId} when the type cannot be one
+     */
+    static boolean checkExternalId(FieldType type, boolean externalId) {
+        if (externalId && type != FieldType.TEXT && type != FieldType.NUMBER) {
+            throw ApiException.validation("externalId", "Only a text field or a number field can be an external "
+                    + "identifier.");
+        }
+        return externalId;
+    }
+
+    /**
+     * Checks the flag that puts a field into the search of its object (Sprint 17, ADR-0124): fields people type words
+     * into.
+     *
+     * @throws ApiException {@code VALIDATION_ERROR} at {@code searchable} when the type cannot be searched
+     */
+    static boolean checkSearchable(FieldType type, boolean searchable) {
+        boolean words = type == FieldType.TEXT || type == FieldType.LONG_TEXT || type == FieldType.EMAIL
+                || type == FieldType.PHONE || type == FieldType.PICKLIST;
+        if (searchable && !words) {
+            throw ApiException.validation("searchable", "Only a text, long text, e-mail, phone or picklist field can "
+                    + "be searched.");
+        }
+        return searchable;
+    }
+
     /** Why a field of the type cannot be indexed, in plain words. */
     static String notIndexableReason(FieldType type) {
         return switch (type) {

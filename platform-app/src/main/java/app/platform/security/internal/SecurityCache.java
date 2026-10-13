@@ -18,8 +18,16 @@ import java.util.function.Supplier;
  */
 final class SecurityCache {
 
-    /** What identifies an answer: the organization, the member and the kind of answer. */
-    record Key(UUID tenant, UUID membership, Kind kind) {
+    /**
+     * What identifies an answer: the organization, the member, the kind of answer and, for a kind that is about one
+     * object, the object key (empty otherwise).
+     */
+    record Key(UUID tenant, UUID membership, Kind kind, String scope) {
+
+        /** The key of an answer that is not about one object. */
+        Key(UUID tenant, UUID membership, Kind kind) {
+            this(tenant, membership, kind, "");
+        }
     }
 
     /** The kinds of answer kept. */
@@ -27,7 +35,9 @@ final class SecurityCache {
         /** The abilities of a member. */
         ABILITIES,
         /** The abilities and the permissions on data of a member. */
-        EFFECTIVE
+        EFFECTIVE,
+        /** Which records of one object a member may reach (Sprint 17, ADR-0115). */
+        RECORD_ACCESS
     }
 
     private record Kept(long version, Object value) {

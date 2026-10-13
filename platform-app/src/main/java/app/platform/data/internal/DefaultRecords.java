@@ -1,6 +1,7 @@
 package app.platform.data.internal;
 
 import app.platform.data.DataRecord;
+import app.platform.data.QueryPlan;
 import app.platform.data.QueryResult;
 import app.platform.data.RecordQuery;
 import app.platform.data.RecordSlice;
@@ -14,6 +15,7 @@ import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,10 +43,14 @@ class DefaultRecords implements Records {
     private final RecordVisibility visibility;
     private final RecordLinks links;
     private final RecordRemoval removal;
+    private final SearchIndexer searchIndex;
+    private final SearchEngine search;
 
     DefaultRecords(RecordGate gate, WritePipeline pipeline, FieldSecurity security, StorageStrategy storage,
             RecordChanges changes, QueryService queries, RecordVisibility visibility,
-            RecordLinks links, RecordRemoval removal) {
+            RecordLinks links, RecordRemoval removal, SearchIndexer searchIndex, SearchEngine search) {
+        this.searchIndex = searchIndex;
+        this.search = search;
         this.gate = gate;
         this.pipeline = pipeline;
         this.security = security;
@@ -69,6 +75,7 @@ class DefaultRecords implements Records {
             throw taken(e, plan.slots(), access);
         }
         links.sync(passed.object(), created.id(), plan.set(), plan.clear(), passed.userId());
+        searchIndex.index(passed.object(), created, null, passed.userId());
         changes.created(passed.userId(), created.objectApiName(), created.id(), created.version(), plan.names());
         return FieldSecurity.visible(created, access);
     }
@@ -78,10 +85,12 @@ class DefaultRecords implements Records {
     public DataRecord get(String objectApiName, UUID id) {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.READ);
         ObjectAccess access = access(passed);
-        // The same stage the list and the query ask what the member may see (ADR-0100). Until Sprint 17 the answer
-        // is always "no extra condition"; then it is applied to this read as to the others.
-        visibility.constraintFor(passed, access);
-        DataRecord found = storage.find(passed.object().apiName(), id);
+        // The same stage the list and the query ask what the member may see (ADR-0100, ADR-0115): a record the member
+        // may not reach is answered exactly as a record that does not exist.
+        Optional<QueryPlan.Node> reachable = visibility.constraintFor(passed, access);
+        DataRecord found = reachable.isPresent()
+                ? storage.find(passed.object().apiName(), id, reachable.get())
+                : storage.find(passed.object().apiName(), id);
         if (found == null || found.deleted()) {
             throw ApiException.notFound(NO_RECORD);
         }
@@ -112,6 +121,7 @@ class DefaultRecords implements Records {
             throw whyNotChanged(storage.find(passed.object().apiName(), id));
         }
         links.sync(passed.object(), updated.id(), plan.set(), plan.clear(), passed.userId());
+        searchIndex.index(passed.object(), updated, plan.names(), passed.userId());
         changes.updated(passed.userId(), updated.objectApiName(), updated.id(), updated.version(), plan.names());
         return FieldSecurity.visible(updated, access);
     }
@@ -174,6 +184,13 @@ class DefaultRecords implements Records {
     public QueryResult query(String objectApiName, RecordQuery query) {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.READ);
         return queries.run(passed, access(passed), query);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public QueryResult search(String objectApiName, String text, int limit, String cursor) {
+        RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.READ);
+        return search.search(passed, access(passed), text, limit, cursor);
     }
 
     @Override

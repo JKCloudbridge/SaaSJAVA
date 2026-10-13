@@ -65,6 +65,57 @@ public final class TestHttp {
     }
 
     /**
+     * Sends a request whose body and answer are bytes (a file), for the tests of files and imports.
+     *
+     * @param body the bytes, or null for none
+     * @param headers name/value pairs
+     */
+    public BytesResponse requestBytes(String method, String path, byte[] body, String... headers) {
+        HttpRequest.BodyPublisher publisher = body == null || body.length == 0
+                ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(body);
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(baseUrl + path)).method(method, publisher);
+        for (int i = 0; i + 1 < defaultHeaders.length; i += 2) {
+            builder.header(defaultHeaders[i], defaultHeaders[i + 1]);
+        }
+        for (int i = 0; i + 1 < headers.length; i += 2) {
+            builder.header(headers[i], headers[i + 1]);
+        }
+        try {
+            HttpResponse<byte[]> response = client.send(builder.timeout(Duration.ofSeconds(60)).build(),
+                    HttpResponse.BodyHandlers.ofByteArray());
+            return new BytesResponse(response.statusCode(), response.headers().map(), response.body());
+        } catch (IOException e) {
+            throw new IllegalStateException("Request failed", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted", e);
+        }
+    }
+
+    /**
+     * A response whose body is bytes.
+     *
+     * @param status the HTTP status
+     * @param headers all headers
+     * @param body the bytes
+     */
+    public record BytesResponse(int status, Map<String, java.util.List<String>> headers, byte[] body) {
+
+        /** The first value of a header, if present. */
+        public Optional<String> header(String name) {
+            return headers.entrySet().stream()
+                    .filter(entry -> entry.getKey().equalsIgnoreCase(name))
+                    .flatMap(entry -> entry.getValue().stream())
+                    .findFirst();
+        }
+
+        /** The body as UTF-8 text. */
+        public String text() {
+            return new String(body, java.nio.charset.StandardCharsets.UTF_8);
+        }
+    }
+
+    /**
      * A response.
      *
      * @param status the HTTP status

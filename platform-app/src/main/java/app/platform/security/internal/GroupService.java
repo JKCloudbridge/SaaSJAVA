@@ -42,12 +42,14 @@ class GroupService {
     private final GroupStore store;
     private final AccessStore access;
     private final AccessAudit audit;
+    private final SharingStore sharing;
 
-    GroupService(AccessGate gate, GroupStore store, AccessStore access, AccessAudit audit) {
+    GroupService(AccessGate gate, GroupStore store, AccessStore access, AccessAudit audit, SharingStore sharing) {
         this.gate = gate;
         this.store = store;
         this.access = access;
         this.audit = audit;
+        this.sharing = sharing;
     }
 
     List<GroupView> list() {
@@ -98,6 +100,10 @@ class GroupService {
             access.lockAccessChanges();
             GroupStore.GroupRow group = existingForUpdate(id);
             ActorId actor = new ActorId(caller.userId());
+            if (sharing.ruleUsing(id).isPresent()) {
+                throw new ApiException(ErrorCode.CONFLICT,
+                        "A sharing rule uses this group. Change or remove the rule first.");
+            }
             int ended = store.endLinksOfGroup(id, actor);
             store.deleteGroup(id, actor);
             audit.groupDeleted(caller.userId(), id, group.name(), ended);

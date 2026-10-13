@@ -17,9 +17,9 @@ import java.util.Set;
  *   <li>modify-all implies read, create, update, delete and view-all.</li>
  * </ul>
  *
- * <p>{@link #VIEW_ALL} and {@link #MODIFY_ALL} are stored and shown now and change nothing else until record-level
- * security exists (Sprint 17): then they will let a member see, or change, every record of the object whatever the
- * record-level rules say. Today no record rule exists, so read and view-all answer the same question.
+ * <p>Since Sprint 17 {@link #VIEW_ALL} and {@link #MODIFY_ALL} let a member see, or change, every record of the object
+ * whatever the record-level rules say (ADR-0118). Under the default of an object that is not Private, read and
+ * view-all answer the same question.
  */
 public enum ObjectAction {
 

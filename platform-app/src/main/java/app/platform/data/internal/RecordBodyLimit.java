@@ -30,7 +30,13 @@ class RecordBodyLimit implements HandlerInterceptor, WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(this).addPathPatterns(ApiPaths.OBJECTS + "/**");
+        // A file has its own size limit (FileProperties.maxBytes) and the bulk and import endpoints their own; the
+        // bound here is the bound of one record's values.
+        registry.addInterceptor(this).addPathPatterns(ApiPaths.OBJECTS + "/**")
+                .excludePathPatterns(ApiPaths.OBJECTS + "/*/records/*/files",
+                        ApiPaths.OBJECTS + "/*/records/*/files/**",
+                        ApiPaths.OBJECTS + "/*/records/bulk", ApiPaths.OBJECTS + "/*/imports",
+                        ApiPaths.OBJECTS + "/*/imports/**");
     }
 
     @Override

@@ -446,6 +446,102 @@ public final class TenantScopedTables {
                         tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
             });
 
+    /** The organization-wide default of an object (Sprint 17). */
+    public static final TenantScopedTable OBJECT_SHARING_SETTING = new TenantScopedTable("object_sharing_setting",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into object_sharing_setting (tenant_id, object_key, created_by, updated_by) "
+                            + "values (?, ?, ?, ?)",
+                    tenant, probeName("S"), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
+    /** A sharing rule of an object (Sprint 17). A probe row needs a public group to name. */
+    public static final TenantScopedTable SHARING_RULE = new TenantScopedTable("sharing_rule",
+            (connection, tenant) -> {
+                UUID group = probeGroup(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into sharing_rule (tenant_id, object_key, name, kind, criterion, target_type, "
+                                + "target_id, access_level, created_by, updated_by) values (?, ?, ?, 'CRITERIA', "
+                                + "cast('{\"op\":\"EQ\"}' as jsonb), 'GROUP', ?, 'READ', ?, ?)",
+                        tenant, probeName("R"), "probe-" + UUID.randomUUID(), group, ActorId.SYSTEM.value(),
+                        ActorId.SYSTEM.value());
+            });
+
+    /** A record shared with a user or a group (Sprint 17). A probe row needs a record to share. */
+    public static final TenantScopedTable RECORD_SHARE = new TenantScopedTable("record_share",
+            (connection, tenant) -> {
+                UUID record = UUID.randomUUID();
+                TenantFixtures.update(connection,
+                        "insert into object_record (id, tenant_id, object_api_name, owner_id, payload, created_by, "
+                                + "updated_by) values (?, ?, 'Probe__c', ?, '{}'::jsonb, ?, ?)",
+                        record, tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+                TenantFixtures.update(connection,
+                        "insert into record_share (tenant_id, object_api_name, record_id, grantee_type, grantee_id, "
+                                + "access_level, created_by, updated_by) values (?, 'Probe__c', ?, 'GROUP', "
+                                + "?, 1, ?, ?)",
+                        tenant, record, UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** A file attached to a record (Sprint 17). A probe row needs a record to hold it. */
+    public static final TenantScopedTable RECORD_FILE = new TenantScopedTable("record_file",
+            (connection, tenant) -> {
+                UUID record = probeRecord(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into record_file (tenant_id, object_api_name, record_id, name, content_type, "
+                                + "storage_key, created_by, updated_by) values (?, 'Probe__c', ?, 'probe.bin', "
+                                + "'application/zip', ?, ?, ?)",
+                        tenant, record, "files/" + tenant + "/" + UUID.randomUUID(), ActorId.SYSTEM.value(),
+                        ActorId.SYSTEM.value());
+            });
+
+    /** The bytes of a removed file that the object store must still forget (Sprint 17). */
+    public static final TenantScopedTable FILE_OBJECT_CLEANUP = new TenantScopedTable("file_object_cleanup",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into file_object_cleanup (tenant_id, storage_key, created_by, updated_by) "
+                            + "values (?, ?, ?, ?)",
+                    tenant, "files/" + tenant + "/" + UUID.randomUUID(), ActorId.SYSTEM.value(),
+                    ActorId.SYSTEM.value()));
+
+    /** An import of a file of rows (Sprint 17). */
+    public static final TenantScopedTable IMPORT_JOB = new TenantScopedTable("import_job",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into import_job (tenant_id, object_api_name, started_by, membership_id, operation, "
+                            + "created_by, updated_by) values (?, 'Probe__c', ?, ?, 'CREATE', ?, ?)",
+                    tenant, UUID.randomUUID(), UUID.randomUUID(), ActorId.SYSTEM.value(),
+                    ActorId.SYSTEM.value()));
+
+    /** A row of an import that failed (Sprint 17). A probe row needs an import to belong to. */
+    public static final TenantScopedTable IMPORT_ERROR = new TenantScopedTable("import_error",
+            (connection, tenant) -> {
+                UUID job = UUID.randomUUID();
+                TenantFixtures.update(connection,
+                        "insert into import_job (id, tenant_id, object_api_name, started_by, membership_id, "
+                                + "operation, created_by, updated_by) values (?, ?, 'Probe__c', ?, ?, 'CREATE', "
+                                + "?, ?)",
+                        job, tenant, UUID.randomUUID(), UUID.randomUUID(), ActorId.SYSTEM.value(),
+                        ActorId.SYSTEM.value());
+                TenantFixtures.update(connection,
+                        "insert into import_error (tenant_id, job_id, row_number, reason, created_by, updated_by) "
+                                + "values (?, ?, 1, 'probe', ?, ?)",
+                        tenant, job, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** A word of a record that search finds it by (Sprint 17). A probe row needs a record. */
+    public static final TenantScopedTable SEARCH_TERM = new TenantScopedTable("search_term",
+            (connection, tenant) -> {
+                UUID record = probeRecord(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into search_term (tenant_id, object_api_name, record_id, field_api_name, term, "
+                                + "created_by, updated_by) values (?, 'Probe__c', ?, 'probe__c', 'probe', ?, ?)",
+                        tenant, record, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** How far the words of a searchable field are filled in (Sprint 17). */
+    public static final TenantScopedTable SEARCH_FIELD = new TenantScopedTable("search_field",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into search_field (tenant_id, object_api_name, field_api_name, created_by, updated_by) "
+                            + "values (?, 'Probe__c', ?, ?, ?)",
+                    tenant, "probe" + UUID.randomUUID().toString().replace("-", "").substring(0, 8) + "__c",
+                    ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
@@ -454,7 +550,8 @@ public final class TenantScopedTables {
             FIELD_DEFINITION, METADATA_VERSION, RECORD_TYPE, METADATA_CHANGE_SET, METADATA_CHANGE,
             METADATA_RELEASE, PAGE_LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT, VALIDATION_RULE,
             OBJECT_RECORD, AUTO_NUMBER_COUNTER, RECORD_TYPE_ASSIGNMENT, FIELD_SLOT, RECORD_LINK, LINK_INDEX,
-            UNIQUE_ENFORCEMENT, FORMULA_RECALCULATION);
+            UNIQUE_ENFORCEMENT, FORMULA_RECALCULATION, OBJECT_SHARING_SETTING, SHARING_RULE, RECORD_SHARE,
+            RECORD_FILE, FILE_OBJECT_CLEANUP, IMPORT_JOB, IMPORT_ERROR, SEARCH_TERM, SEARCH_FIELD);
 
     private TenantScopedTables() {
     }
@@ -505,6 +602,16 @@ public final class TenantScopedTables {
                 "insert into public_group (id, tenant_id, name, created_by, updated_by) values (?, ?, ?, ?, ?)",
                 group, tenant, "probe-" + group, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
         return group;
+    }
+
+    /** A record of the tenant for a probe row; returns its identifier. */
+    private static UUID probeRecord(java.sql.Connection connection, UUID tenant) throws java.sql.SQLException {
+        UUID record = UUID.randomUUID();
+        TenantFixtures.update(connection,
+                "insert into object_record (id, tenant_id, object_api_name, owner_id, payload, created_by, "
+                        + "updated_by) values (?, ?, 'Probe__c', ?, '{}'::jsonb, ?, ?)",
+                record, tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        return record;
     }
 
     /** A profile of the tenant for a probe row; returns it. */
