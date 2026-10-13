@@ -1,12 +1,11 @@
--- Gate G1 (ADR-0082): the throwaway proof of the hybrid store.
+-- Gate G1 (ADR-0082) helpers of the benchmark. Since Sprint 16 the record table is the real one of the repository
+-- (migrations V036, V041, V042): this file no longer creates it. It adds the association table of the many-to-many
+-- scenario, the helper functions of the data generator and the second role of the "row level security off"
+-- comparison, after the repository's migrations and the manual role migration M001, as the owner role.
 --
--- This runs AFTER the real migrations V001 to V035 and the manual role migration M001 of the repository, in the same
--- database, as the owner role. It adds the table that Sprint 14 will add as V036, in exactly the shape it will have
--- (so the proof proves the real thing), the association table of the many-to-many scenario, the helper functions of
--- the data generator, and the second role of the "row level security off" comparison.
---
--- The secondary indexes are created AFTER the data is loaded (02-indexes.sql): building an index over loaded rows is
--- much faster than maintaining it row by row, and the finished index is the same.
+-- The secondary indexes of the record table are dropped before the load and created again afterwards from their own
+-- stored definitions (see container/setup.sh): building an index over loaded rows is much faster than maintaining
+-- it row by row, and the finished index is exactly the one the migration made.
 
 create function bench_tenant(k integer) returns uuid
     language sql immutable parallel safe
@@ -59,52 +58,6 @@ as $$
            bench_id(1 + (seq % 20000))
 $$;
 
-create table object_record (
-    id              uuid        primary key default uuidv7(),
-    tenant_id       uuid        not null default platform_current_tenant() references tenant (id),
-    object_api_name text        not null,
-    record_type     text,
-    owner_id        uuid        not null,
-    payload         jsonb       not null,
-    s_text_1        text,
-    s_text_2        text,
-    s_text_3        text,
-    s_text_4        text,
-    s_num_1         double precision,
-    s_num_2         double precision,
-    s_date_1        date,
-    s_date_2        date,
-    s_ref_1         uuid,
-    s_ref_2         uuid,
-    s_bool_1        boolean,
-    version         bigint      not null default 0,
-    created_at      timestamptz not null default now(),
-    created_by      uuid        not null,
-    updated_at      timestamptz not null default now(),
-    updated_by      uuid        not null,
-    deleted_at      timestamptz,
-    deleted_by      uuid,
-    constraint object_record_object_name_shape check (object_api_name ~ '^[A-Z][A-Za-z0-9_]{0,59}$'),
-    constraint object_record_payload_is_object check (jsonb_typeof(payload) = 'object')
-) with (fillfactor = 90);   -- room on each page, so that an update that changes no indexed column can stay on the page
-
-create trigger object_record_row_guard before insert or update on object_record
-    for each row execute function platform_row_guard();
-create trigger object_record_tenant_guard before update on object_record
-    for each row execute function platform_tenant_guard();
-
-alter table object_record enable row level security;
-alter table object_record force row level security;
-create policy object_record_insert on object_record for insert
-    with check (tenant_id = (select platform_current_tenant()));
-create policy object_record_select on object_record for select
-    using (tenant_id = (select platform_current_tenant()));
-create policy object_record_update on object_record for update
-    using (tenant_id = (select platform_current_tenant()))
-    with check (tenant_id = (select platform_current_tenant()));
-create policy object_record_delete on object_record for delete
-    using (tenant_id = (select platform_current_tenant()));
-
 create table object_record_link (
     id         uuid        primary key default uuidv7(),
     tenant_id  uuid        not null default platform_current_tenant() references tenant (id),
@@ -119,6 +72,10 @@ create table object_record_link (
     deleted_at timestamptz,
     deleted_by uuid
 );
+
+-- Both directions of the many-to-many scenarios (S10) are served by an index, as a junction would be in the product.
+create index object_record_link_forward on object_record_link (tenant_id, junction, left_id, right_id) where deleted_at is null;
+create index object_record_link_reverse on object_record_link (tenant_id, junction, right_id, left_id) where deleted_at is null;
 
 create trigger object_record_link_row_guard before insert or update on object_record_link
     for each row execute function platform_row_guard();

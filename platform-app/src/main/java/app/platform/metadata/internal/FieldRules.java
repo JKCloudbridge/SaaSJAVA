@@ -15,6 +15,7 @@ import app.platform.metadata.FieldConfiguration.ReferenceConfiguration;
 import app.platform.metadata.FieldConfiguration.TextConfiguration;
 import app.platform.metadata.FieldType;
 import app.platform.metadata.PicklistValue;
+import app.platform.metadata.SlotClass;
 import app.platformapi.ApiException;
 import app.platformapi.FieldSettings;
 import app.platformapi.PicklistOption;
@@ -128,6 +129,31 @@ final class FieldRules {
             throw ApiException.validation(problems);
         }
         return checked;
+    }
+
+    /**
+     * Whether a field of the type may be flagged as indexed (Sprint 16, ADR-0101). The limit per object is a rule of
+     * the result of a change ({@code Dependencies.IndexedFields}), not of one field.
+     *
+     * @throws ApiException {@code VALIDATION_ERROR} at {@code indexed} when the type cannot be indexed
+     */
+    static boolean checkIndexed(FieldType type, boolean indexed) {
+        if (indexed && SlotClass.of(type).isEmpty()) {
+            throw ApiException.validation("indexed", notIndexableReason(type));
+        }
+        return indexed;
+    }
+
+    /** Why a field of the type cannot be indexed, in plain words. */
+    static String notIndexableReason(FieldType type) {
+        return switch (type) {
+            case LONG_TEXT -> "Long text is too large to index. Use a text field for what people search by.";
+            case MULTI_PICKLIST -> "A multi-select picklist holds several values, so it cannot be indexed.";
+            case TIME -> "A time of day cannot be indexed.";
+            case FORMULA -> "A formula result is stored when a record is saved, so it is not current for records "
+                    + "nobody has saved since the formula changed. It cannot be indexed yet.";
+            default -> "A field of this type cannot be indexed.";
+        };
     }
 
     private static Checked checkInto(Map<String, List<String>> problems, FieldType type, boolean required,

@@ -372,6 +372,45 @@ public final class TenantScopedTables {
                             + "profile_id, created_by, updated_by) values (?, 'Account', 'Probe__c', ?, ?, ?)",
                     tenant, UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
 
+    /**
+     * Which field holds which slot of the record table (Sprint 16). One live row per organization, object and slot, so
+     * each call retires the live probe row and adds a new one.
+     */
+    public static final TenantScopedTable FIELD_SLOT = new TenantScopedTable("field_slot",
+            (connection, tenant) -> {
+                TenantFixtures.update(connection,
+                        "update field_slot set deleted_at = now(), deleted_by = ?, version = version + 1, "
+                                + "updated_by = ? where tenant_id = ? and object_api_name = 'Probe__c' "
+                                + "and deleted_at is null",
+                        ActorId.SYSTEM.value(), ActorId.SYSTEM.value(), tenant);
+                TenantFixtures.update(connection,
+                        "insert into field_slot (tenant_id, object_api_name, field_api_name, slot, created_by, "
+                                + "updated_by) values (?, 'Probe__c', 'probe__c', 's_text_1', ?, ?)",
+                        tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** Who points at whom (Sprint 16). Each probe row is a pointer of a record of its own. */
+    public static final TenantScopedTable RECORD_LINK = new TenantScopedTable("record_link",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into record_link (tenant_id, source_object, source_record, field_api_name, target_object, "
+                            + "target_record, created_by, updated_by) values (?, 'Probe__c', ?, 'probe__c', "
+                            + "'Probe__c', ?, ?, ?)",
+                    tenant, UUID.randomUUID(), UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
+    /** Whether the pointers of a field are complete (Sprint 16). One live row per field: retire, then add. */
+    public static final TenantScopedTable LINK_INDEX = new TenantScopedTable("link_index",
+            (connection, tenant) -> {
+                TenantFixtures.update(connection,
+                        "update link_index set deleted_at = now(), deleted_by = ?, version = version + 1, "
+                                + "updated_by = ? where tenant_id = ? and object_api_name = 'Probe__c' "
+                                + "and deleted_at is null",
+                        ActorId.SYSTEM.value(), ActorId.SYSTEM.value(), tenant);
+                TenantFixtures.update(connection,
+                        "insert into link_index (tenant_id, object_api_name, field_api_name, created_by, updated_by) "
+                                + "values (?, 'Probe__c', 'probe__c', ?, ?)",
+                        tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
@@ -379,7 +418,7 @@ public final class TenantScopedTables {
             PUBLIC_GROUP_ACCESS_POLICY, OBJECT_PERMISSION, FIELD_PERMISSION, SECURITY_VERSION, OBJECT_DEFINITION,
             FIELD_DEFINITION, METADATA_VERSION, RECORD_TYPE, METADATA_CHANGE_SET, METADATA_CHANGE,
             METADATA_RELEASE, PAGE_LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT, VALIDATION_RULE,
-            OBJECT_RECORD, AUTO_NUMBER_COUNTER, RECORD_TYPE_ASSIGNMENT);
+            OBJECT_RECORD, AUTO_NUMBER_COUNTER, RECORD_TYPE_ASSIGNMENT, FIELD_SLOT, RECORD_LINK, LINK_INDEX);
 
     private TenantScopedTables() {
     }

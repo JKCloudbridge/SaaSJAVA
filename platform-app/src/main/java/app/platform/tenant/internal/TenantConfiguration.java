@@ -8,7 +8,7 @@ import org.springframework.core.task.TaskDecorator;
 
 /** Wiring of the tenant module. */
 @Configuration
-@EnableConfigurationProperties(TenancyProperties.class)
+@EnableConfigurationProperties({TenancyProperties.class, OrganizationLimitProperties.class})
 class TenantConfiguration {
 
     /**

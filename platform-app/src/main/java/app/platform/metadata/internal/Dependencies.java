@@ -6,7 +6,13 @@ import app.platform.metadata.FieldDefinition;
 import app.platform.metadata.FieldType;
 import app.platform.metadata.ObjectDefinition;
 import app.platform.metadata.RecordType;
+import app.platform.metadata.SlotClass;
+import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.springframework.stereotype.Component;
 
@@ -80,6 +86,48 @@ final class Dependencies {
                                     + ": add the field to the record type.");
                 }
             }
+        }
+    }
+
+    /**
+     * Fields flagged as indexed (Sprint 16, ADR-0101): a type that cannot be indexed, and more fields of one kind than
+     * the record table has slots for. Judged on the result of a change, so the order of the changes of one set does
+     * not matter (flag one field and unflag another in the same set).
+     */
+    @Component
+    static class IndexedFields implements DependencyGraph.Contributor {
+
+        @Override
+        public void contribute(MetadataSnapshot snapshot, DependencyGraph.Sink sink) {
+            for (ObjectDefinition object : snapshot.objects()) {
+                Map<SlotClass, List<String>> used = new EnumMap<>(SlotClass.class);
+                for (FieldDefinition field : object.fields()) {
+                    if (!SlotClass.served(field) && !field.indexed()) {
+                        continue;
+                    }
+                    Optional<SlotClass> slot = SlotClass.of(field.type());
+                    if (slot.isEmpty()) {
+                        sink.violation(DependencyGraph.Node.field(object.apiName(), field.apiName()),
+                                DependencyGraph.Node.field(object.apiName(), field.apiName()),
+                                FieldRules.notIndexableReason(field.type()));
+                        continue;
+                    }
+                    used.computeIfAbsent(slot.get(), kind -> new ArrayList<>()).add(field.apiName());
+                }
+                used.forEach((kind, names) -> {
+                    if (names.size() > kind.capacity()) {
+                        sink.violation(DependencyGraph.Node.object(object.apiName()),
+                                DependencyGraph.Node.object(object.apiName()), tooMany(object, kind, names));
+                    }
+                });
+            }
+        }
+
+        /** The words for a person: the kind, the limit and the fields that use the slots (names only). */
+        static String tooMany(ObjectDefinition object, SlotClass kind, List<String> names) {
+            return object.apiName() + " has " + names.size() + " indexed " + kind.words() + " fields, and an object "
+                    + "can have at most " + kind.capacity() + " of them (" + String.join(", ", names)
+                    + "). Stop indexing one of them first.";
         }
     }
 }

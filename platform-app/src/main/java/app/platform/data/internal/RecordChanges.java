@@ -73,6 +73,45 @@ class RecordChanges {
                 .with("removed", Integer.toString(removed)).with("source", "recycle_bin"));
     }
 
+
+    /**
+     * A record that went to the recycle bin together with the record a person removed (a detail with its master): the
+     * event of a delete with nobody to blame for this one in particular. The audit record of the removal counts them
+     * ({@link #removalSummary}).
+     */
+    void removedWithAnother(String object, UUID id, long version) {
+        events.publish(new NewEvent("record.deleted", payload(object, id, version, List.of())));
+    }
+
+    /** A record that came back with the master it was removed with. */
+    void restoredWithAnother(String object, UUID id, long version) {
+        events.publish(new NewEvent("record.restored", payload(object, id, version, List.of())));
+    }
+
+    /**
+     * A pointer emptied because the record it pointed at was removed (the behaviour "clear"): the event of a change of
+     * the record, by the name of the field.
+     */
+    void pointerCleared(String object, UUID id, long version, String field) {
+        events.publish(new NewEvent("record.updated", payload(object, id, version, List.of(field))));
+    }
+
+    /** One audit record for a removal that took other records with it or changed them: counts, never values. */
+    void removalSummary(UUID actor, String object, UUID id, int removedWith, int pointersCleared) {
+        TenantId tenant = contexts.current().map(TenantContext::tenantId).orElse(null);
+        audit.record(AuditRecord.of("data.record.removal", AuditOutcome.SUCCESS).forUser(actor).inTenant(tenant)
+                .onObject(object, id.toString()).with("removed_with", Integer.toString(removedWith))
+                .with("pointers_cleared", Integer.toString(pointersCleared)));
+    }
+
+    /** One audit record for a restore that brought other records back. */
+    void restoreSummary(UUID actor, String object, UUID id, int restoredWith, int pointersCleared) {
+        TenantId tenant = contexts.current().map(TenantContext::tenantId).orElse(null);
+        audit.record(AuditRecord.of("data.record.restoration", AuditOutcome.SUCCESS).forUser(actor).inTenant(tenant)
+                .onObject(object, id.toString()).with("restored_with", Integer.toString(restoredWith))
+                .with("pointers_cleared", Integer.toString(pointersCleared)));
+    }
+
     private void write(String kind, UUID actor, String object, UUID id, long version, List<String> fields) {
         TenantId tenant = contexts.current().map(TenantContext::tenantId).orElse(null);
         AuditRecord record = AuditRecord.of("data.record." + kind, AuditOutcome.SUCCESS).forUser(actor)

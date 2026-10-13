@@ -216,6 +216,6 @@ class MetadataCatalogue implements Metadata {
                 .orElseThrow(() -> new IllegalStateException("A stored field has a type this release does not know"));
         return new FieldDefinition(row.objectApiName(), row.apiName(), row.label(), row.description(),
                 DefinitionKind.CUSTOM, type, row.required(), row.unique(), row.defaultValue(),
-                codec.read(type, row.config()), false, row.version());
+                codec.read(type, row.config()), false, row.version(), row.indexed());
     }
 }

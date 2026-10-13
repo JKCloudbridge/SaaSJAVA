@@ -54,7 +54,7 @@ final class StandardMetadataLoader {
             "managedBy", "extensible", "fields");
     private static final Set<String> FILE_KEYS = Set.of("fields");
     private static final Set<String> FIELD_KEYS = Set.of("apiName", "label", "description", "type", "required",
-            "unique", "default", "settings", "retired");
+            "unique", "indexed", "default", "settings", "retired");
     private static final Set<String> SETTING_KEYS = Set.of("maxLength", "digits", "precision", "scale", "values",
             "targetObject", "expression", "resultType", "prefix", "startAt", "width", "onDelete", "reparentable",
             "listLabel");
@@ -199,15 +199,18 @@ final class StandardMetadataLoader {
             FieldSettings settings = settings(node);
             FieldRules.Context context = new FieldRules.Context(objectNames::contains, objectApiName, true, 0,
                     MAX_PICKLIST_VALUES, SYNTAX);
+            boolean indexed;
             FieldRules.Checked checked;
             try {
                 checked = FieldRules.check(type, node.flag("required", false), node.flag("unique", false),
                         node.optionalScalar("default"), settings, context);
+                indexed = FieldRules.checkIndexed(type, node.flag("indexed", false));
             } catch (ApiException e) {
                 throw new IllegalStateException(where + ": " + e.fields());
             }
             return new FieldDefinition(objectApiName, apiName, label, description, kind, type, checked.required(),
-                    checked.unique(), checked.defaultValue(), checked.configuration(), node.flag("retired", false), 0);
+                    checked.unique(), checked.defaultValue(), checked.configuration(), node.flag("retired", false), 0,
+                    indexed);
         }
 
         private FieldSettings settings(YamlNode field) {

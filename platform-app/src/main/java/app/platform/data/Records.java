@@ -81,13 +81,27 @@ public interface Records {
     void purge(String objectApiName, UUID id);
 
     /**
-     * One page of the live records of the object in identifier order. No filter and no sorting: the query engine is
-     * Sprint 16.
+     * One page of the live records of the object in identifier order, read through the same stages as {@link #query}
+     * (field permissions, record security, the plan) with no filter and no order.
      *
      * @param after the identifier of the last record of the previous page, or null for the first page
      * @param limit the page size, at least 1
      */
     RecordSlice list(String objectApiName, UUID after, int limit);
+
+    /**
+     * Answers a question put to the records of the object: a filter, an order, the fields to bring and the links to
+     * follow, one page at a time (Sprint 16, ADR-0100). The query is a closed model, checked against the metadata and
+     * against what the member may read (a field they may not read is a field that does not exist), planned, and turned
+     * into a parameterized statement by the storage; nothing a person sends is ever run as code or spliced into a
+     * statement. A question that would read every record of a large object is refused with the fields to flag as
+     * indexed (ADR-0105). There is no total in the answer.
+     *
+     * @throws app.platformapi.ApiException {@code NOT_FOUND} for an object the caller may not use or that the store
+     *         does not hold, {@code VALIDATION_ERROR} listing every problem of the first stage that found any, each
+     *         with its place
+     */
+    QueryResult query(String objectApiName, RecordQuery query);
 
     /**
      * One page of the records in the recycle bin of the object, in identifier order; needs the permission to delete

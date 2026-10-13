@@ -23,12 +23,13 @@ class MetadataStore {
 
     /** A field of the organization; {@code config} is the stored settings text. */
     record FieldRow(UUID id, String objectApiName, String apiName, String label, String description, String dataType,
-            boolean required, boolean unique, String defaultValue, String config, int sortOrder, long version) {
+            boolean required, boolean unique, boolean indexed, String defaultValue, String config, int sortOrder,
+            long version) {
     }
 
     private static final String OBJECT_COLUMNS = "id, api_name, label, plural_label, description, version";
     private static final String FIELD_COLUMNS = "id, object_api_name, api_name, label, description, data_type, "
-            + "required, is_unique, default_value, cast(config as text) as config, sort_order, version";
+            + "required, is_unique, is_indexed, default_value, cast(config as text) as config, sort_order, version";
 
     private final JdbcClient jdbc;
 
@@ -127,27 +128,30 @@ class MetadataStore {
     }
 
     FieldRow insertField(String objectApiName, String apiName, String label, String description, String dataType,
-            boolean required, boolean unique, String defaultValue, String config, int sortOrder, UUID actor) {
+            boolean required, boolean unique, boolean indexed, String defaultValue, String config, int sortOrder,
+            UUID actor) {
         return jdbc.sql("insert into field_definition (object_api_name, api_name, label, description, data_type, "
-                        + "required, is_unique, default_value, config, sort_order, created_by, updated_by) "
-                        + "values (:object, :name, :label, :description, :type, :required, :unique, :default, "
+                        + "required, is_unique, is_indexed, default_value, config, sort_order, created_by, updated_by) "
+                        + "values (:object, :name, :label, :description, :type, :required, :unique, :indexed, "
+                        + ":default, "
                         + "cast(:config as jsonb), :sort, :actor, :actor) returning " + FIELD_COLUMNS)
                 .param("object", objectApiName).param("name", apiName).param("label", label)
                 .param("description", description).param("type", dataType).param("required", required)
-                .param("unique", unique).param("default", defaultValue).param("config", config)
-                .param("sort", sortOrder).param("actor", actor)
+                .param("unique", unique).param("indexed", indexed).param("default", defaultValue)
+                .param("config", config).param("sort", sortOrder).param("actor", actor)
                 .query(MetadataStore::fieldRow).single();
     }
 
     /** Changes the field when it still has the version the caller read; false when it does not. */
     boolean updateField(UUID id, long version, String label, String description, boolean required, boolean unique,
-            String defaultValue, String config, UUID actor) {
+            boolean indexed, String defaultValue, String config, UUID actor) {
         return jdbc.sql("update field_definition set label = :label, description = :description, "
-                        + "required = :required, is_unique = :unique, default_value = :default, "
+                        + "required = :required, is_unique = :unique, is_indexed = :indexed, default_value = :default, "
                         + "config = cast(:config as jsonb), version = version + 1, updated_by = :actor "
                         + "where id = :id and version = :version and deleted_at is null")
                 .param("label", label).param("description", description).param("required", required)
-                .param("unique", unique).param("default", defaultValue).param("config", config)
+                .param("unique", unique).param("indexed", indexed).param("default", defaultValue)
+                .param("config", config)
                 .param("actor", actor).param("id", id).param("version", version).update() == 1;
     }
 
@@ -187,6 +191,7 @@ class MetadataStore {
         return new FieldRow(rs.getObject("id", UUID.class), rs.getString("object_api_name"),
                 rs.getString("api_name"), rs.getString("label"), rs.getString("description"),
                 rs.getString("data_type"), rs.getBoolean("required"), rs.getBoolean("is_unique"),
+                rs.getBoolean("is_indexed"),
                 rs.getString("default_value"), rs.getString("config"), rs.getInt("sort_order"),
                 rs.getLong("version"));
     }

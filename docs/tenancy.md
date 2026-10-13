@@ -376,3 +376,22 @@ organization, nothing else. `WritePipeline` collects every implementation; no mo
 
 **Tests (Sprint 15A).** `RecordTypeAssignmentsIT` (the API and the lifecycle: the rule, defaults, every refusal, the dependency with the type, a deleted profile, a change set, the rollback, who may do what),
 `RecordTypeProfilesOnRecordsIT` (what a write does with a profile), `UserLinksIT` (the directory), `MetadataSnapshotRecordTypesTest` and `RecordTypeCheckTest` (no database); the isolation harness lists `record_type_assignment`.
+
+## Querying records, typed copies, links and limits (Sprint 16)
+
+Contributor notes; the decisions are ADR-0100 to ADR-0108.
+
+**New tables (all tenant-scoped, forced row level security, in `TenantScopedTables` and checked by `SchemaConventionsIT`).**
+`field_slot` (V041): which field holds which slot of `object_record`, and its state. `record_link` (V042): who points at whom. `link_index` (V042): whether the pointers are complete for older records. `object_record` grew eleven slot columns (V041) and `deleted_with` (V042).
+
+**Reading records.** Call `Records.query` or `Records.list`. Never write a statement against `object_record` outside `JsonbRecordStorage` (a test fails the build). The storage builds statements for a query from a `QueryPlan` (`JsonbQuerySql`); names and values are parameters. A comparison is defined once, for both the indexed and the unindexed path (ADR-0103).
+
+**Writing records.** Every write goes through `WritePipeline`, which calls `RecordSlots.copyIndexed` (takes the shared advisory lock of the object and answers the typed copies), then the storage writes the copies in the same statement, then `RecordLinks.sync` keeps the pointers. A restore goes through `RecordRemoval.restore` (copies computed again, pointers checked and written again). Do not add a path that bypasses these.
+
+**Maintenance of the copies and the pointers** runs in the organization's own tenant context, one transaction per batch, with no system scope: `IndexBackfill` (also calls `LinkBackfill`). The sweep runs on every instance; a batch is taken under a lock so two instances share the work. Tests drive it with `IndexBackfill.workOn(tenant)`; the outbox relay is off in tests, so the published-change event does not arrive and the sweep's own reconciliation is what runs (that is also the repair path in production).
+
+**The row guard exception.** An update that changes slot columns and nothing else keeps the version (`platform_record_only_slots_changed`). If you add a column to `object_record`, add it to that function in the same migration and keep `SlotGuardAndSeamIT` green.
+
+**Limits.** `OrganizationLimits.requestFilter()` is added to the API security chain after `UserContextFilter`; `TenantSessionListener` sets `statement_timeout` per transaction (5 s reading, 30 s changing, per organization overrides). In tests the numbers are out of the way (`application-test.yml`); `OrganizationLimitsIT` starts an instance with small ones.
+
+**A new indexable kind or comparison.** Slot kind: `SlotClass`, `SlotColumn`, a migration for the columns and their partial index, the conversion in `SlotColumn.fromParameter` / `fromPayload`, a case in `QueryDifferentialIT`. Comparison: see the engineering guide.

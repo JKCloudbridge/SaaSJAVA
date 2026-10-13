@@ -1,6 +1,8 @@
 package app.platform.data.internal;
 
 import app.platform.data.DataRecord;
+import app.platform.data.QueryPlan;
+import app.platform.data.SlotCopy;
 import app.platform.data.StorageStrategy;
 import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiException;
@@ -9,12 +11,17 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -29,7 +36,9 @@ import org.springframework.stereotype.Repository;
  * database's row level security, which is forced on the table: forgetting the filter would show nothing, not everything
  * (ADR-0003).
  *
- * <p>The typed copies of indexed fields ("slots") exist in the table and are not used before Sprint 16.
+ * <p>The typed copies of indexed fields ("slots") are written in the same statement as the record (ADR-0102); the
+ * statements that fill and empty them for records that already exist are here too, because only this class names the
+ * table.
  */
 @Repository
 class JsonbRecordStorage implements StorageStrategy {
@@ -38,10 +47,20 @@ class JsonbRecordStorage implements StorageStrategy {
             + "cast(payload as text) as payload, version, created_at, created_by, updated_at, updated_by, "
             + "deleted_at, deleted_by";
 
+    private static final String SLOT_COLUMNS = Arrays.stream(SlotColumn.values()).map(SlotColumn::column)
+            .collect(Collectors.joining(", "));
+
+    private static final String SLOT_VALUES = Arrays.stream(SlotColumn.values())
+            .map(slot -> slot.fromParameter(slot.column())).collect(Collectors.joining(", "));
+
+    private static final String SLOT_ASSIGNMENTS = Arrays.stream(SlotColumn.values())
+            .map(slot -> slot.column() + " = " + slot.fromParameter(slot.column()))
+            .collect(Collectors.joining(", "));
+
     private static final String INSERT = "insert into object_record "
-            + "(tenant_id, object_api_name, record_type, owner_id, payload, created_by, updated_by) "
-            + "values (:tenant, :object, cast(:type as text), :owner, cast(:payload as jsonb), :actor, :actor) "
-            + "returning " + COLUMNS;
+            + "(tenant_id, object_api_name, record_type, owner_id, payload, created_by, updated_by, " + SLOT_COLUMNS
+            + ") values (:tenant, :object, cast(:type as text), :owner, cast(:payload as jsonb), :actor, :actor, "
+            + SLOT_VALUES + ") returning " + COLUMNS;
 
     private static final String FIND = "select " + COLUMNS + " from object_record "
             + "where tenant_id = :tenant and object_api_name = :object and id = :id";
@@ -49,7 +68,7 @@ class JsonbRecordStorage implements StorageStrategy {
     // A null in the patch removes the field: the merge puts the null in, and stripping the nulls takes the key out.
     private static final String UPDATE = "update object_record "
             + "set payload = jsonb_strip_nulls(payload || cast(:patch as jsonb)), record_type = cast(:type as text), "
-            + "version = version + 1, "
+            + SLOT_ASSIGNMENTS + ", version = version + 1, "
             + "updated_by = :actor "
             + "where tenant_id = :tenant and object_api_name = :object and id = :id and version = :version "
             + "and deleted_at is null returning " + COLUMNS;
@@ -58,13 +77,40 @@ class JsonbRecordStorage implements StorageStrategy {
     private static final String LIVE_IDS = "select id from object_record where tenant_id = :tenant "
             + "and object_api_name = :object and deleted_at is null and id in (:ids)";
 
-    private static final String SOFT_DELETE ="update object_record "
+    private static final String LIVE_RECORDS = "select " + COLUMNS + " from object_record where tenant_id = :tenant "
+            + "and object_api_name = :object and deleted_at is null and id in (:ids)";
+
+    private static final String SOFT_DELETE = "update object_record "
             + "set deleted_at = now(), deleted_by = :actor, version = version + 1, updated_by = :actor "
             + "where tenant_id = :tenant and object_api_name = :object and id = :id and deleted_at is null "
             + "returning " + COLUMNS;
 
+    private static final String SOFT_DELETE_WITH = "update object_record "
+            + "set deleted_at = now(), deleted_by = :actor, deleted_with = :with, version = version + 1, "
+            + "updated_by = :actor "
+            + "where tenant_id = :tenant and object_api_name = :object and id = :id and deleted_at is null "
+            + "returning " + COLUMNS;
+
+    private static final String REMOVED_WITH = "select object_api_name, id from object_record "
+            + "where tenant_id = :tenant and deleted_with = :with and deleted_at is not null limit :limit";
+
+    // The records are locked (for share) while their pointers are read: a change that runs at the same time either
+    // finishes first and is read, or waits, so a pointer that is no longer true is never written. The pointers of a
+    // record are found by the unique index of record_link: a record that has one already is left alone.
+    private static final String BACKFILL_LINKS = "with batch as (select id, payload from object_record "
+            + "where tenant_id = :tenant and object_api_name = :object and deleted_at is null and id > :after "
+            + "order by id limit :limit for share), written as (insert into record_link (tenant_id, source_object, "
+            + "source_record, field_api_name, target_object, target_record, created_by, updated_by) "
+            + "select :tenant, :object, id, :field, :target, cast(payload ->> cast(:field as text) as uuid), "
+            + ":actor, :actor from batch where pg_input_is_valid(payload ->> cast(:field as text), 'uuid') "
+            + "on conflict (tenant_id, source_record, field_api_name) where deleted_at is null do nothing "
+            + "returning 1) select (select count(*) from batch) as processed, "
+            + "(select id from batch order by id desc limit 1) as last_id";
+
     private static final String RESTORE = "update object_record "
-            + "set deleted_at = null, deleted_by = null, version = version + 1, updated_by = :actor "
+            + "set deleted_at = null, deleted_by = null, deleted_with = null, version = version + 1, "
+            + "updated_by = :actor, "
+            + SLOT_ASSIGNMENTS + " "
             + "where tenant_id = :tenant and object_api_name = :object and id = :id and deleted_at is not null "
             + "returning " + COLUMNS;
 
@@ -102,6 +148,44 @@ class JsonbRecordStorage implements StorageStrategy {
             + "and deleted_at < now() - make_interval(secs => :seconds) order by deleted_at limit :limit) "
             + "returning object_api_name, id";
 
+
+    private static final UUID NIL = new UUID(0L, 0L);
+
+    // Fills a slot in a batch: the next records in identifier order, the copy computed by the database from the values
+    // (the same conversion a write uses). Only records whose copy differs are written, so a record that carried its own
+    // copy (written meanwhile) costs nothing. The batch reports what it looked at, written or not.
+    private static final Map<SlotColumn, String> FILL = statements(slot -> "with batch as (select id "
+            + "from object_record where tenant_id = :tenant and object_api_name = :object and deleted_at is null "
+            + "and id > :after order by id limit :limit), written as (update object_record r set " + slot.column()
+            + " = " + slot.fromPayload("field") + " from batch where r.id = batch.id and r.tenant_id = :tenant "
+            + "and r." + slot.column() + " is distinct from " + slot.fromPayload("field") + " returning r.id) "
+            + "select (select count(*) from batch) as processed, "
+            + "(select id from batch order by id desc limit 1) as last_id");
+
+    private static final Map<SlotColumn, String> CLEAR = statements(slot -> "with batch as (select id "
+            + "from object_record where tenant_id = :tenant and object_api_name = :object and deleted_at is null "
+            + "and " + slot.column() + " is not null limit :limit) update object_record r set " + slot.column()
+            + " = null from batch where r.id = batch.id and r.tenant_id = :tenant");
+
+    private static final Map<SlotColumn, String> UNFILLED = statements(slot -> "select exists (select 1 "
+            + "from object_record where tenant_id = :tenant and object_api_name = :object and deleted_at is null "
+            + "and " + slot.column() + " is distinct from " + slot.fromPayload("field") + ")");
+
+    private static final Map<SlotColumn, String> HAS_SLOT_VALUES = statements(slot -> "select exists (select 1 "
+            + "from object_record where tenant_id = :tenant and object_api_name = :object and deleted_at is null "
+            + "and " + slot.column() + " is not null)");
+
+    private static final String LIVE_COUNT = "select count(*) from (select 1 from object_record "
+            + "where tenant_id = :tenant and object_api_name = :object and deleted_at is null limit :cap) live";
+
+    private static Map<SlotColumn, String> statements(Function<SlotColumn, String> builder) {
+        Map<SlotColumn, String> built = new EnumMap<>(SlotColumn.class);
+        for (SlotColumn slot : SlotColumn.values()) {
+            built.put(slot, builder.apply(slot));
+        }
+        return Map.copyOf(built);
+    }
+
     private static final String CHECK_VIOLATION = "23514";
     private static final String PAYLOAD_SIZE_CONSTRAINT = "object_record_payload_size";
 
@@ -117,9 +201,9 @@ class JsonbRecordStorage implements StorageStrategy {
 
     @Override
     public DataRecord insert(String objectApiName, String recordType, UUID ownerId, UUID actor,
-            Map<String, Object> fields) {
+            Map<String, Object> fields, SlotCopy slots) {
         try {
-            return jdbc.sql(INSERT).param("tenant", tenant()).param("object", objectApiName)
+            return slotted(jdbc.sql(INSERT), slots).param("tenant", tenant()).param("object", objectApiName)
                     .param("type", recordType).param("owner", ownerId).param("payload", json.write(fields))
                     .param("actor", actor)
                     .query(this::map).single();
@@ -136,12 +220,12 @@ class JsonbRecordStorage implements StorageStrategy {
 
     @Override
     public DataRecord update(String objectApiName, UUID id, long expectedVersion, String recordType,
-            Map<String, Object> set, List<String> clear, UUID actor) {
+            Map<String, Object> set, List<String> clear, UUID actor, SlotCopy slots) {
         Map<String, Object> patch = new HashMap<>(set);
         clear.forEach(name -> patch.put(name, null));
         try {
-            return jdbc.sql(UPDATE).param("tenant", tenant()).param("object", objectApiName).param("id", id)
-                    .param("version", expectedVersion).param("type", recordType)
+            return slotted(jdbc.sql(UPDATE), slots).param("tenant", tenant()).param("object", objectApiName)
+                    .param("id", id).param("version", expectedVersion).param("type", recordType)
                     .param("patch", json.write(patch)).param("actor", actor)
                     .query(this::map).optional().orElse(null);
         } catch (DataIntegrityViolationException e) {
@@ -159,15 +243,9 @@ class JsonbRecordStorage implements StorageStrategy {
     }
 
     @Override
-    public DataRecord softDelete(String objectApiName, UUID id, UUID actor) {
-        return jdbc.sql(SOFT_DELETE).param("tenant", tenant()).param("object", objectApiName).param("id", id)
-                .param("actor", actor).query(this::map).optional().orElse(null);
-    }
-
-    @Override
-    public DataRecord restore(String objectApiName, UUID id, UUID actor) {
-        return jdbc.sql(RESTORE).param("tenant", tenant()).param("object", objectApiName).param("id", id)
-                .param("actor", actor).query(this::map).optional().orElse(null);
+    public DataRecord restore(String objectApiName, UUID id, UUID actor, SlotCopy slots) {
+        return slotted(jdbc.sql(RESTORE), slots).param("tenant", tenant()).param("object", objectApiName)
+                .param("id", id).param("actor", actor).query(this::map).optional().orElse(null);
     }
 
     @Override
@@ -204,6 +282,138 @@ class JsonbRecordStorage implements StorageStrategy {
                 .param("limit", limit)
                 .query((rs, row) -> new Purged(rs.getString("object_api_name"), rs.getObject("id", UUID.class)))
                 .list();
+    }
+
+    // ---- links between records (ADR-0106) ----
+
+    @Override
+    public DataRecord softDelete(String objectApiName, UUID id, UUID actor, UUID removedWith) {
+        if (removedWith == null) {
+            return jdbc.sql(SOFT_DELETE).param("tenant", tenant()).param("object", objectApiName).param("id", id)
+                    .param("actor", actor).query(this::map).optional().orElse(null);
+        }
+        return jdbc.sql(SOFT_DELETE_WITH).param("tenant", tenant()).param("object", objectApiName).param("id", id)
+                .param("actor", actor).param("with", removedWith).query(this::map).optional().orElse(null);
+    }
+
+    @Override
+    public List<Removed> removedWith(UUID removedWith, int limit) {
+        return jdbc.sql(REMOVED_WITH).param("tenant", tenant()).param("with", removedWith).param("limit", limit)
+                .query((rs, row) -> new Removed(rs.getString("object_api_name"), rs.getObject("id", UUID.class)))
+                .list();
+    }
+
+    @Override
+    public Filled backfillLinks(String objectApiName, String fieldApiName, String targetObject, UUID after,
+            int limit, UUID actor) {
+        return jdbc.sql(BACKFILL_LINKS).param("tenant", tenant()).param("object", objectApiName)
+                .param("field", fieldApiName).param("target", targetObject)
+                .param("after", after == null ? NIL : after).param("limit", limit).param("actor", actor)
+                .query((rs, row) -> new Filled(rs.getInt("processed"), rs.getObject("last_id", UUID.class)))
+                .single();
+    }
+
+    // ---- queries (ADR-0100) ----
+
+    @Override
+    public List<StoredRow> query(QueryPlan plan) {
+        JsonbQuerySql.Built built = JsonbQuerySql.build(plan);
+        List<StoredRow> rows = new ArrayList<>();
+        for (JsonbQuerySql.Phase phase : built.phases()) {
+            int wanted = plan.limit() - rows.size();
+            if (wanted <= 0) {
+                break;
+            }
+            String statement = "select " + COLUMNS + built.sortSelect() + " from object_record "
+                    + "where tenant_id = :tenant and object_api_name = :object and deleted_at is null and "
+                    + built.filter() + " and (" + phase.where() + ") order by " + phase.order() + " limit :limit";
+            JdbcClient.StatementSpec spec = jdbc.sql(statement).param("tenant", tenant())
+                    .param("object", plan.objectApiName()).param("limit", wanted);
+            for (Map.Entry<String, Object> parameter : built.params().entrySet()) {
+                spec = spec.param(parameter.getKey(), parameter.getValue());
+            }
+            int keys = plan.order().size();
+            rows.addAll(spec.query((rs, row) -> new StoredRow(map(rs, row), sortValues(rs, keys))).list());
+        }
+        return rows;
+    }
+
+    @Override
+    public List<DataRecord> liveRecords(String objectApiName, Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql(LIVE_RECORDS).param("tenant", tenant()).param("object", objectApiName)
+                .param("ids", List.copyOf(ids)).query(this::map).list();
+    }
+
+
+    /** The statement of an update, for the benchmark harness (it measures the statement the application sends). */
+    static String updateStatement() {
+        return UPDATE;
+    }
+
+    /** The statement of an insert, for the benchmark harness. */
+    static String insertStatement() {
+        return INSERT;
+    }
+
+    private static List<String> sortValues(ResultSet rs, int keys) throws SQLException {
+        List<String> values = new ArrayList<>();
+        for (int index = 0; index < keys; index++) {
+            values.add(rs.getString("sort_" + index));
+        }
+        return values;
+    }
+
+    // ---- the maintenance of the typed copies (ADR-0101, ADR-0102) ----
+
+    @Override
+    public Filled fillSlot(String objectApiName, String fieldApiName, String slotColumn, UUID after, int limit) {
+        SlotColumn slot = slot(slotColumn);
+        JdbcClient.StatementSpec spec = jdbc.sql(FILL.get(slot)).param("tenant", tenant())
+                .param("object", objectApiName).param("field", fieldApiName)
+                .param("after", after == null ? NIL : after).param("limit", limit);
+        return spec.query((rs, row) -> new Filled(rs.getInt("processed"), rs.getObject("last_id", UUID.class)))
+                .single();
+    }
+
+    @Override
+    public int clearSlot(String objectApiName, String slotColumn, int limit) {
+        return jdbc.sql(CLEAR.get(slot(slotColumn))).param("tenant", tenant()).param("object", objectApiName)
+                .param("limit", limit).update();
+    }
+
+    @Override
+    public boolean hasUnfilledSlot(String objectApiName, String fieldApiName, String slotColumn) {
+        return jdbc.sql(UNFILLED.get(slot(slotColumn))).param("tenant", tenant()).param("object", objectApiName)
+                .param("field", fieldApiName).query(Boolean.class).single();
+    }
+
+    @Override
+    public boolean hasSlotValues(String objectApiName, String slotColumn) {
+        return jdbc.sql(HAS_SLOT_VALUES.get(slot(slotColumn))).param("tenant", tenant())
+                .param("object", objectApiName).query(Boolean.class).single();
+    }
+
+    @Override
+    public int liveCountUpTo(String objectApiName, int cap) {
+        return jdbc.sql(LIVE_COUNT).param("tenant", tenant()).param("object", objectApiName).param("cap", cap)
+                .query(Integer.class).single();
+    }
+
+    /** The slot with this column name: the name must come from the index policy, never from a request. */
+    private static SlotColumn slot(String column) {
+        return SlotColumn.byColumn(column).orElseThrow(() -> new IllegalArgumentException("not a slot column"));
+    }
+
+    /** Adds the twenty-two slot parameters of a write: the copies given, and an empty value for every other slot. */
+    private static JdbcClient.StatementSpec slotted(JdbcClient.StatementSpec spec, SlotCopy slots) {
+        JdbcClient.StatementSpec bound = spec;
+        for (SlotColumn slot : SlotColumn.values()) {
+            bound = bound.param(slot.column(), slots.columns().get(slot.column()));
+        }
+        return bound;
     }
 
     private List<DataRecord> page(String statement, String objectApiName, UUID after, int limit) {

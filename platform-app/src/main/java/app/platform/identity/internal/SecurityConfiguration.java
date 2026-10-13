@@ -1,5 +1,6 @@
 package app.platform.identity.internal;
 
+import app.platform.tenant.OrganizationLimits;
 import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiPaths;
 import jakarta.servlet.FilterChain;
@@ -139,7 +140,8 @@ class SecurityConfiguration {
     @Order(2)
     SecurityFilterChain apiChain(HttpSecurity http, AuthorizationStore store, TenantContexts contexts,
             MembershipGate gate, AuthAudit audit, PlatformRoleRepository platformRoles, Clock clock,
-            @Qualifier("handlerExceptionResolver") HandlerExceptionResolver errors, IdentityProperties properties)
+            @Qualifier("handlerExceptionResolver") HandlerExceptionResolver errors, IdentityProperties properties,
+            OrganizationLimits limits)
             throws Exception {
         ApiSecurityHandlers.EntryPoint entryPoint = new ApiSecurityHandlers.EntryPoint(errors);
         ApiSecurityHandlers.Denied denied = new ApiSecurityHandlers.Denied(errors);
@@ -179,7 +181,9 @@ class SecurityConfiguration {
                 // The cookie becomes a header only after the forgery check, so a cookie alone never skips that check.
                 .addFilterBefore(new TokenAuthentication.CookieTokenFilter(SecurityConfiguration::isPublic),
                         BearerTokenAuthenticationFilter.class)
-                .addFilterAfter(new UserContextFilter(contexts), BearerTokenAuthenticationFilter.class);
+                .addFilterAfter(new UserContextFilter(contexts), BearerTokenAuthenticationFilter.class)
+                // Once the caller is a known member: a stranger cannot use up an organization's turns (ADR-0108).
+                .addFilterAfter(limits.requestFilter(), UserContextFilter.class);
         return http.build();
     }
 

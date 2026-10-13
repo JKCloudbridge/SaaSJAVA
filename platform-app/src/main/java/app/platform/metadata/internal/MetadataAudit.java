@@ -156,10 +156,11 @@ class MetadataAudit {
                 .with("items", Integer.toString(items)));
     }
 
-    void fieldCreated(UUID actor, String object, String field, String type, boolean required, boolean unique) {
+    void fieldCreated(UUID actor, String object, String field, String type, boolean required, boolean unique,
+            boolean indexed) {
         write(AuditRecord.of("metadata.field.created", AuditOutcome.SUCCESS).forUser(actor)
                 .onObject(object + "." + field, null).with("type", type).with("required", Boolean.toString(required))
-                .with("unique", Boolean.toString(unique)));
+                .with("unique", Boolean.toString(unique)).with("indexed", Boolean.toString(indexed)));
     }
 
     void fieldUpdated(UUID actor, String object, String field, String changed, String before, String after) {

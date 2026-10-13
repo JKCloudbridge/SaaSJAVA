@@ -4822,9 +4822,47 @@
         "tags" : [ "Metadata" ]
       }
     },
+    "/api/v1/objects/{objectApiName}/index-status" : {
+      "get" : {
+        "description" : "For each field flagged as indexed (and each field whose index is being removed): waiting, filling with the number of records done, complete, or clearing. Queries use a field's index only when it is complete. Needs the ability to view metadata. Organization hosts only. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "operationId" : "getObjectIndexStatus",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseObjectIndexStatusView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Where the indexed fields of an object stand",
+        "tags" : [ "Records" ]
+      }
+    },
     "/api/v1/objects/{objectApiName}/records" : {
       "get" : {
-        "description" : "One page at a time by the cursor of the previous page. No filter and no sorting: those are the query engine of Sprint 16. Until record-level security (Sprint 17) a member who may read the object reads every record of it in the organization. Fields the caller may not read are left out of every record. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "description" : "One page at a time by the cursor of the previous page. For a filter, an order or links use the query endpoint. Until record-level security (Sprint 17) a member who may read the object reads every record of it in the organization. Fields the caller may not read are left out of every record. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
         "operationId" : "listRecords",
         "parameters" : [ {
           "in" : "path",
@@ -4922,6 +4960,54 @@
           }
         },
         "summary" : "Create a record of an object",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/records/query" : {
+      "post" : {
+        "description" : "The body is a query model, never SQL: a tree of conditions (AND, OR, and comparisons by the kind of field), at most two sort keys, the fields to bring and the links to follow (one level). Names are looked up in the metadata and values are data. A field the caller may not read is answered like a field that does not exist, in a filter, an order, a field list or a link, so the answer never reveals what the caller may not see; records leave out such fields. The first stage that finds problems answers VALIDATION_ERROR with all its problems and their places, in the order: shape, fields, operators and values. A filter or an order on a field without a complete index is allowed only on an object with few records; on a larger one the answer is VALIDATION_ERROR at 'query' saying which field to flag as indexed (or which condition to add), never a slow request. A formula field cannot be used in a filter or an order yet. Records without a value come last in both directions; ties are broken by the identifier. There is no total: the page says whether another follows and gives a cursor that is good only for the same query. Not built yet: record-level security (Sprint 17), uniqueness (Sprint 16A). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "operationId" : "queryRecords",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/QueryRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiPageResponseQueriedRecordView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Ask a question of the records of an object: filter, order, fields, links, one page at a time",
         "tags" : [ "Records" ]
       }
     },
@@ -7279,6 +7365,21 @@
         },
         "required" : [ "data", "pagination" ]
       },
+      "ApiPageResponseQueriedRecordView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/QueriedRecordView"
+            }
+          },
+          "pagination" : {
+            "$ref" : "#/components/schemas/Pagination"
+          }
+        },
+        "required" : [ "data", "pagination" ]
+      },
       "ApiPageResponseRecordView" : {
         "type" : "object",
         "properties" : {
@@ -7809,6 +7910,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/MemberAccessView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseObjectIndexStatusView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ObjectIndexStatusView"
           }
         },
         "required" : [ "data" ]
@@ -8456,6 +8566,9 @@
             "maxLength" : 500,
             "minLength" : 0
           },
+          "indexed" : {
+            "type" : "boolean"
+          },
           "label" : {
             "type" : "string",
             "maxLength" : 80,
@@ -8924,6 +9037,25 @@
         },
         "required" : [ "outcome" ]
       },
+      "FieldIndexStatusView" : {
+        "type" : "object",
+        "properties" : {
+          "field" : {
+            "type" : "string"
+          },
+          "flagged" : {
+            "type" : "boolean"
+          },
+          "recordsDone" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "state" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "field", "flagged", "recordsDone", "state" ]
+      },
       "FieldNameShape" : {
         "type" : "string",
         "description" : "The API name of a field.",
@@ -9048,6 +9180,9 @@
             "type" : "string"
           },
           "editable" : {
+            "type" : "boolean"
+          },
+          "indexed" : {
             "type" : "boolean"
           },
           "kind" : {
@@ -9525,6 +9660,19 @@
         },
         "required" : [ "reason" ]
       },
+      "LinkedRecordView" : {
+        "type" : "object",
+        "properties" : {
+          "fields" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "id" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "fields", "id" ]
+      },
       "MemberAccessView" : {
         "type" : "object",
         "properties" : {
@@ -9772,6 +9920,28 @@
           }
         },
         "required" : [ "type" ]
+      },
+      "ObjectIndexStatusView" : {
+        "type" : "object",
+        "properties" : {
+          "fields" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldIndexStatusView"
+            }
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "slots" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
+          }
+        },
+        "required" : [ "fields", "objectApiName", "slots" ]
       },
       "ObjectNameShape" : {
         "type" : "string",
@@ -10419,6 +10589,129 @@
           }
         },
         "required" : [ "displayName", "email", "planKey", "slug" ]
+      },
+      "QueriedRecordView" : {
+        "type" : "object",
+        "properties" : {
+          "linked" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/LinkedRecordView"
+            }
+          },
+          "record" : {
+            "$ref" : "#/components/schemas/RecordView"
+          }
+        },
+        "required" : [ "linked", "record" ]
+      },
+      "QueryFilterNode" : {
+        "type" : "object",
+        "properties" : {
+          "field" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/QueryFilterNode"
+            }
+          },
+          "op" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "values" : {
+            "type" : "array",
+            "items" : { },
+            "maxItems" : 1000,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "op" ]
+      },
+      "QueryLinkRequest" : {
+        "type" : "object",
+        "properties" : {
+          "field" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "fields" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 80,
+              "minLength" : 0
+            },
+            "maxItems" : 100,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "field", "fields" ]
+      },
+      "QueryRequest" : {
+        "type" : "object",
+        "properties" : {
+          "cursor" : {
+            "type" : "string",
+            "maxLength" : 4096,
+            "minLength" : 0
+          },
+          "fields" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 80,
+              "minLength" : 0
+            },
+            "maxItems" : 500,
+            "minItems" : 0
+          },
+          "filter" : {
+            "$ref" : "#/components/schemas/QueryFilterNode"
+          },
+          "limit" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 1000,
+            "minimum" : 1
+          },
+          "resolve" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/QueryLinkRequest"
+            },
+            "maxItems" : 500,
+            "minItems" : 0
+          },
+          "sort" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/QuerySortKey"
+            },
+            "maxItems" : 2,
+            "minItems" : 0
+          }
+        }
+      },
+      "QuerySortKey" : {
+        "type" : "object",
+        "properties" : {
+          "descending" : {
+            "type" : "boolean"
+          },
+          "field" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "field" ]
       },
       "ReasonRequest" : {
         "type" : "object",
@@ -11241,6 +11534,9 @@
             "type" : "string",
             "maxLength" : 500,
             "minLength" : 0
+          },
+          "indexed" : {
+            "type" : "boolean"
           },
           "label" : {
             "type" : "string",

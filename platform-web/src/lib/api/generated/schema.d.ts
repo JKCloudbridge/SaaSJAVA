@@ -1868,6 +1868,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/objects/{objectApiName}/index-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where the indexed fields of an object stand
+         * @description For each field flagged as indexed (and each field whose index is being removed): waiting, filling with the number of records done, complete, or clearing. Queries use a field's index only when it is complete. Needs the ability to view metadata. Organization hosts only. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         */
+        get: operations["getObjectIndexStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/objects/{objectApiName}/records": {
         parameters: {
             query?: never;
@@ -1877,7 +1897,7 @@ export interface paths {
         };
         /**
          * The live records of an object, in identifier order
-         * @description One page at a time by the cursor of the previous page. No filter and no sorting: those are the query engine of Sprint 16. Until record-level security (Sprint 17) a member who may read the object reads every record of it in the organization. Fields the caller may not read are left out of every record. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         * @description One page at a time by the cursor of the previous page. For a filter, an order or links use the query endpoint. Until record-level security (Sprint 17) a member who may read the object reads every record of it in the organization. Fields the caller may not read are left out of every record. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
          */
         get: operations["listRecords"];
         put?: never;
@@ -1886,6 +1906,26 @@ export interface paths {
          * @description The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. Unique fields are not yet enforced (Sprint 16), and there is no record-level security (Sprint 17). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN for a caller who may read the object but not create in it. The caller owns the record. The answer leaves out the fields the caller may not read. Audited and announced by object, identifier, version and field names, never by values.
          */
         post: operations["createRecord"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/records/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask a question of the records of an object: filter, order, fields, links, one page at a time
+         * @description The body is a query model, never SQL: a tree of conditions (AND, OR, and comparisons by the kind of field), at most two sort keys, the fields to bring and the links to follow (one level). Names are looked up in the metadata and values are data. A field the caller may not read is answered like a field that does not exist, in a filter, an order, a field list or a link, so the answer never reveals what the caller may not see; records leave out such fields. The first stage that finds problems answers VALIDATION_ERROR with all its problems and their places, in the order: shape, fields, operators and values. A filter or an order on a field without a complete index is allowed only on an object with few records; on a larger one the answer is VALIDATION_ERROR at 'query' saying which field to flag as indexed (or which condition to add), never a slow request. A formula field cannot be used in a filter or an order yet. Records without a value come last in both directions; ties are broken by the identifier. There is no total: the page says whether another follows and gives a cursor that is good only for the same query. Not built yet: record-level security (Sprint 17), uniqueness (Sprint 16A). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         */
+        post: operations["queryRecords"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2833,6 +2873,10 @@ export interface components {
             data: components["schemas"]["PlatformOrganizationSummary"][];
             pagination: components["schemas"]["Pagination"];
         };
+        ApiPageResponseQueriedRecordView: {
+            data: components["schemas"]["QueriedRecordView"][];
+            pagination: components["schemas"]["Pagination"];
+        };
         ApiPageResponseRecordView: {
             data: components["schemas"]["RecordView"][];
             pagination: components["schemas"]["Pagination"];
@@ -2980,6 +3024,9 @@ export interface components {
         };
         ApiResponseMemberAccessView: {
             data: components["schemas"]["MemberAccessView"];
+        };
+        ApiResponseObjectIndexStatusView: {
+            data: components["schemas"]["ObjectIndexStatusView"];
         };
         ApiResponseObjectRelationshipsView: {
             data: components["schemas"]["ObjectRelationshipsView"];
@@ -3184,6 +3231,7 @@ export interface components {
         CreateFieldRequest: {
             defaultValue?: string;
             description?: string;
+            indexed?: boolean;
             label: string;
             name: string;
             required?: boolean;
@@ -3315,6 +3363,13 @@ export interface components {
             type?: string;
             value?: string;
         };
+        FieldIndexStatusView: {
+            field: string;
+            flagged: boolean;
+            /** Format: int64 */
+            recordsDone: number;
+            state: string;
+        };
         /** @description The API name of a field. */
         FieldNameShape: string;
         FieldSettings: {
@@ -3355,6 +3410,7 @@ export interface components {
             defaultValue?: string;
             description: string;
             editable: boolean;
+            indexed?: boolean;
             kind: string;
             label: string;
             problem?: string;
@@ -3520,6 +3576,12 @@ export interface components {
             confirm?: string;
             reason: string;
         };
+        LinkedRecordView: {
+            fields: {
+                [key: string]: unknown;
+            };
+            id: string;
+        };
         MemberAccessView: {
             abilities: string[];
             data: components["schemas"]["DataAccessView"];
@@ -3580,6 +3642,13 @@ export interface components {
             /** @enum {string} */
             type: "OBJECT" | "RECORD_PAGE" | "LINK" | "HEADING";
         } & (unknown & unknown & unknown & unknown);
+        ObjectIndexStatusView: {
+            fields: components["schemas"]["FieldIndexStatusView"][];
+            objectApiName: string;
+            slots: {
+                [key: string]: number;
+            };
+        };
         /** @description The API name of an object. */
         ObjectNameShape: string;
         ObjectRelationshipsView: {
@@ -3756,6 +3825,35 @@ export interface components {
             email: string;
             planKey: string;
             slug: string;
+        };
+        QueriedRecordView: {
+            linked: {
+                [key: string]: components["schemas"]["LinkedRecordView"];
+            };
+            record: components["schemas"]["RecordView"];
+        };
+        QueryFilterNode: {
+            field?: string;
+            items?: components["schemas"]["QueryFilterNode"][];
+            op: string;
+            values?: unknown[];
+        };
+        QueryLinkRequest: {
+            field: string;
+            fields: string[];
+        };
+        QueryRequest: {
+            cursor?: string;
+            fields?: string[];
+            filter?: components["schemas"]["QueryFilterNode"];
+            /** Format: int32 */
+            limit?: number;
+            resolve?: components["schemas"]["QueryLinkRequest"][];
+            sort?: components["schemas"]["QuerySortKey"][];
+        };
+        QuerySortKey: {
+            descending?: boolean;
+            field: string;
         };
         ReasonRequest: {
             reason: string;
@@ -4007,6 +4105,7 @@ export interface components {
         UpdateFieldRequest: {
             defaultValue?: string;
             description?: string;
+            indexed?: boolean;
             label: string;
             required?: boolean;
             settings?: components["schemas"]["FieldSettings"];
@@ -7990,6 +8089,37 @@ export interface operations {
             };
         };
     };
+    getObjectIndexStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseObjectIndexStatusView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     listRecords: {
         parameters: {
             query?: {
@@ -8046,6 +8176,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseRecordView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    queryRecords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QueryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiPageResponseQueriedRecordView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

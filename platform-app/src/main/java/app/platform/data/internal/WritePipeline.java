@@ -1,6 +1,7 @@
 package app.platform.data.internal;
 
 import app.platform.data.DataRecord;
+import app.platform.data.SlotCopy;
 import app.platform.data.StorageStrategy;
 import app.platform.metadata.DefinitionKind;
 import app.platform.metadata.FieldConfiguration.AutoNumberConfiguration;
@@ -64,8 +65,9 @@ class WritePipeline {
      * @param recordType the record type the record has afterwards, or null
      * @param set the values to store, formula results and auto-numbers included
      * @param clear the fields that lose their value
+     * @param slots the typed copies of the indexed fields the record has afterwards (ADR-0102)
      */
-    record Plan(String recordType, Map<String, Object> set, List<String> clear) {
+    record Plan(String recordType, Map<String, Object> set, List<String> clear, SlotCopy slots) {
 
         Plan {
             set = Map.copyOf(set);
@@ -88,11 +90,12 @@ class WritePipeline {
     private final StorageStrategy storage;
     private final Metadata metadata;
     private final RecordSlots slots;
+    private final RecordLinks recordLinks;
     private final Map<String, ReferenceDirectory> directories;
 
     WritePipeline(RecordValues shape, RecordTypeCheck recordTypes, FieldSecurity security,
             Calculations calculations, AutoNumbers autoNumbers, StorageStrategy storage, Metadata metadata,
-            RecordSlots slots, List<ReferenceDirectory> directories) {
+            RecordSlots slots, RecordLinks recordLinks, List<ReferenceDirectory> directories) {
         this.shape = shape;
         this.recordTypes = recordTypes;
         this.security = security;
@@ -101,6 +104,7 @@ class WritePipeline {
         this.storage = storage;
         this.metadata = metadata;
         this.slots = slots;
+        this.recordLinks = recordLinks;
         Map<String, ReferenceDirectory> byObject = new HashMap<>();
         directories.forEach(directory -> byObject.put(directory.object(), directory));
         this.directories = Map.copyOf(byObject);
@@ -180,6 +184,10 @@ class WritePipeline {
         // 6. relationship
         Findings links = new Findings();
         checkLinks(object, typed, held, links);
+        if (links.isEmpty() && RecordLinks.isJunction(object) && masterChanged(object, typed, held)
+                && recordLinks.pairTaken(object, merged, current == null ? null : current.id())) {
+            links.add(RecordLinks.masterDetails(object).get(1).apiName(), "These two records are already linked.");
+        }
         links.throwIfAny();
 
         // 7. rules (a rule that reads a formula field judges the value this save gives it)
@@ -221,8 +229,8 @@ class WritePipeline {
                 after.put(field, result);
             }
         });
-        slots.copyIndexed(object, after);
-        return new Plan(typeName, toStore, toClear);
+        SlotCopy copies = slots.copyIndexed(object, after);
+        return new Plan(typeName, toStore, toClear, copies);
     }
 
     // ---- defaults ----
@@ -278,6 +286,13 @@ class WritePipeline {
     }
 
     // ---- relationships ----
+
+    /** Whether the write sets or moves either master of a junction (only then can the pair be a new one). */
+    private static boolean masterChanged(ObjectDefinition object, Map<String, Object> typed, Map<String, Object> held) {
+        return RecordLinks.masterDetails(object).stream().anyMatch(
+                field -> typed.containsKey(field.apiName())
+                        && !Objects.equals(typed.get(field.apiName()), held.get(field.apiName())));
+    }
 
     private void checkLinks(ObjectDefinition object, Map<String, Object> typed, Map<String, Object> held,
             Findings findings) {

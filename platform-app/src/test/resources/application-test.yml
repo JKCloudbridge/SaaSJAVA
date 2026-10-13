@@ -34,6 +34,13 @@ spring:
 platform:
   tenancy:
     base-domain: platform.example.test
+    # The limits of one organization are far out of the way, so that tests that run many requests at once are not
+    # refused; the tests of the limits themselves set small numbers.
+    limits:
+      max-concurrent: 1000
+      max-waiting: 1000
+      query-timeout: 60s
+      write-timeout: 120s
   notification:
     # Tests drive the relay themselves (pollOnce), or switch it on for the one context that wants it to poll.
     enabled: false

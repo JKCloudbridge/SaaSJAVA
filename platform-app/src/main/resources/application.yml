@@ -167,6 +167,20 @@ platform:
     # Take the host name from X-Forwarded-Host instead of Host. Only behind a trusted proxy that overwrites the header
     # on every request; with the API reachable directly a caller could name any organization host.
     trust-forwarded-host: ${PLATFORM_TRUST_FORWARDED_HOST:false}
+    # What one organization may take from a shared database (ADR-0108). max-concurrent is deliberately below the size of
+    # the connection pool (PLATFORM_DB_POOL_SIZE, 10 by default): an organization at its limit leaves connections for
+    # the others. A request over the limit waits up to max-wait (only max-waiting may wait) and is then refused with
+    # 429. The statement limits are set in the database for each transaction, so they hold on every instance. An
+    # organization can have its own numbers under overrides, by its identifier:
+    #   overrides:
+    #     "<organization identifier>": { max-concurrent: 12, query-timeout: 10s, write-timeout: 60s }
+    limits:
+      enabled: ${PLATFORM_LIMITS_ENABLED:true}
+      max-concurrent: ${PLATFORM_LIMIT_CONCURRENT:6}
+      max-waiting: ${PLATFORM_LIMIT_WAITING:6}
+      max-wait: 2s
+      query-timeout: ${PLATFORM_LIMIT_QUERY_TIMEOUT:5s}
+      write-timeout: ${PLATFORM_LIMIT_WRITE_TIMEOUT:30s}
   outbox:
     # Every instance may run the relay; they coordinate through the database (ADR-0016).
     enabled: ${PLATFORM_OUTBOX_ENABLED:true}

@@ -34,10 +34,12 @@ class TenantSessionListener implements TransactionExecutionListener {
 
     private final DataSource dataSource;
     private final TenantContexts contexts;
+    private final StatementTimeouts timeouts;
 
-    TenantSessionListener(DataSource dataSource, TenantContexts contexts) {
+    TenantSessionListener(DataSource dataSource, TenantContexts contexts, StatementTimeouts timeouts) {
         this.dataSource = dataSource;
         this.contexts = contexts;
+        this.timeouts = timeouts;
     }
 
     @Override
@@ -58,9 +60,18 @@ class TenantSessionListener implements TransactionExecutionListener {
         }
         String setting = tenant.isPresent() ? "app.current_tenant" : "app.system_scope";
         String value = tenant.orElseGet(scope::orElseThrow);
-        try (PreparedStatement statement = holder.getConnection().prepareStatement("select set_config(?, ?, true)")) {
+        // For an organization, the time limit of its statements goes in the same round trip (ADR-0108).
+        boolean limited = tenant.isPresent() && timeouts.enabled();
+        String sql = limited ? "select set_config(?, ?, true), set_config('statement_timeout', ?, true)"
+                : "select set_config(?, ?, true)";
+        try (PreparedStatement statement = holder.getConnection().prepareStatement(sql)) {
             statement.setString(1, setting);
             statement.setString(2, value);
+            if (limited) {
+                boolean readOnly = TransactionSynchronizationManager.isCurrentTransactionReadOnly();
+                statement.setString(3, Long.toString(timeouts.of(contexts.require().tenantId().value(), readOnly)
+                        .toMillis()));
+            }
             statement.execute();
         } catch (SQLException e) {
             // The driver's message is not logged: it can quote what was being set.

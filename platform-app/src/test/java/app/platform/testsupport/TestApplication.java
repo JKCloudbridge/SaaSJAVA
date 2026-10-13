@@ -32,9 +32,18 @@ public final class TestApplication implements AutoCloseable {
         ConfigurableApplicationContext context = new SpringApplicationBuilder(PlatformApplication.class)
                 .profiles("test")
                 .initializers(new TestDatabaseInitializer())
-                .properties(all.toArray(String[]::new))
-                .run("--server.port=0", "--management.server.port=0");
+                .run(arguments(all));
         return new TestApplication(context);
+    }
+
+    /**
+     * The properties as command line arguments: they must win over the test profile's own file (default properties
+     * of the builder would lose against it, and a test that sets a small limit would silently get the large one).
+     */
+    private static String[] arguments(List<String> properties) {
+        List<String> all = new ArrayList<>(List.of("--server.port=0", "--management.server.port=0"));
+        properties.forEach(property -> all.add("--" + property));
+        return all.toArray(String[]::new);
     }
 
     /**
@@ -48,8 +57,7 @@ public final class TestApplication implements AutoCloseable {
                 .initializers(new TestDatabaseInitializer(), (ConfigurableApplicationContext candidate) ->
                         TestPropertyValues.of("spring.data.redis.host=" + host, "spring.data.redis.port=" + port,
                                 "spring.data.redis.password=" + password).applyTo(candidate))
-                .properties(all.toArray(String[]::new))
-                .run("--server.port=0", "--management.server.port=0");
+                .run(arguments(all));
         return new TestApplication(context);
     }
 

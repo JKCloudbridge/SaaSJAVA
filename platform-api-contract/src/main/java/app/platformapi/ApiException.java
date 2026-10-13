@@ -49,6 +49,17 @@ public final class ApiException extends RuntimeException {
     }
 
     /**
+     * An organization has as many requests in progress as it is allowed (Sprint 16, ADR-0108):
+     * {@link ErrorCode#RATE_LIMITED} (429) with its own words and a {@code Retry-After} header. Other organizations
+     * are not affected; the request did nothing.
+     */
+    public static ApiException organizationBusy(long retryAfterSeconds) {
+        return new ApiException(ErrorCode.RATE_LIMITED,
+                "This organization has too many requests in progress. Try again in a moment.", Map.of(),
+                retryAfterSeconds);
+    }
+
+    /**
      * A dependency is unavailable for now: {@link ErrorCode#SERVICE_UNAVAILABLE}, with a {@code Retry-After} header.
      */
     public static ApiException unavailable(long retryAfterSeconds) {

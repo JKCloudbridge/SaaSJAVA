@@ -144,7 +144,7 @@ class RecordStorageIT extends RecordsSupport {
                 "update object_record set tenant_id = gen_random_uuid(), version = version + 1 where id = '" + id + "'",
                 "update object_record set id = gen_random_uuid(), version = version + 1 where id = '" + id + "'",
                 "update object_record set payload = '{}', version = version + 5 where id = '" + id + "'",
-                "update object_record set payload = '{}' where id = '" + id + "'",
+                "update object_record set payload = '{\"a\": 1}' where id = '" + id + "'",
                 "update object_record set payload = '[]', version = version + 1 where id = '" + id + "'",
                 "update object_record set record_type = 'no way', version = version + 1 where id = '" + id + "'")) {
             assertThatThrownBy(() -> ownerRuns(statement)).as(statement).isNotNull();

@@ -176,6 +176,8 @@ class MetadataService {
         FieldRules.Checked checked = type == null ? null : problems.check(() -> FieldRules.check(type,
                 flag(request.required()), flag(request.unique()), request.defaultValue(), request.settings(),
                 context(definition, store.countMasterDetails(objectApiName))));
+        boolean indexed = type != null
+                && Boolean.TRUE.equals(problems.check(() -> FieldRules.checkIndexed(type, flag(request.indexed()))));
         problems.throwIfAny();
         if (store.countFields(objectApiName) >= properties.limits().maxFieldsPerObject()) {
             throw new ApiException(ErrorCode.CONFLICT, "The object has reached the most fields it may have ("
@@ -188,13 +190,13 @@ class MetadataService {
         MetadataStore.FieldRow row;
         try {
             row = store.insertField(objectApiName, apiName, label, description, type.name(), checked.required(),
-                    checked.unique(), checked.defaultValue(), codec.write(checked.configuration()),
+                    checked.unique(), indexed, checked.defaultValue(), codec.write(checked.configuration()),
                     store.nextSortOrder(objectApiName), caller.userId());
         } catch (DuplicateKeyException e) {
             throw ApiException.validation("name", "A field with this name exists already on this object.");
         }
         audit.fieldCreated(caller.userId(), objectApiName, apiName, type.name(), checked.required(),
-                checked.unique());
+                checked.unique(), indexed);
         return fieldView(definition(objectApiName), row.apiName());
     }
 
@@ -215,12 +217,16 @@ class MetadataService {
                 field.configuration(), flag(request.required()), flag(request.unique()), request.defaultValue(),
                 request.settings(), context(definition, otherMasterDetails)));
         problems.throwIfAny();
+        boolean indexed = Boolean.TRUE.equals(problems.check(
+                () -> FieldRules.checkIndexed(field.type(), flag(request.indexed()))));
+        problems.throwIfAny();
         String newConfig = codec.write(checked.configuration());
         List<String> changed = new ArrayList<>();
         addIf(changed, "label", !label.equals(row.label()));
         addIf(changed, "description", !description.equals(row.description()));
         addIf(changed, "required", checked.required() != row.required());
         addIf(changed, "unique", checked.unique() != row.unique());
+        addIf(changed, "indexed", indexed != row.indexed());
         addIf(changed, "defaultValue", !Objects.equals(checked.defaultValue(), row.defaultValue()));
         addIf(changed, "settings", !newConfig.equals(codec.write(codec.read(field.type(), row.config()))));
         if (row.version() != request.version()) {
@@ -231,7 +237,7 @@ class MetadataService {
         }
         versions.wrote();
         if (!store.updateField(row.id(), request.version(), label, description, checked.required(),
-                checked.unique(), checked.defaultValue(), newConfig, caller.userId())) {
+                checked.unique(), indexed, checked.defaultValue(), newConfig, caller.userId())) {
             throw new ApiException(ErrorCode.CONCURRENT_MODIFICATION);
         }
         audit.fieldUpdated(caller.userId(), objectApiName, fieldApiName, String.join(",", changed), null, null);
@@ -320,7 +326,7 @@ class MetadataService {
         FieldConfiguration configuration = field.configuration();
         FieldSettings settings = FieldRules.settingsOf(field.type(), configuration);
         return new FieldView(field.apiName(), field.label(), field.description(), field.kind().name(),
-                field.type().name(), field.required(), field.unique(), field.defaultValue(), settings,
+                field.type().name(), field.required(), field.unique(), field.indexed(), field.defaultValue(), settings,
                 field.retired(), field.kind() == DefinitionKind.CUSTOM, field.version(),
                 storedProblem(field, formulas));
     }

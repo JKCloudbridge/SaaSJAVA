@@ -28,3 +28,5 @@ GEMINI.md
 
 # Local engineering guide: kept on this machine only
 docs/engineering-guide.md
+
+benchmark/scenarios/generated/

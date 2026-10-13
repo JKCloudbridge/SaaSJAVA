@@ -30,14 +30,34 @@ public interface StorageStrategy {
     }
 
     /**
+     * How far one batch of filling a slot got.
+     *
+     * @param processed how many records the batch looked at
+     * @param lastId the identifier of the last record it looked at, or null when there was none
+     */
+    record Filled(int processed, UUID lastId) {
+    }
+
+    /**
      * Stores a new record; the identifier is made by the storage.
      *
      * @param recordType the API name of the record type, or null for a record without one
      * @param ownerId the owner
      * @param actor who creates it
      * @param fields the values (no null values)
+     * @param slots the typed copies of the indexed fields, written in the same statement (ADR-0102)
      */
-    DataRecord insert(String objectApiName, String recordType, UUID ownerId, UUID actor, Map<String, Object> fields);
+    DataRecord insert(String objectApiName, String recordType, UUID ownerId, UUID actor, Map<String, Object> fields,
+            SlotCopy slots);
+
+    /**
+     * Stores a new record without typed copies: for code that holds no indexed field (tests of the storage itself).
+     * The record rules always use the form with the copies.
+     */
+    default DataRecord insert(String objectApiName, String recordType, UUID ownerId, UUID actor,
+            Map<String, Object> fields) {
+        return insert(objectApiName, recordType, ownerId, actor, fields, SlotCopy.none());
+    }
 
     /** The record of the object with the identifier, live or in the recycle bin, or null when there is none. */
     DataRecord find(String objectApiName, UUID id);
@@ -48,11 +68,18 @@ public interface StorageStrategy {
      * @param recordType the record type the record has afterwards (the same as before when it is not being changed)
      * @param set values to set
      * @param clear fields that lose their value
+     * @param slots the typed copies the record has afterwards (every slot not named is emptied)
      * @return the changed record, or null when no live record of the object has that identifier and version (the
      *         caller finds out why with {@link #find})
      */
     DataRecord update(String objectApiName, UUID id, long expectedVersion, String recordType,
-            Map<String, Object> set, List<String> clear, UUID actor);
+            Map<String, Object> set, List<String> clear, UUID actor, SlotCopy slots);
+
+    /** Changes a record without typed copies, as {@link #insert(String, String, UUID, UUID, Map)}. */
+    default DataRecord update(String objectApiName, UUID id, long expectedVersion, String recordType,
+            Map<String, Object> set, List<String> clear, UUID actor) {
+        return update(objectApiName, id, expectedVersion, recordType, set, clear, actor, SlotCopy.none());
+    }
 
     /**
      * Which of the identifiers are live records of the object in the organization. A record in the recycle bin, a
@@ -61,10 +88,22 @@ public interface StorageStrategy {
     Set<UUID> liveIds(String objectApiName, Collection<UUID> ids);
 
     /** Moves a live record to the recycle bin; null when there is no live record with the identifier. */
-    DataRecord softDelete(String objectApiName, UUID id, UUID actor);
+    default DataRecord softDelete(String objectApiName, UUID id, UUID actor) {
+        return softDelete(objectApiName, id, actor, null);
+    }
 
-    /** Takes a record out of the recycle bin; null when no record in the recycle bin has the identifier. */
-    DataRecord restore(String objectApiName, UUID id, UUID actor);
+    /**
+     * Takes a record out of the recycle bin; null when no record in the recycle bin has the identifier.
+     *
+     * @param slots the typed copies the record has from now on, computed from its values (a record in the recycle bin
+     *        is not indexed, so its copies may be old)
+     */
+    DataRecord restore(String objectApiName, UUID id, UUID actor, SlotCopy slots);
+
+    /** Takes a record out of the recycle bin without typed copies, as {@code insert}. */
+    default DataRecord restore(String objectApiName, UUID id, UUID actor) {
+        return restore(objectApiName, id, actor, SlotCopy.none());
+    }
 
     /** Removes a record in the recycle bin for good; false when no record in the recycle bin has the identifier. */
     boolean purge(String objectApiName, UUID id);
@@ -88,4 +127,96 @@ public interface StorageStrategy {
      * @return what was removed
      */
     List<Purged> purgeDeletedOlderThan(Duration period, int limit);
+
+
+    // ---- queries (Sprint 16, ADR-0100) ----
+
+    /**
+     * One record of the answer to a query, with the sort values it was ordered by (as text, one entry per key of the
+     * order, null for a record without a value), which become the cursor of the next page.
+     *
+     * @param record the record, whole (field permissions are applied above the storage)
+     * @param sortValues the values of the sort keys
+     */
+    record StoredRow(DataRecord record, List<String> sortValues) {
+
+        /** Copies the list (it may hold nulls). */
+        public StoredRow {
+            sortValues = java.util.Collections.unmodifiableList(new java.util.ArrayList<>(sortValues));
+        }
+    }
+
+    /**
+     * Reads the live records the plan describes, in the order the plan names, at most {@code plan.limit()} of them,
+     * after the position the plan names. The statement is built from the plan by the storage and holds no name and no
+     * value: they are parameters.
+     */
+    List<StoredRow> query(QueryPlan plan);
+
+    /** The live records of the object that have these identifiers; others (deleted, of another object) are absent. */
+    List<DataRecord> liveRecords(String objectApiName, Collection<UUID> ids);
+
+
+    // ---- links between records (Sprint 16, ADR-0106) ----
+
+    /**
+     * A record that was removed together with another one.
+     *
+     * @param objectApiName its object
+     * @param id its identifier
+     */
+    record Removed(String objectApiName, UUID id) {
+    }
+
+    /**
+     * Moves a live record to the recycle bin because the record {@code removedWith} was removed (a detail goes with its
+     * master); null when there is no live record with the identifier. A person's delete is {@link #softDelete}.
+     */
+    DataRecord softDelete(String objectApiName, UUID id, UUID actor, UUID removedWith);
+
+    /** The records in the recycle bin that were removed together with the record, at most {@code limit}. */
+    List<Removed> removedWith(UUID removedWith, int limit);
+
+    /**
+     * Writes the pointers of one reference field for up to {@code limit} live records of the object after the
+     * identifier, in identifier order, for records that have none yet. The records are locked while it runs, so a
+     * concurrent change cannot leave a pointer that is no longer true.
+     *
+     * @param targetObject the object the field points at
+     */
+    Filled backfillLinks(String objectApiName, String fieldApiName, String targetObject, UUID after, int limit,
+            UUID actor);
+
+    // ---- the maintenance of the typed copies (the index policy, Sprint 16, ADR-0101) ----
+
+    /**
+     * Writes the typed copy of one field into one slot for up to {@code limit} live records of the object after the
+     * identifier, in identifier order. The version and the time of last change of a record do not change (ADR-0102).
+     *
+     * @param slotColumn the name of the slot column (from the index policy, never from a request)
+     * @param after the identifier the batch continues after, or null for the first batch
+     */
+    Filled fillSlot(String objectApiName, String fieldApiName, String slotColumn, UUID after, int limit);
+
+    /**
+     * Empties one slot for up to {@code limit} live records of the object that hold a copy in it.
+     *
+     * @return how many records were emptied
+     */
+    int clearSlot(String objectApiName, String slotColumn, int limit);
+
+    /**
+     * Whether at least one live record of the object has a copy in the slot that differs from what its values give for
+     * the field. A full scan of the object: the index policy asks it once, to call a copy complete.
+     */
+    boolean hasUnfilledSlot(String objectApiName, String fieldApiName, String slotColumn);
+
+    /** Whether at least one live record of the object has a copy in the slot. */
+    boolean hasSlotValues(String objectApiName, String slotColumn);
+
+    /**
+     * How many live records the object has, counted only up to {@code cap}: the answer is the count when it is below
+     * the cap, the cap otherwise. Used to decide whether a scan is allowed (ADR-0105).
+     */
+    int liveCountUpTo(String objectApiName, int cap);
 }

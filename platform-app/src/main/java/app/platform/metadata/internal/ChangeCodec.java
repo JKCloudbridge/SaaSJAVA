@@ -263,13 +263,14 @@ final class ChangeCodec {
     Change makeField(String object, FieldView view) {
         return new Change(Change.Kind.CREATE_FIELD, object, null, write(new CreateFieldRequest(
                 withoutSuffix(view.apiName()), view.label(), view.description(), view.type(), view.required(),
-                view.unique(), view.defaultValue(), settingsToSend(view))));
+                view.unique(), view.indexed(), view.defaultValue(), settingsToSend(view))));
     }
 
     /** Puts the field back as it was, to be applied on top of {@code afterVersion}. */
     Change restoreField(String object, FieldView before, long afterVersion) {
         return new Change(Change.Kind.UPDATE_FIELD, object, before.apiName(), write(new UpdateFieldRequest(
-                before.label(), before.description(), before.required(), before.unique(), before.defaultValue(),
+                before.label(), before.description(), before.required(), before.unique(), before.indexed(),
+                before.defaultValue(),
                 settingsToSend(before), afterVersion)));
     }
 

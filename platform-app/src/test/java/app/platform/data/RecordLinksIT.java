@@ -86,18 +86,21 @@ class RecordLinksIT extends PipelineSupport {
     }
 
     @Test
-    void aLinkTheWriteDoesNotChangeIsNotCheckedAgain() {
+    void removingTheTargetOfALookupClearsItSoTheRecordStillSavesAndRelinkingToItIsRefused() {
         Matrix matrix = matrix();
         TestBrowser admin = matrix.admin();
         String linked = idOf(createIn(admin, TARGET_RECORDS, "{}"));
         String id = idOf(withLink(admin, matrix.targetId(), linked));
         admin.request("DELETE", TARGET_RECORDS + "/" + linked, null);
 
-        Response saved = patchIn(admin, MATRIX_RECORDS, id, 0, "{\"txt__c\":\"stillsave\"}");
-        Response relinked = patchIn(admin, MATRIX_RECORDS, id, 1, "{\"link__c\":\"" + linked + "\"}");
+        // Removing the target cleared the pointer (a lookup clears by default, ADR-0106): a change of the record by
+        // the platform, so the record is at version 1.
+        Response saved = patchIn(admin, MATRIX_RECORDS, id, 1, "{\"txt__c\":\"stillsave\"}");
+        Response relinked = patchIn(admin, MATRIX_RECORDS, id, 2, "{\"link__c\":\"" + linked + "\"}");
 
         assertThat(saved.status()).as(saved.body()).isEqualTo(200);
-        assertThat(relinked.status()).as("naming the same value again is not a change").isEqualTo(200);
+        assertThat(relinked.status()).as("the pointer was cleared, so naming the removed record is a change")
+                .isEqualTo(400);
     }
 
     @Test

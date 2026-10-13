@@ -1,6 +1,12 @@
 package app.platform.data.internal;
 
 import app.platform.data.DataRecord;
+import app.platform.data.QueriedRecord;
+import app.platform.data.QueryFilter;
+import app.platform.data.QueryResolve;
+import app.platform.data.QueryResult;
+import app.platform.data.QuerySort;
+import app.platform.data.RecordQuery;
 import app.platform.data.RecordSlice;
 import app.platform.data.Records;
 import app.platformapi.ApiException;
@@ -9,6 +15,11 @@ import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
 import app.platformapi.CreateRecordRequest;
 import app.platformapi.Cursors;
+import app.platformapi.LinkedRecordView;
+import app.platformapi.ObjectIndexStatusView;
+import app.platformapi.QueriedRecordView;
+import app.platformapi.QueryFilterNode;
+import app.platformapi.QueryRequest;
 import app.platformapi.PageRequest;
 import app.platformapi.Pagination;
 import app.platformapi.RecordView;
@@ -16,7 +27,10 @@ import app.platformapi.UpdateRecordRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpHeaders;
@@ -59,9 +73,11 @@ class RecordController {
             + "(a user, a profile ...) or that the caller may not read: all three answer alike. ";
 
     private final Records records;
+    private final IndexStatusService indexes;
 
-    RecordController(Records records) {
+    RecordController(Records records, IndexStatusService indexes) {
         this.records = records;
+        this.indexes = indexes;
     }
 
     @PostMapping(RECORDS)
@@ -82,12 +98,51 @@ class RecordController {
     @Operation(
             operationId = "listRecords",
             summary = "The live records of an object, in identifier order",
-            description = "One page at a time by the cursor of the previous page. No filter and no sorting: those are "
-                    + "the query engine of Sprint 16. Until record-level security (Sprint 17) a member who may read "
+            description = "One page at a time by the cursor of the previous page. For a filter, an order or links use "
+                    + "the query endpoint. Until record-level security (Sprint 17) a member who may read "
                     + "the object reads every record of it in the organization. Fields the caller may not read are "
                     + "left out of every record. " + UNKNOWN)
     ApiPageResponse<RecordView> list(@PathVariable String objectApiName, @ParameterObject PageRequest page) {
         return page(records.list(objectApiName, after(page), page.limit()), page);
+    }
+
+    @PostMapping(RECORDS + "/query")
+    @Operation(
+            operationId = "queryRecords",
+            summary = "Ask a question of the records of an object: filter, order, fields, links, one page at a time",
+            description = "The body is a query model, never SQL: a tree of conditions (AND, OR, and comparisons by "
+                    + "the kind of field), at most two sort keys, the fields to bring and the links to follow (one "
+                    + "level). Names are looked up in the metadata and values are data. A field the caller may not "
+                    + "read is answered like a field that does not exist, in a filter, an order, a field list or a "
+                    + "link, so the answer never reveals what the caller may not see; records leave out such fields. "
+                    + "The first stage that finds problems answers VALIDATION_ERROR with all its problems and their "
+                    + "places, in the order: shape, fields, operators and values. A filter or an order on a field "
+                    + "without a complete index is allowed only on an object with few records; on a larger one the "
+                    + "answer is VALIDATION_ERROR at 'query' saying which field to flag as indexed (or which "
+                    + "condition to add), never a slow request. A formula field cannot be used in a filter or an "
+                    + "order yet. Records without a value come last in both directions; ties are broken by the "
+                    + "identifier. There is no total: the page says whether another follows and gives a cursor that "
+                    + "is good only for the same query. Not built yet: record-level security (Sprint 17), "
+                    + "uniqueness (Sprint 16A). " + UNKNOWN)
+    ApiPageResponse<QueriedRecordView> query(@PathVariable String objectApiName,
+            @Valid @RequestBody QueryRequest body) {
+        QueryResult result = records.query(objectApiName, toQuery(body));
+        List<QueriedRecordView> items = result.records().stream().map(RecordController::queried).toList();
+        Pagination pagination = result.hasMore() ? Pagination.more(result.limit(), result.nextCursor())
+                : Pagination.last(result.limit());
+        return ApiPageResponse.of(items, pagination);
+    }
+
+    @GetMapping(ApiPaths.OBJECTS + "/{objectApiName}/index-status")
+    @Operation(
+            operationId = "getObjectIndexStatus",
+            summary = "Where the indexed fields of an object stand",
+            description = "For each field flagged as indexed (and each field whose index is being removed): waiting, "
+                    + "filling with the number of records done, complete, or clearing. Queries use a field's index "
+                    + "only when it is complete. Needs the ability to view metadata. Organization hosts only. "
+                    + UNKNOWN)
+    ApiResponse<ObjectIndexStatusView> indexStatus(@PathVariable String objectApiName) {
+        return ApiResponse.of(indexes.statusOf(objectApiName));
     }
 
     @GetMapping(RECORDS + "/{id}")
@@ -176,6 +231,45 @@ class RecordController {
                 ? Pagination.more(request.limit(), Cursors.encode(items.get(items.size() - 1).id()))
                 : Pagination.last(request.limit());
         return ApiPageResponse.of(items, pagination);
+    }
+
+    // ---- the request as a query model ----
+
+    private static RecordQuery toQuery(QueryRequest body) {
+        QueryFilter filter = body.filter() == null ? null : node(body.filter(), "filter");
+        List<QuerySort> sort = body.sort() == null ? List.of() : body.sort().stream()
+                .map(key -> new QuerySort(key.field(), Boolean.TRUE.equals(key.descending()))).toList();
+        List<QueryResolve> resolve = body.resolve() == null ? List.of() : body.resolve().stream()
+                .map(link -> new QueryResolve(link.field(), link.fields())).toList();
+        return new RecordQuery(filter, sort, body.fields(), resolve, body.limit() == null ? 0 : body.limit(),
+                body.cursor());
+    }
+
+    private static QueryFilter node(QueryFilterNode node, String place) {
+        QueryFilter.Op op;
+        try {
+            op = QueryFilter.Op.valueOf(node.op());
+        } catch (IllegalArgumentException e) {
+            throw ApiException.validation(place + ".op", "Choose a comparison from the list.");
+        }
+        List<QueryFilter> items = new ArrayList<>();
+        if (node.items() != null) {
+            for (int index = 0; index < node.items().size(); index++) {
+                items.add(node(node.items().get(index), place + ".items[" + index + "]"));
+            }
+        }
+        List<Object> values = node.values() == null ? List.of() : node.values();
+        if (values.stream().anyMatch(value -> value == null)) {
+            throw ApiException.validation(place + ".values", "A value is missing.");
+        }
+        return new QueryFilter(op, items, node.field(), values);
+    }
+
+    private static QueriedRecordView queried(QueriedRecord queried) {
+        Map<String, LinkedRecordView> linked = new LinkedHashMap<>();
+        queried.linked().forEach((field, link) -> linked.put(field,
+                new LinkedRecordView(link.id().toString(), link.fields())));
+        return new QueriedRecordView(view(queried.record()), linked);
     }
 
     private static RecordView view(DataRecord record) {
