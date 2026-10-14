@@ -26,7 +26,11 @@ import org.springframework.test.context.TestPropertySource;
 @PlatformIntegrationTest
 @TestPropertySource(properties = {
     "platform.outbox.enabled=true",
-    "platform.outbox.poll-interval=50ms"})
+    "platform.outbox.poll-interval=50ms",
+    // Short, so that an event claimed and then abandoned by some other context's relay running in the same test
+    // JVM (several integration test classes enable the real relay against the one shared database) comes back to a
+    // live poller in a couple of seconds instead of waiting out the production default of two minutes.
+    "platform.outbox.lease=3s"})
 class TenantLifecycleAuditIT {
 
     @Autowired
