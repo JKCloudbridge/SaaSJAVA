@@ -108,6 +108,10 @@ class PasswordHasherTest {
                 return hasher.hash(pw("the first one holds the only slot"));
             });
             assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
+            // The latch only says the thread started; it says nothing about whether it has reached the semaphore
+            // yet. Without this, a slow scheduler can let the loop below win the one slot's fair queue instead of
+            // the first hash, and the busy answer lands on the wrong side.
+            Thread.sleep(100);
 
             assertThatThrownBy(() -> {
                 // At least one attempt made while the first hash still runs has to be refused.
