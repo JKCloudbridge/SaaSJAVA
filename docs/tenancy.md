@@ -416,3 +416,21 @@ passes it and asks it only when the query names a formula field. Tests drive the
 
 **Tests (Sprint 16A).** Without a database: `UniqueKeyTest`, `RecordSlotsUniquenessTest`, `WantedConstraintsTest`, `FormulaStampTest`, `IndexedFieldsRulesTest`, `FieldRulesTest`, `QueryAnalyzerTest`. With one: `UniqueFieldsIT` (the API, the database, two instances racing), `JunctionPairIT`, `FormulaRecalculationIT`,
 `FormulaRecalculationAccessIT`, `UniquenessAndRecalculationLogsAreCleanIT`, `SlotGuardAndSeamIT`.
+
+## Record-level security, files, bulk, import and search (Sprint 17)
+
+For a contributor who adds a read or write path to records, a table or a field kind. Decisions: ADR-0115 to ADR-0124.
+
+**Reading records.** Every read path asks `RecordVisibility` for the member's condition and passes it to `JsonbRecordStorage` (`find`, `matches`, `liveRecords`, `query`, `scan`, `search`); a read by identifier that does not pass the condition returns "not found", the same as an identifier that was never used. `OnlyTheStorageNamesTheTableTest` keeps every other class away from `object_record`. Sets of owners and grantees travel as **one text parameter** converted in the statement (`cast(string_to_array(:p, ',') as uuid[])`); never as a placeholder each, never built into the text. A new plan node is a new case of `QueryPlan.Node` with a printer in `JsonbQuerySql`, a case in `QueryPlanner.indexed` and a row in `JsonbQuerySqlRecordSecurityTest`.
+
+**Changing what decides record access.** A table whose rows change what a member may reach needs the security version trigger (copy one from V044) and an entry in `SecurityVersionIT`. Explicit shares are the exception on purpose: `record_share` is read live and raises no version. The owner of a record is `object_record.owner_id` (a user identifier); the hierarchy is made from `member_access.user_id` (copied from the membership by a trigger).
+
+**A new write path to records** must go through `Records` (the gate and the pipeline), call `RecordSlots.copyIndexed` (typed copies and unique mask), `RecordLinks.sync`, `SearchIndexer` (the words of the searchable fields), and leave the owner alone (the owner changes only through `RecordSharing.changeOwner`). Bulk and import are examples that add nothing of their own.
+
+**Adding a table of an organization's records** that is not `object_record` (like `record_file`, `record_share`, `search_term`): `tenant_id` with the default, forced row level security, the tenant guard, a tenant-first index, `on delete cascade` to the record when it should go with the record for good, and a line in `TenantScopedTables`.
+
+**Files and the object store.** Bytes are written and read only through `ObjectStore`; keys are generated (`files/<organization>/<file>`, `imports/<organization>/<job>/...`); a removal of a `record_file` row (any way) queues its key by trigger (V046) and `FileCleanup` drains it. In a test use `TestStorage` (a real S3-compatible container) and `FileCleanup.workOn`; to test a store that is down, pause the container. No name, type or byte of a file reaches a log (`RecordAccessFlowsLogsAreCleanIT`).
+
+**Import and bulk tests.** `ImportRunner.workOn(organization)` runs the jobs of an organization at once; the test profile switches the background sweep off. A row of a test import runs as the member who started it, so make that member with the permissions the case needs (`RecordSecuritySupport.person` and `worker`).
+
+**Search tests.** `IndexBackfill.workOn(organization)` fills the words of a newly searchable field; wait for the status `COMPLETE` before searching (`SearchIT.settleSearch`).

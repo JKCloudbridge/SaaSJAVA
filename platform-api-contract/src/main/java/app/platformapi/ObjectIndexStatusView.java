@@ -14,14 +14,18 @@ import java.util.Map;
  *        {@code number}, {@code date}, {@code date and time}, {@code link}, {@code checkbox})
  * @param uniqueness every unique field of the object, and the pair of parents of a junction, and where the
  *        enforcement of each stands
+ * @param search every searchable field of the object and where its words stand (Sprint 17); a field is searched only
+ *        when its words are complete
  */
 public record ObjectIndexStatusView(@NotNull String objectApiName, @NotNull List<FieldIndexStatusView> fields,
-        @NotNull Map<String, Integer> slots, @NotNull List<FieldUniquenessStatusView> uniqueness) {
+        @NotNull Map<String, Integer> slots, @NotNull List<FieldUniquenessStatusView> uniqueness,
+        @NotNull List<FieldSearchStatusView> search) {
 
     /** Copies the lists and the map. */
     public ObjectIndexStatusView {
         fields = List.copyOf(fields);
         slots = Map.copyOf(slots);
         uniqueness = List.copyOf(uniqueness);
+        search = List.copyOf(search);
     }
 }

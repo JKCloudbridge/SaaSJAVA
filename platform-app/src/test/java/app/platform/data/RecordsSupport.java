@@ -63,7 +63,7 @@ public abstract class RecordsSupport {
 
     protected Organization organization() {
         Organization organization = TestOrganizations.create(users);
-        TestPlatform.subscribe(plans, subscriptions, organization.id(), 5, 3);
+        TestPlatform.subscribe(plans, subscriptions, organization.id(), 8, 3);
         return organization;
     }
 
@@ -125,6 +125,20 @@ public abstract class RecordsSupport {
      */
     protected Holder holderWith(Organization organization, TestBrowser admin, String object, String fieldsJson,
             String... actions) {
+        if (actions.length == 0) {
+            return holderWithMatrix(organization, admin, null);
+        }
+        String quoted = String.join(",", Arrays.stream(actions).map(action -> "\"" + action + "\"").toList());
+        return holderWithMatrix(organization, admin, "{\"objects\":[{\"key\":\"" + object + "\",\"actions\":["
+                + quoted + "]}],\"fields\":" + fieldsJson + "}");
+    }
+
+    /**
+     * A member whose profile's whole data-access matrix is this body (a JSON object with {@code objects} and
+     * {@code fields}), for a profile that needs more than one object in it. {@code matrixJson} null means no data
+     * access at all.
+     */
+    protected Holder holderWithMatrix(Organization organization, TestBrowser admin, String matrixJson) {
         Member person = TestOrganizations.join(users, organization.tenant(), false);
         Response profile = admin.postJson(PROFILES, "{\"name\":\"profile-" + UUID.randomUUID() + "\","
                 + "\"description\":\"\",\"licenceType\":\"user\",\"abilities\":[]}");
@@ -133,11 +147,8 @@ public abstract class RecordsSupport {
         Response set = admin.request("PUT", MEMBERS + "/" + person.membership() + "/profile",
                 "{\"profileId\":\"" + profileId + "\"}");
         assertThat(set.status()).as(set.body()).isIn(200, 204);
-        if (actions.length > 0) {
-            String quoted = String.join(",", Arrays.stream(actions).map(action -> "\"" + action + "\"").toList());
-            Response matrix = admin.request("PUT", PROFILES + "/" + profileId + "/data-access",
-                    "{\"objects\":[{\"key\":\"" + object + "\",\"actions\":[" + quoted + "]}],\"fields\":"
-                            + fieldsJson + "}");
+        if (matrixJson != null) {
+            Response matrix = admin.request("PUT", PROFILES + "/" + profileId + "/data-access", matrixJson);
             assertThat(matrix.status()).as(matrix.body()).isEqualTo(200);
         }
         return new Holder(person, profileId);

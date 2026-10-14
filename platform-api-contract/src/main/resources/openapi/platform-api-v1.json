@@ -4896,6 +4896,285 @@
         "tags" : [ "Records" ]
       }
     },
+    "/api/v1/objects/{objectApiName}/imports" : {
+      "get" : {
+        "description" : "Newest first, at most twenty. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read, and for an import that is not the caller's. FORBIDDEN for a caller who may read the object but not create records in it. ",
+        "operationId" : "listImports",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListImportJobView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The caller's latest imports into an object",
+        "tags" : [ "Imports" ]
+      },
+      "post" : {
+        "description" : "Checks the mapping against the object at once (VALIDATION_ERROR lists every problem). The import waits for its file: send it with the next request. Every row of the file will be written by the same steps as a record written through the API, as the caller, with the caller's permissions: a field the caller may not write, a formula or an auto-number cannot be mapped. CREATE makes a record for every row; UPSERT finds the record by the value of a field flagged as an external identifier (one indexed read) and updates it, or makes it. A link can be written as the other record's identifier or, with a mapping such as 'field:externalIdField', as its external identifier. An empty cell leaves a field as it is. A dry run checks every row by the real write and saves nothing. CONFLICT at the most imports an organization can run at once. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read, and for an import that is not the caller's. FORBIDDEN for a caller who may read the object but not create records in it. ",
+        "operationId" : "startImport",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StartImportRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseImportJobView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Start a CSV import into an object",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/imports/{importId}" : {
+      "get" : {
+        "description" : "The state, the rows read, made, changed and refused, and why it stopped when it failed. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read, and for an import that is not the caller's. FORBIDDEN for a caller who may read the object but not create records in it. ",
+        "operationId" : "getImport",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "importId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseImportJobView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "How far an import has got",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/imports/{importId}/cancel" : {
+      "post" : {
+        "description" : "The import stops at the end of the batch it is in; what it already wrote stays (there is no undo). CONFLICT when it is not waiting or running. Audited. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read, and for an import that is not the caller's. FORBIDDEN for a caller who may read the object but not create records in it. ",
+        "operationId" : "cancelImport",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "importId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseImportJobView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Stop an import",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/imports/{importId}/errors" : {
+      "get" : {
+        "description" : "A CSV file: the number of the row (data rows, from 1), the reason, and the row as the file had it, so it can be corrected and sent again. A reason is a message of the write steps and never repeats a value. Removed some days after the import ended. NOT_FOUND when there is no report. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read, and for an import that is not the caller's. FORBIDDEN for a caller who may read the object but not create records in it. ",
+        "operationId" : "downloadImportErrors",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "importId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "text/csv" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            },
+            "description" : "The report"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The report of the rows of an import that failed",
+        "tags" : [ "Imports" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/imports/{importId}/file" : {
+      "put" : {
+        "description" : "The body is the CSV file as it is (UTF-8, the delimiter chosen when the import was started, a header row first, values that hold the delimiter or a line break in double quotes), with its length announced (chunked bodies are refused), at most 20 MiB and 100,000 rows. A file that is not text is refused. CONFLICT when the file was already sent or when another import of the object is waiting or running. The import is queued and runs in the background; watch it with the import endpoint. SERVICE_UNAVAILABLE (503) when the object store does not answer. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read, and for an import that is not the caller's. FORBIDDEN for a caller who may read the object but not create records in it. ",
+        "operationId" : "sendImportFile",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "importId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "text/csv" : {
+              "schema" : {
+                "type" : "string",
+                "format" : "binary"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseImportJobView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Send the file of an import",
+        "tags" : [ "Imports" ]
+      }
+    },
     "/api/v1/objects/{objectApiName}/index-status" : {
       "get" : {
         "description" : "For each field flagged as indexed (and each field whose index is being removed): waiting, filling with the number of records done, complete, or clearing. Queries use a field's index only when it is complete. Also, for each unique field and each junction: waiting for the copy of the field to be complete, enforcing (existing records are being checked in; new values are refused already), conflict (two existing records hold the same value: the count is given and the check resumes when the data is fixed) or enforced. Needs the ability to view metadata. Organization hosts only. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
@@ -4936,7 +5215,7 @@
     },
     "/api/v1/objects/{objectApiName}/records" : {
       "get" : {
-        "description" : "One page at a time by the cursor of the previous page. For a filter, an order or links use the query endpoint. Until record-level security (Sprint 17) a member who may read the object reads every record of it in the organization. Fields the caller may not read are left out of every record. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "description" : "One page at a time by the cursor of the previous page. For a filter, an order or links use the query endpoint. Only the records the caller may reach are listed: the ones they own, the ones below them in the role hierarchy, the ones a sharing rule or an explicit share gives them and, when the object is public, all of them. Fields the caller may not read are left out of every record. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
         "operationId" : "listRecords",
         "parameters" : [ {
           "in" : "path",
@@ -4991,7 +5270,7 @@
         "tags" : [ "Records" ]
       },
       "post" : {
-        "description" : "The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the unique fields (no other live record may hold the same value; a record in the recycle bin does not count, and a text is compared exactly), the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. There is no record-level security (Sprint 17). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN for a caller who may read the object but not create in it. The caller owns the record. The answer leaves out the fields the caller may not read. Audited and announced by object, identifier, version and field names, never by values.",
+        "description" : "The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the unique fields (no other live record may hold the same value; a record in the recycle bin does not count, and a text is compared exactly), the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. Whether the caller may change this particular record is judged by the next sprint (17A); reads are already limited to the records the caller may reach. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN for a caller who may read the object but not create in it. The caller owns the record. The answer leaves out the fields the caller may not read. Audited and announced by object, identifier, version and field names, never by values.",
         "operationId" : "createRecord",
         "parameters" : [ {
           "in" : "path",
@@ -5037,9 +5316,57 @@
         "tags" : [ "Records" ]
       }
     },
+    "/api/v1/objects/{objectApiName}/records/bulk" : {
+      "post" : {
+        "description" : "Every record goes through exactly the steps the same single request goes through (the gate, field permissions, types, required fields, links, unique values, validation rules, formulas, auto-numbers) and is audited and announced like it, once for each record; there is no faster private path. The answer gives the outcome of each record at its position in the request: CREATED, UPDATED, DELETED, FAILED (with the code, message and problems a single request would have answered) or ROLLED_BACK. By default each record stands on its own: one that is refused is undone alone and the others are saved. With allOrNone one refusal undoes the whole call (committed is false, nothing is saved). A change carries the version that was read; a conflict is the outcome of that record. At most 200 records and 8 MiB per call (settings of the deployment): above that the call is refused before anything is read (400 VALIDATION_ERROR for the count, 413 PAYLOAD_TOO_LARGE for the size). One audit record per call counts what it did, never a value. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read; FORBIDDEN for a caller who may read the object but not do the operation in it (decided once for the whole call, by the same gate as a single request). Whether the caller may change this particular record is judged by the next sprint (17A), for bulk as for single requests.",
+        "operationId" : "bulkRecords",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BulkRecordsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseBulkRecordsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Create, change or delete many records of an object in one call",
+        "tags" : [ "Records" ]
+      }
+    },
     "/api/v1/objects/{objectApiName}/records/query" : {
       "post" : {
-        "description" : "The body is a query model, never SQL: a tree of conditions (AND, OR, and comparisons by the kind of field), at most two sort keys, the fields to bring and the links to follow (one level). Names are looked up in the metadata and values are data. A field the caller may not read is answered like a field that does not exist, in a filter, an order, a field list or a link, so the answer never reveals what the caller may not see; records leave out such fields. The first stage that finds problems answers VALIDATION_ERROR with all its problems and their places, in the order: shape, fields, operators and values. A filter or an order on a field without a complete index is allowed only on an object with few records; on a larger one the answer is VALIDATION_ERROR at 'query' saying which field to flag as indexed (or which condition to add), never a slow request. A formula field can be used in a filter or an order (it is read from the stored result, without an index, so the same rule applies), but only while the stored results are current for the object's formulas: after a formula is edited the answer is VALIDATION_ERROR saying the results are being brought up to date, until the recalculation has finished (see the formula-recalculation endpoint). Records without a value come last in both directions; ties are broken by the identifier. There is no total: the page says whether another follows and gives a cursor that is good only for the same query. Not built yet: record-level security (Sprint 17). NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "description" : "The body is a query model, never SQL: a tree of conditions (AND, OR, and comparisons by the kind of field), at most two sort keys, the fields to bring and the links to follow (one level). Names are looked up in the metadata and values are data. A field the caller may not read is answered like a field that does not exist, in a filter, an order, a field list or a link, so the answer never reveals what the caller may not see; records leave out such fields. The first stage that finds problems answers VALIDATION_ERROR with all its problems and their places, in the order: shape, fields, operators and values. A filter or an order on a field without a complete index is allowed only on an object with few records; on a larger one the answer is VALIDATION_ERROR at 'query' saying which field to flag as indexed (or which condition to add), never a slow request. A formula field can be used in a filter or an order (it is read from the stored result, without an index, so the same rule applies), but only while the stored results are current for the object's formulas: after a formula is edited the answer is VALIDATION_ERROR saying the results are being brought up to date, until the recalculation has finished (see the formula-recalculation endpoint). Records without a value come last in both directions; ties are broken by the identifier. There is no total: the page says whether another follows and gives a cursor that is good only for the same query. Only the records the caller may reach are searched. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
         "operationId" : "queryRecords",
         "parameters" : [ {
           "in" : "path",
@@ -5082,6 +5409,54 @@
           }
         },
         "summary" : "Ask a question of the records of an object: filter, order, fields, links, one page at a time",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/records/search" : {
+      "post" : {
+        "description" : "A record must have every word of the text (accents and case do not matter); the last word counts as the beginning of a word, so a search can be run while a person types. The best matches come first (a match in the first searchable field counts most), then by identifier, one page at a time. Only the fields flagged as searchable that the caller may read are searched (a record never matches on a field the caller cannot see), and only the records the caller may reach are found; what comes back is shaped like the answer of a query and nothing is highlighted. A field is searched once its words are complete (the index status of the object says when). VALIDATION_ERROR for a text with no word, for an object with no searchable field the caller may read, and for a search whose every word is very common (type more). Search across objects is not offered. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "operationId" : "searchRecords",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SearchRecordsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiPageResponseQueriedRecordView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Search the words of the searchable fields of an object",
         "tags" : [ "Records" ]
       }
     },
@@ -5168,7 +5543,7 @@
         "tags" : [ "Records" ]
       },
       "patch" : {
-        "description" : "The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the unique fields (no other live record may hold the same value; a record in the recycle bin does not count, and a text is compared exactly), the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. There is no record-level security (Sprint 17). Only the fields named change; a null value or a name in clear removes a value. The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the record has another version now, and nothing is changed. CONFLICT (409) when the record is in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN without permission to update the object.",
+        "description" : "The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the unique fields (no other live record may hold the same value; a record in the recycle bin does not count, and a text is compared exactly), the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. Whether the caller may change this particular record is judged by the next sprint (17A); reads are already limited to the records the caller may reach. Only the fields named change; a null value or a name in clear removes a value. The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the record has another version now, and nothing is changed. CONFLICT (409) when the record is in the recycle bin. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN without permission to update the object.",
         "operationId" : "updateRecord",
         "parameters" : [ {
           "in" : "path",
@@ -5219,6 +5594,418 @@
           }
         },
         "summary" : "Change some values of a record",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/records/{id}/files" : {
+      "get" : {
+        "description" : "In the order they were stored. Needs the right to read the record. NOT_FOUND for an object or record that does not exist, that the caller may not reach, or that is in the recycle bin: all answer alike. SERVICE_UNAVAILABLE (503, with Retry-After) when the object store does not answer; nothing is stored then. ",
+        "operationId" : "listRecordFiles",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListRecordFileView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The files of a record",
+        "tags" : [ "Files" ]
+      },
+      "post" : {
+        "description" : "The body is the bytes of the file, as they are (not a form), with the length announced (Content-Length; chunked bodies are refused). The name is the header 'X-File-Name', percent-encoded as a URI component (never a query parameter: a request's path and query string are the part of a request that a log at DEBUG prints, and a file's name is a value typed by a person), the type the Content-Type of the request. The server cleans the name (only its last part is kept), decides the type, refuses names and types on the denied list and files that start like a program or a page a browser would run (VALIDATION_ERROR), refuses a file above the largest size (PAYLOAD_TOO_LARGE, checked on the announced length and on the bytes that pass) and a record that has the most files (CONFLICT). The size and the SHA-256 in the answer are those of the bytes that were stored. A failed upload leaves nothing. Needs the right to change the record. Audited by identifiers and size, never by name or content. NOT_FOUND for an object or record that does not exist, that the caller may not reach, or that is in the recycle bin: all answer alike. SERVICE_UNAVAILABLE (503, with Retry-After) when the object store does not answer; nothing is stored then. ",
+        "operationId" : "uploadRecordFile",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "header",
+          "name" : "X-File-Name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/octet-stream" : {
+              "schema" : {
+                "type" : "string",
+                "format" : "binary"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordFileView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Store a file on a record",
+        "tags" : [ "Files" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/records/{id}/files/{fileId}" : {
+      "delete" : {
+        "description" : "The file is gone at once; its bytes are removed from the object store by a background pass. Needs the right to change the record. Audited. NOT_FOUND for an object or record that does not exist, that the caller may not reach, or that is in the recycle bin: all answer alike. SERVICE_UNAVAILABLE (503, with Retry-After) when the object store does not answer; nothing is stored then. ",
+        "operationId" : "deleteRecordFile",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "fileId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a file from a record",
+        "tags" : [ "Files" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/records/{id}/files/{fileId}/content" : {
+      "get" : {
+        "description" : "Sent as an attachment with the type the server decided, with nosniff and a sandbox policy, never to be shown in the page. Authorized on every request: needs the right to read the record. Audited by identifiers. NOT_FOUND for an object or record that does not exist, that the caller may not reach, or that is in the recycle bin: all answer alike. SERVICE_UNAVAILABLE (503, with Retry-After) when the object store does not answer; nothing is stored then. ",
+        "operationId" : "downloadRecordFile",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "fileId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/octet-stream" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            },
+            "description" : "The bytes of the file"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The bytes of a file",
+        "tags" : [ "Files" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/records/{id}/owner" : {
+      "post" : {
+        "description" : "The new owner must be an active member. The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the record has another version now. Needs the right to change the record. The record keeps its shares. Audited and announced like a change of the record. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "operationId" : "changeRecordOwner",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChangeOwnerRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Give a record to another owner",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/records/{id}/shares" : {
+      "get" : {
+        "description" : "For whoever may change the record. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. NOT_FOUND also for a record the caller cannot reach; FORBIDDEN for a caller who can read the record but not change it.",
+        "operationId" : "listRecordShares",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListRecordShareView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Who a record is shared with",
+        "tags" : [ "Records" ]
+      },
+      "put" : {
+        "description" : "Sharing again with the same user or group changes the level. READ lets them read the record, READ_WRITE lets them read and change it; a share never gives the right to delete. Visible at the next question on every instance. Needs the right to change the record. VALIDATION_ERROR for the owner, for someone who is not a member, for a group that does not exist; CONFLICT at the most shares a record can have. Audited by identifiers, never by values. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "operationId" : "shareRecord",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ShareRecordRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordShareView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Share a record with a user or a public group",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/records/{id}/shares/{granteeId}" : {
+      "delete" : {
+        "description" : "NOT_FOUND when the record is not shared with that user or group. Needs the right to change the record. Audited. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "operationId" : "unshareRecord",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "granteeId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Take a share back",
         "tags" : [ "Records" ]
       }
     },
@@ -7065,6 +7852,312 @@
         "tags" : [ "Access" ]
       }
     },
+    "/api/v1/sharing/objects" : {
+      "get" : {
+        "description" : "One entry per object of the organization: the organization-wide default and the hierarchy switch, and whether an administrator has set the object up (an object nobody set up is PUBLIC_READ_WRITE with the hierarchy on: every member who may read the object reads every record). NOT_FOUND on the platform host, FORBIDDEN without the ability to manage sharing. ",
+        "operationId" : "listObjectSharing",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListObjectSharingView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "How the records of every object are shared by default",
+        "tags" : [ "Sharing" ]
+      }
+    },
+    "/api/v1/sharing/objects/{objectApiName}" : {
+      "get" : {
+        "description" : "NOT_FOUND for an object that does not exist. NOT_FOUND on the platform host, FORBIDDEN without the ability to manage sharing. ",
+        "operationId" : "getObjectSharing",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseObjectSharingView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "How the records of one object are shared by default",
+        "tags" : [ "Sharing" ]
+      },
+      "put" : {
+        "description" : "PRIVATE: members reach only the records they own, the records of the people below them (when the hierarchy switch is on), the records a rule gives them and the records shared with them or with a group they are in. PUBLIC_READ: every member reads every record, changes need the same mechanisms. PUBLIC_READ_WRITE: every member reads and changes every record. Members who hold view-all or modify-all on the object are not held by the default. The change is immediate on every instance and no record is rewritten. The request carries the version that was read once the object has been set up (CONCURRENT_MODIFICATION otherwise). Audited. NOT_FOUND on the platform host, FORBIDDEN without the ability to manage sharing. ",
+        "operationId" : "setObjectSharing",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveObjectSharingRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseObjectSharingView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Set the organization-wide default of an object",
+        "tags" : [ "Sharing" ]
+      }
+    },
+    "/api/v1/sharing/rules" : {
+      "get" : {
+        "description" : "All of them, or those of one object. NOT_FOUND on the platform host, FORBIDDEN without the ability to manage sharing. ",
+        "operationId" : "listSharingRules",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "object",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListSharingRuleView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The sharing rules of the organization",
+        "tags" : [ "Sharing" ]
+      },
+      "post" : {
+        "description" : "OWNER: the records owned by the members of a role (or of a role and its subordinates) are given to a role, a role and its subordinates or a public group. GROUP: the same for the records owned by the members of a public group. CRITERIA: the records that meet a condition on their fields (the model of the record query, on fields flagged as indexed) are given. The level is READ or READ_WRITE; a rule never gives the right to delete. VALIDATION_ERROR lists every problem with its place. CONFLICT at the most rules per object. Audited by names, never by the condition. NOT_FOUND on the platform host, FORBIDDEN without the ability to manage sharing. ",
+        "operationId" : "createSharingRule",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveSharingRuleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSharingRuleView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Create a sharing rule",
+        "tags" : [ "Sharing" ]
+      }
+    },
+    "/api/v1/sharing/rules/{ruleId}" : {
+      "delete" : {
+        "description" : "What the rule gave is taken back at the next question. Audited. NOT_FOUND on the platform host, FORBIDDEN without the ability to manage sharing. ",
+        "operationId" : "deleteSharingRule",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ruleId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a sharing rule",
+        "tags" : [ "Sharing" ]
+      },
+      "get" : {
+        "description" : "NOT_FOUND for a rule of another organization. NOT_FOUND on the platform host, FORBIDDEN without the ability to manage sharing. ",
+        "operationId" : "getSharingRule",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ruleId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSharingRuleView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One sharing rule",
+        "tags" : [ "Sharing" ]
+      },
+      "put" : {
+        "description" : "The object and the kind of a rule do not change. The request carries the version that was read (CONCURRENT_MODIFICATION otherwise). Takes effect at the next question on every instance. Audited. NOT_FOUND on the platform host, FORBIDDEN without the ability to manage sharing. ",
+        "operationId" : "updateSharingRule",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ruleId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveSharingRuleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSharingRuleView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change a sharing rule",
+        "tags" : [ "Sharing" ]
+      }
+    },
     "/api/v1/support-access" : {
       "get" : {
         "description" : "Who asked, why, and what became of it. For the administrators of the organization of the host. NOT_FOUND on the platform host.",
@@ -7487,6 +8580,15 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseBulkRecordsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/BulkRecordsResponse"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseCatalogueItem" : {
         "type" : "object",
         "properties" : {
@@ -7582,6 +8684,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/GroupView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseImportJobView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ImportJobView"
           }
         },
         "required" : [ "data" ]
@@ -7748,6 +8859,18 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListImportJobView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ImportJobView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListInvitationView" : {
         "type" : "object",
         "properties" : {
@@ -7832,6 +8955,18 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListObjectSharingView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ObjectSharingView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListObjectSummaryView" : {
         "type" : "object",
         "properties" : {
@@ -7892,6 +9027,18 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListRecordFileView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordFileView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListRecordPageView" : {
         "type" : "object",
         "properties" : {
@@ -7899,6 +9046,18 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/RecordPageView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListRecordShareView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordShareView"
             }
           }
         },
@@ -7964,6 +9123,18 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListSharingRuleView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SharingRuleView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListSupportAccessView" : {
         "type" : "object",
         "properties" : {
@@ -8011,6 +9182,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/ObjectRelationshipsView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseObjectSharingView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ObjectSharingView"
           }
         },
         "required" : [ "data" ]
@@ -8087,11 +9267,29 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseRecordFileView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/RecordFileView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseRecordPageView" : {
         "type" : "object",
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/RecordPageView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseRecordShareView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/RecordShareView"
           }
         },
         "required" : [ "data" ]
@@ -8146,6 +9344,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/RoleView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseSharingRuleView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/SharingRuleView"
           }
         },
         "required" : [ "data" ]
@@ -8317,6 +9524,121 @@
         },
         "required" : [ "attributes", "id", "occurredAt", "outcome", "source", "type" ]
       },
+      "BulkRecordItem" : {
+        "type" : "object",
+        "properties" : {
+          "clear" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "fields" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "recordType" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "BulkRecordResult" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "fields" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            }
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "position" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "status" ]
+      },
+      "BulkRecordsRequest" : {
+        "type" : "object",
+        "properties" : {
+          "allOrNone" : {
+            "type" : "boolean"
+          },
+          "operation" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          },
+          "records" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BulkRecordItem"
+            },
+            "maxItems" : 1000,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "operation", "records" ]
+      },
+      "BulkRecordsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "allOrNone" : {
+            "type" : "boolean"
+          },
+          "committed" : {
+            "type" : "boolean"
+          },
+          "failed" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "operation" : {
+            "type" : "string"
+          },
+          "results" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BulkRecordResult"
+            }
+          },
+          "succeeded" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "operation", "results" ]
+      },
       "CatalogueItem" : {
         "type" : "object",
         "properties" : {
@@ -8328,6 +9650,20 @@
           }
         },
         "required" : [ "key", "name" ]
+      },
+      "ChangeOwnerRequest" : {
+        "type" : "object",
+        "properties" : {
+          "ownerId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "ownerId", "version" ]
       },
       "ChangePasswordRequest" : {
         "type" : "object",
@@ -8649,6 +9985,9 @@
             "maxLength" : 500,
             "minLength" : 0
           },
+          "externalId" : {
+            "type" : "boolean"
+          },
           "indexed" : {
             "type" : "boolean"
           },
@@ -8663,6 +10002,9 @@
             "minLength" : 0
           },
           "required" : {
+            "type" : "boolean"
+          },
+          "searchable" : {
             "type" : "boolean"
           },
           "settings" : {
@@ -9144,6 +10486,22 @@
         "description" : "The API name of a field.",
         "pattern" : "^[A-Za-z][A-Za-z0-9_]{0,59}$"
       },
+      "FieldSearchStatusView" : {
+        "type" : "object",
+        "properties" : {
+          "field" : {
+            "type" : "string"
+          },
+          "recordsDone" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "state" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "field", "state" ]
+      },
       "FieldSettings" : {
         "type" : "object",
         "properties" : {
@@ -9288,6 +10646,9 @@
           "editable" : {
             "type" : "boolean"
           },
+          "externalId" : {
+            "type" : "boolean"
+          },
           "indexed" : {
             "type" : "boolean"
           },
@@ -9304,6 +10665,9 @@
             "type" : "boolean"
           },
           "retired" : {
+            "type" : "boolean"
+          },
+          "searchable" : {
             "type" : "boolean"
           },
           "settings" : {
@@ -9547,6 +10911,69 @@
           }
         },
         "required" : [ "description", "groups", "id", "name", "people", "policies" ]
+      },
+      "ImportJobView" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "createdRows" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "dryRun" : {
+            "type" : "boolean"
+          },
+          "errorsAvailable" : {
+            "type" : "boolean"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "externalIdField" : {
+            "type" : "string"
+          },
+          "failedRows" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "failure" : {
+            "type" : "string"
+          },
+          "finishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "object" : {
+            "type" : "string"
+          },
+          "operation" : {
+            "type" : "string"
+          },
+          "processedRows" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "state" : {
+            "type" : "string"
+          },
+          "totalRows" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "updatedRows" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "createdAt", "id", "object", "operation", "state" ]
       },
       "InvitationAccepted" : {
         "type" : "object",
@@ -10090,6 +11517,12 @@
           "objectApiName" : {
             "type" : "string"
           },
+          "search" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldSearchStatusView"
+            }
+          },
           "slots" : {
             "type" : "object",
             "additionalProperties" : {
@@ -10104,7 +11537,7 @@
             }
           }
         },
-        "required" : [ "fields", "objectApiName", "slots", "uniqueness" ]
+        "required" : [ "fields", "objectApiName", "search", "slots", "uniqueness" ]
       },
       "ObjectNameShape" : {
         "type" : "string",
@@ -10134,6 +11567,28 @@
           }
         },
         "required" : [ "children", "manyToMany", "parents" ]
+      },
+      "ObjectSharingView" : {
+        "type" : "object",
+        "properties" : {
+          "configured" : {
+            "type" : "boolean"
+          },
+          "defaultAccess" : {
+            "type" : "string"
+          },
+          "grantViaHierarchy" : {
+            "type" : "boolean"
+          },
+          "object" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "defaultAccess", "object" ]
       },
       "ObjectSummaryView" : {
         "type" : "object",
@@ -10887,6 +12342,37 @@
         },
         "required" : [ "reason" ]
       },
+      "RecordFileView" : {
+        "type" : "object",
+        "properties" : {
+          "contentType" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "createdBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "sha256" : {
+            "type" : "string"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "contentType", "createdAt", "createdBy", "id", "name", "sha256" ]
+      },
       "RecordPageDefinition" : {
         "type" : "object",
         "additionalProperties" : false,
@@ -10937,6 +12423,34 @@
           }
         },
         "required" : [ "apiName", "definition", "description", "label", "objectApiName", "version" ]
+      },
+      "RecordShareView" : {
+        "type" : "object",
+        "properties" : {
+          "accessLevel" : {
+            "type" : "string"
+          },
+          "granteeId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "granteeType" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "sharedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "sharedBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        },
+        "required" : [ "accessLevel", "granteeId", "granteeType", "id", "sharedAt", "sharedBy" ]
       },
       "RecordTypeAssignmentView" : {
         "type" : "object",
@@ -11260,6 +12774,24 @@
         },
         "required" : [ "name" ]
       },
+      "SaveObjectSharingRequest" : {
+        "type" : "object",
+        "properties" : {
+          "defaultAccess" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          },
+          "grantViaHierarchy" : {
+            "type" : "boolean"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "defaultAccess", "grantViaHierarchy" ]
+      },
       "SavePlanRequest" : {
         "type" : "object",
         "properties" : {
@@ -11339,6 +12871,80 @@
         },
         "required" : [ "name" ]
       },
+      "SaveSharingRuleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "accessLevel" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "active" : {
+            "type" : "boolean"
+          },
+          "criterion" : {
+            "$ref" : "#/components/schemas/QueryFilterNode"
+          },
+          "kind" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "object" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "sourceId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "sourceType" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          },
+          "targetId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "targetType" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "accessLevel", "name", "targetId", "targetType" ]
+      },
+      "SearchRecordsRequest" : {
+        "type" : "object",
+        "properties" : {
+          "cursor" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "limit" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "text" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 1
+          }
+        },
+        "required" : [ "text" ]
+      },
       "SessionInfo" : {
         "type" : "object",
         "properties" : {
@@ -11406,6 +13012,72 @@
         },
         "required" : [ "quantity", "reason" ]
       },
+      "ShareRecordRequest" : {
+        "type" : "object",
+        "properties" : {
+          "accessLevel" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "granteeId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "granteeType" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "accessLevel", "granteeId", "granteeType" ]
+      },
+      "SharingRuleView" : {
+        "type" : "object",
+        "properties" : {
+          "accessLevel" : {
+            "type" : "string"
+          },
+          "active" : {
+            "type" : "boolean"
+          },
+          "criterion" : {
+            "$ref" : "#/components/schemas/QueryFilterNode"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "object" : {
+            "type" : "string"
+          },
+          "sourceId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "sourceType" : {
+            "type" : "string"
+          },
+          "targetId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "targetType" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "accessLevel", "id", "kind", "name", "object", "targetId", "targetType" ]
+      },
       "SignInRequest" : {
         "type" : "object",
         "properties" : {
@@ -11432,6 +13104,36 @@
           }
         },
         "required" : [ "email" ]
+      },
+      "StartImportRequest" : {
+        "type" : "object",
+        "properties" : {
+          "delimiter" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          },
+          "dryRun" : {
+            "type" : "boolean"
+          },
+          "externalIdField" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "mapping" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "operation" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "operation" ]
       },
       "SubscriptionInfo" : {
         "type" : "object",
@@ -11698,6 +13400,9 @@
             "maxLength" : 500,
             "minLength" : 0
           },
+          "externalId" : {
+            "type" : "boolean"
+          },
           "indexed" : {
             "type" : "boolean"
           },
@@ -11707,6 +13412,9 @@
             "minLength" : 0
           },
           "required" : {
+            "type" : "boolean"
+          },
+          "searchable" : {
             "type" : "boolean"
           },
           "settings" : {

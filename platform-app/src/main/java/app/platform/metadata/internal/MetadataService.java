@@ -173,12 +173,21 @@ class MetadataService {
         String apiName = problems.check(() -> NameRules.fieldApiName(request.name()));
         String label = problems.check(() -> NameRules.label("label", request.label()));
         String description = problems.check(() -> NameRules.description(request.description()));
+        // An external identifier is unique by being one (ADR-0123), so the uniqueness rules judge it as unique.
         FieldRules.Checked checked = type == null ? null : problems.check(() -> FieldRules.check(type,
-                flag(request.required()), flag(request.unique()), request.defaultValue(), request.settings(),
+                flag(request.required()), flag(request.unique()) || flag(request.externalId()),
+                request.defaultValue(), request.settings(),
                 context(definition, store.countMasterDetails(objectApiName))));
         boolean indexed = type != null
                 && Boolean.TRUE.equals(problems.check(() -> FieldRules.checkIndexed(type, flag(request.indexed()))));
+        boolean externalId = type != null && Boolean.TRUE.equals(problems.check(
+                () -> FieldRules.checkExternalId(type, flag(request.externalId()))));
+        boolean searchable = type != null && Boolean.TRUE.equals(problems.check(
+                () -> FieldRules.checkSearchable(type, flag(request.searchable()))));
         problems.throwIfAny();
+        if (searchable) {
+            requireRoomToSearch(objectApiName, null);
+        }
         if (store.countFields(objectApiName) >= properties.limits().maxFieldsPerObject()) {
             throw new ApiException(ErrorCode.CONFLICT, "The object has reached the most fields it may have ("
                     + properties.limits().maxFieldsPerObject() + ").");
@@ -190,8 +199,8 @@ class MetadataService {
         MetadataStore.FieldRow row;
         try {
             row = store.insertField(objectApiName, apiName, label, description, type.name(), checked.required(),
-                    checked.unique(), indexed, checked.defaultValue(), codec.write(checked.configuration()),
-                    store.nextSortOrder(objectApiName), caller.userId());
+                    checked.unique(), indexed, externalId, searchable, checked.defaultValue(),
+                    codec.write(checked.configuration()), store.nextSortOrder(objectApiName), caller.userId());
         } catch (DuplicateKeyException e) {
             throw ApiException.validation("name", "A field with this name exists already on this object.");
         }
@@ -213,13 +222,22 @@ class MetadataService {
         Problems problems = new Problems();
         String label = problems.check(() -> NameRules.label("label", request.label()));
         String description = problems.check(() -> NameRules.description(request.description()));
+        // Every independent check runs before the one throw (as in createField), so a field that is wrong in two
+        // ways at once (for example a date flagged both unique and an external identifier) is reported at both
+        // places and not just the first one found.
         FieldRules.Checked checked = problems.check(() -> FieldRules.checkChange(field.type(),
-                field.configuration(), flag(request.required()), flag(request.unique()), request.defaultValue(),
-                request.settings(), context(definition, otherMasterDetails)));
-        problems.throwIfAny();
+                field.configuration(), flag(request.required()), flag(request.unique()) || flag(request.externalId()),
+                request.defaultValue(), request.settings(), context(definition, otherMasterDetails)));
         boolean indexed = Boolean.TRUE.equals(problems.check(
                 () -> FieldRules.checkIndexed(field.type(), flag(request.indexed()))));
+        boolean externalId = Boolean.TRUE.equals(problems.check(
+                () -> FieldRules.checkExternalId(field.type(), flag(request.externalId()))));
+        boolean searchable = Boolean.TRUE.equals(problems.check(
+                () -> FieldRules.checkSearchable(field.type(), flag(request.searchable()))));
         problems.throwIfAny();
+        if (searchable && !row.searchable()) {
+            requireRoomToSearch(objectApiName, fieldApiName);
+        }
         String newConfig = codec.write(checked.configuration());
         List<String> changed = new ArrayList<>();
         addIf(changed, "label", !label.equals(row.label()));
@@ -227,6 +245,8 @@ class MetadataService {
         addIf(changed, "required", checked.required() != row.required());
         addIf(changed, "unique", checked.unique() != row.unique());
         addIf(changed, "indexed", indexed != row.indexed());
+        addIf(changed, "externalId", externalId != row.externalId());
+        addIf(changed, "searchable", searchable != row.searchable());
         addIf(changed, "defaultValue", !Objects.equals(checked.defaultValue(), row.defaultValue()));
         addIf(changed, "settings", !newConfig.equals(codec.write(codec.read(field.type(), row.config()))));
         if (row.version() != request.version()) {
@@ -240,7 +260,8 @@ class MetadataService {
         }
         versions.wrote();
         if (!store.updateField(row.id(), request.version(), label, description, checked.required(),
-                checked.unique(), indexed, checked.defaultValue(), newConfig, caller.userId())) {
+                checked.unique(), indexed, externalId, searchable, checked.defaultValue(), newConfig,
+                caller.userId())) {
             throw new ApiException(ErrorCode.CONCURRENT_MODIFICATION);
         }
         audit.fieldUpdated(caller.userId(), objectApiName, fieldApiName, String.join(",", changed), null, null);
@@ -346,9 +367,19 @@ class MetadataService {
         FieldConfiguration configuration = field.configuration();
         FieldSettings settings = FieldRules.settingsOf(field.type(), configuration);
         return new FieldView(field.apiName(), field.label(), field.description(), field.kind().name(),
-                field.type().name(), field.required(), field.unique(), field.indexed(), field.defaultValue(), settings,
+                field.type().name(), field.required(), field.unique(), field.indexed(), field.externalId(),
+                field.searchable(), field.defaultValue(), settings,
                 field.retired(), field.kind() == DefinitionKind.CUSTOM, field.version(),
                 storedProblem(field, formulas));
+    }
+
+    /** An object can have only so many searchable fields (the search table keeps the word list of each). */
+    private void requireRoomToSearch(String objectApiName, String exceptField) {
+        int most = properties.limits().maxSearchableFieldsPerObject();
+        if (store.countSearchable(objectApiName, exceptField) >= most) {
+            throw ApiException.validation("searchable", "An object can have at most " + most
+                    + " searchable fields. Take the search off another field first.");
+        }
     }
 
     /**

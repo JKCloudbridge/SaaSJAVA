@@ -77,3 +77,11 @@ platform:
       secure: false
     signing:
       ephemeral: true
+  storage:
+    # The object storage of infra/local (S3 API); the keys are those of infra/local/.env. The bucket is made at start.
+    endpoint: http://localhost:${S3_PORT:8333}
+    region: us-east-1
+    bucket: platform-files
+    access-key: ${S3_ACCESS_KEY}
+    secret-key: ${S3_SECRET_KEY}
+    path-style: true

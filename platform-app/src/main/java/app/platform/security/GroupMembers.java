@@ -16,4 +16,7 @@ public interface GroupMembers {
 
     /** Every person in the group, directly or through nested groups, by membership. Empty for an unknown group. */
     Set<UUID> membersOf(UUID groupId);
+
+    /** Whether a live group of the organization has the identifier (sharing a record with a group asks it). */
+    boolean exists(UUID groupId);
 }

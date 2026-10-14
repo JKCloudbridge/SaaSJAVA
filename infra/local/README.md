@@ -82,6 +82,10 @@ not used yet. Three ways to run it, all against these services:
    profile with the settings passed in the compose file, plus Redis and, for this local container only, cookies without the Secure
    flag and a token signing key generated in memory (`PLATFORM_IDENTITY_COOKIES_SECURE=false`, `PLATFORM_IDENTITY_SIGNING_EPHEMERAL=true`;
    a deployment supplies real signing keys and never sets either).
+   The container stores files in the object storage of this folder (Sprint 17). The image does not make its bucket (a deployment
+   provisions it), so make it once with the `aws` tool, as `verify.ps1` does:
+   `aws --endpoint-url http://localhost:8333 s3 mb s3://platform-files`, with `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` set to
+   `S3_ACCESS_KEY` and `S3_SECRET_KEY` from `.env`. Starting the application once in the `local` profile also makes it.
 3. **With the web frontend**: `cd ../../platform-web; npm ci; npm run dev`, then open `http://tenant-a.localhost:3000` (or
    `tenant-b`; any name ending in `.localhost` reaches this machine in a browser). The `local` profile creates both
    organizations at start-up, and the page header shows the organization the address belongs to; `http://localhost:3000`

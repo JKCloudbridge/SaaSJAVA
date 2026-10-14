@@ -2,9 +2,14 @@ package app.platform.data.internal;
 
 import app.platform.data.QueryFilter;
 import app.platform.data.QueryFilter.Op;
+import app.platform.data.QueryPlan;
 import app.platform.data.QueryPlan.After;
+import app.platform.data.QueryPlan.Group;
+import app.platform.data.QueryPlan.OwnedByAny;
+import app.platform.data.QueryPlan.SharedWithAny;
 import app.platform.data.QuerySort;
 import app.platform.data.RecordQuery;
+import app.platform.data.StorageStrategy;
 import app.platform.metadata.DefinitionKind;
 import app.platform.metadata.FieldConfiguration;
 import app.platform.metadata.FieldConfiguration.NoConfiguration;
@@ -28,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.LongStream;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -171,6 +177,92 @@ public final class BenchmarkStatements {
         return files;
     }
 
+    // ---- Sprint 17: record-level security and search (ADR-0119, ADR-0124) ----
+
+    /** A made-up person; the loader gives the owner of record n the person 1 + n % 1000 (benchmark/sql/10-load.sql). */
+    private static UUID person(long n) {
+        return new UUID(0L, n);
+    }
+
+    private static String persons(long from, long to) {
+        List<String> ids = new ArrayList<>();
+        for (long n = from; n <= to; n++) {
+            ids.add(person(n).toString());
+        }
+        return String.join(",", ids);
+    }
+
+    /**
+     * A scenario of a Private object: the first page of the object for a member whose description is the node given.
+     * The made-up persons are replaced by the loader's, so the statement is the application's and the data is real.
+     */
+    private String secured(String title, String header, QueryPlan.Node constraint, Map<String, String> byValue) {
+        QueryAnalyzer.Analyzed analyzed = analyzer.analyze(employee, access,
+                new RecordQuery(null, List.of(), null, List.of(), 50, null));
+        JsonbQuerySql.Built built = JsonbQuerySql.build(planner.plan(analyzed, complete, constraint, null, 50).plan());
+        JsonbQuerySql.Phase phase = built.phases().get(0);
+        String body = "select id, version, payload from object_record where tenant_id = bench_tenant(1) and "
+                + "object_api_name = 'Employee__c' and deleted_at is null and " + built.filter() + " and ("
+                + phase.where() + ") order by " + phase.order() + " limit 50";
+        Map<String, String> values = new LinkedHashMap<>();
+        values.put("tenant", "bench_tenant(1)");
+        values.put("object", "'Employee__c'");
+        built.params().forEach((name, value) -> {
+            String expression = byValue.get(String.valueOf(value));
+            if (expression != null) {
+                values.put(name, expression);
+            }
+        });
+        return "-- " + title + " (generated from the production planner and statement builder)\n" + header
+                + SETTINGS + fill(body, built.params(), values) + ";\ncommit;\n";
+    }
+
+    /** A search: the statement of the application with the words replaced by the benchmark's. */
+    private static String search(String title, String header, StorageStrategy.SearchWord driving,
+            List<StorageStrategy.SearchWord> others, Map<String, String> words) {
+        StorageStrategy.SearchPlan plan = new StorageStrategy.SearchPlan("Employee__c", driving, others,
+                List.of("Title__c"), null, null, null, 50);
+        JsonbRecordStorage.SearchStatement built = JsonbRecordStorage.searchStatement(plan);
+        Map<String, String> values = new LinkedHashMap<>(words);
+        values.put("tenant", "bench_tenant(1)");
+        values.put("object", "'Employee__c'");
+        values.put("limit", "50");
+        return "-- " + title + " (generated from the production search statement)\n" + header + SETTINGS
+                + fill(built.sql(), built.params(), values) + ";\ncommit;\n";
+    }
+
+    private Map<String, String> security() {
+        Map<String, String> files = new LinkedHashMap<>();
+        String me = "(bench_id(300000000 + 1 + (:o % 1000)))::text";
+        files.put("s17a-private-owner", secured("S17: a Private object, the member owns one person's records "
+                + "(2,000 at the default size), first page", "\\set o random(0, 999)\n",
+                new OwnedByAny(List.of(person(1))), Map.of(person(1).toString(), me)));
+        files.put("s17b-private-hierarchy", secured("S17: a Private object, the member reads 50 people's records "
+                + "(a manager and 49 below), first page", "\\set o random(0, 999)\n",
+                new OwnedByAny(LongStream.rangeClosed(1, 50).mapToObj(BenchmarkStatements::person).toList()),
+                Map.of(persons(1, 50), "(select string_agg(bench_id(300000000 + 1 + ((:o + n) % 1000))::text, ',' "
+                        + "order by n) from generate_series(0, 49) n)")));
+        files.put("s17c-private-shared", secured("S17: a Private object, the member owns records and 100 more are "
+                + "shared with them, first page", "",
+                new Group(false, List.of(new OwnedByAny(List.of(person(1))),
+                        new SharedWithAny(List.of(person(1)), 1))),
+                Map.of(person(1).toString(), "(bench_id(300000001))::text")));
+        StorageStrategy.SearchWord rare = new StorageStrategy.SearchWord("w00000", false, null);
+        StorageStrategy.SearchWord common = new StorageStrategy.SearchWord("tag00", false, null);
+        String rareWord = "('w' || lpad((:w)::text, 5, '0'))";
+        String commonWord = "('tag' || lpad((:t)::text, 2, '0'))";
+        files.put("s17d-search-rare-word", search("S17: search, one rare word (about twenty records)",
+                "\\set w random(0, 99999)\n", rare, List.of(), Map.of("d", rareWord)));
+        files.put("s17e-search-two-words", search("S17: search, a rare word and a common one, the rarer read first",
+                // The common word is the one the rare word's records have (the loader derives both from the number).
+                "\\set w random(0, 99999)\n\\set t :w % 50\n", rare, List.of(common),
+                Map.of("d", rareWord, "w0", commonWord)));
+        files.put("s17f-search-near-the-bound", search("S17: search, one word on 2 percent of the records "
+                + "(under the bound of 50,000 candidates at the default size)", "\\set t random(0, 49)\n", common,
+                List.of(), Map.of("d", commonWord)));
+        return files;
+    }
+
     /** The application's own update and insert, with the typed copies of the five indexed fields. */
     private static Map<String, String> writes() {
         Map<String, String> files = new LinkedHashMap<>();
@@ -230,7 +322,9 @@ public final class BenchmarkStatements {
     public static void main(String[] args) throws IOException {
         Path folder = Path.of(args[0]);
         Files.createDirectories(folder);
-        Map<String, String> all = new BenchmarkStatements().queries();
+        BenchmarkStatements statements = new BenchmarkStatements();
+        Map<String, String> all = statements.queries();
+        all.putAll(statements.security());
         all.putAll(writes());
         for (Map.Entry<String, String> file : all.entrySet()) {
             Files.writeString(folder.resolve(file.getKey() + ".sql"), file.getValue());

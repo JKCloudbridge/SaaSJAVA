@@ -151,6 +151,25 @@ class AccessAudit {
         write(record);
     }
 
+    // ---- sharing (Sprint 17) ----
+
+    void sharingDefaultSet(UUID actor, String object, String from, String to, boolean hierarchy) {
+        write(AuditRecord.of("access.sharing.default_set", AuditOutcome.SUCCESS).forUser(actor)
+                .onObject(object, null).with("from", from).with("to", to)
+                .with("hierarchy", Boolean.toString(hierarchy)));
+    }
+
+    void sharingRuleChanged(UUID actor, String what, UUID rule, String object, String kind) {
+        write(AuditRecord.of("access.sharing.rule_" + what, AuditOutcome.SUCCESS).forUser(actor)
+                .onObject(object, null).with("rule", rule.toString()).with("kind", kind));
+    }
+
+    void sharingForgotten(UUID actorOrNull, String object, int settings, int rules) {
+        write(AuditRecord.of("access.sharing.ended", AuditOutcome.SUCCESS).forUser(actorOrNull)
+                .onObject(object, null).with("settings", Integer.toString(settings))
+                .with("rules", Integer.toString(rules)));
+    }
+
     // ---- what members hold ----
 
     void memberProfileSet(UUID actorOrNull, UUID membership, UUID profile, String how, boolean licensed) {

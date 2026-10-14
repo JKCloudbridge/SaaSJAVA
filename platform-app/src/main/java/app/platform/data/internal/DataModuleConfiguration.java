@@ -6,7 +6,9 @@ import org.springframework.context.annotation.Configuration;
 
 /** Wiring of the record store: its settings and the two helpers that hold a setting or a mapper (Sprint 14). */
 @Configuration
-@EnableConfigurationProperties(RecordProperties.class)
+@EnableConfigurationProperties({RecordProperties.class, SharingProperties.class, StorageProperties.class,
+        SearchProperties.class,
+        FileProperties.class, BulkProperties.class, ImportProperties.class})
 class DataModuleConfiguration {
 
     @Bean

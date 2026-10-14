@@ -5,8 +5,11 @@ import app.platform.data.QueryPlan.After;
 import app.platform.data.QueryPlan.Column;
 import app.platform.data.QueryPlan.Compare;
 import app.platform.data.QueryPlan.Group;
+import app.platform.data.QueryPlan.NoRecords;
 import app.platform.data.QueryPlan.Node;
+import app.platform.data.QueryPlan.OwnedByAny;
 import app.platform.data.QueryPlan.Payload;
+import app.platform.data.QueryPlan.SharedWithAny;
 import app.platform.data.QueryPlan.Slot;
 import app.platform.data.QueryPlan.SortKey;
 import app.platform.data.QueryPlan.Source;
@@ -16,6 +19,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -59,6 +63,24 @@ final class JsonbQuerySql {
     private JsonbQuerySql() {
     }
 
+    /**
+     * One condition on its own, for the statements that ask about a single record or a set of identifiers (the single
+     * read, the lookups, the matcher): the text of the condition and its parameters. The statement around it binds
+     * {@code tenant} and {@code object}, which the share condition refers to.
+     *
+     * @param sql the condition
+     * @param params every parameter by name
+     */
+    record Condition(String sql, Map<String, Object> params) {
+    }
+
+    /** The condition of a node alone. */
+    static Condition condition(Node node) {
+        JsonbQuerySql sql = new JsonbQuerySql();
+        String text = sql.node(node);
+        return new Condition(text, sql.params);
+    }
+
     /** Builds the pieces for a plan. */
     static Built build(QueryPlan plan) {
         JsonbQuerySql sql = new JsonbQuerySql();
@@ -73,6 +95,14 @@ final class JsonbQuerySql {
             case Group group -> group.items().stream().map(this::node)
                     .collect(Collectors.joining(group.all() ? " and " : " or ", "(", ")"));
             case Test test -> test(test);
+            case OwnedByAny owned -> "owner_id = any(" + identifiers(owned.owners()) + ")";
+            // The identifiers of the shared records are read once per statement and compared with the index on
+            // the identifier, so this condition can be combined with the owner condition as two index scans.
+            case SharedWithAny shared -> "id = any(array(select s.record_id from record_share s "
+                    + "where s.tenant_id = :tenant and s.object_api_name = :object and s.deleted_at is null "
+                    + "and s.grantee_id = any(" + identifiers(shared.grantees()) + ") and s.access_level >= :"
+                    + bindValue(shared.level()) + "))";
+            case NoRecords none -> "false";
         };
     }
 
@@ -197,9 +227,22 @@ final class JsonbQuerySql {
     }
 
     private String bind(String value) {
+        return bindValue(value);
+    }
+
+    private String bindValue(Object value) {
         String name = "p" + counter++;
         params.put(name, value);
         return name;
+    }
+
+    /**
+     * A set of identifiers as one parameter: the text of the identifiers, converted to an array in the statement. A
+     * placeholder for each would stop at the protocol's limit of parameters and give every size its own plan.
+     */
+    private String identifiers(java.util.List<UUID> ids) {
+        String joined = ids.stream().map(UUID::toString).collect(Collectors.joining(","));
+        return "cast(string_to_array(:" + bindValue(joined) + ", ',') as uuid[])";
     }
 
     // ---- order and keyset ----

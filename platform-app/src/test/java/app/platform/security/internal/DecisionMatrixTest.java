@@ -16,7 +16,10 @@ import app.platform.security.ObjectAccess;
 import app.platform.security.ObjectAction;
 import app.platform.security.ObjectCatalog;
 import app.platform.security.Permissions;
+import app.platform.security.RecordAccess;
+import app.platform.security.RecordMatcher;
 import app.platform.security.RecordRef;
+import app.platform.security.RecordSecurity;
 import app.platform.tenant.TenantContexts;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -29,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -90,7 +94,16 @@ class DecisionMatrixTest {
             }
         };
         AccessWork work = new AccessWork(CONTEXTS, direct);
-        return new DefaultDecisions(new FixedPermissions(Map.of(MEMBER, dataOfMember)), CATALOGUE, work);
+        // Every record is reachable here: this matrix is about permissions on objects and fields; record-level security
+        // has its own tests (RecordAccessResolverTest, RecordLevelSecurityIT).
+        RecordSecurity everything = new RecordSecurity() {
+            @Override
+            public RecordAccess accessTo(UUID membershipId, String object) {
+                return RecordAccess.everything(object);
+            }
+        };
+        return new DefaultDecisions(new FixedPermissions(Map.of(MEMBER, dataOfMember)), CATALOGUE, work, everything,
+                new StaticListableBeanFactory().getBeanProvider(RecordMatcher.class));
     }
 
     // ---- the documented rules, written out again ----

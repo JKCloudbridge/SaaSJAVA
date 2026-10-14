@@ -19,23 +19,35 @@ package app.platform.metadata;
  * @param indexed whether records filtered or sorted by this field are meant to be fast: an intent of the
  *        organization (or of the platform's own definition file); the slot that serves it, and whether it is complete
  *        yet, is state of the data module (Sprint 16, ADR-0101)
+ * @param externalId whether the field holds the identifier the record has in another system, so that an import can
+ *        find the record by it (Sprint 17, ADR-0123); such a field is unique
+ * @param searchable whether the search of the object covers the field (Sprint 17, ADR-0124)
  */
 public record FieldDefinition(String objectApiName, String apiName, String label, String description,
         DefinitionKind kind, FieldType type, boolean required, boolean unique, String defaultValue,
-        FieldConfiguration configuration, boolean retired, long version, boolean indexed) {
+        FieldConfiguration configuration, boolean retired, long version, boolean indexed, boolean externalId,
+        boolean searchable) {
 
-    /** A field that is not flagged as indexed. */
+    /** A field that is not flagged as indexed, as an external identifier or as searchable. */
     public FieldDefinition(String objectApiName, String apiName, String label, String description,
             DefinitionKind kind, FieldType type, boolean required, boolean unique, String defaultValue,
             FieldConfiguration configuration, boolean retired, long version) {
         this(objectApiName, apiName, label, description, kind, type, required, unique, defaultValue, configuration,
-                retired, version, false);
+                retired, version, false, false, false);
+    }
+
+    /** A field with its index flag and without the other two flags. */
+    public FieldDefinition(String objectApiName, String apiName, String label, String description,
+            DefinitionKind kind, FieldType type, boolean required, boolean unique, String defaultValue,
+            FieldConfiguration configuration, boolean retired, long version, boolean indexed) {
+        this(objectApiName, apiName, label, description, kind, type, required, unique, defaultValue, configuration,
+                retired, version, indexed, false, false);
     }
 
     /** The same field on another object: the system fields are defined once and every object has them. */
     public FieldDefinition forObject(String otherObjectApiName) {
         return new FieldDefinition(otherObjectApiName, apiName, label, description, kind, type, required, unique,
-                defaultValue, configuration, retired, version, indexed);
+                defaultValue, configuration, retired, version, indexed, externalId, searchable);
     }
 
     /** The key of permissions on this field: the object, a dot and the field. */

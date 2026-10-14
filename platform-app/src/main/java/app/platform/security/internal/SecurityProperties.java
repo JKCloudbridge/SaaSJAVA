@@ -7,9 +7,10 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * Settings of the security module.
  *
  * @param cache the security cache (ADR-0053)
+ * @param records record-level security (Sprint 17, ADR-0115, ADR-0116)
  */
 @ConfigurationProperties("platform.security")
-record SecurityProperties(@DefaultValue Cache cache) {
+record SecurityProperties(@DefaultValue Cache cache, @DefaultValue Records records) {
 
     /**
      * The security cache. It is a speed-up only: with {@code enabled} false every answer is read from the database
@@ -23,6 +24,25 @@ record SecurityProperties(@DefaultValue Cache cache) {
         Cache {
             if (maxEntries < 1) {
                 throw new IllegalArgumentException("platform.security.cache.max-entries must be at least 1");
+            }
+        }
+    }
+
+    /**
+     * Record-level security.
+     *
+     * @param maxOwners the most owners one description of what a member may reach holds (default 20000, measured in
+     *        ADR-0115); beyond it the description is cut and admits fewer records, never more
+     * @param maxRulesPerObject the most sharing rules one object can have (default 50)
+     */
+    record Records(@DefaultValue("20000") int maxOwners, @DefaultValue("50") int maxRulesPerObject) {
+
+        Records {
+            if (maxOwners < 1) {
+                throw new IllegalArgumentException("platform.security.records.max-owners must be at least 1");
+            }
+            if (maxRulesPerObject < 1) {
+                throw new IllegalArgumentException("platform.security.records.max-rules-per-object must be at least 1");
             }
         }
     }

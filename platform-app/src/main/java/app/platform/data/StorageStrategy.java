@@ -156,6 +156,88 @@ public interface StorageStrategy {
     /** The live records of the object that have these identifiers; others (deleted, of another object) are absent. */
     List<DataRecord> liveRecords(String objectApiName, Collection<UUID> ids);
 
+    // ---- search (Sprint 17, ADR-0124) ----
+
+    /**
+     * A word of a search.
+     *
+     * @param text the word
+     * @param beginning whether it matches every word that starts with it
+     * @param upperBound for a beginning: a text greater than every word that starts with it
+     */
+    record SearchWord(String text, boolean beginning, String upperBound) {
+
+        /** Prints the shape only: the word was typed by a person. */
+        @Override
+        public String toString() {
+            return "SearchWord[" + (beginning ? "beginning" : "whole") + "]";
+        }
+    }
+
+    /**
+     * A search over the words of the searchable fields of one object.
+     *
+     * @param objectApiName the object
+     * @param driving the word to read first: the one the fewest records have
+     * @param others the other words; a record must have all of them
+     * @param fields the searchable fields to look in, the first being the one a match counts most in
+     * @param constraint the condition a record must meet to be reached (record-level security), or null
+     * @param afterScore where the previous page ended: the score of its last record, or null for the first page
+     * @param afterId the identifier of the last record of the previous page
+     * @param limit how many records to return
+     */
+    record SearchPlan(String objectApiName, SearchWord driving, List<SearchWord> others, List<String> fields,
+            QueryPlan.Node constraint, Integer afterScore, UUID afterId, int limit) {
+
+        /** Copies the lists. */
+        public SearchPlan {
+            others = List.copyOf(others);
+            fields = List.copyOf(fields);
+        }
+    }
+
+    /**
+     * A record found by a search, with how well it matched.
+     *
+     * @param record the record, whole (field permissions are applied above the storage)
+     * @param score the score: higher is a better match
+     */
+    record ScoredRecord(DataRecord record, int score) {
+    }
+
+    /**
+     * The live records the search finds, best first (then by identifier), after the position the plan names. The
+     * statement is built by the storage from fixed fragments; the words, the fields and the identifiers are
+     * parameters.
+     */
+    List<ScoredRecord> search(SearchPlan plan);
+
+    // ---- record-level security (Sprint 17, ADR-0115, ADR-0119) ----
+
+    /**
+     * The record of the object with the identifier, live or in the recycle bin, when it also meets the condition (the
+     * records a member may reach); null when there is no such record or it does not meet the condition, which two
+     * cases nothing tells apart.
+     */
+    DataRecord find(String objectApiName, UUID id, QueryPlan.Node condition);
+
+    /** Whether the live record of the object with the identifier meets the condition. */
+    boolean matches(String objectApiName, UUID id, QueryPlan.Node condition);
+
+    /**
+     * The live records of the object that have these identifiers and meet the condition; others (deleted, of another
+     * object, not meeting it) are absent.
+     */
+    List<DataRecord> liveRecords(String objectApiName, Collection<UUID> ids, QueryPlan.Node condition);
+
+    /**
+     * Gives a live record that has the expected version to another owner. The version rises and the time of the change
+     * is set, like any change of the record.
+     *
+     * @return the changed record, or null when no live record of the object has that identifier and version
+     */
+    DataRecord changeOwner(String objectApiName, UUID id, long expectedVersion, UUID newOwner, UUID actor);
+
 
     // ---- links between records (Sprint 16, ADR-0106) ----
 

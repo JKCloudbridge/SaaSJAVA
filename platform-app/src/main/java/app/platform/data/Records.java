@@ -104,6 +104,22 @@ public interface Records {
     QueryResult query(String objectApiName, RecordQuery query);
 
     /**
+     * Searches the words of the object's searchable fields (Sprint 17, ADR-0124): a record must have every word of
+     * the text, the last word counts as a beginning, the best matches come first, one page at a time. Only the
+     * searchable fields the caller may read are searched, only the records the caller may reach are found, and the
+     * answer is shaped like the answer of {@link #query}. A text whose rarest word is very common is refused with the
+     * advice to type more.
+     *
+     * @param text what was typed
+     * @param limit the page size, or 0 for the default
+     * @param cursor the cursor of the previous page, or null
+     * @throws app.platformapi.ApiException {@code NOT_FOUND} for an object the caller may not use or that the store
+     *         does not hold, {@code VALIDATION_ERROR} for a text with no word, a text that is too broad, an object
+     *         without a searchable field the caller may read, or a cursor that is not valid
+     */
+    QueryResult search(String objectApiName, String text, int limit, String cursor);
+
+    /**
      * One page of the records in the recycle bin of the object, in identifier order; needs the permission to delete
      * the object.
      */

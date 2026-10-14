@@ -84,6 +84,14 @@ class JsonbRecordStorage implements StorageStrategy {
     private static final String LIVE_RECORDS = "select " + COLUMNS + " from object_record where tenant_id = :tenant "
             + "and object_api_name = :object and deleted_at is null and id in (:ids)";
 
+    // The owner of a record changes only through this statement; the version rises like for any change.
+    private static final String CHANGE_OWNER = "update object_record set owner_id = :owner, version = version + 1, "
+            + "updated_by = :actor where tenant_id = :tenant and object_api_name = :object and id = :id "
+            + "and version = :version and deleted_at is null returning " + COLUMNS;
+
+    private static final String MATCHES = "select exists (select 1 from object_record where tenant_id = :tenant "
+            + "and object_api_name = :object and id = :id and deleted_at is null and (";
+
     private static final String SOFT_DELETE = "update object_record "
             + "set deleted_at = now(), deleted_by = :actor, version = version + 1, updated_by = :actor "
             + "where tenant_id = :tenant and object_api_name = :object and id = :id and deleted_at is null "
@@ -425,6 +433,117 @@ class JsonbRecordStorage implements StorageStrategy {
                 .param("ids", List.copyOf(ids)).query(this::map).list();
     }
 
+
+    // ---- search (ADR-0124) ----
+
+    @Override
+    public List<ScoredRecord> search(SearchPlan plan) {
+        SearchStatement built = searchStatement(plan);
+        JdbcClient.StatementSpec spec = withParameters(jdbc.sql(built.sql()).param("tenant", tenant())
+                .param("object", plan.objectApiName()).param("limit", plan.limit()), built.params());
+        return spec.query((rs, row) -> new ScoredRecord(map(rs, row), rs.getInt("score"))).list();
+    }
+
+    /** The text of a search and its parameters, except the organization, the object and the page size. */
+    record SearchStatement(String sql, Map<String, Object> params) {
+    }
+
+    /**
+     * The statement of a search: the records that have every word, the rarest word driving, the others checked as
+     * semi-joins, then the record security condition. Static so that the benchmark measures this very text.
+     */
+    static SearchStatement searchStatement(SearchPlan plan) {
+        Map<String, Object> params = new HashMap<>();
+        StringBuilder inner = new StringBuilder("select a.record_id as record_id, max(case a.field_api_name");
+        for (int index = 0; index < plan.fields().size(); index++) {
+            inner.append(" when :f").append(index).append(" then ").append(Math.max(1, 4 - index));
+            params.put("f" + index, plan.fields().get(index));
+        }
+        inner.append(" else 1 end) as score from search_term a where a.tenant_id = :tenant and ")
+                .append("a.object_api_name = :object and ").append(wordCondition("a", "d", plan.driving(), params))
+                .append(" and a.field_api_name = any(cast(:fields as text[]))");
+        for (int index = 0; index < plan.others().size(); index++) {
+            String alias = "b" + index;
+            inner.append(" and exists (select 1 from search_term ").append(alias).append(" where ").append(alias)
+                    .append(".tenant_id = a.tenant_id and ").append(alias)
+                    .append(".object_api_name = a.object_api_name")
+                    .append(" and ").append(alias).append(".record_id = a.record_id and ")
+                    .append(wordCondition(alias, "w" + index, plan.others().get(index), params)).append(" and ")
+                    .append(alias).append(".field_api_name = any(cast(:fields as text[])))");
+        }
+        inner.append(" group by a.record_id");
+        params.put("fields", SearchStore.array(plan.fields()));
+        StringBuilder statement = new StringBuilder("select " + COLUMNS + ", m.score as score from (")
+                .append(inner).append(") m join object_record r on r.id = m.record_id where r.tenant_id = :tenant ")
+                .append("and r.object_api_name = :object and r.deleted_at is null");
+        if (plan.constraint() != null) {
+            JsonbQuerySql.Condition where = JsonbQuerySql.condition(plan.constraint());
+            statement.append(" and (").append(where.sql()).append(")");
+            params.putAll(where.params());
+        }
+        if (plan.afterScore() != null) {
+            statement.append(" and (m.score < :afterScore or (m.score = :afterScore and r.id > :afterId))");
+            params.put("afterScore", plan.afterScore());
+            params.put("afterId", plan.afterId());
+        }
+        statement.append(" order by m.score desc, r.id limit :limit");
+        return new SearchStatement(statement.toString(), params);
+    }
+
+    /** The condition on a word: the whole word, or the range of words that begin with it. Only parameters. */
+    private static String wordCondition(String alias, String name, SearchWord word, Map<String, Object> params) {
+        params.put(name, word.text());
+        if (!word.beginning()) {
+            return alias + ".term = :" + name;
+        }
+        params.put(name + "u", word.upperBound());
+        return "(" + alias + ".term >= :" + name + " and " + alias + ".term < :" + name + "u)";
+    }
+
+    // ---- record-level security (ADR-0115, ADR-0119) ----
+
+    @Override
+    public DataRecord find(String objectApiName, UUID id, QueryPlan.Node condition) {
+        JsonbQuerySql.Condition where = JsonbQuerySql.condition(condition);
+        return withParameters(jdbc.sql(FIND + " and (" + where.sql() + ")").param("tenant", tenant())
+                .param("object", objectApiName).param("id", id), where.params())
+                .query(this::map).optional().orElse(null);
+    }
+
+    @Override
+    public boolean matches(String objectApiName, UUID id, QueryPlan.Node condition) {
+        JsonbQuerySql.Condition where = JsonbQuerySql.condition(condition);
+        return withParameters(jdbc.sql(MATCHES + where.sql() + "))").param("tenant", tenant())
+                .param("object", objectApiName).param("id", id), where.params())
+                .query(Boolean.class).single();
+    }
+
+    @Override
+    public List<DataRecord> liveRecords(String objectApiName, Collection<UUID> ids, QueryPlan.Node condition) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        JsonbQuerySql.Condition where = JsonbQuerySql.condition(condition);
+        return withParameters(jdbc.sql(LIVE_RECORDS + " and (" + where.sql() + ")").param("tenant", tenant())
+                .param("object", objectApiName).param("ids", List.copyOf(ids)), where.params())
+                .query(this::map).list();
+    }
+
+    @Override
+    public DataRecord changeOwner(String objectApiName, UUID id, long expectedVersion, UUID newOwner, UUID actor) {
+        return jdbc.sql(CHANGE_OWNER).param("tenant", tenant()).param("object", objectApiName).param("id", id)
+                .param("version", expectedVersion).param("owner", newOwner).param("actor", actor)
+                .query(this::map).optional().orElse(null);
+    }
+
+    private static JdbcClient.StatementSpec withParameters(JdbcClient.StatementSpec spec,
+            Map<String, Object> parameters) {
+        JdbcClient.StatementSpec bound = spec;
+        for (Map.Entry<String, Object> parameter : parameters.entrySet()) {
+            bound = bound.param(parameter.getKey(), parameter.getValue());
+        }
+        return bound;
+    }
 
     /** The statement of an update, for the benchmark harness (it measures the statement the application sends). */
     static String updateStatement() {

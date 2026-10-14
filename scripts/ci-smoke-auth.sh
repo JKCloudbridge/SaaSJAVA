@@ -22,7 +22,7 @@
 # the access back and checks the audit records and that a platform token is refused on an organization host.
 # Since Sprint 14 a step makes a record, changes it with its version, deletes and restores it and proves that an object with
 # a record cannot be removed. Since Sprint 15 a step proves the write pipeline: a required field, a refused value, a rule,
-# a formula, an auto-number. Since Sprint 15A a step proves record type assignments. Since Sprint 16A a step proves uniqueness and the recalculation of stored formula results.
+# a formula, an auto-number. Since Sprint 15A a step proves record type assignments. Since Sprint 16A a step proves uniqueness and the recalculation of stored formula results. Since Sprint 17 a step proves record-level security, a file round trip, a bulk call, an import and a search (the image needs the object storage of the smoke job).
 set -euo pipefail
 
 db="${1:?database container name}"
@@ -977,4 +977,101 @@ if [ -n "$mail" ]; then
     "$base/api/v1/objects/Badge__c/records/query")"
   [ "$status" = "200" ] || fail "a filter on the formula answered $status once the results are current: $(cat "$body")"
   echo "ok: a unique field was checked in and refuses a duplicate in the words of the platform without naming the other record, the recycle bin did not hold the value and a restore that would duplicate it was refused, and after the formula was edited the background pass rewrote the stored result and the state became current"
+
+  # 25. Record-level security, files, bulk, import and search on the image (Sprint 17): an object is made Private
+  # (the owner still reads; the setting reads back), a file is stored in the object store, comes back byte for byte as an
+  # attachment and is gone after it is deleted, a bulk call saves what is good and says which record was refused, an
+  # import upserts by an external identifier (twice, with nothing new the second time), and a search finds a word of a
+  # searchable field once its words are complete and never echoes a value in its refusal.
+  status="$(client_call -X POST -H "$group_json" \
+    -d '{"name":"Lead","label":"Lead","pluralLabel":"Leads","description":""}' "$base/api/v1/metadata/objects")"
+  [ "$status" = "201" ] || fail "making the lead object answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"title","label":"title","type":"TEXT","searchable":true}' \
+    "$base/api/v1/metadata/objects/Lead__c/fields")"
+  [ "$status" = "201" ] || fail "making the searchable title field answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"ref","label":"ref","type":"TEXT","externalId":true}' \
+    "$base/api/v1/metadata/objects/Lead__c/fields")"
+  [ "$status" = "201" ] || fail "making the external identifier field answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"qty","label":"qty","type":"NUMBER"}' \
+    "$base/api/v1/metadata/objects/Lead__c/fields")"
+  [ "$status" = "201" ] || fail "making the quantity field answered $status: $(cat "$body")"
+  # The organization-wide default: unset is Public Read/Write; setting it to Private reads back; the owner still reads.
+  status="$(client_call "$base/api/v1/sharing/objects/Lead__c")"
+  [ "$status" = "200" ] || fail "reading the sharing of the lead answered $status: $(cat "$body")"
+  grep -Fq '"defaultAccess":"PUBLIC_READ_WRITE"' "$body" || fail "an unset object is not Public Read/Write: $(cat "$body")"
+  status="$(client_call -X PUT -H "$group_json" -d '{"defaultAccess":"PRIVATE","grantViaHierarchy":true}' \
+    "$base/api/v1/sharing/objects/Lead__c")"
+  [ "$status" = "200" ] || fail "making the lead Private answered $status: $(cat "$body")"
+  grep -Fq '"defaultAccess":"PRIVATE"' "$body" || fail "the Private default did not read back: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{"title__c":"Northwind harvest","ref__c":"L-1"}}' \
+    "$base/api/v1/objects/Lead__c/records")"
+  [ "$status" = "201" ] || fail "creating a lead answered $status: $(cat "$body")"
+  lead_one="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(client_call "$base/api/v1/objects/Lead__c/records/$lead_one")"
+  [ "$status" = "200" ] || fail "the owner does not read their own lead on a Private object ($status)"
+  # A file: stored, handed back byte for byte as an attachment, and gone once deleted.
+  file_in="$(mktemp)"
+  head -c 5000 /dev/urandom > "$file_in"
+  printf 'PK' | dd of="$file_in" conv=notrunc 2>/dev/null
+  status="$(client_call -X POST -H 'Content-Type: application/zip' -H 'X-File-Name: quote.zip' \
+    --data-binary "@$file_in" "$base/api/v1/objects/Lead__c/records/$lead_one/files")"
+  [ "$status" = "201" ] || fail "storing a file answered $status: $(cat "$body")"
+  file_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(client_call "$base/api/v1/objects/Lead__c/records/$lead_one/files/$file_id/content")"
+  [ "$status" = "200" ] || fail "downloading the file answered $status"
+  cmp -s "$file_in" "$body" || fail "the downloaded file differs from the one stored"
+  grep -iq '^content-disposition: attachment' "$headers" || fail "the download is not an attachment"
+  grep -iq '^x-content-type-options: nosniff' "$headers" || fail "the download lacks nosniff"
+  status="$(client_call -X DELETE "$base/api/v1/objects/Lead__c/records/$lead_one/files/$file_id")"
+  [ "$status" = "204" ] || fail "deleting the file answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/objects/Lead__c/records/$lead_one/files/$file_id/content")"
+  [ "$status" = "404" ] || fail "the file is still there after it was deleted ($status)"
+  # A bulk call: two good records and one refused, each with its own outcome.
+  status="$(client_call -X POST -H "$group_json" -d '{"operation":"CREATE","allOrNone":false,"records":[
+    {"fields":{"title__c":"bulk one","ref__c":"B-1"}},{"fields":{"qty__c":"not a number"}},
+    {"fields":{"title__c":"bulk two","ref__c":"B-2"}}]}' "$base/api/v1/objects/Lead__c/records/bulk")"
+  [ "$status" = "200" ] || fail "a bulk call answered $status: $(cat "$body")"
+  grep -Fq '"succeeded":2' "$body" || fail "the bulk call did not save the two good records: $(cat "$body")"
+  grep -Fq '"failed":1' "$body" || fail "the bulk call did not refuse the bad record: $(cat "$body")"
+  if grep -Fq 'not a number' "$body"; then fail "the bulk refusal repeats the value: $(cat "$body")"; fi
+  # An import upserts by the external identifier: L-1 is updated, I-1 is made; the same file again changes nothing.
+  import_csv="$(mktemp)"
+  printf 'ref__c,title__c\nL-1,Renamed lead\nI-1,Imported lead\n' > "$import_csv"
+  for round in 1 2; do
+    status="$(client_call -X POST -H "$group_json" -d '{"operation":"UPSERT","externalIdField":"ref__c"}' \
+      "$base/api/v1/objects/Lead__c/imports")"
+    [ "$status" = "201" ] || fail "starting import $round answered $status: $(cat "$body")"
+    import_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+    status="$(client_call -X PUT -H 'Content-Type: text/csv' --data-binary "@$import_csv" \
+      "$base/api/v1/objects/Lead__c/imports/$import_id/file")"
+    [ "$status" = "202" ] || fail "sending the file of import $round answered $status: $(cat "$body")"
+    finished=""
+    for attempt in $(seq 1 60); do
+      status="$(client_call "$base/api/v1/objects/Lead__c/imports/$import_id")"
+      [ "$status" = "200" ] || fail "reading import $round answered $status: $(cat "$body")"
+      if grep -Fq '"state":"COMPLETED"' "$body"; then finished=yes; break; fi
+      if grep -Fq '"state":"FAILED"' "$body"; then fail "import $round failed: $(cat "$body")"; fi
+      sleep 2
+    done
+    [ -n "$finished" ] || fail "import $round did not finish: $(cat "$body")"
+    if [ "$round" = "1" ]; then
+      grep -Fq '"createdRows":1' "$body" && grep -Fq '"updatedRows":1' "$body" \
+        || fail "the first import did not make one record and change one: $(cat "$body")"
+    else
+      grep -Fq '"createdRows":0' "$body" || fail "the second import made a record again: $(cat "$body")"
+    fi
+  done
+  # Search: the words of the searchable field are complete after the background fill; a refusal never echoes the text.
+  found=""
+  for attempt in $(seq 1 60); do
+    status="$(client_call -X POST -H "$group_json" -d '{"text":"imported"}' "$base/api/v1/objects/Lead__c/records/search")"
+    if [ "$status" = "200" ] && grep -Fq 'Imported lead' "$body"; then found=yes; break; fi
+    sleep 2
+  done
+  [ -n "$found" ] || fail "the search did not find the imported lead ($status): $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"text":"!!! ???"}' "$base/api/v1/objects/Lead__c/records/search")"
+  [ "$status" = "400" ] || fail "a search without a word answered $status: $(cat "$body")"
+  if grep -Fq '???' "$body"; then fail "the refusal of a search repeats the text: $(cat "$body")"; fi
+  rm -f "$file_in" "$import_csv"
+  echo "ok: an object made Private still shows the owner their record, a file was stored, handed back byte for byte as an attachment and removed, a bulk call saved two records and refused one without repeating its value, an import upserted by the external identifier and a second run made nothing new, and a search found the imported record once the words were complete"
 fi

@@ -1,0 +1,88 @@
+package app.platform.data.internal;
+
+import app.platform.tenant.TenantContexts;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Repository;
+
+/**
+ * The explicit shares of single records (Sprint 17, ADR-0117): one row per record and grantee. Every statement is a
+ * constant with parameters; the organization is a parameter taken from the tenant context in addition to the forced
+ * row level security of the table. A share is read by the statements of a list (see {@code JsonbQuerySql}) as a
+ * set of record identifiers; this class is for managing them.
+ */
+@Repository
+class ShareStore {
+
+    /** A share as stored. */
+    record ShareRow(UUID id, UUID recordId, String granteeType, UUID granteeId, int level, java.time.Instant sharedAt,
+            UUID sharedBy) {
+    }
+
+    private static final String COLUMNS = "id, record_id, grantee_type, grantee_id, access_level, updated_at, "
+            + "updated_by";
+
+    // The second share of a record with the same grantee changes the level of the first (one row per record and
+    // grantee); the row guard asks for the version to rise by exactly one.
+    private static final String UPSERT = "insert into record_share (tenant_id, object_api_name, record_id, "
+            + "grantee_type, grantee_id, access_level, created_by, updated_by) values (:tenant, :object, :record, "
+            + ":type, :grantee, :level, :actor, :actor) on conflict (tenant_id, record_id, grantee_id) "
+            + "where deleted_at is null do update set access_level = excluded.access_level, "
+            + "version = record_share.version + 1, updated_by = excluded.updated_by returning " + COLUMNS;
+
+    private final JdbcClient jdbc;
+    private final TenantContexts contexts;
+
+    ShareStore(JdbcClient jdbc, TenantContexts contexts) {
+        this.jdbc = jdbc;
+        this.contexts = contexts;
+    }
+
+    List<ShareRow> shares(UUID recordId) {
+        return jdbc.sql("select " + COLUMNS + " from record_share where tenant_id = :tenant and record_id = :record "
+                        + "and deleted_at is null order by created_at, id")
+                .param("tenant", tenant()).param("record", recordId).query(ShareStore::map).list();
+    }
+
+    Optional<ShareRow> share(UUID recordId, UUID granteeId) {
+        return jdbc.sql("select " + COLUMNS + " from record_share where tenant_id = :tenant and record_id = :record "
+                        + "and grantee_id = :grantee and deleted_at is null")
+                .param("tenant", tenant()).param("record", recordId).param("grantee", granteeId)
+                .query(ShareStore::map).optional();
+    }
+
+    int count(UUID recordId) {
+        return jdbc.sql("select count(*) from record_share where tenant_id = :tenant and record_id = :record "
+                        + "and deleted_at is null")
+                .param("tenant", tenant()).param("record", recordId).query(Integer.class).single();
+    }
+
+    ShareRow upsert(String object, UUID recordId, String granteeType, UUID granteeId, int level, UUID actor) {
+        return jdbc.sql(UPSERT).param("tenant", tenant()).param("object", object).param("record", recordId)
+                .param("type", granteeType).param("grantee", granteeId).param("level", level).param("actor", actor)
+                .query(ShareStore::map).single();
+    }
+
+    /** Takes the share back: the row is deleted (the audit trail keeps the history). */
+    boolean delete(UUID recordId, UUID granteeId) {
+        return jdbc.sql("delete from record_share where tenant_id = :tenant and record_id = :record "
+                        + "and grantee_id = :grantee")
+                .param("tenant", tenant()).param("record", recordId).param("grantee", granteeId).update() > 0;
+    }
+
+    private UUID tenant() {
+        return contexts.require().tenantId().value();
+    }
+
+    private static ShareRow map(ResultSet rs, int row) throws SQLException {
+        OffsetDateTime at = rs.getObject("updated_at", OffsetDateTime.class);
+        return new ShareRow(rs.getObject("id", UUID.class), rs.getObject("record_id", UUID.class),
+                rs.getString("grantee_type"), rs.getObject("grantee_id", UUID.class), rs.getInt("access_level"),
+                at.toInstant(), rs.getObject("updated_by", UUID.class));
+    }
+}

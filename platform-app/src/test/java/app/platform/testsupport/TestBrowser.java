@@ -99,6 +99,18 @@ public final class TestBrowser {
                 headers))));
     }
 
+    /**
+     * Any method with a body of bytes (a file) and an answer of bytes, with the forgery-protection header attached the
+     * way the web app does.
+     */
+    public TestHttp.BytesResponse bytes(String method, String path, byte[] body, String... headers) {
+        if (!"GET".equals(method)) {
+            ensureCsrfCookie();
+        }
+        return http.requestBytes(method, path, body, withBrowserHeaders(overriding(
+                List.of("X-XSRF-TOKEN", cookies.getOrDefault("XSRF-TOKEN", "")), headers)));
+    }
+
     /** A state-changing request that deliberately leaves the forgery-protection header out. */
     public Response postJsonWithoutCsrfHeader(String path, String json) {
         ensureCsrfCookie();

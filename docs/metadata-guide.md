@@ -387,7 +387,7 @@ shown at the field, never saying which record or what the value is. Things to kn
 - **The recycle bin.** A deleted record does not block its value. Restoring it is refused if another record has taken the value meanwhile ("This record cannot be brought back ..."): change or remove the other record first.
 - **Limits.** A number can be unique only with at most 15 digits; a web address cannot be unique; an auto-number needs no tick (it never repeats); a field flagged unique under an older setup that cannot be checked shows *not enforced* until you edit it.
 - **Many-to-many.** The same two records cannot be linked twice by a junction object; the status page shows this as the pair of its two parents.
-- Record-level security (Sprint 17) will not hide the fact that a value is taken: a unique field cannot do that.
+- Record-level security (Sprint 17) does not hide the fact that a value is taken: a unique field cannot do that. Sprint 17A decides how the answer is worded for a person who cannot see the other record.
 
 **Results of formulas after an edit.** When you change a formula the results stored in existing records are brought up to date in the background, a batch at a time, without changing the record's version or its "last changed" time and without an audit record per record (one per finished pass, with counts). Until it has finished:
 - a **filter or a sort on a formula field is refused**, with the reason ("The results of this object's formulas are being brought up to date ..."); everything else works, and records show the stored result they had;
@@ -395,3 +395,28 @@ shown at the field, never saying which record or what the value is. Things to kn
   does not calculate formulas. There is no screen for this yet.
 - A record whose formula **cannot be calculated** (a division by zero) loses the stored result of that formula and is counted. A record that was in the recycle bin comes back with the results of today.
 - Once the formulas are current, a formula field can be used in a filter or a sort like any other field (read from the stored result, so the rule for fields without an index applies: allowed on an object with up to 20,000 live records).
+
+## 17. Who sees which records, files, imports and search (Sprint 17)
+
+**Who sees which records.** Until now a person who could read an object read all of its records. From Sprint 17 an administrator with the ability *Manage sharing* decides, for each object, what the **organization-wide default** is (API: `/api/v1/sharing/objects/{object}`):
+- **Public Read/Write** (what every object is until you choose): everyone who may use the object sees and changes every record. Nothing changes when you upgrade.
+- **Public Read**: everyone reads every record; only the owner (and the ways below) changes one.
+- **Private**: a person sees their own records and what the ways below give them.
+
+The ways to give more are all added together (nothing ever takes access away): the **role hierarchy** (the switch "grant access using the hierarchy": a manager reads the records of the people below them; reading only, never changing), **sharing rules** (records owned by the members of a role, by the members of a group, or records whose fields meet a condition, given to a group, for reading or for reading and changing), **sharing one record** with a person or a group (the owner, or anyone who can change the record, does it; at most 100 shares a record), and the object permissions **View all** (reads every record of the object) and **Modify all** (reads, changes and deletes every record of the object).
+
+Things to know:
+- **Delete is never shared.** Only the owner, someone with Modify all, and everyone when the default is Public Read/Write can delete a record.
+- **A person who cannot see a record is told it does not exist**, with the same words as for a record that was never made. A person who can read a record but not change it is told they may not change it.
+- **Changes are seen at the next question** (a new default, a rule, a group or role change, a share), on every server.
+- **Giving a record away** (changing its owner) is its own action; the new owner must be a member. The previous owner keeps access only as the ways above say.
+- A field used by a sharing rule cannot be removed while the rule exists. At most 50 rules an object. If more than 20,000 distinct people stand behind one person's access, the platform reports it and shows that person less, never more; use group-based rules.
+- **Until Sprint 17A**, a change of a single record by its identifier on a Private object is still decided by the object permission alone; reading, listing, searching and the shares are fully respected.
+
+**Files.** A record can have up to 20 files of up to 25 MiB. A file can be seen and downloaded by whoever can see the record, and added or removed by whoever can change it. The platform keeps only a cleaned name and decides the type itself; programs, scripts and web pages are refused, and every download is an attachment. Files go with the record when it is removed for good (not while it is in the recycle bin). If the file storage is down, files answer "service unavailable" and everything else works.
+
+**External identifier and searchable fields.** On a text or number field, tick **External identifier** to say "this holds the record's number in another system": it becomes unique and indexed, and an import can update the record that has it. On a text, long text, e-mail, phone or picklist field, tick **Searchable** (at most four fields an object) and the object can be searched by words: all the words must be there, accents and capitals do not matter, and the last word may be only a beginning. A field is searched when the status page of the object (`index-status`) says its words are *complete*; a person never finds a record by a field they may not read.
+
+**Import.** A CSV file (UTF-8, a header row, at most 20 MiB and 100,000 rows) creates or updates records through the same checks as typing them in, as the person who sends it. A column is mapped to a field (`Column` to `field__c`); a link is written either as the other record's identifier or, with `field__c:externalIdField__c`, as the other record's external identifier. An empty cell leaves a field as it is. Rows that fail are in a report you can download, correct and send again; **a dry run** checks everything and saves nothing. An import cannot be undone; stopping it keeps what it already wrote.
+
+**Bulk.** The API can create, change or delete up to 200 records in one call, each with its own result; a call can be "all or none".

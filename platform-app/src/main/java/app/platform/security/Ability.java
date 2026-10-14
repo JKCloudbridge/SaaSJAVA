@@ -73,7 +73,15 @@ public enum Ability {
     METADATA_PUBLISH("metadata.publish", "Publish metadata changes",
             "Publish a change set, make a single change live at once and roll the latest publication back. "
                     + "Needs the ability to view objects and fields as well; a change made at once needs the "
-                    + "ability to manage them too.");
+                    + "ability to manage them too."),
+
+    /**
+     * Set how the records of each object are shared: the organization-wide defaults, the hierarchy switch and the
+     * sharing rules (Sprint 17, ADR-0116). Sharing one record is decided by owning it or being allowed to change it.
+     */
+    SHARING_MANAGE("sharing.manage", "Manage sharing",
+            "Set whether each object is private or public, whether managers read what their subordinates own, and "
+                    + "create, change and remove sharing rules.");
 
     private final String key;
     private final String title;

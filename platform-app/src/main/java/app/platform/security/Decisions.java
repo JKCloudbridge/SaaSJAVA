@@ -21,7 +21,10 @@ import java.util.UUID;
  *       access policies, individual grants; a union, no deny rule) must allow the action on the object.</li>
  *   <li>For a field: they must also allow the field action; reading a field needs read on the object and editing one
  *       needs create or update on it.</li>
- *   <li>The record, when given, is accepted and not used yet (record-level rules arrive in Sprint 17).</li>
+ *   <li>The record, when given, must also be among the records the member may reach for the action: reading needs the
+ *   read admission of {@link RecordSecurity}, changing the edit admission, deleting the delete admission (Sprint 17,
+ *   ADR-0115 to ADR-0118). The same evaluation answers a list, a query and a single read; an action with no record
+ *   meaning (create) ignores the record.</li>
  * </ol>
  *
  * <p>A "no" never says why to a person: unknown objects and fields, objects the member may not use and members who
@@ -34,7 +37,7 @@ public interface Decisions {
         return can(membershipId, object, action, null);
     }
 
-    /** May the member do the action with the object (the record is accepted and not used until Sprint 17)? */
+    /** May the member do the action with the object, and with this record when one is given? */
     Decision can(UUID membershipId, String object, ObjectAction action, RecordRef record);
 
     /** May the member do the action with the field of the object? */
@@ -42,7 +45,7 @@ public interface Decisions {
         return can(membershipId, object, field, action, null);
     }
 
-    /** May the member do the action with the field (the record is accepted and not used until Sprint 17)? */
+    /** May the member do the action with the field, and with this record when one is given? */
     Decision can(UUID membershipId, String object, String field, FieldAction action, RecordRef record);
 
     /** Everything the member may do with the object and its fields, in one answer (the bulk form for lists). */

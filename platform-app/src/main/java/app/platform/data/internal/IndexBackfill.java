@@ -61,6 +61,7 @@ class IndexBackfill implements SmartLifecycle {
     private final StorageStrategy storage;
     private final IndexPolicy policy;
     private final LinkBackfill linkFill;
+    private final SearchBackfill searchFill;
     private final AuditRecorder audit;
     private final TransactionTemplate transaction;
     private final RecordProperties.Index settings;
@@ -68,8 +69,8 @@ class IndexBackfill implements SmartLifecycle {
     private ScheduledExecutorService executor;
 
     IndexBackfill(Tenants tenants, TenantContexts contexts, FieldSlotStore store, UniqueStore uniques,
-            StorageStrategy storage, IndexPolicy policy, LinkBackfill linkFill, AuditRecorder audit,
-            PlatformTransactionManager transactions, RecordProperties properties) {
+            StorageStrategy storage, IndexPolicy policy, LinkBackfill linkFill, SearchBackfill searchFill,
+            AuditRecorder audit, PlatformTransactionManager transactions, RecordProperties properties) {
         this.tenants = tenants;
         this.contexts = contexts;
         this.store = store;
@@ -77,6 +78,7 @@ class IndexBackfill implements SmartLifecycle {
         this.storage = storage;
         this.policy = policy;
         this.linkFill = linkFill;
+        this.searchFill = searchFill;
         this.audit = audit;
         this.transaction = new TransactionTemplate(transactions);
         this.settings = properties.index();
@@ -165,7 +167,7 @@ class IndexBackfill implements SmartLifecycle {
                         case ENFORCED -> 0;
                     };
                 }
-                return batches + linkFill.fill();
+                return batches + linkFill.fill() + searchFill.fill();
             });
         } catch (RuntimeException e) {
             LOG.warn("Indexing work for an organization failed ({})", e.getClass().getSimpleName());

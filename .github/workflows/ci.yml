@@ -175,6 +175,8 @@ jobs:
       # unauthenticated call, answers the sign-in uniformly, publishes only the public key, keeps its cookies secure,
       # writes the audit record and really uses Redis. Sprint 4 adds a mail catcher (SMTP) and the sender and public
       # address settings; the same script then runs a whole sign-up on the image and reads the e-mail from the catcher.
+      # Sprint 17 adds an object store (the image has no default bucket or credentials, like every deployment): the script then
+      # stores and fetches a file, runs a bulk call, an import and a search on the image.
       - name: Smoke test image
         run: |
           owner_password="$(openssl rand -hex 16)"
@@ -189,6 +191,17 @@ jobs:
           docker run -d --name smoke-redis --network smoke \
             redis:8 redis-server --requirepass "$redis_password"
           docker run -d --name smoke-mail --network smoke -p 8025:8025 axllent/mailpit:v1.31
+          store_key="$(openssl rand -hex 8)"
+          store_secret="$(openssl rand -hex 16)"
+          docker run -d --name smoke-store --network smoke -p 8333:8333 \
+            -e AWS_ACCESS_KEY_ID="$store_key" -e AWS_SECRET_ACCESS_KEY="$store_secret" \
+            chrislusf/seaweedfs:4.48 server -s3 -dir=/data -master.volumeSizeLimitMB=128
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:8333/status >/dev/null; then break; fi
+            sleep 2
+          done
+          curl -fsS -X PUT --aws-sigv4 "aws:amz:us-east-1:s3" --user "$store_key:$store_secret" \
+            http://localhost:8333/smoke-files
           docker run -d --name smoke-db --network smoke \
             -e POSTGRES_USER=platform_owner -e POSTGRES_PASSWORD="$owner_password" -e POSTGRES_DB=platform \
             postgres:18
@@ -209,6 +222,9 @@ jobs:
             -e PLATFORM_SMTP_HOST=smoke-mail -e PLATFORM_SMTP_PORT=1025 -e PLATFORM_SMTP_AUTH=false \
             -e PLATFORM_SMTP_STARTTLS_REQUIRED=false \
             -e PLATFORM_MAIL_SENDER=no-reply@example.test -e PLATFORM_PUBLIC_BASE_URL=https://platform.example.test \
+            -e PLATFORM_STORAGE_ENDPOINT=http://smoke-store:8333 -e PLATFORM_STORAGE_PATH_STYLE=true \
+            -e PLATFORM_STORAGE_BUCKET=smoke-files \
+            -e PLATFORM_STORAGE_ACCESS_KEY="$store_key" -e PLATFORM_STORAGE_SECRET_KEY="$store_secret" \
             -e PLATFORM_SIGNING_KEY_ID=ci-smoke-key \
             -e PLATFORM_SIGNING_PRIVATE_KEY_FILE=/keys/private.pem \
             -e PLATFORM_SIGNING_PUBLIC_KEY_FILE=/keys/public.pem \

@@ -21,7 +21,9 @@ public record Decision(boolean allowed, Reason reason) {
         /** Nothing the member holds allows the action on the object (also: no such member, no licence). */
         OBJECT_NOT_ALLOWED,
         /** The object is allowed but nothing the member holds allows the action on the field. */
-        FIELD_NOT_ALLOWED
+        FIELD_NOT_ALLOWED,
+        /** The object is allowed but the record is not among the records the member may reach (Sprint 17). */
+        RECORD_NOT_ALLOWED
     }
 
     /** The member may. */
