@@ -60,7 +60,9 @@ import org.springframework.web.bind.annotation.RestController;
  * required fields, linked records, validation rules and formulas, in that order, and a read leaves out the fields the
  * caller may not read. Reads are limited to the records the caller may reach (Sprint 17, record-level security: the
  * owner, the default of the object, the role hierarchy, sharing rules, explicit shares, view-all and modify-all);
- * whether the caller may change a particular record is judged by the next sprint (17A).
+ * a change, a removal, a restore and a removal for good of a particular record are judged by the same rules, so a
+ * record the caller cannot read is answered as one that does not exist and a record they can read but not change as
+ * forbidden (Sprint 17A).
  */
 @RestController
 @Tag(name = "Records")
@@ -76,9 +78,11 @@ class RecordController {
             + "the record as it will be), the linked records, the unique fields (no other live record may hold the "
             + "same value; a record in the recycle bin does not count, and a text is compared exactly), the "
             + "validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are "
-            + "applied on create. Whether the caller may change this particular record is judged by the next sprint "
-            + "(17A); reads "
-            + "are already limited to the records the caller may reach. ";
+            + "applied on create. Before any of this, a change of an existing record is judged like a read of it: "
+            + "NOT_FOUND when the caller cannot read the record, FORBIDDEN when they can read it but may not change it "
+            + "(the default of the object, the role hierarchy, sharing rules, shares, modify-all). A link is accepted "
+            + "only to a record the caller can read. A refusal of a duplicate says that the value is in use and never "
+            + "whose record holds it. ";
     private static final String UNKNOWN = "NOT_FOUND for an object that does not exist, that a platform module owns "
             + "(a user, a profile ...) or that the caller may not read: all three answer alike. ";
 
@@ -252,7 +256,9 @@ class RecordController {
             summary = "Move a record to the recycle bin",
             description = "The record can be restored for the retention period, then it is removed for good. A second "
                     + "delete of the same record is a CONFLICT (409): it is already in the recycle bin. " + UNKNOWN
-                    + "FORBIDDEN without permission to delete in the object.")
+                    + "FORBIDDEN without permission to delete in the object, or for a record the caller can read but "
+                    + "may not delete; NOT_FOUND for a record the caller cannot read. A master takes its details with "
+                    + "it only when the caller may delete them too.")
     ResponseEntity<Void> delete(@PathVariable String objectApiName, @PathVariable UUID id) {
         records.delete(objectApiName, id);
         return ResponseEntity.noContent().header(HttpHeaders.CACHE_CONTROL, "no-store").build();
@@ -314,6 +320,7 @@ class RecordController {
             operationId = "listDeletedRecords",
             summary = "The records of an object that are in the recycle bin",
             description = "In identifier order, one page at a time. Needs permission to delete in the object. "
+                    + "Shows the records the caller may bring back (those they may delete). "
                     + UNKNOWN)
     ApiPageResponse<RecordView> listDeleted(@PathVariable String objectApiName, @ParameterObject PageRequest page) {
         return page(records.listDeleted(objectApiName, after(page), page.limit()), page);
@@ -323,8 +330,10 @@ class RecordController {
     @Operation(
             operationId = "restoreRecord",
             summary = "Take a record out of the recycle bin",
-            description = "Needs permission to delete in the object. CONFLICT (409) for a record that is not in the "
-                    + "recycle bin. " + UNKNOWN)
+            description = "Needs permission to delete in the object and the right to delete the record: "
+                    + "NOT_FOUND for a record the caller cannot read, FORBIDDEN for one they can read but may not "
+                    + "delete. CONFLICT (409) for a record that is not in the recycle bin, or whose value in a "
+                    + "unique field is in use now. " + UNKNOWN)
     ApiResponse<RecordView> restore(@PathVariable String objectApiName, @PathVariable UUID id) {
         return ApiResponse.of(view(records.restore(objectApiName, id)));
     }
@@ -333,8 +342,10 @@ class RecordController {
     @Operation(
             operationId = "purgeRecord",
             summary = "Remove a record in the recycle bin for good",
-            description = "Needs permission to delete in the object. CONFLICT (409) for a live record: delete it "
-                    + "first. This cannot be undone. " + UNKNOWN)
+            description = "Needs permission to delete in the object and the right to delete the record: "
+                    + "NOT_FOUND for a record the caller cannot read, FORBIDDEN for one they can read but may not "
+                    + "delete. CONFLICT (409) for a live record: delete it first. This cannot be undone. "
+                    + UNKNOWN)
     ResponseEntity<Void> purge(@PathVariable String objectApiName, @PathVariable UUID id) {
         records.purge(objectApiName, id);
         return ResponseEntity.noContent().header(HttpHeaders.CACHE_CONTROL, "no-store").build();

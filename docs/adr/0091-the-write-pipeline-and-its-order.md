@@ -19,7 +19,7 @@ architecture notes between the gate and the storage (note 4, sections 20, 21 and
 | 1 | shape | every key is shaped like a field name; every value is a text, a decimal, true or false, or a flat list of those; sizes | `RecordValues` |
 | 2 | record type | the type named exists and is in use; a create without one gets the default type of the object | `RecordTypeCheck` |
 | 3 | field permission | every field named is one the member may edit and one people can write; the record type offers it | `FieldSecurity`, `RecordTypeCheck` |
-| (3b) | record permission | **Sprint 17** goes here: between the gate and the field permission, so the seam is "after the gate, before `FieldSecurity.checkWrite`" | — |
+| (3b) | record permission | **Filled in Sprint 17A** ([ADR-0125](0125-record-level-security-on-writes-links-and-uniqueness.md)): a change of an existing record is answered like the single read of it, before any value is judged (not found, or forbidden for a record the member can read and not change); it runs in the record rules because the record is read first | `RecordPermission` |
 | 4 | type | each value belongs in its field's type and configuration; a picklist value is one the record type allows | `FieldValue`, `RecordTypeCheck` |
 | 5 | required | a required field and a master-detail have a value after the write | `WritePipeline` |
 | 6 | relationship | a linked record exists, is live and is of the target object, in this organization | `WritePipeline`, `StorageStrategy.liveIds` |

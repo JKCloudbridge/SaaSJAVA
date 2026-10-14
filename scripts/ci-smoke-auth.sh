@@ -939,7 +939,7 @@ if [ -n "$mail" ]; then
   [ -n "$enforced" ] || fail "the uniqueness of the tag did not become enforced: $(cat "$body")"
   status="$(client_call -X POST -H "$group_json" -d '{"fields":{"tag__c":"t1"}}' "$base/api/v1/objects/Badge__c/records")"
   [ "$status" = "400" ] || fail "a duplicate tag answered $status: $(cat "$body")"
-  grep -Fq 'Another record already has this value' "$body" || fail "the refusal lacks its words: $(cat "$body")"
+  grep -Fq 'This value is already in use' "$body" || fail "the refusal lacks its words: $(cat "$body")"
   if grep -Fq "$badge_one" "$body"; then fail "the refusal of a duplicate names the other record: $(cat "$body")"; fi
   status="$(client_call -X DELETE "$base/api/v1/objects/Badge__c/records/$badge_one")"
   [ "$status" = "204" ] || fail "removing the first badge answered $status: $(cat "$body")"

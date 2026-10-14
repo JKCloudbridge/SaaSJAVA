@@ -21,8 +21,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Creates, changes or deletes many records in one call (Sprint 17, ADR-0122). There is no private path: every record
  * goes through {@link Records}, the same code a single request runs, so the gate, field security, types, required
  * fields, links, unique values, validation rules, formulas, auto-numbers, the typed copies and the unique mask, the
- * audit record and the event all apply, once for each record. When Sprint 17A puts the record permission stage into
- * that code, it applies here without a change.
+ * audit record and the event all apply, once for each record. The record permission stage of Sprint 17A (ADR-0125)
+ * is in that code, so it applies here, record by record.
  *
  * <p><strong>Atomicity.</strong> The call is one transaction and each record runs in a savepoint of it. By default each
  * record stands on its own: one that is refused is undone alone, with its audit record and event, and the others are

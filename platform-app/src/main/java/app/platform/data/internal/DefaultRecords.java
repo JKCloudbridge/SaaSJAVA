@@ -11,6 +11,7 @@ import app.platform.data.StorageStrategy;
 import app.platform.data.UniqueValueTakenException;
 import app.platform.security.ObjectAccess;
 import app.platform.security.ObjectAction;
+import app.platform.security.RecordAction;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
 import java.util.List;
@@ -45,10 +46,13 @@ class DefaultRecords implements Records {
     private final RecordRemoval removal;
     private final SearchIndexer searchIndex;
     private final SearchEngine search;
+    private final RecordPermission permission;
 
     DefaultRecords(RecordGate gate, WritePipeline pipeline, FieldSecurity security, StorageStrategy storage,
             RecordChanges changes, QueryService queries, RecordVisibility visibility,
-            RecordLinks links, RecordRemoval removal, SearchIndexer searchIndex, SearchEngine search) {
+            RecordLinks links, RecordRemoval removal, SearchIndexer searchIndex, SearchEngine search,
+            RecordPermission permission) {
+        this.permission = permission;
         this.searchIndex = searchIndex;
         this.search = search;
         this.gate = gate;
@@ -101,14 +105,15 @@ class DefaultRecords implements Records {
     public DataRecord update(String objectApiName, UUID id, long expectedVersion, String recordType,
             Map<String, Object> set, List<String> clear) {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.UPDATE);
-        DataRecord current = storage.find(passed.object().apiName(), id);
-        if (current == null || current.deleted()) {
+        ObjectAccess access = access(passed);
+        // The record permission stage (ADR-0125): answered like the single read, before any value is judged.
+        DataRecord current = reachable(passed, access, id, RecordAction.EDIT);
+        if (current.deleted()) {
             throw whyNotChanged(current);
         }
         if (current.version() != expectedVersion) {
             throw new ApiException(ErrorCode.CONCURRENT_MODIFICATION);
         }
-        ObjectAccess access = access(passed);
         WritePipeline.Plan plan = pipeline.run(passed, access, current, recordType, set, clear);
         DataRecord updated;
         try {
@@ -129,21 +134,24 @@ class DefaultRecords implements Records {
     @Override
     public DataRecord delete(String objectApiName, UUID id) {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.DELETE);
+        ObjectAccess access = access(passed);
+        DataRecord current = reachable(passed, access, id, RecordAction.DELETE);
+        if (current.deleted()) {
+            throw whyNotChanged(current);
+        }
         DataRecord deleted = removal.delete(passed, id);
         if (deleted == null) {
             throw whyNotChanged(storage.find(passed.object().apiName(), id));
         }
         changes.deleted(passed.userId(), deleted.objectApiName(), deleted.id(), deleted.version());
-        return FieldSecurity.visible(deleted, access(passed));
+        return FieldSecurity.visible(deleted, access);
     }
 
     @Override
     public DataRecord restore(String objectApiName, UUID id) {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.DELETE);
-        DataRecord binned = storage.find(passed.object().apiName(), id);
-        if (binned == null) {
-            throw ApiException.notFound(NO_RECORD);
-        }
+        ObjectAccess access = access(passed);
+        DataRecord binned = reachable(passed, access, id, RecordAction.DELETE);
         if (!binned.deleted()) {
             throw new ApiException(ErrorCode.CONFLICT, "This record is not in the recycle bin.");
         }
@@ -152,16 +160,13 @@ class DefaultRecords implements Records {
             throw new ApiException(ErrorCode.CONFLICT, "This record is not in the recycle bin.");
         }
         changes.restored(passed.userId(), restored.objectApiName(), restored.id(), restored.version());
-        return FieldSecurity.visible(restored, access(passed));
+        return FieldSecurity.visible(restored, access);
     }
 
     @Override
     public void purge(String objectApiName, UUID id) {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.DELETE);
-        DataRecord found = storage.find(passed.object().apiName(), id);
-        if (found == null) {
-            throw ApiException.notFound(NO_RECORD);
-        }
+        DataRecord found = reachable(passed, access(passed), id, RecordAction.DELETE);
         if (!found.deleted()) {
             throw new ApiException(ErrorCode.CONFLICT,
                     "Only a record in the recycle bin can be removed for good. Delete it first.");
@@ -197,7 +202,27 @@ class DefaultRecords implements Records {
     @Transactional(readOnly = true)
     public RecordSlice listDeleted(String objectApiName, UUID after, int limit) {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.DELETE);
-        return slice(storage.listDeleted(passed.object().apiName(), after, limit + 1), limit, access(passed));
+        ObjectAccess access = access(passed);
+        // The bin shows what the member could bring back: the records they may delete (ADR-0125).
+        Optional<QueryPlan.Node> restorable = permission.binConstraint(passed, access);
+        List<DataRecord> fetched = restorable.isPresent()
+                ? storage.listDeleted(passed.object().apiName(), after, limit + 1, restorable.get())
+                : storage.listDeleted(passed.object().apiName(), after, limit + 1);
+        return slice(fetched, limit, access);
+    }
+
+    /**
+     * The record permission stage of a change (ADR-0125, the seam of ADR-0091): the record, when the member can read it
+     * and may do the action to it. A record they cannot read is answered as one that does not exist, one they can read
+     * and may not change as forbidden, exactly as the single read and the decision API answer.
+     */
+    private DataRecord reachable(RecordGate.Passed passed, ObjectAccess access, UUID id, RecordAction action) {
+        DataRecord found = permission.reach(passed, access, id);
+        if (found == null) {
+            throw ApiException.notFound(NO_RECORD);
+        }
+        permission.require(passed, access, id, action);
+        return found;
     }
 
     /**

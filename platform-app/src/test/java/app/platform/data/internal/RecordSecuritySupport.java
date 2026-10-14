@@ -24,7 +24,7 @@ abstract class RecordSecuritySupport extends QuerySupport {
     protected static final String MEMBERS = "/api/v1/members";
 
     /** The permission on each field of {@code Item__c}: edit all but the formula, which is read. */
-    private static final String ITEM_FIELD_PERMISSIONS = "[" + String.join(",", ITEM_FIELDS.keySet().stream()
+    protected static final String ITEM_FIELD_PERMISSIONS = "[" + String.join(",", ITEM_FIELDS.keySet().stream()
             .map(name -> "{\"key\":\"Item__c." + name + "__c\",\"actions\":[\""
                     + ("calc".equals(name) ? "read" : "edit") + "\"]}").toList()) + "]";
 
@@ -41,10 +41,23 @@ abstract class RecordSecuritySupport extends QuerySupport {
         }
     }
 
-    /** A member with exactly these actions on {@code Item__c} and every field permission, signed in. */
+    /**
+     * A member with exactly these actions on {@code Item__c} and every field permission, signed in. They may also read
+     * {@code Target__c}, which the lookup of {@code Item__c} points at (a link to an object a member may not read is
+     * refused, ADR-0125).
+     */
     protected Person person(Organization organization, TestBrowser admin, String... actions) {
-        Holder holder = holderWith(organization, admin, "Item__c", ITEM_FIELD_PERMISSIONS, actions);
+        Holder holder = actions.length == 0
+                ? holderWith(organization, admin, "Item__c", ITEM_FIELD_PERMISSIONS)
+                : holderWithMatrix(organization, admin, matrix(ITEM_FIELD_PERMISSIONS, actions));
         return new Person(holder.member(), as(organization, holder.member()), holder.profileId());
+    }
+
+    /** The data-access matrix of a member of {@code Item__c}: the actions on it and read on {@code Target__c}. */
+    private static String matrix(String fieldsJson, String... actions) {
+        String quoted = String.join(",", java.util.Arrays.stream(actions).map(action -> "\"" + action + "\"").toList());
+        return "{\"objects\":[{\"key\":\"Item__c\",\"actions\":[" + quoted + "]},"
+                + "{\"key\":\"Target__c\",\"actions\":[\"read\"]}],\"fields\":" + fieldsJson + "}";
     }
 
     /** A member who may read, create, change and delete records of {@code Item__c}. */
@@ -63,7 +76,7 @@ abstract class RecordSecuritySupport extends QuerySupport {
                         + String.join(",", java.util.Arrays.stream(extraFieldApiNames)
                                 .map(field -> "{\"key\":\"Item__c." + field + "\",\"actions\":[\"edit\"]}").toList())
                         + "]";
-        Holder holder = holderWith(organization, admin, "Item__c", fields, "read", "create", "update", "delete");
+        Holder holder = holderWithMatrix(organization, admin, matrix(fields, "read", "create", "update", "delete"));
         return new Person(holder.member(), as(organization, holder.member()), holder.profileId());
     }
 

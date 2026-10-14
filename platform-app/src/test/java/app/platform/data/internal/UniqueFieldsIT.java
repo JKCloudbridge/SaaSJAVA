@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 @PlatformIntegrationTest
 class UniqueFieldsIT extends QuerySupport {
 
-    private static final String TAKEN = "Another record already has this value";
+    private static final String TAKEN = "This value is already in use";
 
     private static TestApplication instanceB;
 

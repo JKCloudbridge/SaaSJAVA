@@ -80,10 +80,12 @@ class RecordRemoval {
     private final RecordProperties.Links limits;
     private final LinkBackfill linkFill;
     private final FormulaResults formulas;
+    private final RecordPermission permission;
 
     RecordRemoval(StorageStrategy storage, RecordLinks links, RecordSlots slots, RecordChanges changes,
             Metadata metadata, Decisions decisions, RecordProperties properties, LinkBackfill linkFill,
-            FormulaResults formulas) {
+            FormulaResults formulas, RecordPermission permission) {
+        this.permission = permission;
         this.linkFill = linkFill;
         this.formulas = formulas;
         this.storage = storage;
@@ -145,6 +147,8 @@ class RecordRemoval {
             }
             List<RecordLinkStore.Incoming> pointing = links.incoming(current.id(), max + 1);
             Map<String, Set<UUID>> live = liveAmong(pointing);
+            // The details the member may remove, one question per object (ADR-0125), asked only when one is needed.
+            Map<String, Set<UUID>> removable = new HashMap<>();
             for (RecordLinkStore.Incoming row : pointing) {
                 if (!live.getOrDefault(row.sourceObject(), Set.of()).contains(row.sourceRecord())
                         || going.contains(row.sourceRecord())) {
@@ -161,6 +165,13 @@ class RecordRemoval {
                     case CASCADE -> {
                         if (!decisions.can(passed.membershipId(), row.sourceObject(), ObjectAction.DELETE)
                                 .allowed()) {
+                            throw new ApiException(ErrorCode.FORBIDDEN, NOT_ALLOWED);
+                        }
+                        // Not through a master what they could not remove directly, record by record (ADR-0125).
+                        // The answer names no record: the member may not even see the detail.
+                        if (!removable.computeIfAbsent(row.sourceObject(), object -> permission.deletable(
+                                passed.membershipId(), object, live.getOrDefault(object, Set.of()), false))
+                                .contains(row.sourceRecord())) {
                             throw new ApiException(ErrorCode.FORBIDDEN, NOT_ALLOWED);
                         }
                         going.add(row.sourceRecord());
@@ -227,12 +238,19 @@ class RecordRemoval {
         Deque<UUID> queue = new ArrayDeque<>();
         queue.add(restored.id());
         while (!queue.isEmpty()) {
-            for (StorageStrategy.Removed removed : storage.removedWith(queue.poll(), limits.maxAffected() + 1)) {
+            List<StorageStrategy.Removed> together = storage.removedWith(queue.poll(), limits.maxAffected() + 1);
+            Map<String, Set<UUID>> removable = new HashMap<>();
+            for (StorageStrategy.Removed removed : together) {
                 if (counts[0] >= limits.maxAffected()) {
                     throw new ApiException(ErrorCode.CONFLICT, "Restoring this record would bring back more than "
                             + limits.maxAffected() + " other records, which is more than one request may do.");
                 }
-                if (!decisions.can(passed.membershipId(), removed.objectApiName(), ObjectAction.DELETE).allowed()) {
+                if (!decisions.can(passed.membershipId(), removed.objectApiName(), ObjectAction.DELETE).allowed()
+                        || !removable.computeIfAbsent(removed.objectApiName(), object -> permission.deletable(
+                                passed.membershipId(), object, together.stream()
+                                        .filter(other -> other.objectApiName().equals(object))
+                                        .map(StorageStrategy.Removed::id).toList(), true))
+                                .contains(removed.id())) {
                     throw new ApiException(ErrorCode.FORBIDDEN, NOT_ALLOWED);
                 }
                 DataRecord detail = storage.find(removed.objectApiName(), removed.id());
@@ -274,10 +292,11 @@ class RecordRemoval {
         try {
             restored = storage.restore(definition.apiName(), binned.id(), actor, copies);
         } catch (UniqueValueTakenException refused) {
-            // A record in the recycle bin never blocked the value, so another record may hold it now (ADR-0111).
-            throw new ApiException(ErrorCode.CONFLICT, "This record cannot be brought back: another record has the "
-                    + "same value in a unique field (" + copies.uniquePlaces().getOrDefault(refused.constraint(),
-                    "a unique field") + "), or links the same two records. Change or remove that record first.");
+            // A record in the recycle bin never blocked the value, so it may be in use now (ADR-0111). The words say
+            // that, never whose record holds it: the member may not be able to see it (ADR-0125).
+            throw new ApiException(ErrorCode.CONFLICT, "This record cannot be brought back: a value in a unique "
+                    + "field (" + copies.uniquePlaces().getOrDefault(refused.constraint(), "a unique field")
+                    + ") is already in use, or the two records it links are already linked.");
         }
         if (restored == null) {
             return null;

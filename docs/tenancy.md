@@ -434,3 +434,19 @@ For a contributor who adds a read or write path to records, a table or a field k
 **Import and bulk tests.** `ImportRunner.workOn(organization)` runs the jobs of an organization at once; the test profile switches the background sweep off. A row of a test import runs as the member who started it, so make that member with the permissions the case needs (`RecordSecuritySupport.person` and `worker`).
 
 **Search tests.** `IndexBackfill.workOn(organization)` fills the words of a newly searchable field; wait for the status `COMPLETE` before searching (`SearchIT.settleSearch`).
+
+## Record-level security on writes, links and uniqueness (Sprint 17A)
+
+For a contributor who adds a write path, a link or a background job. Decision: ADR-0125.
+
+**A change of an existing record passes `RecordPermission` first** (`require` after `reach`, called by `DefaultRecords` before the pipeline): the record is read with the member's `READ` condition (nothing found: "not found"), then the `EDIT` or `DELETE` condition is run against it (not among them: forbidden). The conditions come from `RecordVisibility.constraintFor(object, member, access, action)` and nowhere else; never write a Java rule for who may change a record. A record in the recycle bin is judged by the same conditions. A new write path through `Records` gets this for free; a path that bypasses `Records` is a defect (and a bulk or import path must not).
+
+**Cascades.** A removal or restore that takes other records with it asks `RecordPermission.deletable` for the details, one question per detail object, and refuses with `FORBIDDEN` without naming a detail. Clearing a pointer (the behaviour *clear*) is integrity maintenance, runs as the platform and needs no right over the other record.
+
+**Links.** `WritePipeline.checkLinks` accepts a changed link only to a live record the member can read (`reachable`: the member may use the target object and the record meets their `READ` condition); every other case gives the same words. The reference directory of a platform-owned object is unchanged.
+
+**Uniqueness.** `valueTaken` and the unique indexes ignore record security on purpose; the words (`WritePipeline.VALUE_TAKEN`, `PAIR_TAKEN`, the restore message of `RecordRemoval`) say only that a value is in use, never whose record holds it. A test compares the answer for a member who can see the other record with one who cannot (`UniquenessAndVisibilityIT`).
+
+**Background jobs run as the platform.** The recycle-bin clean-up, the formula recalculation (`QueryService.scan`), the backfills and the file clean-up never ask `RecordVisibility`, are attributed to nobody, and change no owner, share or version (`BackgroundJobsAndRecordSecurityIT`). A new job must do the same and add a line to that test.
+
+**Tests.** `RecordWriteSecurityIT` (every write endpoint: allowed, denied, cross-tenant, forged header, unauthenticated, and the new case *can read, cannot edit*; plus the matrix that holds list, read, change and removal to the decision API for every member and record across seven sharing configurations), `RecordLinkVisibilityIT`, `UniquenessAndVisibilityIT`, `BackgroundJobsAndRecordSecurityIT`. The shared helper `RecordSecuritySupport.person(...)` gives a member read on `Target__c`; a test that needs a member who cannot use the target object builds the profile itself.

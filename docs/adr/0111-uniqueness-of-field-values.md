@@ -59,3 +59,7 @@ metadata) forbids and which would not scale to thousands of organizations. The d
 - **An index per organization and object, made at run time.** Forbidden (data definition from tenant metadata), and it does not scale on one table.
 - **Application locks only.** Not enforced by the database, so a bug or a second writer breaks it; kept as the pre-check and nothing more.
 - **Case-insensitive by default.** Rejected: it would differ from every comparison in the platform (ADR-0095 point 6) and from the filter on the same field.
+
+## Amended in Sprint 17A
+
+[ADR-0125](0125-record-level-security-on-writes-links-and-uniqueness.md) point 5: the words of the refusal are now "This value is already in use. This field must be unique." (a restore: a value in a unique field is in use), so that the answer is the same for a member who cannot see the other record. The check itself is unchanged and still runs across the whole organization.

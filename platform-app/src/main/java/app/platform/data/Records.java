@@ -15,8 +15,10 @@ import java.util.UUID;
  * and the member may use the object (the permission decision API of the security module). A member who may not see an
  * object and an object that does not exist get the same answer. Since Sprint 15 a write passes the write pipeline
  * after the gate (field permission, types, required fields, relationships, validation rules, formulas,
- * auto-numbers, record types: ADR-0091) and a read leaves out the fields the member may not read; Sprint 17 adds
- * record-level security to the gate.
+ * auto-numbers, record types: ADR-0091) and a read leaves out the fields the member may not read; Since Sprint 17
+ * the records a caller may reach are limited by record-level security, and since Sprint 17A a change, a removal, a
+ * restore and a removal for good are judged by it too: a record the caller cannot read is answered as one that does
+ * not exist ({@code NOT_FOUND}), a record they can read and may not change as {@code FORBIDDEN} (ADR-0125).
  *
  * <p>Every call runs in one transaction that is opened after the tenant context. A change, its audit record and its
  * event commit together or not at all. Values never reach a log, an audit record, an event or an error message.

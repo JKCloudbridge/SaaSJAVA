@@ -44,8 +44,9 @@ class BulkController {
                     + "call counts what it did, never a value. NOT_FOUND for an object that does not exist, that a "
                     + "platform module owns or that the caller may not read; FORBIDDEN for a caller who may read "
                     + "the object but not do the operation in it (decided once for the whole call, by the same gate "
-                    + "as a single request). Whether the caller may change this particular record is judged by "
-                    + "the next sprint (17A), for bulk as for single requests.")
+                    + "as a single request). Whether the caller may change or delete a particular record is judged "
+                    + "for each record like a single request: its outcome is NOT_FOUND when the caller cannot read "
+                    + "the record and FORBIDDEN when they can read it but may not do this to it.")
     ApiResponse<BulkRecordsResponse> bulk(@PathVariable String objectApiName,
             @Valid @RequestBody BulkRecordsRequest body) {
         return ApiResponse.of(bulk.run(objectApiName, body));

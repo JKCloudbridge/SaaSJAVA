@@ -13,9 +13,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * The one place every read and every write of a record passes before anything is touched (ADR-0089). Since Sprint 15
- * the write pipeline, which holds field security, runs after it (ADR-0091); Sprint 17 adds record-level security
- * between the two (the owner is already stored for it). Nothing in the record store reads or writes a record without
- * a {@link Passed} from this class.
+ * the write pipeline, which holds field security, runs after it (ADR-0091); since Sprint 17A record-level security
+ * sits between the two for a change of an existing record ({@link RecordPermission}, ADR-0125). Nothing in the
+ * record store reads or writes a record without a {@link Passed} from this class.
  *
  * <p>What it decides, in this order:
  * <ol> <li>Who asks: the member behind the request, from the tenant context (the host and the token, never the
