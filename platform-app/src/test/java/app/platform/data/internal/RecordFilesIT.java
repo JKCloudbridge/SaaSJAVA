@@ -31,8 +31,8 @@ class RecordFilesIT extends RecordSecuritySupport {
     }
 
     private static BytesResponse upload(TestBrowser browser, String record, String name, String type, byte[] bytes) {
-        return browser.bytes("POST", files(record) + "?name=" + java.net.URLEncoder.encode(name,
-                StandardCharsets.UTF_8), bytes, "Content-Type", type);
+        return browser.bytes("POST", files(record), bytes, "Content-Type", type, "X-File-Name",
+                java.net.URLEncoder.encode(name, StandardCharsets.UTF_8));
     }
 
     private static byte[] random(int size) {
@@ -177,8 +177,8 @@ class RecordFilesIT extends RecordSecuritySupport {
         TestBrowser nobody = new TestBrowser(port, items.organization().host());
 
         assertThat(nobody.bytes("GET", files(record), null).status()).isEqualTo(401);
-        assertThat(nobody.bytes("POST", files(record) + "?name=a.zip", random(10), "Content-Type",
-                "application/zip").status()).isEqualTo(401);
+        assertThat(nobody.bytes("POST", files(record), random(10), "Content-Type", "application/zip",
+                "X-File-Name", "a.zip").status()).isEqualTo(401);
     }
 
     // ---- what is refused ----

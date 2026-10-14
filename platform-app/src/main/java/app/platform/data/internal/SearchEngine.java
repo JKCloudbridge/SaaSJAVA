@@ -67,6 +67,8 @@ class SearchEngine {
         if (words.isEmpty()) {
             throw ApiException.validation("text", "Type at least two letters, or a number.");
         }
+        String signature = signature(object.apiName(), words);
+        Position after = cursor == null ? null : decode(cursor, signature);
         List<Counted> counted = new ArrayList<>();
         for (SearchTokens.Word word : words) {
             int found = store.count(object.apiName(), word.text(), word.beginning(), word.upperBound(), fields,
@@ -84,7 +86,6 @@ class SearchEngine {
         List<StorageStrategy.SearchWord> others = counted.stream().filter(one -> one != rarest)
                 .map(one -> word(one.word())).toList();
         QueryPlan.Node constraint = visibility.constraintFor(passed, access).orElse(null);
-        Position after = cursor == null ? null : decode(cursor);
         List<StorageStrategy.ScoredRecord> rows = storage.search(new StorageStrategy.SearchPlan(object.apiName(),
                 word(rarest.word()), others, fields, constraint, after == null ? null : after.score(),
                 after == null ? null : after.id(), limit + 1));
@@ -93,7 +94,7 @@ class SearchEngine {
         String next = null;
         if (more) {
             StorageStrategy.ScoredRecord last = page.get(page.size() - 1);
-            next = encode(last.score(), last.record().id());
+            next = encode(last.score(), last.record().id(), signature);
         }
         List<QueriedRecord> records = new ArrayList<>();
         for (StorageStrategy.ScoredRecord row : page) {
@@ -122,17 +123,28 @@ class SearchEngine {
     private record Position(int score, UUID id) {
     }
 
-    private static String encode(int score, UUID id) {
-        return Base64.getUrlEncoder().withoutPadding().encodeToString((score + ":" + id)
+    /** Binds a cursor to the object and the exact words searched, so it cannot be reused for a different search. */
+    private static String signature(String objectApiName, List<SearchTokens.Word> words) {
+        String joined = objectApiName + "|" + words.stream().map(SearchTokens.Word::text)
+                .collect(Collectors.joining(","));
+        return Integer.toHexString(joined.hashCode());
+    }
+
+    private static String encode(int score, UUID id, String signature) {
+        return Base64.getUrlEncoder().withoutPadding().encodeToString((score + ":" + id + ":" + signature)
                 .getBytes(StandardCharsets.US_ASCII));
     }
 
-    private static Position decode(String cursor) {
+    private static Position decode(String cursor, String signature) {
         try {
             String text = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.US_ASCII);
-            int colon = text.indexOf(':');
-            return new Position(Integer.parseInt(text.substring(0, colon)),
-                    UUID.fromString(text.substring(colon + 1)));
+            int firstColon = text.indexOf(':');
+            int secondColon = text.indexOf(':', firstColon + 1);
+            if (!text.substring(secondColon + 1).equals(signature)) {
+                throw ApiException.validation("cursor", "Is not a valid cursor for this search");
+            }
+            return new Position(Integer.parseInt(text.substring(0, firstColon)),
+                    UUID.fromString(text.substring(firstColon + 1, secondColon)));
         } catch (IllegalArgumentException | StringIndexOutOfBoundsException e) {
             throw ApiException.validation("cursor", "Is not a valid cursor");
         }

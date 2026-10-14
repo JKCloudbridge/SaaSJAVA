@@ -1,5 +1,6 @@
 package app.platform.data.internal;
 
+import app.platformapi.ApiException;
 import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
 import app.platformapi.RecordFileView;
@@ -11,6 +12,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
@@ -22,7 +24,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -56,24 +58,34 @@ class FileController {
         return ApiResponse.of(files.list(objectApiName, id).stream().map(FileController::view).toList());
     }
 
+    private static final String NAME_HEADER = "X-File-Name";
+
     @PostMapping(FILES)
     @Operation(
             operationId = "uploadRecordFile",
             summary = "Store a file on a record",
             description = "The body is the bytes of the file, as they are (not a form), with the length announced "
-                    + "(Content-Length; chunked bodies are refused). The name is the query parameter 'name', the "
-                    + "type the Content-Type of the request. The server cleans the name (only its last part is "
-                    + "kept), decides the type, refuses names and types on the denied list and files that start "
-                    + "like a program or a page a browser would run (VALIDATION_ERROR), refuses a file above the "
-                    + "largest size (PAYLOAD_TOO_LARGE, checked on the announced length and on the bytes that "
-                    + "pass) and a record that has the most files (CONFLICT). The size and the SHA-256 in the "
-                    + "answer are those of the bytes that were stored. A failed upload leaves nothing. Needs the "
-                    + "right to change the record. Audited by identifiers and size, never by name or content. "
-                    + UNKNOWN)
+                    + "(Content-Length; chunked bodies are refused). The name is the header 'X-File-Name', percent-"
+                    + "encoded as a URI component (never a query parameter: a request's path and query string are "
+                    + "the part of a request that a log at DEBUG prints, and a file's name is a value typed by a "
+                    + "person), the type the Content-Type of the request. The server cleans the name (only its "
+                    + "last part is kept), decides the type, "
+                    + "refuses names and types on the denied list and files that start like a program or a page a "
+                    + "browser would run (VALIDATION_ERROR), refuses a file above the largest size "
+                    + "(PAYLOAD_TOO_LARGE, checked on the announced length and on the bytes that pass) and a "
+                    + "record that has the most files (CONFLICT). The size and the SHA-256 in the answer are those "
+                    + "of the bytes that were stored. A failed upload leaves nothing. Needs the right to change "
+                    + "the record. Audited by identifiers and size, never by name or content. " + UNKNOWN)
     @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(mediaType = "application/octet-stream",
             schema = @Schema(type = "string", format = "binary")))
     ResponseEntity<ApiResponse<RecordFileView>> upload(@PathVariable String objectApiName, @PathVariable UUID id,
-            @RequestParam("name") String name, HttpServletRequest request) throws IOException {
+            @RequestHeader(NAME_HEADER) String encodedName, HttpServletRequest request) throws IOException {
+        String name;
+        try {
+            name = URLDecoder.decode(encodedName, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            throw ApiException.validation("name", "Is not a valid percent-encoded name.");
+        }
         FileStore.FileRow stored = files.upload(objectApiName, id, name, request.getContentType(),
                 request.getContentLengthLong(), request.getInputStream());
         return ResponseEntity.status(HttpStatus.CREATED).header(HttpHeaders.CACHE_CONTROL, "no-store")

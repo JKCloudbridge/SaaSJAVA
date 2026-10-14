@@ -2143,7 +2143,7 @@ export interface paths {
         put?: never;
         /**
          * Store a file on a record
-         * @description The body is the bytes of the file, as they are (not a form), with the length announced (Content-Length; chunked bodies are refused). The name is the query parameter 'name', the type the Content-Type of the request. The server cleans the name (only its last part is kept), decides the type, refuses names and types on the denied list and files that start like a program or a page a browser would run (VALIDATION_ERROR), refuses a file above the largest size (PAYLOAD_TOO_LARGE, checked on the announced length and on the bytes that pass) and a record that has the most files (CONFLICT). The size and the SHA-256 in the answer are those of the bytes that were stored. A failed upload leaves nothing. Needs the right to change the record. Audited by identifiers and size, never by name or content. NOT_FOUND for an object or record that does not exist, that the caller may not reach, or that is in the recycle bin: all answer alike. SERVICE_UNAVAILABLE (503, with Retry-After) when the object store does not answer; nothing is stored then.
+         * @description The body is the bytes of the file, as they are (not a form), with the length announced (Content-Length; chunked bodies are refused). The name is the header 'X-File-Name', percent-encoded as a URI component (never a query parameter: a request's path and query string are the part of a request that a log at DEBUG prints, and a file's name is a value typed by a person), the type the Content-Type of the request. The server cleans the name (only its last part is kept), decides the type, refuses names and types on the denied list and files that start like a program or a page a browser would run (VALIDATION_ERROR), refuses a file above the largest size (PAYLOAD_TOO_LARGE, checked on the announced length and on the bytes that pass) and a record that has the most files (CONFLICT). The size and the SHA-256 in the answer are those of the bytes that were stored. A failed upload leaves nothing. Needs the right to change the record. Audited by identifiers and size, never by name or content. NOT_FOUND for an object or record that does not exist, that the caller may not reach, or that is in the recycle bin: all answer alike. SERVICE_UNAVAILABLE (503, with Retry-After) when the object store does not answer; nothing is stored then.
          */
         post: operations["uploadRecordFile"];
         delete?: never;
@@ -9327,10 +9327,10 @@ export interface operations {
     };
     uploadRecordFile: {
         parameters: {
-            query: {
-                name: string;
+            query?: never;
+            header: {
+                "X-File-Name": string;
             };
-            header?: never;
             path: {
                 objectApiName: string;
                 id: string;

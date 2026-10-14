@@ -63,7 +63,7 @@ public abstract class RecordsSupport {
 
     protected Organization organization() {
         Organization organization = TestOrganizations.create(users);
-        TestPlatform.subscribe(plans, subscriptions, organization.id(), 5, 3);
+        TestPlatform.subscribe(plans, subscriptions, organization.id(), 8, 3);
         return organization;
     }
 

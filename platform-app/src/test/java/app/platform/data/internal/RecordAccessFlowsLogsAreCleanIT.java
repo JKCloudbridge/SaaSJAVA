@@ -85,9 +85,9 @@ class RecordAccessFlowsLogsAreCleanIT extends RecordSecuritySupport {
         answers.add(owner.browser().postJson(ITEM_RECORDS + "/bulk", "{\"operation\":\"CREATE\",\"allOrNone\":false,"
                 + "\"records\":[{\"fields\":{\"name__c\":\"" + bulk + "\"}},{\"fields\":{\"qty__c\":\"" + bulk
                 + "\"}}]}").body());
-        BytesResponse stored = owner.browser().bytes("POST", ITEM_RECORDS + "/" + record + "/files?name="
-                + java.net.URLEncoder.encode(fileName + ".zip", StandardCharsets.UTF_8), new byte[] {'P', 'K', 1, 2},
-                "Content-Type", "application/zip");
+        BytesResponse stored = owner.browser().bytes("POST", ITEM_RECORDS + "/" + record + "/files",
+                new byte[] {'P', 'K', 1, 2}, "Content-Type", "application/zip", "X-File-Name",
+                java.net.URLEncoder.encode(fileName + ".zip", StandardCharsets.UTF_8));
         assertThat(stored.status()).as(stored.text()).isEqualTo(201);
         Response started = owner.browser().postJson(ITEM_RECORDS.replace("/records", "/imports"),
                 "{\"operation\":\"CREATE\"}");

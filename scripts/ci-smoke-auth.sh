@@ -1013,8 +1013,8 @@ if [ -n "$mail" ]; then
   file_in="$(mktemp)"
   head -c 5000 /dev/urandom > "$file_in"
   printf 'PK' | dd of="$file_in" conv=notrunc 2>/dev/null
-  status="$(client_call -X POST -H 'Content-Type: application/zip' --data-binary "@$file_in" \
-    "$base/api/v1/objects/Lead__c/records/$lead_one/files?name=quote.zip")"
+  status="$(client_call -X POST -H 'Content-Type: application/zip' -H 'X-File-Name: quote.zip' \
+    --data-binary "@$file_in" "$base/api/v1/objects/Lead__c/records/$lead_one/files")"
   [ "$status" = "201" ] || fail "storing a file answered $status: $(cat "$body")"
   file_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
   status="$(client_call "$base/api/v1/objects/Lead__c/records/$lead_one/files/$file_id/content")"
