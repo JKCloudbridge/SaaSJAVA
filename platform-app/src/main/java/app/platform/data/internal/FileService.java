@@ -143,7 +143,6 @@ class FileService {
             LOG.warn("The object store failed while storing a file");
             throw ApiException.unavailable(30);
         } catch (RuntimeException e) {
-            LOG.warn("TEMP-DIAGNOSTIC upload RuntimeException", e);
             abandon(started);
             throw e;
         }
