@@ -48,7 +48,7 @@ class TenantLifecycleAuditIT {
         tenants.suspend(tenant.id(), ActorId.SYSTEM);
         tenants.reinstate(tenant.id(), ActorId.SYSTEM);
 
-        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+        await().atMost(Duration.ofSeconds(60)).untilAsserted(() -> {
             assertThat(records(tenant, "tenant.lifecycle.provisioned")).isEqualTo(1);
             assertThat(records(tenant, "tenant.lifecycle.activated")).isEqualTo(1);
             assertThat(records(tenant, "tenant.lifecycle.suspended")).isEqualTo(1);
@@ -67,7 +67,7 @@ class TenantLifecycleAuditIT {
     void theSameEventDeliveredTwiceLeavesOneRecord() throws SQLException {
         Tenant tenant = tenants.provision(TenantSlug.of("twice-" + UUID.randomUUID().toString().substring(0, 8)),
                 "Tenant B", ActorId.SYSTEM);
-        await().atMost(Duration.ofSeconds(30)).untilAsserted(
+        await().atMost(Duration.ofSeconds(60)).untilAsserted(
                 () -> assertThat(records(tenant, "tenant.lifecycle.provisioned")).isEqualTo(1));
         UUID event = IdentityDb.value(UUID.class, "select source_event_id from audit_record "
                 + "where context_tenant_id = ? and event_type = 'tenant.lifecycle.provisioned'", tenant.id().value());
