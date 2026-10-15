@@ -51,7 +51,7 @@ jobs:
         run: ./mvnw -B -ntp verify -Pintegration-only
 
       - name: Upload application jar
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: platform-app-jar
           path: platform-app/target/platform-app-*.jar
@@ -60,7 +60,7 @@ jobs:
 
       - name: Upload test reports on failure
         if: failure()
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: test-reports
           path: |
