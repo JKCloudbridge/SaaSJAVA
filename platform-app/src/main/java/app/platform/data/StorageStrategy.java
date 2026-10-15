@@ -231,6 +231,26 @@ public interface StorageStrategy {
     List<DataRecord> liveRecords(String objectApiName, Collection<UUID> ids, QueryPlan.Node condition);
 
     /**
+     * Which of the identifiers are live records of the object that also meet the condition (Sprint 17A, ADR-0125):
+     * the records a member may link to, or may remove together with another. A record that does not meet it, is in
+     * the recycle bin, is of another object or of another organization is absent, and nothing tells the cases apart.
+     */
+    Set<UUID> liveIds(String objectApiName, Collection<UUID> ids, QueryPlan.Node condition);
+
+    /**
+     * Which of the identifiers are records of the object, live or in the recycle bin, that meet the condition. A
+     * record in the recycle bin keeps its owner and its shares, so the rules of record-level security judge it as
+     * they judged it alive (ADR-0125).
+     */
+    Set<UUID> idsMeeting(String objectApiName, Collection<UUID> ids, QueryPlan.Node condition);
+
+    /**
+     * A page of records in the recycle bin that meet the condition, in identifier order, as {@link #listDeleted(String,
+     * UUID, int)}.
+     */
+    List<DataRecord> listDeleted(String objectApiName, UUID after, int limit, QueryPlan.Node condition);
+
+    /**
      * Gives a live record that has the expected version to another owner. The version rises and the time of the change
      * is set, like any change of the record.
      *

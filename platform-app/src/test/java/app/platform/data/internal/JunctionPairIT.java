@@ -37,7 +37,7 @@ class JunctionPairIT extends PipelineSupport {
     private static final String LINKS = "/api/v1/objects/Link__c/records";
     private static final String LINK_BIN = "/api/v1/objects/Link__c/recycle-bin";
     private static final String LINK_STATUS = "/api/v1/objects/Link__c/index-status";
-    private static final String SAID = "These two records are already linked.";
+    private static final String SAID = "This combination is already in use.";
 
     private static TestApplication instanceB;
 

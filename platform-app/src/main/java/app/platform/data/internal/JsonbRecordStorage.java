@@ -81,6 +81,13 @@ class JsonbRecordStorage implements StorageStrategy {
     private static final String LIVE_IDS = "select id from object_record where tenant_id = :tenant "
             + "and object_api_name = :object and deleted_at is null and id in (:ids)";
 
+    // Live or in the recycle bin: the rules of record-level security judge a binned record as they judged it alive.
+    private static final String IDS_MEETING = "select id from object_record where tenant_id = :tenant "
+            + "and object_api_name = :object and id in (:ids)";
+
+    private static final String BIN_WHERE = "select " + COLUMNS + " from object_record "
+            + "where tenant_id = :tenant and object_api_name = :object and deleted_at is not null";
+
     private static final String LIVE_RECORDS = "select " + COLUMNS + " from object_record where tenant_id = :tenant "
             + "and object_api_name = :object and deleted_at is null and id in (:ids)";
 
@@ -527,6 +534,41 @@ class JsonbRecordStorage implements StorageStrategy {
         return withParameters(jdbc.sql(LIVE_RECORDS + " and (" + where.sql() + ")").param("tenant", tenant())
                 .param("object", objectApiName).param("ids", List.copyOf(ids)), where.params())
                 .query(this::map).list();
+    }
+
+    @Override
+    public Set<UUID> liveIds(String objectApiName, Collection<UUID> ids, QueryPlan.Node condition) {
+        if (ids.isEmpty()) {
+            return Set.of();
+        }
+        JsonbQuerySql.Condition where = JsonbQuerySql.condition(condition);
+        return Set.copyOf(withParameters(jdbc.sql(LIVE_IDS + " and (" + where.sql() + ")").param("tenant", tenant())
+                .param("object", objectApiName).param("ids", List.copyOf(ids)), where.params())
+                .query(UUID.class).list());
+    }
+
+    @Override
+    public Set<UUID> idsMeeting(String objectApiName, Collection<UUID> ids, QueryPlan.Node condition) {
+        if (ids.isEmpty()) {
+            return Set.of();
+        }
+        JsonbQuerySql.Condition where = JsonbQuerySql.condition(condition);
+        return Set.copyOf(withParameters(jdbc.sql(IDS_MEETING + " and (" + where.sql() + ")")
+                .param("tenant", tenant()).param("object", objectApiName).param("ids", List.copyOf(ids)),
+                where.params()).query(UUID.class).list());
+    }
+
+    @Override
+    public List<DataRecord> listDeleted(String objectApiName, UUID after, int limit, QueryPlan.Node condition) {
+        JsonbQuerySql.Condition where = JsonbQuerySql.condition(condition);
+        String statement = BIN_WHERE + (after == null ? "" : " and id > :after") + " and (" + where.sql() + ")"
+                + " order by id limit :limit";
+        JdbcClient.StatementSpec spec = withParameters(jdbc.sql(statement).param("tenant", tenant())
+                .param("object", objectApiName).param("limit", limit), where.params());
+        if (after != null) {
+            spec = spec.param("after", after);
+        }
+        return spec.query(this::map).list();
     }
 
     @Override

@@ -17,8 +17,8 @@ import org.springframework.stereotype.Component;
  * leaks nothing: a record that does not exist and one the member cannot reach answer alike ("not found"); only a record
  * the member can read and not change answers "forbidden", because they know it exists.
  *
- * <p>The write pipeline of Sprint 15 does not call this for the writes of records themselves; that stage is Sprint 17A,
- * which will call the same evaluation.
+ * <p>The writes of the records themselves (change, removal, restore) ask {@link RecordPermission}, which runs the same
+ * conditions of {@link RecordVisibility} against the record (Sprint 17A, ADR-0125).
  */
 @Component
 class RecordAuthorization {

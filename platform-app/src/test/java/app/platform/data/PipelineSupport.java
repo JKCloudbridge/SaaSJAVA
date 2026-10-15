@@ -179,10 +179,15 @@ public abstract class PipelineSupport extends RecordsSupport {
         return "[" + String.join(",", parts) + "]";
     }
 
-    /** A member who may use the matrix object and holds this action on all of its fields ({@code null}: none). */
+    /**
+     * A member who may use the matrix object and holds this action on all of its fields ({@code null}: none), with
+     * read on {@code Target__c} too (what the lookup and master-detail fields point at): without it, a member who may
+     * edit those fields could not link to a record they are allowed to read (ADR-0125).
+     */
     protected Holder matrixMember(Matrix matrix, String fieldAction) {
         String fields = fieldAction == null ? "[]" : grants(fieldAction);
-        return holderWith(matrix.organization(), matrix.admin(), "Matrix__c", fields, "read", "create", "update",
-                "delete");
+        return holderWithMatrix(matrix.organization(), matrix.admin(),
+                "{\"objects\":[{\"key\":\"Matrix__c\",\"actions\":[\"read\",\"create\",\"update\",\"delete\"]},"
+                        + "{\"key\":\"Target__c\",\"actions\":[\"read\"]}],\"fields\":" + fields + "}");
     }
 }

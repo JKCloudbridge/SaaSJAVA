@@ -29,8 +29,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * read as values ({@link CsvValues}), and the record is created or, for an upsert, found by the value of its external
  * identifier (one indexed read) and updated. The write is {@link Records#create} or {@link Records#update}, the code
  * every other write runs, as the member who started the import: the gate, field security, the pipeline, the unique
- * check, the typed copies, the audit record and the event all apply, and Sprint 17A's record permission applies without
- * a change here. Each row runs in a savepoint, so a row that fails leaves nothing behind.
+ * check, the typed copies, the audit record and the event all apply, and the record permission of Sprint 17A
+ * applies, so a row that would change a record the member may not change fails alone. Each row runs in a savepoint,
+ * so a row that fails leaves nothing behind.
  *
  * <p>A cell that is empty leaves the field as it is: on a new record it has no value, on an existing one the value
  * stays. There is no way to clear a field with an import.

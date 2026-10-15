@@ -26,3 +26,7 @@ documents of Sprint 16 (ADR-0106, `Sprint 16.md`) promise it, and the work is th
 
 - One constraint per junction; an object cannot have more than two master-detail fields, so there is never more than one pair per object.
 - The pair is read from the link slots, so a junction needs both of its link slots complete before it is enforced; the index status shows the pair as `WAITING` until then.
+
+## Amended in Sprint 17A
+
+The answer is now "This combination is already in use." ([ADR-0125](0125-record-level-security-on-writes-links-and-uniqueness.md) point 5): the junction record that links the pair may be one the member cannot see.

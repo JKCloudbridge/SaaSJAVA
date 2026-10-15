@@ -22,3 +22,7 @@
 ## Consequences
 
 - The lookup to `User` that many CRM models use (an owner, a manager) is the one visible gap of this sprint; it is recorded as a Sprint 16 item in the delivery plan.
+
+## Amended in Sprint 17A
+
+[ADR-0125](0125-record-level-security-on-writes-links-and-uniqueness.md) point 4: a link is accepted only to a live record the member can read, and a member who may not read the target object at all gets the same answer. The "same answer for every other case" of point 1 now covers "exists but you may not see it".

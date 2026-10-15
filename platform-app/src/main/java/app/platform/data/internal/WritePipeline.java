@@ -1,6 +1,7 @@
 package app.platform.data.internal;
 
 import app.platform.data.DataRecord;
+import app.platform.data.QueryPlan;
 import app.platform.data.SlotCopy;
 import app.platform.data.StorageStrategy;
 import app.platform.metadata.DefinitionKind;
@@ -12,9 +13,12 @@ import app.platform.metadata.Metadata;
 import app.platform.metadata.ObjectDefinition;
 import app.platform.metadata.RecordType;
 import app.platform.security.ObjectAccess;
+import app.platform.security.ObjectAction;
+import app.platform.security.RecordAction;
 import app.platform.sharedkernel.directory.ReferenceDirectory;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -60,8 +64,10 @@ class WritePipeline {
             "relationship", "unique", "rule", "formula");
 
     private static final String MISSING_LINK = "The linked record does not exist.";
-    static final String VALUE_TAKEN = "Another record already has this value. This field must be unique.";
-    static final String PAIR_TAKEN = "These two records are already linked.";
+    // The words say that the value is in use, never whose record holds it: it may be one the member cannot see, and the
+    // check runs across the whole organization whatever anyone can see (ADR-0125).
+    static final String VALUE_TAKEN = "This value is already in use. This field must be unique.";
+    static final String PAIR_TAKEN = "This combination is already in use.";
 
     /**
      * What a write that passed will store.
@@ -96,10 +102,13 @@ class WritePipeline {
     private final RecordSlots slots;
     private final RecordLinks recordLinks;
     private final Map<String, ReferenceDirectory> directories;
+    private final RecordVisibility visibility;
 
     WritePipeline(RecordValues shape, RecordTypeCheck recordTypes, FieldSecurity security,
             Calculations calculations, AutoNumbers autoNumbers, StorageStrategy storage, Metadata metadata,
-            RecordSlots slots, RecordLinks recordLinks, List<ReferenceDirectory> directories) {
+            RecordSlots slots, RecordLinks recordLinks, List<ReferenceDirectory> directories,
+            RecordVisibility visibility) {
+        this.visibility = visibility;
         this.shape = shape;
         this.recordTypes = recordTypes;
         this.security = security;
@@ -190,7 +199,7 @@ class WritePipeline {
 
         // 6. relationship
         Findings links = new Findings();
-        checkLinks(object, typed, held, links);
+        checkLinks(passed.membershipId(), object, typed, held, links);
         // Until the database enforces the pair of parents of a junction, a lock in the pipeline keeps it unique.
         boolean pairEnforced = active.constraints().stream().anyMatch(row -> row.kind() == UniqueStore.Kind.PAIR);
         if (links.isEmpty() && !pairEnforced && RecordLinks.isJunction(object) && masterChanged(object, typed, held)
@@ -313,8 +322,8 @@ class WritePipeline {
                         && !Objects.equals(typed.get(field.apiName()), held.get(field.apiName())));
     }
 
-    private void checkLinks(ObjectDefinition object, Map<String, Object> typed, Map<String, Object> held,
-            Findings findings) {
+    private void checkLinks(UUID membershipId, ObjectDefinition object, Map<String, Object> typed,
+            Map<String, Object> held, Findings findings) {
         Map<String, Map<String, UUID>> wanted = new TreeMap<>();
         for (Map.Entry<String, Object> entry : typed.entrySet()) {
             FieldDefinition field = object.field(entry.getKey()).orElseThrow();
@@ -344,13 +353,29 @@ class WritePipeline {
         }
         // One question per target object, however many fields point at it.
         wanted.forEach((targetObject, byField) -> {
-            Set<UUID> live = storage.liveIds(targetObject, byField.values());
+            Set<UUID> reachable = reachable(membershipId, targetObject, byField.values());
             byField.forEach((field, id) -> {
-                if (!live.contains(id)) {
+                if (!reachable.contains(id)) {
                     findings.add(field, MISSING_LINK);
                 }
             });
         });
+    }
+
+    /**
+     * The linked records the member may link to: live records of the target object that they can read (ADR-0125). A
+     * record that does not exist, one in the recycle bin, one of another object, one the member cannot read and every
+     * record of an object they may not use all give the same answer, so a write is no way to find out what exists.
+     */
+    private Set<UUID> reachable(UUID membershipId, String targetObject, Collection<UUID> ids) {
+        ObjectAccess access = security.accessOf(membershipId, targetObject);
+        if (!access.can(ObjectAction.READ)) {
+            return Set.of();
+        }
+        ObjectDefinition target = metadata.object(targetObject).orElseThrow();
+        Optional<QueryPlan.Node> readable = visibility.constraintFor(target, membershipId, access, RecordAction.READ);
+        return readable.isPresent() ? storage.liveIds(targetObject, ids, readable.get())
+                : storage.liveIds(targetObject, ids);
     }
 
     // ---- auto-numbers ----
