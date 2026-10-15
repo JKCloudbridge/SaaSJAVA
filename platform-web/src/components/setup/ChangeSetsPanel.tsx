@@ -283,7 +283,7 @@ export function ChangeSetsPanel() {
               )}{" "}
               {confirmDiscard ? (
                 <>
-                  <button type="button" className="button" disabled={busy} onClick={() => discard(detail)}>
+                  <button type="button" className="button button-danger" disabled={busy} onClick={() => discard(detail)}>
                     Yes, discard it
                   </button>{" "}
                   <button type="button" className="link-button" onClick={() => setConfirmDiscard(false)}>

@@ -192,7 +192,7 @@ export function ObjectDetailPanel() {
           {confirmRemove ? (
             <p>
               Remove this object and all its fields? The permissions on them end too.{" "}
-              <button type="button" className="button" disabled={busy} onClick={removeObject}>
+              <button type="button" className="button button-danger" disabled={busy} onClick={removeObject}>
                 Yes, remove the object
               </button>{" "}
               <button type="button" className="link-button" onClick={() => setConfirmRemove(false)}>

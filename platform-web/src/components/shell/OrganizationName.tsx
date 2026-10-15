@@ -59,7 +59,7 @@ export function OrganizationName() {
   }, []);
 
   return (
-    <span data-testid="organization" aria-live="polite">
+    <span className="org-name" data-testid="organization" aria-live="polite">
       {describe(state)}
     </span>
   );

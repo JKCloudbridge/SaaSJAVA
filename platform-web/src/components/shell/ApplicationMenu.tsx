@@ -37,8 +37,13 @@ export function ApplicationMenu() {
   return (
     <>
       {applications.map((application) => (
-        <li key={application.apiName} data-testid="application-menu" data-icon={application.iconKey}>
-          <span>{application.label}</span>
+        <li
+          key={application.apiName}
+          className="nav-group"
+          data-testid="application-menu"
+          data-icon={application.iconKey}
+        >
+          <span className="nav-group-label">{application.label}</span>
           <ul className="nested-list" aria-label={application.label}>
             {application.items.map((entry, index) => (
               <li key={`${entry.type}-${entry.label}-${index}`}>

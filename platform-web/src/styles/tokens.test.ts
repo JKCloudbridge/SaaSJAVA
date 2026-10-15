@@ -38,10 +38,43 @@ describe("design tokens", () => {
     }
   });
 
+  it("define the roles of the approved visual design (soft accent, wider radii, half steps, popover shadow)", () => {
+    for (const name of [
+      "--color-accent-soft",
+      "--color-accent-hover",
+      "--radius-lg",
+      "--radius-pill",
+      "--space-2-5",
+      "--space-3-5",
+      "--space-4-5",
+      "--shadow-2",
+      "--font-size-xs",
+    ]) {
+      expect(css, name).toContain(`${name}:`);
+    }
+  });
+
+  it("serve the fonts from this application and never name a third party's address", () => {
+    const layout = readFileSync(path.join(srcDir, "app", "layout.tsx"), "utf8");
+
+    expect(css).toContain("--font-plex-sans");
+    expect(layout).toContain("next/font/local");
+    for (const file of [...sourceFiles(srcDir), tokensFile]) {
+      expect(readFileSync(file, "utf8"), file).not.toMatch(/fonts\.(googleapis|gstatic)\.com/);
+    }
+  });
+
   it("redefine the colour roles for dark mode instead of leaving them light", () => {
     const dark = css.slice(css.indexOf("prefers-color-scheme: dark"));
 
-    for (const role of ["--color-background", "--color-surface", "--color-text", "--color-accent", "--color-danger"]) {
+    for (const role of [
+      "--color-background",
+      "--color-surface",
+      "--color-text",
+      "--color-accent",
+      "--color-accent-soft",
+      "--color-danger",
+    ]) {
       expect(dark, role).toContain(`${role}:`);
     }
   });

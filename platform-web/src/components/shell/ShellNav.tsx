@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePlatformAddress } from "@/lib/account/usePlatformAddress";
 import { useSession } from "@/lib/session/SessionProvider";
+import { Icon } from "@/components/ui/Icon";
 import { ApplicationMenu } from "./ApplicationMenu";
 
 /**
@@ -33,12 +34,14 @@ export function ShellNav() {
     <ul>
       <li>
         <Link href="/" aria-current={pathname === "/" ? "page" : undefined}>
+          <Icon name="home" />
           Home
         </Link>
       </li>
       {showConsole ? (
         <li>
           <Link href="/console" aria-current={pathname.startsWith("/console") ? "page" : undefined}>
+            <Icon name="console" />
             Console
           </Link>
         </li>
@@ -47,6 +50,7 @@ export function ShellNav() {
       {showMembers ? (
         <li>
           <Link href="/members" aria-current={pathname === "/members" ? "page" : undefined}>
+            <Icon name="members" />
             Members
           </Link>
         </li>
@@ -54,6 +58,7 @@ export function ShellNav() {
       {showAudit ? (
         <li>
           <Link href="/audit" aria-current={pathname === "/audit" ? "page" : undefined}>
+            <Icon name="audit" />
             Audit trail
           </Link>
         </li>
@@ -61,6 +66,7 @@ export function ShellNav() {
       {showSetup ? (
         <li>
           <Link href={setupHref} aria-current={pathname.startsWith("/setup") ? "page" : undefined}>
+            <Icon name="setup" />
             Setup
           </Link>
         </li>
