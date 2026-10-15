@@ -43,6 +43,9 @@ final class TokenAuthentication {
     /** The attribute of the authenticated principal that carries the membership on an organization host. */
     static final String MEMBERSHIP_ATTRIBUTE = "mid";
 
+    /** The attribute that is true when the caller presented the token of a custom page's script (ADR-0127). */
+    static final String EMBEDDED_ATTRIBUTE = "embedded";
+
     private TokenAuthentication() {
     }
 
@@ -103,7 +106,10 @@ final class TokenAuthentication {
         @Override
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
                 throws ServletException, IOException {
-            if (request.getHeader(AUTHORIZATION) == null && !publicEndpoint.test(request)) {
+            // A request from a sandboxed frame (the origin "null") never gets its session cookie turned into a token:
+            // such a page has the token it was given and no other way in (ADR-0127), whatever a browser might send.
+            if (request.getHeader(AUTHORIZATION) == null && !publicEndpoint.test(request)
+                    && !EmbeddedCors.SANDBOXED_ORIGIN.equals(request.getHeader("Origin"))) {
                 Optional<String> cookie = AuthCookies.read(request, AuthCookies.ACCESS);
                 if (cookie.isPresent()) {
                     chain.doFilter(new WithAuthorization(request, BEARER + cookie.get()), response);
@@ -165,11 +171,18 @@ final class TokenAuthentication {
 
         @Override
         public OAuth2AuthenticatedPrincipal introspect(String token) {
-            AuthorizationStore.Introspected found = store.introspect(token)
+            // A token that starts like one of a custom page's script is looked up as one first; if there is no such
+            // token it is an ordinary one that happens to start the same way (the start is not a secret).
+            Optional<AuthorizationStore.Introspected> embedded = token.startsWith(EmbeddedTokens.PREFIX)
+                    ? store.introspectEmbedded(token) : Optional.empty();
+            AuthorizationStore.Introspected found = embedded.or(() -> store.introspect(token))
                     .orElseThrow(() -> new BadOpaqueTokenException("The token is not valid."));
             List<GrantedAuthority> none = List.of();
             Map<String, Object> attributes = new java.util.HashMap<>(Map.of("sub", found.userId().toString(),
                     "sid", found.authorizationId().toString(), "scope", List.copyOf(found.scopes())));
+            if (embedded.isPresent()) {
+                attributes.put(EMBEDDED_ATTRIBUTE, Boolean.TRUE);
+            }
             if (gate.onOrganizationHost()) {
                 // A token of an organization host is good only while its holder is an active member (ADR-0026).
                 // Ending a membership revokes the grants as well; this is the check that does not depend on that.

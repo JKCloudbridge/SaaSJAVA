@@ -7,6 +7,12 @@ import app.platformapi.ApiException;
 import app.platformapi.ApplicationView;
 import app.platformapi.ChangeRequest;
 import app.platformapi.CreateApplicationRequest;
+import app.platformapi.CreateCustomPageRequest;
+import app.platformapi.CreateTabRequest;
+import app.platformapi.CustomPageView;
+import app.platformapi.TabView;
+import app.platformapi.UpdateCustomPageRequest;
+import app.platformapi.UpdateTabRequest;
 import app.platformapi.CreateFieldRequest;
 import app.platformapi.CreateLayoutAssignmentRequest;
 import app.platformapi.CreateLayoutRequest;
@@ -62,9 +68,9 @@ final class ChangeCodec {
     Change fromRequest(ChangeRequest request) {
         Change.Kind kind = Change.Kind.fromCode(request.kind())
                 .orElseThrow(() -> ApiException.validation("kind", "Choose one of the kinds of change."));
-        boolean application = kind.entity() == Change.Entity.APPLICATION;
-        String object = request.objectApiName() == null || application ? "" : request.objectApiName().strip();
-        if (object.isEmpty() && !application) {
+        boolean organizationWide = kind.entity().organizationWide();
+        String object = request.objectApiName() == null || organizationWide ? "" : request.objectApiName().strip();
+        if (object.isEmpty() && !organizationWide) {
             throw ApiException.validation("objectApiName", "Name the object this change is about.");
         }
         String item = request.itemApiName() == null || request.itemApiName().isBlank() ? null
@@ -73,7 +79,7 @@ final class ChangeCodec {
         if (kind.namesItem() && item == null && kind != Change.Kind.CREATE_LAYOUT_ASSIGNMENT
                 && kind != Change.Kind.CREATE_RECORD_TYPE_ASSIGNMENT) {
             throw ApiException.validation("itemApiName", "Name the field, record type, layout, record page, "
-                    + "application or assignment this change is about.");
+                    + "application, tab, custom page or assignment this change is about.");
         }
         if (!kind.namesItem()) {
             item = null;
@@ -92,7 +98,7 @@ final class ChangeCodec {
                     write(required(request.updateObject(), "updateObject", kind)));
             case DELETE_OBJECT, DELETE_FIELD, DELETE_RECORD_TYPE, DELETE_LAYOUT, DELETE_RECORD_PAGE,
                     DELETE_APPLICATION, DELETE_LAYOUT_ASSIGNMENT, DELETE_VALIDATION_RULE,
-                    DELETE_RECORD_TYPE_ASSIGNMENT ->
+                    DELETE_RECORD_TYPE_ASSIGNMENT, DELETE_TAB, DELETE_CUSTOM_PAGE ->
                     new Change(kind, object, item, EMPTY);
             case CREATE_VALIDATION_RULE -> new Change(kind, object, null,
                     write(required(request.createValidationRule(), "createValidationRule", kind)));
@@ -118,6 +124,12 @@ final class ChangeCodec {
                     write(required(request.createApplication(), "createApplication", kind)));
             case UPDATE_APPLICATION -> new Change(kind, "", item,
                     write(required(request.updateApplication(), "updateApplication", kind)));
+            case CREATE_TAB -> new Change(kind, "", null, write(required(request.createTab(), "createTab", kind)));
+            case UPDATE_TAB -> new Change(kind, "", item, write(required(request.updateTab(), "updateTab", kind)));
+            case CREATE_CUSTOM_PAGE -> new Change(kind, "", null,
+                    write(required(request.createCustomPage(), "createCustomPage", kind)));
+            case UPDATE_CUSTOM_PAGE -> new Change(kind, "", item,
+                    write(required(request.updateCustomPage(), "updateCustomPage", kind)));
             case CREATE_LAYOUT_ASSIGNMENT -> {
                 CreateLayoutAssignmentRequest body = required(request.createLayoutAssignment(),
                         "createLayoutAssignment", kind);
@@ -186,6 +198,10 @@ final class ChangeCodec {
             case CREATE_RECORD_PAGE -> restoreKey(new Change(Change.Kind.UPDATE_RECORD_PAGE, creation.object(),
                     withSuffix(name), EMPTY));
             case CREATE_APPLICATION -> restoreKey(new Change(Change.Kind.UPDATE_APPLICATION, creation.object(),
+                    withSuffix(name), EMPTY));
+            case CREATE_TAB -> restoreKey(new Change(Change.Kind.UPDATE_TAB, creation.object(), withSuffix(name),
+                    EMPTY));
+            case CREATE_CUSTOM_PAGE -> restoreKey(new Change(Change.Kind.UPDATE_CUSTOM_PAGE, creation.object(),
                     withSuffix(name), EMPTY));
             case CREATE_LAYOUT_ASSIGNMENT -> restoreKey(new Change(Change.Kind.UPDATE_LAYOUT_ASSIGNMENT,
                     creation.object(), creation.item(), EMPTY));
@@ -333,6 +349,36 @@ final class ChangeCodec {
         return new Change(Change.Kind.UPDATE_APPLICATION, "", before.apiName(), write(
                 new UpdateApplicationRequest(before.label(), before.description(), before.definition(),
                         afterVersion)));
+    }
+
+    // ---- tabs and custom pages (Sprint 18) ----
+
+    Change removeTab(String tab) {
+        return new Change(Change.Kind.DELETE_TAB, "", tab, EMPTY);
+    }
+
+    Change makeTab(TabView view) {
+        return new Change(Change.Kind.CREATE_TAB, "", null, write(new CreateTabRequest(withoutSuffix(view.apiName()),
+                view.label(), view.description(), view.definition())));
+    }
+
+    Change restoreTab(TabView before, long afterVersion) {
+        return new Change(Change.Kind.UPDATE_TAB, "", before.apiName(), write(new UpdateTabRequest(before.label(),
+                before.description(), before.definition(), afterVersion)));
+    }
+
+    Change removeCustomPage(String customPage) {
+        return new Change(Change.Kind.DELETE_CUSTOM_PAGE, "", customPage, EMPTY);
+    }
+
+    Change makeCustomPage(CustomPageView view) {
+        return new Change(Change.Kind.CREATE_CUSTOM_PAGE, "", null, write(new CreateCustomPageRequest(
+                withoutSuffix(view.apiName()), view.label(), view.description(), view.definition())));
+    }
+
+    Change restoreCustomPage(CustomPageView before, long afterVersion) {
+        return new Change(Change.Kind.UPDATE_CUSTOM_PAGE, "", before.apiName(), write(new UpdateCustomPageRequest(
+                before.label(), before.description(), before.definition(), afterVersion)));
     }
 
     Change removeAssignment(String object, String key) {

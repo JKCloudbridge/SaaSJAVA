@@ -3,6 +3,8 @@ package app.platform.data.internal;
 import app.platform.security.Decisions;
 import app.platform.security.ObjectAccess;
 import app.platform.security.ObjectAction;
+import app.platform.sharedkernel.storage.ObjectStore;
+import app.platform.sharedkernel.storage.ObjectStoreException;
 import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;

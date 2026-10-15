@@ -9,8 +9,9 @@ import java.util.Optional;
  * set, of a quick change and of the undo list of a release, so all three are judged by exactly the same rules.
  *
  * @param kind what the change does
- * @param object the API name of the object it is about, empty for an application
- * @param item the API name of the field, record type, layout, record page, validation rule or application it is
+ * @param object the API name of the object it is about, empty for an application, a tab or a custom page
+ * @param item the API name of the field, record type, layout, record page, validation rule, application, tab or custom
+ *        page it is
  *        about (for a layout assignment its key), or null
  * @param payload the JSON of the request ({@code {}} for a removal)
  */
@@ -46,7 +47,13 @@ record Change(Kind kind, String object, String item, String payload) {
         /** A record type assignment is named by its key (the record type, a tilde, the profile), also when made. */
         CREATE_RECORD_TYPE_ASSIGNMENT(Entity.RECORD_TYPE_ASSIGNMENT, true),
         UPDATE_RECORD_TYPE_ASSIGNMENT(Entity.RECORD_TYPE_ASSIGNMENT, true),
-        DELETE_RECORD_TYPE_ASSIGNMENT(Entity.RECORD_TYPE_ASSIGNMENT, true);
+        DELETE_RECORD_TYPE_ASSIGNMENT(Entity.RECORD_TYPE_ASSIGNMENT, true),
+        CREATE_TAB(Entity.TAB, false),
+        UPDATE_TAB(Entity.TAB, true),
+        DELETE_TAB(Entity.TAB, true),
+        CREATE_CUSTOM_PAGE(Entity.CUSTOM_PAGE, false),
+        UPDATE_CUSTOM_PAGE(Entity.CUSTOM_PAGE, true),
+        DELETE_CUSTOM_PAGE(Entity.CUSTOM_PAGE, true);
 
         private final Entity entity;
         private final boolean namesItem;
@@ -81,5 +88,11 @@ record Change(Kind kind, String object, String item, String payload) {
 
     /** The kinds of definition. */
     enum Entity { OBJECT, FIELD, RECORD_TYPE, LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT, VALIDATION_RULE,
-        RECORD_TYPE_ASSIGNMENT }
+        RECORD_TYPE_ASSIGNMENT, TAB, CUSTOM_PAGE;
+
+        /** Whether the kind of definition belongs to the organization and not to one object. */
+        boolean organizationWide() {
+            return this == APPLICATION || this == TAB || this == CUSTOM_PAGE;
+        }
+    }
 }

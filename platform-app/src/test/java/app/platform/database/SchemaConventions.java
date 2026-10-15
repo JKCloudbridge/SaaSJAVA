@@ -50,11 +50,15 @@ final class SchemaConventions {
      * the vendor's commercial facts about an organization ({@code subscription}, {@code entitlement_override}, which
      * name it in {@code bound_tenant_id}). The last two are listed across organizations by the console, which is why
      * they are not tenant-scoped; the organization's own records (pools, assignments, support-access grants) are.
+     *
+     * <p>Sprint 18 added {@code embedded_token} (the short-lived access token of a custom page's script, ADR-0127). It
+     * hangs on a sign-in grant in {@code oauth2_authorization}, is checked before the request has any other context and
+     * names the organization in {@code bound_tenant_id}, exactly like the grant itself.
      */
     static final Set<String> PLATFORM_TABLES = Set.of("tenant", "platform_user", "user_credential", "login_session",
             "oauth2_authorization", "audit_record", "account_token", "mail_queue", "organization_handoff",
             "platform_role_assignment", "licence_type", "feature", "plan", "plan_licence", "plan_feature",
-            "subscription", "entitlement_override");
+            "subscription", "entitlement_override", "embedded_token");
 
     /** Tables whose policies may admit a system scope next to the tenant, and the scopes they may name. */
     static final Set<String> SYSTEM_SCOPE_TABLES = Set.of("outbox_event", "processed_event", "membership");

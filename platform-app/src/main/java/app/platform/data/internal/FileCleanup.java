@@ -2,6 +2,8 @@ package app.platform.data.internal;
 
 import app.platform.sharedkernel.ActorId;
 import app.platform.sharedkernel.TenantId;
+import app.platform.sharedkernel.storage.ObjectStore;
+import app.platform.sharedkernel.storage.ObjectStoreException;
 import app.platform.tenant.Tenant;
 import app.platform.tenant.TenantContext;
 import app.platform.tenant.TenantContexts;

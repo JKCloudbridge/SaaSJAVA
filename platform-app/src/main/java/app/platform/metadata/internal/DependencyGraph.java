@@ -22,7 +22,7 @@ final class DependencyGraph {
 
     /** The kinds of thing that can be depended on (a layout assignment and an application only depend). */
     enum Kind { OBJECT, FIELD, RECORD_TYPE, PICKLIST_VALUE, LAYOUT, RECORD_PAGE, APPLICATION, ASSIGNMENT,
-        VALIDATION_RULE, TYPE_ASSIGNMENT, SHARING_RULE }
+        VALIDATION_RULE, TYPE_ASSIGNMENT, SHARING_RULE, TAB, CUSTOM_PAGE }
 
     /**
      * A definition, by name only (never by what a person typed as a value).
@@ -62,6 +62,14 @@ final class DependencyGraph {
             return new Node(Kind.APPLICATION, "", application, null);
         }
 
+        static Node tab(String tab) {
+            return new Node(Kind.TAB, "", tab, null);
+        }
+
+        static Node customPage(String customPage) {
+            return new Node(Kind.CUSTOM_PAGE, "", customPage, null);
+        }
+
         static Node assignment(String object, String key) {
             return new Node(Kind.ASSIGNMENT, object, key, null);
         }
@@ -92,6 +100,8 @@ final class DependencyGraph {
                 case VALIDATION_RULE -> "validation rule " + item + " of " + object;
                 case TYPE_ASSIGNMENT -> "the record type assignment " + item + " of " + object;
                 case SHARING_RULE -> "sharing rule " + item + " of " + object;
+                case TAB -> "tab " + item;
+                case CUSTOM_PAGE -> "custom page " + item;
             };
         }
     }
@@ -202,6 +212,8 @@ final class DependencyGraph {
             case LAYOUT -> snapshot.layout(node.object(), node.item()).isPresent();
             case RECORD_PAGE -> snapshot.recordPage(node.object(), node.item()).isPresent();
             case APPLICATION -> snapshot.application(node.item()).isPresent();
+            case TAB -> snapshot.tab(node.item()).isPresent();
+            case CUSTOM_PAGE -> snapshot.customPage(node.item()).isPresent();
             case ASSIGNMENT -> snapshot.assignments(node.object()).stream()
                     .anyMatch(assignment -> assignment.key().equals(node.item()));
             case VALIDATION_RULE -> snapshot.validationRule(node.object(), node.item()).isPresent();

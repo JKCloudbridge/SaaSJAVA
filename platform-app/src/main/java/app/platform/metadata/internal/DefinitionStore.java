@@ -9,7 +9,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 /**
- * Every statement about page layouts, record pages and applications (ADR-0069). The three tables have the same shape
+ * Every statement about page layouts, record pages, applications, tabs and custom pages (ADR-0069, ADR-0127). The tables have the same shape
  * (a name, a label, a description and a JSON definition), so one store serves them; the table name comes from the
  * {@link Table} constant and never from a request. Like the rest of the module it runs under the tenant context that
  * was open when the transaction began, and every change carries the version it was based on.
@@ -21,7 +21,9 @@ class DefinitionStore {
     enum Table {
         PAGE_LAYOUT("page_layout", true),
         RECORD_PAGE("record_page", true),
-        APPLICATION("application", false);
+        APPLICATION("application", false),
+        TAB("tab", false),
+        CUSTOM_PAGE("custom_page", false);
 
         private final String table;
         private final boolean perObject;

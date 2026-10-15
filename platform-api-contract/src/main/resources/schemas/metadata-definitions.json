@@ -1,10 +1,10 @@
 {
-  "$comment": "The shape of page layouts, record pages and applications (Sprint 12, ADR-0069). One source of truth: the application checks every saved definition against these schemas (JSON Schema 2020-12), and the same schemas are copied into components.schemas of the OpenAPI document, so the generated TypeScript client has the same types. References are written as #/components/schemas/<Name> for that reason. Everything an organization can express is data from a closed list: there is no expression text and no address outside the organization.",
+  "$comment": "The shape of page layouts, record pages, applications (Sprint 12, ADR-0069), tabs and custom pages (Sprint 18, ADR-0127, ADR-0128). One source of truth: the application checks every saved definition against these schemas (JSON Schema 2020-12), and the same schemas are copied into components.schemas of the OpenAPI document, so the generated TypeScript client has the same types. References are written as #/components/schemas/<Name> for that reason. Everything an organization can express is data from a closed list: there is no expression text and no address outside the organization.",
   "schemas": {
     "ApiNameShape": {
       "type": "string",
       "pattern": "^[A-Z][A-Za-z0-9_]{0,55}__c$",
-      "description": "The permanent name of a layout, a record page or an application. It ends with __c."
+      "description": "The permanent name of a layout, a record page, an application, a tab or a custom page. It ends with __c."
     },
     "ObjectNameShape": {
       "type": "string",
@@ -793,7 +793,7 @@
     },
     "NavigationItem": {
       "type": "object",
-      "description": "One entry of an application's navigation.",
+      "description": "One entry of an application's navigation. A TAB entry lists a tab of the organization (Sprint 18); its label is optional and replaces the label of the tab.",
       "additionalProperties": false,
       "required": [
         "type"
@@ -805,7 +805,8 @@
             "OBJECT",
             "RECORD_PAGE",
             "LINK",
-            "HEADING"
+            "HEADING",
+            "TAB"
           ]
         },
         "label": {
@@ -824,6 +825,9 @@
           "pattern": "^/[A-Za-z0-9_\\-]+(/[A-Za-z0-9_\\-]+)*$",
           "maxLength": 200,
           "description": "A page inside the organization: a path that starts with a slash. Never an address with a host."
+        },
+        "tab": {
+          "$ref": "#/components/schemas/ApiNameShape"
         }
       },
       "allOf": [
@@ -844,7 +848,8 @@
             ],
             "properties": {
               "page": false,
-              "path": false
+              "path": false,
+              "tab": false
             }
           }
         },
@@ -865,7 +870,8 @@
               "page"
             ],
             "properties": {
-              "path": false
+              "path": false,
+              "tab": false
             }
           }
         },
@@ -887,7 +893,8 @@
             ],
             "properties": {
               "object": false,
-              "page": false
+              "page": false,
+              "tab": false
             }
           }
         },
@@ -905,6 +912,29 @@
           "then": {
             "required": [
               "label"
+            ],
+            "properties": {
+              "object": false,
+              "page": false,
+              "path": false,
+              "tab": false
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "const": "TAB"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "tab"
             ],
             "properties": {
               "object": false,
@@ -943,6 +973,99 @@
           "maxItems": 50,
           "items": {
             "$ref": "#/components/schemas/NavigationItem"
+          }
+        }
+      }
+    },
+    "TabDefinition": {
+      "type": "object",
+      "description": "What a tab is beyond its name (Sprint 18, ADR-0128). The only kind today is CUSTOM: the tab shows a custom page. An object needs no tab of its own: the navigation item OBJECT opens it.",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "CUSTOM"
+          ]
+        },
+        "customPage": {
+          "$ref": "#/components/schemas/ApiNameShape"
+        },
+        "iconKey": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,39}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "CUSTOM"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "customPage"
+            ]
+          }
+        }
+      ]
+    },
+    "CustomPageDefinition": {
+      "type": "object",
+      "description": "What a custom page is beyond its name (Sprint 18, ADR-0127): the script that draws it, by content, and a reference to code for the server. The script runs in the member's browser inside a sandbox and talks to the platform's data interface with the member's own permissions. The reference for the server is stored so that nothing about the shape changes when decision D6 is made; the platform never reads it and never runs anything because of it.",
+      "additionalProperties": false,
+      "required": [
+        "frontend"
+      ],
+      "properties": {
+        "frontend": {
+          "type": "object",
+          "description": "The uploaded script. Upload it first (POST /api/v1/metadata/custom-page-assets) and name the asset it gives back; the hash and size must be the asset's own.",
+          "additionalProperties": false,
+          "required": [
+            "assetId",
+            "sha256",
+            "size"
+          ],
+          "properties": {
+            "assetId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5000000
+            }
+          }
+        },
+        "backend": {
+          "type": "object",
+          "description": "A reference to code that would run on the server. Kept for later; never read, never executed (decision D6).",
+          "additionalProperties": false,
+          "required": [
+            "reference"
+          ],
+          "properties": {
+            "reference": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
           }
         }
       }

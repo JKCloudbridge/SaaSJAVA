@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePlatformAddress } from "@/lib/account/usePlatformAddress";
+import { setupHref as setupLink } from "@/lib/applications/setupLink";
 import { useSession } from "@/lib/session/SessionProvider";
 import { Icon } from "@/components/ui/Icon";
-import { ApplicationMenu } from "./ApplicationMenu";
 
 /**
  * The main navigation. "Members" is offered to a signed-in person on an organization's address; whether the person may
@@ -13,7 +13,7 @@ import { ApplicationMenu } from "./ApplicationMenu";
  *
  * <p>The links written here (Home, Console, Members, Audit trail, Setup) are the platform's own pages, the same for every
  * organization, so they stay fixed. What an organization configured for its members, its applications and their
- * navigation, is drawn from the API by {@link ApplicationMenu} (Sprint 12).
+ * navigation, is drawn from the API by the control bar and the launcher (Sprint 18), not here.
  */
 export function ShellNav() {
   const { state } = useSession();
@@ -23,8 +23,8 @@ export function ShellNav() {
   // The setup pages are offered to someone the API lists the ability to manage access, or to view objects, for; the API
   // decides again on every call. The link opens the first page the listed ability is for.
   const abilities = state.status === "signedIn" ? state.user.abilities : [];
-  const setupHref = abilities.includes("access.manage") ? "/setup/profiles" : "/setup/objects";
-  const showSetup = showMembers && (abilities.includes("access.manage") || abilities.includes("metadata.view"));
+  const setupHref = setupLink(abilities);
+  const showSetup = showMembers && setupHref !== null;
   // The audit trail is offered to someone the API lists the ability to view it for; the API decides again on every call.
   const showAudit = showMembers && state.status === "signedIn" && state.user.abilities.includes("audit.view");
   // The console link is a convenience for a person the API lists a platform role for; the API refuses the rest.
@@ -46,7 +46,6 @@ export function ShellNav() {
           </Link>
         </li>
       ) : null}
-      {showMembers ? <ApplicationMenu /> : null}
       {showMembers ? (
         <li>
           <Link href="/members" aria-current={pathname === "/members" ? "page" : undefined}>
@@ -65,7 +64,7 @@ export function ShellNav() {
       ) : null}
       {showSetup ? (
         <li>
-          <Link href={setupHref} aria-current={pathname.startsWith("/setup") ? "page" : undefined}>
+          <Link href={setupHref ?? "/setup/objects"} aria-current={pathname.startsWith("/setup") ? "page" : undefined}>
             <Icon name="setup" />
             Setup
           </Link>

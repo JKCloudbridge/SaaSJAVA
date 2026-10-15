@@ -109,6 +109,8 @@ class ApplicationsIT extends DefinitionsSupport {
         TestBrowser admin = adminWithDealAndContact(organization);
         Holder sales = holderOf(organization, admin);
         Holder support = holderOf(organization, admin);
+        allowReading(admin, sales.profileId(), "Deal__c", "Contact__c");
+        allowReading(admin, support.profileId(), "Deal__c");
         createApplication(admin, "Everyone", all("[{\"type\":\"HEADING\",\"label\":\"Hello\"},"
                 + "{\"type\":\"OBJECT\",\"object\":\"Deal__c\"}]"));
         createApplication(admin, "SalesOnly", applicationDefinition("[\"" + sales.profileId() + "\"]",

@@ -1,6 +1,7 @@
 package app.platform.metadata.internal;
 
 import app.platform.metadata.ApplicationDefinition;
+import app.platform.metadata.CustomPage;
 import app.platform.metadata.DefinitionKind;
 import app.platform.metadata.FieldDefinition;
 import app.platform.metadata.FieldType;
@@ -12,6 +13,7 @@ import app.platform.metadata.PageLayout;
 import app.platform.metadata.RecordPage;
 import app.platform.metadata.RecordType;
 import app.platform.metadata.RecordTypeAssignment;
+import app.platform.metadata.Tab;
 import app.platform.metadata.ValidationRule;
 import app.platform.security.ObjectCatalog;
 import app.platform.tenant.TenantContexts;
@@ -112,6 +114,16 @@ class MetadataCatalogue implements Metadata {
     }
 
     @Override
+    public List<Tab> tabs() {
+        return snapshot().tabs();
+    }
+
+    @Override
+    public List<CustomPage> customPages() {
+        return snapshot().customPages();
+    }
+
+    @Override
     public List<ValidationRule> validationRules(String objectApiName) {
         return snapshot().validationRules(objectApiName);
     }
@@ -179,7 +191,7 @@ class MetadataCatalogue implements Metadata {
         return new MetadataSnapshot(objects, recordTypes, definitions());
     }
 
-    /** Layouts, record pages, assignments and applications, as published (Sprint 12). */
+    /** Layouts, record pages, assignments, applications, tabs and custom pages, as published (Sprints 12, 18). */
     private MetadataSnapshot.Definitions definitions() {
         Map<String, List<PageLayout>> layouts = new LinkedHashMap<>();
         for (DefinitionStore.Row row : definitionStore.all(DefinitionStore.Table.PAGE_LAYOUT)) {
@@ -207,8 +219,11 @@ class MetadataCatalogue implements Metadata {
             typeAssignments.computeIfAbsent(row.objectApiName(), name -> new ArrayList<>())
                     .add(definitionCodec.typeAssignment(row));
         }
+        List<Tab> tabs = definitionStore.all(DefinitionStore.Table.TAB).stream().map(definitionCodec::tab).toList();
+        List<CustomPage> customPages = definitionStore.all(DefinitionStore.Table.CUSTOM_PAGE).stream()
+                .map(definitionCodec::customPage).toList();
         return new MetadataSnapshot.Definitions(layouts, pages, assignments, applications, rules,
-                typeAssignments);
+                typeAssignments, tabs, customPages);
     }
 
     private FieldDefinition customField(MetadataStore.FieldRow row) {

@@ -13,6 +13,7 @@ type ApplicationDefinition = components["schemas"]["ApplicationDefinition"];
 type NavigationItem = components["schemas"]["NavigationItem"];
 type ObjectSummary = components["schemas"]["ObjectSummaryView"];
 type ProfileView = components["schemas"]["ProfileView"];
+type TabView = components["schemas"]["TabView"];
 type RecordPageView = components["schemas"]["RecordPageView"];
 
 interface ItemDraft {
@@ -21,6 +22,7 @@ interface ItemDraft {
   object: string;
   page: string;
   path: string;
+  tab: string;
 }
 
 interface Draft {
@@ -39,6 +41,7 @@ const TYPE_TEXT: Record<NavigationItem["type"], string> = {
   RECORD_PAGE: "A record page",
   LINK: "A link inside the organization",
   HEADING: "A heading",
+  TAB: "A tab",
 };
 
 function draftOf(application: ApplicationView): Draft {
@@ -54,6 +57,7 @@ function draftOf(application: ApplicationView): Draft {
       object: item.object ?? "",
       page: item.page ?? "",
       path: item.path ?? "",
+      tab: item.tab ?? "",
     })),
   };
 }
@@ -71,6 +75,9 @@ function itemOf(draft: ItemDraft): NavigationItem {
   }
   if (draft.type === "LINK") {
     item.path = draft.path;
+  }
+  if (draft.type === "TAB") {
+    item.tab = draft.tab;
   }
   return item;
 }
@@ -95,8 +102,9 @@ function move<T>(list: T[], from: number, to: number): T[] {
 
 /**
  * The applications of the organization: a name, an icon, the profiles whose members see it (none chosen: everyone) and
- * the navigation in order. A navigation item opens an object, a record page, a heading or a path inside the organization,
- * never an address elsewhere. They are made, changed and removed here live or, when a change set is chosen, as drafts. The
+ * the navigation in order. A navigation item opens an object, a record page, a tab, a heading or a path inside the
+ * organization, never an address elsewhere. (A tab is made elsewhere; this list only places it. Sprint 21 builds the
+ * screen that makes tabs and custom pages.) They are made, changed and removed here live or, when a change set is chosen, as drafts. The
  * page shows what the API answers: that what an item opens exists, and that a link stays inside the organization, is the
  * API's to decide.
  */
@@ -105,6 +113,7 @@ export function ApplicationsPanel() {
   const [applications, setApplications] = useState<ApplicationView[] | undefined>();
   const [objects, setObjects] = useState<ObjectSummary[]>([]);
   const [profiles, setProfiles] = useState<ProfileView[]>([]);
+  const [tabs, setTabs] = useState<TabView[]>([]);
   const [pagesOf, setPagesOf] = useState<Record<string, RecordPageView[]>>({});
   const [failure, setFailure] = useState<string | undefined>();
   const [draft, setDraft] = useState<Draft>(EMPTY);
@@ -128,10 +137,11 @@ export function ApplicationsPanel() {
 
   const reload = useCallback(async () => {
     try {
-      const [list, objectList, profileList] = await Promise.all([
+      const [list, objectList, profileList, tabList] = await Promise.all([
         api.GET("/api/v1/metadata/applications"),
         api.GET("/api/v1/metadata/objects"),
         api.GET("/api/v1/profiles"),
+        api.GET("/api/v1/metadata/tabs"),
       ]);
       if (!list.data) {
         setFailure(await failureText(list.error, list.response));
@@ -141,6 +151,7 @@ export function ApplicationsPanel() {
       setApplications(list.data.data);
       setObjects(objectList.data?.data ?? []);
       setProfiles(profileList.data?.data ?? []);
+      setTabs(tabList.data?.data ?? []);
     } catch {
       setFailure(COMMON_TEXT.network);
     }
@@ -424,6 +435,23 @@ export function ApplicationsPanel() {
                 </select>
               </div>
             ) : null}
+            {item.type === "TAB" ? (
+              <div className="field">
+                <label htmlFor={`item-tab-${index}`}>Tab</label>
+                <select
+                  id={`item-tab-${index}`}
+                  value={item.tab}
+                  onChange={(event) => changeItem(index, { tab: event.target.value })}
+                >
+                  <option value="">Choose a tab</option>
+                  {tabs.map((tab) => (
+                    <option key={tab.apiName} value={tab.apiName}>
+                      {tab.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
             {item.type === "LINK" ? (
               <div className="field">
                 <label htmlFor={`item-path-${index}`}>Path</label>
@@ -482,7 +510,7 @@ export function ApplicationsPanel() {
             onClick={() =>
               setDraft({
                 ...draft,
-                items: [...draft.items, { type: "OBJECT", label: "", object: "", page: "", path: "" }],
+                items: [...draft.items, { type: "OBJECT", label: "", object: "", page: "", path: "", tab: "" }],
               })
             }
           >

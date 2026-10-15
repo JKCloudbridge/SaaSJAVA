@@ -274,7 +274,7 @@
     },
     "/api/v1/applications" : {
       "get" : {
-        "description" : "An application is listed when it names the profile of the member or names no profile. Items that point to something that no longer exists are left out. Presentation only: every page a link opens is decided again by the server. NOT_FOUND on the platform host.",
+        "description" : "An application is listed when it names the profile of the member or names no profile. Inside it only what the member may open is listed (Sprint 18): an object or record page entry needs the permission to read the object, a tab entry needs the tab and its custom page to exist; a heading that leads nowhere and an application with nothing left are left out. Items that point to something that no longer exists are left out. Presentation only: every page a link opens is decided again by the server. NOT_FOUND on the platform host.",
         "operationId" : "getMyApplications",
         "responses" : {
           "200" : {
@@ -299,6 +299,44 @@
           }
         },
         "summary" : "The applications the signed-in member may use, with their navigation",
+        "tags" : [ "Applications" ]
+      }
+    },
+    "/api/v1/applications/custom-pages/{customPageApiName}" : {
+      "get" : {
+        "description" : "For a member of an application that lists a tab showing the page. The script is the organization's own text, checked against the hash that was published; the platform never runs it. NOT_FOUND for a page that does not exist or that the member may not open (the same answer), SERVICE_UNAVAILABLE (with Retry-After) when the object store cannot give it.",
+        "operationId" : "getCustomPageScript",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "customPageApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCustomPageScriptView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The script of a custom page the signed-in member may open",
         "tags" : [ "Applications" ]
       }
     },
@@ -975,6 +1013,45 @@
         },
         "summary" : "The objects and fields a permission matrix can be about, and the actions",
         "tags" : [ "Access" ]
+      }
+    },
+    "/api/v1/embedded-tokens" : {
+      "post" : {
+        "description" : "For a member of the organization of the host, with their own token. The new token is the member's own, narrowed: it ends with the sign-in it came from, lives a few minutes, works only as a bearer token, and reaches the data interface only (records, files, searches, reading definitions); everything else answers FORBIDDEN. Every call it makes is decided by the member's own permissions. It is shown once and stored only as a hash. A token of this kind cannot ask for another (FORBIDDEN). NOT_FOUND on the platform host; RATE_LIMITED past the hourly allowance. Audited.",
+        "operationId" : "issueEmbeddedToken",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EmbeddedTokenRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseEmbeddedTokenView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "An access token for the script of a custom page",
+        "tags" : [ "Authentication" ]
       }
     },
     "/api/v1/groups" : {
@@ -2655,6 +2732,227 @@
           }
         },
         "summary" : "Check a change set without keeping anything",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/custom-page-assets" : {
+      "post" : {
+        "description" : "The body is the text of the script, as it is (UTF-8, not a form), with the length announced (Content-Length; chunked bodies are refused), at most the limit of the organization (PAYLOAD_TOO_LARGE above it). The answer names the asset: put its identifier, hash and size in the content of a custom page. The same script uploaded twice is one asset (200 instead of 201). The platform stores the text and never runs it. CONFLICT at the most scripts an organization may keep; SERVICE_UNAVAILABLE (with Retry-After) when the object store does not answer, and nothing is stored then. Needs the abilities to manage and to publish metadata. Audited by identifier and size, never by content.",
+        "operationId" : "uploadCustomPageScript",
+        "requestBody" : {
+          "content" : {
+            "text/javascript" : {
+              "schema" : {
+                "type" : "string",
+                "format" : "binary"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCustomPageAssetView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Upload the script of a custom page",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/custom-pages" : {
+      "get" : {
+        "description" : "For members who may view objects and fields.",
+        "operationId" : "listCustomPageDefinitions",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListCustomPageView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The custom pages of the organization, as defined",
+        "tags" : [ "Metadata" ]
+      },
+      "post" : {
+        "description" : "Live at once, as a release of one change. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. The content names the uploaded script (upload it first, see uploadCustomPageScript) with its hash and size; VALIDATION_ERROR when the script is not in this organization or the hash or size is not its own. The reference for the server is stored and never read or run. CONFLICT at the limit. Audited.",
+        "operationId" : "createCustomPage",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateCustomPageRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCustomPageView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Add a custom page",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/custom-pages/{apiName}" : {
+      "delete" : {
+        "description" : "Live at once, as a release of one change. CONFLICT, naming what still uses it, when something depends on it. NOT_FOUND for a custom page the organization does not have. Audited.",
+        "operationId" : "deleteCustomPage",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "apiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a custom page",
+        "tags" : [ "Metadata" ]
+      },
+      "get" : {
+        "description" : "NOT_FOUND for a custom page the organization does not have.",
+        "operationId" : "getCustomPageDefinition",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "apiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCustomPageView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One custom page, as defined",
+        "tags" : [ "Metadata" ]
+      },
+      "put" : {
+        "description" : "Live at once, as a release of one change. The API name never changes. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.",
+        "operationId" : "updateCustomPage",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "apiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateCustomPageRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCustomPageView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change a custom page",
         "tags" : [ "Metadata" ]
       }
     },
@@ -4819,6 +5117,187 @@
           }
         },
         "summary" : "Check what rolling back the latest release would do",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/tabs" : {
+      "get" : {
+        "description" : "For members who may view objects and fields.",
+        "operationId" : "listTabDefinitions",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListTabView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The tabs of the organization, as defined",
+        "tags" : [ "Metadata" ]
+      },
+      "post" : {
+        "description" : "Live at once, as a release of one change. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. A tab of kind CUSTOM names the custom page it shows. CONFLICT when that page does not exist or at the limit. Audited.",
+        "operationId" : "createTab",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateTabRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTabView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Add a tab",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/tabs/{apiName}" : {
+      "delete" : {
+        "description" : "Live at once, as a release of one change. CONFLICT, naming what still uses it, when something depends on it. NOT_FOUND for a tab the organization does not have. Audited.",
+        "operationId" : "deleteTab",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "apiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a tab",
+        "tags" : [ "Metadata" ]
+      },
+      "get" : {
+        "description" : "NOT_FOUND for a tab the organization does not have.",
+        "operationId" : "getTabDefinition",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "apiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTabView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One tab, as defined",
+        "tags" : [ "Metadata" ]
+      },
+      "put" : {
+        "description" : "Live at once, as a release of one change. The API name never changes. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.",
+        "operationId" : "updateTab",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "apiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateTabRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTabView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change a tab",
         "tags" : [ "Metadata" ]
       }
     },
@@ -8499,7 +8978,7 @@
       },
       "ApiNameShape" : {
         "type" : "string",
-        "description" : "The permanent name of a layout, a record page or an application. It ends with __c.",
+        "description" : "The permanent name of a layout, a record page, an application, a tab or a custom page. It ends with __c.",
         "pattern" : "^[A-Z][A-Za-z0-9_]{0,55}__c$"
       },
       "ApiPageResponseAuditEventView" : {
@@ -8625,6 +9104,33 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseCustomPageAssetView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CustomPageAssetView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseCustomPageScriptView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CustomPageScriptView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseCustomPageView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CustomPageView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseDataAccessView" : {
         "type" : "object",
         "properties" : {
@@ -8639,6 +9145,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/DataCatalogue"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseEmbeddedTokenView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/EmbeddedTokenView"
           }
         },
         "required" : [ "data" ]
@@ -8806,6 +9321,18 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/ChangeSetView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListCustomPageView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CustomPageView"
             }
           }
         },
@@ -9147,6 +9674,18 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListTabView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TabView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListValidationRuleView" : {
         "type" : "object",
         "properties" : {
@@ -9362,6 +9901,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/SwitchTarget"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseTabView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/TabView"
           }
         },
         "required" : [ "data" ]
@@ -9687,6 +10235,9 @@
           "createApplication" : {
             "$ref" : "#/components/schemas/CreateApplicationRequest"
           },
+          "createCustomPage" : {
+            "$ref" : "#/components/schemas/CreateCustomPageRequest"
+          },
           "createField" : {
             "$ref" : "#/components/schemas/CreateFieldRequest"
           },
@@ -9707,6 +10258,9 @@
           },
           "createRecordTypeAssignment" : {
             "$ref" : "#/components/schemas/CreateRecordTypeAssignmentRequest"
+          },
+          "createTab" : {
+            "$ref" : "#/components/schemas/CreateTabRequest"
           },
           "createValidationRule" : {
             "$ref" : "#/components/schemas/CreateValidationRuleRequest"
@@ -9729,6 +10283,9 @@
           "updateApplication" : {
             "$ref" : "#/components/schemas/UpdateApplicationRequest"
           },
+          "updateCustomPage" : {
+            "$ref" : "#/components/schemas/UpdateCustomPageRequest"
+          },
           "updateField" : {
             "$ref" : "#/components/schemas/UpdateFieldRequest"
           },
@@ -9749,6 +10306,9 @@
           },
           "updateRecordTypeAssignment" : {
             "$ref" : "#/components/schemas/UpdateRecordTypeAssignmentRequest"
+          },
+          "updateTab" : {
+            "$ref" : "#/components/schemas/UpdateTabRequest"
           },
           "updateValidationRule" : {
             "$ref" : "#/components/schemas/UpdateValidationRuleRequest"
@@ -9971,6 +10531,30 @@
           }
         },
         "required" : [ "name" ]
+      },
+      "CreateCustomPageRequest" : {
+        "type" : "object",
+        "properties" : {
+          "definition" : {
+            "$ref" : "#/components/schemas/CustomPageDefinition"
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "definition", "label", "name" ]
       },
       "CreateFieldRequest" : {
         "type" : "object",
@@ -10212,6 +10796,30 @@
         },
         "required" : [ "label", "name" ]
       },
+      "CreateTabRequest" : {
+        "type" : "object",
+        "properties" : {
+          "definition" : {
+            "$ref" : "#/components/schemas/TabDefinition"
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "definition", "label", "name" ]
+      },
       "CreateValidationRuleRequest" : {
         "type" : "object",
         "properties" : {
@@ -10277,6 +10885,113 @@
           }
         },
         "required" : [ "abilities", "displayName", "email", "id", "platformRoles" ]
+      },
+      "CustomPageAssetView" : {
+        "type" : "object",
+        "properties" : {
+          "created" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "sha256" : {
+            "type" : "string"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "created", "id", "sha256", "size" ]
+      },
+      "CustomPageDefinition" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "description" : "What a custom page is beyond its name (Sprint 18, ADR-0127): the script that draws it, by content, and a reference to code for the server. The script runs in the member's browser inside a sandbox and talks to the platform's data interface with the member's own permissions. The reference for the server is stored so that nothing about the shape changes when decision D6 is made; the platform never reads it and never runs anything because of it.",
+        "properties" : {
+          "backend" : {
+            "type" : "object",
+            "additionalProperties" : false,
+            "description" : "A reference to code that would run on the server. Kept for later; never read, never executed (decision D6).",
+            "properties" : {
+              "reference" : {
+                "type" : "string",
+                "maxLength" : 200,
+                "minLength" : 1
+              }
+            },
+            "required" : [ "reference" ]
+          },
+          "frontend" : {
+            "type" : "object",
+            "additionalProperties" : false,
+            "description" : "The uploaded script. Upload it first (POST /api/v1/metadata/custom-page-assets) and name the asset it gives back; the hash and size must be the asset's own.",
+            "properties" : {
+              "assetId" : {
+                "type" : "string",
+                "format" : "uuid",
+                "pattern" : "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+              },
+              "sha256" : {
+                "type" : "string",
+                "pattern" : "^[0-9a-f]{64}$"
+              },
+              "size" : {
+                "type" : "integer",
+                "maximum" : 5000000,
+                "minimum" : 1
+              }
+            },
+            "required" : [ "assetId", "sha256", "size" ]
+          }
+        },
+        "required" : [ "frontend" ]
+      },
+      "CustomPageScriptView" : {
+        "type" : "object",
+        "properties" : {
+          "apiName" : {
+            "type" : "string"
+          },
+          "assetId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "sha256" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "apiName", "assetId", "code", "label", "sha256" ]
+      },
+      "CustomPageView" : {
+        "type" : "object",
+        "properties" : {
+          "apiName" : {
+            "type" : "string"
+          },
+          "definition" : {
+            "$ref" : "#/components/schemas/CustomPageDefinition"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "apiName", "definition", "description", "label", "version" ]
       },
       "DataAccessView" : {
         "type" : "object",
@@ -10370,6 +11085,28 @@
           }
         },
         "required" : [ "fields", "key", "label" ]
+      },
+      "EmbeddedTokenRequest" : {
+        "type" : "object",
+        "properties" : {
+          "customPage" : {
+            "type" : "string",
+            "pattern" : "^[A-Z][A-Za-z0-9_]{0,55}__c$"
+          }
+        }
+      },
+      "EmbeddedTokenView" : {
+        "type" : "object",
+        "properties" : {
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "token" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "expiresAt", "token" ]
       },
       "EntitlementInfo" : {
         "type" : "object",
@@ -11393,6 +12130,16 @@
       "NavigationEntryView" : {
         "type" : "object",
         "properties" : {
+          "assetId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "available" : {
+            "type" : "boolean"
+          },
+          "customPageApiName" : {
+            "type" : "string"
+          },
           "label" : {
             "type" : "string"
           },
@@ -11405,11 +12152,14 @@
           "path" : {
             "type" : "string"
           },
+          "tabApiName" : {
+            "type" : "string"
+          },
           "type" : {
             "type" : "string"
           }
         },
-        "required" : [ "label", "type" ]
+        "required" : [ "available", "label", "type" ]
       },
       "NavigationItem" : {
         "type" : "object",
@@ -11426,7 +12176,8 @@
           "then" : {
             "properties" : {
               "page" : false,
-              "path" : false
+              "path" : false,
+              "tab" : false
             },
             "required" : [ "object" ]
           }
@@ -11441,7 +12192,8 @@
           },
           "then" : {
             "properties" : {
-              "path" : false
+              "path" : false,
+              "tab" : false
             },
             "required" : [ "object", "page" ]
           }
@@ -11457,7 +12209,8 @@
           "then" : {
             "properties" : {
               "object" : false,
-              "page" : false
+              "page" : false,
+              "tab" : false
             },
             "required" : [ "label", "path" ]
           }
@@ -11474,12 +12227,30 @@
             "properties" : {
               "object" : false,
               "page" : false,
-              "path" : false
+              "path" : false,
+              "tab" : false
             },
             "required" : [ "label" ]
           }
+        }, {
+          "if" : {
+            "properties" : {
+              "type" : {
+                "const" : "TAB"
+              }
+            },
+            "required" : [ "type" ]
+          },
+          "then" : {
+            "properties" : {
+              "object" : false,
+              "page" : false,
+              "path" : false
+            },
+            "required" : [ "tab" ]
+          }
         } ],
-        "description" : "One entry of an application's navigation.",
+        "description" : "One entry of an application's navigation. A TAB entry lists a tab of the organization (Sprint 18); its label is optional and replaces the label of the tab.",
         "properties" : {
           "label" : {
             "type" : "string",
@@ -11498,9 +12269,12 @@
             "maxLength" : 200,
             "pattern" : "^/[A-Za-z0-9_\\-]+(/[A-Za-z0-9_\\-]+)*$"
           },
+          "tab" : {
+            "$ref" : "#/components/schemas/ApiNameShape"
+          },
           "type" : {
             "type" : "string",
-            "enum" : [ "OBJECT", "RECORD_PAGE", "LINK", "HEADING" ]
+            "enum" : [ "OBJECT", "RECORD_PAGE", "LINK", "HEADING", "TAB" ]
           }
         },
         "required" : [ "type" ]
@@ -13314,6 +14088,60 @@
         },
         "required" : [ "key", "type" ]
       },
+      "TabDefinition" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "allOf" : [ {
+          "if" : {
+            "properties" : {
+              "kind" : {
+                "const" : "CUSTOM"
+              }
+            },
+            "required" : [ "kind" ]
+          },
+          "then" : {
+            "required" : [ "customPage" ]
+          }
+        } ],
+        "description" : "What a tab is beyond its name (Sprint 18, ADR-0128). The only kind today is CUSTOM: the tab shows a custom page. An object needs no tab of its own: the navigation item OBJECT opens it.",
+        "properties" : {
+          "customPage" : {
+            "$ref" : "#/components/schemas/ApiNameShape"
+          },
+          "iconKey" : {
+            "type" : "string",
+            "pattern" : "^[a-z][a-z0-9-]{0,39}$"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "CUSTOM" ]
+          }
+        },
+        "required" : [ "kind" ]
+      },
+      "TabView" : {
+        "type" : "object",
+        "properties" : {
+          "apiName" : {
+            "type" : "string"
+          },
+          "definition" : {
+            "$ref" : "#/components/schemas/TabDefinition"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "apiName", "definition", "description", "label", "version" ]
+      },
       "TenantSummary" : {
         "type" : "object",
         "properties" : {
@@ -13369,6 +14197,29 @@
         "properties" : {
           "definition" : {
             "$ref" : "#/components/schemas/ApplicationDefinition"
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "definition", "label", "version" ]
+      },
+      "UpdateCustomPageRequest" : {
+        "type" : "object",
+        "properties" : {
+          "definition" : {
+            "$ref" : "#/components/schemas/CustomPageDefinition"
           },
           "description" : {
             "type" : "string",
@@ -13600,6 +14451,29 @@
           }
         },
         "required" : [ "label", "version" ]
+      },
+      "UpdateTabRequest" : {
+        "type" : "object",
+        "properties" : {
+          "definition" : {
+            "$ref" : "#/components/schemas/TabDefinition"
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "definition", "label", "version" ]
       },
       "UpdateValidationRuleRequest" : {
         "type" : "object",

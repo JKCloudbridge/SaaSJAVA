@@ -19,20 +19,27 @@ public record ApplicationDefinition(String apiName, String label, String descrip
         List<UUID> profiles, List<NavigationItem> items, long version) {
 
     /** What a navigation item opens. */
-    public enum ItemType { OBJECT, RECORD_PAGE, LINK, HEADING }
+    public enum ItemType { OBJECT, RECORD_PAGE, LINK, HEADING, TAB }
 
     /**
      * One entry of the navigation. Which properties are set depends on the type: an object item names the object, a
-     * record page item the object and the page, a link a path inside the organization, a heading only a label.
+     * record page item the object and the page, a link a path inside the organization, a heading only a label, a tab
+     * item (since Sprint 18) the tab it lists.
      *
      * @param type what it opens
      * @param label the label to show, or empty to use the label of the object or page
      * @param objectApiName the object, or empty
      * @param pageApiName the record page, or empty
      * @param path the path inside the organization, or empty
+     * @param tabApiName the tab, or empty
      */
     public record NavigationItem(ItemType type, String label, String objectApiName, String pageApiName,
-            String path) {
+            String path, String tabApiName) {
+
+        /** An item of the kinds of Sprint 12, which name no tab. */
+        public NavigationItem(ItemType type, String label, String objectApiName, String pageApiName, String path) {
+            this(type, label, objectApiName, pageApiName, path, "");
+        }
     }
 
     /** Copies the lists. */

@@ -1,5 +1,6 @@
 package app.platform.data.internal;
 
+import app.platform.sharedkernel.storage.ObjectStore;
 import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.HealthIndicator;
 import org.springframework.boot.health.contributor.Status;

@@ -7,6 +7,12 @@ import app.platform.metadata.internal.DefinitionSchemas.Kind;
 import app.platformapi.ApiException;
 import app.platformapi.ApplicationView;
 import app.platformapi.CreateApplicationRequest;
+import app.platformapi.CreateCustomPageRequest;
+import app.platformapi.CreateTabRequest;
+import app.platformapi.CustomPageView;
+import app.platformapi.TabView;
+import app.platformapi.UpdateCustomPageRequest;
+import app.platformapi.UpdateTabRequest;
 import app.platformapi.CreateLayoutRequest;
 import app.platformapi.CreateRecordPageRequest;
 import app.platformapi.ErrorCode;
@@ -23,7 +29,8 @@ import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 
 /**
- * The rules of page layouts, record pages and applications (ADR-0069, ADR-0070). Like {@link RecordTypeService} it runs
+ * The rules of page layouts, record pages, applications, tabs and custom pages (ADR-0069, ADR-0070, ADR-0127). Like
+ * {@link RecordTypeService} it runs
  * inside the transaction that {@link MetadataAdministration} opened after checking the caller's ability, and it
  * changes published definitions only. Every definition is checked against its JSON schema and against the rules a
  * schema cannot say ({@link DefinitionRules}); whether what it names exists is checked by the lifecycle after the
@@ -36,7 +43,9 @@ class DefinitionService {
     private enum Type {
         LAYOUT(DefinitionStore.Table.PAGE_LAYOUT, Kind.PAGE_LAYOUT, "layout", "page layout"),
         RECORD_PAGE(DefinitionStore.Table.RECORD_PAGE, Kind.RECORD_PAGE, "recordpage", "record page"),
-        APPLICATION(DefinitionStore.Table.APPLICATION, Kind.APPLICATION, "application", "application");
+        APPLICATION(DefinitionStore.Table.APPLICATION, Kind.APPLICATION, "application", "application"),
+        TAB(DefinitionStore.Table.TAB, Kind.TAB, "tab", "tab"),
+        CUSTOM_PAGE(DefinitionStore.Table.CUSTOM_PAGE, Kind.CUSTOM_PAGE, "custompage", "custom page");
 
         private final DefinitionStore.Table table;
         private final Kind schema;
@@ -54,7 +63,7 @@ class DefinitionService {
             return switch (this) {
                 case LAYOUT -> "sections";
                 case RECORD_PAGE -> "components";
-                case APPLICATION -> "items";
+                case APPLICATION, TAB, CUSTOM_PAGE -> "items";
             };
         }
     }
@@ -66,10 +75,12 @@ class DefinitionService {
     private final MetadataVersions versions;
     private final MetadataAudit audit;
     private final MetadataProperties properties;
+    private final CustomPageAssets assets;
 
     DefinitionService(DefinitionStore store, DefinitionCodec codec, DefinitionSchemas schemas,
             MetadataCatalogue catalogue, MetadataVersions versions, MetadataAudit audit,
-            MetadataProperties properties) {
+            MetadataProperties properties, CustomPageAssets assets) {
+        this.assets = assets;
         this.store = store;
         this.codec = codec;
         this.schemas = schemas;
@@ -163,6 +174,56 @@ class DefinitionService {
         delete(caller, Type.APPLICATION, "", apiName);
     }
 
+    // ---- tabs (Sprint 18, ADR-0128) ----
+
+    List<TabView> tabs() {
+        return store.all(DefinitionStore.Table.TAB).stream().map(codec::tabView).toList();
+    }
+
+    TabView tab(String apiName) {
+        return codec.tabView(store.find(DefinitionStore.Table.TAB, "", apiName)
+                .orElseThrow(() -> missing(Type.TAB)));
+    }
+
+    TabView createTab(Caller caller, CreateTabRequest request) {
+        return codec.tabView(create(caller, Type.TAB, "", request.name(), request.label(), request.description(),
+                request.definition()));
+    }
+
+    TabView updateTab(Caller caller, String apiName, UpdateTabRequest request) {
+        return codec.tabView(update(caller, Type.TAB, "", apiName, request.label(), request.description(),
+                request.definition(), request.version()));
+    }
+
+    void deleteTab(Caller caller, String apiName) {
+        delete(caller, Type.TAB, "", apiName);
+    }
+
+    // ---- custom pages (Sprint 18, ADR-0127) ----
+
+    List<CustomPageView> customPages() {
+        return store.all(DefinitionStore.Table.CUSTOM_PAGE).stream().map(codec::customPageView).toList();
+    }
+
+    CustomPageView customPage(String apiName) {
+        return codec.customPageView(store.find(DefinitionStore.Table.CUSTOM_PAGE, "", apiName)
+                .orElseThrow(() -> missing(Type.CUSTOM_PAGE)));
+    }
+
+    CustomPageView createCustomPage(Caller caller, CreateCustomPageRequest request) {
+        return codec.customPageView(create(caller, Type.CUSTOM_PAGE, "", request.name(), request.label(),
+                request.description(), request.definition()));
+    }
+
+    CustomPageView updateCustomPage(Caller caller, String apiName, UpdateCustomPageRequest request) {
+        return codec.customPageView(update(caller, Type.CUSTOM_PAGE, "", apiName, request.label(),
+                request.description(), request.definition(), request.version()));
+    }
+
+    void deleteCustomPage(Caller caller, String apiName) {
+        delete(caller, Type.CUSTOM_PAGE, "", apiName);
+    }
+
     // ---- the core ----
 
     private DefinitionStore.Row create(Caller caller, Type type, String objectApiName, String name, String label,
@@ -253,7 +314,8 @@ class DefinitionService {
             issues.addAll(switch (type) {
                 case LAYOUT -> DefinitionRules.layout(tree);
                 case RECORD_PAGE -> DefinitionRules.recordPage(tree);
-                case APPLICATION -> List.<Issue>of();
+                case APPLICATION, TAB -> List.<Issue>of();
+                case CUSTOM_PAGE -> assets.problems(tree);
             });
         }
         issues.forEach(issue -> problems.add(issue.path(), issue.message()));
@@ -269,6 +331,8 @@ class DefinitionService {
             case LAYOUT -> properties.limits().maxLayoutsPerObject();
             case RECORD_PAGE -> properties.limits().maxRecordPagesPerObject();
             case APPLICATION -> properties.limits().maxApplications();
+            case TAB -> properties.limits().maxTabs();
+            case CUSTOM_PAGE -> properties.limits().maxCustomPages();
         };
     }
 

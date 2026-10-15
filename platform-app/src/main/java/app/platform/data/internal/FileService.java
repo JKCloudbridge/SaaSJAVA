@@ -1,6 +1,8 @@
 package app.platform.data.internal;
 
 import app.platform.sharedkernel.Uuids;
+import app.platform.sharedkernel.storage.ObjectStore;
+import app.platform.sharedkernel.storage.ObjectStoreException;
 import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;

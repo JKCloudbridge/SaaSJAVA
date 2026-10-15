@@ -43,6 +43,7 @@ class IdentityCleanup implements SmartLifecycle {
     void runOnce() {
         int sessions = loginSessions.purgeEndedBefore(settings.keepEnded());
         int grants = authorizations.purgeEnded(settings.keepEnded());
+        authorizations.purgeEmbedded(settings.keepEnded());
         int links = tokens.purgeExpiredBefore(clock.instant().minus(settings.keepEnded()));
         int switches = handoffs.purgeExpiredBefore(clock.instant().minus(settings.keepEnded()));
         int blanked = invitations.anonymiseClosedBefore(clock.instant().minus(settings.keepClosedInvitations()));

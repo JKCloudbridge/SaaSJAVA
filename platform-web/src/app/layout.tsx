@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/shell/AppShell";
 import { TelemetryBootstrap } from "@/components/TelemetryBootstrap";
+import { ApplicationsProvider } from "@/lib/applications/ApplicationsProvider";
 import { SessionProvider } from "@/lib/session/SessionProvider";
 import "./globals.css";
 
@@ -39,7 +40,9 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
       <body>
         <TelemetryBootstrap />
         <SessionProvider>
-          <AppShell>{children}</AppShell>
+          <ApplicationsProvider>
+            <AppShell>{children}</AppShell>
+          </ApplicationsProvider>
         </SessionProvider>
       </body>
     </html>

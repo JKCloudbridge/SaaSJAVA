@@ -83,6 +83,15 @@ class MetadataAudit {
                 .onObject(path(object, name), null));
     }
 
+    /**
+     * A script of a custom page was uploaded (ADR-0127): its identifier and size. Neither the content nor the hash is
+     * written; the script is text the organization chose.
+     */
+    void customPageAssetUploaded(UUID actor, UUID asset, long size) {
+        write(AuditRecord.of("metadata.custompageasset.uploaded", AuditOutcome.SUCCESS).forUser(actor)
+                .with("asset", asset.toString()).with("size", Long.toString(size)));
+    }
+
     // ---- validation rules (ADR-0078) ----
 
     /** A rule was made: by name and counts only; the condition and the message are text the organization typed. */

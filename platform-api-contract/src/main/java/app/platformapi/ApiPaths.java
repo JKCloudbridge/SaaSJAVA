@@ -143,6 +143,15 @@ public final class ApiPaths {
     /** The applications of the organization: definitions for those who manage metadata (Sprint 12). */
     public static final String METADATA_APPLICATIONS = V1 + "/metadata/applications";
 
+    /** The tabs applications can list: definitions for those who manage metadata (Sprint 18). */
+    public static final String METADATA_TABS = V1 + "/metadata/tabs";
+
+    /** The custom pages of the organization: definitions for those who manage metadata (Sprint 18). */
+    public static final String METADATA_CUSTOM_PAGES = V1 + "/metadata/custom-pages";
+
+    /** The scripts of custom pages, uploaded for those who manage metadata (Sprint 18, ADR-0127). */
+    public static final String METADATA_CUSTOM_PAGE_ASSETS = V1 + "/metadata/custom-page-assets";
+
     /** Checking and trying expressions, and the list of functions of the expression language (Sprint 13). */
     public static final String METADATA_EXPRESSIONS = V1 + "/metadata/expressions";
 
@@ -157,6 +166,12 @@ public final class ApiPaths {
 
     /** The applications the signed-in member may use, with their navigation (Sprint 12). */
     public static final String MY_APPLICATIONS = V1 + "/applications";
+
+    /** The script of a custom page, for a member who may open it (Sprint 18, ADR-0127). */
+    public static final String MY_CUSTOM_PAGES = MY_APPLICATIONS + "/custom-pages";
+
+    /** The access token of a custom page's script, asked for by the page around it (Sprint 18, ADR-0127). */
+    public static final String EMBEDDED_TOKENS = V1 + "/embedded-tokens";
 
     /** The caller leaves the organization the host names (Sprint 7). */
     public static final String ORGANIZATION_LEAVE = V1 + "/organization/leave";
