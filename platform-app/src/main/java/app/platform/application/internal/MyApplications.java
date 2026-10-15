@@ -118,7 +118,8 @@ class MyApplications {
         for (NavigationItem item : application.items()) {
             switch (item.type()) {
                 case LINK -> entries.add(new NavigationEntryView("LINK", item.label(), null, null, item.path()));
-                case OBJECT -> metadata.object(item.objectApiName()).filter(object -> mayRead(readable, object.apiName()))
+                case OBJECT -> metadata.object(item.objectApiName())
+                        .filter(object -> mayRead(readable, object.apiName()))
                         .ifPresent(object -> entries.add(new NavigationEntryView("OBJECT",
                                 labelOf(item, object.pluralLabel()), object.apiName(), null, null)));
                 case RECORD_PAGE -> page(item).filter(page -> mayRead(readable, page.objectApiName()))

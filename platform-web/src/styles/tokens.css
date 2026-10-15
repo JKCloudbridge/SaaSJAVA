@@ -73,6 +73,9 @@
   --size-control-lg: 2rem;
   --control-bar-height: 2.75rem;
   --launcher-width: 18.5rem;
+  --search-min-width: 16rem;
+  --field-min-width: 10rem;
+  --cell-max-width: 20rem;
 }
 
 @media (prefers-color-scheme: dark) {

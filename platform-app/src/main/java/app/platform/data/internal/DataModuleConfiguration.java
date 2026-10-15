@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @EnableConfigurationProperties({RecordProperties.class, SharingProperties.class, StorageProperties.class,
         SearchProperties.class,
-        FileProperties.class, BulkProperties.class, ImportProperties.class})
+        FileProperties.class, BulkProperties.class, ImportProperties.class, ListViewProperties.class})
 class DataModuleConfiguration {
 
     @Bean

@@ -357,7 +357,7 @@ class SchemaConventionsIT {
         assertThat(SchemaConventions.PLATFORM_TABLES).containsExactlyInAnyOrder("tenant", "platform_user",
                 "user_credential", "login_session", "oauth2_authorization", "audit_record", "account_token",
                 "mail_queue", "organization_handoff", "platform_role_assignment", "licence_type", "feature", "plan",
-                "plan_licence", "plan_feature", "subscription", "entitlement_override");
+                "plan_licence", "plan_feature", "subscription", "entitlement_override", "embedded_token");
         assertThat(SchemaConventions.SYSTEM_SCOPE_TABLES)
                 .containsExactlyInAnyOrder("outbox_event", "processed_event", "membership");
         assertThat(SchemaConventions.SYSTEM_SCOPES).containsExactlyInAnyOrder("outbox_relay", "membership_lookup");

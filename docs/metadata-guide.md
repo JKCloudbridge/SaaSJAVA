@@ -421,3 +421,23 @@ Things to know:
 **Import.** A CSV file (UTF-8, a header row, at most 20 MiB and 100,000 rows) creates or updates records through the same checks as typing them in, as the person who sends it. A column is mapped to a field (`Column` to `field__c`); a link is written either as the other record's identifier or, with `field__c:externalIdField__c`, as the other record's external identifier. An empty cell leaves a field as it is. Rows that fail are in a report you can download, correct and send again; **a dry run** checks everything and saves nothing. An import cannot be undone; stopping it keeps what it already wrote.
 
 **Bulk.** The API can create, change or delete up to 200 records in one call, each with its own result; a call can be "all or none".
+
+## 18. Lists, forms and saved views (Sprint 19)
+
+Every object you define gets a **list**, a **create form** and an **edit form** with no setup beyond the object itself. What a person sees is decided by what you set up, and by what they may do.
+
+**What the form shows.** The page layout the object uses for the person's profile and the record type (section 11). A field the person may not read is not on the form at all; a field they may read but not edit is shown as plain text; a field a layout marks *read only* or *hidden* behaves so on this page; a formula and an auto-number are always shown as text, and a formula's result appears (marked "will be calculated when saved") once the person has changed something and the system has judged the change. When an object has **no layout**, the system lays the fields out itself: the fields in one block, the system fields (owner, created, last changed) in another. Choose a layout for the object if you want a different order or blocks.
+
+**Record types.** If the object has record types, the form offers the types the person's profile may use (section 14) and shows only the fields and the picklist values the chosen type allows. A record keeps the type it has, so someone who lost a type can still open and save a record of that type.
+
+**What a record is called.** In a list, a heading and a link, a record is named by one field: the first **searchable** text field the person may read (so flag the field people look records up by, section 17), otherwise the first required text field, otherwise the first text field, otherwise the auto-number. People are named by their display name, as long as they are active members.
+
+**Mistakes are pointed out before Save.** A moment after someone changes a field, the system tells them what a save would be told: a required field left empty, a value that is too long or has too many decimals, a duplicate in a unique field, **a validation rule that would refuse** (the rule's message appears beside its field). Nothing is stored by this, and the rules are judged by the same engine as the real save.
+
+**When two people edit the same record.** The second person to save is not overwritten and does not lose their work: they are told the record was changed, shown which fields the other change touched, and their own changes are kept on top of the newer version wherever they did not collide. Where both changed the same field, they choose. Then they review and save again.
+
+**Saved views.** On any list a person can save the filter, the order and the columns under a name. A **personal** view is only theirs. A **shared** view is seen by everyone who may read the object; making, changing and removing one needs the ability **Share list views** (give it in a profile or an access policy; administrators hold it). A view never widens what anyone can see: opening it asks the same question for the person who opens it, so a field or a record they may not reach stays out of reach. A view that names a field the person who saved it could not read is refused. Up to 50 personal views per person and 50 shared views per object.
+
+**Search, change several records, import.** The search box on a list uses the words of the object's searchable fields (section 17). A person with the right to change or delete can select rows and change a field on all of them or delete them; each record is judged on its own and the report names the ones that were refused. **Import** (a button on the list, for someone who may create) takes a CSV file: choose the file, say which column fills which field, check it first (nothing is saved), then import; the report of refused rows can be downloaded and corrected.
+
+**Not here yet.** Editing a value in a cell of the list, a count on each view, and showing one view to a single group are not built.

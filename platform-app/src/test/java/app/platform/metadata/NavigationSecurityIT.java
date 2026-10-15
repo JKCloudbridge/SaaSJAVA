@@ -15,7 +15,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * What a member's menu lists and what they may fetch to draw a custom page (Sprint 18, ADR-0128, ADR-0127): only what
- * the member may open, resolved by the server, with the same answer for what is out of reach as for what does not exist.
+ * the member may open, resolved by the server, with the same answer for what is out of reach as for what does not
+ * exist.
  */
 @PlatformIntegrationTest
 class NavigationSecurityIT extends DefinitionsSupport {
@@ -164,7 +165,8 @@ class NavigationSecurityIT extends DefinitionsSupport {
         assertThat(keys).hasSize(1);
         assertThat(admin.get(MY_APPLICATIONS + "/custom-pages/Inspection__c").status()).isEqualTo(200);
 
-        TestStorage.overwrite(keys.get(0), "alert('changed behind the platform's back')".getBytes(StandardCharsets.UTF_8));
+        TestStorage.overwrite(keys.get(0),
+                "alert('changed behind the platform's back')".getBytes(StandardCharsets.UTF_8));
         Response tampered = admin.get(MY_APPLICATIONS + "/custom-pages/Inspection__c");
 
         assertThat(tampered.status()).isEqualTo(503);

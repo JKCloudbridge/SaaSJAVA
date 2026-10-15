@@ -6,7 +6,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 /**
- * The one cross-origin rule of the API (Sprint 18, ADR-0127). The script of a custom page runs in a sandboxed frame whose
+ * The one cross-origin rule of the API (Sprint 18, ADR-0127). The script of a custom page runs in a sandboxed frame
+ * whose
  * origin is opaque, so a browser calls the API from the origin {@code null}, and answers its calls only if the API
  * allows that origin. This is the whole rule: the origin {@code null}, the methods and headers a data call uses, and
  * <b>no credentials</b> (the browser neither sends cookies nor hands the page an answer to a call that carried them).

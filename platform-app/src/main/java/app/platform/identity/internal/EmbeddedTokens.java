@@ -16,7 +16,8 @@ import org.springframework.stereotype.Service;
 /**
  * Gives the page around a custom page's script an access token for that script (Sprint 18, ADR-0127). The token is
  * the signed-in member's own, narrowed: it belongs to the sign-in grant it was asked with and ends with it, it names
- * the organization of the host, it lives a few minutes ({@code platform.identity.tokens.embedded}), it is stored only as
+ * the organization of the host, it lives a few minutes ({@code platform.identity.tokens.embedded}), it is stored only
+ * as
  * a hash, and {@link EmbeddedAccessPolicy} limits what it can reach. It is not a new kind of login: nobody can sign in
  * with it, and it cannot be used to get another one.
  *
@@ -26,7 +27,9 @@ import org.springframework.stereotype.Service;
 @Service
 class EmbeddedTokens {
 
-    /** The start of every token of this kind; no other token is looked up as one (with a fallback, see Introspector). */
+    /**
+     * The start of every token of this kind; no other token is looked up as one (with a fallback, see Introspector).
+     */
     static final String PREFIX = "pcs_";
 
     private final AuthorizationStore store;

@@ -26,7 +26,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Developer convenience (Sprint 18, ADR-0127): gives {@code tenant-a} one working custom page, an application that lists
+ * Developer convenience (Sprint 18, ADR-0127): gives {@code tenant-a} one working custom page, an application that
+ * lists
  * it and the sample object, so the application launcher, the control bar and the sandboxed frame have something real to
  * show on a developer machine. The script is {@code local/objects-overview.js}, an ordinary custom page written against
  * the interface every custom page gets. Only the {@code local} profile runs it, and only when the organization does not

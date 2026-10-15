@@ -289,7 +289,8 @@ class DefinitionController {
     @Operation(
             operationId = "createTab",
             summary = "Add a tab",
-            description = "Live at once, as a release of one change. " + SCHEMA_NOTE + " A tab of kind CUSTOM names the custom page it shows. CONFLICT when that page does not exist or at the limit. Audited.")
+            description = "Live at once, as a release of one change. " + SCHEMA_NOTE + " A tab of kind CUSTOM names "
+                    + "the custom page it shows. CONFLICT when that page does not exist or at the limit. Audited.")
     ResponseEntity<ApiResponse<TabView>> createTab(@Valid @RequestBody CreateTabRequest body) {
         TabView created = administration.runAll("metadata.tab.create", LIVE,
                 caller -> lifecycle.applyNow(caller, codec.now(Change.Kind.CREATE_TAB, "", null, body),
@@ -349,7 +350,11 @@ class DefinitionController {
     @Operation(
             operationId = "createCustomPage",
             summary = "Add a custom page",
-            description = "Live at once, as a release of one change. " + SCHEMA_NOTE + " The content names the uploaded script (upload it first, see uploadCustomPageScript) with its hash and size; VALIDATION_ERROR when the script is not in this organization or the hash or size is not its own. The reference for the server is stored and never read or run. CONFLICT at the limit. Audited.")
+            description = "Live at once, as a release of one change. " + SCHEMA_NOTE + " The content names the "
+                    + "uploaded script (upload it first, see uploadCustomPageScript) with its hash and size; "
+                    + "VALIDATION_ERROR when the script is not in this organization or the hash or size is not its "
+                    + "own. The reference for the server is stored and never read or run. CONFLICT at the limit. "
+                    + "Audited.")
     ResponseEntity<ApiResponse<CustomPageView>> createCustomPage(@Valid @RequestBody CreateCustomPageRequest body) {
         CustomPageView created = administration.runAll("metadata.custompage.create", LIVE,
                 caller -> lifecycle.applyNow(caller, codec.now(Change.Kind.CREATE_CUSTOM_PAGE, "", null, body),
@@ -364,7 +369,8 @@ class DefinitionController {
             summary = "Change a custom page",
             description = "Live at once, as a release of one change. The API name never changes. " + SCHEMA_NOTE
                     + " CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.")
-    ApiResponse<CustomPageView> updateCustomPage(@PathVariable String apiName, @Valid @RequestBody UpdateCustomPageRequest body) {
+    ApiResponse<CustomPageView> updateCustomPage(@PathVariable String apiName,
+            @Valid @RequestBody UpdateCustomPageRequest body) {
         return ApiResponse.of(administration.runAll("metadata.custompage.update", LIVE,
                 caller -> lifecycle.applyNow(caller, codec.now(Change.Kind.UPDATE_CUSTOM_PAGE, "", apiName, body),
                         CustomPageView.class)));

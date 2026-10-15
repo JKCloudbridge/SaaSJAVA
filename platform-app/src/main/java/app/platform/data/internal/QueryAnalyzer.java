@@ -457,6 +457,32 @@ class QueryAnalyzer {
         };
     }
 
+    /**
+     * What a screen may offer for a field (Sprint 19, ADR-0129): the comparisons a filter on it accepts and whether a
+     * list can be ordered by it. These are the decisions {@link #node} and the order stage make, taken from the same
+     * tables, so the form descriptor and the engine cannot disagree. The freshness of formula results is not part of
+     * it (it changes by the minute); the engine answers that when the query runs.
+     *
+     * @param operators the names of the comparisons, empty when the field cannot be used in a filter
+     * @param sortable whether the field can be a key of the order
+     */
+    record Querying(List<String> operators, boolean sortable) {
+
+        static final Querying NONE = new Querying(List.of(), false);
+    }
+
+    /** What a filter and an order accept for the field. */
+    static Querying queryingOf(FieldDefinition field) {
+        SystemColumn system = field.kind() == DefinitionKind.SYSTEM ? SYSTEM.get(field.apiName()) : null;
+        ValueKind kind = kindOf(field, system);
+        if (kind == null) {
+            return Querying.NONE;
+        }
+        List<String> operators = allowed(kind, system).stream().map(Compare::name).toList();
+        boolean link = kind == ValueKind.UUID && system != SystemColumn.ID;
+        return new Querying(operators, !link);
+    }
+
     private static String expected(ValueKind kind) {
         return switch (kind) {
             case TEXT -> "Enter text of at most " + MAX_TEXT + " characters.";

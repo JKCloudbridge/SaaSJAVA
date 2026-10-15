@@ -81,7 +81,15 @@ public enum Ability {
      */
     SHARING_MANAGE("sharing.manage", "Manage sharing",
             "Set whether each object is private or public, whether managers read what their subordinates own, and "
-                    + "create, change and remove sharing rules.");
+                    + "create, change and remove sharing rules."),
+
+    /**
+     * Save a list view for everyone in the organization who may read the object, and change or remove the shared views
+     * that other members made (Sprint 19, ADR-0130). Saving a personal view and changing one's own needs no ability.
+     */
+    VIEWS_SHARE("views.share", "Share list views",
+            "Save a list view for everyone who may read the object, and change or remove the shared list views that "
+                    + "other members made.");
 
     private final String key;
     private final String title;

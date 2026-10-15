@@ -10,10 +10,10 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * Decision D6 keeps code that would run on the server out of the platform until its design is settled (ADR-0127). A custom
- * page stores a reference to such code ({@code backend}) so that no later change of shape is needed, and until then nothing
- * may read it. This test is the lock: no source of the application names the property, so no class can read it by accident,
- * and a change that does has to remove this test and say why in an ADR.
+ * Decision D6 keeps code that would run on the server out of the platform until its design is settled (ADR-0127).
+ * A custom page stores a reference to such code ({@code backend}) so that no later change of shape is needed, and
+ * until then nothing may read it. This test is the lock: no source of the application names the property, so no
+ * class can read it by accident, and a change that does has to remove this test and say why in an ADR.
  */
 class CustomPageBackendReferenceIsInertTest {
 

@@ -564,17 +564,24 @@ public final class TenantScopedTables {
                     tenant, "probe" + UUID.randomUUID().toString().replace("-", "").substring(0, 8) + "__c",
                     ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
 
+    /** A saved list view of an object (Sprint 19, ADR-0130). */
+    public static final TenantScopedTable LIST_VIEW = new TenantScopedTable("list_view",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into list_view (tenant_id, object_api_name, label, scope, definition, created_by, "
+                            + "updated_by) values (?, 'Probe__c', ?, 'SHARED', cast('{}' as jsonb), ?, ?)",
+                    tenant, probeName("V"), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
             MEMBER_ACCESS, MEMBER_ACCESS_POLICY, MEMBER_GRANT, PUBLIC_GROUP, PUBLIC_GROUP_MEMBER,
             PUBLIC_GROUP_ACCESS_POLICY, OBJECT_PERMISSION, FIELD_PERMISSION, SECURITY_VERSION, OBJECT_DEFINITION,
             FIELD_DEFINITION, METADATA_VERSION, RECORD_TYPE, METADATA_CHANGE_SET, METADATA_CHANGE,
-            METADATA_RELEASE, PAGE_LAYOUT, RECORD_PAGE, APPLICATION, TAB, CUSTOM_PAGE, CUSTOM_PAGE_ASSET, LAYOUT_ASSIGNMENT,
-            VALIDATION_RULE,
+            METADATA_RELEASE, PAGE_LAYOUT, RECORD_PAGE, APPLICATION, TAB, CUSTOM_PAGE, CUSTOM_PAGE_ASSET,
+            LAYOUT_ASSIGNMENT, VALIDATION_RULE,
             OBJECT_RECORD, AUTO_NUMBER_COUNTER, RECORD_TYPE_ASSIGNMENT, FIELD_SLOT, RECORD_LINK, LINK_INDEX,
             UNIQUE_ENFORCEMENT, FORMULA_RECALCULATION, OBJECT_SHARING_SETTING, SHARING_RULE, RECORD_SHARE,
-            RECORD_FILE, FILE_OBJECT_CLEANUP, IMPORT_JOB, IMPORT_ERROR, SEARCH_TERM, SEARCH_FIELD);
+            RECORD_FILE, FILE_OBJECT_CLEANUP, IMPORT_JOB, IMPORT_ERROR, SEARCH_TERM, SEARCH_FIELD, LIST_VIEW);
 
     private TenantScopedTables() {
     }

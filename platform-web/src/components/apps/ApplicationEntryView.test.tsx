@@ -11,6 +11,21 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
+interface ListProps {
+  objectApiName: string;
+  newHref?: string;
+  openHref: (id: string) => string;
+  recordHref: (objectApiName: string, id: string) => string;
+  backHref: string;
+}
+const lists: ListProps[] = [];
+vi.mock("@/components/records/ObjectListPage", () => ({
+  ObjectListPage: (props: ListProps) => {
+    lists.push(props);
+    return <div data-testid="object-list">{props.objectApiName}</div>;
+  },
+}));
+
 const frames: { customPage: string; label: string; assetId?: string }[] = [];
 vi.mock("./CustomPageFrame", () => ({
   CustomPageFrame: (props: { customPage: string; label: string; assetId?: string }) => {
@@ -22,6 +37,7 @@ vi.mock("./CustomPageFrame", () => ({
 beforeEach(() => {
   params = { application: "Field__c", entry: "c-Inspections__c" };
   frames.length = 0;
+  lists.length = 0;
 });
 
 afterEach(() => {
@@ -59,16 +75,35 @@ describe("a page of an application", () => {
     expect(screen.queryByTestId("entry-unavailable")).toBeNull();
   });
 
-  it("says a page is being prepared for an object, until the record screens exist", async () => {
+  it("shows the list of an object, and every screen of its records opens inside the application", async () => {
     params = { application: "Field__c", entry: "o-Deal__c" };
     shellApi();
+    renderEntry();
+
+    expect(await screen.findByTestId("object-list")).toHaveTextContent("Deal__c");
+
+    const props = lists[0]!;
+    expect(props.newHref).toBe("/apps/Field__c/o-Deal__c/new");
+    expect(props.openHref("r 1")).toBe("/apps/Field__c/o-Deal__c/records/r%201");
+    // A link to a record of another object leaves for that object's own address.
+    expect(props.recordHref("Account__c", "a1")).toBe("/records/Account__c/a1");
+    expect(props.backHref).toBe("/");
+    expect(screen.queryByTestId("entry-not-built")).toBeNull();
+  });
+
+  it("still says a record page is being prepared, until Sprint 20", async () => {
+    params = { application: "Field__c", entry: "p-Deal__c.Overview__c" };
+    shellApi({
+      applications: [
+        { ...FIELD, items: [{ type: "RECORD_PAGE", label: "Overview", objectApiName: "Deal__c", pageApiName: "Overview__c", available: true }] },
+      ],
+    });
     renderEntry();
 
     const note = await screen.findByTestId("entry-not-built");
 
     expect(note).toHaveTextContent("This page is being prepared.");
-    expect(note).toHaveTextContent("list of records of Field Service");
-    expect(screen.getByRole("heading", { level: 1, name: "Deals" })).toBeInTheDocument();
+    expect(note).toHaveTextContent("record page of Field Service");
   });
 
   it("asks the API once more before saying a page is not available, in case the list is old", async () => {

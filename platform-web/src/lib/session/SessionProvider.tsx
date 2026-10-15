@@ -27,11 +27,26 @@ interface SessionApi {
 
 const SessionContext = createContext<SessionApi | undefined>(undefined);
 
-/** Makes sure the page holds the forgery-protection cookie before it changes something. */
+/** The request for the cookie that is on its way, so that callers who arrive meanwhile wait for it instead of asking again. */
+let cookieRequest: Promise<void> | undefined;
+
+/**
+ * Makes sure the page holds the forgery-protection cookie before it changes something. One request at a time: every answer
+ * of the cookie endpoint replaces the cookie, so a page that opens with several calls at once (a list asks for its
+ * description, its views and its records together) must not send one request each. A POST that read the first value for its
+ * header and was sent after the second answer replaced the cookie would carry two different values and be refused.
+ */
 export async function ensureForgeryCookie(): Promise<void> {
-  if (!readCookie(FORGERY_COOKIE)) {
-    await api.GET("/api/v1/auth/csrf");
+  if (readCookie(FORGERY_COOKIE)) {
+    return;
   }
+  cookieRequest ??= api
+    .GET("/api/v1/auth/csrf")
+    .then(() => undefined)
+    .finally(() => {
+      cookieRequest = undefined;
+    });
+  await cookieRequest;
 }
 
 /**

@@ -66,7 +66,8 @@ class TabsAndCustomPagesIT extends DefinitionsSupport {
     }
 
     private static String sha256(String text) throws Exception {
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8)));
+        return HexFormat.of().formatHex(
+                MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8)));
     }
 
     // ---- the script ----
@@ -220,7 +221,8 @@ class TabsAndCustomPagesIT extends DefinitionsSupport {
 
         Response noKind = admin.postJson(TABS, layoutRequest("A", "{}"));
         Response noPage = admin.postJson(TABS, layoutRequest("B", "{\"kind\":\"CUSTOM\"}"));
-        Response unknownKind = admin.postJson(TABS, layoutRequest("C", "{\"kind\":\"SCRIPT\",\"customPage\":\"X__c\"}"));
+        Response unknownKind = admin.postJson(TABS,
+                layoutRequest("C", "{\"kind\":\"SCRIPT\",\"customPage\":\"X__c\"}"));
         Response noTab = createApplication(admin, "D", applicationDefinition("[]", "[{\"type\":\"TAB\"}]"));
         Response tabWithObject = createApplication(admin, "E", applicationDefinition("[]",
                 "[{\"type\":\"TAB\",\"tab\":\"X__c\",\"object\":\"Deal__c\"}]"));
