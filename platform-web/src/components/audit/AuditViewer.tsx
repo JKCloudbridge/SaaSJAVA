@@ -197,7 +197,7 @@ export function AuditViewer({ scope }: { scope: AuditScope }) {
 
   return (
     <div className="stack">
-      <form onSubmit={search} aria-label="Filter the audit events" className="stack">
+      <form onSubmit={search} aria-label="Filter the audit events" className="filters">
         <label>
           Kind
           <select value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value })}>
@@ -224,11 +224,11 @@ export function AuditViewer({ scope }: { scope: AuditScope }) {
           About (identifier)
           <input value={draft.target} onChange={(e) => setDraft({ ...draft, target: e.target.value.trim() })} />
         </label>
-        <div>
-          <button type="submit" disabled={busy}>
+        <div className="filters-actions">
+          <button type="submit" className="button" disabled={busy}>
             Show
           </button>{" "}
-          <button type="button" onClick={clear} disabled={busy}>
+          <button type="button" className="button button-secondary" onClick={clear} disabled={busy}>
             Clear
           </button>
         </div>
@@ -244,7 +244,7 @@ export function AuditViewer({ scope }: { scope: AuditScope }) {
         <p data-testid="audit-empty">{filtered ? "No events match." : "No events yet."}</p>
       ) : null}
       {events !== undefined && events.length > 0 ? (
-        <ol aria-label="Audit events" className="stack">
+        <ol aria-label="Audit events" className="stack timeline">
           {events.map((event) => (
             <li key={event.id} data-testid="audit-event">
               <strong>{sentence(event)}</strong>{" "}
@@ -282,7 +282,7 @@ export function AuditViewer({ scope }: { scope: AuditScope }) {
       ) : null}
       {next ? (
         <p>
-          <button type="button" disabled={busy} onClick={() => void load(applied, next, true)}>
+          <button type="button" className="button button-secondary" disabled={busy} onClick={() => void load(applied, next, true)}>
             Show more
           </button>
         </p>

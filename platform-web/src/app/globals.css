@@ -1,5 +1,9 @@
 @import "../styles/tokens.css";
 
+/* ------------------------------------------------------------------------------------------------------------------
+ * Base: reset, page, typography, links, code
+ * ---------------------------------------------------------------------------------------------------------------- */
+
 *,
 *::before,
 *::after {
@@ -8,6 +12,7 @@
 
 html {
   color-scheme: light dark;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -17,40 +22,105 @@ body {
   font-family: var(--font-sans);
   font-size: var(--font-size-md);
   line-height: var(--line-height);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 h1,
 h2,
-h3 {
+h3,
+h4 {
   line-height: 1.25;
+  font-weight: 600;
   margin: 0 0 var(--space-3);
+  text-wrap: balance;
 }
 
 h1 {
   font-size: var(--font-size-xl);
+  letter-spacing: -0.01em;
 }
 
 h2 {
   font-size: var(--font-size-lg);
 }
 
+h3 {
+  font-size: var(--font-size-md);
+}
+
+h4 {
+  font-size: var(--font-size-sm);
+}
+
 p {
   margin: 0 0 var(--space-3);
 }
 
+/* The page title and the sentence under it. */
+.shell-main > h1 {
+  margin-bottom: var(--space-1);
+}
+
+.shell-main > h1 + p {
+  color: var(--color-text-muted);
+  max-width: 48rem;
+}
+
 a {
   color: var(--color-accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: var(--color-accent-hover);
+  text-decoration-thickness: 2px;
 }
 
 :focus-visible {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+::selection {
+  background: var(--color-accent-soft);
 }
 
 code,
 .mono {
   font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+code {
+  padding: var(--space-0-5) var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  overflow-wrap: anywhere;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-2) var(--space-5);
+  margin: 0 0 var(--space-4);
+}
+
+dt {
+  color: var(--color-text-muted);
   font-size: var(--font-size-sm);
+}
+
+dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+ul,
+ol {
+  margin-top: 0;
 }
 
 .skip-link {
@@ -61,17 +131,30 @@ code,
   background: var(--color-accent);
   color: var(--color-accent-contrast);
   border-radius: var(--radius-sm);
-  z-index: 10;
+  z-index: 20;
 }
 
 .skip-link:focus {
   top: var(--space-3);
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Shell: header, navigation, content
+ * ---------------------------------------------------------------------------------------------------------------- */
+
 .shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: var(--shell-nav-width) 1fr;
+  grid-template-columns: var(--shell-nav-width) minmax(0, 1fr);
   grid-template-rows: var(--shell-header-height) 1fr;
   grid-template-areas:
     "header header"
@@ -80,6 +163,9 @@ code,
 
 .shell-header {
   grid-area: header;
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -89,23 +175,84 @@ code,
   border-bottom: var(--border-width) solid var(--color-border);
 }
 
+/* The brand slot: the product name today, an organization's logo later (see src/lib/brand.ts). */
 .shell-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2-5);
   font-weight: 700;
   font-size: var(--font-size-lg);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.shell-brand-mark {
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
+.shell-brand-mark,
+.user-avatar {
+  width: var(--size-control);
+  height: var(--size-control);
 }
 
 .shell-context {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3-5);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
 
+.org-name {
+  padding: var(--space-1) var(--space-2-5);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-weight: 600;
+  font-size: var(--font-size-xs);
+}
+
+.user-menu {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2-5);
+}
+
+.user-avatar {
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  border: var(--border-width) solid var(--color-border);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+.user-name {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.org-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .shell-nav {
   grid-area: nav;
-  padding: var(--space-4);
-  background: var(--color-surface-sunken);
+  padding: var(--space-4) var(--space-3);
+  background: var(--color-surface);
   border-right: var(--border-width) solid var(--color-border);
 }
 
@@ -118,56 +265,592 @@ code,
 }
 
 .shell-nav a {
-  display: block;
-  padding: var(--space-2) var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2-5);
+  padding: var(--space-2) var(--space-2-5);
   border-radius: var(--radius-sm);
   color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
   text-decoration: none;
+  transition:
+    background var(--transition),
+    color var(--transition);
+}
+
+.shell-nav a:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
 }
 
 .shell-nav a[aria-current="page"] {
-  background: var(--color-surface);
-  border: var(--border-width) solid var(--color-border);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
   font-weight: 600;
+}
+
+.nav-icon {
+  flex: 0 0 auto;
+  width: var(--size-icon);
+  height: var(--size-icon);
+  opacity: 0.85;
+}
+
+/* An application of the organization with its own links (drawn from the API by ApplicationMenu). */
+.nav-group {
+  margin-top: var(--space-3);
+}
+
+.nav-group-label {
+  display: block;
+  padding: var(--space-1) var(--space-2-5);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+}
+
+.nav-group .nested-list {
+  margin-top: var(--space-1);
+}
+
+.nav-group .nested-list strong,
+.nav-group .nested-list span {
+  display: block;
+  padding: var(--space-1) var(--space-2-5);
+  font-size: var(--font-size-sm);
+}
+
+.nav-group .nested-list strong {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.nested-list {
+  margin: 0;
+  padding-left: 0;
 }
 
 .shell-main {
   grid-area: main;
-  padding: var(--space-6) var(--space-5);
+  min-width: 0;
+  padding: var(--space-6) var(--space-5) var(--space-7);
   max-width: var(--content-max-width);
   width: 100%;
 }
 
-.card {
+/* ------------------------------------------------------------------------------------------------------------------
+ * Surfaces: card, panel (a section of a page), split layout with a side rail
+ * ---------------------------------------------------------------------------------------------------------------- */
+
+.card,
+.shell-main section {
   background: var(--color-surface);
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-1);
   padding: var(--space-5);
+  min-width: 0;
+}
+
+.card {
   max-width: 40rem;
 }
 
-.card dl {
+/* A section inside a panel is a sub-heading with its content, not a second box. */
+.shell-main section section,
+.card section {
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.shell-main section section + section,
+.shell-main section > .stack {
+  margin-top: var(--space-4);
+}
+
+/* Panels that sit directly on the page (members, console detail) keep a steady rhythm. */
+.shell-main > section + section,
+.shell-main > h1 + section,
+.shell-main > p + section {
+  margin-top: var(--space-5);
+}
+
+.card > h1:first-child {
+  font-size: var(--font-size-lg);
+}
+
+/* The account screens (sign in, sign up, reset, invitation, new organization): a title, a sentence, one focused card. */
+.shell-main > div.card {
+  margin-top: var(--space-4);
+  max-width: 28rem;
+  padding: var(--space-6);
+}
+
+.shell-main > div.card .form {
+  max-width: none;
+}
+
+.shell-main > div.card .form > .button[type="submit"] {
+  width: 100%;
+}
+
+.stack {
   display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: var(--space-2) var(--space-4);
-  margin: 0 0 var(--space-4);
+  gap: var(--space-4-5);
+  min-width: 0;
 }
 
-.card dt {
+/* A page with a lot to show reads as a column of panels; the top-level stack spaces them a little wider. */
+.shell-main > .stack,
+.split-content {
+  gap: var(--space-5);
+}
+
+.split {
+  display: grid;
+  grid-template-columns: var(--rail-width) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+  margin-top: var(--space-4);
+}
+
+.split-content {
+  display: grid;
+  min-width: 0;
+}
+
+.rail {
+  position: sticky;
+  top: calc(var(--shell-header-height) + var(--space-4));
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+}
+
+.rail-label {
+  margin: 0;
+  padding: var(--space-1) var(--space-2-5) var(--space-2);
   color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
 }
 
-.card dd {
+.rail ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.rail a,
+.rail-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2-5);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  text-decoration: none;
+  transition:
+    background var(--transition),
+    color var(--transition);
+}
+
+.rail a:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+
+.rail a[aria-current="page"] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+/* A tab that marks where a later feature will live: visible, not usable. */
+.rail-item-soon {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.empty-state {
+  padding: var(--space-5);
+  border: var(--border-width) dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.empty-state a {
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Panels: the heading of a panel, its text and the actions at its end
+ * ---------------------------------------------------------------------------------------------------------------- */
+
+.shell-main section > h2:first-child,
+.shell-main section > h3:first-child {
+  margin-bottom: var(--space-3-5);
+  padding-bottom: var(--space-3);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.shell-main section > h2:first-child {
+  font-size: var(--font-size-lg);
+}
+
+.shell-main section > h3:first-child {
+  font-size: var(--font-size-md);
+}
+
+.shell-main section > :last-child {
+  margin-bottom: 0;
+}
+
+.hint {
+  color: var(--color-text-muted);
+  font-size: 0.92em;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Buttons
+ * ---------------------------------------------------------------------------------------------------------------- */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  line-height: 1.25;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  border: var(--border-width) solid var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background var(--transition),
+    border-color var(--transition),
+    transform var(--transition);
+}
+
+.button:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+  color: var(--color-accent-contrast);
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* Not available (or busy): flat and dim, and the pointer says so. Designed here: the source design shows no such state. */
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.button-secondary {
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.button-secondary:hover:not(:disabled) {
+  background: var(--color-surface-sunken);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.button-danger {
+  background: var(--color-surface);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.button-danger:hover:not(:disabled) {
+  background: var(--color-danger-surface);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+/* A quiet action that sits in a row, a table or a sentence: "Change", "Cancel", "Sign out". */
+.link-button {
+  font: inherit;
+  font-weight: 500;
+  padding: var(--space-0-5) var(--space-1-5);
+  margin: calc(var(--space-0-5) * -1) 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-accent);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.link-button:hover:not(:disabled) {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-hover);
+}
+
+.link-button:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Forms
+ * ---------------------------------------------------------------------------------------------------------------- */
+
+.form {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 30rem;
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.field label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"]),
+select,
+textarea {
+  font: inherit;
+  font-size: var(--font-size-sm);
+  padding: var(--space-2) var(--space-2-5);
+  border-radius: var(--radius-sm);
+  border: var(--border-width) solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition);
+}
+
+.field input:not([type="checkbox"], [type="radio"], [type="file"]),
+.field select,
+.field textarea {
+  width: 100%;
+}
+
+textarea {
+  min-height: 5.5rem;
+  resize: vertical;
+}
+
+input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"]):hover:not(:disabled),
+select:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+  border-color: var(--color-text-muted);
+}
+
+input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"]):focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.8;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+/* A value the API refused: red edge and a short reason under the field (.field-error). Designed here: not in the source design. */
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+
+input[aria-invalid="true"]:focus,
+select[aria-invalid="true"]:focus,
+textarea[aria-invalid="true"]:focus {
+  box-shadow: 0 0 0 3px var(--color-danger-surface);
+}
+
+.field-error {
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--color-accent);
+  width: 1rem;
+  height: 1rem;
   margin: 0;
 }
 
-.status {
-  display: inline-block;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-sm);
-  font-weight: 600;
+fieldset {
+  margin: 0;
+  padding: var(--space-3-5) var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+
+fieldset.field {
+  gap: var(--space-2);
+}
+
+legend {
+  padding: 0 var(--space-2);
   font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+label:has(> input[type="checkbox"]) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 400;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Messages: refusals, successes, notes
+ * ---------------------------------------------------------------------------------------------------------------- */
+
+.form-message,
+p[role="status"] {
+  margin: 0;
+  padding: var(--space-2-5) var(--space-3-5);
+  border-radius: var(--radius-md);
+  border: var(--border-width) solid transparent;
+  font-size: var(--font-size-sm);
+}
+
+.form-message {
+  background: var(--color-danger-surface);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+p[role="status"] {
+  background: var(--color-success-surface);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Tables
+ * ---------------------------------------------------------------------------------------------------------------- */
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  font-size: var(--font-size-sm);
+}
+
+.table th,
+.table td {
+  text-align: left;
+  vertical-align: top;
+  padding: var(--space-2-5) var(--space-3-5);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.table th {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+  white-space: nowrap;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table tbody tr:hover td {
+  background: color-mix(in srgb, var(--color-surface-sunken) 55%, transparent);
+}
+
+.table td:last-child {
+  text-align: right;
+}
+
+@media (max-width: 48rem) {
+  .table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Status marks and badges
+ * ---------------------------------------------------------------------------------------------------------------- */
+
+.status,
+.badge {
+  display: inline-block;
+  padding: var(--space-0-5) var(--space-2-5);
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+.badge {
+  background: var(--color-surface-sunken);
+  border: var(--border-width) solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.badge-on {
+  background: var(--color-accent-soft);
+  border-color: transparent;
+  color: var(--color-accent);
 }
 
 .status-ok {
@@ -180,141 +863,10 @@ code,
   color: var(--color-danger);
 }
 
-.button {
-  font: inherit;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-sm);
-  border: var(--border-width) solid var(--color-accent);
-  background: var(--color-accent);
-  color: var(--color-accent-contrast);
-  cursor: pointer;
-}
+/* ------------------------------------------------------------------------------------------------------------------
+ * Rendered structure of a layout (setup)
+ * ---------------------------------------------------------------------------------------------------------------- */
 
-.button:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.user-menu {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.link-button {
-  font: inherit;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--color-accent);
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.form {
-  display: grid;
-  gap: var(--space-4);
-  max-width: 24rem;
-}
-
-.field {
-  display: grid;
-  gap: var(--space-1);
-}
-
-.field label {
-  font-weight: 600;
-}
-
-.field input {
-  font: inherit;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  border: var(--border-width) solid var(--color-border);
-  background: var(--color-background);
-  color: var(--color-text);
-}
-
-.form-message {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--color-danger-surface);
-  color: var(--color-danger);
-}
-
-.stack {
-  display: grid;
-  gap: var(--space-5);
-}
-
-.check {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.org-switcher {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.org-switcher select {
-  font: inherit;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  border: var(--border-width) solid var(--color-border);
-  background: var(--color-background);
-  color: var(--color-text);
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  background: var(--color-surface);
-  border: var(--border-width) solid var(--color-border);
-}
-
-.table th,
-.table td {
-  text-align: left;
-  padding: var(--space-2) var(--space-3);
-  border-bottom: var(--border-width) solid var(--color-border);
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-@media (max-width: 40rem) {
-  .shell {
-    grid-template-columns: 1fr;
-    grid-template-rows: var(--shell-header-height) auto 1fr;
-    grid-template-areas:
-      "header"
-      "nav"
-      "main";
-  }
-
-  .shell-nav {
-    border-right: none;
-    border-bottom: var(--border-width) solid var(--color-border);
-  }
-}
-
-/* A short explanation under a name, or after a choice (setup pages, member access). */
-.hint {
-  color: var(--color-text-muted);
-  font-size: 0.9em;
-}
-
-/* The read-only rendering of a page layout (Sprint 12): sections with their fields, sample values only. */
 .preview {
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-md);
@@ -332,7 +884,169 @@ code,
   grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
 }
 
-.nested-list {
+/* ------------------------------------------------------------------------------------------------------------------
+ * Lists, filters and timelines
+ * ---------------------------------------------------------------------------------------------------------------- */
+
+.shell-main section ul,
+.shell-main section ol,
+.card ul,
+.card ol {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-5);
+}
+
+.shell-main section li + li,
+.card li + li {
+  margin-top: var(--space-1);
+}
+
+/* A list of events or releases: one bordered row each. */
+ol.stack {
+  list-style: none;
   margin: 0;
-  padding-left: var(--space-4);
+  padding: 0;
+}
+
+ol.stack > li {
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-1);
+  padding: var(--space-3-5) var(--space-4);
+}
+
+ol.stack > li ul {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+ol.stack > li time {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* The search criteria above a list: labels over their controls in a responsive grid. */
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-3-5) var(--space-4);
+  align-items: end;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+}
+
+.filters label {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.filters label input,
+.filters label select {
+  width: 100%;
+  font-weight: 400;
+}
+
+.filters-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Small screens: the navigation becomes a row above the content, the side rail a row of tabs
+ * ---------------------------------------------------------------------------------------------------------------- */
+
+@media (max-width: 48rem) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: var(--shell-header-height) auto 1fr;
+    grid-template-areas:
+      "header"
+      "nav"
+      "main";
+  }
+
+  .shell-header {
+    padding: 0 var(--space-4);
+  }
+
+  .shell-nav {
+    position: static;
+    max-height: none;
+    padding: var(--space-2) var(--space-3);
+    border-right: none;
+    border-bottom: var(--border-width) solid var(--color-border);
+    overflow-x: auto;
+  }
+
+  .shell-nav > ul {
+    display: flex;
+    gap: var(--space-1);
+    align-items: center;
+  }
+
+  .shell-nav a {
+    white-space: nowrap;
+  }
+
+  .nav-group {
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .nav-group-label,
+  .nav-group .nested-list strong,
+  .nav-group .nested-list span {
+    white-space: nowrap;
+  }
+
+  .nav-group .nested-list {
+    display: flex;
+    margin-top: 0;
+  }
+
+  .shell-main {
+    padding: var(--space-5) var(--space-4) var(--space-6);
+  }
+
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rail {
+    position: static;
+    padding: var(--space-2);
+    overflow-x: auto;
+  }
+
+  .rail-label {
+    display: none;
+  }
+
+  .rail ul {
+    display: flex;
+    gap: var(--space-1);
+  }
+
+  .rail a,
+  .rail-item {
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+  }
 }

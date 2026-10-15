@@ -22,13 +22,23 @@ const OBJECT_PAGES = ["/setup/objects", "/setup/applications", "/setup/changes"]
 /**
  * The frame of the setup pages (profiles, access policies, groups, roles, objects, applications, change sets, history) of the
  * organization the address names. It only navigates: whether the person may open a page is the API's answer, which each page shows in the API's own words.
+ *
+ * "General" is a marker, not a page: it shows where the organization's branding and general settings will live once a
+ * later sprint builds them (a logo needs storage and an endpoint, which are backend work). It has no link and does nothing.
  */
 export function SetupFrame({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   return (
-    <div className="stack">
-      <nav aria-label="Setup">
+    <div className="split">
+      <nav className="rail" aria-label="Setup">
+        <p className="rail-label">Setup</p>
         <ul>
+          <li>
+            <span className="rail-item rail-item-soon" aria-disabled="true" data-testid="setup-general-placeholder">
+              General
+              <span className="badge">Soon</span>
+            </span>
+          </li>
           {SECTIONS.map((section) => (
             <li key={section.href}>
               <Link href={section.href} aria-current={pathname.startsWith(section.href) ? "page" : undefined}>
@@ -38,8 +48,10 @@ export function SetupFrame({ children }: { children: ReactNode }) {
           ))}
         </ul>
       </nav>
-      {OBJECT_PAGES.some((page) => pathname.startsWith(page)) ? <WorkingSetBar /> : null}
-      {children}
+      <div className="split-content stack">
+        {OBJECT_PAGES.some((page) => pathname.startsWith(page)) ? <WorkingSetBar /> : null}
+        {children}
+      </div>
     </div>
   );
 }

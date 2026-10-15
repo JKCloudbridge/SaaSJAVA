@@ -104,7 +104,7 @@ export function ReleasesPanel() {
                   </button>{" "}
                   {confirm ? (
                     <>
-                      <button type="button" className="button" disabled={busy} onClick={rollBack}>
+                      <button type="button" className="button button-danger" disabled={busy} onClick={rollBack}>
                         Yes, roll back release {release.number}
                       </button>{" "}
                       <button type="button" className="link-button" onClick={() => setConfirm(false)}>

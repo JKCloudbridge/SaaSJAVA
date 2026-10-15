@@ -20,7 +20,12 @@ export function UserMenu() {
     case "signedIn":
       return (
         <span className="user-menu" data-testid="session">
-          <span data-testid="user">{state.user.displayName}</span>
+          <span className="user-avatar" aria-hidden="true">
+            {state.user.displayName.charAt(0).toUpperCase()}
+          </span>
+          <span className="user-name" data-testid="user">
+            {state.user.displayName}
+          </span>
           <button type="button" className="link-button" onClick={() => void signOut()}>
             Sign out
           </button>
