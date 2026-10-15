@@ -155,9 +155,10 @@ ol {
   min-height: 100vh;
   display: grid;
   grid-template-columns: var(--shell-nav-width) minmax(0, 1fr);
-  grid-template-rows: var(--shell-header-height) 1fr;
+  grid-template-rows: var(--shell-header-height) auto 1fr;
   grid-template-areas:
     "header header"
+    "control control"
     "nav main";
 }
 
@@ -295,43 +296,6 @@ ol {
   width: var(--size-icon);
   height: var(--size-icon);
   opacity: 0.85;
-}
-
-/* An application of the organization with its own links (drawn from the API by ApplicationMenu). */
-.nav-group {
-  margin-top: var(--space-3);
-}
-
-.nav-group-label {
-  display: block;
-  padding: var(--space-1) var(--space-2-5);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-caps);
-}
-
-.nav-group .nested-list {
-  margin-top: var(--space-1);
-}
-
-.nav-group .nested-list strong,
-.nav-group .nested-list span {
-  display: block;
-  padding: var(--space-1) var(--space-2-5);
-  font-size: var(--font-size-sm);
-}
-
-.nav-group .nested-list strong {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-}
-
-.nested-list {
-  margin: 0;
-  padding-left: 0;
 }
 
 .shell-main {
@@ -960,21 +924,386 @@ ol.stack > li time {
 }
 
 /* ------------------------------------------------------------------------------------------------------------------
+ * Control bar, launcher and custom pages (Sprint 18, ADR-0128)
+ * The row under the header: launcher, the open application, its pages, the way to Setup. Everything here is drawn from
+ * the API's list of applications; the look comes from the tokens only.
+ * ---------------------------------------------------------------------------------------------------------------- */
+
+.control-bar {
+  grid-area: control;
+  position: sticky;
+  top: var(--shell-header-height);
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2-5);
+  height: var(--control-bar-height);
+  padding: 0 var(--space-5);
+  background: var(--color-surface-sunken);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.launcher {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.launcher-button,
+.control-gear {
+  display: inline-grid;
+  place-items: center;
+  width: var(--size-control-lg);
+  height: var(--size-control-lg);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    border-color var(--transition);
+}
+
+.launcher-button:hover,
+.control-gear:hover {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+.launcher-button[aria-expanded="true"] {
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+}
+
+.launcher-icon,
+.control-gear-icon,
+.app-icon-glyph {
+  width: var(--size-icon);
+  height: var(--size-icon);
+}
+
+.control-gear {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+}
+
+.launcher-panel {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  z-index: 30;
+  width: var(--launcher-width);
+  max-width: calc(100vw - var(--space-6));
+  padding: var(--space-2-5);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+}
+
+.launcher-label {
+  margin: 0;
+  padding: var(--space-1) var(--space-1-5) var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+}
+
+.launcher-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-1-5);
+}
+
+.launcher-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1-5);
+  height: 100%;
+  padding: var(--space-2-5) var(--space-2-5) var(--space-3);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  line-height: 1.3;
+  text-decoration: none;
+  transition: background var(--transition);
+}
+
+.launcher-tile:hover {
+  background: var(--color-surface-sunken);
+}
+
+.launcher-tile[aria-current="page"] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.launcher-tile-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.launcher-note {
+  margin: 0;
+  padding: var(--space-3) var(--space-1-5);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.launcher-note p {
+  margin: 0 0 var(--space-1);
+}
+
+.launcher-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-1-5) var(--space-1);
+  border-top: var(--border-width) solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.launcher-footer:hover {
+  color: var(--color-text);
+}
+
+/* The picture of an application: an icon, or the first letter of its name, in the accent's soft square. */
+.app-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: var(--size-control-lg);
+  height: var(--size-control-lg);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
+.control-app {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+  max-width: 14rem;
+  padding-right: var(--space-3);
+  border-right: var(--border-width) solid var(--color-border);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.control-app-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.control-app-none {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.control-spacer {
+  flex: 1 1 auto;
+}
+
+.control-tabs {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.control-tabs ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  gap: var(--space-1);
+}
+
+.control-tab {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 var(--space-3);
+  border-bottom: calc(var(--border-width) * 2) solid transparent;
+  margin-bottom: calc(var(--border-width) * -1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    color var(--transition),
+    background var(--transition);
+}
+
+a.control-tab:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.control-tab[aria-current="page"] {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+/* An entry that exists but cannot be opened now: dimmed, not a link. The same dimmed, flat look as a disabled control. */
+.control-tab-unavailable {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.control-tab-heading {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+  white-space: nowrap;
+}
+
+.entry-title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-lg);
+}
+
+/* A custom page: the frame sits in a card of its own so the organization's script draws on the application's surface. */
+.custom-page {
+  position: relative;
+}
+
+.custom-page-frame {
+  display: block;
+  width: 100%;
+  height: calc(100vh - var(--shell-header-height) - var(--control-bar-height) - var(--space-7) - var(--space-7));
+  min-height: 28rem;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+/* Loaded but not shown until the page has connected: it cannot flash unstyled. */
+.custom-page-frame-hidden {
+  position: absolute;
+  width: 0;
+  height: 0;
+  min-height: 0;
+  border: 0;
+  visibility: hidden;
+}
+
+.custom-page-loading,
+.custom-page-state {
+  display: grid;
+  gap: var(--space-2-5);
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.custom-page-state .button {
+  justify-self: start;
+}
+
+.custom-page-notice {
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.skeleton-line {
+  display: block;
+  height: var(--space-3);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--color-surface-sunken), var(--color-border), var(--color-surface-sunken));
+  background-size: 200% 100%;
+  animation: skeleton 1.2s linear infinite;
+}
+
+.skeleton-short {
+  width: 60%;
+}
+
+@keyframes skeleton {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (max-width: 48rem) {
+  .control-bar {
+    position: static;
+    padding: 0 var(--space-3);
+    gap: var(--space-2);
+  }
+
+  /* The name of the open application gives way to its mark, so the pages keep the room. */
+  .control-app-name,
+  .control-app-none {
+    display: none;
+  }
+
+  .control-app {
+    padding-right: var(--space-2);
+  }
+
+  .custom-page-frame {
+    height: 75vh;
+  }
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
  * Small screens: the navigation becomes a row above the content, the side rail a row of tabs
  * ---------------------------------------------------------------------------------------------------------------- */
 
 @media (max-width: 48rem) {
   .shell {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: var(--shell-header-height) auto 1fr;
+    grid-template-rows: auto auto auto 1fr;
     grid-template-areas:
       "header"
+      "control"
       "nav"
       "main";
   }
 
+  /* The header grows to hold the organization and the person on two rows, so nothing spills over the control bar. */
   .shell-header {
-    padding: 0 var(--space-4);
+    min-height: var(--shell-header-height);
+    padding: var(--space-2) var(--space-4);
+    flex-wrap: wrap;
   }
 
   .shell-nav {
@@ -994,24 +1323,6 @@ ol.stack > li time {
 
   .shell-nav a {
     white-space: nowrap;
-  }
-
-  .nav-group {
-    margin-top: 0;
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-  }
-
-  .nav-group-label,
-  .nav-group .nested-list strong,
-  .nav-group .nested-list span {
-    white-space: nowrap;
-  }
-
-  .nav-group .nested-list {
-    display: flex;
-    margin-top: 0;
   }
 
   .shell-main {
@@ -1048,5 +1359,6 @@ ol.stack > li time {
   *::before,
   *::after {
     transition: none !important;
+    animation: none !important;
   }
 }

@@ -261,6 +261,58 @@ class AuthorizationStore implements OAuth2AuthorizationService {
         return found;
     }
 
+    /**
+     * A valid access token of a custom page's script (ADR-0127): alive only while the grant it hangs on is, not past its
+     * own short end, and bound to the organization of the host it is presented on. The scopes it reports are the single
+     * scope {@code embedded}.
+     */
+    Optional<Introspected> introspectEmbedded(String accessToken) {
+        Optional<Object[]> found = jdbc.sql("select a.id, a.user_id, e.bound_tenant_id, e.expires_at, a.created_at "
+                        + "from embedded_token e join oauth2_authorization a on a.id = e.authorization_id "
+                        + "join platform_user u on u.id = a.user_id "
+                        + "where e.token_hash = :value and e.deleted_at is null and e.expires_at > now() "
+                        + "and e.bound_tenant_id = a.bound_tenant_id and " + ALIVE)
+                .param("value", Hashes.hashed(accessToken))
+                .param("absolute", (double) tokens.refreshAbsolute().toSeconds())
+                .query((rs, row) -> new Object[] {rs.getObject("id", UUID.class), rs.getObject("user_id", UUID.class),
+                        rs.getObject("bound_tenant_id", UUID.class), rs.getObject("expires_at", OffsetDateTime.class),
+                        rs.getObject("created_at", OffsetDateTime.class)})
+                .optional();
+        if (found.isEmpty()) {
+            return Optional.empty();
+        }
+        Object[] row = found.get();
+        UUID userId = (UUID) row[1];
+        if (!sameHost((UUID) row[2])) {
+            audit.bindingRefused(userId, "embedded_token");
+            return Optional.empty();
+        }
+        return Optional.of(new Introspected((UUID) row[0], userId, Set.of("embedded"),
+                ((OffsetDateTime) row[3]).toInstant(), ((OffsetDateTime) row[4]).toInstant()));
+    }
+
+    /** Records an access token of a custom page's script; only its hash is stored. */
+    void insertEmbedded(UUID authorizationId, UUID userId, UUID boundTenantId, String tokenHash, String customPage,
+            Instant expiresAt) {
+        jdbc.sql("insert into embedded_token (authorization_id, user_id, bound_tenant_id, token_hash, custom_page, "
+                        + "issued_at, expires_at, created_by, updated_by) values (:authorization, :user, :tenant, "
+                        + ":hash, :page, now(), :expires, :user, :user)")
+                .param("authorization", authorizationId)
+                .param("user", userId)
+                .param("tenant", boundTenantId)
+                .param("hash", tokenHash)
+                .param("page", customPage, Types.VARCHAR)
+                .param("expires", OffsetDateTime.ofInstant(expiresAt, ZoneOffset.UTC))
+                .update();
+    }
+
+    /** Removes tokens of scripts that ended more than {@code keepEnded} ago. @return how many */
+    int purgeEmbedded(java.time.Duration keepEnded) {
+        return jdbc.sql("delete from embedded_token where expires_at < now() - make_interval(secs => :keep)")
+                .param("keep", (double) keepEnded.toSeconds())
+                .update();
+    }
+
     /** Revokes every grant of a user: all their tokens stop working now. @return how many grants were alive */
     int revokeAll(UUID userId, String reason, UUID actor) {
         return jdbc.sql("update oauth2_authorization set revoked_at = now(), revoked_reason = :reason, "

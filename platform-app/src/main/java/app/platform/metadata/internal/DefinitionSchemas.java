@@ -34,7 +34,9 @@ final class DefinitionSchemas {
     enum Kind {
         PAGE_LAYOUT("PageLayoutDefinition"),
         RECORD_PAGE("RecordPageDefinition"),
-        APPLICATION("ApplicationDefinition");
+        APPLICATION("ApplicationDefinition"),
+        TAB("TabDefinition"),
+        CUSTOM_PAGE("CustomPageDefinition");
 
         private final String schemaName;
 

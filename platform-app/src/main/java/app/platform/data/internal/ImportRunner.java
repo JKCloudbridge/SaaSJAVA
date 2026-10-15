@@ -7,6 +7,8 @@ import app.platform.security.ObjectAccess;
 import app.platform.sharedkernel.ActorId;
 import app.platform.sharedkernel.TenantId;
 import app.platform.sharedkernel.directory.ReferenceDirectory;
+import app.platform.sharedkernel.storage.ObjectStore;
+import app.platform.sharedkernel.storage.ObjectStoreException;
 import app.platform.tenant.Tenant;
 import app.platform.tenant.TenantContext;
 import app.platform.tenant.TenantContexts;

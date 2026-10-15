@@ -31,6 +31,12 @@ record MetadataProperties(@DefaultValue Limits limits, @DefaultValue Cache cache
      *        (default 5, Sprint 13)
      * @param maxRecordTypeAssignmentsPerObject record type assignments (a profile allowed a record type) per object
      *        (default 500, Sprint 15A)
+     * @param maxSearchableFieldsPerObject fields flagged searchable per object (default 4, Sprint 17)
+     * @param maxTabs tabs per organization (default 200, Sprint 18)
+     * @param maxCustomPages custom pages per organization (default 50, Sprint 18)
+     * @param maxCustomPageAssets uploaded scripts per organization (default 200, Sprint 18)
+     * @param maxCustomPageBytes the largest script, in bytes (default 1,000,000, Sprint 18; the database allows up to
+     *        5,000,000 whatever this says)
      */
     record Limits(@DefaultValue("200") int maxObjects, @DefaultValue("500") int maxFieldsPerObject,
             @DefaultValue("1000") int maxPicklistValues, @DefaultValue("50") int maxRecordTypesPerObject,
@@ -39,14 +45,18 @@ record MetadataProperties(@DefaultValue Limits limits, @DefaultValue Cache cache
             @DefaultValue("20") int maxApplications, @DefaultValue("200") int maxAssignmentsPerObject,
             @DefaultValue("50") int maxValidationRulesPerObject, @DefaultValue("5") int maxFormulaDepth,
             @DefaultValue("500") int maxRecordTypeAssignmentsPerObject,
-            @DefaultValue("4") int maxSearchableFieldsPerObject) {
+            @DefaultValue("4") int maxSearchableFieldsPerObject, @DefaultValue("200") int maxTabs,
+            @DefaultValue("50") int maxCustomPages, @DefaultValue("200") int maxCustomPageAssets,
+            @DefaultValue("1000000") int maxCustomPageBytes) {
 
         Limits {
             if (maxObjects < 1 || maxFieldsPerObject < 1 || maxPicklistValues < 1 || maxRecordTypesPerObject < 1
                     || maxChangesPerSet < 1 || maxOpenChangeSets < 1 || maxLayoutsPerObject < 1
                     || maxRecordPagesPerObject < 1 || maxApplications < 1 || maxAssignmentsPerObject < 1
                     || maxValidationRulesPerObject < 1 || maxFormulaDepth < 1
-                    || maxRecordTypeAssignmentsPerObject < 1 || maxSearchableFieldsPerObject < 1) {
+                    || maxRecordTypeAssignmentsPerObject < 1 || maxSearchableFieldsPerObject < 1 || maxTabs < 1
+                    || maxCustomPages < 1 || maxCustomPageAssets < 1 || maxCustomPageBytes < 1
+                    || maxCustomPageBytes > 5_000_000) {
                 throw new IllegalArgumentException("platform.metadata.limits.* must be at least 1");
             }
         }

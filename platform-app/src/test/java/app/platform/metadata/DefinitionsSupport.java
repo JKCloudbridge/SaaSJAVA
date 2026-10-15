@@ -124,6 +124,15 @@ abstract class DefinitionsSupport extends LifecycleSupport {
         return new Holder(person, profile);
     }
 
+    /** Lets the holders of the profile read the objects (and nothing else), so the menu lists them. */
+    protected static void allowReading(TestBrowser admin, String profileId, String... objects) {
+        String listed = String.join(",", java.util.Arrays.stream(objects)
+                .map(object -> "{\"key\":\"" + object + "\",\"actions\":[\"read\"]}").toList());
+        Response set = admin.request("PUT", PROFILES + "/" + profileId + "/data-access",
+                "{\"objects\":[" + listed + "],\"fields\":[]}");
+        assertThat(set.status()).as(set.body()).isEqualTo(200);
+    }
+
     protected static String newProfile(TestBrowser admin, String... abilities) {
         String quoted = String.join(",", java.util.Arrays.stream(abilities).map(a -> "\"" + a + "\"").toList());
         Response profile = admin.postJson(PROFILES, "{\"name\":\"profile-" + UUID.randomUUID() + "\","

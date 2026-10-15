@@ -28,7 +28,13 @@ class DefinitionOpenApi {
             Map.entry("RecordPageView", "RecordPageDefinition"),
             Map.entry("CreateApplicationRequest", "ApplicationDefinition"),
             Map.entry("UpdateApplicationRequest", "ApplicationDefinition"),
-            Map.entry("ApplicationView", "ApplicationDefinition"));
+            Map.entry("ApplicationView", "ApplicationDefinition"),
+            Map.entry("CreateTabRequest", "TabDefinition"),
+            Map.entry("UpdateTabRequest", "TabDefinition"),
+            Map.entry("TabView", "TabDefinition"),
+            Map.entry("CreateCustomPageRequest", "CustomPageDefinition"),
+            Map.entry("UpdateCustomPageRequest", "CustomPageDefinition"),
+            Map.entry("CustomPageView", "CustomPageDefinition"));
 
     @Bean
     OpenApiCustomizer metadataDefinitionSchemas(DefinitionSchemas schemas) {

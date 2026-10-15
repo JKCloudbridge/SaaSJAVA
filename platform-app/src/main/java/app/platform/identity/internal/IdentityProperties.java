@@ -128,6 +128,9 @@ record IdentityProperties(
      * @param platformSessionMax the longest a sign-in of a person who holds a platform role works on the platform host,
      *        however often it was refreshed (Sprint 6, ADR-0030): the most powerful accounts sign in again often until
      *        multi-factor sign-in exists
+     * @param embedded how long the access token of a custom page's script lives (default 5 minutes, at most 15; the
+     *        page around the script renews it before it ends, Sprint 18, ADR-0127)
+     * @param embeddedPerHour how many such tokens one person may ask for per hour (default 240)
      */
     record Tokens(
             @DefaultValue("5m") Duration loginSession,
@@ -136,7 +139,20 @@ record IdentityProperties(
             @DefaultValue("8h") Duration refreshIdle,
             @DefaultValue("30d") Duration refreshAbsolute,
             @DefaultValue("10s") Duration refreshGrace,
-            @DefaultValue("4h") Duration platformSessionMax) {
+            @DefaultValue("4h") Duration platformSessionMax,
+            @DefaultValue("5m") Duration embedded,
+            @DefaultValue("240") int embeddedPerHour) {
+
+        Tokens {
+            // The database holds the same ceiling (embedded_token_short_lived): a longer life would fail there.
+            if (embedded.isNegative() || embedded.isZero() || embedded.compareTo(Duration.ofMinutes(15)) > 0) {
+                throw new IllegalArgumentException(
+                        "platform.identity.tokens.embedded must be more than zero and at most 15 minutes");
+            }
+            if (embeddedPerHour < 1) {
+                throw new IllegalArgumentException("platform.identity.tokens.embedded-per-hour must be at least 1");
+            }
+        }
     }
 
     /**

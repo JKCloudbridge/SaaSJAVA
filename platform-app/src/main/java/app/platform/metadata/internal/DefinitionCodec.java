@@ -3,11 +3,15 @@ package app.platform.metadata.internal;
 import app.platform.metadata.ApplicationDefinition;
 import app.platform.metadata.ApplicationDefinition.ItemType;
 import app.platform.metadata.ApplicationDefinition.NavigationItem;
+import app.platform.metadata.CustomPage;
 import app.platform.metadata.LayoutAssignment;
 import app.platform.metadata.RecordTypeAssignment;
 import app.platform.metadata.PageLayout;
 import app.platform.metadata.RecordPage;
+import app.platform.metadata.Tab;
 import app.platformapi.ApplicationView;
+import app.platformapi.CustomPageView;
+import app.platformapi.TabView;
 import app.platformapi.LayoutAssignmentView;
 import app.platformapi.LayoutView;
 import app.platformapi.RecordPageView;
@@ -62,9 +66,25 @@ final class DefinitionCodec {
         List<NavigationItem> items = new ArrayList<>();
         definition.path("items").forEach(item -> items.add(new NavigationItem(
                 ItemType.valueOf(item.path("type").asString()), item.path("label").asString(""),
-                item.path("object").asString(""), item.path("page").asString(""), item.path("path").asString(""))));
+                item.path("object").asString(""), item.path("page").asString(""), item.path("path").asString(""),
+                item.path("tab").asString(""))));
         return new ApplicationDefinition(row.apiName(), row.label(), row.description(),
                 definition.path("iconKey").asString(""), profiles, items, row.version());
+    }
+
+    Tab tab(DefinitionStore.Row row) {
+        JsonNode definition = json.readTree(row.definition());
+        return new Tab(row.apiName(), row.label(), row.description(),
+                Tab.Kind.fromCode(definition.path("kind").asString("")).orElse(Tab.Kind.CUSTOM),
+                definition.path("customPage").asString(""), definition.path("iconKey").asString(""), row.version());
+    }
+
+    /** The reference for code on the server ({@code backend}) is deliberately not read: it is inert (D6). */
+    CustomPage customPage(DefinitionStore.Row row) {
+        JsonNode frontend = json.readTree(row.definition()).path("frontend");
+        return new CustomPage(row.apiName(), row.label(), row.description(),
+                UUID.fromString(frontend.path("assetId").asString()), frontend.path("sha256").asString(),
+                frontend.path("size").asLong(), row.version());
     }
 
     LayoutAssignment assignment(AssignmentStore.Row row) {
@@ -91,6 +111,15 @@ final class DefinitionCodec {
 
     ApplicationView view(DefinitionStore.Row row) {
         return new ApplicationView(row.apiName(), row.label(), row.description(), read(row.definition()),
+                row.version());
+    }
+
+    TabView tabView(DefinitionStore.Row row) {
+        return new TabView(row.apiName(), row.label(), row.description(), read(row.definition()), row.version());
+    }
+
+    CustomPageView customPageView(DefinitionStore.Row row) {
+        return new CustomPageView(row.apiName(), row.label(), row.description(), read(row.definition()),
                 row.version());
     }
 

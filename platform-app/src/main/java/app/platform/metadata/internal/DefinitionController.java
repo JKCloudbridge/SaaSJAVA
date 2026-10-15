@@ -5,6 +5,12 @@ import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
 import app.platformapi.ApplicationView;
 import app.platformapi.CreateApplicationRequest;
+import app.platformapi.CreateCustomPageRequest;
+import app.platformapi.CreateTabRequest;
+import app.platformapi.CustomPageView;
+import app.platformapi.TabView;
+import app.platformapi.UpdateCustomPageRequest;
+import app.platformapi.UpdateTabRequest;
 import app.platformapi.CreateLayoutRequest;
 import app.platformapi.CreateRecordPageRequest;
 import app.platformapi.LayoutView;
@@ -43,6 +49,8 @@ class DefinitionController {
     private static final String LAYOUTS = ApiPaths.METADATA_OBJECTS + "/{objectApiName}/layouts";
     private static final String PAGES = ApiPaths.METADATA_OBJECTS + "/{objectApiName}/record-pages";
     private static final String APPLICATIONS = ApiPaths.METADATA_APPLICATIONS;
+    private static final String TABS = ApiPaths.METADATA_TABS;
+    private static final String CUSTOM_PAGES = ApiPaths.METADATA_CUSTOM_PAGES;
     private static final String SCHEMA_NOTE = "The definition is checked against the schema of the same name in "
             + "components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example "
             + "definition.sections[1].fields[0].behaviour.";
@@ -252,6 +260,126 @@ class DefinitionController {
     ResponseEntity<Void> deleteApplication(@PathVariable String applicationApiName) {
         administration.runAll("metadata.application.delete", LIVE, caller -> lifecycle.applyNow(caller,
                 codec.now(Change.Kind.DELETE_APPLICATION, "", applicationApiName, null), Boolean.class));
+        return ResponseEntity.noContent().header(HttpHeaders.CACHE_CONTROL, "no-store").build();
+    }
+
+    // ---- tabs (Sprint 18) ----
+
+    @GetMapping(TABS)
+    @Operation(
+            operationId = "listTabDefinitions",
+            summary = "The tabs of the organization, as defined",
+            description = "For members who may view objects and fields.")
+    ApiResponse<List<TabView>> listTabs() {
+        return ApiResponse.of(administration.run("metadata.tab.list", Ability.METADATA_VIEW,
+                caller -> service.tabs()));
+    }
+
+    @GetMapping(TABS + "/{apiName}")
+    @Operation(
+            operationId = "getTabDefinition",
+            summary = "One tab, as defined",
+            description = "NOT_FOUND for a tab the organization does not have.")
+    ApiResponse<TabView> getTab(@PathVariable String apiName) {
+        return ApiResponse.of(administration.run("metadata.tab.get", Ability.METADATA_VIEW,
+                caller -> service.tab(apiName)));
+    }
+
+    @PostMapping(TABS)
+    @Operation(
+            operationId = "createTab",
+            summary = "Add a tab",
+            description = "Live at once, as a release of one change. " + SCHEMA_NOTE + " A tab of kind CUSTOM names the custom page it shows. CONFLICT when that page does not exist or at the limit. Audited.")
+    ResponseEntity<ApiResponse<TabView>> createTab(@Valid @RequestBody CreateTabRequest body) {
+        TabView created = administration.runAll("metadata.tab.create", LIVE,
+                caller -> lifecycle.applyNow(caller, codec.now(Change.Kind.CREATE_TAB, "", null, body),
+                        TabView.class));
+        return ResponseEntity.status(HttpStatus.CREATED).header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(ApiResponse.of(created));
+    }
+
+    @PutMapping(TABS + "/{apiName}")
+    @Operation(
+            operationId = "updateTab",
+            summary = "Change a tab",
+            description = "Live at once, as a release of one change. The API name never changes. " + SCHEMA_NOTE
+                    + " CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.")
+    ApiResponse<TabView> updateTab(@PathVariable String apiName, @Valid @RequestBody UpdateTabRequest body) {
+        return ApiResponse.of(administration.runAll("metadata.tab.update", LIVE,
+                caller -> lifecycle.applyNow(caller, codec.now(Change.Kind.UPDATE_TAB, "", apiName, body),
+                        TabView.class)));
+    }
+
+    @DeleteMapping(TABS + "/{apiName}")
+    @Operation(
+            operationId = "deleteTab",
+            summary = "Remove a tab",
+            description = "Live at once, as a release of one change. CONFLICT, naming what still uses it, when "
+                    + "something depends on it. NOT_FOUND for a tab the organization does not have. "
+                    + "Audited.")
+    ResponseEntity<Void> deleteTab(@PathVariable String apiName) {
+        administration.runAll("metadata.tab.delete", LIVE, caller -> lifecycle.applyNow(caller,
+                codec.now(Change.Kind.DELETE_TAB, "", apiName, null), Boolean.class));
+        return ResponseEntity.noContent().header(HttpHeaders.CACHE_CONTROL, "no-store").build();
+    }
+
+    // ---- custom pages (Sprint 18) ----
+
+    @GetMapping(CUSTOM_PAGES)
+    @Operation(
+            operationId = "listCustomPageDefinitions",
+            summary = "The custom pages of the organization, as defined",
+            description = "For members who may view objects and fields.")
+    ApiResponse<List<CustomPageView>> listCustomPages() {
+        return ApiResponse.of(administration.run("metadata.custompage.list", Ability.METADATA_VIEW,
+                caller -> service.customPages()));
+    }
+
+    @GetMapping(CUSTOM_PAGES + "/{apiName}")
+    @Operation(
+            operationId = "getCustomPageDefinition",
+            summary = "One custom page, as defined",
+            description = "NOT_FOUND for a custom page the organization does not have.")
+    ApiResponse<CustomPageView> getCustomPage(@PathVariable String apiName) {
+        return ApiResponse.of(administration.run("metadata.custompage.get", Ability.METADATA_VIEW,
+                caller -> service.customPage(apiName)));
+    }
+
+    @PostMapping(CUSTOM_PAGES)
+    @Operation(
+            operationId = "createCustomPage",
+            summary = "Add a custom page",
+            description = "Live at once, as a release of one change. " + SCHEMA_NOTE + " The content names the uploaded script (upload it first, see uploadCustomPageScript) with its hash and size; VALIDATION_ERROR when the script is not in this organization or the hash or size is not its own. The reference for the server is stored and never read or run. CONFLICT at the limit. Audited.")
+    ResponseEntity<ApiResponse<CustomPageView>> createCustomPage(@Valid @RequestBody CreateCustomPageRequest body) {
+        CustomPageView created = administration.runAll("metadata.custompage.create", LIVE,
+                caller -> lifecycle.applyNow(caller, codec.now(Change.Kind.CREATE_CUSTOM_PAGE, "", null, body),
+                        CustomPageView.class));
+        return ResponseEntity.status(HttpStatus.CREATED).header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(ApiResponse.of(created));
+    }
+
+    @PutMapping(CUSTOM_PAGES + "/{apiName}")
+    @Operation(
+            operationId = "updateCustomPage",
+            summary = "Change a custom page",
+            description = "Live at once, as a release of one change. The API name never changes. " + SCHEMA_NOTE
+                    + " CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.")
+    ApiResponse<CustomPageView> updateCustomPage(@PathVariable String apiName, @Valid @RequestBody UpdateCustomPageRequest body) {
+        return ApiResponse.of(administration.runAll("metadata.custompage.update", LIVE,
+                caller -> lifecycle.applyNow(caller, codec.now(Change.Kind.UPDATE_CUSTOM_PAGE, "", apiName, body),
+                        CustomPageView.class)));
+    }
+
+    @DeleteMapping(CUSTOM_PAGES + "/{apiName}")
+    @Operation(
+            operationId = "deleteCustomPage",
+            summary = "Remove a custom page",
+            description = "Live at once, as a release of one change. CONFLICT, naming what still uses it, when "
+                    + "something depends on it. NOT_FOUND for a custom page the organization does not have. "
+                    + "Audited.")
+    ResponseEntity<Void> deleteCustomPage(@PathVariable String apiName) {
+        administration.runAll("metadata.custompage.delete", LIVE, caller -> lifecycle.applyNow(caller,
+                codec.now(Change.Kind.DELETE_CUSTOM_PAGE, "", apiName, null), Boolean.class));
         return ResponseEntity.noContent().header(HttpHeaders.CACHE_CONTROL, "no-store").build();
     }
 }

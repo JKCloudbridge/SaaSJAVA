@@ -122,6 +122,12 @@ public final class TestStorage {
         return CLIENT.getObjectAsBytes(request -> request.bucket(BUCKET).key(key)).asByteArray();
     }
 
+    /** Writes bytes under the key behind the application's back (to tamper with what it stored). */
+    public static void overwrite(String key, byte[] bytes) {
+        CLIENT.putObject(request -> request.bucket(BUCKET).key(key),
+                software.amazon.awssdk.core.sync.RequestBody.fromBytes(bytes));
+    }
+
     /** Stops the container's processes, so connections hang and time out: an outage of the store. */
     public static void pause() {
         STORE.getDockerClient().pauseContainerCmd(STORE.getContainerId()).exec();

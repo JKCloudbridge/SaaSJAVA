@@ -157,7 +157,8 @@ class SecurityConfiguration {
             return header != null && header.regionMatches(true, 0, "Bearer ", 0, 7);
         };
 
-        http.csrf(csrf -> csrf.csrfTokenRepository(csrfTokens).csrfTokenRequestHandler(csrfHandler)
+        http.cors(cors -> cors.configurationSource(new EmbeddedCors()))
+                .csrf(csrf -> csrf.csrfTokenRepository(csrfTokens).csrfTokenRequestHandler(csrfHandler)
                         .ignoringRequestMatchers(hasAuthorizationHeader))
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -181,6 +182,8 @@ class SecurityConfiguration {
                 // The cookie becomes a header only after the forgery check, so a cookie alone never skips that check.
                 .addFilterBefore(new TokenAuthentication.CookieTokenFilter(SecurityConfiguration::isPublic),
                         BearerTokenAuthenticationFilter.class)
+                // The token of a custom page's script reaches the data interface and nothing else (ADR-0127).
+                .addFilterAfter(new EmbeddedAccessFilter(denied), BearerTokenAuthenticationFilter.class)
                 .addFilterAfter(new UserContextFilter(contexts), BearerTokenAuthenticationFilter.class)
                 // Once the caller is a known member: a stranger cannot use up an organization's turns (ADR-0108).
                 .addFilterAfter(limits.requestFilter(), UserContextFilter.class);

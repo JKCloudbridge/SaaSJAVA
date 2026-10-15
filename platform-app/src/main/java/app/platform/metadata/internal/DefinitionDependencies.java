@@ -12,6 +12,7 @@ import app.platform.metadata.ObjectDefinition;
 import app.platform.metadata.PageLayout;
 import app.platform.metadata.RecordPage;
 import app.platform.metadata.RecordType;
+import app.platform.metadata.Tab;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -217,10 +218,26 @@ final class DefinitionDependencies {
                         case OBJECT -> sink.edge(self, "opens", DependencyGraph.Node.object(item.objectApiName()));
                         case RECORD_PAGE -> sink.edge(self, "opens",
                                 DependencyGraph.Node.recordPage(item.objectApiName(), item.pageApiName()));
+                        case TAB -> sink.edge(self, "lists", DependencyGraph.Node.tab(item.tabApiName()));
                         default -> {
                             // A path inside the organization and a heading need nothing else to exist.
                         }
                     }
+                }
+            }
+        }
+    }
+
+    /** A tab: the custom page it shows. A custom page that a tab still shows cannot be removed. */
+    @Component
+    static class Tabs implements DependencyGraph.Contributor {
+
+        @Override
+        public void contribute(MetadataSnapshot snapshot, DependencyGraph.Sink sink) {
+            for (Tab tab : snapshot.tabs()) {
+                if (tab.kind() == Tab.Kind.CUSTOM) {
+                    sink.edge(DependencyGraph.Node.tab(tab.apiName()), "shows",
+                            DependencyGraph.Node.customPage(tab.customPage()));
                 }
             }
         }

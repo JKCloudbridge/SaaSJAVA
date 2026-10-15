@@ -39,6 +39,12 @@ public interface Metadata {
     /** The applications of the organization (Sprint 12), by API name. */
     List<ApplicationDefinition> applications();
 
+    /** The tabs applications can list (Sprint 18), by API name. */
+    List<Tab> tabs();
+
+    /** The custom pages of the organization (Sprint 18), by API name. */
+    List<CustomPage> customPages();
+
     /** The validation rules of the object (Sprint 13), by API name, active or not; empty when it has none. */
     List<ValidationRule> validationRules(String objectApiName);
 

@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApplicationsProvider } from "@/lib/applications/ApplicationsProvider";
 import { setLogSink } from "@/lib/log";
 import { SessionProvider } from "@/lib/session/SessionProvider";
 import { AppShell } from "./AppShell";
@@ -23,7 +24,9 @@ function anonymousApi(request: Request): Response {
 function renderShell(content: string | React.ReactNode) {
   return render(
     <SessionProvider>
-      <AppShell>{content}</AppShell>
+      <ApplicationsProvider>
+        <AppShell>{content}</AppShell>
+      </ApplicationsProvider>
     </SessionProvider>,
   );
 }

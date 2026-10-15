@@ -218,6 +218,12 @@ class AuthAudit {
         write(AuditRecord.of("auth.organization.switched", AuditOutcome.SUCCESS).forUser(userId));
     }
 
+    /** A token for the script of a custom page was issued (ADR-0127): who, and for which page by API name. */
+    void embeddedTokenIssued(UUID userId, String customPage) {
+        AuditRecord record = AuditRecord.of("auth.embedded.issued", AuditOutcome.SUCCESS).forUser(userId);
+        write(customPage == null ? record : record.with("custom_page", customPage));
+    }
+
     void bindingRefused(UUID userId, String what) {
         write(AuditRecord.of("auth.token.refused", AuditOutcome.DENIED).forUser(userId).because("wrong_host")
                 .with("what", what));

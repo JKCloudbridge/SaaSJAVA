@@ -13,7 +13,8 @@ import jakarta.validation.constraints.Size;
  *        {@code UPDATE_FIELD}, {@code DELETE_FIELD}, {@code CREATE_RECORD_TYPE}, {@code UPDATE_RECORD_TYPE} or
  *        {@code DELETE_RECORD_TYPE}, and since Sprint 12 the same three for {@code LAYOUT}, {@code RECORD_PAGE},
  *        {@code APPLICATION} and {@code LAYOUT_ASSIGNMENT} (for example {@code CREATE_LAYOUT}), since Sprint 13 for
- *        {@code VALIDATION_RULE} and since Sprint 15A for {@code RECORD_TYPE_ASSIGNMENT}
+ *        {@code VALIDATION_RULE}, since Sprint 15A for {@code RECORD_TYPE_ASSIGNMENT} and since Sprint 18 for
+ *        {@code TAB} and {@code CUSTOM_PAGE}
  * @param objectApiName the API name of the object the change is about (for {@code CREATE_OBJECT}: the object to be
  *        made, with the ending __c); left out for the changes of applications
  * @param itemApiName the API name of the field, record type, layout, record page or application the change is about
@@ -37,6 +38,10 @@ import jakarta.validation.constraints.Size;
  * @param createRecordTypeAssignment the request of {@code CREATE_RECORD_TYPE_ASSIGNMENT} (Sprint 15A); its item is the
  *        API name of the record type, a tilde and the identifier of the profile
  * @param updateRecordTypeAssignment the request of {@code UPDATE_RECORD_TYPE_ASSIGNMENT}
+ * @param createTab the request of {@code CREATE_TAB} (Sprint 18)
+ * @param updateTab the request of {@code UPDATE_TAB}
+ * @param createCustomPage the request of {@code CREATE_CUSTOM_PAGE} (Sprint 18)
+ * @param updateCustomPage the request of {@code UPDATE_CUSTOM_PAGE}
  */
 public record ChangeRequest(@NotBlank @Size(max = 40) String kind, @Size(max = 60) String objectApiName,
         @Size(max = 60) String itemApiName, @Valid CreateObjectRequest createObject,
@@ -51,7 +56,9 @@ public record ChangeRequest(@NotBlank @Size(max = 40) String kind, @Size(max = 6
         @Valid CreateValidationRuleRequest createValidationRule,
         @Valid UpdateValidationRuleRequest updateValidationRule,
         @Valid CreateRecordTypeAssignmentRequest createRecordTypeAssignment,
-        @Valid UpdateRecordTypeAssignmentRequest updateRecordTypeAssignment) {
+        @Valid UpdateRecordTypeAssignmentRequest updateRecordTypeAssignment,
+        @Valid CreateTabRequest createTab, @Valid UpdateTabRequest updateTab,
+        @Valid CreateCustomPageRequest createCustomPage, @Valid UpdateCustomPageRequest updateCustomPage) {
 
     @Override
     public String toString() {

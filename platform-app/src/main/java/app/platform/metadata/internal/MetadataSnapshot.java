@@ -1,6 +1,7 @@
 package app.platform.metadata.internal;
 
 import app.platform.metadata.ApplicationDefinition;
+import app.platform.metadata.CustomPage;
 import app.platform.metadata.LayoutAssignment;
 import app.platform.metadata.LayoutResolution;
 import app.platform.metadata.ObjectDefinition;
@@ -8,6 +9,7 @@ import app.platform.metadata.PageLayout;
 import app.platform.metadata.RecordPage;
 import app.platform.metadata.RecordType;
 import app.platform.metadata.RecordTypeAssignment;
+import app.platform.metadata.Tab;
 import app.platform.metadata.ValidationRule;
 import app.platform.security.ObjectCatalog;
 import java.util.Collections;
@@ -44,11 +46,14 @@ final class MetadataSnapshot {
      * @param applications the applications of the organization
      * @param validationRules validation rules by object
      * @param recordTypeAssignments the profiles that may use record types, by object (Sprint 15A)
+     * @param tabs the tabs applications can list (Sprint 18)
+     * @param customPages the custom pages of the organization (Sprint 18)
      */
     record Definitions(Map<String, List<PageLayout>> layouts, Map<String, List<RecordPage>> recordPages,
             Map<String, List<LayoutAssignment>> assignments, List<ApplicationDefinition> applications,
             Map<String, List<ValidationRule>> validationRules,
-            Map<String, List<RecordTypeAssignment>> recordTypeAssignments) {
+            Map<String, List<RecordTypeAssignment>> recordTypeAssignments, List<Tab> tabs,
+            List<CustomPage> customPages) {
 
         /** Copies what is given, so that the snapshot cannot change after it is built. */
         Definitions {
@@ -58,6 +63,17 @@ final class MetadataSnapshot {
             applications = List.copyOf(applications);
             validationRules = frozen(validationRules);
             recordTypeAssignments = frozen(recordTypeAssignments);
+            tabs = List.copyOf(tabs);
+            customPages = List.copyOf(customPages);
+        }
+
+        /** The definitions of Sprints 12 to 15A (no tabs and custom pages). */
+        Definitions(Map<String, List<PageLayout>> layouts, Map<String, List<RecordPage>> recordPages,
+                Map<String, List<LayoutAssignment>> assignments, List<ApplicationDefinition> applications,
+                Map<String, List<ValidationRule>> validationRules,
+                Map<String, List<RecordTypeAssignment>> recordTypeAssignments) {
+            this(layouts, recordPages, assignments, applications, validationRules, recordTypeAssignments, List.of(),
+                    List.of());
         }
 
         /** The definitions of Sprints 12 and 13 (no record type assignments). */
@@ -74,7 +90,8 @@ final class MetadataSnapshot {
         }
 
         static Definitions none() {
-            return new Definitions(Map.of(), Map.of(), Map.of(), List.of(), Map.of(), Map.of());
+            return new Definitions(Map.of(), Map.of(), Map.of(), List.of(), Map.of(), Map.of(), List.of(),
+                    List.of());
         }
 
         private static <T> Map<String, List<T>> frozen(Map<String, List<T>> grouped) {
@@ -207,6 +224,22 @@ final class MetadataSnapshot {
 
     List<ApplicationDefinition> applications() {
         return definitions.applications();
+    }
+
+    List<Tab> tabs() {
+        return definitions.tabs();
+    }
+
+    Optional<Tab> tab(String apiName) {
+        return tabs().stream().filter(tab -> tab.apiName().equals(apiName)).findFirst();
+    }
+
+    List<CustomPage> customPages() {
+        return definitions.customPages();
+    }
+
+    Optional<CustomPage> customPage(String apiName) {
+        return customPages().stream().filter(page -> page.apiName().equals(apiName)).findFirst();
     }
 
     List<ValidationRule> validationRules(String objectApiName) {

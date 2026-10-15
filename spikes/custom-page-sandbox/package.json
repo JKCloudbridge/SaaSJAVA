@@ -1,0 +1,13 @@
+{
+  "name": "custom-page-sandbox-spike",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Real-browser experiments for the sandboxed custom page frame (ADR-0127). Not part of the platform build.",
+  "type": "module",
+  "scripts": {
+    "spike": "node run-spike.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.55.0"
+  }
+}

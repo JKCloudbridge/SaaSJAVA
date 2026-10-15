@@ -105,9 +105,29 @@ export interface paths {
         };
         /**
          * The applications the signed-in member may use, with their navigation
-         * @description An application is listed when it names the profile of the member or names no profile. Items that point to something that no longer exists are left out. Presentation only: every page a link opens is decided again by the server. NOT_FOUND on the platform host.
+         * @description An application is listed when it names the profile of the member or names no profile. Inside it only what the member may open is listed (Sprint 18): an object or record page entry needs the permission to read the object, a tab entry needs the tab and its custom page to exist; a heading that leads nowhere and an application with nothing left are left out. Items that point to something that no longer exists are left out. Presentation only: every page a link opens is decided again by the server. NOT_FOUND on the platform host.
          */
         get: operations["getMyApplications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/custom-pages/{customPageApiName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The script of a custom page the signed-in member may open
+         * @description For a member of an application that lists a tab showing the page. The script is the organization's own text, checked against the hash that was published; the platform never runs it. NOT_FOUND for a page that does not exist or that the member may not open (the same answer), SERVICE_UNAVAILABLE (with Retry-After) when the object store cannot give it.
+         */
+        get: operations["getCustomPageScript"];
         put?: never;
         post?: never;
         delete?: never;
@@ -490,6 +510,26 @@ export interface paths {
         get: operations["getDataCatalogue"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/embedded-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * An access token for the script of a custom page
+         * @description For a member of the organization of the host, with their own token. The new token is the member's own, narrowed: it ends with the sign-in it came from, lives a few minutes, works only as a bearer token, and reaches the data interface only (records, files, searches, reading definitions); everything else answers FORBIDDEN. Every call it makes is decided by the member's own permissions. It is shown once and stored only as a hash. A token of this kind cannot ask for another (FORBIDDEN). NOT_FOUND on the platform host; RATE_LIMITED past the hourly allowance. Audited.
+         */
+        post: operations["issueEmbeddedToken"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1200,6 +1240,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/metadata/custom-page-assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload the script of a custom page
+         * @description The body is the text of the script, as it is (UTF-8, not a form), with the length announced (Content-Length; chunked bodies are refused), at most the limit of the organization (PAYLOAD_TOO_LARGE above it). The answer names the asset: put its identifier, hash and size in the content of a custom page. The same script uploaded twice is one asset (200 instead of 201). The platform stores the text and never runs it. CONFLICT at the most scripts an organization may keep; SERVICE_UNAVAILABLE (with Retry-After) when the object store does not answer, and nothing is stored then. Needs the abilities to manage and to publish metadata. Audited by identifier and size, never by content.
+         */
+        post: operations["uploadCustomPageScript"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/custom-pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The custom pages of the organization, as defined
+         * @description For members who may view objects and fields.
+         */
+        get: operations["listCustomPageDefinitions"];
+        put?: never;
+        /**
+         * Add a custom page
+         * @description Live at once, as a release of one change. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. The content names the uploaded script (upload it first, see uploadCustomPageScript) with its hash and size; VALIDATION_ERROR when the script is not in this organization or the hash or size is not its own. The reference for the server is stored and never read or run. CONFLICT at the limit. Audited.
+         */
+        post: operations["createCustomPage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/custom-pages/{apiName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One custom page, as defined
+         * @description NOT_FOUND for a custom page the organization does not have.
+         */
+        get: operations["getCustomPageDefinition"];
+        /**
+         * Change a custom page
+         * @description Live at once, as a release of one change. The API name never changes. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.
+         */
+        put: operations["updateCustomPage"];
+        post?: never;
+        /**
+         * Remove a custom page
+         * @description Live at once, as a release of one change. CONFLICT, naming what still uses it, when something depends on it. NOT_FOUND for a custom page the organization does not have. Audited.
+         */
+        delete: operations["deleteCustomPage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/metadata/expressions/check": {
         parameters: {
             query?: never;
@@ -1863,6 +1975,58 @@ export interface paths {
          */
         post: operations["checkRollback"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/tabs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The tabs of the organization, as defined
+         * @description For members who may view objects and fields.
+         */
+        get: operations["listTabDefinitions"];
+        put?: never;
+        /**
+         * Add a tab
+         * @description Live at once, as a release of one change. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. A tab of kind CUSTOM names the custom page it shows. CONFLICT when that page does not exist or at the limit. Audited.
+         */
+        post: operations["createTab"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/tabs/{apiName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One tab, as defined
+         * @description NOT_FOUND for a tab the organization does not have.
+         */
+        get: operations["getTabDefinition"];
+        /**
+         * Change a tab
+         * @description Live at once, as a release of one change. The API name never changes. The definition is checked against the schema of the same name in components.schemas of this document; VALIDATION_ERROR names every place that is wrong, for example definition.sections[1].fields[0].behaviour. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.
+         */
+        put: operations["updateTab"];
+        post?: never;
+        /**
+         * Remove a tab
+         * @description Live at once, as a release of one change. CONFLICT, naming what still uses it, when something depends on it. NOT_FOUND for a tab the organization does not have. Audited.
+         */
+        delete: operations["deleteTab"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3255,7 +3419,7 @@ export interface components {
         ApiErrorResponse: {
             error: components["schemas"]["ApiError"];
         };
-        /** @description The permanent name of a layout, a record page or an application. It ends with __c. */
+        /** @description The permanent name of a layout, a record page, an application, a tab or a custom page. It ends with __c. */
         ApiNameShape: string;
         ApiPageResponseAuditEventView: {
             data: components["schemas"]["AuditEventView"][];
@@ -3294,11 +3458,23 @@ export interface components {
         ApiResponseCurrentUser: {
             data: components["schemas"]["CurrentUser"];
         };
+        ApiResponseCustomPageAssetView: {
+            data: components["schemas"]["CustomPageAssetView"];
+        };
+        ApiResponseCustomPageScriptView: {
+            data: components["schemas"]["CustomPageScriptView"];
+        };
+        ApiResponseCustomPageView: {
+            data: components["schemas"]["CustomPageView"];
+        };
         ApiResponseDataAccessView: {
             data: components["schemas"]["DataAccessView"];
         };
         ApiResponseDataCatalogue: {
             data: components["schemas"]["DataCatalogue"];
+        };
+        ApiResponseEmbeddedTokenView: {
+            data: components["schemas"]["EmbeddedTokenView"];
         };
         ApiResponseExpressionCheckView: {
             data: components["schemas"]["ExpressionCheckView"];
@@ -3350,6 +3526,9 @@ export interface components {
         };
         ApiResponseListChangeSetView: {
             data: components["schemas"]["ChangeSetView"][];
+        };
+        ApiResponseListCustomPageView: {
+            data: components["schemas"]["CustomPageView"][];
         };
         ApiResponseListFieldTypeView: {
             data: components["schemas"]["FieldTypeView"][];
@@ -3435,6 +3614,9 @@ export interface components {
         ApiResponseListSupportAccessView: {
             data: components["schemas"]["SupportAccessView"][];
         };
+        ApiResponseListTabView: {
+            data: components["schemas"]["TabView"][];
+        };
         ApiResponseListValidationRuleView: {
             data: components["schemas"]["ValidationRuleView"][];
         };
@@ -3506,6 +3688,9 @@ export interface components {
         };
         ApiResponseSwitchTarget: {
             data: components["schemas"]["SwitchTarget"];
+        };
+        ApiResponseTabView: {
+            data: components["schemas"]["TabView"];
         };
         ApiResponseTenantSummary: {
             data: components["schemas"]["TenantSummary"];
@@ -3619,6 +3804,7 @@ export interface components {
         };
         ChangeRequest: {
             createApplication?: components["schemas"]["CreateApplicationRequest"];
+            createCustomPage?: components["schemas"]["CreateCustomPageRequest"];
             createField?: components["schemas"]["CreateFieldRequest"];
             createLayout?: components["schemas"]["CreateLayoutRequest"];
             createLayoutAssignment?: components["schemas"]["CreateLayoutAssignmentRequest"];
@@ -3626,11 +3812,13 @@ export interface components {
             createRecordPage?: components["schemas"]["CreateRecordPageRequest"];
             createRecordType?: components["schemas"]["CreateRecordTypeRequest"];
             createRecordTypeAssignment?: components["schemas"]["CreateRecordTypeAssignmentRequest"];
+            createTab?: components["schemas"]["CreateTabRequest"];
             createValidationRule?: components["schemas"]["CreateValidationRuleRequest"];
             itemApiName?: string;
             kind: string;
             objectApiName?: string;
             updateApplication?: components["schemas"]["UpdateApplicationRequest"];
+            updateCustomPage?: components["schemas"]["UpdateCustomPageRequest"];
             updateField?: components["schemas"]["UpdateFieldRequest"];
             updateLayout?: components["schemas"]["UpdateLayoutRequest"];
             updateLayoutAssignment?: components["schemas"]["UpdateLayoutAssignmentRequest"];
@@ -3638,6 +3826,7 @@ export interface components {
             updateRecordPage?: components["schemas"]["UpdateRecordPageRequest"];
             updateRecordType?: components["schemas"]["UpdateRecordTypeRequest"];
             updateRecordTypeAssignment?: components["schemas"]["UpdateRecordTypeAssignmentRequest"];
+            updateTab?: components["schemas"]["UpdateTabRequest"];
             updateValidationRule?: components["schemas"]["UpdateValidationRuleRequest"];
         };
         ChangeSetReportView: {
@@ -3700,6 +3889,12 @@ export interface components {
         };
         CreateChangeSetRequest: {
             description?: string;
+            name: string;
+        };
+        CreateCustomPageRequest: {
+            definition: components["schemas"]["CustomPageDefinition"];
+            description?: string;
+            label: string;
             name: string;
         };
         CreateFieldRequest: {
@@ -3765,6 +3960,12 @@ export interface components {
             name: string;
             picklistSubsets?: components["schemas"]["PicklistSubset"][];
         };
+        CreateTabRequest: {
+            definition: components["schemas"]["TabDefinition"];
+            description?: string;
+            label: string;
+            name: string;
+        };
         CreateValidationRuleRequest: {
             active?: boolean;
             description?: string;
@@ -3780,6 +3981,44 @@ export interface components {
             email: string;
             id: string;
             platformRoles: string[];
+        };
+        CustomPageAssetView: {
+            created: boolean;
+            /** Format: uuid */
+            id: string;
+            sha256: string;
+            /** Format: int64 */
+            size: number;
+        };
+        /** @description What a custom page is beyond its name (Sprint 18, ADR-0127): the script that draws it, by content, and a reference to code for the server. The script runs in the member's browser inside a sandbox and talks to the platform's data interface with the member's own permissions. The reference for the server is stored so that nothing about the shape changes when decision D6 is made; the platform never reads it and never runs anything because of it. */
+        CustomPageDefinition: {
+            /** @description A reference to code that would run on the server. Kept for later; never read, never executed (decision D6). */
+            backend?: {
+                reference: string;
+            };
+            /** @description The uploaded script. Upload it first (POST /api/v1/metadata/custom-page-assets) and name the asset it gives back; the hash and size must be the asset's own. */
+            frontend: {
+                /** Format: uuid */
+                assetId: string;
+                sha256: string;
+                size: number;
+            };
+        };
+        CustomPageScriptView: {
+            apiName: string;
+            /** Format: uuid */
+            assetId: string;
+            code: string;
+            label: string;
+            sha256: string;
+        };
+        CustomPageView: {
+            apiName: string;
+            definition: components["schemas"]["CustomPageDefinition"];
+            description: string;
+            label: string;
+            /** Format: int64 */
+            version: number;
         };
         DataAccessView: {
             everything?: boolean;
@@ -3804,6 +4043,14 @@ export interface components {
             fields: components["schemas"]["DataField"][];
             key: string;
             label: string;
+        };
+        EmbeddedTokenRequest: {
+            customPage?: string;
+        };
+        EmbeddedTokenView: {
+            /** Format: date-time */
+            expiresAt: string;
+            token: string;
         };
         EntitlementInfo: {
             enabled?: boolean;
@@ -4169,22 +4416,28 @@ export interface components {
             label: string;
         };
         NavigationEntryView: {
+            /** Format: uuid */
+            assetId?: string;
+            available: boolean;
+            customPageApiName?: string;
             label: string;
             objectApiName?: string;
             pageApiName?: string;
             path?: string;
+            tabApiName?: string;
             type: string;
         };
-        /** @description One entry of an application's navigation. */
+        /** @description One entry of an application's navigation. A TAB entry lists a tab of the organization (Sprint 18); its label is optional and replaces the label of the tab. */
         NavigationItem: {
             label?: string;
             object?: components["schemas"]["ObjectNameShape"];
             page?: components["schemas"]["ApiNameShape"];
             /** @description A page inside the organization: a path that starts with a slash. Never an address with a host. */
             path?: string;
+            tab?: components["schemas"]["ApiNameShape"];
             /** @enum {string} */
-            type: "OBJECT" | "RECORD_PAGE" | "LINK" | "HEADING";
-        } & (unknown & unknown & unknown & unknown);
+            type: "OBJECT" | "RECORD_PAGE" | "LINK" | "HEADING" | "TAB";
+        } & (unknown & unknown & unknown & unknown & unknown);
         ObjectIndexStatusView: {
             fields: components["schemas"]["FieldIndexStatusView"][];
             objectApiName: string;
@@ -4717,6 +4970,21 @@ export interface components {
             type: "DETAILS" | "RELATED_LIST" | "ACTIVITY" | "HISTORY";
             visibleWhen?: components["schemas"]["VisibilityRule"];
         } & (unknown & unknown);
+        /** @description What a tab is beyond its name (Sprint 18, ADR-0128). The only kind today is CUSTOM: the tab shows a custom page. An object needs no tab of its own: the navigation item OBJECT opens it. */
+        TabDefinition: {
+            customPage?: components["schemas"]["ApiNameShape"];
+            iconKey?: string;
+            /** @enum {string} */
+            kind: "CUSTOM";
+        } & unknown;
+        TabView: {
+            apiName: string;
+            definition: components["schemas"]["TabDefinition"];
+            description: string;
+            label: string;
+            /** Format: int64 */
+            version: number;
+        };
         TenantSummary: {
             displayName: string;
             slug: string;
@@ -4736,6 +5004,13 @@ export interface components {
         };
         UpdateApplicationRequest: {
             definition: components["schemas"]["ApplicationDefinition"];
+            description?: string;
+            label: string;
+            /** Format: int64 */
+            version: number;
+        };
+        UpdateCustomPageRequest: {
+            definition: components["schemas"]["CustomPageDefinition"];
             description?: string;
             label: string;
             /** Format: int64 */
@@ -4802,6 +5077,13 @@ export interface components {
             label: string;
             layout?: string;
             picklistSubsets?: components["schemas"]["PicklistSubset"][];
+            /** Format: int64 */
+            version: number;
+        };
+        UpdateTabRequest: {
+            definition: components["schemas"]["TabDefinition"];
+            description?: string;
+            label: string;
             /** Format: int64 */
             version: number;
         };
@@ -5101,6 +5383,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseListMyApplicationView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getCustomPageScript: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customPageApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCustomPageScriptView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -5686,6 +5999,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseDataCatalogue"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    issueEmbeddedToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EmbeddedTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseEmbeddedTokenView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -7063,6 +7409,196 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiResponseChangeSetReportView"];
                 };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    uploadCustomPageScript: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "text/javascript": string;
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCustomPageAssetView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listCustomPageDefinitions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListCustomPageView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createCustomPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCustomPageRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCustomPageView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getCustomPageDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                apiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCustomPageView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateCustomPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                apiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCustomPageRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCustomPageView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteCustomPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                apiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {
@@ -8718,6 +9254,163 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiResponseChangeSetReportView"];
                 };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listTabDefinitions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListTabView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createTab: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTabRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseTabView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getTabDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                apiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseTabView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateTab: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                apiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTabRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseTabView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteTab: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                apiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {

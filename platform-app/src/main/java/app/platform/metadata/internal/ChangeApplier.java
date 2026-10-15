@@ -4,6 +4,12 @@ import app.platform.identity.OrganizationAdministration.Caller;
 import app.platformapi.ApiException;
 import app.platformapi.ApplicationView;
 import app.platformapi.CreateApplicationRequest;
+import app.platformapi.CreateCustomPageRequest;
+import app.platformapi.CreateTabRequest;
+import app.platformapi.CustomPageView;
+import app.platformapi.TabView;
+import app.platformapi.UpdateCustomPageRequest;
+import app.platformapi.UpdateTabRequest;
 import app.platformapi.CreateFieldRequest;
 import app.platformapi.CreateLayoutAssignmentRequest;
 import app.platformapi.CreateLayoutRequest;
@@ -110,6 +116,12 @@ class ChangeApplier {
             case CREATE_RECORD_TYPE_ASSIGNMENT -> createTypeAssignment(caller, change);
             case UPDATE_RECORD_TYPE_ASSIGNMENT -> updateTypeAssignment(caller, change);
             case DELETE_RECORD_TYPE_ASSIGNMENT -> deleteTypeAssignment(caller, change);
+            case CREATE_TAB -> createTab(caller, change);
+            case UPDATE_TAB -> updateTab(caller, change);
+            case DELETE_TAB -> deleteTab(caller, change);
+            case CREATE_CUSTOM_PAGE -> createCustomPage(caller, change);
+            case UPDATE_CUSTOM_PAGE -> updateCustomPage(caller, change);
+            case DELETE_CUSTOM_PAGE -> deleteCustomPage(caller, change);
         };
     }
 
@@ -305,6 +317,55 @@ class ChangeApplier {
         definitions.deleteApplication(caller, change.item());
         return new Applied(Boolean.TRUE, List.of(codec.makeApplication(before)),
                 List.of(item("REMOVED", "APPLICATION", "", change.item())));
+    }
+
+    // ---- tabs and custom pages (Sprint 18) ----
+
+    private Applied createTab(Caller caller, Change change) {
+        TabView made = definitions.createTab(caller, codec.read(change, CreateTabRequest.class));
+        return new Applied(made, List.of(codec.removeTab(made.apiName())),
+                List.of(item("ADDED", "TAB", "", made.apiName())));
+    }
+
+    private Applied updateTab(Caller caller, Change change) {
+        TabView before = definitions.tab(change.item());
+        TabView after = definitions.updateTab(caller, change.item(), codec.read(change, UpdateTabRequest.class));
+        if (after.version().equals(before.version())) {
+            return new Applied(after, List.of(), List.of());
+        }
+        return new Applied(after, List.of(codec.restoreTab(before, after.version())),
+                List.of(item("CHANGED", "TAB", "", after.apiName())));
+    }
+
+    private Applied deleteTab(Caller caller, Change change) {
+        TabView before = definitions.tab(change.item());
+        definitions.deleteTab(caller, change.item());
+        return new Applied(Boolean.TRUE, List.of(codec.makeTab(before)),
+                List.of(item("REMOVED", "TAB", "", change.item())));
+    }
+
+    private Applied createCustomPage(Caller caller, Change change) {
+        CustomPageView made = definitions.createCustomPage(caller, codec.read(change, CreateCustomPageRequest.class));
+        return new Applied(made, List.of(codec.removeCustomPage(made.apiName())),
+                List.of(item("ADDED", "CUSTOM_PAGE", "", made.apiName())));
+    }
+
+    private Applied updateCustomPage(Caller caller, Change change) {
+        CustomPageView before = definitions.customPage(change.item());
+        CustomPageView after = definitions.updateCustomPage(caller, change.item(),
+                codec.read(change, UpdateCustomPageRequest.class));
+        if (after.version().equals(before.version())) {
+            return new Applied(after, List.of(), List.of());
+        }
+        return new Applied(after, List.of(codec.restoreCustomPage(before, after.version())),
+                List.of(item("CHANGED", "CUSTOM_PAGE", "", after.apiName())));
+    }
+
+    private Applied deleteCustomPage(Caller caller, Change change) {
+        CustomPageView before = definitions.customPage(change.item());
+        definitions.deleteCustomPage(caller, change.item());
+        return new Applied(Boolean.TRUE, List.of(codec.makeCustomPage(before)),
+                List.of(item("REMOVED", "CUSTOM_PAGE", "", change.item())));
     }
 
     // ---- layout assignments ----
