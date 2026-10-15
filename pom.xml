@@ -53,7 +53,7 @@
     <!-- Sprint 12: validates page layouts, record pages and applications against their JSON schema (ADR-0070). -->
     <json-schema-validator.version>3.0.8</json-schema-validator.version>
     <!-- Sprint 17: the client of the S3-compatible object storage that holds the bytes of files (ADR-0120). -->
-    <awssdk.version>2.55.5</awssdk.version>
+    <awssdk.version>2.55.14</awssdk.version>
 
     <!-- Build plugin versions. -->
     <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
