@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { WorkingSetBar } from "./WorkingSetBar";
 
 const SECTIONS = [
@@ -12,15 +12,16 @@ const SECTIONS = [
   { href: "/setup/roles", label: "Roles" },
   { href: "/setup/objects", label: "Objects" },
   { href: "/setup/applications", label: "Applications" },
+  { href: "/setup/tabs", label: "Tabs" },
   { href: "/setup/changes", label: "Change sets" },
   { href: "/setup/history", label: "History" },
 ];
 
 /** The pages where a change can be made, so the person can choose where it goes: live at once or into a change set. */
-const OBJECT_PAGES = ["/setup/objects", "/setup/applications", "/setup/changes"];
+const OBJECT_PAGES = ["/setup/objects", "/setup/applications", "/setup/tabs", "/setup/changes"];
 
 /**
- * The frame of the setup pages (profiles, access policies, groups, roles, objects, applications, change sets, history) of the
+ * The frame of the setup pages (profiles, access policies, groups, roles, objects, applications, tabs, change sets, history) of the
  * organization the address names. It only navigates: whether the person may open a page is the API's answer, which each page shows in the API's own words.
  *
  * "General" is a marker, not a page: it shows where the organization's branding and general settings will live once a
@@ -49,7 +50,12 @@ export function SetupFrame({ children }: { children: ReactNode }) {
         </ul>
       </nav>
       <div className="split-content stack">
-        {OBJECT_PAGES.some((page) => pathname.startsWith(page)) ? <WorkingSetBar /> : null}
+        {OBJECT_PAGES.some((page) => pathname.startsWith(page)) ? (
+          // The bar reads the section of the address, which needs a Suspense boundary on a statically built page.
+          <Suspense fallback={null}>
+            <WorkingSetBar />
+          </Suspense>
+        ) : null}
         {children}
       </div>
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
@@ -14,6 +15,8 @@ type ChangeSetView = components["schemas"]["ChangeSetView"];
  */
 export function WorkingSetBar() {
   const { id, select } = useWorkingSet();
+  // Sharing is not metadata that change sets carry (it is live at once), so the bar would promise what that tab cannot do.
+  const onSharing = useSearchParams()?.get("section") === "sharing";
   const [open, setOpen] = useState<ChangeSetView[]>([]);
 
   useEffect(() => {
@@ -38,7 +41,7 @@ export function WorkingSetBar() {
     };
   }, [id, select]);
 
-  if (open.length === 0) {
+  if (open.length === 0 || onSharing) {
     return null;
   }
   const chosen = open.find((set) => set.id === id);

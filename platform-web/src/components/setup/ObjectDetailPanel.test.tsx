@@ -4,15 +4,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi, json, refusal } from "@/test/fakeApi";
 import { ObjectDetailPanel } from "./ObjectDetailPanel";
 
-const state = vi.hoisted(() => ({ object: "Employee__c", push: vi.fn() }));
+const state = vi.hoisted(() => ({ object: "Employee__c", section: "", push: vi.fn() }));
 vi.mock("next/navigation", () => ({
   useParams: () => ({ objectApiName: state.object }),
   useRouter: () => ({ push: state.push }),
+  useSearchParams: () => new URLSearchParams(state.section ? `section=${state.section}` : ""),
 }));
 
 beforeEach(() => {
   document.cookie = "XSRF-TOKEN=test-token; path=/";
   state.object = "Employee__c";
+  state.section = "";
   state.push.mockReset();
 });
 
@@ -104,11 +106,19 @@ describe("ObjectDetailPanel", () => {
 
     const rows = await screen.findAllByTestId("field-row");
 
-    expect(screen.getByText(/defined by the platform/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Remove the object" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Save the labels" })).toBeNull();
     expect(within(rows[1] as HTMLElement).queryByRole("button", { name: "Change" })).toBeNull();
     expect(screen.getByRole("button", { name: "Add the field" })).toBeInTheDocument();
+  });
+
+  it("offers neither saving the labels nor removing an object the platform defines", async () => {
+    state.object = "Account";
+    state.section = "details";
+    fakeApi(answers(ACCOUNT));
+    render(<ObjectDetailPanel />);
+
+    expect(await screen.findByText(/defined by the platform/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove the object" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save the labels" })).toBeNull();
   });
 
   it("offers no field form for an object the platform does not allow extra fields on", async () => {
@@ -236,28 +246,38 @@ describe("ObjectDetailPanel", () => {
           refusal("CONCURRENT_MODIFICATION", "The resource was changed by someone else. Reload it and try again.", 409),
       }),
     );
+    state.section = "details";
     render(<ObjectDetailPanel />);
-    await screen.findAllByTestId("field-row");
 
-    fireEvent.click(screen.getByRole("button", { name: "Save the labels" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save the labels" }));
 
     expect(await screen.findByTestId("object-problem")).toHaveTextContent("changed by someone else");
   });
 
-  it("removes a field, and removes the object only after a second click, then returns to the list", async () => {
-    const calls = fakeApi(
+  it("removes a field", async () => {
+    fakeApi(
       answers(EMPLOYEE, {
         "DELETE /api/v1/metadata/objects/Employee__c/fields/code__c": () => new Response(null, { status: 204 }),
-        "DELETE /api/v1/metadata/objects/Employee__c": () => new Response(null, { status: 204 }),
       }),
     );
     render(<ObjectDetailPanel />);
     const rows = await screen.findAllByTestId("field-row");
 
     fireEvent.click(within(rows[1] as HTMLElement).getByRole("button", { name: "Remove" }));
-    expect(await screen.findByTestId("object-notice")).toHaveTextContent("The field was removed.");
 
-    fireEvent.click(screen.getByRole("button", { name: "Remove the object" }));
+    expect(await screen.findByTestId("object-notice")).toHaveTextContent("The field was removed.");
+  });
+
+  it("removes the object only after a second click, then returns to the list", async () => {
+    const calls = fakeApi(
+      answers(EMPLOYEE, {
+        "DELETE /api/v1/metadata/objects/Employee__c": () => new Response(null, { status: 204 }),
+      }),
+    );
+    state.section = "details";
+    render(<ObjectDetailPanel />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Remove the object" }));
     expect(calls.some((call) => call.key === "DELETE /api/v1/metadata/objects/Employee__c")).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Yes, remove the object" }));
     await vi.waitFor(() => expect(state.push).toHaveBeenCalledWith("/setup/objects"));
@@ -334,10 +354,40 @@ describe("ObjectDetailPanel", () => {
         "GET /api/v1/metadata/objects/Employee__c/record-types": () => json({ data: [] }),
       }),
     );
+    state.section = "relationships";
+    const { unmount } = render(<ObjectDetailPanel />);
+    expect(await screen.findByRole("heading", { name: "Relationships" })).toBeInTheDocument();
+    unmount();
+
+    state.section = "record-types";
+    render(<ObjectDetailPanel />);
+    expect(await screen.findByRole("heading", { name: "Record types" })).toBeInTheDocument();
+  });
+
+  it("shows one section at a time, marks the current one in the sub navigation and keeps Custom buttons as a marker", async () => {
+    fakeApi(answers(EMPLOYEE));
+    state.section = "record-pages";
     render(<ObjectDetailPanel />);
 
-    expect(await screen.findByRole("heading", { name: "Relationships" })).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "Record types" })).toBeInTheDocument();
+    const nav = await screen.findByRole("navigation", { name: "Employee sections" });
+    expect(within(nav).getByRole("link", { name: "Record pages" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "Fields" })).not.toHaveAttribute("aria-current");
+    expect(within(nav).getByRole("link", { name: "Sharing" })).toHaveAttribute(
+      "href",
+      "/setup/objects/Employee__c?section=sharing",
+    );
+    const soon = within(nav).getByTestId("custom-buttons-placeholder");
+    expect(soon).toHaveTextContent("Soon");
+    expect(within(nav).queryByRole("link", { name: /Custom buttons/ })).toBeNull();
+    expect(screen.queryByTestId("fields")).toBeNull();
+  });
+
+  it("falls back to the fields for a section it does not know", async () => {
+    fakeApi(answers(EMPLOYEE));
+    state.section = "nonsense";
+    render(<ObjectDetailPanel />);
+
+    expect(await screen.findByTestId("fields")).toBeInTheDocument();
   });
 
   it("says in the API's words when removing a field is refused because a record type needs it", async () => {

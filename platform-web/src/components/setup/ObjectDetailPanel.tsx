@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { COMMON_TEXT } from "@/components/account/messages";
 import { ActionMessages, failureText, useAction } from "@/components/console/useAction";
@@ -10,10 +10,14 @@ import type { components } from "@/lib/api/generated/schema";
 import { FieldForm } from "./FieldForm";
 import { KIND_TEXT, problemText, settingsSummary, type FieldTypeView, type FieldView } from "./objectText";
 import { LayoutAssignmentsPanel } from "./LayoutAssignmentsPanel";
+import { OBJECT_SECTIONS, sectionOf } from "./objectSections";
 import { LayoutsPanel } from "./LayoutsPanel";
+import { RecordPageAssignmentsPanel } from "./RecordPageAssignmentsPanel";
+import { RecordTypeAccessPanel } from "./RecordTypeAccessPanel";
 import { RecordPagesPanel } from "./RecordPagesPanel";
 import { RecordTypesPanel } from "./RecordTypesPanel";
 import { RelationshipsPanel } from "./RelationshipsPanel";
+import { SharingPanel } from "./SharingPanel";
 import { ValidationRulesPanel } from "./ValidationRulesPanel";
 import { addToSet, DRAFTED_TEXT, useWorkingSet } from "./workingSet";
 
@@ -36,6 +40,7 @@ export function ObjectDetailPanel() {
   const params = useParams<{ objectApiName: string }>();
   const objectApiName = params.objectApiName;
   const router = useRouter();
+  const section = sectionOf(useSearchParams()?.get("section"));
   const { id: workingSet } = useWorkingSet();
   const [loaded, setLoaded] = useState<Loaded | undefined>();
   const [failure, setFailure] = useState<string | undefined>();
@@ -153,7 +158,24 @@ export function ObjectDetailPanel() {
         {object.description ? ` ${object.description}` : ""}
       </p>
       <ActionMessages notice={notice} problem={problem} testId="object" />
+      <nav className="subnav" aria-label={`${object.label} sections`}>
+        {OBJECT_SECTIONS.map((one) => (
+          <Link
+            key={one.id}
+            href={`/setup/objects/${encodeURIComponent(objectApiName)}?section=${one.id}`}
+            aria-current={section === one.id ? "page" : undefined}
+          >
+            {one.label}
+          </Link>
+        ))}
+        <span className="subnav-soon" aria-disabled="true" data-testid="custom-buttons-placeholder">
+          Custom buttons
+          <span className="badge">Soon</span>
+        </span>
+      </nav>
 
+      {section === "details" ? (
+        <>
       {object.editable ? (
         <section aria-labelledby="object-edit-heading">
           <h3 id="object-edit-heading">Labels</h3>
@@ -210,7 +232,11 @@ export function ObjectDetailPanel() {
       ) : (
         <p className="hint">This object is defined by the platform. Its definition cannot be changed.</p>
       )}
+        </>
+      ) : null}
 
+      {section === "fields" ? (
+        <>
       <section aria-labelledby="fields-heading">
         <h3 id="fields-heading">Fields</h3>
         <table className="table" data-testid="fields">
@@ -325,13 +351,30 @@ export function ObjectDetailPanel() {
       ) : (
         <p className="hint">The platform does not allow extra fields on this object.</p>
       )}
+        </>
+      ) : null}
 
-      <RelationshipsPanel objectApiName={objectApiName} refreshToken={refreshToken} />
-      <RecordTypesPanel object={object} onChanged={reload} />
-      <LayoutsPanel object={object} onChanged={reload} />
-      <LayoutAssignmentsPanel object={object} refreshToken={refreshToken} />
-      <RecordPagesPanel object={object} onChanged={reload} />
-      <ValidationRulesPanel object={object} onChanged={reload} />
+      {section === "relationships" ? <RelationshipsPanel objectApiName={objectApiName} refreshToken={refreshToken} /> : null}
+      {section === "record-types" ? (
+        <>
+          <RecordTypesPanel object={object} onChanged={reload} />
+          <RecordTypeAccessPanel object={object} refreshToken={refreshToken} />
+        </>
+      ) : null}
+      {section === "layouts" ? (
+        <>
+          <LayoutsPanel object={object} onChanged={reload} />
+          <LayoutAssignmentsPanel object={object} refreshToken={refreshToken} />
+        </>
+      ) : null}
+      {section === "record-pages" ? (
+        <>
+          <RecordPagesPanel object={object} onChanged={reload} />
+          <RecordPageAssignmentsPanel object={object} refreshToken={refreshToken} />
+        </>
+      ) : null}
+      {section === "rules" ? <ValidationRulesPanel object={object} onChanged={reload} /> : null}
+      {section === "sharing" ? <SharingPanel object={object} /> : null}
     </div>
   );
 }
