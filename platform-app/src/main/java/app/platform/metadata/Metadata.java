@@ -83,4 +83,18 @@ public interface Metadata {
      * @param profileId the profile of the person
      */
     Optional<RecordType> defaultRecordTypeFor(String objectApiName, UUID profileId);
+
+    /** The record page assignments of the object (Sprint 20): its default, and those for profiles and record types. */
+    List<RecordPageAssignment> recordPageAssignments(String objectApiName);
+
+    /**
+     * The record page the object uses for a profile and a record type (Sprint 20, ADR-0131). The rules are tried in
+     * this order and the first that applies wins: the profile together with the record type, the record type alone,
+     * the profile alone, the default record page of the object. An assignment of a profile that no longer exists
+     * never applies, because nobody holds that profile, so the next rule decides.
+     *
+     * @param profileId the profile of the person, or null
+     * @param recordType the API name of the record type of the record, or null
+     */
+    RecordPageResolution recordPageFor(String objectApiName, UUID profileId, String recordType);
 }

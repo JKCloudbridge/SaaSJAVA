@@ -1652,6 +1652,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/metadata/objects/{objectApiName}/record-page-assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The record page assignments of an object
+         * @description The default record page of the object and the record pages chosen for profiles and record types. A profile that no longer exists has no name here and is ignored when a record page is chosen. NOT_FOUND for an object the organization does not have.
+         */
+        get: operations["listRecordPageAssignments"];
+        put?: never;
+        /**
+         * Choose a record page for a profile, a record type, or both, or the default of the object
+         * @description Live at once, as a release of one change. With no profile and no record type it is the default record page of the object. CONFLICT when the record page or record type does not exist. Audited.
+         */
+        post: operations["createRecordPageAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/record-page-assignments/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One record page assignment
+         * @description The key is default, type and a tilde and the API name of a record type for the record-type-alone rule, the identifier of the profile, or the identifier of the profile, a tilde and the API name of the record type. NOT_FOUND for an assignment the object does not have.
+         */
+        get: operations["getRecordPageAssignment"];
+        /**
+         * Point a record page assignment at another record page
+         * @description The key is default, type and a tilde and the API name of a record type for the record-type-alone rule, the identifier of the profile, or the identifier of the profile, a tilde and the API name of the record type. Live at once, as a release of one change. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.
+         */
+        put: operations["updateRecordPageAssignment"];
+        post?: never;
+        /**
+         * Remove a record page assignment
+         * @description The key is default, type and a tilde and the API name of a record type for the record-type-alone rule, the identifier of the profile, or the identifier of the profile, a tilde and the API name of the record type. Live at once, as a release of one change. Audited.
+         */
+        delete: operations["deleteRecordPageAssignment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/objects/{objectApiName}/record-page-resolution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Which record page an object uses for a profile and a record type
+         * @description The first rule of this order that applies: the profile together with the record type, the record type alone, the profile alone, the default record page of the object. The answer names the rule; NONE when the object has no record page.
+         */
+        get: operations["resolveRecordPage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/metadata/objects/{objectApiName}/record-pages": {
         parameters: {
             query?: never;
@@ -2041,7 +2113,7 @@ export interface paths {
         };
         /**
          * Describe an object for the signed-in member: fields, record types, layout, permissions
-         * @description What a screen needs to draw the list, the create form and the edit form of the object for this member, in one answer. Only the fields the member may read are described (the others are absent, not masked), restricted to what the record type offers, with what they may type, the comparisons a filter accepts and whether a list can be ordered by each. The layout is the object's page layout for the member's profile and the record type, reduced to what they see, or one the platform makes when the object has none. recordType describes the object for one of the record types the member may use (VALIDATION_ERROR at recordType for any other, answered like a type that does not exist); without it, recordId (the record being edited) decides by the type that record holds, and without both the member's default type does. Presentation only: every request that follows is decided again. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read (all three answer alike). Also NOT_FOUND for a record they cannot reach. Organization hosts only.
+         * @description What a screen needs to draw the list, the create form and the edit form of the object for this member, in one answer. Only the fields the member may read are described (the others are absent, not masked), restricted to what the record type offers, with what they may type, the comparisons a filter accepts and whether a list can be ordered by each. The layout is the object's page layout for the member's profile and the record type, reduced to what they see, or one the platform makes when the object has none. recordType describes the object for one of the record types the member may use (VALIDATION_ERROR at recordType for any other, answered like a type that does not exist); without it, recordId (the record being edited) decides by the type that record holds, and without both the member's default type does. layout names the page layout to draw (a record page names one); a name that is not a layout of the object is ignored and the member's own resolution decides. Presentation only: every request that follows is decided again. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read (all three answer alike). Also NOT_FOUND for a record they cannot reach. Organization hosts only.
          */
         get: operations["getObjectForm"];
         put?: never;
@@ -2234,6 +2306,26 @@ export interface paths {
          * @description Records of the target object the caller may read whose name contains the text, a few at a time (at most 25, 10 by default): a search over the searchable fields when the target has some, otherwise a match on the name field. Without text the first records in name order. People are offered while their membership is active. Nothing here lists a directory: the text must match. A POST only because the text travels in the body, never in the address, where every proxy on the way would log it. The write that follows is judged again (a link is accepted only to a record the caller can read). NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read, and for a field that is not a link of the object or that the caller may not read (all answer alike).
          */
         post: operations["getLookupOptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/record-page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The record page of an object, resolved for the signed-in member
+         * @description The header, the tabs and the actions, each already filtered to what the caller may reach; a block or an action the caller may not use is left out, never shown as refused. With no recordType and no recordId the object's own default rule decides; with a recordId its own record type is used unless recordType overrides it. NOT_FOUND for an object the caller may not read or that does not exist, or a record they cannot reach.
+         */
+        get: operations["getRecordPage_1"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3721,6 +3813,9 @@ export interface components {
         ApiResponseListRecordFileView: {
             data: components["schemas"]["RecordFileView"][];
         };
+        ApiResponseListRecordPageAssignmentView: {
+            data: components["schemas"]["RecordPageAssignmentView"][];
+        };
         ApiResponseListRecordPageView: {
             data: components["schemas"]["RecordPageView"][];
         };
@@ -3804,6 +3899,15 @@ export interface components {
         };
         ApiResponseRecordFileView: {
             data: components["schemas"]["RecordFileView"];
+        };
+        ApiResponseRecordPageAssignmentView: {
+            data: components["schemas"]["RecordPageAssignmentView"];
+        };
+        ApiResponseRecordPageDescriptorView: {
+            data: components["schemas"]["RecordPageDescriptorView"];
+        };
+        ApiResponseRecordPageResolutionView: {
+            data: components["schemas"]["RecordPageResolutionView"];
         };
         ApiResponseRecordPageView: {
             data: components["schemas"]["RecordPageView"];
@@ -3956,6 +4060,7 @@ export interface components {
             createLayoutAssignment?: components["schemas"]["CreateLayoutAssignmentRequest"];
             createObject?: components["schemas"]["CreateObjectRequest"];
             createRecordPage?: components["schemas"]["CreateRecordPageRequest"];
+            createRecordPageAssignment?: components["schemas"]["CreateRecordPageAssignmentRequest"];
             createRecordType?: components["schemas"]["CreateRecordTypeRequest"];
             createRecordTypeAssignment?: components["schemas"]["CreateRecordTypeAssignmentRequest"];
             createTab?: components["schemas"]["CreateTabRequest"];
@@ -3970,6 +4075,7 @@ export interface components {
             updateLayoutAssignment?: components["schemas"]["UpdateLayoutAssignmentRequest"];
             updateObject?: components["schemas"]["UpdateObjectRequest"];
             updateRecordPage?: components["schemas"]["UpdateRecordPageRequest"];
+            updateRecordPageAssignment?: components["schemas"]["UpdateRecordPageAssignmentRequest"];
             updateRecordType?: components["schemas"]["UpdateRecordTypeRequest"];
             updateRecordTypeAssignment?: components["schemas"]["UpdateRecordTypeAssignmentRequest"];
             updateTab?: components["schemas"]["UpdateTabRequest"];
@@ -4082,6 +4188,12 @@ export interface components {
         CreateOrganizationRequest: {
             displayName: string;
             slug: string;
+        };
+        CreateRecordPageAssignmentRequest: {
+            /** Format: uuid */
+            profileId?: string;
+            recordPage: string;
+            recordType?: string;
         };
         CreateRecordPageRequest: {
             definition: components["schemas"]["RecordPageDefinition"];
@@ -4749,8 +4861,11 @@ export interface components {
             slug: string;
         };
         PageAction: {
-            /** @enum {string} */
-            action: "EDIT" | "DELETE" | "CLONE";
+            /**
+             * @description SHARE opens the record's own sharing (Sprint 17/17A: who it is shared with, and its owner); shown only to whoever may change the record, exactly like EDIT.
+             * @enum {string}
+             */
+            action: "EDIT" | "DELETE" | "CLONE" | "SHARE";
             label?: string;
             visibleWhen?: components["schemas"]["VisibilityRule"];
         };
@@ -4935,11 +5050,60 @@ export interface components {
             /** Format: int64 */
             size?: number;
         };
+        RecordPageActionView: {
+            action: string;
+            label: string;
+        };
+        RecordPageAssignmentView: {
+            key: string;
+            /** Format: uuid */
+            profileId?: string;
+            profileName?: string;
+            recordPage: string;
+            recordType?: string;
+            /** Format: int64 */
+            version: number;
+        };
+        RecordPageBlockView: {
+            /** Format: uuid */
+            assetId?: string;
+            columns?: string[];
+            customPageApiName?: string;
+            field?: string;
+            kind: string;
+            label: string;
+            /** Format: int32 */
+            limit?: number;
+            object?: string;
+            tabApiName?: string;
+        };
         /** @description The structure of a record page: which layout its details show, its components in order, and its actions. */
         RecordPageDefinition: {
             actions?: components["schemas"]["PageAction"][];
             components: components["schemas"]["PageComponent"][];
             layout: components["schemas"]["ApiNameShape"];
+        };
+        RecordPageDescriptorView: {
+            above: components["schemas"]["RecordPageBlockView"][];
+            actions: components["schemas"]["RecordPageActionView"][];
+            apiName?: string;
+            below: components["schemas"]["RecordPageBlockView"][];
+            header: components["schemas"]["RecordPageHeaderView"];
+            layout?: string;
+            sidebar: components["schemas"]["RecordPageBlockView"][];
+            tabs: components["schemas"]["RecordPageTabView"][];
+        };
+        RecordPageHeaderView: {
+            highlightFields: string[];
+            titleField?: string;
+        };
+        RecordPageResolutionView: {
+            recordPage?: string;
+            rule: string;
+        };
+        RecordPageTabView: {
+            blocks: components["schemas"]["RecordPageBlockView"][];
+            label: string;
         };
         RecordPageView: {
             apiName: string;
@@ -5215,7 +5379,7 @@ export interface components {
             host: string;
             token: string;
         };
-        /** @description A component inside a tab: anything but another set of tabs. */
+        /** @description A component inside a tab: anything but another set of tabs. TAB shows a tab of the organization (Sprint 18): its label is optional and replaces the label of the tab, the same as a TAB entry of an application's navigation. */
         TabComponent: {
             columns?: components["schemas"]["FieldNameShape"][];
             field?: components["schemas"]["FieldNameShape"];
@@ -5224,10 +5388,11 @@ export interface components {
             /** @description Left out: 5. */
             limit?: number;
             object?: components["schemas"]["ObjectNameShape"];
+            tab?: components["schemas"]["ApiNameShape"];
             /** @enum {string} */
-            type: "DETAILS" | "RELATED_LIST" | "ACTIVITY" | "HISTORY";
+            type: "DETAILS" | "RELATED_LIST" | "ACTIVITY" | "HISTORY" | "TAB";
             visibleWhen?: components["schemas"]["VisibilityRule"];
-        } & (unknown & unknown);
+        } & (unknown & unknown & unknown);
         /** @description What a tab is beyond its name (Sprint 18, ADR-0128). The only kind today is CUSTOM: the tab shows a custom page. An object needs no tab of its own: the navigation item OBJECT opens it. */
         TabDefinition: {
             customPage?: components["schemas"]["ApiNameShape"];
@@ -5310,6 +5475,11 @@ export interface components {
             description?: string;
             label: string;
             pluralLabel: string;
+            /** Format: int64 */
+            version: number;
+        };
+        UpdateRecordPageAssignmentRequest: {
+            recordPage: string;
             /** Format: int64 */
             version: number;
         };
@@ -8694,6 +8864,204 @@ export interface operations {
             };
         };
     };
+    listRecordPageAssignments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListRecordPageAssignmentView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createRecordPageAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRecordPageAssignmentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordPageAssignmentView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getRecordPageAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordPageAssignmentView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateRecordPageAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRecordPageAssignmentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordPageAssignmentView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteRecordPageAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    resolveRecordPage: {
+        parameters: {
+            query?: {
+                profileId?: string;
+                recordType?: string;
+            };
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordPageResolutionView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     listRecordPages: {
         parameters: {
             query?: never;
@@ -9702,6 +10070,7 @@ export interface operations {
             query?: {
                 recordType?: string;
                 recordId?: string;
+                layout?: string;
             };
             header?: never;
             path: {
@@ -10081,6 +10450,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseListLookupOptionView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getRecordPage_1: {
+        parameters: {
+            query?: {
+                recordType?: string;
+                recordId?: string;
+            };
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordPageDescriptorView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

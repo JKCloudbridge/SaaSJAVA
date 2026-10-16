@@ -7,6 +7,7 @@ import app.platform.metadata.FieldConfiguration.ReferenceConfiguration;
 import app.platform.metadata.FieldDefinition;
 import app.platform.metadata.FieldType;
 import app.platform.metadata.LayoutAssignment;
+import app.platform.metadata.RecordPageAssignment;
 import app.platform.metadata.RecordTypeAssignment;
 import app.platform.metadata.ObjectDefinition;
 import app.platform.metadata.PageLayout;
@@ -136,8 +137,12 @@ final class DefinitionDependencies {
             }
             component.path("highlightFields").forEach(field ->
                     sink.edge(self, "shows", DependencyGraph.Node.field(object, field.asString())));
-            if ("RELATED_LIST".equals(component.path("type").asString())) {
+            String type = component.path("type").asString();
+            if ("RELATED_LIST".equals(type)) {
                 relatedList(snapshot, sink, page, self, component);
+            }
+            if ("TAB".equals(type)) {
+                sink.edge(self, "shows", DependencyGraph.Node.tab(component.path("tab").asString()));
             }
         }
 
@@ -179,6 +184,29 @@ final class DefinitionDependencies {
                 DependencyGraph.Node self = DependencyGraph.Node.assignment(object, assignment.key());
                 sink.edge(self, "belongs to", DependencyGraph.Node.object(object));
                 sink.edge(self, "uses", DependencyGraph.Node.layout(object, assignment.layout()));
+                if (assignment.recordType() != null) {
+                    sink.edge(self, "applies to", DependencyGraph.Node.recordType(object, assignment.recordType()));
+                }
+            }
+        }
+    }
+
+    /**
+     * A record page assignment (Sprint 20, ADR-0131): its record page and, when it has one, its record type. Unlike a
+     * layout assignment, the record-type-alone rule is also stored here (a record type carries no record page of its
+     * own), so an assignment with a record type and no profile depends on the record type too, exactly as one with a
+     * profile does.
+     */
+    @Component
+    static class RecordPageAssignments implements DependencyGraph.Contributor {
+
+        @Override
+        public void contribute(MetadataSnapshot snapshot, DependencyGraph.Sink sink) {
+            for (RecordPageAssignment assignment : snapshot.allRecordPageAssignments()) {
+                String object = assignment.objectApiName();
+                DependencyGraph.Node self = DependencyGraph.Node.recordPageAssignment(object, assignment.key());
+                sink.edge(self, "belongs to", DependencyGraph.Node.object(object));
+                sink.edge(self, "uses", DependencyGraph.Node.recordPage(object, assignment.recordPage()));
                 if (assignment.recordType() != null) {
                     sink.edge(self, "applies to", DependencyGraph.Node.recordType(object, assignment.recordType()));
                 }

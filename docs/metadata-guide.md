@@ -441,3 +441,20 @@ Every object you define gets a **list**, a **create form** and an **edit form** 
 **Search, change several records, import.** The search box on a list uses the words of the object's searchable fields (section 17). A person with the right to change or delete can select rows and change a field on all of them or delete them; each record is judged on its own and the report names the ones that were refused. **Import** (a button on the list, for someone who may create) takes a CSV file: choose the file, say which column fills which field, check it first (nothing is saved), then import; the report of refused rows can be downloaded and corrected.
 
 **Not here yet.** Editing a value in a cell of the list, a count on each view, and showing one view to a single group are not built.
+
+## 19. Record pages: which page people get and how a record looks (Sprint 20)
+
+A **record page** is the screen of one record: a card with its name and a few values, then the page's blocks and tabs, and the actions a person may use. You build the pages in Setup (section 11); this section is about **which page a person gets** and what they see.
+
+**Which page.** Choose it with a **record page assignment**, in this order: the profile together with the record type, the record type alone, the profile alone, the object's default. The first rule that applies wins. A record page does not change with the application the person came from. Deleting a profile is never blocked; an assignment of a deleted profile is ignored. For now assignments are made through the API or a change set; the screen comes with the admin screens of Sprint 21.
+
+**When you set nothing up.** Every object still has a record screen: the details on a **Content** tab and, if other objects have a link to this one, a **Related Records** tab with a list for each link (five rows, then "View all"). The card shows the record's name and a few of its values.
+
+**What a person sees is cut to what they may reach.** A related list of an object they may not read, or one that would show a field they may not read, is not there at all; the same for a tab of the organization that was removed and an action their permission does not allow. A condition that tests a field they may not read treats it as empty.
+
+**The details follow the page's layout.** The layout a record page names is the one its details use, for everyone who sees that page; people still see only the fields they may read, and edit only the ones they may edit. A page with no layout of its own (the platform's own page) uses the layout the object has for the person's profile and record type (section 11).
+
+**Reading and changing.** A record opens as text. **Edit** turns the details into the form of section 18, with **Save** and **Cancel** beside it; **Clone** starts a new record from this one's values (never its owner, a unique value or an identifier from another system); **Share** opens who the record is shared with and its owner; **Delete** asks first. Which of these appear is the record page's own list of actions, cut to what the person may do.
+
+**Not here yet.** Activity and history components are accepted and not drawn; pages that differ by device; custom buttons.
+

@@ -641,7 +641,7 @@
     },
     "TabComponent": {
       "type": "object",
-      "description": "A component inside a tab: anything but another set of tabs.",
+      "description": "A component inside a tab: anything but another set of tabs. TAB shows a tab of the organization (Sprint 18): its label is optional and replaces the label of the tab, the same as a TAB entry of an application's navigation.",
       "additionalProperties": false,
       "required": [
         "key",
@@ -658,7 +658,8 @@
             "DETAILS",
             "RELATED_LIST",
             "ACTIVITY",
-            "HISTORY"
+            "HISTORY",
+            "TAB"
           ]
         },
         "visibleWhen": {
@@ -688,6 +689,9 @@
           "minimum": 1,
           "maximum": 50,
           "description": "Left out: 5."
+        },
+        "tab": {
+          "$ref": "#/components/schemas/ApiNameShape"
         }
       },
       "allOf": [
@@ -712,7 +716,8 @@
               "object": false,
               "field": false,
               "columns": false,
-              "limit": false
+              "limit": false,
+              "tab": false
             }
           }
         },
@@ -732,7 +737,33 @@
               "object",
               "field",
               "columns"
-            ]
+            ],
+            "properties": {
+              "tab": false
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "const": "TAB"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "tab"
+            ],
+            "properties": {
+              "object": false,
+              "field": false,
+              "columns": false,
+              "limit": false
+            }
           }
         }
       ]
@@ -749,8 +780,10 @@
           "enum": [
             "EDIT",
             "DELETE",
-            "CLONE"
-          ]
+            "CLONE",
+            "SHARE"
+          ],
+          "description": "SHARE opens the record's own sharing (Sprint 17/17A: who it is shared with, and its owner); shown only to whoever may change the record, exactly like EDIT."
         },
         "label": {
           "type": "string",

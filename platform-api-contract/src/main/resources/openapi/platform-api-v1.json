@@ -3990,6 +3990,277 @@
         "tags" : [ "Metadata" ]
       }
     },
+    "/api/v1/metadata/objects/{objectApiName}/record-page-assignments" : {
+      "get" : {
+        "description" : "The default record page of the object and the record pages chosen for profiles and record types. A profile that no longer exists has no name here and is ignored when a record page is chosen. NOT_FOUND for an object the organization does not have.",
+        "operationId" : "listRecordPageAssignments",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListRecordPageAssignmentView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The record page assignments of an object",
+        "tags" : [ "Metadata" ]
+      },
+      "post" : {
+        "description" : "Live at once, as a release of one change. With no profile and no record type it is the default record page of the object. CONFLICT when the record page or record type does not exist. Audited.",
+        "operationId" : "createRecordPageAssignment",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateRecordPageAssignmentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordPageAssignmentView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Choose a record page for a profile, a record type, or both, or the default of the object",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/record-page-assignments/{key}" : {
+      "delete" : {
+        "description" : "The key is default, type and a tilde and the API name of a record type for the record-type-alone rule, the identifier of the profile, or the identifier of the profile, a tilde and the API name of the record type. Live at once, as a release of one change. Audited.",
+        "operationId" : "deleteRecordPageAssignment",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a record page assignment",
+        "tags" : [ "Metadata" ]
+      },
+      "get" : {
+        "description" : "The key is default, type and a tilde and the API name of a record type for the record-type-alone rule, the identifier of the profile, or the identifier of the profile, a tilde and the API name of the record type. NOT_FOUND for an assignment the object does not have.",
+        "operationId" : "getRecordPageAssignment",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordPageAssignmentView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One record page assignment",
+        "tags" : [ "Metadata" ]
+      },
+      "put" : {
+        "description" : "The key is default, type and a tilde and the API name of a record type for the record-type-alone rule, the identifier of the profile, or the identifier of the profile, a tilde and the API name of the record type. Live at once, as a release of one change. CONCURRENT_MODIFICATION when someone changed it since it was read. Audited.",
+        "operationId" : "updateRecordPageAssignment",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateRecordPageAssignmentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordPageAssignmentView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Point a record page assignment at another record page",
+        "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/objects/{objectApiName}/record-page-resolution" : {
+      "get" : {
+        "description" : "The first rule of this order that applies: the profile together with the record type, the record type alone, the profile alone, the default record page of the object. The answer names the rule; NONE when the object has no record page.",
+        "operationId" : "resolveRecordPage",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "profileId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "recordType",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordPageResolutionView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Which record page an object uses for a profile and a record type",
+        "tags" : [ "Metadata" ]
+      }
+    },
     "/api/v1/metadata/objects/{objectApiName}/record-pages" : {
       "get" : {
         "description" : "For members who may view objects and fields. NOT_FOUND for an object the organization does not have.",
@@ -5303,7 +5574,7 @@
     },
     "/api/v1/objects/{objectApiName}/form" : {
       "get" : {
-        "description" : "What a screen needs to draw the list, the create form and the edit form of the object for this member, in one answer. Only the fields the member may read are described (the others are absent, not masked), restricted to what the record type offers, with what they may type, the comparisons a filter accepts and whether a list can be ordered by each. The layout is the object's page layout for the member's profile and the record type, reduced to what they see, or one the platform makes when the object has none. recordType describes the object for one of the record types the member may use (VALIDATION_ERROR at recordType for any other, answered like a type that does not exist); without it, recordId (the record being edited) decides by the type that record holds, and without both the member's default type does. Presentation only: every request that follows is decided again. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read (all three answer alike). Also NOT_FOUND for a record they cannot reach. Organization hosts only.",
+        "description" : "What a screen needs to draw the list, the create form and the edit form of the object for this member, in one answer. Only the fields the member may read are described (the others are absent, not masked), restricted to what the record type offers, with what they may type, the comparisons a filter accepts and whether a list can be ordered by each. The layout is the object's page layout for the member's profile and the record type, reduced to what they see, or one the platform makes when the object has none. recordType describes the object for one of the record types the member may use (VALIDATION_ERROR at recordType for any other, answered like a type that does not exist); without it, recordId (the record being edited) decides by the type that record holds, and without both the member's default type does. layout names the page layout to draw (a record page names one); a name that is not a layout of the object is ignored and the member's own resolution decides. Presentation only: every request that follows is decided again. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read (all three answer alike). Also NOT_FOUND for a record they cannot reach. Organization hosts only.",
         "operationId" : "getObjectForm",
         "parameters" : [ {
           "in" : "path",
@@ -5326,6 +5597,13 @@
           "schema" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "layout",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "responses" : {
@@ -5852,6 +6130,59 @@
           }
         },
         "summary" : "The records a link field could point to, for a picker",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/record-page" : {
+      "get" : {
+        "description" : "The header, the tabs and the actions, each already filtered to what the caller may reach; a block or an action the caller may not use is left out, never shown as refused. With no recordType and no recordId the object's own default rule decides; with a recordId its own record type is used unless recordType overrides it. NOT_FOUND for an object the caller may not read or that does not exist, or a record they cannot reach.",
+        "operationId" : "getRecordPage_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "recordType",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "recordId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordPageDescriptorView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The record page of an object, resolved for the signed-in member",
         "tags" : [ "Records" ]
       }
     },
@@ -9986,6 +10317,18 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListRecordPageAssignmentView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordPageAssignmentView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListRecordPageView" : {
         "type" : "object",
         "properties" : {
@@ -10267,6 +10610,33 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/RecordFileView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseRecordPageAssignmentView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/RecordPageAssignmentView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseRecordPageDescriptorView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/RecordPageDescriptorView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseRecordPageResolutionView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/RecordPageResolutionView"
           }
         },
         "required" : [ "data" ]
@@ -10709,6 +11079,9 @@
           "createRecordPage" : {
             "$ref" : "#/components/schemas/CreateRecordPageRequest"
           },
+          "createRecordPageAssignment" : {
+            "$ref" : "#/components/schemas/CreateRecordPageAssignmentRequest"
+          },
           "createRecordType" : {
             "$ref" : "#/components/schemas/CreateRecordTypeRequest"
           },
@@ -10756,6 +11129,9 @@
           },
           "updateRecordPage" : {
             "$ref" : "#/components/schemas/UpdateRecordPageRequest"
+          },
+          "updateRecordPageAssignment" : {
+            "$ref" : "#/components/schemas/UpdateRecordPageAssignmentRequest"
           },
           "updateRecordType" : {
             "$ref" : "#/components/schemas/UpdateRecordTypeRequest"
@@ -11165,6 +11541,26 @@
           }
         },
         "required" : [ "displayName", "slug" ]
+      },
+      "CreateRecordPageAssignmentRequest" : {
+        "type" : "object",
+        "properties" : {
+          "profileId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "recordPage" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "recordType" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "recordPage" ]
       },
       "CreateRecordPageRequest" : {
         "type" : "object",
@@ -13265,7 +13661,8 @@
         "properties" : {
           "action" : {
             "type" : "string",
-            "enum" : [ "EDIT", "DELETE", "CLONE" ]
+            "description" : "SHARE opens the record's own sharing (Sprint 17/17A: who it is shared with, and its owner); shown only to whoever may change the record, exactly like EDIT.",
+            "enum" : [ "EDIT", "DELETE", "CLONE", "SHARE" ]
           },
           "label" : {
             "type" : "string",
@@ -13959,6 +14356,82 @@
         },
         "required" : [ "contentType", "createdAt", "createdBy", "id", "name", "sha256" ]
       },
+      "RecordPageActionView" : {
+        "type" : "object",
+        "properties" : {
+          "action" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "action", "label" ]
+      },
+      "RecordPageAssignmentView" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "profileId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "profileName" : {
+            "type" : "string"
+          },
+          "recordPage" : {
+            "type" : "string"
+          },
+          "recordType" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "key", "recordPage", "version" ]
+      },
+      "RecordPageBlockView" : {
+        "type" : "object",
+        "properties" : {
+          "assetId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "columns" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "customPageApiName" : {
+            "type" : "string"
+          },
+          "field" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "limit" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "object" : {
+            "type" : "string"
+          },
+          "tabApiName" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "kind", "label" ]
+      },
       "RecordPageDefinition" : {
         "type" : "object",
         "additionalProperties" : false,
@@ -13984,6 +14457,93 @@
           }
         },
         "required" : [ "components", "layout" ]
+      },
+      "RecordPageDescriptorView" : {
+        "type" : "object",
+        "properties" : {
+          "above" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordPageBlockView"
+            }
+          },
+          "actions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordPageActionView"
+            }
+          },
+          "apiName" : {
+            "type" : "string"
+          },
+          "below" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordPageBlockView"
+            }
+          },
+          "header" : {
+            "$ref" : "#/components/schemas/RecordPageHeaderView"
+          },
+          "layout" : {
+            "type" : "string"
+          },
+          "sidebar" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordPageBlockView"
+            }
+          },
+          "tabs" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordPageTabView"
+            }
+          }
+        },
+        "required" : [ "above", "actions", "below", "header", "sidebar", "tabs" ]
+      },
+      "RecordPageHeaderView" : {
+        "type" : "object",
+        "properties" : {
+          "highlightFields" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "titleField" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "highlightFields" ]
+      },
+      "RecordPageResolutionView" : {
+        "type" : "object",
+        "properties" : {
+          "recordPage" : {
+            "type" : "string"
+          },
+          "rule" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "rule" ]
+      },
+      "RecordPageTabView" : {
+        "type" : "object",
+        "properties" : {
+          "blocks" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordPageBlockView"
+            }
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "blocks", "label" ]
       },
       "RecordPageView" : {
         "type" : "object",
@@ -14843,7 +15403,8 @@
               "field" : false,
               "label" : false,
               "limit" : false,
-              "object" : false
+              "object" : false,
+              "tab" : false
             }
           }
         }, {
@@ -14856,10 +15417,31 @@
             "required" : [ "type" ]
           },
           "then" : {
+            "properties" : {
+              "tab" : false
+            },
             "required" : [ "columns", "field", "object" ]
           }
+        }, {
+          "if" : {
+            "properties" : {
+              "type" : {
+                "const" : "TAB"
+              }
+            },
+            "required" : [ "type" ]
+          },
+          "then" : {
+            "properties" : {
+              "columns" : false,
+              "field" : false,
+              "limit" : false,
+              "object" : false
+            },
+            "required" : [ "tab" ]
+          }
         } ],
-        "description" : "A component inside a tab: anything but another set of tabs.",
+        "description" : "A component inside a tab: anything but another set of tabs. TAB shows a tab of the organization (Sprint 18): its label is optional and replaces the label of the tab, the same as a TAB entry of an application's navigation.",
         "properties" : {
           "columns" : {
             "type" : "array",
@@ -14890,9 +15472,12 @@
           "object" : {
             "$ref" : "#/components/schemas/ObjectNameShape"
           },
+          "tab" : {
+            "$ref" : "#/components/schemas/ApiNameShape"
+          },
           "type" : {
             "type" : "string",
-            "enum" : [ "DETAILS", "RELATED_LIST", "ACTIVITY", "HISTORY" ]
+            "enum" : [ "DETAILS", "RELATED_LIST", "ACTIVITY", "HISTORY", "TAB" ]
           },
           "visibleWhen" : {
             "$ref" : "#/components/schemas/VisibilityRule"
@@ -15178,6 +15763,21 @@
           }
         },
         "required" : [ "label", "pluralLabel", "version" ]
+      },
+      "UpdateRecordPageAssignmentRequest" : {
+        "type" : "object",
+        "properties" : {
+          "recordPage" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "recordPage", "version" ]
       },
       "UpdateRecordPageRequest" : {
         "type" : "object",

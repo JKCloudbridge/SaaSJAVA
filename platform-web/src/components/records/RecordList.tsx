@@ -10,6 +10,7 @@ import {
   defaultColumns,
   definitionOf,
   describeRow,
+  newRowKey,
   queryOfView,
   queryRequestOf,
   type ListQuery,
@@ -46,6 +47,8 @@ const PAGE_SIZES = [25, 50, 100];
  * @param newHref where the create form of the object is, or undefined when this screen has none
  * @param openHref where a record of the object opens
  * @param recordHref where a linked record of another object opens
+ * @param initialFilter a link field and the record it must point at, to start with (the "view all" of a related list on
+ *        a record page, Sprint 20); ignored when the member has no such field or it takes no "is" comparison
  */
 export function RecordList({
   objectApiName,
@@ -53,20 +56,57 @@ export function RecordList({
   newHref,
   openHref,
   recordHref,
+  initialFilter,
 }: {
   objectApiName: string;
   form: ObjectForm;
   newHref?: string;
   openHref: (id: string) => string;
   recordHref: (objectApiName: string, id: string) => string;
+  initialFilter?: { field: string; value: string };
 }) {
   const { state: session } = useSession();
   const canShare = session.status === "signedIn" && session.user.abilities.includes("views.share");
   const byName = useMemo(() => new Map(form.fields.map((field) => [field.apiName, field])), [form.fields]);
 
-  const [query, setQuery] = useState<ListQuery>(() => ({ filters: [], sort: [], columns: defaultColumns(form) }));
+  const [query, setQuery] = useState<ListQuery>(() => {
+    const target = initialFilter ? byName.get(initialFilter.field) : undefined;
+    const usable = initialFilter && target && target.filterOperators.includes("EQ");
+    return {
+      filters: usable
+        ? [{ key: newRowKey(), field: initialFilter.field, op: "EQ", text: initialFilter.value, text2: "" }]
+        : [],
+      sort: [],
+      columns: defaultColumns(form),
+    };
+  });
   const [draft, setDraft] = useState<ListQuery>(query);
   const [chosen, setChosen] = useState<Record<string, string>>({});
+
+  // The name of the record the starting filter points at, so the chip never shows an identifier.
+  useEffect(() => {
+    const row = query.filters[0];
+    if (!initialFilter || !row || row.field !== initialFilter.field) {
+      return;
+    }
+    let live = true;
+    void call(() =>
+      api.POST("/api/v1/objects/{objectApiName}/lookups/{fieldApiName}/labels", {
+        params: { path: { objectApiName, fieldApiName: initialFilter.field } },
+        body: { ids: [initialFilter.value] },
+      }),
+    ).then((outcome) => {
+      const label = outcome.ok ? outcome.data.data.labels[initialFilter.value] : undefined;
+      if (live && label) {
+        setChosen((current) => ({ ...current, [row.key]: label }));
+      }
+    });
+    return () => {
+      live = false;
+    };
+    // Asked once for the filter the list started with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [searchText, setSearchText] = useState("");
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0] ?? 25);
@@ -287,7 +327,7 @@ export function RecordList({
     ? [{ key: "raw", text: "A filter of the view" }]
     : query.filters.flatMap((row) => {
         const field = byName.get(row.field);
-        return field ? [{ key: row.key, text: describeRow(row, field) }] : [];
+        return field ? [{ key: row.key, text: describeRow(row, field, chosen[row.key]) }] : [];
       });
 
   return (

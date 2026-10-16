@@ -14,6 +14,7 @@ import app.platformapi.CreateFieldRequest;
 import app.platformapi.CreateLayoutAssignmentRequest;
 import app.platformapi.CreateLayoutRequest;
 import app.platformapi.CreateObjectRequest;
+import app.platformapi.CreateRecordPageAssignmentRequest;
 import app.platformapi.CreateRecordPageRequest;
 import app.platformapi.CreateRecordTypeAssignmentRequest;
 import app.platformapi.CreateRecordTypeRequest;
@@ -22,6 +23,7 @@ import app.platformapi.FieldView;
 import app.platformapi.LayoutAssignmentView;
 import app.platformapi.LayoutView;
 import app.platformapi.ObjectView;
+import app.platformapi.RecordPageAssignmentView;
 import app.platformapi.RecordPageView;
 import app.platformapi.RecordTypeAssignmentView;
 import app.platformapi.RecordTypeView;
@@ -31,6 +33,7 @@ import app.platformapi.UpdateFieldRequest;
 import app.platformapi.UpdateLayoutAssignmentRequest;
 import app.platformapi.UpdateLayoutRequest;
 import app.platformapi.UpdateObjectRequest;
+import app.platformapi.UpdateRecordPageAssignmentRequest;
 import app.platformapi.UpdateRecordPageRequest;
 import app.platformapi.UpdateRecordTypeAssignmentRequest;
 import app.platformapi.UpdateRecordTypeRequest;
@@ -54,7 +57,8 @@ class ChangeApplier {
      *
      * @param result the view the live endpoint returns (an {@code ObjectView}, {@code FieldView},
      *        {@code RecordTypeView}, {@code LayoutView}, {@code RecordPageView}, {@code ApplicationView},
-     *        {@code LayoutAssignmentView}, {@code ValidationRuleView}, or {@code Boolean.TRUE} for a removal)
+     *        {@code LayoutAssignmentView}, {@code RecordPageAssignmentView}, {@code ValidationRuleView}, or
+     *        {@code Boolean.TRUE} for a removal)
      * @param undo the changes that put things back, to be applied in this order; empty when nothing changed
      * @param items what was added, changed or removed
      */
@@ -65,18 +69,20 @@ class ChangeApplier {
     private final RecordTypeService recordTypes;
     private final DefinitionService definitions;
     private final AssignmentService assignments;
+    private final RecordPageAssignmentService recordPageAssignments;
     private final RecordTypeAssignmentService typeAssignments;
     private final ValidationRuleService rules;
     private final ChangeCodec codec;
 
     ChangeApplier(MetadataService metadata, RecordTypeService recordTypes, DefinitionService definitions,
-            AssignmentService assignments, ValidationRuleService rules, RecordTypeAssignmentService typeAssignments,
-            ChangeCodec codec) {
+            AssignmentService assignments, RecordPageAssignmentService recordPageAssignments,
+            ValidationRuleService rules, RecordTypeAssignmentService typeAssignments, ChangeCodec codec) {
         this.rules = rules;
         this.metadata = metadata;
         this.recordTypes = recordTypes;
         this.definitions = definitions;
         this.assignments = assignments;
+        this.recordPageAssignments = recordPageAssignments;
         this.typeAssignments = typeAssignments;
         this.codec = codec;
     }
@@ -122,6 +128,9 @@ class ChangeApplier {
             case CREATE_CUSTOM_PAGE -> createCustomPage(caller, change);
             case UPDATE_CUSTOM_PAGE -> updateCustomPage(caller, change);
             case DELETE_CUSTOM_PAGE -> deleteCustomPage(caller, change);
+            case CREATE_RECORD_PAGE_ASSIGNMENT -> createRecordPageAssignment(caller, change);
+            case UPDATE_RECORD_PAGE_ASSIGNMENT -> updateRecordPageAssignment(caller, change);
+            case DELETE_RECORD_PAGE_ASSIGNMENT -> deleteRecordPageAssignment(caller, change);
         };
     }
 
@@ -393,6 +402,34 @@ class ChangeApplier {
         assignments.delete(caller, change.object(), change.item());
         return new Applied(Boolean.TRUE, List.of(codec.makeAssignment(change.object(), before)),
                 List.of(item("REMOVED", "LAYOUT_ASSIGNMENT", change.object(), change.item())));
+    }
+
+    // ---- record page assignments (Sprint 20) ----
+
+    private Applied createRecordPageAssignment(Caller caller, Change change) {
+        RecordPageAssignmentView made = recordPageAssignments.create(caller, change.object(), codec.read(change,
+                CreateRecordPageAssignmentRequest.class));
+        return new Applied(made, List.of(codec.removeRecordPageAssignment(change.object(), made.key())),
+                List.of(item("ADDED", "RECORD_PAGE_ASSIGNMENT", change.object(), made.key())));
+    }
+
+    private Applied updateRecordPageAssignment(Caller caller, Change change) {
+        RecordPageAssignmentView before = recordPageAssignments.get(change.object(), change.item());
+        RecordPageAssignmentView after = recordPageAssignments.update(caller, change.object(), change.item(),
+                codec.read(change, UpdateRecordPageAssignmentRequest.class));
+        if (after.version().equals(before.version())) {
+            return new Applied(after, List.of(), List.of());
+        }
+        return new Applied(after, List.of(codec.restoreRecordPageAssignment(change.object(), before,
+                after.version())), List.of(item("CHANGED", "RECORD_PAGE_ASSIGNMENT", change.object(),
+                after.key())));
+    }
+
+    private Applied deleteRecordPageAssignment(Caller caller, Change change) {
+        RecordPageAssignmentView before = recordPageAssignments.get(change.object(), change.item());
+        recordPageAssignments.delete(caller, change.object(), change.item());
+        return new Applied(Boolean.TRUE, List.of(codec.makeRecordPageAssignment(change.object(), before)),
+                List.of(item("REMOVED", "RECORD_PAGE_ASSIGNMENT", change.object(), change.item())));
     }
 
     // ---- record type assignments (Sprint 15A) ----

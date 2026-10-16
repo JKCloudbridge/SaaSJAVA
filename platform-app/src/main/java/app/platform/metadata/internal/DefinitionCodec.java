@@ -5,6 +5,7 @@ import app.platform.metadata.ApplicationDefinition.ItemType;
 import app.platform.metadata.ApplicationDefinition.NavigationItem;
 import app.platform.metadata.CustomPage;
 import app.platform.metadata.LayoutAssignment;
+import app.platform.metadata.RecordPageAssignment;
 import app.platform.metadata.RecordTypeAssignment;
 import app.platform.metadata.PageLayout;
 import app.platform.metadata.RecordPage;
@@ -14,6 +15,7 @@ import app.platformapi.CustomPageView;
 import app.platformapi.TabView;
 import app.platformapi.LayoutAssignmentView;
 import app.platformapi.LayoutView;
+import app.platformapi.RecordPageAssignmentView;
 import app.platformapi.RecordPageView;
 import java.util.ArrayList;
 import java.util.List;
@@ -92,6 +94,11 @@ final class DefinitionCodec {
                 row.version());
     }
 
+    RecordPageAssignment recordPageAssignment(RecordPageAssignmentStore.Row row) {
+        return new RecordPageAssignment(row.objectApiName(), row.profileId(), row.recordType(), row.recordPage(),
+                row.version());
+    }
+
     RecordTypeAssignment typeAssignment(RecordTypeAssignmentStore.Row row) {
         return new RecordTypeAssignment(row.objectApiName(), row.recordType(), row.profileId(),
                 row.defaultForProfile(), row.version());
@@ -127,5 +134,11 @@ final class DefinitionCodec {
         return new LayoutAssignmentView(assignment.key(), assignment.profileId(),
                 assignment.profileId() == null ? null : profileNames.get(assignment.profileId()),
                 assignment.recordType(), assignment.layout(), assignment.version());
+    }
+
+    static RecordPageAssignmentView view(RecordPageAssignment assignment, Map<UUID, String> profileNames) {
+        return new RecordPageAssignmentView(assignment.key(), assignment.profileId(),
+                assignment.profileId() == null ? null : profileNames.get(assignment.profileId()),
+                assignment.recordType(), assignment.recordPage(), assignment.version());
     }
 }

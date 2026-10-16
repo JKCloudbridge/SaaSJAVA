@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api/client";
 import { call, type Outcome } from "./call";
 import { linkIdentifiers } from "./fieldValue";
-import type { FormField, ObjectForm, RecordValues } from "./types";
+import type { FormField, ObjectForm, RecordPageDescriptor, RecordValues } from "./types";
 
 /** What the form description of an object came to, with a way to ask again. */
 export type FormState =
@@ -19,16 +19,82 @@ export type FormState =
  *
  * @param recordType the record type to describe the object for, or undefined for the member's default (or the held one)
  * @param recordId the record being edited: its own record type decides when none is given
+ * @param layout the layout a record page names for its details (Sprint 20); without it the member's own resolution decides
+ * @param enabled false while something this description depends on (the record page, which names the layout) is not
+ *        known yet: nothing is asked and the last good description, if any, stays on screen
  */
-export function useObjectForm(objectApiName: string, recordType?: string, recordId?: string) {
+export function useObjectForm(
+  objectApiName: string,
+  recordType?: string,
+  recordId?: string,
+  layout?: string,
+  enabled = true,
+) {
+  const [attempt, setAttempt] = useState(0);
+  const key = `${objectApiName}|${recordType ?? ""}|${recordId ?? ""}|${layout ?? ""}|${attempt}`;
+  const [loaded, setLoaded] = useState<{ key: string; outcome: Outcome<{ data: ObjectForm }> } | null>(null);
+
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    let live = true;
+    void call(() =>
+      api.GET("/api/v1/objects/{objectApiName}/form", {
+        params: { path: { objectApiName }, query: { recordType, recordId, layout } },
+      }),
+    ).then((outcome) => {
+      if (live) {
+        setLoaded({ key, outcome });
+      }
+    });
+    return () => {
+      live = false;
+    };
+  }, [key, objectApiName, recordType, recordId, layout, enabled]);
+
+  const reload = useCallback(() => setAttempt((value) => value + 1), []);
+  // While another description is on its way (another record type) the last good one stays, so a form being filled in
+  // is not torn down and the person's typing is not lost.
+  const last = loaded?.outcome.ok ? loaded.outcome.data.data : undefined;
+  let state: FormState = { status: "loading", previous: last?.objectApiName === objectApiName ? last : undefined };
+  if (enabled && loaded && loaded.key === key) {
+    state = loaded.outcome.ok
+      ? { status: "ready", form: loaded.outcome.data.data }
+      : {
+          status: "failed",
+          message: loaded.outcome.failure.message,
+          notFound: loaded.outcome.failure.code === "NOT_FOUND",
+        };
+  }
+  return { state, reload };
+}
+
+/** What the record page of an object came to, with a way to ask again. */
+export type RecordPageState =
+  | { status: "loading"; previous?: RecordPageDescriptor }
+  | { status: "ready"; page: RecordPageDescriptor }
+  | { status: "failed"; message: string; notFound: boolean };
+
+/**
+ * The member's own record page of an object (`GET /objects/{object}/record-page`, Sprint 20, ADR-0131): the header,
+ * the tabs and the actions, each already filtered to what the caller may reach. Asked again whenever the object, the
+ * record type or the record changes, and on demand.
+ *
+ * @param recordType overrides the record's own type (rarely needed: a loaded record already carries one)
+ * @param recordId the record it is open on, or undefined for a create form
+ */
+export function useRecordPage(objectApiName: string, recordType?: string, recordId?: string) {
   const [attempt, setAttempt] = useState(0);
   const key = `${objectApiName}|${recordType ?? ""}|${recordId ?? ""}|${attempt}`;
-  const [loaded, setLoaded] = useState<{ key: string; outcome: Outcome<{ data: ObjectForm }> } | null>(null);
+  const [loaded, setLoaded] = useState<{ key: string; outcome: Outcome<{ data: RecordPageDescriptor }> } | null>(
+    null,
+  );
 
   useEffect(() => {
     let live = true;
     void call(() =>
-      api.GET("/api/v1/objects/{objectApiName}/form", {
+      api.GET("/api/v1/objects/{objectApiName}/record-page", {
         params: { path: { objectApiName }, query: { recordType, recordId } },
       }),
     ).then((outcome) => {
@@ -42,13 +108,13 @@ export function useObjectForm(objectApiName: string, recordType?: string, record
   }, [key, objectApiName, recordType, recordId]);
 
   const reload = useCallback(() => setAttempt((value) => value + 1), []);
-  // While another description is on its way (another record type) the last good one stays, so a form being filled in
-  // is not torn down and the person's typing is not lost.
+  // While another page is on its way (another record type) the last good one stays, so a form being filled in is not
+  // torn down and the person's typing is not lost (the same discipline as `useObjectForm`).
   const last = loaded?.outcome.ok ? loaded.outcome.data.data : undefined;
-  let state: FormState = { status: "loading", previous: last?.objectApiName === objectApiName ? last : undefined };
+  let state: RecordPageState = { status: "loading", previous: last };
   if (loaded && loaded.key === key) {
     state = loaded.outcome.ok
-      ? { status: "ready", form: loaded.outcome.data.data }
+      ? { status: "ready", page: loaded.outcome.data.data }
       : {
           status: "failed",
           message: loaded.outcome.failure.message,

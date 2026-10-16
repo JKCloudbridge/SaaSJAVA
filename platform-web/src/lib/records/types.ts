@@ -14,6 +14,12 @@ export type QueryRequest = components["schemas"]["QueryRequest"];
 export type BulkResult = components["schemas"]["BulkRecordResult"];
 export type BulkResponse = components["schemas"]["BulkRecordsResponse"];
 export type ImportJob = components["schemas"]["ImportJobView"];
+export type RecordPageDescriptor = components["schemas"]["RecordPageDescriptorView"];
+export type RecordPageHeader = components["schemas"]["RecordPageHeaderView"];
+export type RecordPageTab = components["schemas"]["RecordPageTabView"];
+export type RecordPageBlock = components["schemas"]["RecordPageBlockView"];
+export type RecordPageAction = components["schemas"]["RecordPageActionView"];
+export type RecordShare = components["schemas"]["RecordShareView"];
 
 /** The values of a record by field API name, as the API sends them. */
 export type RecordValues = Record<string, unknown>;

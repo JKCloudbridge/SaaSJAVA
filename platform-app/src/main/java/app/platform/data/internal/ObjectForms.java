@@ -50,8 +50,9 @@ import org.springframework.transaction.annotation.Transactional;
  * <li><strong>What they may type.</strong> {@code editable} is the field permission, the object permission, the rule
  * that a person writes no system field and no calculated one, and the page layout's behaviour for the field, together.
  * The pipeline judges the write again; this only keeps the screen from offering what will be refused.</li>
- * <li><strong>Which layout.</strong> The one the object uses for the member's profile and the record type
- * ({@link Metadata#layoutFor}, ADR-0071), reduced to the fields in front of this member. A layout always shows the
+ * <li><strong>Which layout.</strong> The one a record page names (Sprint 20: {@code layoutName}, when it still exists),
+ * else the one the object uses for the member's profile and the record type ({@link Metadata#layoutFor}, ADR-0071),
+ * reduced to the fields in front of this member. A layout always shows the
  * required fields of its object (the metadata refuses one that does not, ADR-0069), so a form made from it can be
  * saved and nothing is added to it here; when the object has no layout the platform lays the fields out itself.</li>
  * <li><strong>Which record types.</strong> The ones the member's profile may use (ADR-0098); the type a record already
@@ -110,6 +111,16 @@ class ObjectForms {
      *         they cannot reach; {@code VALIDATION_ERROR} at {@code recordType} for a type they may not use
      */
     ObjectFormView describe(String objectApiName, String requestedType, UUID recordId) {
+        return describe(objectApiName, requestedType, recordId, null);
+    }
+
+    /**
+     * Describes the object for the member with the page layout a record page names.
+     *
+     * @param layoutName the API name of the layout the details show, or null for the member's own resolution; a name
+     *        that is not a layout of the object is ignored, so a page whose layout was removed still opens
+     */
+    ObjectFormView describe(String objectApiName, String requestedType, UUID recordId, String layoutName) {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.READ);
         ObjectDefinition object = passed.object();
         ObjectAccess access = security.accessOf(passed.membershipId(), object.apiName());
@@ -121,9 +132,9 @@ class ObjectForms {
         RecordType selected = select(object, all, usable, profile, requestedType, held);
         String selectedName = selected == null ? null : selected.apiName();
 
-        PageLayout page = metadata.layoutFor(object.apiName(), profile, selectedName).layout()
-                .flatMap(name -> metadata.layouts(object.apiName()).stream()
-                        .filter(layout -> layout.apiName().equals(name)).findFirst())
+        PageLayout page = layoutNamed(object.apiName(), layoutName)
+                .or(() -> layoutNamed(object.apiName(),
+                        metadata.layoutFor(object.apiName(), profile, selectedName).layout().orElse(null)))
                 .orElse(null);
         List<Block> blocks = page == null ? List.of() : blocksOf(page);
         Map<String, String> behaviours = new HashMap<>();
@@ -146,6 +157,13 @@ class ObjectForms {
         return new ObjectFormView(object.apiName(), object.label(), object.pluralLabel(), title, actions,
                 typeViews(all, usable, selected, profile, object.apiName()), selectedName, searchEnabled, fields,
                 layout(page, blocks, fields));
+    }
+
+    private Optional<PageLayout> layoutNamed(String objectApiName, String name) {
+        if (name == null) {
+            return Optional.empty();
+        }
+        return metadata.layouts(objectApiName).stream().filter(layout -> layout.apiName().equals(name)).findFirst();
     }
 
     // ---- record types ----

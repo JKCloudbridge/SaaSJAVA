@@ -503,3 +503,27 @@ describe("the other things a form does", () => {
     expect(await screen.findByTestId("form-problems")).toHaveTextContent("Stage: Choose one of the active values of the list.");
   });
 });
+
+describe("what the record page adds to the form", () => {
+  it("gives the form an id and leaves out its own buttons when the page offers them", () => {
+    api();
+    renderForm({ record: deal("r1"), formId: "page-form", hideActions: true });
+
+    expect(screen.getByTestId("record-form")).toHaveAttribute("id", "page-form");
+    expect(screen.queryByTestId("save-record")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+  });
+
+  it("starts a new record from a template: what a person typed is sent, the owner never is", async () => {
+    const calls = api({ [CREATE]: () => json({ data: SAVED }, 201) });
+    renderForm({ template: deal("r1", { name__c: "Acme", stage__c: "WON" }) });
+
+    expect(screen.getByLabelText(/Name/)).toHaveValue("Acme");
+    fireEvent.click(screen.getByTestId("save-record"));
+
+    await waitFor(() => expect(bodyOf(calls, CREATE)).not.toBe(""));
+    const sent = JSON.parse(bodyOf(calls, CREATE)) as { fields: Record<string, unknown> };
+    expect(sent.fields).toMatchObject({ name__c: "Acme", stage__c: "WON" });
+    expect(Object.keys(sent.fields)).not.toContain("ownerId");
+  });
+});

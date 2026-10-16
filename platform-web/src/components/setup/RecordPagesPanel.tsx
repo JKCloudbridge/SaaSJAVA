@@ -30,9 +30,12 @@ type RuleDraft =
   | { kind: "ability"; ability: string }
   | { kind: "kept"; rule: VisibilityRule };
 
+/** A component's type, at the top level or nested in a tab (Sprint 18 added TAB to the latter only). */
+type AnyComponentType = PageComponent["type"] | TabComponent["type"];
+
 interface ComponentDraft {
   key: string;
-  type: PageComponent["type"];
+  type: AnyComponentType;
   region: "MAIN" | "SIDEBAR";
   titleField: string;
   highlightFields: string[];
@@ -41,6 +44,9 @@ interface ComponentDraft {
   field: string;
   columns: string[];
   limit: string;
+  /** For TAB: the tab of the organization it shows (Sprint 20). Built here as a plain field; the drag-and-drop
+   * picker from the tenant's own tabs belongs to the record-page builder of Sprint 21. */
+  tab: string;
   tabs: { label: string; components: ComponentDraft[] }[];
   rule: RuleDraft;
 }
@@ -51,7 +57,7 @@ interface Draft {
   description: string;
   layout: string;
   components: ComponentDraft[];
-  actions: Record<"EDIT" | "DELETE" | "CLONE", { on: boolean; label: string; rule: RuleDraft }>;
+  actions: Record<"EDIT" | "DELETE" | "CLONE" | "SHARE", { on: boolean; label: string; rule: RuleDraft }>;
 }
 
 const TYPE_TEXT: Record<string, string> = {
@@ -61,6 +67,7 @@ const TYPE_TEXT: Record<string, string> = {
   TABS: "Tabs",
   ACTIVITY: "Activity",
   HISTORY: "History",
+  TAB: "A tab of the organization",
 };
 const OPERATOR_OPTIONS: { value: Operator; text: string }[] = [
   { value: "EQUALS", text: "is" },
@@ -68,10 +75,10 @@ const OPERATOR_OPTIONS: { value: Operator; text: string }[] = [
   { value: "IS_EMPTY", text: "is empty" },
   { value: "IS_NOT_EMPTY", text: "is not empty" },
 ];
-const ACTIONS = ["EDIT", "DELETE", "CLONE"] as const;
-const ACTION_TEXT: Record<string, string> = { EDIT: "Edit", DELETE: "Delete", CLONE: "Clone" };
+const ACTIONS = ["EDIT", "DELETE", "CLONE", "SHARE"] as const;
+const ACTION_TEXT: Record<string, string> = { EDIT: "Edit", DELETE: "Delete", CLONE: "Clone", SHARE: "Share" };
 
-function emptyComponent(type: PageComponent["type"], index: number): ComponentDraft {
+function emptyComponent(type: AnyComponentType, index: number): ComponentDraft {
   return {
     key: `${type.toLowerCase().replace("_", "-")}-${index + 1}`,
     type,
@@ -83,6 +90,7 @@ function emptyComponent(type: PageComponent["type"], index: number): ComponentDr
     field: "",
     columns: [],
     limit: "",
+    tab: "",
     tabs: type === "TABS" ? [{ label: "Tab 1", components: [] }] : [],
     rule: { kind: "none" },
   };
@@ -92,6 +100,7 @@ const EMPTY_ACTIONS: Draft["actions"] = {
   EDIT: { on: false, label: "", rule: { kind: "none" } },
   DELETE: { on: false, label: "", rule: { kind: "none" } },
   CLONE: { on: false, label: "", rule: { kind: "none" } },
+  SHARE: { on: false, label: "", rule: { kind: "none" } },
 };
 
 const EMPTY: Draft = {
@@ -147,6 +156,7 @@ function componentDraftOf(component: PageComponent | TabComponent, index: number
     field: component.field ?? "",
     columns: component.columns ?? [],
     limit: component.limit === undefined ? "" : String(component.limit),
+    tab: (component as TabComponent).tab ?? "",
     tabs: (page.tabs ?? []).map((tab) => ({
       label: tab.label,
       components: tab.components.map((inner, at) => componentDraftOf(inner, at)),
@@ -170,8 +180,11 @@ function draftOf(page: RecordPageView): Draft {
   };
 }
 
-function componentOf(draft: ComponentDraft, inTab: boolean): PageComponent {
-  const component: PageComponent = { key: draft.key, type: draft.type };
+/** Builds the wire shape for a component from its draft. Assembled as a plain record (its branches set only the
+ * properties its own type allows) and cast once at the end: the server's schema is the real check, this only has to
+ * produce what it expects. */
+function componentOf(draft: ComponentDraft, inTab: boolean): PageComponent | TabComponent {
+  const component: Record<string, unknown> = { key: draft.key, type: draft.type };
   if (!inTab && draft.region === "SIDEBAR") {
     component.region = "SIDEBAR";
   }
@@ -198,13 +211,19 @@ function componentOf(draft: ComponentDraft, inTab: boolean): PageComponent {
       component.limit = Number(draft.limit);
     }
   }
+  if (draft.type === "TAB") {
+    component.tab = draft.tab;
+    if (draft.label) {
+      component.label = draft.label;
+    }
+  }
   if (draft.type === "TABS") {
     component.tabs = draft.tabs.map((tab) => ({
       label: tab.label,
       components: tab.components.map((inner) => componentOf(inner, true) as TabComponent),
     }));
   }
-  return component;
+  return component as PageComponent | TabComponent;
 }
 
 function definitionOf(draft: Draft): RecordPageDefinition {
@@ -221,7 +240,7 @@ function definitionOf(draft: Draft): RecordPageDefinition {
   });
   return {
     layout: draft.layout,
-    components: draft.components.map((component) => componentOf(component, false)),
+    components: draft.components.map((component) => componentOf(component, false) as PageComponent),
     ...(actions.length > 0 ? { actions } : {}),
   };
 }
@@ -512,6 +531,30 @@ function ComponentEditor({
           </div>
         </>
       ) : null}
+      {draft.type === "TAB" ? (
+        <>
+          <div className="field">
+            <label htmlFor={`${id}-label`}>Label (overrides the tab&apos;s own)</label>
+            <input
+              id={`${id}-label`}
+              value={draft.label}
+              maxLength={80}
+              onChange={(event) => onChange({ ...draft, label: event.target.value })}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor={`${id}-tab`}>API name of the tab</label>
+            <input
+              id={`${id}-tab`}
+              value={draft.tab}
+              maxLength={60}
+              placeholder="Inspections__c"
+              onChange={(event) => onChange({ ...draft, tab: event.target.value })}
+            />
+            <p className="hint">A tab the organization already made (Setup → Tabs). Picking one from a list is Sprint 21&apos;s job.</p>
+          </div>
+        </>
+      ) : null}
       {draft.type === "TABS" ? (
         <>
           {draft.tabs.map((tab, at) => (
@@ -565,7 +608,7 @@ function ComponentEditor({
                   value=""
                   onChange={(event) => {
                     if (event.target.value) {
-                      const type = event.target.value as PageComponent["type"];
+                      const type = event.target.value as AnyComponentType;
                       onChange({
                         ...draft,
                         tabs: draft.tabs.map((one, p) =>
@@ -578,7 +621,7 @@ function ComponentEditor({
                   }}
                 >
                   <option value="">Choose a component</option>
-                  {(["DETAILS", "RELATED_LIST", "ACTIVITY", "HISTORY"] as const).map((type) => (
+                  {(["DETAILS", "RELATED_LIST", "ACTIVITY", "HISTORY", "TAB"] as const).map((type) => (
                     <option key={type} value={type}>
                       {TYPE_TEXT[type]}
                     </option>
@@ -955,7 +998,10 @@ export function RecordPagesPanel({ object, onChanged }: { object: ObjectView; on
             }}
           >
             <option value="">Choose a component</option>
-            {Object.entries(TYPE_TEXT).map(([type, text]) => (
+            {Object.entries(TYPE_TEXT)
+              // TAB only makes sense inside a tab of a TABS component, never at the top level.
+              .filter(([type]) => type !== "TAB")
+              .map(([type, text]) => (
               <option key={type} value={type}>
                 {text}
               </option>

@@ -466,3 +466,18 @@ Short form; decisions in ADR-0129 and ADR-0130, the overview in [engineering-gui
 **Previewing a write** is `RecordCheck`: run `WritePipeline` and call `TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()` in a `finally`. It works because the pipeline writes nothing the rollback cannot undo (the auto-number counter and advisory locks). A new stage that writes elsewhere (a file, a call to another system) must not run in the pipeline, or `RecordCheck` must skip it.
 
 **Tests.** `ObjectFormIT` (every rule of the description, through the real API: allowed, denied, unknown, cross-tenant, forged header, unauthenticated), `LookupIT`, `ListViewIT`, `RecordCheckIT`, `RecordScreensLogsAreCleanIT`. `RecordSecuritySupport` and `QuerySupport` give an organization with `Item__c` and `Target__c`; a test that needs people with chosen display names makes them with `users.createActive` and `TestOrganizations.join` (the shared helper gives everyone the same name).
+
+## Record pages and the record screen (Sprint 20)
+
+Short form; decision in ADR-0131, the overview in [engineering-guide.md](engineering-guide.md).
+
+**A new kind of definition that is chosen per profile and record type** copies `RecordPageAssignment` (V052 is the table to follow, `LayoutAssignment` the shape): the key is `default`, `type~<recordType>`, the profile's identifier, or the identifier, a tilde and the record type; the profile is an identifier only (a deleted profile is never blocked and its row is ignored); `MetadataSnapshot.recordPageFor` is the one place the order is written. A record type alone is a rule because a record type carries no page of its own.
+
+**What a screen draws is decided by the server in one place.** `RecordPageViews` is to a record page what `ObjectForms` is to a form: the member's profile and the record's type pick the page, `RecordPageVisibility` judges the closed rules against the values the member may read (a field they may not read is absent, so it reads as empty, never as equal), and everything the member cannot reach is left out, never marked. When you add a component kind, add it to `RecordPageViews.block`, to the descriptor's documentation and to `RecordPageViewsIT`; a kind that is not handled is skipped, which is what `ACTIVITY` and `HISTORY` do today.
+
+**A page's `layout` is used by the form, not decided by it.** The descriptor names the layout; the screen passes it to `GET .../form?layout=` and `ObjectForms` still reduces it to the fields the member may read and edit. An unknown name falls back to the member's own resolution, so removing a layout never breaks a page.
+
+**Related lists** are filtered on the link with `EQ` through the query engine, so security is the related object's own. The link field itself must be readable by the member, or the list is left out (a filter on a field that does not exist for them would otherwise be refused).
+
+**Tests.** `RecordPageAssignmentIT` (order, keys, versions, deleted profile, undo, limits, access, cross-tenant), `RecordPageViewsIT` (the page differs by record type and profile; what is left out; regions; the layout; access), `RecordPageVisibilityTest`, the endpoint matrix in `DefinitionsAccessIT`, `ObjectFormIT` for the layout override. `RecordSecuritySupport` gives `Item__c` and `Target__c` (an object with a link pointing at it).
+

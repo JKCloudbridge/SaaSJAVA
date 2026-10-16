@@ -347,6 +347,16 @@ public final class TenantScopedTables {
                         tenant, object, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
             });
 
+    /** The record page assignments of organizations (Sprint 20). A probe row needs a custom object it creates. */
+    public static final TenantScopedTable RECORD_PAGE_ASSIGNMENT = new TenantScopedTable("record_page_assignment",
+            (connection, tenant) -> {
+                String object = probeObject(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into record_page_assignment (tenant_id, object_api_name, record_page_api_name, "
+                                + "created_by, updated_by) values (?, ?, 'Probe__c', ?, ?)",
+                        tenant, object, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
     /** The validation rules of organizations (Sprint 13). A probe row needs a custom object, which it creates. */
     public static final TenantScopedTable VALIDATION_RULE = new TenantScopedTable("validation_rule",
             (connection, tenant) -> {
@@ -581,7 +591,8 @@ public final class TenantScopedTables {
             LAYOUT_ASSIGNMENT, VALIDATION_RULE,
             OBJECT_RECORD, AUTO_NUMBER_COUNTER, RECORD_TYPE_ASSIGNMENT, FIELD_SLOT, RECORD_LINK, LINK_INDEX,
             UNIQUE_ENFORCEMENT, FORMULA_RECALCULATION, OBJECT_SHARING_SETTING, SHARING_RULE, RECORD_SHARE,
-            RECORD_FILE, FILE_OBJECT_CLEANUP, IMPORT_JOB, IMPORT_ERROR, SEARCH_TERM, SEARCH_FIELD, LIST_VIEW);
+            RECORD_FILE, FILE_OBJECT_CLEANUP, IMPORT_JOB, IMPORT_ERROR, SEARCH_TERM, SEARCH_FIELD, LIST_VIEW,
+            RECORD_PAGE_ASSIGNMENT);
 
     private TenantScopedTables() {
     }

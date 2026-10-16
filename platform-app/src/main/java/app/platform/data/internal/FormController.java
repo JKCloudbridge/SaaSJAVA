@@ -50,11 +50,14 @@ class FormController {
                     + "of the record types the member may use (VALIDATION_ERROR at recordType for any other, "
                     + "answered like a type that does not exist); without it, recordId (the record being edited) "
                     + "decides by the type that record holds, and without both the member's default type does. "
+                    + "layout names the page layout to draw (a record page names one); a name that is not a layout "
+                    + "of the object is ignored and the member's own resolution decides. "
                     + "Presentation only: every request that follows is decided again. " + UNKNOWN
                     + "Also NOT_FOUND for a record they cannot reach. Organization hosts only.")
     ApiResponse<ObjectFormView> form(@PathVariable String objectApiName,
-            @RequestParam(required = false) String recordType, @RequestParam(required = false) UUID recordId) {
-        return ApiResponse.of(forms.describe(objectApiName, recordType, recordId));
+            @RequestParam(required = false) String recordType, @RequestParam(required = false) UUID recordId,
+            @RequestParam(required = false) String layout) {
+        return ApiResponse.of(forms.describe(objectApiName, recordType, recordId, layout));
     }
 
     @PostMapping(ApiPaths.OBJECTS + "/{objectApiName}/records/validate")

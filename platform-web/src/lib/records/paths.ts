@@ -31,3 +31,27 @@ export function entryBase(application: string, entry: string): string {
 export function objectOfEntry(entry: string): string | undefined {
   return entry.startsWith("o-") && entry.length > 2 ? entry.slice(2) : undefined;
 }
+
+/**
+ * The list of an object narrowed to the records whose link field points at one record (the "view all" of a related
+ * list, Sprint 20). Only an API name and an identifier go in the address, never text a person typed.
+ */
+export function relatedListHref(objectApiName: string, field: string, id: string): string {
+  return `${objectListHref(objectApiName)}?where=${enc(field)}:${enc(id)}`;
+}
+
+/** Where the create form of an object makes a copy of a record (Sprint 20): the create address plus the original. */
+export function cloneHref(newHref: string, id: string): string {
+  return `${newHref}?cloneFrom=${enc(id)}`;
+}
+
+/** What a `where` of an address names: a field and the identifier it must equal, or undefined for any other shape. */
+export function whereOf(value: string | null): { field: string; value: string } | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const at = value.indexOf(":");
+  const field = at > 0 ? value.slice(0, at) : "";
+  const id = at > 0 ? value.slice(at + 1) : "";
+  return /^[A-Za-z][A-Za-z0-9_]*$/.test(field) && /^[0-9a-fA-F-]{36}$/.test(id) ? { field, value: id } : undefined;
+}
