@@ -262,7 +262,8 @@ class AuthorizationStore implements OAuth2AuthorizationService {
     }
 
     /**
-     * A valid access token of a custom page's script (ADR-0127): alive only while the grant it hangs on is, not past its
+     * A valid access token of a custom page's script (ADR-0127): alive only while the grant it hangs on is, not past
+     * its
      * own short end, and bound to the organization of the host it is presented on. The scopes it reports are the single
      * scope {@code embedded}.
      */

@@ -248,7 +248,12 @@ class DefinitionsAccessIT extends DefinitionsSupport {
         TestBrowser admin = adminWithGadget(organization);
         createApplication(admin, "Menu",
                 applicationDefinition("[]", "[{\"type\":\"OBJECT\",\"object\":\"Gadget__c\"}]"));
-        TestBrowser person = as(organization, memberWith(organization, admin));
+        // The menu needs no administrative ability to be read (that is this test's point), but Sprint 18 made the menu
+        // security-aware: an entry is listed only when the member may read what it opens (ADR-0128). Give the member
+        // read permission on the object the menu's only entry names, so the test still proves its point.
+        Holder holder = holderOf(organization, admin);
+        allowReading(admin, holder.profileId(), "Gadget__c");
+        TestBrowser person = as(organization, holder.member());
 
         Response mine = person.get(MY_APPLICATIONS);
 

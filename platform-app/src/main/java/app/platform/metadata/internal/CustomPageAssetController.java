@@ -18,7 +18,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Uploading the script of a custom page (Sprint 18, ADR-0127). Thin: the rules are in {@link CustomPageAssets}. Answered
+ * Uploading the script of a custom page (Sprint 18, ADR-0127). Thin: the rules are in {@link CustomPageAssets}.
+ * Answered
  * only on an organization host. Uploading needs the same two abilities as publishing a definition, because the script
  * is run in other members' browsers once a custom page names it. The upload itself changes nothing visible: the script
  * is used only when a custom page that names it is published.

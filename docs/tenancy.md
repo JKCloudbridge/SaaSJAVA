@@ -450,3 +450,19 @@ For a contributor who adds a write path, a link or a background job. Decision: A
 **Background jobs run as the platform.** The recycle-bin clean-up, the formula recalculation (`QueryService.scan`), the backfills and the file clean-up never ask `RecordVisibility`, are attributed to nobody, and change no owner, share or version (`BackgroundJobsAndRecordSecurityIT`). A new job must do the same and add a line to that test.
 
 **Tests.** `RecordWriteSecurityIT` (every write endpoint: allowed, denied, cross-tenant, forged header, unauthenticated, and the new case *can read, cannot edit*; plus the matrix that holds list, read, change and removal to the decision API for every member and record across seven sharing configurations), `RecordLinkVisibilityIT`, `UniquenessAndVisibilityIT`, `BackgroundJobsAndRecordSecurityIT`. The shared helper `RecordSecuritySupport.person(...)` gives a member read on `Target__c`; a test that needs a member who cannot use the target object builds the profile itself.
+
+## Forms, lists, saved views and the names behind links (Sprint 19)
+
+Short form; decisions in ADR-0129 and ADR-0130, the overview in [engineering-guide.md](engineering-guide.md).
+
+**A new table that holds something a member keeps about an object** (like `list_view`) is tenant-scoped with the usual pattern (V051 is the copy to follow: `tenant_id`, row guard, tenant guard, forced row level security, partial unique indexes, a line in `TenantScopedTables`). If it is not metadata (not published, not in a release), keep it out of the metadata lifecycle and do not raise the metadata version.
+
+**Who may see or change it is the application's decision on top of row level security.** `ListViews` is the model: the maker is `created_by` (the row guard keeps it unchangeable), a personal row is found only by its maker, anyone else gets the answer for a row that does not exist, and the ability that widens it is checked with `Permissions.has` inside the transaction that does the work.
+
+**Reading a record's name for a link.** Use `LookupService`/`TitleFields`, never a second rule. For an ordinary object it asks `Records.query` (or, when the member cannot filter by identifier, `RecordVisibility.constraintFor` plus `StorageStrategy.find`, one record at a time): the same object permission, field permissions and record-level security as a list. For an object a platform module owns it asks that module's `ReferenceLabels` (yes, only a record a link could point to now; a name, nothing else). When you add such an object, implement `ReferenceLabels` beside its `ReferenceDirectory`.
+
+**A transaction that a refusal passes through.** Anything inside `Records` is transactional; an `ApiException` that leaves it marks the surrounding transaction rollback-only even if it is caught. Check what can refuse first (through `RecordGate`, which is not transactional) and read with calls that return "not found" as absence.
+
+**Previewing a write** is `RecordCheck`: run `WritePipeline` and call `TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()` in a `finally`. It works because the pipeline writes nothing the rollback cannot undo (the auto-number counter and advisory locks). A new stage that writes elsewhere (a file, a call to another system) must not run in the pipeline, or `RecordCheck` must skip it.
+
+**Tests.** `ObjectFormIT` (every rule of the description, through the real API: allowed, denied, unknown, cross-tenant, forged header, unauthenticated), `LookupIT`, `ListViewIT`, `RecordCheckIT`, `RecordScreensLogsAreCleanIT`. `RecordSecuritySupport` and `QuerySupport` give an organization with `Item__c` and `Target__c`; a test that needs people with chosen display names makes them with `users.createActive` and `TestOrganizations.join` (the shared helper gives everyone the same name).

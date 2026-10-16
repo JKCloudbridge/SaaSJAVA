@@ -1074,4 +1074,32 @@ if [ -n "$mail" ]; then
   if grep -Fq '???' "$body"; then fail "the refusal of a search repeats the text: $(cat "$body")"; fi
   rm -f "$file_in" "$import_csv"
   echo "ok: an object made Private still shows the owner their record, a file was stored, handed back byte for byte as an attachment and removed, a bulk call saved two records and refused one without repeating its value, an import upserted by the external identifier and a second run made nothing new, and a search found the imported record once the words were complete"
+  # 26. The record screens (Sprint 19, ADR-0129, ADR-0130): the member's own description of an object, a validation
+  # that stores nothing and never repeats a typed value, a saved list view, and the names behind a link.
+  status="$(client_call "$base/api/v1/objects/Lead__c/form")"
+  [ "$status" = "200" ] || fail "the description of Lead__c answered $status: $(cat "$body")"
+  grep -Fq '"objectApiName":"Lead__c"' "$body" || fail "the description is not of Lead__c: $(cat "$body")"
+  grep -Fq '"apiName":"title__c"' "$body" || fail "the description lacks the title field: $(cat "$body")"
+  grep -Fq '"source":"GENERATED"' "$body" || fail "an object with no layout is not laid out by the platform: $(cat "$body")"
+  records_before="$(owner_sql -c "select count(*) from object_record where object_api_name = 'Lead__c'")"
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{"title__c":"only checked","ref__c":"V-1"}}'     "$base/api/v1/objects/Lead__c/records/validate")"
+  [ "$status" = "200" ] || fail "validating a good record answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{"qty__c":"a private nonsense"}}'     "$base/api/v1/objects/Lead__c/records/validate")"
+  [ "$status" = "400" ] || fail "validating a bad record answered $status: $(cat "$body")"
+  if grep -Fq 'private nonsense' "$body"; then fail "the refusal of a validation repeats the value: $(cat "$body")"; fi
+  records_after="$(owner_sql -c "select count(*) from object_record where object_api_name = 'Lead__c'")"
+  [ "$records_before" = "$records_after" ] || fail "a validation stored a record ($records_before -> $records_after)"
+  status="$(client_call -X POST -H "$group_json" -d '{"label":"Smoke view","scope":"PERSONAL","definition":{"columns":["title__c"]}}'     "$base/api/v1/objects/Lead__c/views")"
+  [ "$status" = "201" ] || fail "saving a list view answered $status: $(cat "$body")"
+  view_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(client_call "$base/api/v1/objects/Lead__c/views")"
+  grep -Fq '"label":"Smoke view"' "$body" || fail "the saved view is not listed: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"label":"Bad view","scope":"PERSONAL","definition":{"columns":["nothing__c"]}}'     "$base/api/v1/objects/Lead__c/views")"
+  [ "$status" = "400" ] || fail "a view naming a field that does not exist answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE "$base/api/v1/objects/Lead__c/views/$view_id?version=0")"
+  [ "$status" = "204" ] || fail "removing the list view answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"ids":["00000000-0000-7000-8000-000000000000"]}'     "$base/api/v1/objects/Lead__c/lookups/ownerId/labels")"
+  [ "$status" = "200" ] || fail "asking for the name of a person answered $status: $(cat "$body")"
+  grep -Fq '"labels":{}' "$body" || fail "an identifier that names nobody was given a name: $(cat "$body")"
+  echo "ok: the member's own description of an object came without a layout as the platform's own, a validation of a bad record was refused without repeating the value and one of a good record stored nothing, a list view was saved, listed, checked against the fields and removed, and an identifier that names nobody got no name"
 fi

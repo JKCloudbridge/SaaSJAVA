@@ -2032,6 +2032,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/objects/{objectApiName}/form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Describe an object for the signed-in member: fields, record types, layout, permissions
+         * @description What a screen needs to draw the list, the create form and the edit form of the object for this member, in one answer. Only the fields the member may read are described (the others are absent, not masked), restricted to what the record type offers, with what they may type, the comparisons a filter accepts and whether a list can be ordered by each. The layout is the object's page layout for the member's profile and the record type, reduced to what they see, or one the platform makes when the object has none. recordType describes the object for one of the record types the member may use (VALIDATION_ERROR at recordType for any other, answered like a type that does not exist); without it, recordId (the record being edited) decides by the type that record holds, and without both the member's default type does. Presentation only: every request that follows is decided again. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read (all three answer alike). Also NOT_FOUND for a record they cannot reach. Organization hosts only.
+         */
+        get: operations["getObjectForm"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/objects/{objectApiName}/formula-recalculation": {
         parameters: {
             query?: never;
@@ -2180,6 +2200,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/objects/{objectApiName}/lookups/{fieldApiName}/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The names of the records a link field points to
+         * @description For the identifiers a list or a form holds in a lookup or master-detail field (at most 100). Each record is named by the field that names a record of the target object for the caller (the first searchable text field, else the first required one, else the auto-number); a person is named by their display name while their membership is active. An identifier that is missing from the answer names a record the caller may not read, one that does not exist, one in the recycle bin, or a person who is no longer a member, and the answer does not say which. The target is judged by the caller's own permissions and record-level security. A POST only because the identifiers travel in the body. VALIDATION_ERROR for a value that is not an identifier. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read, and for a field that is not a link of the object or that the caller may not read (all answer alike).
+         */
+        post: operations["getLookupLabels"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/lookups/{fieldApiName}/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The records a link field could point to, for a picker
+         * @description Records of the target object the caller may read whose name contains the text, a few at a time (at most 25, 10 by default): a search over the searchable fields when the target has some, otherwise a match on the name field. Without text the first records in name order. People are offered while their membership is active. Nothing here lists a directory: the text must match. A POST only because the text travels in the body, never in the address, where every proxy on the way would log it. The write that follows is judged again (a link is accepted only to a record the caller can read). NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read, and for a field that is not a link of the object or that the caller may not read (all answer alike).
+         */
+        post: operations["getLookupOptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/objects/{objectApiName}/records": {
         parameters: {
             query?: never;
@@ -2258,6 +2318,26 @@ export interface paths {
          * @description A record must have every word of the text (accents and case do not matter); the last word counts as the beginning of a word, so a search can be run while a person types. The best matches come first (a match in the first searchable field counts most), then by identifier, one page at a time. Only the fields flagged as searchable that the caller may read are searched (a record never matches on a field the caller cannot see), and only the records the caller may reach are found; what comes back is shaped like the answer of a query and nothing is highlighted. A field is searched once its words are complete (the index status of the object says when). VALIDATION_ERROR for a text with no word, for an object with no searchable field the caller may read, and for a search whose every word is very common (type more). Search across objects is not offered. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
          */
         post: operations["searchRecords"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/records/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask what the server would say to a save, without saving
+         * @description The create or the change of a record (the one with recordId) run through every stage of the write pipeline (record type, field permission, the type of each value, required fields, linked records, unique fields, validation rules, formulas) and then undone: nothing is stored, no auto-number is used up, nothing is audited or announced. A save that would be refused is refused here with the same VALIDATION_ERROR, the same places and the same words, because it is the same code; one that would work answers with the results its formulas would give (and the formula fields it would leave empty). A change of an existing record is judged first like a real one: NOT_FOUND for a record the caller cannot read, FORBIDDEN for one they may read and not change. FORBIDDEN for a caller who may read the object but not create (or change) in it. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read (all three answer alike).
+         */
+        post: operations["validateRecord"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2475,6 +2555,54 @@ export interface paths {
          */
         post: operations["restoreRecord"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/views": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The saved list views of an object that the caller sees
+         * @description The shared views of the object, then the caller's own personal ones, each with the filter, the order and the columns it was saved with. A view is not a permission: running it is an ordinary query, decided by the caller's own permissions and record-level security. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read (all three answer alike).
+         */
+        get: operations["listListViews"];
+        put?: never;
+        /**
+         * Save a list view
+         * @description PERSONAL is for the caller only; SHARED is for everyone who may read the object and needs the ability to share list views (FORBIDDEN without it). The definition is checked by the first three stages of the query engine (shape, fields, operators and values) against what the caller may read: VALIDATION_ERROR lists the places that are wrong under definition. CONFLICT for a name already used among the views the caller sees in the object, and at the most views allowed. Nothing is run and no record is read. Audited by identifier and scope. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read (all three answer alike).
+         */
+        post: operations["createListView"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/views/{viewId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a saved list view
+         * @description The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the view has changed since, and nothing is changed. A personal view is changed only by the person who made it; a shared view needs the ability to share list views, whoever made it, and only its maker can make it personal again. NOT_FOUND for a view that does not exist or that is another person's personal view. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read (all three answer alike).
+         */
+        put: operations["updateListView"];
+        post?: never;
+        /**
+         * Remove a saved list view
+         * @description The version that was read must be given: CONCURRENT_MODIFICATION (409) when the view has changed since. The same rights as changing it. NOT_FOUND for a view that does not exist or that is another person's personal view. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read (all three answer alike).
+         */
+        delete: operations["deleteListView"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3560,6 +3688,12 @@ export interface components {
         ApiResponseListLicenceTypeItem: {
             data: components["schemas"]["LicenceTypeItem"][];
         };
+        ApiResponseListListViewView: {
+            data: components["schemas"]["ListViewView"][];
+        };
+        ApiResponseListLookupOptionView: {
+            data: components["schemas"]["LookupOptionView"][];
+        };
         ApiResponseListMemberView: {
             data: components["schemas"]["MemberView"][];
         };
@@ -3620,8 +3754,17 @@ export interface components {
         ApiResponseListValidationRuleView: {
             data: components["schemas"]["ValidationRuleView"][];
         };
+        ApiResponseListViewView: {
+            data: components["schemas"]["ListViewView"];
+        };
+        ApiResponseLookupLabelsView: {
+            data: components["schemas"]["LookupLabelsView"];
+        };
         ApiResponseMemberAccessView: {
             data: components["schemas"]["MemberAccessView"];
+        };
+        ApiResponseObjectFormView: {
+            data: components["schemas"]["ObjectFormView"];
         };
         ApiResponseObjectIndexStatusView: {
             data: components["schemas"]["ObjectIndexStatusView"];
@@ -3655,6 +3798,9 @@ export interface components {
         };
         ApiResponseProfileView: {
             data: components["schemas"]["ProfileView"];
+        };
+        ApiResponseRecordCheckView: {
+            data: components["schemas"]["RecordCheckView"];
         };
         ApiResponseRecordFileView: {
             data: components["schemas"]["RecordFileView"];
@@ -3922,6 +4068,11 @@ export interface components {
             label: string;
             name: string;
         };
+        CreateListViewRequest: {
+            definition: components["schemas"]["ListViewDefinition"];
+            label: string;
+            scope: string;
+        };
         CreateObjectRequest: {
             description?: string;
             label: string;
@@ -4177,6 +4328,61 @@ export interface components {
         ForgotPasswordRequest: {
             email: string;
         };
+        FormActionsView: {
+            create: boolean;
+            delete: boolean;
+            update: boolean;
+        };
+        FormFieldView: {
+            apiName: string;
+            calculated: boolean;
+            defaultValue?: string;
+            description: string;
+            /** Format: int32 */
+            digits?: number;
+            editable: boolean;
+            externalId: boolean;
+            filterOperators: string[];
+            kind: string;
+            label: string;
+            /** Format: int32 */
+            maxLength?: number;
+            /** Format: int32 */
+            precision?: number;
+            prefix?: string;
+            required: boolean;
+            resultType?: string;
+            /** Format: int32 */
+            scale?: number;
+            searchable: boolean;
+            sortable: boolean;
+            targetLabel?: string;
+            targetObject?: string;
+            targetOpenable: boolean;
+            type: string;
+            unique: boolean;
+            values?: components["schemas"]["PicklistOption"][];
+            /** Format: int32 */
+            width?: number;
+        };
+        FormLayoutView: {
+            layout?: string;
+            sections: components["schemas"]["FormSectionView"][];
+            source: string;
+        };
+        FormRecordTypeView: {
+            apiName: string;
+            defaultType: boolean;
+            description: string;
+            label: string;
+            selectable: boolean;
+        };
+        FormSectionView: {
+            /** Format: int32 */
+            columns: number;
+            fields: string[];
+            label: string;
+        };
         FormulaRecalculationView: {
             /** Format: int32 */
             formulaFields: number;
@@ -4372,6 +4578,40 @@ export interface components {
             };
             id: string;
         };
+        ListViewDefinition: {
+            columns?: string[];
+            filter?: components["schemas"]["QueryFilterNode"];
+            sort?: components["schemas"]["QuerySortKey"][];
+        };
+        ListViewView: {
+            definition: components["schemas"]["ListViewDefinition"];
+            id: string;
+            label: string;
+            mine: boolean;
+            objectApiName: string;
+            scope: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
+        };
+        LookupLabelsRequest: {
+            ids: string[];
+        };
+        LookupLabelsView: {
+            labels: {
+                [key: string]: string;
+            };
+        };
+        LookupOptionView: {
+            id: string;
+            label: string;
+        };
+        LookupOptionsRequest: {
+            /** Format: int32 */
+            limit?: number;
+            text?: string;
+        };
         MemberAccessView: {
             abilities: string[];
             data: components["schemas"]["DataAccessView"];
@@ -4438,6 +4678,18 @@ export interface components {
             /** @enum {string} */
             type: "OBJECT" | "RECORD_PAGE" | "LINK" | "HEADING" | "TAB";
         } & (unknown & unknown & unknown & unknown & unknown);
+        ObjectFormView: {
+            actions: components["schemas"]["FormActionsView"];
+            fields: components["schemas"]["FormFieldView"][];
+            label: string;
+            layout: components["schemas"]["FormLayoutView"];
+            objectApiName: string;
+            pluralLabel: string;
+            recordType?: string;
+            recordTypes: components["schemas"]["FormRecordTypeView"][];
+            searchEnabled: boolean;
+            titleField?: string;
+        };
         ObjectIndexStatusView: {
             fields: components["schemas"]["FieldIndexStatusView"][];
             objectApiName: string;
@@ -4663,6 +4915,12 @@ export interface components {
         };
         ReasonRequest: {
             reason: string;
+        };
+        RecordCheckView: {
+            calculated: {
+                [key: string]: unknown;
+            };
+            cleared: string[];
         };
         RecordFileView: {
             contentType: string;
@@ -5041,6 +5299,13 @@ export interface components {
             /** Format: int64 */
             version: number;
         };
+        UpdateListViewRequest: {
+            definition: components["schemas"]["ListViewDefinition"];
+            label: string;
+            scope: string;
+            /** Format: int64 */
+            version: number;
+        };
         UpdateObjectRequest: {
             description?: string;
             label: string;
@@ -5096,6 +5361,15 @@ export interface components {
             label: string;
             /** Format: int64 */
             version: number;
+        };
+        ValidateRecordRequest: {
+            clear?: string[];
+            fields?: {
+                [key: string]: unknown;
+            };
+            /** Format: uuid */
+            recordId?: string;
+            recordType?: string;
         };
         ValidationRuleView: {
             active: boolean;
@@ -9423,6 +9697,40 @@ export interface operations {
             };
         };
     };
+    getObjectForm: {
+        parameters: {
+            query?: {
+                recordType?: string;
+                recordId?: string;
+            };
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseObjectFormView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     getFormulaRecalculation: {
         parameters: {
             query?: never;
@@ -9714,6 +10022,78 @@ export interface operations {
             };
         };
     };
+    getLookupLabels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                fieldApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LookupLabelsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseLookupLabelsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getLookupOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                fieldApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LookupOptionsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListLookupOptionView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     listRecords: {
         parameters: {
             query?: {
@@ -9875,6 +10255,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiPageResponseQueriedRecordView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    validateRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValidateRecordRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordCheckView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -10339,6 +10754,140 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiResponseRecordView"];
                 };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listListViews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListListViewView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createListView: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateListViewRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListViewView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateListView: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                viewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateListViewRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListViewView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteListView: {
+        parameters: {
+            query: {
+                version: number;
+            };
+            header?: never;
+            path: {
+                objectApiName: string;
+                viewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {

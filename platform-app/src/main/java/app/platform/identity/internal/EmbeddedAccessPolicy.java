@@ -44,7 +44,8 @@ final class EmbeddedAccessPolicy {
 
     private static final List<Rule> RULES = List.of(
             new Rule(READ, ApiPaths.TENANT_CURRENT, Match.EXACT, "the name of the organization the page is shown in"),
-            new Rule(READ, ApiPaths.AUTH_ME, Match.EXACT, "who is looking at the page, for a greeting or a filter by owner"),
+            new Rule(READ, ApiPaths.AUTH_ME, Match.EXACT,
+                    "who is looking at the page, for a greeting or a filter by owner"),
             new Rule(READ, ApiPaths.MY_APPLICATIONS, Match.EXACT, "the applications and tabs of the member"),
             new Rule(READ, ApiPaths.DATA_CATALOGUE, Match.EXACT, "which objects and fields exist for the member"),
             new Rule(READ, ApiPaths.DATA_ACCESS_MINE, Match.EXACT, "what the member may do with each object"),
@@ -52,8 +53,9 @@ final class EmbeddedAccessPolicy {
                     "an object's definition, fields, layouts, record pages and record types, to build a screen from"),
             new Rule(READ, ApiPaths.METADATA_FIELD_TYPES, Match.EXACT, "the field types, to draw an input"),
             new Rule(ANY, ApiPaths.OBJECTS, Match.BELOW,
-                    "the records of an object, their search, files, shares, imports and recycle bin: the data "
-                            + "interface, every call decided by the viewer's own permissions"));
+                    "the records of an object, their search, files, shares, imports and recycle bin, and what a screen "
+                            + "needs to draw them (the form description, the names behind links, the saved list "
+                            + "views): the data interface, every call decided by the viewer's own permissions"));
 
     private EmbeddedAccessPolicy() {
     }

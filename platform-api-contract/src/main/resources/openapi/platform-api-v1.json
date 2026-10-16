@@ -5301,6 +5301,59 @@
         "tags" : [ "Metadata" ]
       }
     },
+    "/api/v1/objects/{objectApiName}/form" : {
+      "get" : {
+        "description" : "What a screen needs to draw the list, the create form and the edit form of the object for this member, in one answer. Only the fields the member may read are described (the others are absent, not masked), restricted to what the record type offers, with what they may type, the comparisons a filter accepts and whether a list can be ordered by each. The layout is the object's page layout for the member's profile and the record type, reduced to what they see, or one the platform makes when the object has none. recordType describes the object for one of the record types the member may use (VALIDATION_ERROR at recordType for any other, answered like a type that does not exist); without it, recordId (the record being edited) decides by the type that record holds, and without both the member's default type does. Presentation only: every request that follows is decided again. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read (all three answer alike). Also NOT_FOUND for a record they cannot reach. Organization hosts only.",
+        "operationId" : "getObjectForm",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "recordType",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "recordId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseObjectFormView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Describe an object for the signed-in member: fields, record types, layout, permissions",
+        "tags" : [ "Records" ]
+      }
+    },
     "/api/v1/objects/{objectApiName}/formula-recalculation" : {
       "get" : {
         "description" : "Editing a formula leaves the results stored in existing records as they were; a background pass rewrites the ones that differ, without a new version and without an audit record per record (one audit record per pass, with counts). The state says whether the results belong to the formulas as they are now (CURRENT) or not (NEEDED, PENDING, RUNNING, CLOSING), the progress of the pass in flight and the counts of the last one. While the results are not current a filter or an order on a formula field is refused. There is no screen for this yet. Needs the ability to view metadata. Organization hosts only. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
@@ -5692,6 +5745,116 @@
         "tags" : [ "Records" ]
       }
     },
+    "/api/v1/objects/{objectApiName}/lookups/{fieldApiName}/labels" : {
+      "post" : {
+        "description" : "For the identifiers a list or a form holds in a lookup or master-detail field (at most 100). Each record is named by the field that names a record of the target object for the caller (the first searchable text field, else the first required one, else the auto-number); a person is named by their display name while their membership is active. An identifier that is missing from the answer names a record the caller may not read, one that does not exist, one in the recycle bin, or a person who is no longer a member, and the answer does not say which. The target is judged by the caller's own permissions and record-level security. A POST only because the identifiers travel in the body. VALIDATION_ERROR for a value that is not an identifier. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read, and for a field that is not a link of the object or that the caller may not read (all answer alike). ",
+        "operationId" : "getLookupLabels",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "fieldApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LookupLabelsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLookupLabelsView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The names of the records a link field points to",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/lookups/{fieldApiName}/options" : {
+      "post" : {
+        "description" : "Records of the target object the caller may read whose name contains the text, a few at a time (at most 25, 10 by default): a search over the searchable fields when the target has some, otherwise a match on the name field. Without text the first records in name order. People are offered while their membership is active. Nothing here lists a directory: the text must match. A POST only because the text travels in the body, never in the address, where every proxy on the way would log it. The write that follows is judged again (a link is accepted only to a record the caller can read). NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read, and for a field that is not a link of the object or that the caller may not read (all answer alike). ",
+        "operationId" : "getLookupOptions",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "fieldApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LookupOptionsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListLookupOptionView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The records a link field could point to, for a picker",
+        "tags" : [ "Records" ]
+      }
+    },
     "/api/v1/objects/{objectApiName}/records" : {
       "get" : {
         "description" : "One page at a time by the cursor of the previous page. For a filter, an order or links use the query endpoint. Only the records the caller may reach are listed: the ones they own, the ones below them in the role hierarchy, the ones a sharing rule or an explicit share gives them and, when the object is public, all of them. Fields the caller may not read are left out of every record. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
@@ -5936,6 +6099,54 @@
           }
         },
         "summary" : "Search the words of the searchable fields of an object",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/records/validate" : {
+      "post" : {
+        "description" : "The create or the change of a record (the one with recordId) run through every stage of the write pipeline (record type, field permission, the type of each value, required fields, linked records, unique fields, validation rules, formulas) and then undone: nothing is stored, no auto-number is used up, nothing is audited or announced. A save that would be refused is refused here with the same VALIDATION_ERROR, the same places and the same words, because it is the same code; one that would work answers with the results its formulas would give (and the formula fields it would leave empty). A change of an existing record is judged first like a real one: NOT_FOUND for a record the caller cannot read, FORBIDDEN for one they may read and not change. FORBIDDEN for a caller who may read the object but not create (or change) in it. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read (all three answer alike). ",
+        "operationId" : "validateRecord",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ValidateRecordRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordCheckView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Ask what the server would say to a save, without saving",
         "tags" : [ "Records" ]
       }
     },
@@ -6627,6 +6838,191 @@
           }
         },
         "summary" : "Take a record out of the recycle bin",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/views" : {
+      "get" : {
+        "description" : "The shared views of the object, then the caller's own personal ones, each with the filter, the order and the columns it was saved with. A view is not a permission: running it is an ordinary query, decided by the caller's own permissions and record-level security. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read (all three answer alike). ",
+        "operationId" : "listListViews",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListListViewView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The saved list views of an object that the caller sees",
+        "tags" : [ "Records" ]
+      },
+      "post" : {
+        "description" : "PERSONAL is for the caller only; SHARED is for everyone who may read the object and needs the ability to share list views (FORBIDDEN without it). The definition is checked by the first three stages of the query engine (shape, fields, operators and values) against what the caller may read: VALIDATION_ERROR lists the places that are wrong under definition. CONFLICT for a name already used among the views the caller sees in the object, and at the most views allowed. Nothing is run and no record is read. Audited by identifier and scope. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read (all three answer alike). ",
+        "operationId" : "createListView",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateListViewRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListViewView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Save a list view",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/views/{viewId}" : {
+      "delete" : {
+        "description" : "The version that was read must be given: CONCURRENT_MODIFICATION (409) when the view has changed since. The same rights as changing it. NOT_FOUND for a view that does not exist or that is another person's personal view. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read (all three answer alike). ",
+        "operationId" : "deleteListView",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "viewId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "version",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a saved list view",
+        "tags" : [ "Records" ]
+      },
+      "put" : {
+        "description" : "The request carries the version that was read: CONCURRENT_MODIFICATION (409) when the view has changed since, and nothing is changed. A personal view is changed only by the person who made it; a shared view needs the ability to share list views, whoever made it, and only its maker can make it personal again. NOT_FOUND for a view that does not exist or that is another person's personal view. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read (all three answer alike). ",
+        "operationId" : "updateListView",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "viewId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateListViewRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListViewView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change a saved list view",
         "tags" : [ "Records" ]
       }
     },
@@ -9458,6 +9854,30 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListListViewView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ListViewView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListLookupOptionView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LookupOptionView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListMemberView" : {
         "type" : "object",
         "properties" : {
@@ -9698,11 +10118,38 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListViewView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ListViewView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseLookupLabelsView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/LookupLabelsView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseMemberAccessView" : {
         "type" : "object",
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/MemberAccessView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseObjectFormView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ObjectFormView"
           }
         },
         "required" : [ "data" ]
@@ -9802,6 +10249,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/ProfileView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseRecordCheckView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/RecordCheckView"
           }
         },
         "required" : [ "data" ]
@@ -10649,6 +11105,25 @@
         },
         "required" : [ "definition", "label", "name" ]
       },
+      "CreateListViewRequest" : {
+        "type" : "object",
+        "properties" : {
+          "definition" : {
+            "$ref" : "#/components/schemas/ListViewDefinition"
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "scope" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "definition", "label", "scope" ]
+      },
       "CreateObjectRequest" : {
         "type" : "object",
         "properties" : {
@@ -11466,6 +11941,171 @@
         },
         "required" : [ "email" ]
       },
+      "FormActionsView" : {
+        "type" : "object",
+        "properties" : {
+          "create" : {
+            "type" : "boolean"
+          },
+          "delete" : {
+            "type" : "boolean"
+          },
+          "update" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "create", "delete", "update" ]
+      },
+      "FormFieldView" : {
+        "type" : "object",
+        "properties" : {
+          "apiName" : {
+            "type" : "string"
+          },
+          "calculated" : {
+            "type" : "boolean"
+          },
+          "defaultValue" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "digits" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "editable" : {
+            "type" : "boolean"
+          },
+          "externalId" : {
+            "type" : "boolean"
+          },
+          "filterOperators" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "maxLength" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "precision" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "prefix" : {
+            "type" : "string"
+          },
+          "required" : {
+            "type" : "boolean"
+          },
+          "resultType" : {
+            "type" : "string"
+          },
+          "scale" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "searchable" : {
+            "type" : "boolean"
+          },
+          "sortable" : {
+            "type" : "boolean"
+          },
+          "targetLabel" : {
+            "type" : "string"
+          },
+          "targetObject" : {
+            "type" : "string"
+          },
+          "targetOpenable" : {
+            "type" : "boolean"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "unique" : {
+            "type" : "boolean"
+          },
+          "values" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PicklistOption"
+            }
+          },
+          "width" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "apiName", "calculated", "description", "editable", "externalId", "filterOperators", "kind", "label", "required", "searchable", "sortable", "targetOpenable", "type", "unique" ]
+      },
+      "FormLayoutView" : {
+        "type" : "object",
+        "properties" : {
+          "layout" : {
+            "type" : "string"
+          },
+          "sections" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FormSectionView"
+            }
+          },
+          "source" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "sections", "source" ]
+      },
+      "FormRecordTypeView" : {
+        "type" : "object",
+        "properties" : {
+          "apiName" : {
+            "type" : "string"
+          },
+          "defaultType" : {
+            "type" : "boolean"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "selectable" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "apiName", "defaultType", "description", "label", "selectable" ]
+      },
+      "FormSectionView" : {
+        "type" : "object",
+        "properties" : {
+          "columns" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "fields" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "columns", "fields", "label" ]
+      },
       "FormulaRecalculationView" : {
         "type" : "object",
         "properties" : {
@@ -11994,6 +12634,120 @@
         },
         "required" : [ "fields", "id" ]
       },
+      "ListViewDefinition" : {
+        "type" : "object",
+        "properties" : {
+          "columns" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 80,
+              "minLength" : 0
+            },
+            "maxItems" : 30,
+            "minItems" : 0
+          },
+          "filter" : {
+            "$ref" : "#/components/schemas/QueryFilterNode"
+          },
+          "sort" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/QuerySortKey"
+            },
+            "maxItems" : 2,
+            "minItems" : 0
+          }
+        }
+      },
+      "ListViewView" : {
+        "type" : "object",
+        "properties" : {
+          "definition" : {
+            "$ref" : "#/components/schemas/ListViewDefinition"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "mine" : {
+            "type" : "boolean"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "scope" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "definition", "id", "label", "mine", "objectApiName", "scope", "updatedAt", "version" ]
+      },
+      "LookupLabelsRequest" : {
+        "type" : "object",
+        "properties" : {
+          "ids" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 36,
+              "minLength" : 0
+            },
+            "maxItems" : 100,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "ids" ]
+      },
+      "LookupLabelsView" : {
+        "type" : "object",
+        "properties" : {
+          "labels" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }
+        },
+        "required" : [ "labels" ]
+      },
+      "LookupOptionView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "label" ]
+      },
+      "LookupOptionsRequest" : {
+        "type" : "object",
+        "properties" : {
+          "limit" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 100,
+            "minimum" : 0
+          },
+          "text" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        }
+      },
       "MemberAccessView" : {
         "type" : "object",
         "properties" : {
@@ -12278,6 +13032,48 @@
           }
         },
         "required" : [ "type" ]
+      },
+      "ObjectFormView" : {
+        "type" : "object",
+        "properties" : {
+          "actions" : {
+            "$ref" : "#/components/schemas/FormActionsView"
+          },
+          "fields" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FormFieldView"
+            }
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "layout" : {
+            "$ref" : "#/components/schemas/FormLayoutView"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "pluralLabel" : {
+            "type" : "string"
+          },
+          "recordType" : {
+            "type" : "string"
+          },
+          "recordTypes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FormRecordTypeView"
+            }
+          },
+          "searchEnabled" : {
+            "type" : "boolean"
+          },
+          "titleField" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "actions", "fields", "label", "layout", "objectApiName", "pluralLabel", "recordTypes", "searchEnabled" ]
       },
       "ObjectIndexStatusView" : {
         "type" : "object",
@@ -13115,6 +13911,22 @@
           }
         },
         "required" : [ "reason" ]
+      },
+      "RecordCheckView" : {
+        "type" : "object",
+        "properties" : {
+          "calculated" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "cleared" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        },
+        "required" : [ "calculated", "cleared" ]
       },
       "RecordFileView" : {
         "type" : "object",
@@ -14319,6 +15131,29 @@
         },
         "required" : [ "definition", "label", "version" ]
       },
+      "UpdateListViewRequest" : {
+        "type" : "object",
+        "properties" : {
+          "definition" : {
+            "$ref" : "#/components/schemas/ListViewDefinition"
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "scope" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "definition", "label", "scope", "version" ]
+      },
       "UpdateObjectRequest" : {
         "type" : "object",
         "properties" : {
@@ -14512,6 +15347,28 @@
           }
         },
         "required" : [ "active", "errorMessage", "expression", "label", "version" ]
+      },
+      "ValidateRecordRequest" : {
+        "type" : "object",
+        "properties" : {
+          "clear" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "fields" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "recordId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "recordType" : {
+            "type" : "string"
+          }
+        }
       },
       "ValidationRuleView" : {
         "type" : "object",

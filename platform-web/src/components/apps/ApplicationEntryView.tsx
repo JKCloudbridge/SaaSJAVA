@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useApplications } from "@/lib/applications/ApplicationsProvider";
 import { describeKind, findApplication, findEntry, type NavigationEntry } from "@/lib/applications/entries";
+import { entryBase, recordHref } from "@/lib/records/paths";
+import { ObjectListPage } from "@/components/records/ObjectListPage";
 import { CustomPageFrame } from "./CustomPageFrame";
 
 /** What the address names, decoded: the application and the entry inside it. */
@@ -21,8 +23,9 @@ function useAddress(): { application: string; entry: string } {
  *
  * <ul>
  *   <li>a custom page: the sandboxed frame ({@link CustomPageFrame});</li>
- *   <li>an object or a record page: a note that the screen is not built yet. The lists and forms arrive with the record
- *       screens (Sprints 19 and 20); the entry is already part of the navigation so the application looks complete.</li>
+ *   <li>an object: its list of records, with the create and edit forms behind it (Sprint 19);</li>
+ *   <li>a record page: a note that the screen is not built yet. Record pages arrive with Sprint 20; the entry is already
+ *       part of the navigation so the application looks complete.</li>
  * </ul>
  */
 export function ApplicationEntryView() {
@@ -72,10 +75,23 @@ export function ApplicationEntryView() {
       </div>
     );
   }
-  return <EntryBody applicationLabel={application.label} entry={entry} />;
+  return <EntryBody applicationLabel={application.label} entry={entry} base={entryBase(address.application, address.entry)} />;
 }
 
-function EntryBody({ applicationLabel, entry }: { applicationLabel: string; entry: NavigationEntry }) {
+function EntryBody({ applicationLabel, entry, base }: { applicationLabel: string; entry: NavigationEntry; base: string }) {
+  if (entry.type === "OBJECT" && entry.objectApiName) {
+    // The list of the object (Sprint 19): drawn from what the API says this member may see; the records open inside
+    // this application, so the control bar stays where it is.
+    return (
+      <ObjectListPage
+        objectApiName={entry.objectApiName}
+        newHref={`${base}/new`}
+        openHref={(id) => `${base}/records/${encodeURIComponent(id)}`}
+        recordHref={recordHref}
+        backHref="/"
+      />
+    );
+  }
   if (entry.type === "CUSTOM" && entry.customPageApiName) {
     if (entry.available === false) {
       return (

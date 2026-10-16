@@ -151,6 +151,27 @@ class RecordChanges {
         events.publish(new NewEvent("record.updated", payload(object, id, version, List.of("ownerId"))));
     }
 
+    // ---- saved list views (Sprint 19, ADR-0130): the object, the view's identifier and its scope, never a name ----
+
+    /** A list view was saved. */
+    void viewCreated(UUID actor, String object, UUID view, String scope) {
+        audit.record(AuditRecord.of("data.view.created", AuditOutcome.SUCCESS).forUser(actor).inTenant(tenantId())
+                .onObject(object, null).with("view", view.toString()).with("scope", scope));
+    }
+
+    /** A list view was changed; {@code scope} is the one it has now. */
+    void viewChanged(UUID actor, String object, UUID view, String scope, long version) {
+        audit.record(AuditRecord.of("data.view.changed", AuditOutcome.SUCCESS).forUser(actor).inTenant(tenantId())
+                .onObject(object, null).with("view", view.toString()).with("scope", scope)
+                .with("version", Long.toString(version)));
+    }
+
+    /** A list view was removed. */
+    void viewRemoved(UUID actor, String object, UUID view, String scope) {
+        audit.record(AuditRecord.of("data.view.removed", AuditOutcome.SUCCESS).forUser(actor).inTenant(tenantId())
+                .onObject(object, null).with("view", view.toString()).with("scope", scope));
+    }
+
     private TenantId tenantId() {
         return contexts.current().map(TenantContext::tenantId).orElse(null);
     }
