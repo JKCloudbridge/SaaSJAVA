@@ -25,6 +25,9 @@ import app.platformapi.CreateRecordPageRequest;
 import app.platformapi.CreateRecordTypeAssignmentRequest;
 import app.platformapi.CreateRecordTypeRequest;
 import app.platformapi.CreateValidationRuleRequest;
+import app.platformapi.CreateWorkflowRequest;
+import app.platformapi.UpdateWorkflowRequest;
+import app.platformapi.WorkflowView;
 import app.platformapi.FieldSettings;
 import app.platformapi.FieldView;
 import app.platformapi.LayoutAssignmentView;
@@ -103,8 +106,12 @@ final class ChangeCodec {
                     write(required(request.updateObject(), "updateObject", kind)));
             case DELETE_OBJECT, DELETE_FIELD, DELETE_RECORD_TYPE, DELETE_LAYOUT, DELETE_RECORD_PAGE,
                     DELETE_APPLICATION, DELETE_LAYOUT_ASSIGNMENT, DELETE_VALIDATION_RULE,
-                    DELETE_RECORD_TYPE_ASSIGNMENT, DELETE_TAB, DELETE_CUSTOM_PAGE, DELETE_RECORD_PAGE_ASSIGNMENT ->
-                    new Change(kind, object, item, EMPTY);
+                    DELETE_RECORD_TYPE_ASSIGNMENT, DELETE_TAB, DELETE_CUSTOM_PAGE, DELETE_RECORD_PAGE_ASSIGNMENT,
+                    DELETE_WORKFLOW -> new Change(kind, object, item, EMPTY);
+            case CREATE_WORKFLOW -> new Change(kind, object, null,
+                    write(required(request.createWorkflow(), "createWorkflow", kind)));
+            case UPDATE_WORKFLOW -> new Change(kind, object, item,
+                    write(required(request.updateWorkflow(), "updateWorkflow", kind)));
             case CREATE_VALIDATION_RULE -> new Change(kind, object, null,
                     write(required(request.createValidationRule(), "createValidationRule", kind)));
             case UPDATE_VALIDATION_RULE -> new Change(kind, object, item,
@@ -225,6 +232,8 @@ final class ChangeCodec {
                     creation.object(), creation.item(), EMPTY));
             case CREATE_VALIDATION_RULE -> restoreKey(new Change(Change.Kind.UPDATE_VALIDATION_RULE,
                     creation.object(), withSuffix(name), EMPTY));
+            case CREATE_WORKFLOW -> restoreKey(new Change(Change.Kind.UPDATE_WORKFLOW, creation.object(),
+                    withSuffix(name), EMPTY));
             default -> throw new IllegalArgumentException("Not a creation: " + creation.kind());
         };
     }
@@ -457,6 +466,26 @@ final class ChangeCodec {
         return new Change(Change.Kind.UPDATE_VALIDATION_RULE, before.objectApiName(), before.apiName(), write(
                 new UpdateValidationRuleRequest(before.label(), before.description(), before.expression(),
                         before.errorMessage(), before.errorField(), before.active(), afterVersion)));
+    }
+
+    // ---- workflows (Sprint 22) ----
+
+    Change removeWorkflow(String object, String workflow) {
+        return new Change(Change.Kind.DELETE_WORKFLOW, object, workflow, EMPTY);
+    }
+
+    /** Makes the workflow again as it was (as a new workflow: the executions of the old one keep their own history). */
+    Change makeWorkflow(WorkflowView view) {
+        return new Change(Change.Kind.CREATE_WORKFLOW, view.objectApiName(), null, write(
+                new CreateWorkflowRequest(withoutSuffix(view.apiName()), view.label(), view.description(),
+                        view.active(), view.trigger(), view.condition(), view.actions())));
+    }
+
+    /** Puts the workflow back as it was, to be applied on top of {@code afterVersion}. */
+    Change restoreWorkflow(WorkflowView before, long afterVersion) {
+        return new Change(Change.Kind.UPDATE_WORKFLOW, before.objectApiName(), before.apiName(), write(
+                new UpdateWorkflowRequest(before.label(), before.description(), before.active(), before.trigger(),
+                        before.condition(), before.actions(), afterVersion)));
     }
 
     private static List<String> fieldsToSend(RecordTypeView view) {

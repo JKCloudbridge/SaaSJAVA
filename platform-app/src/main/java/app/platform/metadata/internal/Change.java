@@ -11,8 +11,7 @@ import java.util.Optional;
  * @param kind what the change does
  * @param object the API name of the object it is about, empty for an application, a tab or a custom page
  * @param item the API name of the field, record type, layout, record page, validation rule, application, tab or custom
- *        page it is
- *        about (for a layout assignment its key), or null
+ * page it is about (for a layout assignment its key), or null
  * @param payload the JSON of the request ({@code {}} for a removal)
  */
 record Change(Kind kind, String object, String item, String payload) {
@@ -57,7 +56,10 @@ record Change(Kind kind, String object, String item, String payload) {
         /** A record page assignment is named by its key, also when it is made: the key is what the change is about. */
         CREATE_RECORD_PAGE_ASSIGNMENT(Entity.RECORD_PAGE_ASSIGNMENT, true),
         UPDATE_RECORD_PAGE_ASSIGNMENT(Entity.RECORD_PAGE_ASSIGNMENT, true),
-        DELETE_RECORD_PAGE_ASSIGNMENT(Entity.RECORD_PAGE_ASSIGNMENT, true);
+        DELETE_RECORD_PAGE_ASSIGNMENT(Entity.RECORD_PAGE_ASSIGNMENT, true),
+        CREATE_WORKFLOW(Entity.WORKFLOW, false),
+        UPDATE_WORKFLOW(Entity.WORKFLOW, true),
+        DELETE_WORKFLOW(Entity.WORKFLOW, true);
 
         private final Entity entity;
         private final boolean namesItem;
@@ -92,7 +94,7 @@ record Change(Kind kind, String object, String item, String payload) {
 
     /** The kinds of definition. */
     enum Entity { OBJECT, FIELD, RECORD_TYPE, LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT, VALIDATION_RULE,
-        RECORD_TYPE_ASSIGNMENT, TAB, CUSTOM_PAGE, RECORD_PAGE_ASSIGNMENT;
+        RECORD_TYPE_ASSIGNMENT, TAB, CUSTOM_PAGE, RECORD_PAGE_ASSIGNMENT, WORKFLOW;
 
         /** Whether the kind of definition belongs to the organization and not to one object. */
         boolean organizationWide() {

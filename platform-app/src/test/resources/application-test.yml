@@ -49,6 +49,10 @@ platform:
   outbox:
     # Tests drive the relay themselves, or switch it on for the one context that wants it to poll.
     enabled: false
+  workflow:
+    # Tests drive the dispatcher themselves (pollExecutionsOnce, pollSchedulesOnce), or switch it on for the one
+    # context that wants it to run by itself.
+    enabled: false
   storage:
     # Short, so a test that pauses the store does not wait a minute for every attempt.
     socket-timeout: 2s

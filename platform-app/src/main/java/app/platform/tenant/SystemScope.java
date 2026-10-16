@@ -18,7 +18,15 @@ public enum SystemScope {
      * The identity module asking which organizations one person belongs to (the organization switcher, ADR-0027). The
      * policy of {@code membership} admits it for reading only, and the code always asks by user.
      */
-    MEMBERSHIP_LOOKUP("membership_lookup", true);
+    MEMBERSHIP_LOOKUP("membership_lookup", true),
+
+    /**
+     * The workflow dispatcher: finds due schedules and queued executions of every organization and claims them, and
+     * applies the retention of finished executions (Sprint 22, ADR-0135). The policies of {@code workflow_schedule}
+     * and {@code workflow_execution} admit it, and no other table does. The work itself always runs inside the
+     * organization's own tenant context.
+     */
+    WORKFLOW_DISPATCH("workflow_dispatch", false);
 
     private final String settingValue;
     private final boolean audited;

@@ -14,7 +14,8 @@ import jakarta.validation.constraints.Size;
  *        {@code DELETE_RECORD_TYPE}, and since Sprint 12 the same three for {@code LAYOUT}, {@code RECORD_PAGE},
  *        {@code APPLICATION} and {@code LAYOUT_ASSIGNMENT} (for example {@code CREATE_LAYOUT}), since Sprint 13 for
  *        {@code VALIDATION_RULE}, since Sprint 15A for {@code RECORD_TYPE_ASSIGNMENT} and since Sprint 18 for
- *        {@code TAB} and {@code CUSTOM_PAGE}
+ *        {@code TAB} and {@code CUSTOM_PAGE}, since Sprint 20 for {@code RECORD_PAGE_ASSIGNMENT} and since Sprint 22
+ *        for {@code WORKFLOW}
  * @param objectApiName the API name of the object the change is about (for {@code CREATE_OBJECT}: the object to be
  *        made, with the ending __c); left out for the changes of applications
  * @param itemApiName the API name of the field, record type, layout, record page or application the change is about
@@ -45,6 +46,9 @@ import jakarta.validation.constraints.Size;
  * @param createRecordPageAssignment the request of {@code CREATE_RECORD_PAGE_ASSIGNMENT} (Sprint 20); its item is the
  *        key of the assignment, as for a layout assignment
  * @param updateRecordPageAssignment the request of {@code UPDATE_RECORD_PAGE_ASSIGNMENT}
+ * @param createWorkflow the request of {@code CREATE_WORKFLOW} (Sprint 22)
+ * @param updateWorkflow the request of {@code UPDATE_WORKFLOW}; switching a workflow on or off is such a change that
+ *        keeps the trigger, the condition and the actions as they are
  */
 public record ChangeRequest(@NotBlank @Size(max = 40) String kind, @Size(max = 60) String objectApiName,
         @Size(max = 60) String itemApiName, @Valid CreateObjectRequest createObject,
@@ -63,7 +67,8 @@ public record ChangeRequest(@NotBlank @Size(max = 40) String kind, @Size(max = 6
         @Valid CreateTabRequest createTab, @Valid UpdateTabRequest updateTab,
         @Valid CreateCustomPageRequest createCustomPage, @Valid UpdateCustomPageRequest updateCustomPage,
         @Valid CreateRecordPageAssignmentRequest createRecordPageAssignment,
-        @Valid UpdateRecordPageAssignmentRequest updateRecordPageAssignment) {
+        @Valid UpdateRecordPageAssignmentRequest updateRecordPageAssignment,
+        @Valid CreateWorkflowRequest createWorkflow, @Valid UpdateWorkflowRequest updateWorkflow) {
 
     @Override
     public String toString() {

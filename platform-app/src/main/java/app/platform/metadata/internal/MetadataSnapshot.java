@@ -13,6 +13,7 @@ import app.platform.metadata.RecordType;
 import app.platform.metadata.RecordTypeAssignment;
 import app.platform.metadata.Tab;
 import app.platform.metadata.ValidationRule;
+import app.platform.metadata.WorkflowDefinition;
 import app.platform.security.ObjectCatalog;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -51,15 +52,28 @@ final class MetadataSnapshot {
      * @param tabs the tabs applications can list (Sprint 18)
      * @param customPages the custom pages of the organization (Sprint 18)
      * @param recordPageAssignments the record page assignments by object (Sprint 20)
+     * @param workflows the workflows by object, each in the definition new executions use (Sprint 22)
      */
     record Definitions(Map<String, List<PageLayout>> layouts, Map<String, List<RecordPage>> recordPages,
             Map<String, List<LayoutAssignment>> assignments, List<ApplicationDefinition> applications,
             Map<String, List<ValidationRule>> validationRules,
             Map<String, List<RecordTypeAssignment>> recordTypeAssignments, List<Tab> tabs,
-            List<CustomPage> customPages, Map<String, List<RecordPageAssignment>> recordPageAssignments) {
+            List<CustomPage> customPages, Map<String, List<RecordPageAssignment>> recordPageAssignments,
+            Map<String, List<WorkflowDefinition>> workflows) {
+
+        /** The definitions of Sprints 12 to 20 (no workflows). */
+        Definitions(Map<String, List<PageLayout>> layouts, Map<String, List<RecordPage>> recordPages,
+                Map<String, List<LayoutAssignment>> assignments, List<ApplicationDefinition> applications,
+                Map<String, List<ValidationRule>> validationRules,
+                Map<String, List<RecordTypeAssignment>> recordTypeAssignments, List<Tab> tabs,
+                List<CustomPage> customPages, Map<String, List<RecordPageAssignment>> recordPageAssignments) {
+            this(layouts, recordPages, assignments, applications, validationRules, recordTypeAssignments, tabs,
+                    customPages, recordPageAssignments, Map.of());
+        }
 
         /** Copies what is given, so that the snapshot cannot change after it is built. */
         Definitions {
+            workflows = frozen(workflows);
             layouts = frozen(layouts);
             recordPages = frozen(recordPages);
             assignments = frozen(assignments);
@@ -262,6 +276,18 @@ final class MetadataSnapshot {
 
     Optional<CustomPage> customPage(String apiName) {
         return customPages().stream().filter(page -> page.apiName().equals(apiName)).findFirst();
+    }
+
+    List<WorkflowDefinition> workflows(String objectApiName) {
+        return definitions.workflows().getOrDefault(objectApiName, List.of());
+    }
+
+    List<WorkflowDefinition> allWorkflows() {
+        return definitions.workflows().values().stream().flatMap(List::stream).toList();
+    }
+
+    Optional<WorkflowDefinition> workflow(String objectApiName, String apiName) {
+        return workflows(objectApiName).stream().filter(workflow -> workflow.apiName().equals(apiName)).findFirst();
     }
 
     List<ValidationRule> validationRules(String objectApiName) {

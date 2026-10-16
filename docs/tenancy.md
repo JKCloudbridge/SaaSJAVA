@@ -481,3 +481,40 @@ Short form; decision in ADR-0131, the overview in [engineering-guide.md](enginee
 
 **Tests.** `RecordPageAssignmentIT` (order, keys, versions, deleted profile, undo, limits, access, cross-tenant), `RecordPageViewsIT` (the page differs by record type and profile; what is left out; regions; the layout; access), `RecordPageVisibilityTest`, the endpoint matrix in `DefinitionsAccessIT`, `ObjectFormIT` for the layout override. `RecordSecuritySupport` gives `Item__c` and `Target__c` (an object with a link pointing at it).
 
+
+## Workflows, executions and the scheduler (Sprint 22)
+
+Short form of ADR-0133 to ADR-0137; the administrator's view is [metadata-guide.md](metadata-guide.md) section 21.
+
+- **Where things are.** Definitions (`workflow`, `workflow_version`), their lifecycle and the compiled conditions are in the
+  `metadata` module; the runtime (`workflow_execution`, `workflow_step`, `workflow_schedule`, the handler, the dispatcher,
+  the runner, the scheduler) is in `workflow`. The tables of one module are never read by the other: the history carries the
+  names it shows (workflow API name, version number), and a version that executions still name is protected by a foreign key.
+- **The dispatcher is the one place that works across organizations** (`Dispatcher`, `DispatchStore`, the system scope
+  `workflow_dispatch`, [ADR-0135](adr/0135-the-workflow-dispatch-system-scope.md)). It claims rows with `SKIP LOCKED` and a
+  lease and hands each to a runner that restores the organization's context; nothing a record holds is read in the scope. Do
+  not add another class that names `SystemScope` (an architecture test fails).
+- **Claim tokens.** The version after a claim is the claim's token; every later write of a claimed execution or schedule
+  carries it (`ExecutionStore.renew|finish`, `ScheduleStore.progress|complete`). A write that finds another version means the
+  lease was lost: stop, the outcome is the other instance's (`ClaimLost`).
+- **Read records for background work through `BackgroundRecords`** (module `data`): one record including the recycle bin, the
+  engine values of a record, a page of live records through the query engine's own stages. Never `StorageStrategy`, never
+  `Records` for reads (an architecture test). Changing records from a workflow is a later action type and goes through
+  `Records` so the rules of writing apply.
+- **Adding a kind of trigger.** A value in `WorkflowDefinition.Kind` and the migration's check constraints
+  (`workflow_version_trigger_known`, `workflow_execution_trigger_known`), the rules of its properties in `WorkflowRules`, its
+  edges in `WorkflowDependencies`, and how it starts: a record event in `WorkflowEventHandler.matches`, a time in
+  `ScheduleMath.next` (with unit tests) and `ScheduleRunner`. A trigger of an external system is added with the integration
+  milestones and is refused until then (no inert placeholder).
+- **Adding a type of action.** One entry in `WorkflowActionTypes` (type, settings with their shapes) and one class implementing
+  `ActionExecutor`; the registry refuses to start when the two lists differ. The executor runs inside the transaction that marks
+  its step completed, as the platform, and passes `ActionContext.idempotencyKey()` to anything it does outside the database.
+  Never put a value of the record, a condition or a setting in a log, an event or an audit record
+  (`WorkflowFlowsLogsAreCleanIT`).
+- **Tests.** No database: `ScheduleMathTest`, `WorkflowRulesTest`, `WorkflowDependenciesTest`, `WorkflowEventMatchingTest`,
+  `ActionsTest`, `WorkflowPropertiesTest`, `WorkflowArchitectureTest`. Real PostgreSQL: `WorkflowDefinitionsIT`,
+  `WorkflowAccessIT`, `WorkflowLimitsIT`, `WorkflowVersionCleanupIT`, `WorkflowEventProcessingIT` (the outbox, two instances),
+  `WorkflowExecutionIT`, `WorkflowSchedulerIT` (three instances), `WorkflowFlowsLogsAreCleanIT`, `WorkflowDispatchScopeIT`;
+  the isolation harness lists the five new tables (`TenantScopedTables`). The runtime tests switch the outbox relay on and the
+  dispatcher off (`platform.workflow.enabled=false`) and drive `pollExecutionsOnce`, `pollSchedulesOnce` and `purgeOnce`
+  themselves; `WorkflowSupport` is their shared base.

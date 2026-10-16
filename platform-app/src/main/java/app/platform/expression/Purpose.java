@@ -10,7 +10,13 @@ public enum Purpose {
     FORMULA(false),
 
     /** The condition of a validation rule: it must give true or false, and it may use the clock. */
-    VALIDATION_RULE(true);
+    VALIDATION_RULE(true),
+
+    /**
+     * The condition of a workflow (Sprint 22, ADR-0136): it must give true or false, and it may use the clock because
+     * it is judged when the execution runs, not stored.
+     */
+    WORKFLOW_CONDITION(true);
 
     private final boolean clockAllowed;
 

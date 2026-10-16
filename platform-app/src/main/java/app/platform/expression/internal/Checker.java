@@ -57,6 +57,10 @@ final class Checker {
             throw fail(Kind.TYPE, root.offset(), "A validation rule must give true or false (it rejects the save when "
                     + "it is true), but this gives " + type.words() + ".");
         }
+        if (purpose == Purpose.WORKFLOW_CONDITION && type != ExpressionType.BOOLEAN) {
+            throw fail(Kind.TYPE, root.offset(), "A workflow condition must give true or false (the workflow runs "
+                    + "when it is true), but this gives " + type.words() + ".");
+        }
         return new Result(type, new ArrayList<>(fields), usesClock);
     }
 
