@@ -3,8 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi, json, refusal } from "@/test/fakeApi";
 import { WorkingSetBar } from "./WorkingSetBar";
 
+const page = vi.hoisted(() => ({ section: "" }));
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(page.section ? `section=${page.section}` : ""),
+}));
+
 beforeEach(() => {
   window.sessionStorage.clear();
+  page.section = "";
 });
 
 afterEach(() => {
@@ -49,6 +55,16 @@ describe("WorkingSetBar", () => {
     render(<WorkingSetBar />);
 
     await vi.waitFor(() => expect(window.sessionStorage.getItem("platform.workingChangeSet")).toBeNull());
+  });
+
+  it("is not shown on the Sharing section, whose changes are live at once and are not part of a change set", async () => {
+    page.section = "sharing";
+    const calls = fakeApi({ "GET /api/v1/metadata/change-sets": () => json(SETS) });
+
+    render(<WorkingSetBar />);
+
+    await vi.waitFor(() => expect(calls.some((call) => call.key === "GET /api/v1/metadata/change-sets")).toBe(true));
+    expect(screen.queryByTestId("working-set")).toBeNull();
   });
 
   it("stays quiet when there is nothing to choose or the list cannot be read", async () => {

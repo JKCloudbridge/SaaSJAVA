@@ -26,7 +26,9 @@ export function fakeApi(answers: Record<string, Handler> = {}): Call[] {
   const calls: Call[] = [];
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (request: Request) => {
+    vi.fn(async (input: Request | string, init?: RequestInit) => {
+      // The typed client sends a Request; a page that sends a raw body (an upload) calls fetch with an address.
+      const request = typeof input === "string" ? new Request(new URL(input, "http://localhost"), init) : input;
       const key = `${request.method} ${new URL(request.url).pathname}`;
       if (key === "GET /api/v1/auth/csrf") {
         return new Response(null, { status: 204 });

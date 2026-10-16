@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { ObjectDetailPanel } from "@/components/setup/ObjectDetailPanel";
 import { SetupFrame } from "@/components/setup/SetupFrame";
 
@@ -12,7 +13,10 @@ export default function ObjectPage() {
     <>
       <h1>Objects</h1>
       <SetupFrame>
-        <ObjectDetailPanel />
+        {/* The section is read from the address (?section=), which a statically built page may only do inside Suspense. */}
+        <Suspense fallback={<p aria-live="polite">Loading…</p>}>
+          <ObjectDetailPanel />
+        </Suspense>
       </SetupFrame>
     </>
   );

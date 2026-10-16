@@ -446,7 +446,7 @@ Every object you define gets a **list**, a **create form** and an **edit form** 
 
 A **record page** is the screen of one record: a card with its name and a few values, then the page's blocks and tabs, and the actions a person may use. You build the pages in Setup (section 11); this section is about **which page a person gets** and what they see.
 
-**Which page.** Choose it with a **record page assignment**, in this order: the profile together with the record type, the record type alone, the profile alone, the object's default. The first rule that applies wins. A record page does not change with the application the person came from. Deleting a profile is never blocked; an assignment of a deleted profile is ignored. For now assignments are made through the API or a change set; the screen comes with the admin screens of Sprint 21.
+**Which page.** Choose it with a **record page assignment**, in this order: the profile together with the record type, the record type alone, the profile alone, the object's default. The first rule that applies wins. A record page does not change with the application the person came from. Deleting a profile is never blocked; an assignment of a deleted profile is ignored. Assignments are made on the object's **Record pages** section (section 20).
 
 **When you set nothing up.** Every object still has a record screen: the details on a **Content** tab and, if other objects have a link to this one, a **Related Records** tab with a list for each link (five rows, then "View all"). The card shows the record's name and a few of its values.
 
@@ -457,4 +457,26 @@ A **record page** is the screen of one record: a card with its name and a few va
 **Reading and changing.** A record opens as text. **Edit** turns the details into the form of section 18, with **Save** and **Cancel** beside it; **Clone** starts a new record from this one's values (never its owner, a unique value or an identifier from another system); **Share** opens who the record is shared with and its owner; **Delete** asks first. Which of these appear is the record page's own list of actions, cut to what the person may do.
 
 **Not here yet.** Activity and history components are accepted and not drawn; pages that differ by device; custom buttons.
+
+## 20. The setup screens: building an application with the mouse (Sprint 21)
+
+Everything in sections 2 to 19 can be done in Setup without touching the API. This section is the map.
+
+**An object's page is a row of sections**: *Fields*, *Relationships*, *Record types*, *Page layouts*, *Record pages*, *Validation rules*, *Sharing* and *Details* (the labels, and removing the object). The address names the section, so you can bookmark it. *Custom buttons* is shown greyed out with "Soon": it is not built.
+
+**Where changes go.** On the object pages, Applications, Tabs and Change sets, the bar at the top chooses where a change goes: **live at once** (one step in the history) or **into an open change set** (nothing is live until the set is published). Everything below follows it, **except Sharing**, which is always live (see below).
+
+**Building a page layout.** *Page layouts* → *New page layout*, or *Build* on one. The **palette** on the left lists the object's fields (a star marks a required one); drag a field into a section, or press Enter on it to add it to the section marked *Adds go here*. Click a section to make it that one. In a section you can rename it, give it one or two columns, drag its fields (or use the arrows) to put them in order, set each field's behaviour (editable, read only, required on this page, hidden), move a field to another section, and take it out. A field is on a layout once; placing it again moves it. A warning lists the required fields that are not on the layout yet, and the system refuses to save until they are. **Preview** draws the layout you are building with sample values. **Save** sends it.
+
+**Building a record page.** *Record pages* → *New record page*, or *Build*. Choose the layout the details use. Then arrange the **tabs**: the palette has *Standard* (Details and a list for each link other objects have to this one), *Tabs* (tabs made in Setup, Tabs) and *Custom pages*. Drag a chip into a tab, or drop it on the dashed *Add a tab* to start a new tab with it. A custom page is shown through a tab: if no tab shows that page yet, one is made, with the page's name, when you save (it is marked *Made when saved*). *Settings* on a part opens its columns, its row limit and when it is shown. The header, the side panel, lists outside the tabs, the actions and every condition on when something is shown are in the forms below the tabs.
+
+**Which record page people get** is chosen under the list of record pages (section 19). Unlike a layout, a record type holds no page of its own, so a record type can be chosen there on its own. *Which record page would a person get?* asks the system and names the rule that decided.
+
+**Tabs** (*Tabs* in the Setup menu). Every object already has a tab. A **custom tab** shows a **custom page**: a script you upload. *New tab* asks for a name, a label and either an existing custom page or a script file for a new one. The script is stored by the platform and runs only in the browser of the person who opens the tab, inside a sandbox, with that person's own permissions; the platform never runs it on its servers. *Replace the script* uploads a new version. A page that a tab still uses cannot be removed; the message names what uses it.
+
+**Applications** (*Applications* in the Setup menu). *New application*, or *Build*. Give it a name, a label, an icon key and the profiles that see it (none ticked: everyone). Then build the **navigation**: drag objects and custom tabs from the palette into the list in the order members should see them; *Other* has a heading, a link (a path inside the organization) and a record page, finished in the row. An entry can have a label of its own. Members see an application as soon as it is saved live or its change set is published.
+
+**Which profiles use which record type** is a grid under the record types (section 14): tick a profile to let it use a type; a type with no ticks is open to everyone; *Make default* chooses what a new record starts with.
+
+**Sharing** (the *Sharing* section; needs the ability *Manage sharing*). Three things per object: the **default access** (private, public read only, public read and write), whether the **role hierarchy** gives access, and **sharing rules**. A rule gives the records owned by the members of a role (or of a public group), or the records that meet a condition on indexed fields, to a role, a role and those below it, or a public group, for reading or for reading and writing; a rule never gives the right to delete. **Sharing is live at once for everyone and is not part of a change set**; the section says so. An object nobody has set up lets every member who may read the object read every record.
 
