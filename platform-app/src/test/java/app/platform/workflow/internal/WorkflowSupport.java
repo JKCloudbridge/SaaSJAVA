@@ -168,9 +168,13 @@ abstract class WorkflowSupport {
 
     // ---- driving the runtime ----
 
-    /** Waits until the outbox has handed every event of the organization to its handlers. */
+    /**
+     * Waits until the outbox has handed every event of the organization to its handlers. The budget is generous
+     * (not a correctness bound): this class runs up to three full application instances polling at once, and a
+     * loaded CI runner can be slower than a developer machine to drain the queue.
+     */
     protected static void settle(Organization organization) {
-        Awaitility.await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(50)).until(
+        Awaitility.await().atMost(Duration.ofSeconds(90)).pollInterval(Duration.ofMillis(50)).until(
                 () -> scalar(organization, "select count(*) from outbox_event where status = 'PENDING'") == 0);
     }
 
