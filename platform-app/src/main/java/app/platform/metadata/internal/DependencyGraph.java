@@ -22,7 +22,7 @@ final class DependencyGraph {
 
     /** The kinds of thing that can be depended on (a layout assignment and an application only depend). */
     enum Kind { OBJECT, FIELD, RECORD_TYPE, PICKLIST_VALUE, LAYOUT, RECORD_PAGE, APPLICATION, ASSIGNMENT,
-        VALIDATION_RULE, TYPE_ASSIGNMENT, SHARING_RULE, TAB, CUSTOM_PAGE }
+        VALIDATION_RULE, TYPE_ASSIGNMENT, SHARING_RULE, TAB, CUSTOM_PAGE, RECORD_PAGE_ASSIGNMENT }
 
     /**
      * A definition, by name only (never by what a person typed as a value).
@@ -74,6 +74,10 @@ final class DependencyGraph {
             return new Node(Kind.ASSIGNMENT, object, key, null);
         }
 
+        static Node recordPageAssignment(String object, String key) {
+            return new Node(Kind.RECORD_PAGE_ASSIGNMENT, object, key, null);
+        }
+
         static Node validationRule(String object, String rule) {
             return new Node(Kind.VALIDATION_RULE, object, rule, null);
         }
@@ -97,6 +101,7 @@ final class DependencyGraph {
                 case RECORD_PAGE -> "record page " + item + " of " + object;
                 case APPLICATION -> "application " + item;
                 case ASSIGNMENT -> "the layout assignment " + item + " of " + object;
+                case RECORD_PAGE_ASSIGNMENT -> "the record page assignment " + item + " of " + object;
                 case VALIDATION_RULE -> "validation rule " + item + " of " + object;
                 case TYPE_ASSIGNMENT -> "the record type assignment " + item + " of " + object;
                 case SHARING_RULE -> "sharing rule " + item + " of " + object;
@@ -215,6 +220,8 @@ final class DependencyGraph {
             case TAB -> snapshot.tab(node.item()).isPresent();
             case CUSTOM_PAGE -> snapshot.customPage(node.item()).isPresent();
             case ASSIGNMENT -> snapshot.assignments(node.object()).stream()
+                    .anyMatch(assignment -> assignment.key().equals(node.item()));
+            case RECORD_PAGE_ASSIGNMENT -> snapshot.recordPageAssignments(node.object()).stream()
                     .anyMatch(assignment -> assignment.key().equals(node.item()));
             case VALIDATION_RULE -> snapshot.validationRule(node.object(), node.item()).isPresent();
             case TYPE_ASSIGNMENT -> snapshot.typeAssignments(node.object()).stream()

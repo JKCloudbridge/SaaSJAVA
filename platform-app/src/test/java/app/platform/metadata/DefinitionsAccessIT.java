@@ -53,7 +53,14 @@ class DefinitionsAccessIT extends DefinitionsSupport {
             new Call("GET", GADGET + "/layout-resolution", null),
             new Call("POST", GADGET + "/layout-assignments", "{\"layout\":\"Odd__c\"}"),
             new Call("PUT", GADGET + "/layout-assignments/default", "{\"layout\":\"Odd__c\",\"version\":0}"),
-            new Call("DELETE", GADGET + "/layout-assignments/default", null));
+            new Call("DELETE", GADGET + "/layout-assignments/default", null),
+            new Call("GET", GADGET + "/record-page-assignments", null),
+            new Call("GET", GADGET + "/record-page-assignments/default", null),
+            new Call("GET", GADGET + "/record-page-resolution", null),
+            new Call("POST", GADGET + "/record-page-assignments", "{\"recordPage\":\"Odd__c\"}"),
+            new Call("PUT", GADGET + "/record-page-assignments/default",
+                    "{\"recordPage\":\"Odd__c\",\"version\":0}"),
+            new Call("DELETE", GADGET + "/record-page-assignments/default", null));
 
     private TestBrowser adminWithGadget(Organization organization) {
         TestBrowser admin = adminOf(organization);

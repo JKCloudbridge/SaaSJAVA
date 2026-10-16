@@ -11,6 +11,8 @@ import app.platform.metadata.Metadata;
 import app.platform.metadata.ObjectDefinition;
 import app.platform.metadata.PageLayout;
 import app.platform.metadata.RecordPage;
+import app.platform.metadata.RecordPageAssignment;
+import app.platform.metadata.RecordPageResolution;
 import app.platform.metadata.RecordType;
 import app.platform.metadata.RecordTypeAssignment;
 import app.platform.metadata.Tab;
@@ -56,14 +58,17 @@ class MetadataCatalogue implements Metadata {
     private final DefinitionCodec definitionCodec;
     private final ValidationRuleStore validationRuleStore;
     private final RecordTypeAssignmentStore typeAssignmentStore;
+    private final RecordPageAssignmentStore recordPageAssignmentStore;
 
     MetadataCatalogue(StandardMetadata standard, MetadataStore store, MetadataVersions versions,
             MetadataCache cache, TenantContexts contexts, ConfigCodec codec, TransactionTemplate transaction,
             RecordTypeStore recordTypeStore, RecordTypeCodec recordTypeCodec, DefinitionStore definitionStore,
             AssignmentStore assignmentStore, DefinitionCodec definitionCodec,
-            ValidationRuleStore validationRuleStore, RecordTypeAssignmentStore typeAssignmentStore) {
+            ValidationRuleStore validationRuleStore, RecordTypeAssignmentStore typeAssignmentStore,
+            RecordPageAssignmentStore recordPageAssignmentStore) {
         this.validationRuleStore = validationRuleStore;
         this.typeAssignmentStore = typeAssignmentStore;
+        this.recordPageAssignmentStore = recordPageAssignmentStore;
         this.recordTypeStore = recordTypeStore;
         this.recordTypeCodec = recordTypeCodec;
         this.definitionStore = definitionStore;
@@ -148,6 +153,16 @@ class MetadataCatalogue implements Metadata {
         return snapshot().defaultRecordTypeFor(objectApiName, profileId);
     }
 
+    @Override
+    public List<RecordPageAssignment> recordPageAssignments(String objectApiName) {
+        return snapshot().recordPageAssignments(objectApiName);
+    }
+
+    @Override
+    public RecordPageResolution recordPageFor(String objectApiName, UUID profileId, String recordType) {
+        return snapshot().recordPageFor(objectApiName, profileId, recordType);
+    }
+
     /**
      * The snapshot for the organization, from the cache when it is current. Asked outside a transaction (some callers
      * check a request before they open one), it opens a short one of its own: the tenant is set in the database only
@@ -191,7 +206,8 @@ class MetadataCatalogue implements Metadata {
         return new MetadataSnapshot(objects, recordTypes, definitions());
     }
 
-    /** Layouts, record pages, assignments, applications, tabs and custom pages, as published (Sprints 12, 18). */
+    /** Layouts, record pages, assignments, applications, tabs, custom pages and record page assignments, as published
+     * (Sprints 12, 18, 20). */
     private MetadataSnapshot.Definitions definitions() {
         Map<String, List<PageLayout>> layouts = new LinkedHashMap<>();
         for (DefinitionStore.Row row : definitionStore.all(DefinitionStore.Table.PAGE_LAYOUT)) {
@@ -222,8 +238,13 @@ class MetadataCatalogue implements Metadata {
         List<Tab> tabs = definitionStore.all(DefinitionStore.Table.TAB).stream().map(definitionCodec::tab).toList();
         List<CustomPage> customPages = definitionStore.all(DefinitionStore.Table.CUSTOM_PAGE).stream()
                 .map(definitionCodec::customPage).toList();
+        Map<String, List<RecordPageAssignment>> recordPageAssignments = new LinkedHashMap<>();
+        for (RecordPageAssignmentStore.Row row : recordPageAssignmentStore.all()) {
+            recordPageAssignments.computeIfAbsent(row.objectApiName(), name -> new ArrayList<>())
+                    .add(definitionCodec.recordPageAssignment(row));
+        }
         return new MetadataSnapshot.Definitions(layouts, pages, assignments, applications, rules,
-                typeAssignments, tabs, customPages);
+                typeAssignments, tabs, customPages, recordPageAssignments);
     }
 
     private FieldDefinition customField(MetadataStore.FieldRow row) {

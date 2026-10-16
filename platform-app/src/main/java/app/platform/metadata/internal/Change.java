@@ -53,7 +53,11 @@ record Change(Kind kind, String object, String item, String payload) {
         DELETE_TAB(Entity.TAB, true),
         CREATE_CUSTOM_PAGE(Entity.CUSTOM_PAGE, false),
         UPDATE_CUSTOM_PAGE(Entity.CUSTOM_PAGE, true),
-        DELETE_CUSTOM_PAGE(Entity.CUSTOM_PAGE, true);
+        DELETE_CUSTOM_PAGE(Entity.CUSTOM_PAGE, true),
+        /** A record page assignment is named by its key, also when it is made: the key is what the change is about. */
+        CREATE_RECORD_PAGE_ASSIGNMENT(Entity.RECORD_PAGE_ASSIGNMENT, true),
+        UPDATE_RECORD_PAGE_ASSIGNMENT(Entity.RECORD_PAGE_ASSIGNMENT, true),
+        DELETE_RECORD_PAGE_ASSIGNMENT(Entity.RECORD_PAGE_ASSIGNMENT, true);
 
         private final Entity entity;
         private final boolean namesItem;
@@ -88,7 +92,7 @@ record Change(Kind kind, String object, String item, String payload) {
 
     /** The kinds of definition. */
     enum Entity { OBJECT, FIELD, RECORD_TYPE, LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT, VALIDATION_RULE,
-        RECORD_TYPE_ASSIGNMENT, TAB, CUSTOM_PAGE;
+        RECORD_TYPE_ASSIGNMENT, TAB, CUSTOM_PAGE, RECORD_PAGE_ASSIGNMENT;
 
         /** Whether the kind of definition belongs to the organization and not to one object. */
         boolean organizationWide() {

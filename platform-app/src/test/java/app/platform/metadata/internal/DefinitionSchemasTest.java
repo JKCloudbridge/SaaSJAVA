@@ -120,6 +120,33 @@ class DefinitionSchemasTest {
     }
 
     @Test
+    void aTabComponentNamesTheTabItShows() {
+        assertThat(check(Kind.RECORD_PAGE, """
+                {"layout": "Details__c", "components": [
+                  {"key": "t", "type": "TABS", "tabs": [
+                    {"label": "Inspections", "components": [{"key": "f", "type": "TAB", "tab": "Field__c"}]}]}]}
+                """)).isEmpty();
+    }
+
+    @Test
+    void aTabComponentWithoutItsTabNamesWhatIsMissing() {
+        List<Issue> issues = check(Kind.RECORD_PAGE, """
+                {"layout": "Details__c", "components": [
+                  {"key": "t", "type": "TABS", "tabs": [
+                    {"label": "Inspections", "components": [{"key": "f", "type": "TAB"}]}]}]}
+                """);
+        assertThat(paths(issues)).isEqualTo("[definition.components[0].tabs[0].components[0].tab]");
+    }
+
+    @Test
+    void anActionMayOpenSharing() {
+        assertThat(check(Kind.RECORD_PAGE, """
+                {"layout": "Details__c", "components": [{"key": "d", "type": "DETAILS"}],
+                 "actions": [{"action": "SHARE"}]}
+                """)).isEmpty();
+    }
+
+    @Test
     void aVisibilityRuleIsClosedData() {
         // free text, two kinds of condition in one entry, and a value where none belongs
         assertThat(check(Kind.RECORD_PAGE, rulePage("{\"expression\": \"a > 1\"}"))).isNotEmpty();

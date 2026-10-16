@@ -42,6 +42,9 @@ import jakarta.validation.constraints.Size;
  * @param updateTab the request of {@code UPDATE_TAB}
  * @param createCustomPage the request of {@code CREATE_CUSTOM_PAGE} (Sprint 18)
  * @param updateCustomPage the request of {@code UPDATE_CUSTOM_PAGE}
+ * @param createRecordPageAssignment the request of {@code CREATE_RECORD_PAGE_ASSIGNMENT} (Sprint 20); its item is the
+ *        key of the assignment, as for a layout assignment
+ * @param updateRecordPageAssignment the request of {@code UPDATE_RECORD_PAGE_ASSIGNMENT}
  */
 public record ChangeRequest(@NotBlank @Size(max = 40) String kind, @Size(max = 60) String objectApiName,
         @Size(max = 60) String itemApiName, @Valid CreateObjectRequest createObject,
@@ -58,7 +61,9 @@ public record ChangeRequest(@NotBlank @Size(max = 40) String kind, @Size(max = 6
         @Valid CreateRecordTypeAssignmentRequest createRecordTypeAssignment,
         @Valid UpdateRecordTypeAssignmentRequest updateRecordTypeAssignment,
         @Valid CreateTabRequest createTab, @Valid UpdateTabRequest updateTab,
-        @Valid CreateCustomPageRequest createCustomPage, @Valid UpdateCustomPageRequest updateCustomPage) {
+        @Valid CreateCustomPageRequest createCustomPage, @Valid UpdateCustomPageRequest updateCustomPage,
+        @Valid CreateRecordPageAssignmentRequest createRecordPageAssignment,
+        @Valid UpdateRecordPageAssignmentRequest updateRecordPageAssignment) {
 
     @Override
     public String toString() {

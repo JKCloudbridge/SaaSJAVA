@@ -1102,4 +1102,19 @@ if [ -n "$mail" ]; then
   [ "$status" = "200" ] || fail "asking for the name of a person answered $status: $(cat "$body")"
   grep -Fq '"labels":{}' "$body" || fail "an identifier that names nobody was given a name: $(cat "$body")"
   echo "ok: the member's own description of an object came without a layout as the platform's own, a validation of a bad record was refused without repeating the value and one of a good record stored nothing, a list view was saved, listed, checked against the fields and removed, and an identifier that names nobody got no name"
+  # 27. Record pages (Sprint 20, ADR-0131): an object with no record page configured has the platform's own, the
+  # assignments of an object start empty and resolve to nothing, and an object that does not exist is not found.
+  status="$(client_call "$base/api/v1/objects/Lead__c/record-page")"
+  [ "$status" = "200" ] || fail "the record page of Lead__c answered $status: $(cat "$body")"
+  grep -Fq '"label":"Content"' "$body" || fail "the platform's own record page has no Content tab: $(cat "$body")"
+  grep -Fq '"kind":"DETAILS"' "$body" || fail "the platform's own record page has no details: $(cat "$body")"
+  status="$(client_call "$base/api/v1/objects/Nothing__c/record-page")"
+  [ "$status" = "404" ] || fail "the record page of an object that does not exist answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/metadata/objects/Lead__c/record-page-assignments")"
+  [ "$status" = "200" ] || fail "the record page assignments answered $status: $(cat "$body")"
+  grep -Fq '"data":[]' "$body" || fail "a new object has record page assignments: $(cat "$body")"
+  status="$(client_call "$base/api/v1/metadata/objects/Lead__c/record-page-resolution")"
+  [ "$status" = "200" ] || fail "the record page resolution answered $status: $(cat "$body")"
+  grep -Fq '"rule":"NONE"' "$body" || fail "an object with no assignment did not resolve to nothing: $(cat "$body")"
+  echo "ok: an object with no record page configured has the platform's own, its assignments start empty and resolve to nothing, and an object that does not exist has no record page"
 fi

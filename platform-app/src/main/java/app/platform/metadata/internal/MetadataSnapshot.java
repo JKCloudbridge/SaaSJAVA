@@ -7,6 +7,8 @@ import app.platform.metadata.LayoutResolution;
 import app.platform.metadata.ObjectDefinition;
 import app.platform.metadata.PageLayout;
 import app.platform.metadata.RecordPage;
+import app.platform.metadata.RecordPageAssignment;
+import app.platform.metadata.RecordPageResolution;
 import app.platform.metadata.RecordType;
 import app.platform.metadata.RecordTypeAssignment;
 import app.platform.metadata.Tab;
@@ -48,12 +50,13 @@ final class MetadataSnapshot {
      * @param recordTypeAssignments the profiles that may use record types, by object (Sprint 15A)
      * @param tabs the tabs applications can list (Sprint 18)
      * @param customPages the custom pages of the organization (Sprint 18)
+     * @param recordPageAssignments the record page assignments by object (Sprint 20)
      */
     record Definitions(Map<String, List<PageLayout>> layouts, Map<String, List<RecordPage>> recordPages,
             Map<String, List<LayoutAssignment>> assignments, List<ApplicationDefinition> applications,
             Map<String, List<ValidationRule>> validationRules,
             Map<String, List<RecordTypeAssignment>> recordTypeAssignments, List<Tab> tabs,
-            List<CustomPage> customPages) {
+            List<CustomPage> customPages, Map<String, List<RecordPageAssignment>> recordPageAssignments) {
 
         /** Copies what is given, so that the snapshot cannot change after it is built. */
         Definitions {
@@ -65,6 +68,17 @@ final class MetadataSnapshot {
             recordTypeAssignments = frozen(recordTypeAssignments);
             tabs = List.copyOf(tabs);
             customPages = List.copyOf(customPages);
+            recordPageAssignments = frozen(recordPageAssignments);
+        }
+
+        /** The definitions of Sprints 12 to 18 (no record page assignments). */
+        Definitions(Map<String, List<PageLayout>> layouts, Map<String, List<RecordPage>> recordPages,
+                Map<String, List<LayoutAssignment>> assignments, List<ApplicationDefinition> applications,
+                Map<String, List<ValidationRule>> validationRules,
+                Map<String, List<RecordTypeAssignment>> recordTypeAssignments, List<Tab> tabs,
+                List<CustomPage> customPages) {
+            this(layouts, recordPages, assignments, applications, validationRules, recordTypeAssignments, tabs,
+                    customPages, Map.of());
         }
 
         /** The definitions of Sprints 12 to 15A (no tabs and custom pages). */
@@ -91,7 +105,7 @@ final class MetadataSnapshot {
 
         static Definitions none() {
             return new Definitions(Map.of(), Map.of(), Map.of(), List.of(), Map.of(), Map.of(), List.of(),
-                    List.of());
+                    List.of(), Map.of());
         }
 
         private static <T> Map<String, List<T>> frozen(Map<String, List<T>> grouped) {
@@ -222,6 +236,14 @@ final class MetadataSnapshot {
         return definitions.assignments().values().stream().flatMap(List::stream).toList();
     }
 
+    List<RecordPageAssignment> recordPageAssignments(String objectApiName) {
+        return definitions.recordPageAssignments().getOrDefault(objectApiName, List.of());
+    }
+
+    List<RecordPageAssignment> allRecordPageAssignments() {
+        return definitions.recordPageAssignments().values().stream().flatMap(List::stream).toList();
+    }
+
     List<ApplicationDefinition> applications() {
         return definitions.applications();
     }
@@ -307,6 +329,50 @@ final class MetadataSnapshot {
                 .filter(assignment -> Objects.equals(assignment.profileId(), profileId)
                         && Objects.equals(assignment.recordType(), recordType))
                 .map(LayoutAssignment::layout).filter(layout -> layout(objectApiName, layout).isPresent())
+                .findFirst();
+    }
+
+    /**
+     * The record page for the profile and record type: the profile together with the record type, the record type
+     * alone, the profile alone, the default of the object, and nothing (Sprint 20, ADR-0131). Unlike a layout, a
+     * record type carries no record page of its own ({@link RecordType} has none), so "the record type alone" is an
+     * assignment with a record type and no profile, exactly as the other three rules are. A rule that names a record
+     * page that is gone does not apply either; the dependency graph keeps that from happening in published metadata,
+     * so this is a second line of defence, not a decision.
+     */
+    RecordPageResolution recordPageFor(String objectApiName, UUID profileId, String recordType) {
+        List<RecordPageAssignment> assignments = recordPageAssignments(objectApiName);
+        if (profileId != null && recordType != null) {
+            Optional<String> both = recordPageAssignment(assignments, profileId, recordType, objectApiName);
+            if (both.isPresent()) {
+                return new RecordPageResolution(both, RecordPageResolution.Rule.PROFILE_AND_RECORD_TYPE);
+            }
+        }
+        if (recordType != null) {
+            Optional<String> own = recordPageAssignment(assignments, null, recordType, objectApiName);
+            if (own.isPresent()) {
+                return new RecordPageResolution(own, RecordPageResolution.Rule.RECORD_TYPE);
+            }
+        }
+        if (profileId != null) {
+            Optional<String> byProfile = recordPageAssignment(assignments, profileId, null, objectApiName);
+            if (byProfile.isPresent()) {
+                return new RecordPageResolution(byProfile, RecordPageResolution.Rule.PROFILE);
+            }
+        }
+        Optional<String> fallback = recordPageAssignment(assignments, null, null, objectApiName);
+        if (fallback.isPresent()) {
+            return new RecordPageResolution(fallback, RecordPageResolution.Rule.DEFAULT);
+        }
+        return new RecordPageResolution(Optional.empty(), RecordPageResolution.Rule.NONE);
+    }
+
+    private Optional<String> recordPageAssignment(List<RecordPageAssignment> assignments, UUID profileId,
+            String recordType, String objectApiName) {
+        return assignments.stream()
+                .filter(assignment -> Objects.equals(assignment.profileId(), profileId)
+                        && Objects.equals(assignment.recordType(), recordType))
+                .map(RecordPageAssignment::recordPage).filter(page -> recordPage(objectApiName, page).isPresent())
                 .findFirst();
     }
 

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api } from "@/lib/api/client";
 import { call, problemsOf } from "@/lib/records/call";
+import { cloneableInputs } from "@/lib/records/clone";
 import { compareChanges, type Conflict } from "@/lib/records/conflict";
 import {
   defaultInput,
@@ -52,13 +53,18 @@ function wide(field: FormField): boolean {
  * Every decision is the server's; the page only shows what it answers.
  *
  * @param record the record being edited, or undefined to create one
- * @param recordType the record type the description is for (also what a new record is created with)
+ * @param template a record to start a new one from (Sprint 20, "Clone"): what a copy keeps is `cloneableInputs`
+ * @param formId the id of the form element, so a button elsewhere on the page can submit it (`form="..."`)
+ * @param hideActions leave out the Save, Cancel and Delete row: the page offers its own (the record page's header)
  * @param onRecordTypeChange asked when the person picks another record type; the page loads the description again
  */
 export function RecordForm({
   objectApiName,
   form,
   record,
+  template,
+  formId,
+  hideActions = false,
   onRecordTypeChange,
   onSaved,
   onCancel,
@@ -68,6 +74,9 @@ export function RecordForm({
   objectApiName: string;
   form: ObjectForm;
   record?: RecordView;
+  template?: RecordView;
+  formId?: string;
+  hideActions?: boolean;
   onRecordTypeChange: (recordType: string) => void;
   onSaved: (saved: RecordView) => void;
   onCancel: () => void;
@@ -75,7 +84,9 @@ export function RecordForm({
   recordHref?: (objectApiName: string, id: string) => string;
 }) {
   const [base, setBase] = useState<RecordView | undefined>(record);
-  const [edits, setEdits] = useState<Record<string, FieldInput>>({});
+  const [edits, setEdits] = useState<Record<string, FieldInput>>(() =>
+    template && !record ? cloneableInputs(form, template) : {},
+  );
   const [chosen, setChosen] = useState<Record<string, string>>({});
   const [visited, setVisited] = useState<ReadonlySet<string>>(new Set());
   const [problems, setProblems] = useState<Problems>({});
@@ -385,7 +396,7 @@ export function RecordForm({
   const choosable = form.recordTypes.filter((type) => type.selectable || type.apiName === form.recordType);
 
   return (
-    <form ref={formRef} className="record-form" onSubmit={(event) => void submit(event)} noValidate data-testid="record-form">
+    <form id={formId} ref={formRef} className="record-form" onSubmit={(event) => void submit(event)} noValidate data-testid="record-form">
       {failure ? (
         <p className="form-message" role="alert" data-testid="form-failure">
           {failure}
@@ -485,6 +496,7 @@ export function RecordForm({
           </section>
         );
       })}
+      {hideActions ? null : (
       <div className="form-actions">
         {(creating ? form.actions.create : form.actions.update) ? (
           <button type="submit" className="button" disabled={saving || moved !== undefined} data-testid="save-record">
@@ -514,6 +526,7 @@ export function RecordForm({
           )
         ) : null}
       </div>
+      )}
     </form>
   );
 }

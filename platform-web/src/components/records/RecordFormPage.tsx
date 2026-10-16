@@ -11,9 +11,13 @@ import type { ObjectForm, RecordView } from "@/lib/records/types";
 import { RecordForm } from "./RecordForm";
 
 /** What reading the record to edit came to. */
-type RecordState = { status: "loading" } | { status: "ready"; record: RecordView } | { status: "failed"; message: string };
+export type RecordState =
+  | { status: "loading" }
+  | { status: "ready"; record: RecordView }
+  | { status: "failed"; message: string };
 
-function useRecord(objectApiName: string, recordId: string | undefined): RecordState {
+/** Reads one record by identifier, again whenever the object or the identifier changes. Shared with {@link RecordPageView}. */
+export function useRecord(objectApiName: string, recordId: string | undefined): RecordState {
   const key = `${objectApiName}|${recordId ?? ""}`;
   const [loaded, setLoaded] = useState<{ key: string; outcome: Outcome<{ data: RecordView }> } | null>(null);
 
@@ -45,8 +49,8 @@ function useRecord(objectApiName: string, recordId: string | undefined): RecordS
     : { status: "failed", message: loaded.outcome.failure.message };
 }
 
-/** A record's heading: the value of the field that names it, else the object's label. */
-function headingOf(form: ObjectForm, record: RecordView): string {
+/** A record's heading: the value of the field that names it, else the object's label. Shared with {@link RecordPageView}. */
+export function headingOf(form: ObjectForm, record: RecordView): string {
   const title = form.fields.find((field) => field.apiName === form.titleField);
   const text = title ? formatValue(title, recordValue(record, title.apiName)) : "";
   return text !== "" ? text : form.label;
@@ -60,21 +64,30 @@ function headingOf(form: ObjectForm, record: RecordView): string {
  *
  * @param listHref the list of the object, where Cancel, a saved record and a deleted record lead
  * @param recordHref where a linked record is, by object and identifier
+ * @param cloneFromId a record to start the new one from (Sprint 20, "Clone"); the copy is an ordinary new record
+ * @param savedHref where a record just created opens (Sprint 20); without it the list does
  */
 export function RecordFormPage({
   objectApiName,
   recordId,
   listHref,
   recordHref,
+  cloneFromId,
+  savedHref,
 }: {
   objectApiName: string;
   recordId?: string;
   listHref: string;
   recordHref: (objectApiName: string, id: string) => string;
+  cloneFromId?: string;
+  savedHref?: (id: string) => string;
 }) {
   const router = useRouter();
   const [recordType, setRecordType] = useState<string | undefined>();
-  const { state } = useObjectForm(objectApiName, recordType, recordId);
+  const original = useRecord(objectApiName, cloneFromId);
+  // A copy starts in the record type of its original, unless the person picks another.
+  const copyType = original.status === "ready" ? (original.record.recordType ?? undefined) : undefined;
+  const { state } = useObjectForm(objectApiName, recordType ?? copyType, recordId, undefined, original.status !== "loading" || !cloneFromId);
   const record = useRecord(objectApiName, recordId);
   const form = state.status === "ready" ? state.form : state.status === "loading" ? state.previous : undefined;
   const editing = recordId !== undefined;
@@ -90,7 +103,7 @@ export function RecordFormPage({
       </div>
     );
   }
-  if (!form || (editing && record.status !== "ready")) {
+  if (!form || (editing && record.status !== "ready") || (cloneFromId && original.status === "loading")) {
     return (
       <div className="custom-page-loading" role="status" aria-live="polite" data-testid="record-loading">
         <span className="skeleton-line" />
@@ -100,6 +113,7 @@ export function RecordFormPage({
     );
   }
   const loadedRecord = editing && record.status === "ready" ? record.record : undefined;
+  const template = !editing && original.status === "ready" ? original.record : undefined;
   if (!editing && !form.actions.create) {
     return (
       <div className="empty-state" role="status" data-testid="record-not-allowed">
@@ -116,15 +130,20 @@ export function RecordFormPage({
       <p>
         <Link href={listHref}>← {form.pluralLabel}</Link>
       </p>
-      <h1 className="entry-title">{loadedRecord ? headingOf(form, loadedRecord) : `New ${form.label.toLowerCase()}`}</h1>
+      <h1 className="entry-title">
+        {loadedRecord
+          ? headingOf(form, loadedRecord)
+          : `New ${form.label.toLowerCase()}${template ? " (a copy)" : ""}`}
+      </h1>
       <RecordForm
         key={recordId ?? "new"}
         objectApiName={objectApiName}
         form={form}
         record={loadedRecord}
+        template={template}
         recordHref={recordHref}
         onRecordTypeChange={setRecordType}
-        onSaved={() => router.push(listHref)}
+        onSaved={(saved) => router.push(!editing && savedHref ? savedHref(saved.id) : listHref)}
         onCancel={() => router.push(listHref)}
         onDeleted={editing ? () => router.push(listHref) : undefined}
       />

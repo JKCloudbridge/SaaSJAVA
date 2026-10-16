@@ -14,6 +14,7 @@ import { RecordList } from "./RecordList";
  * @param openHref where a record of the object opens
  * @param recordHref where a linked record of another object opens
  * @param backHref where "not available" leads
+ * @param initialFilter a link field and the record it must point at, to start with (Sprint 20, "view all" of a related list)
  */
 export function ObjectListPage({
   objectApiName,
@@ -21,12 +22,14 @@ export function ObjectListPage({
   openHref,
   recordHref,
   backHref,
+  initialFilter,
 }: {
   objectApiName: string;
   newHref?: string;
   openHref: (id: string) => string;
   recordHref: (objectApiName: string, id: string) => string;
   backHref: string;
+  initialFilter?: { field: string; value: string };
 }) {
   const { state, reload } = useObjectForm(objectApiName);
   if (state.status === "loading") {
@@ -62,6 +65,7 @@ export function ObjectListPage({
       newHref={newHref}
       openHref={openHref}
       recordHref={recordHref}
+      initialFilter={initialFilter}
     />
   );
 }

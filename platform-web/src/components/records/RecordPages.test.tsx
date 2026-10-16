@@ -236,3 +236,117 @@ describe("the page of one record", () => {
     expect(push).toHaveBeenCalledWith("/records/Deal__c");
   });
 });
+
+describe("a copy of a record", () => {
+  function renderCopy() {
+    return render(
+      <RecordFormPage
+        objectApiName="Deal__c"
+        cloneFromId="r1"
+        listHref="/records/Deal__c"
+        recordHref={(object, id) => `/records/${object}/${id}`}
+        savedHref={(id) => `/records/Deal__c/${id}`}
+      />,
+    );
+  }
+
+  function copyApi(): Call[] {
+    return fakeApi({
+      [FORM]: () => json({ data: DEAL_FORM }),
+      [RECORD]: () => json({ data: deal("r1", { name__c: "Acme", stage__c: "WON" }) }),
+      [CREATE]: () => json({ data: deal("new") }, 201),
+      [VALIDATE]: () => json({ data: { calculated: {}, cleared: [] } }),
+      [LABELS]: () => json({ data: { labels: {} } }),
+    });
+  }
+
+  it("starts the create form from the values of the original and says it is a copy", async () => {
+    copyApi();
+    renderCopy();
+
+    expect(await screen.findByRole("heading", { level: 1, name: "New deal (a copy)" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Name/)).toHaveValue("Acme");
+    expect(screen.getByLabelText(/Stage/)).toHaveValue("WON");
+  });
+
+  it("creates a new record from them, never carrying the owner, and opens the new record", async () => {
+    const calls = copyApi();
+    renderCopy();
+    await screen.findByRole("heading", { level: 1, name: "New deal (a copy)" });
+
+    fireEvent.click(screen.getByTestId("save-record"));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/records/Deal__c/new"));
+    const sent = JSON.parse(calls.find((call) => call.key === CREATE)?.body ?? "{}") as { fields: Record<string, unknown> };
+    expect(sent.fields).toMatchObject({ name__c: "Acme", stage__c: "WON" });
+    expect(Object.keys(sent.fields)).not.toContain("ownerId");
+  });
+
+  it("falls back to an empty create form when the original cannot be read", async () => {
+    fakeApi({
+      [FORM]: () => json({ data: DEAL_FORM }),
+      [RECORD]: () => refusal("NOT_FOUND", "This record does not exist.", 404),
+    });
+    renderCopy();
+
+    // Nothing to copy from, so it is an ordinary new record and does not claim to be a copy.
+    expect(await screen.findByRole("heading", { level: 1, name: "New deal" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Name/)).toHaveValue("");
+  });
+});
+
+describe("a list that starts narrowed to one record", () => {
+  const OWNER_ID = "11111111-1111-1111-1111-111111111111";
+
+  it("filters by the link, and names the record in the chip instead of showing its identifier", async () => {
+    const calls = shellApi({
+      more: {
+        [FORM]: () => json({ data: DEAL_FORM }),
+        [QUERY]: () => json(page([deal("d1", { name__c: "Acme" })])),
+        [VIEWS]: () => json({ data: [] }),
+        [LABELS]: () => json({ data: { labels: { [OWNER_ID]: "User A" } } }),
+      },
+    });
+    render(
+      <ShellProviders>
+        <ObjectListPage
+          objectApiName="Deal__c"
+          openHref={(id) => `/records/Deal__c/${id}`}
+          recordHref={(object, id) => `/records/${object}/${id}`}
+          backHref="/"
+          initialFilter={{ field: "ownerId", value: OWNER_ID }}
+        />
+      </ShellProviders>,
+    );
+
+    expect(await screen.findByText("Owner is User A")).toBeInTheDocument();
+    const asked = JSON.parse(calls.find((call) => call.key === QUERY)?.body ?? "{}") as { filter: unknown };
+    expect(asked.filter).toEqual({ op: "EQ", field: "ownerId", values: [OWNER_ID] });
+    expect(screen.queryByText(new RegExp(OWNER_ID))).toBeNull();
+  });
+
+  it("ignores a starting filter on a field the member has no such comparison for", async () => {
+    const calls = shellApi({
+      more: {
+        [FORM]: () => json({ data: DEAL_FORM }),
+        [QUERY]: () => json(page([])),
+        [VIEWS]: () => json({ data: [] }),
+      },
+    });
+    render(
+      <ShellProviders>
+        <ObjectListPage
+          objectApiName="Deal__c"
+          openHref={(id) => `/records/Deal__c/${id}`}
+          recordHref={(object, id) => `/records/${object}/${id}`}
+          backHref="/"
+          initialFilter={{ field: "notes__c", value: OWNER_ID }}
+        />
+      </ShellProviders>,
+    );
+
+    await screen.findByTestId("list-empty");
+    const asked = JSON.parse(calls.find((call) => call.key === QUERY)?.body ?? "{}") as { filter?: unknown };
+    expect(asked.filter).toBeUndefined();
+  });
+});

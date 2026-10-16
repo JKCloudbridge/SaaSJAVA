@@ -164,6 +164,52 @@ describe("RecordPagesPanel", () => {
     });
   });
 
+  it("adds a tab of the organization inside a tab, and sends its name with the label that replaces its own", async () => {
+    const calls = fakeApi({
+      ...answers([]),
+      [`POST ${BASE}/record-pages`]: () => json({ data: PAGE }, 201),
+    });
+    render(<RecordPagesPanel object={DEAL} onChanged={vi.fn()} />);
+    await screen.findByText("No record pages yet.");
+    const add = form("Add a record page");
+    fireEvent.change(add.getByLabelText("Name"), { target: { value: "Overview" } });
+    fireEvent.change(add.getByLabelText("Label"), { target: { value: "Overview" } });
+    fireEvent.change(add.getByLabelText("Layout shown by the details"), { target: { value: "Details__c" } });
+
+    fireEvent.change(add.getByLabelText("Add a component"), { target: { value: "TABS" } });
+    fireEvent.change(add.getByLabelText("Add to this tab"), { target: { value: "TAB" } });
+    fireEvent.change(add.getByLabelText("API name of the tab"), { target: { value: "Inspections__c" } });
+    fireEvent.change(add.getByLabelText(/Label \(overrides the tab.s own\)/), { target: { value: "Checks" } });
+    fireEvent.click(add.getByRole("button", { name: "Add the record page" }));
+
+    expect(await screen.findByTestId("record-pages-notice")).toHaveTextContent("The record page was added.");
+    const sent = JSON.parse(calls.find((call) => call.key === `POST ${BASE}/record-pages`)?.body ?? "{}");
+    expect(sent.definition.components[1].tabs[0].components).toEqual([
+      { key: "tab-1", type: "TAB", tab: "Inspections__c", label: "Checks" },
+    ]);
+  });
+
+  it("offers Share among the actions and sends it as closed data", async () => {
+    const calls = fakeApi({
+      ...answers([]),
+      [`POST ${BASE}/record-pages`]: () => json({ data: PAGE }, 201),
+    });
+    render(<RecordPagesPanel object={DEAL} onChanged={vi.fn()} />);
+    await screen.findByText("No record pages yet.");
+    const add = form("Add a record page");
+    fireEvent.change(add.getByLabelText("Name"), { target: { value: "Overview" } });
+    fireEvent.change(add.getByLabelText("Label"), { target: { value: "Overview" } });
+    fireEvent.change(add.getByLabelText("Layout shown by the details"), { target: { value: "Details__c" } });
+    fireEvent.change(add.getByLabelText("Add a component"), { target: { value: "DETAILS" } });
+
+    fireEvent.click(add.getByLabelText("Share"));
+    fireEvent.click(add.getByRole("button", { name: "Add the record page" }));
+
+    expect(await screen.findByTestId("record-pages-notice")).toHaveTextContent("The record page was added.");
+    const sent = JSON.parse(calls.find((call) => call.key === `POST ${BASE}/record-pages`)?.body ?? "{}");
+    expect(sent.definition.actions).toEqual([{ action: "SHARE" }]);
+  });
+
   it("shows the words of the API with the place and removes a page into a change set", async () => {
     window.sessionStorage.setItem("platform.workingChangeSet", "set-1");
     const calls = fakeApi({

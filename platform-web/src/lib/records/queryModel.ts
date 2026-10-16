@@ -243,7 +243,7 @@ export function queryOfView(definition: ListViewDefinition, form: ObjectForm): L
 }
 
 /** A sentence for what a filter row asks, for a chip: "Status is Open". */
-export function describeRow(row: FilterRow, field: FormField): string {
+export function describeRow(row: FilterRow, field: FormField, label?: string): string {
   const op = OPERATOR_LABELS[row.op] ?? row.op;
   if (row.op === "IS_EMPTY" || row.op === "IS_NOT_EMPTY") {
     return `${field.label} ${op}`;
@@ -251,5 +251,5 @@ export function describeRow(row: FilterRow, field: FormField): string {
   if (row.op === "BETWEEN") {
     return `${field.label} ${op} ${row.text} and ${row.text2}`;
   }
-  return `${field.label} ${op} ${row.text}`;
+  return `${field.label} ${op} ${label ?? row.text}`;
 }
