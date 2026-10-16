@@ -47,8 +47,13 @@ class WorkflowEventProcessingIT extends WorkflowSupport {
         instanceB.close();
     }
 
+    /** Summed across both instances: either one may have claimed and handled a given event. */
     private double events(String result) {
-        var counter = meters.find("platform.workflow.events").tag("result", result).counter();
+        return counterOf(meters, result) + counterOf(instanceB.bean(MeterRegistry.class), result);
+    }
+
+    private static double counterOf(MeterRegistry registry, String result) {
+        var counter = registry.find("platform.workflow.events").tag("result", result).counter();
         return counter == null ? 0 : counter.count();
     }
 

@@ -368,7 +368,7 @@ class WorkflowDefinitionsIT extends WorkflowTestSupport {
         assertThat(workflowNames(admin)).as("nothing was published").isEmpty();
         Response published = publish(both, set);
 
-        assertThat(refused.status()).as(refused.body()).isEqualTo(403);
+        assertThat(refused.status()).as(refused.body()).isEqualTo(409);
         assertThat(published.status()).as(published.body()).isEqualTo(200);
         assertThat(workflowNames(admin)).containsExactly("Watch__c");
     }

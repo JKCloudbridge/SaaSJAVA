@@ -8,7 +8,6 @@ import app.platform.testsupport.TestApplication;
 import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestHttp.Response;
 import app.platform.testsupport.TestOrganizations.Organization;
-import app.platform.testsupport.TestPlatform;
 import com.jayway.jsonpath.JsonPath;
 import java.util.ArrayList;
 import java.util.List;
@@ -196,7 +195,7 @@ class WorkflowExecutionIT extends WorkflowSupport {
 
         switchTo(off.admin(), "OnCreate__c", false);
         removed.admin().request("DELETE", WORKFLOWS + "/" + OBJECT + "/OnCreate__c", null);
-        TestPlatform.subscribe(plans, subscriptions, noPlan.organization().id(), 5, 3);
+        loseTheFeature(noPlan.organization());
         runWorker();
 
         assertThat(statuses(off.organization())).containsExactly("SKIPPED");

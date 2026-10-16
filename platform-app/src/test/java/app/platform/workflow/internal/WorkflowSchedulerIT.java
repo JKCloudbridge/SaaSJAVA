@@ -69,8 +69,10 @@ class WorkflowSchedulerIT extends WorkflowSupport {
     }
 
     private static List<Map<String, String>> schedules(Organization organization) {
-        return rows(organization, "select state, trigger_kind, definition_version, next_fire_at > now() as in_future, "
-                + "last_fired_at is not null as fired, firing_for is not null as firing from workflow_schedule");
+        return rows(organization, "select state, trigger_kind, definition_version, "
+                + "case when next_fire_at > now() then 'true' else 'false' end as in_future, "
+                + "case when last_fired_at is not null then 'true' else 'false' end as fired, "
+                + "case when firing_for is not null then 'true' else 'false' end as firing from workflow_schedule");
     }
 
     private static List<Map<String, String>> firings(Organization organization) {

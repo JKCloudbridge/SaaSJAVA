@@ -72,6 +72,13 @@ abstract class WorkflowSupport {
         return organization;
     }
 
+    /** Moves the organization to a plan that has nothing but the licences. */
+    protected void loseTheFeature(Organization organization) {
+        String key = TestPlatform.plan(plans, 5, Math.max(3, TestPlatform.adminLicencesInUse(organization.id())));
+        subscriptions.change(organization.id(), new app.platform.licensing.SubscriptionChange(key, null, null, null),
+                app.platform.sharedkernel.ActorId.SYSTEM);
+    }
+
     protected TestBrowser adminOf(Organization organization) {
         return TestOrganizations.signedIn(port, organization.host(), organization.admin().person());
     }
@@ -229,8 +236,10 @@ abstract class WorkflowSupport {
     /** The executions of the organization in the order they were made: status, reason, version and attempts. */
     protected static List<Map<String, String>> executions(Organization organization) {
         return rows(organization, "select workflow_api_name, workflow_version_number, trigger_kind, status, reason, "
-                + "attempts, failure_type, record_id::text as record_id, event_id is not null as from_event, "
-                + "firing_at is not null as from_firing from workflow_execution order by created_at, id");
+                + "attempts, failure_type, record_id::text as record_id, "
+                + "case when event_id is not null then 'true' else 'false' end as from_event, "
+                + "case when firing_at is not null then 'true' else 'false' end as from_firing "
+                + "from workflow_execution order by created_at, id");
     }
 
     protected static List<String> statuses(Organization organization) {

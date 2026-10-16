@@ -123,6 +123,13 @@ class WorkflowFlowsLogsAreCleanIT extends WorkflowSupport {
                 + "locked_until = null, version = version + 1");
         dispatcher.pollSchedulesOnce();
         runWorker();
+        // Captured before the clean-up purges the finished executions: the rows to check must still exist here.
+        String stored = String.join("\n", rows(organization, "select to_jsonb(e)::text as t from workflow_execution e")
+                .stream().map(row -> row.get("t")).toList())
+                + String.join("\n", rows(organization, "select to_jsonb(s)::text as t from workflow_step s").stream()
+                        .map(row -> row.get("t")).toList())
+                + String.join("\n", rows(organization, "select to_jsonb(o)::text as t from outbox_event o "
+                        + "where o.event_type like 'workflow.%'").stream().map(row -> row.get("t")).toList());
         // Cleaned up.
         run(organization, "update workflow_execution set finished_at = now() - interval '100 days', "
                 + "version = version + 1 where status in ('COMPLETED', 'SKIPPED', 'FAILED')");
@@ -134,15 +141,12 @@ class WorkflowFlowsLogsAreCleanIT extends WorkflowSupport {
         shown.add(admin.get("/api/v1/audit-events?kind=metadata&limit=200").body());
         shown.add(admin.get("/api/v1/audit-events?kind=workflow&limit=200").body());
         shown.add(admin.get("/api/v1/audit-events?kind=retention&limit=200").body());
-        shown.add(admin.get(WORKFLOWS + "?object=" + OBJECT).body().replace(label, "").replace(description, ""));
+        // Reading back the admin's own workflow legitimately shows its own label, description and selection filter
+        // value: scrub those exactly as typed, the same as any other configuration (not a leak of record data).
+        shown.add(admin.get(WORKFLOWS + "?object=" + OBJECT).body().replace(label, "").replace(description, "")
+                .replace(selectionText, ""));
         shown.add(admin.get(EXECUTIONS + "?limit=200").body());
         String log = Files.readString(Path.of(LOG_FILE));
-        String stored = String.join("\n", rows(organization, "select to_jsonb(e)::text as t from workflow_execution e")
-                .stream().map(row -> row.get("t")).toList())
-                + String.join("\n", rows(organization, "select to_jsonb(s)::text as t from workflow_step s").stream()
-                        .map(row -> row.get("t")).toList())
-                + String.join("\n", rows(organization, "select to_jsonb(o)::text as t from outbox_event o "
-                        + "where o.event_type like 'workflow.%'").stream().map(row -> row.get("t")).toList());
 
         assertThat(log).as("the log has content to check").contains("platform.http");
         assertThat(stored).as("the rows to check exist").contains("workflow_api_name").contains("workflow.signal.");

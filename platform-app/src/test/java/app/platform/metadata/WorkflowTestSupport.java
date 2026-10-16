@@ -3,6 +3,7 @@ package app.platform.metadata;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.platform.licensing.Plans;
+import app.platform.licensing.SubscriptionChange;
 import app.platform.licensing.Subscriptions;
 import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestHttp.Response;
@@ -49,7 +50,10 @@ abstract class WorkflowTestSupport extends ExpressionTestSupport {
 
     /** Moves the organization to a plan that has nothing but the licences. */
     protected void loseTheFeature(Organization organization) {
-        TestPlatform.subscribe(workflowPlans, workflowSubscriptions, organization.id(), 5, 3);
+        String key = TestPlatform.plan(workflowPlans, 5,
+                Math.max(3, TestPlatform.adminLicencesInUse(organization.id())));
+        workflowSubscriptions.change(organization.id(), new SubscriptionChange(key, null, null, null),
+                app.platform.sharedkernel.ActorId.SYSTEM);
     }
 
     protected static String announce(String name, String event) {
