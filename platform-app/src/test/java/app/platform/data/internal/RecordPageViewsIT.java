@@ -241,10 +241,12 @@ class RecordPageViewsIT extends RecordSecuritySupport {
         pageMade(admin, "ForPeople", "[{\"key\":\"top\",\"type\":\"DETAILS\"},{\"key\":\"after\","
                 + "\"type\":\"RELATED_LIST\",\"object\":\"Item__c\",\"field\":\"link__c\","
                 + "\"columns\":[\"name__c\"],\"label\":\"People items\"}]", "");
+        String readName = "{\"key\":\"Item__c.name__c\",\"actions\":[\"read\"]},"
+                + "{\"key\":\"Item__c.link__c\",\"actions\":[\"read\"]}";
         Holder people = holderWithMatrix(items.organization(), admin, "{\"objects\":[" + READ_TARGET + ","
-                + READ_ITEM + "],\"fields\":[]}");
+                + READ_ITEM + "],\"fields\":[" + readName + "]}");
         Holder others = holderWithMatrix(items.organization(), admin, "{\"objects\":[" + READ_TARGET + ","
-                + READ_ITEM + "],\"fields\":[]}");
+                + READ_ITEM + "],\"fields\":[" + readName + "]}");
         assigned(admin, null, null, "Standard__c");
         assigned(admin, null, "Renewal__c", "ForRenewal__c");
         assigned(admin, people.profileId(), null, "ForPeople__c");
@@ -264,8 +266,10 @@ class RecordPageViewsIT extends RecordSecuritySupport {
                 .as("the profile's page").isEqualTo("ForPeople__c");
         assertThat(JsonPath.<String>read(pageOf(asPeople, "Target__c", renewalId).body(), "$.data.apiName"))
                 .as("the record type beats the profile").isEqualTo("ForRenewal__c");
-        assertThat(JsonPath.<List<String>>read(pageOf(asPeople, "Target__c", plain).body(), "$.data.below[*].label"))
-                .containsExactly("People items");
+        // ForPeople__c has no TABS component, so everything it defines is in the main region above where tabs
+        // would be (DETAILS first, then the related list).
+        assertThat(JsonPath.<List<String>>read(pageOf(asPeople, "Target__c", plain).body(), "$.data.above[*].label"))
+                .containsExactly("Details", "People items");
     }
 
     @Test
