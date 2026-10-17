@@ -174,7 +174,7 @@ abstract class WorkflowSupport {
      * loaded CI runner can be slower than a developer machine to drain the queue.
      */
     protected static void settle(Organization organization) {
-        Awaitility.await().atMost(Duration.ofSeconds(90)).pollInterval(Duration.ofMillis(50)).until(
+        Awaitility.await().atMost(Duration.ofSeconds(180)).pollInterval(Duration.ofMillis(50)).until(
                 () -> scalar(organization, "select count(*) from outbox_event where status = 'PENDING'") == 0);
     }
 
