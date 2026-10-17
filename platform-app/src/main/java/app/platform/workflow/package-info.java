@@ -3,6 +3,14 @@
  * to a record (or at a time), the platform judges the organization's workflows and runs the actions of the ones that
  * apply, asynchronously after the commit, once per cause, with a record of every run.
  *
+ * <p>Since Sprint 23 the actions change the world: an update or a create of a record goes through
+ * {@code BackgroundWrites} of the {@code data} module (the whole write pipeline as the platform, ADR-0139), a mail is
+ * queued through the shared-kernel {@code MailQueue} (ADR-0138), a failed attempt is retried with a backoff or
+ * dead-lettered and can be replayed by a person (ADR-0141 to ADR-0143), a workflow that starts itself is stopped by a
+ * chain carried in the events (ADR-0140), and the events the relay gave up on are listed and put back through the
+ * shared-kernel
+ * {@code ParkedEvents}. No new module edge was needed.
+ *
  * <p>What lives here: the handler that turns a record event into executions, the dispatcher that claims queued
  * executions and due schedules of every organization (the one place that enters the system scope
  * {@code workflow_dispatch}, ADR-0135) and runs each in the organization's own tenant context, the schedules of timed

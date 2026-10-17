@@ -8,10 +8,15 @@ import app.platform.identity.User;
 import app.platform.identity.UserStatus;
 import app.platform.identity.Users;
 import app.platform.notification.internal.MailStore.ClaimedMail;
+import app.platform.sharedkernel.TenantId;
+import app.platform.tenant.Tenant;
+import app.platform.tenant.TenantStatus;
+import app.platform.tenant.Tenants;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 
 /**
@@ -49,8 +54,10 @@ class MailComposer {
     private final Invitations invitations;
     private final AccountTokens tokens;
     private final MailLinks links;
+    private final Tenants tenants;
 
-    MailComposer(Users users, Invitations invitations, AccountTokens tokens, MailLinks links) {
+    MailComposer(Users users, Invitations invitations, AccountTokens tokens, MailLinks links, Tenants tenants) {
+        this.tenants = tenants;
         this.users = users;
         this.invitations = invitations;
         this.tokens = tokens;
@@ -62,6 +69,7 @@ class MailComposer {
             case SIGN_UP_REQUEST -> signUp(mail);
             case PASSWORD_RESET_REQUEST -> reset(mail);
             case INVITATION -> invitation(mail);
+            case RECORD_NOTICE -> recordNotice(mail);
             case PASSWORD_CHANGED -> notice(mail, MailTexts.Kind.PASSWORD_CHANGED, "notice_sent");
             case ACCOUNT_LOCKED -> notice(mail, MailTexts.Kind.ACCOUNT_LOCKED, "notice_sent");
         };
@@ -120,6 +128,30 @@ class MailComposer {
             kind = invitation.existingAccount() ? MailTexts.Kind.INVITATION_EXISTING : MailTexts.Kind.INVITATION_NEW;
         }
         return send(mail, kind, values, "link_sent");
+    }
+
+    private static final Pattern OBJECT_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_]{0,59}");
+
+    /**
+     * A workflow asked that a record needs this person's attention (ADR-0138). The request names the organization, the
+     * object and the record; the link is built now, to the organization's own host. Nothing of the record is in the
+     * queue or in the message. Nothing is sent when the organization is not open any more.
+     */
+    private Decision recordNotice(ClaimedMail mail) {
+        UUID tenantId = uuid(mail.variables().get("organization_id"));
+        UUID recordId = uuid(mail.variables().get("record_id"));
+        String object = mail.variables().get("object");
+        if (tenantId == null || recordId == null || object == null || !OBJECT_NAME.matcher(object).matches()) {
+            return new Decision.Suppress("notice_unknown");
+        }
+        Tenant tenant = tenants.findById(new TenantId(tenantId)).orElse(null);
+        if (tenant == null || tenant.status() != TenantStatus.ACTIVE) {
+            return new Decision.Suppress("organization_not_open");
+        }
+        Map<String, String> values = Map.of("organization", MailTexts.safeName(tenant.displayName()),
+                "objectLabel", MailTexts.safeName(mail.variables().getOrDefault("object_label", "")),
+                "link", links.record(tenant.slug().value(), object, recordId));
+        return send(mail, MailTexts.Kind.RECORD_NOTICE, values, "notice_sent");
     }
 
     private static UUID uuid(String text) {

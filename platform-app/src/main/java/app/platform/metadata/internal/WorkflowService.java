@@ -13,12 +13,16 @@ import app.platformapi.CheckWorkflowConditionRequest;
 import app.platformapi.CreateWorkflowRequest;
 import app.platformapi.ErrorCode;
 import app.platformapi.UpdateWorkflowRequest;
+import app.platform.metadata.WorkflowDefinition;
 import app.platformapi.WorkflowActionSpec;
+import app.platformapi.WorkflowActionTypes;
+import app.platformapi.WorkflowCatalogueView;
 import app.platformapi.WorkflowConditionCheckView;
 import app.platformapi.WorkflowTriggerSpec;
 import app.platformapi.WorkflowView;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -57,10 +61,12 @@ class WorkflowService {
     private final Entitlements entitlements;
     private final ExpressionSupport support;
     private final Clock clock;
+    private final WorkflowPlatformLimits platform;
 
     WorkflowService(WorkflowStore store, WorkflowCodec codec, WorkflowRules rules, MetadataCatalogue catalogue,
             MetadataVersions versions, MetadataAudit audit, MetadataProperties properties, Permissions permissions,
-            Entitlements entitlements, ExpressionSupport support, Clock clock) {
+            Entitlements entitlements, ExpressionSupport support, Clock clock, WorkflowPlatformLimits platform) {
+        this.platform = platform;
         this.support = support;
         this.clock = clock;
         this.store = store;
@@ -90,16 +96,63 @@ class WorkflowService {
         return codec.view(store.find(objectApiName, apiName).orElseThrow(WorkflowService::missing));
     }
 
-    // ---- trying a condition ----
+    // ---- what a workflow can be made of ----
+
+    /** The types of action, the kinds of trigger and the limits, as the browser builds its forms from them. */
+    WorkflowCatalogueView catalogue() {
+        List<WorkflowCatalogueView.CatalogueActionType> types = WorkflowActionTypes.all().stream()
+                .map(type -> new WorkflowCatalogueView.CatalogueActionType(type.type(), type.summary(),
+                        type.assignments().name(), type.assignedObject(), type.settings().stream().map(setting ->
+                                new WorkflowCatalogueView.CatalogueSetting(setting.key(), setting.required(),
+                                        setting.help(), setting.allowed(), setting.refers().name())).toList()))
+                .toList();
+        List<WorkflowCatalogueView.CatalogueTriggerKind> kinds = java.util.Arrays
+                .stream(WorkflowDefinition.Kind.values())
+                .map(kind -> new WorkflowCatalogueView.CatalogueTriggerKind(kind.name(), triggerSummary(kind),
+                        kind.scheduled(), triggerProperties(kind)))
+                .toList();
+        MetadataProperties.Limits limits = properties.limits();
+        return new WorkflowCatalogueView(types, kinds, new WorkflowCatalogueView.CatalogueLimits(
+                limits.maxActionsPerWorkflow(), limits.maxAssignmentsPerAction(), limits.maxLiteralLength(),
+                platform.maxAttempts(), platform.maxChainDepth()));
+    }
+
+    private static String triggerSummary(WorkflowDefinition.Kind kind) {
+        return switch (kind) {
+            case RECORD_CREATED -> "A record of the object is created.";
+            case RECORD_UPDATED -> "A record of the object is changed.";
+            case RECORD_DELETED -> "A record of the object is moved to the recycle bin.";
+            case FIELD_CHANGED -> "A record of the object is changed and one of the chosen fields changes.";
+            case EVERY_DAY -> "Every day at a time of day, for each record that meets the selection.";
+            case EVERY_WEEK -> "Every week on a day at a time of day, for each record that meets the selection.";
+            case DATE_TIME -> "Once, at one moment, for each record that meets the selection.";
+            case DAYS_AFTER_DATE -> "A number of days after the date in a field of each record.";
+        };
+    }
+
+    private static List<String> triggerProperties(WorkflowDefinition.Kind kind) {
+        return switch (kind) {
+            case RECORD_CREATED, RECORD_UPDATED, RECORD_DELETED -> List.of();
+            case FIELD_CHANGED -> List.of("fields");
+            case EVERY_DAY -> List.of("timeZone", "time", "selection");
+            case EVERY_WEEK -> List.of("timeZone", "time", "dayOfWeek", "selection");
+            case DATE_TIME -> List.of("timeZone", "at", "selection");
+            case DAYS_AFTER_DATE -> List.of("field", "days", "timeZone", "time", "selection");
+        };
+    }
+
+    // ---- trying a condition and the actions ----
 
     /**
-     * What a condition would do for a record with the sample values. The real engine answers; nothing is stored,
-     * audited or logged, and no part of the request is repeated in the answer.
+     * What a condition would do for a record with the sample values, and what is wrong with the actions that were
+     * handed in for the object. The real engine and the real checks answer; nothing is stored, audited or logged, and
+     * no part of the request is repeated in the answer.
      */
     WorkflowConditionCheckView check(String objectApiName, CheckWorkflowConditionRequest request) {
         ObjectDefinition object = requireObject(objectApiName);
+        Map<String, List<String>> actionProblems = actionProblems(object, request.actions());
         if (request.condition() == null || request.condition().isBlank()) {
-            return new WorkflowConditionCheckView("RUNS", null);
+            return new WorkflowConditionCheckView("RUNS", null, actionProblems);
         }
         Compiled compiled;
         try {
@@ -111,11 +164,56 @@ class WorkflowService {
         Map<String, Object> values = support.valuesOf(object, request.values());
         try {
             return Boolean.TRUE.equals(support.engine().evaluate(compiled, values, clock.instant()))
-                    ? new WorkflowConditionCheckView("RUNS", null)
-                    : new WorkflowConditionCheckView("SKIPPED", null);
+                    ? new WorkflowConditionCheckView("RUNS", null, actionProblems)
+                    : new WorkflowConditionCheckView("SKIPPED", null, actionProblems);
         } catch (ExpressionException problem) {
-            return new WorkflowConditionCheckView("ERROR", ExpressionSupport.problem(problem));
+            return new WorkflowConditionCheckView("ERROR", ExpressionSupport.problem(problem), actionProblems);
         }
+    }
+
+    private Map<String, List<String>> actionProblems(ObjectDefinition object, List<WorkflowActionSpec> asked) {
+        if (asked.isEmpty()) {
+            return Map.of();
+        }
+        Problems shape = new Problems();
+        List<WorkflowActionSpec> cleaned = rules.checkActions(shape, asked);
+        Map<String, List<String>> found = new LinkedHashMap<>(shape.all());
+        if (cleaned == null) {
+            return found;
+        }
+        for (int i = 0; i < cleaned.size(); i++) {
+            WorkflowActionChecks.check(object, catalogue::object, WorkflowCodec.action(cleaned.get(i)),
+                    "actions[" + i + "]", new WorkflowActionChecks.Report() {
+                        @Override
+                        public void needsField(String needed, String field, String relation) {
+                            // Edges matter to the graph only.
+                        }
+
+                        @Override
+                        public void needsObject(String needed, String relation) {
+                            // Edges matter to the graph only.
+                        }
+
+                        @Override
+                        public void problem(String place, String message) {
+                            note(place, message);
+                        }
+
+                        @Override
+                        public void missing(String place, String message) {
+                            note(place, message);
+                        }
+
+                        private void note(String place, String message) {
+                            List<String> texts = new ArrayList<>(found.getOrDefault(place, List.of()));
+                            if (!texts.contains(message)) {
+                                texts.add(message);
+                            }
+                            found.put(place, texts);
+                        }
+                    });
+        }
+        return found;
     }
 
     // ---- changing ----

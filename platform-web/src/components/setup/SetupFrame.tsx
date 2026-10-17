@@ -13,15 +13,18 @@ const SECTIONS = [
   { href: "/setup/objects", label: "Objects" },
   { href: "/setup/applications", label: "Applications" },
   { href: "/setup/tabs", label: "Tabs" },
+  { href: "/setup/workflows", label: "Workflows" },
+  { href: "/workflows/executions", label: "Workflow runs" },
   { href: "/setup/changes", label: "Change sets" },
   { href: "/setup/history", label: "History" },
 ];
 
 /** The pages where a change can be made, so the person can choose where it goes: live at once or into a change set. */
-const OBJECT_PAGES = ["/setup/objects", "/setup/applications", "/setup/tabs", "/setup/changes"];
+const OBJECT_PAGES = ["/setup/objects", "/setup/applications", "/setup/tabs", "/setup/workflows", "/setup/changes"];
 
 /**
- * The frame of the setup pages (profiles, access policies, groups, roles, objects, applications, tabs, change sets, history) of the
+ * The frame of the setup pages (profiles, access policies, groups, roles, objects, applications, tabs, workflows, the runs of
+ * workflows, change sets, history) of the
  * organization the address names. It only navigates: whether the person may open a page is the API's answer, which each page shows in the API's own words.
  *
  * "General" is a marker, not a page: it shows where the organization's branding and general settings will live once a

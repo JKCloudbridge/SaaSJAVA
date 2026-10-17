@@ -3,6 +3,9 @@
 - **Status:** Accepted for the outbox and the relay (D3, first step). The event processor and the broker question close in
   Sprint 22.
 - **Date:** 2026-10-01
+- **Amended:** [ADR-0143](0143-dead-letters-parked-events-and-redrive.md) (Sprint 23): a person with the ability to replay workflows
+  may list the dead events of the workflow consumers of their own organization and put one back, through the shared-kernel contract
+  `ParkedEvents`. The relay, the claim, the lease and the dead-lettering itself are unchanged.
 - **Decision IDs:** D3
 - **Sprint:** S2
 

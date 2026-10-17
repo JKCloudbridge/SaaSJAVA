@@ -52,6 +52,7 @@ class Dispatcher implements SmartLifecycle {
     private final AuditRecorder audit;
     private final MeterRegistry meters;
     private final AtomicLong queueDepth = new AtomicLong();
+    private final AtomicLong deadLetters = new AtomicLong();
 
     private ScheduledExecutorService executor;
     private volatile boolean running;
@@ -70,6 +71,8 @@ class Dispatcher implements SmartLifecycle {
         this.audit = audit;
         this.meters = meters;
         meters.gauge("platform.workflow.queue.depth", queueDepth);
+        // Alert-ready: more than zero means a person has something to look at (ADR-0143).
+        meters.gauge("platform.workflow.dead_letters", deadLetters);
     }
 
     // ---- one poll of each kind (public to the package so a test can drive them without waiting) ----
@@ -98,22 +101,26 @@ class Dispatcher implements SmartLifecycle {
         return claimed.size();
     }
 
-    /** Removes the finished executions older than the retention, organization by organization. */
+    /**
+     * Removes the finished executions older than the retention, and the dead letters older than theirs, organization by
+     * organization.
+     */
     int purgeOnce() {
         Duration retention = properties.retention().executions();
-        List<UUID> organizations = asDispatcher(() -> store.organizationsWithExpired(retention,
+        Duration deadLetter = properties.retention().deadLetter();
+        List<UUID> organizations = asDispatcher(() -> store.organizationsWithExpired(retention, deadLetter,
                 ORGANIZATIONS_PER_PASS));
         int removed = 0;
         for (UUID organization : organizations) {
-            removed += purgeOrganization(new TenantId(organization), retention);
+            removed += purgeOrganization(new TenantId(organization), retention, deadLetter);
         }
         return removed;
     }
 
-    private int purgeOrganization(TenantId tenant, Duration retention) {
+    private int purgeOrganization(TenantId tenant, Duration retention, Duration deadLetter) {
         try {
             Integer count = contexts.call(TenantContext.of(tenant), () -> transaction.execute(status -> {
-                int removed = executions.purgeFinished(retention, properties.retention().batchSize());
+                int removed = executions.purgeFinished(retention, deadLetter, properties.retention().batchSize());
                 if (removed > 0) {
                     audit.record(AuditRecord.of("retention.workflow.cleaned", AuditOutcome.SUCCESS).inTenant(tenant)
                             .with("removed", Integer.toString(removed)).with("source", "executions"));
@@ -127,9 +134,10 @@ class Dispatcher implements SmartLifecycle {
         }
     }
 
-    /** Refreshes the queue depth gauge. */
+    /** Refreshes the queue depth and dead-letter gauges. */
     void sampleQueue() {
         queueDepth.set(asDispatcher(store::queued));
+        deadLetters.set(asDispatcher(store::deadLetters));
     }
 
     private <T> T asDispatcher(Supplier<T> work) {

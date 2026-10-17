@@ -1,5 +1,8 @@
 package app.platform.notification.internal;
 
+import java.net.URI;
+import java.util.Locale;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -13,9 +16,25 @@ import org.springframework.stereotype.Component;
 class MailLinks {
 
     private final String base;
+    private final String scheme;
+    private final String port;
+    private final String baseDomain;
 
-    MailLinks(MailProperties properties) {
+    MailLinks(MailProperties properties, @Value("${platform.tenancy.base-domain}") String baseDomain) {
         this.base = properties.baseUrl();
+        URI uri = URI.create(base);
+        this.scheme = uri.getScheme().toLowerCase(Locale.ROOT);
+        this.port = uri.getPort() < 0 ? "" : ":" + uri.getPort();
+        this.baseDomain = baseDomain.strip().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * The address of a record on its organization's own host (ADR-0138): the one mail link that is not on the platform
+     * host, because the record lives in the organization. The scheme and port are the platform's. The caller passes
+     * an object name and an identifier it has checked.
+     */
+    String record(String slug, String objectApiName, java.util.UUID recordId) {
+        return scheme + "://" + slug + "." + baseDomain + port + "/records/" + objectApiName + "/" + recordId;
     }
 
     String signUpComplete(String token) {

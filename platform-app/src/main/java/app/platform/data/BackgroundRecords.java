@@ -13,9 +13,9 @@ import java.util.UUID;
  *
  * <p>There is no field security and no record-level security here, on purpose: a workflow is a definition an
  * administrator made, it runs without a person behind it, and it must see what it was defined to react to. What it may
- * <em>do</em> with what it sees is decided by its actions, which this release restricts to a closed list that never
- * carries a value out. Never reachable from a request: callers are background jobs inside an organization's own tenant
- * context.
+ * <em>do</em> with what it sees is decided by its actions, which are a closed list; the actions that change records do
+ * so only through {@link BackgroundWrites} (Sprint 23, ADR-0139), the one reviewed place where background work writes.
+ * Never reachable from a request: callers are background jobs inside an organization's own tenant context.
  *
  * <p>Reads go through the query engine's own stages (the same statement as a member's query), so a field name or a
  * value is never spliced into SQL.

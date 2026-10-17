@@ -99,7 +99,15 @@ final class FieldValue {
      * written as text (FieldRules): a multi-picklist default separates its values with semicolons.
      */
     static Object defaultOf(FieldDefinition field) {
-        String text = field.defaultValue();
+        return literal(field, field.defaultValue());
+    }
+
+    /**
+     * The value a literal written as text stands for, in its stored shape (ADR-0138): the rules of a default, so there
+     * is one way to write a typed constant. Null for an empty text and for a field that takes no literal; the write
+     * pipeline then judges what is stored.
+     */
+    static Object literal(FieldDefinition field, String text) {
         if (text == null || text.isEmpty()) {
             return null;
         }

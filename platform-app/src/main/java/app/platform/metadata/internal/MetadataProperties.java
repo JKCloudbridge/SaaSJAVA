@@ -40,6 +40,9 @@ record MetadataProperties(@DefaultValue Limits limits, @DefaultValue Cache cache
      * @param maxRecordPageAssignmentsPerObject record page assignments per object (default 200, Sprint 20)
      * @param maxWorkflowsPerObject workflows per object (default 50, Sprint 22)
      * @param maxWorkflowVersions definitions one workflow may have been through (default 200, Sprint 22)
+     * @param maxActionsPerWorkflow actions in one workflow (default 10, Sprint 23)
+     * @param maxAssignmentsPerAction fields one action sets (default 25, Sprint 23)
+     * @param maxLiteralLength the longest literal an action sets, in characters (default 1000, Sprint 23)
      */
     record Limits(@DefaultValue("200") int maxObjects, @DefaultValue("500") int maxFieldsPerObject,
             @DefaultValue("1000") int maxPicklistValues, @DefaultValue("50") int maxRecordTypesPerObject,
@@ -52,7 +55,8 @@ record MetadataProperties(@DefaultValue Limits limits, @DefaultValue Cache cache
             @DefaultValue("50") int maxCustomPages, @DefaultValue("200") int maxCustomPageAssets,
             @DefaultValue("1000000") int maxCustomPageBytes,
             @DefaultValue("200") int maxRecordPageAssignmentsPerObject, @DefaultValue("50") int maxWorkflowsPerObject,
-            @DefaultValue("200") int maxWorkflowVersions) {
+            @DefaultValue("200") int maxWorkflowVersions, @DefaultValue("10") int maxActionsPerWorkflow,
+            @DefaultValue("25") int maxAssignmentsPerAction, @DefaultValue("1000") int maxLiteralLength) {
 
         Limits {
             if (maxObjects < 1 || maxFieldsPerObject < 1 || maxPicklistValues < 1 || maxRecordTypesPerObject < 1
@@ -62,7 +66,9 @@ record MetadataProperties(@DefaultValue Limits limits, @DefaultValue Cache cache
                     || maxRecordTypeAssignmentsPerObject < 1 || maxSearchableFieldsPerObject < 1 || maxTabs < 1
                     || maxCustomPages < 1 || maxCustomPageAssets < 1 || maxCustomPageBytes < 1
                     || maxCustomPageBytes > 5_000_000 || maxRecordPageAssignmentsPerObject < 1
-                    || maxWorkflowsPerObject < 1 || maxWorkflowVersions < 1) {
+                    || maxWorkflowsPerObject < 1 || maxWorkflowVersions < 1 || maxActionsPerWorkflow < 1
+                    || maxActionsPerWorkflow > 20 || maxAssignmentsPerAction < 1 || maxAssignmentsPerAction > 100
+                    || maxLiteralLength < 1 || maxLiteralLength > 1000) {
                 throw new IllegalArgumentException("platform.metadata.limits.* must be at least 1");
             }
         }

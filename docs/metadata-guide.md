@@ -485,9 +485,9 @@ Everything in sections 2 to 19 can be done in Setup without touching the API. Th
 
 A **workflow** says: *when this happens to a record of an object (or at this time), if this condition is true, do this.* It is
 a definition like a validation rule: you draft it, check it, publish it (live at once, or in a change set with other changes)
-and roll it back with the release. This sprint delivers the engine and its API; the builder screens and the execution history
-screen come with Sprint 23, and until then workflows are made and read through the API (`/api/v1/metadata/workflows`) and the
-history through `/api/v1/workflows/executions`.
+and roll it back with the release. Sprint 22 delivered the engine and its API; Sprint 23 added the actions that change records,
+retries, dead letters and replay (section 22) and the screens: **Setup, Workflows** (the list and the builder) and **Setup,
+Workflow runs** (the history). The API stays the same door: `/api/v1/metadata/workflows` and `/api/v1/workflows/executions`.
 
 **What starts a workflow (the trigger).** A record was created, changed, or moved to the recycle bin
 (`RECORD_CREATED`, `RECORD_UPDATED`, `RECORD_DELETED`); a record was changed and one of the named fields was among the changed
@@ -503,9 +503,10 @@ it is when the execution runs**, a moment after the change, not as it was at the
 Submitted" is written as a condition on the current value (`status__c = 'Submitted'`) together with a trigger on `status__c`.
 You can try a condition on sample values before you save it (`POST .../workflows/{object}/check`).
 
-**The actions.** In order. This release has one type, **Publish event**: it announces a named event
-(`workflow.signal.<name>`) that says which object, record, workflow, execution and step, and carries no value of the record.
-Updating or creating records, e-mail, notifications, approvals and integrations come with Sprints 23 to 28.
+**The actions.** In order. **Publish event** announces a named event (`workflow.signal.<name>`) that says which object, record,
+workflow, execution and step, and carries no value of the record. Since Sprint 23 there are three more, described in
+section 22: update a record, create a record, and send a mail. Starting an approval, an in-app notification and calling an
+integration come with Sprints 24 to 28.
 
 **When it runs.** Always **after** the change has been saved, never inside it: a workflow cannot reject, change or slow down a
 save (validation and permissions stay where they were). Each cause makes **one execution**, even if the platform delivers the
@@ -513,7 +514,7 @@ event twice or two servers see it. An execution is queued, then picked up by a w
 start up to about 15 seconds after their time.
 
 **What you can see afterwards.** Every execution is recorded: which workflow and which **version** of it, the record, the
-status (`QUEUED`, `RUNNING`, `COMPLETED`, `FAILED`, `CANCELLED`, `SKIPPED`), a reason when it did not run to the end, how many
+status (`QUEUED`, `RUNNING`, `COMPLETED`, `DEAD_LETTERED`, `CANCELLED`, `SKIPPED`; `FAILED` only for runs made before Sprint 23), a reason when it did not run to the end, how many
 times a worker picked it up, and each step. The reasons are fixed words: `condition_false`, `condition_not_evaluable` (the
 condition could not be worked out for that record, for example a division by zero), `record_gone`, `record_restored`,
 `workflow_inactive`, `feature_off`, `object_missing`, `workflow_removed`, `action_failed` (with the type of the failure),
@@ -525,8 +526,9 @@ or just switching it on or off does not. An execution always runs the version it
 changes a run that is already waiting. Switching a workflow **off** (or removing it) also stops the executions that are still
 waiting. Old versions that no execution uses are cleaned up a week after they were replaced.
 
-**What a workflow cannot do yet.** Change a record, send anything, retry a failed step (a failed execution stays `FAILED`; retry,
-dead letters and replay are Sprint 23), start before a save (that is Sprint 25), or react to an external system.
+**What a workflow cannot do yet.** Start an approval (Sprint 24), tell a person in the application or write the words of a mail
+(Sprint 25), start before a save (Sprint 25), call an external system (the integration milestone) or react to one. Changing records,
+sending a mail, retrying a failed step and replaying a dead letter are Sprint 23 (section 22).
 
 **What stops a removal.** A field or an object that a workflow names (in its trigger, its condition or its selection) cannot be
 removed; the refusal names the workflow. Switch off and remove the workflow first, or change it.
@@ -535,3 +537,85 @@ removed; the refusal names the workflow. Switch off and remove the workflow firs
 and tries conditions; making a change live also needs *Publish metadata changes*, and whoever checks or publishes a change set
 that contains a workflow needs *Manage workflows* as well. The organization's plan must include the feature **workflows**
 (a workflow can be made and switched on only then; switching off and removing are always possible).
+
+## 22. Workflows that change the world: actions, retries, dead letters and replay (Sprint 23)
+
+Decisions: ADR-0138 (the actions), ADR-0139 (how a workflow writes a record), ADR-0140 (loops), ADR-0141 (replay and the key of
+an effect), ADR-0142 (retries), ADR-0143 (dead letters and parked events), ADR-0144 (what is left out).
+
+**The actions that ship.**
+
+| Action | What it does | What you give it |
+|--------|--------------|------------------|
+| Update record | Sets fields of the record that started the workflow | the fields, each a value or a copy |
+| Create record | Makes a record of an object, owned by the owner of the record that started the workflow | the object, the fields, and optionally a link field that points back to the record |
+| Send e-mail | Queues one mail to the person the record names | a user field or an e-mail field of the record, and the mail (one platform mail in this release) |
+| Publish event | As in section 21 | the name of the event |
+
+*A value* is either **written here** the way a field's default value is written (`true`, `2030-01-31`, the digits of a number,
+values separated by semicolons for a multi-select) or **copied from a field of the record that started the workflow** (a copy of
+a field with no value empties the field it is copied to). It is never a formula. A link field is never given a written value; it is
+copied from a link field of the same kind.
+
+**What the platform checks when you save.** The names of fields and objects, that a field can be set at all (not a system field,
+not a formula or auto-number, not retired), that a written value fits its field, that a copy goes between fields of a kind that fit,
+that a created record is given every required field that has no default, that the field of a mail names a user or an address, the
+limits (actions per workflow, fields per action, the length of a value) and the number of attempts. **Try the actions** before you
+save: the builder asks the platform to check them against the object and shows each problem under the action it is about; nothing
+is stored. Every field an action names is a dependency: a field, or an object, that a workflow still names cannot be removed, and
+the refusal names the workflow.
+
+**How a workflow changes a record.** As **the platform**, not as a person: the member gate and the permissions (object, field and
+record) are not asked, because nobody is behind the change. Everything that is true of every record is still asked, in the same
+order and by the same code as for a person: the type of each value, required fields, the record type, links, unique values,
+validation rules and formulas. A record the workflow changes keeps its owner, gets no new share, and its version goes up once, as
+for any change. An update that would change nothing is not a change. The change is audited with the workflow and the run, with no
+person, and the event it makes tells the workflows it may start that it came from a workflow (the chain below).
+
+**A mail** says that a record of an object in an organization needs attention and links to it on the organization's own address.
+It never contains a value of the record, not even its title. The person must be an active member (a user field) or the address in an
+e-mail field. An organization's workflows queue at most 500 mails an hour (a step waits for its next attempt past that).
+
+**When an action fails.**
+- A failure that a later attempt may not have (a lock, a lost connection, someone changing the record at the same moment) is
+  **retried**: the run waits, off every worker, and tries the step again after 30 seconds, then about a minute, two, four, up to an
+  hour, with a little randomness. An action has **5 attempts** unless you lower it in the builder (you cannot raise it). The history
+  shows each step with its attempts, when the next one is due and why it waits.
+- A failure that no retry can mend (a value the field does not take, a required field left empty, a rule that rejects the record, a
+  value already in use, a linked record that is gone, a person who is not a member) is **not** retried. The run becomes a
+  **dead letter**: the status "Needs a person", with the step that failed, the number of attempts, a fixed reason in words and the
+  *type* of the failure. It never keeps the text of a rule, a value or a library's message.
+- A run claimed again and again because a server kept stopping is also set aside as a dead letter ("attempts_exhausted"). A crash
+  is not a failed attempt, and a failed attempt is not a crash: they are counted apart.
+
+**Replay.** A person with the ability **Replay workflow executions** (separate from managing workflows) can run a dead letter again,
+one or many at once. A replay makes **one new run** that starts at the step that failed (or a later one you choose, to pass over a
+step that can never succeed), against the record **as it is now**. The steps that completed are not run again, so nothing that
+already happened is done twice, and the condition is not judged again: you have decided to run it. A replay of a record that is gone
+ends as "record gone"; a workflow that was switched off or removed, or a plan without workflows, ends the replay as it ends any run.
+A dead letter is replayed **once**: pressing Replay twice, or two people at the same moment, make one new run, and the second answer
+names the first. If the replay itself dead-letters it can be replayed in turn. A dead letter is kept for 180 days (never fewer than
+30), longer than a completed run (90).
+
+**Cancel.** A run that has not started, including one waiting for its next attempt, can be cancelled by a person with the ability to
+manage workflows. A run that is running or finished cannot.
+
+**Loops.** A change made by a workflow can start workflows. The platform allows that on purpose (one workflow updates a record and
+another, on that update, sends a mail) and stops what would go round: a workflow that is already part of the chain of changes is not
+started again (the run is made and shown as "Skipped: loop detected"), and no more than **5 workflows in a row** can follow one
+change ("depth exceeded"). Past 600 runs a minute for one object the rest are delayed, never dropped.
+
+**Events the platform gave up on.** If the part of the platform that starts workflows kept failing on a saved change, the event is
+set aside. The list of runs shows those events and a person with the ability to replay can **put one back**; nothing is done twice.
+A release whose schedules were never made makes them when its event is put back.
+
+**What is not here, on purpose.** Starting an approval (Sprint 24), an in-app notification and mail text written by an
+administrator (Sprint 25), calling an integration (Milestone M7), a formula as a value, steps that wait, branches, and "continue
+after a failed step". ADR-0144 lists them with what each waits for.
+
+**The screens.** *Setup, Workflows*: the list (switch on or off, remove, open the builder, open the runs) and the builder: the name,
+when it starts (the kinds the platform offers, with the properties each uses), the condition (checked and tried on sample values),
+and the actions, built by dragging an action type from the palette (or choosing it) into a list you can reorder with the buttons.
+Everything the palette, the settings and the limits show comes from the platform, not from the screen. *Setup, Workflow runs*: the
+list with filters, the dead letters with counts by workflow and reason, the parked events, Replay and Cancel (one and many), and the
+detail of a run with its steps.

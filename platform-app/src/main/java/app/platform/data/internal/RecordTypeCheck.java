@@ -58,7 +58,9 @@ class RecordTypeCheck {
         if (types.isEmpty() && requested == null) {
             return Optional.empty();
         }
-        UUID profile = types.isEmpty() ? null : members.profileOf(membershipId).orElse(null);
+        // The platform acting for a workflow has no profile: it uses the types that are open to every profile.
+        UUID profile = types.isEmpty() || membershipId == null ? null
+                : members.profileOf(membershipId).orElse(null);
         if (requested == null) {
             if (held != null) {
                 return types.stream().filter(type -> type.apiName().equals(held)).findFirst();

@@ -209,7 +209,7 @@ class WorkflowExecutionIT extends WorkflowSupport {
     // ---- a failing step ----
 
     @Test
-    void aStepThatFailsEndsTheExecutionAsFailedWithTheTypeNameAndNeverTheMessage() {
+    void aStepThatCanNeverSucceedEndsTheExecutionAsADeadLetterWithTheReasonAndTheTypeNameAndNeverTheMessage() {
         Setup setup = withOnCreate(null);
         // A definition of a later release: a type of action this release does not carry out.
         run(setup.organization(), "insert into workflow_version (workflow_id, version_number, trigger_kind, trigger, "
@@ -226,12 +226,12 @@ class WorkflowExecutionIT extends WorkflowSupport {
         runWorker();
 
         assertThat(executions(setup.organization())).singleElement().satisfies(row -> {
-            assertThat(row).containsEntry("status", "FAILED").containsEntry("reason", "action_failed")
-                    .containsEntry("failure_type", "UnknownActionType").containsEntry("workflow_version_number", "2");
+            assertThat(row).containsEntry("status", "DEAD_LETTERED").containsEntry("reason", "unknown_action_type")
+                    .containsEntry("failure_type", "StepFailure").containsEntry("workflow_version_number", "2");
         });
         assertThat(rows(setup.organization(), "select name, status, failure_type from workflow_step"))
                 .singleElement().satisfies(row -> assertThat(row).containsEntry("status", "FAILED")
-                        .containsEntry("failure_type", "UnknownActionType"));
+                        .containsEntry("failure_type", "StepFailure"));
     }
 
     // ---- crashes ----
@@ -270,7 +270,7 @@ class WorkflowExecutionIT extends WorkflowSupport {
         runWorker();
 
         assertThat(executions(setup.organization())).singleElement().satisfies(row ->
-                assertThat(row).containsEntry("status", "FAILED").containsEntry("reason", "attempts_exhausted")
+                assertThat(row).containsEntry("status", "DEAD_LETTERED").containsEntry("reason", "attempts_exhausted")
                         .containsEntry("failure_type", "AttemptsExhausted"));
         assertThat(signals(setup.organization(), "workflow.signal.done.event")).isZero();
     }
@@ -334,7 +334,7 @@ class WorkflowExecutionIT extends WorkflowSupport {
         Response firstPage = setup.admin().get(EXECUTIONS + "?limit=2");
         String cursor = JsonPath.read(firstPage.body(), "$.pagination.nextCursor");
         Response secondPage = setup.admin().get(EXECUTIONS + "?limit=2&cursor=" + cursor);
-        Response filtered = setup.admin().get(EXECUTIONS + "?status=FAILED");
+        Response filtered = setup.admin().get(EXECUTIONS + "?status=DEAD_LETTERED");
         Response byWorkflow = setup.admin().get(EXECUTIONS + "?workflow=OnCreate__c&status=COMPLETED");
         String id = JsonPath.read(firstPage.body(), "$.data[0].id");
         Response one = setup.admin().get(EXECUTIONS + "/" + id);

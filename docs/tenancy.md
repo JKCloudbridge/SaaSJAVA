@@ -499,8 +499,7 @@ Short form of ADR-0133 to ADR-0137; the administrator's view is [metadata-guide.
   lease was lost: stop, the outcome is the other instance's (`ClaimLost`).
 - **Read records for background work through `BackgroundRecords`** (module `data`): one record including the recycle bin, the
   engine values of a record, a page of live records through the query engine's own stages. Never `StorageStrategy`, never
-  `Records` for reads (an architecture test). Changing records from a workflow is a later action type and goes through
-  `Records` so the rules of writing apply.
+  `Records` for reads (an architecture test). Since Sprint 23 a workflow changes records through `BackgroundWrites` (below).
 - **Adding a kind of trigger.** A value in `WorkflowDefinition.Kind` and the migration's check constraints
   (`workflow_version_trigger_known`, `workflow_execution_trigger_known`), the rules of its properties in `WorkflowRules`, its
   edges in `WorkflowDependencies`, and how it starts: a record event in `WorkflowEventHandler.matches`, a time in
@@ -518,3 +517,64 @@ Short form of ADR-0133 to ADR-0137; the administrator's view is [metadata-guide.
   the isolation harness lists the five new tables (`TenantScopedTables`). The runtime tests switch the outbox relay on and the
   dispatcher off (`platform.workflow.enabled=false`) and drive `pollExecutionsOnce`, `pollSchedulesOnce` and `purgeOnce`
   themselves; `WorkflowSupport` is their shared base.
+
+## Actions that write, retries, dead letters, replay and loops (Sprint 23)
+
+Short form of ADR-0138 to ADR-0144; the administrator's view is [metadata-guide.md](metadata-guide.md) section 22.
+
+- **A workflow writes records only through `BackgroundWrites`** (module `data`, reachable only from `workflow`: an architecture test).
+  It runs the same `WritePipeline` as `Records`, in a mode with no member: `RecordGate.Passed.platform(object)` has no membership,
+  `ObjectAccess` lists every field as readable and editable (a system, calculated or retired field is still refused by the
+  field-permission stage), a link is checked as "a live record of the target object" and the record-type stage uses the types open
+  to every profile. **A new stage of the pipeline is in both doors by construction**; do not add a check to `DefaultRecords` that a
+  workflow's write should also meet. `WritePipeline.run(..., Consumer<String> refused)` tells which stage refused, and
+  `DefaultBackgroundWrites.reasonOf` maps it to a stable `BackgroundWriteException.Reason` (a test fails when a stage has none).
+  `BackgroundWritesIT` holds the two doors together (the same write ends in the same stored values and the same validation
+  outcome). An update that changes nothing writes nothing (no version, audit record or event).
+- **What a write leaves.** `RecordChanges.createdByWorkflow|updatedByWorkflow`: the audit record has `source` `SYSTEM`, no user
+  and the attributes `workflow`, `execution` and `actor = platform`; the `record.*` event carries `chain` (`root`, `depth`,
+  `workflows`: identifiers and a number). Never a value.
+- **Chain, depth, rate.** `Chain` (workflow module) is read leniently from the payload (damaged or missing means depth 0).
+  `WorkflowEventHandler` makes the execution `SKIPPED` with `loop_detected` or `depth_exceeded` when the chain says so
+  (`platform.workflow.limits.max-chain-depth`, 5) and delays past `max-executions-per-minute` (600) by whole minutes
+  (`rate_limited`, the count is asked once per event and only after a workflow matched, so an object with no workflow costs the
+  snapshot lookup). `chain_root`, `chain_depth`, `chain_workflows` (V054) are on `workflow_execution`.
+- **Attempts and claims are different counters.** `workflow_step.attempts` counts attempts that ended; `workflow_execution.attempts`
+  counts claims and is for workers that died. A step that fails and will be retried is recorded in a transaction of its own
+  (`ExecutionStore.recordFailedAttempt`), the execution goes back to `QUEUED` with `run_at` = the next attempt and the claim count is
+  reset (`reschedule(..., reportedBack = true)`), so the dispatcher's existing claim finds it when due and nothing waits in a worker.
+  `RetryPolicy` classifies from the type of the exception (and the SQL state), never the message; unknown is permanent. The waits
+  are `min(max, initial x multiplier^(n-1) + jitter)` with jitter only upward (`RetryPropertiesTest`).
+- **Dead letter and replay.** `DEAD_LETTERED` is a terminal status (`FAILED` is kept for rows of Sprint 22). A replay is a new
+  execution (`replay_of`, `replay_generation`, `resume_step`), unique per `(tenant, replay_of, replay_generation)`, that skips the
+  steps before `resume_step`, does not judge the condition and copies the chain. `ActionContext.idempotencyKey()` is
+  `execution:step:generation`: stable across the retries of one execution, different across a replay. `ExecutionActions` does replay,
+  cancel (one atomic update on `status = 'QUEUED'`) and the parked events; each is audited by identifiers and counts.
+- **Parked events** go through the shared-kernel `ParkedEvents` (implemented by `outbox`, in the organization's own context, no
+  system scope). `ExecutionActions.WORKFLOW_EVENT_TYPES` is the list of types the workflow consumers handle; add a type there when
+  a new workflow consumer handles another.
+- **Adding an action type (Sprint 23 recipe).** One entry in `WorkflowActionTypes` (settings with `Refers` so a screen offers the right
+  choices; `Assignments`), one `ActionExecutor`, a case in `WorkflowActionChecks` (the fields it names are edges of the dependency
+  graph and its problems are violations, used by the graph and by the "try" endpoint alike), a stable reason for every way it can
+  fail (a `StepFailure` or a `BackgroundWriteException`), a row in `ActionsTest` and a test in the integration tests of the actions.
+  The browser needs nothing: it draws the catalogue (`GET /api/v1/metadata/workflows/action-types`).
+- **Mail.** `SEND_EMAIL` queues `MailTemplate.RECORD_NOTICE` with facts only (organization, object name and label, record
+  identifier); the notification module builds the text and the link to the organization's own host when it sends. The queue row
+  never holds a value. The mail relay retries a send; the workflow never does.
+- **Settings.** `platform.workflow.retry.*` (`max-attempts` 5, `initial-delay` 30s, `max-delay` 1h, `multiplier` 2, `jitter` 0.2),
+  `platform.workflow.limits.*` (`max-chain-depth` 5, `max-executions-per-minute` 600, `mails-per-organization-per-hour` 500),
+  `platform.workflow.retention.dead-letter` (180d, never under 30), `platform.metadata.limits.max-actions-per-workflow` (10),
+  `max-assignments-per-action` (25), `max-literal-length` (1000). Environment: `PLATFORM_WORKFLOW_RETRY_MAX_ATTEMPTS`,
+  `PLATFORM_WORKFLOW_MAX_CHAIN_DEPTH`, `PLATFORM_WORKFLOW_MAX_EXECUTIONS_PER_MINUTE`.
+- **Metrics.** `platform.workflow.attempts{action,result}`, `.retries`, `.retry.delay`, `.dead_letters` (gauge), `.replays{result}`,
+  `.redrives`, `.loops{result}`; a span per attempt carries the attempt number. No value, setting or message in a tag.
+- **Tests.** No database: `RetryPolicyTest`, `RetryPropertiesTest`, `ChainTest`, `ActionsTest`, `WorkflowPropertiesTest`,
+  `WorkflowActionChecksTest`, `WorkflowActionRulesTest`, `BackgroundWriteReasonsTest`, `RecordNoticeMailTest`,
+  `WorkflowArchitectureTest`. Real PostgreSQL: `WorkflowActionsIT`, `WorkflowRetryIT` (failures planned with `FailureInjection`),
+  `WorkflowReplayIT`, `WorkflowLoopsIT`, `WorkflowRateIT`, `WorkflowParkedEventsIT`, `WorkflowActionDefinitionsIT`,
+  `BackgroundWritesIT`, `WorkflowActionFlowsLogsAreCleanIT`, and the endpoints in `WorkflowAccessIT`. `ActionsSupport` is the shared base.
+- **Frontend.** `src/lib/builder/workflowModel.ts` (the pure model), `components/setup/Workflow*.tsx` (the list, the builder, the
+  trigger editor, the action card, the selection editor which reuses the list screen's `FilterBuilder`),
+  `components/workflows/Executions*.tsx` and `ExecutionDetail.tsx`, `src/lib/workflows/runsModel.ts` (the words). The screens hold no
+  action type, trigger kind, setting name or limit (`noListsInTheBrowser.test.ts`); the catalogue and the abilities of the signed-in
+  member come from the API.

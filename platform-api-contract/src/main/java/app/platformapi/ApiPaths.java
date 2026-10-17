@@ -158,6 +158,12 @@ public final class ApiPaths {
     /** The executions of workflows: the history of what ran, for those who may view workflows (Sprint 22). */
     public static final String WORKFLOW_EXECUTIONS = V1 + "/workflows/executions";
 
+    /** What a workflow can be made of: action types, trigger kinds and limits, as the server says it (Sprint 23). */
+    public static final String METADATA_WORKFLOW_CATALOGUE = V1 + "/metadata/workflows/action-types";
+
+    /** The events the relay gave up on that workflows depend on, and the way to put one back (Sprint 23, ADR-0143). */
+    public static final String WORKFLOW_PARKED_EVENTS = V1 + "/workflows/parked-events";
+
     /** Checking and trying expressions, and the list of functions of the expression language (Sprint 13). */
     public static final String METADATA_EXPRESSIONS = V1 + "/metadata/expressions";
 

@@ -31,6 +31,20 @@ describe("SetupFrame", () => {
     expect(screen.getByRole("link", { name: "Tabs" })).toHaveAttribute("href", "/setup/tabs");
   });
 
+  it("lists the workflows and their runs after Tabs, and shows the change-set bar on the workflow pages", () => {
+    render(
+      <SetupFrame>
+        <p>page content</p>
+      </SetupFrame>,
+    );
+
+    const labels = screen.getAllByRole("link").map((link) => link.textContent);
+    expect(labels.indexOf("Workflows")).toBe(labels.indexOf("Tabs") + 1);
+    expect(labels.indexOf("Workflow runs")).toBe(labels.indexOf("Workflows") + 1);
+    expect(screen.getByRole("link", { name: "Workflows" })).toHaveAttribute("href", "/setup/workflows");
+    expect(screen.getByRole("link", { name: "Workflow runs" })).toHaveAttribute("href", "/workflows/executions");
+  });
+
   it("shows the General tab as a marker that goes nowhere, so no branding feature is implied", () => {
     render(
       <SetupFrame>

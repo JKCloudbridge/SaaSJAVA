@@ -4,6 +4,7 @@ import app.platform.metadata.Metadata;
 import app.platform.metadata.ObjectDefinition;
 import app.platform.security.Decisions;
 import app.platform.security.ObjectAction;
+import app.platform.sharedkernel.ActorId;
 import app.platform.tenant.TenantContext;
 import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiException;
@@ -40,6 +41,19 @@ class RecordGate {
      * @param membershipId the membership of that user in the organization
      */
     record Passed(ObjectDefinition object, UUID userId, UUID membershipId) {
+
+        /**
+         * The platform acting for a workflow (ADR-0139): no member, the system identity as the actor. Only
+         * {@code BackgroundWrites} makes one; the gate never does.
+         */
+        static Passed platform(ObjectDefinition object) {
+            return new Passed(object, ActorId.SYSTEM.value(), null);
+        }
+
+        /** Whether the platform, and not a member, makes the call. */
+        boolean byPlatform() {
+            return membershipId == null;
+        }
     }
 
     private final Metadata metadata;

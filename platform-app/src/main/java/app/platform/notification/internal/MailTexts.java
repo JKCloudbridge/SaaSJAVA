@@ -133,6 +133,20 @@ final class MailTexts {
                 until the link is used.
                 """),
 
+        RECORD_NOTICE(
+                "A record needs your attention",
+                """
+                Hello,
+
+                A workflow of the organization "{{organization}}" asks you to look at a record of {{objectLabel}}. \
+                Open it here:
+
+                {{link}}
+
+                You need to sign in to see it, and what you see is what your access allows. If you do not know this \
+                organization or did not expect this message, ignore it: nothing changes.
+                """),
+
         FIRST_ADMINISTRATOR_EXISTING(
                 "You have been invited to set up an organization",
                 """
