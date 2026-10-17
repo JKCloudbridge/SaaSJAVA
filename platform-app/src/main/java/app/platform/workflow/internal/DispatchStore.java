@@ -6,6 +6,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -77,7 +78,10 @@ class DispatchStore {
                           e.replay_generation, e.resume_step
                 """)
                 .param("lease", lease.toMillis() / 1000.0).param("system", ActorId.SYSTEM.value())
-                .param("limit", limit).query(DispatchStore::execution).list();
+                .param("limit", limit).query(DispatchStore::execution).list().stream()
+                // The statement does not promise an order; handle in the order the rows became due (ADR-0016's idiom).
+                .sorted(Comparator.comparing(ClaimedExecution::queuedAt).thenComparing(ClaimedExecution::id))
+                .toList();
     }
 
     /** Claims up to {@code limit} due schedules, the one due longest ago first. */
@@ -97,7 +101,9 @@ class DispatchStore {
                           s.firing_after, s.firing_for, s.covered_through, s.attempts, s.version
                 """)
                 .param("lease", lease.toMillis() / 1000.0).param("system", ActorId.SYSTEM.value())
-                .param("limit", limit).query(DispatchStore::schedule).list();
+                .param("limit", limit).query(DispatchStore::schedule).list().stream()
+                .sorted(Comparator.comparing(ClaimedSchedule::nextFireAt).thenComparing(ClaimedSchedule::id))
+                .toList();
     }
 
     /** How many executions wait to be claimed now (for the queue depth gauge). */
