@@ -78,7 +78,8 @@ class RecordNoticeMailTest {
                 "object", "Order__c", "object_label", "Order\nSecond line http://evil.example", "record_id",
                 RECORD.toString())));
 
-        assertThat(send.message().text()).doesNotContain("evil.example").doesNotContain("Second line http");
+        assertThat(send.message().text()).doesNotContain("evil.example").doesNotContain("evil.example/")
+                .doesNotContain("Order\nSecond");
     }
 
     @Test

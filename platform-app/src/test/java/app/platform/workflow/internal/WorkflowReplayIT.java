@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import app.platform.testsupport.PlatformIntegrationTest;
 import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestHttp.Response;
+import app.platform.testsupport.TestOrganizations;
 import app.platform.testsupport.TestOrganizations.Organization;
 import app.platform.testsupport.tenancy.TenantFixtures;
 import com.jayway.jsonpath.JsonPath;
@@ -159,10 +160,16 @@ class WorkflowReplayIT extends ActionsSupport {
         Setup setup = deadLetter(null);
         ExecutorService pool = Executors.newFixedThreadPool(4);
         List<Future<Response>> answers = new ArrayList<>();
+        // One browser per click: a browser keeps one session and one token and is not meant for two requests at once.
+        List<TestBrowser> browsers = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            browsers.add(TestOrganizations.signedIn(port, setup.organization().host(),
+                    setup.organization().admin().person()));
+        }
 
         try {
-            for (int i = 0; i < 4; i++) {
-                answers.add(pool.submit(() -> replay(setup.admin(), setup.execution())));
+            for (TestBrowser browser : browsers) {
+                answers.add(pool.submit(() -> replay(browser, setup.execution())));
             }
             List<String> outcomes = new ArrayList<>();
             for (Future<Response> answer : answers) {

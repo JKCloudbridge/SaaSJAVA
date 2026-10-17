@@ -24,7 +24,7 @@ class WorkflowActionRulesTest {
 
     private static final MetadataProperties PROPERTIES = new MetadataProperties(
             new MetadataProperties.Limits(200, 500, 1000, 50, 200, 50, 50, 20, 20, 200, 50, 5, 500, 4, 200, 50, 200,
-                    1_000_000, 200, 50, 200, 3, 2, 12),
+                    1_000_000, 200, 50, 200, 3, 6, 12),
             new MetadataProperties.Cache(true, 1000));
     private static final WorkflowRules RULES = new WorkflowRules(
             new ExpressionSupport(new ExpressionEngine(Limits.standard()), PROPERTIES),
@@ -120,7 +120,8 @@ class WorkflowActionRulesTest {
 
     @Test
     void anActionSetsAtMostTheLimitOfFieldsAndAWorkflowHasAtMostTheLimitOfActions() {
-        assertThat(problemsOf(update("Set", literal("a__c", "1"), literal("b__c", "2"), literal("c__c", "3"))))
+        assertThat(problemsOf(update("Set", literal("a__c", "1"), literal("b__c", "2"), literal("c__c", "3"),
+                literal("d__c", "4"), literal("e__c", "5"), literal("f__c", "6"), literal("g__c", "7"))))
                 .containsKey("actions[0].assignments");
         List<WorkflowActionSpec> four = new ArrayList<>();
         for (int i = 1; i <= 4; i++) {

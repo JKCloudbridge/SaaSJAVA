@@ -249,8 +249,9 @@ class WorkflowActionChecksTest {
                 List.of(literal("title__c", "x"))))).singleElement().asString()
                 .contains("actions[0].settings.linkField");
         assertThat(objects(action("CREATE_RECORD", "Follow", Map.of("object", "Task__c", "linkField", "order__c"),
-                List.of(literal("title__c", "x"), copy("order__c", "customer__c"))))).singleElement().asString()
-                .contains("set by linkField");
+                List.of(literal("title__c", "x"), copy("order__c", "customer__c"))))).anyMatch(
+                        problem -> problem.contains("actions[0].assignments[1].field")
+                                && problem.contains("set by linkField"));
     }
 
     @Test

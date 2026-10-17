@@ -38,6 +38,9 @@ class BackgroundWritesIT extends RecordsSupport {
     private BackgroundWrites writes;
 
     @Autowired
+    private app.platform.data.internal.BackfillDriver driver;
+
+    @Autowired
     private TenantContexts contexts;
 
     @Autowired
@@ -92,8 +95,21 @@ class BackgroundWritesIT extends RecordsSupport {
         return patch(admin, id, version, fieldsJson);
     }
 
+    /** The fields of a record without its auto-number: two records never hold the same one. */
     private static Map<String, Object> fieldsOf(TestBrowser admin, String id) {
-        return JsonPath.read(admin.get(RECORDS + "/" + id).body(), "$.data.fields");
+        Map<String, Object> fields = new java.util.HashMap<>(
+                JsonPath.<Map<String, Object>>read(admin.get(RECORDS + "/" + id).body(), "$.data.fields"));
+        fields.remove("sequence");
+        return fields;
+    }
+
+    private static void constrain(TestBrowser admin, String field, boolean required, boolean unique) {
+        long version = JsonPath.<List<Number>>read(admin.get(METADATA_OBJECTS + "/Employee__c").body(),
+                "$.data.fields[?(@.apiName=='" + field + "')].version").get(0).longValue();
+        Response changed = admin.request("PUT", METADATA_OBJECTS + "/Employee__c/fields/" + field,
+                "{\"label\":\"" + field + "\",\"description\":\"\",\"required\":" + required + ",\"unique\":"
+                        + unique + ",\"version\":" + version + "}");
+        assertThat(changed.status()).as(changed.body()).isEqualTo(200);
     }
 
     // ---- the same write, the same stored values ----
@@ -148,11 +164,7 @@ class BackgroundWritesIT extends RecordsSupport {
     void everyKindOfRefusalOfThePipelineIsAStableReasonThatNamesNoValue() {
         Setup setup = setup();
         String record = newRecord(setup.admin(), "Eve");
-        Response unique = setup.admin().request("PUT", METADATA_OBJECTS + "/Employee__c/fields/department__c",
-                "{\"label\":\"department\",\"description\":\"\",\"required\":false,\"unique\":true,\"version\":"
-                        + JsonPath.<Number>read(setup.admin().get(METADATA_OBJECTS + "/Employee__c").body(),
-                                "$.data.fields[?(@.apiName=='department__c')].version[0]") + "}");
-        assertThat(unique.status()).as(unique.body()).isEqualTo(200);
+        constrain(setup.admin(), "department__c", false, true);
 
         record Case(String label, String adminFields, Assignment platform, Reason reason) {
         }
@@ -180,11 +192,13 @@ class BackgroundWritesIT extends RecordsSupport {
     @Test
     void aValueAlreadyInUseIsAUniqueClashForThePlatformAsItIsForAPerson() {
         Setup setup = setup();
-        Response unique = setup.admin().request("PUT", METADATA_OBJECTS + "/Employee__c/fields/department__c",
-                "{\"label\":\"department\",\"description\":\"\",\"required\":false,\"unique\":true,\"version\":"
-                        + JsonPath.<Number>read(setup.admin().get(METADATA_OBJECTS + "/Employee__c").body(),
-                                "$.data.fields[?(@.apiName=='department__c')].version[0]") + "}");
-        assertThat(unique.status()).as(unique.body()).isEqualTo(200);
+        constrain(setup.admin(), "department__c", false, true);
+        // The database enforces uniqueness only once the background work has filled the copy and set the constraint.
+        org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(60)).until(() -> {
+            driver.workOn(setup.organization().id());
+            return JsonPath.<List<String>>read(setup.admin().get(EMPLOYEES + "/index-status").body(),
+                    "$.data.uniqueness[*].state").stream().allMatch("ENFORCED"::equals);
+        });
         create(setup.admin(), "{\"name__c\":\"Fay\",\"department__c\":\"Only\"}");
         String second = idOf(create(setup.admin(), "{\"name__c\":\"Gus\",\"department__c\":\"Else\"}"));
 
@@ -198,11 +212,7 @@ class BackgroundWritesIT extends RecordsSupport {
     @Test
     void aRequiredFieldMissingIsARefusalForTheCreateOfThePlatformAsForAPerson() {
         Setup setup = setup();
-        Response required = setup.admin().request("PUT", METADATA_OBJECTS + "/Employee__c/fields/name__c",
-                "{\"label\":\"name\",\"description\":\"\",\"required\":true,\"unique\":false,\"version\":"
-                        + JsonPath.<Number>read(setup.admin().get(METADATA_OBJECTS + "/Employee__c").body(),
-                                "$.data.fields[?(@.apiName=='name__c')].version[0]") + "}");
-        assertThat(required.status()).as(required.body()).isEqualTo(200);
+        constrain(setup.admin(), "name__c", true, false);
 
         Response person = create(setup.admin(), "{\"department__c\":\"Ops\"}");
         BackgroundWriteException platform = org.junit.jupiter.api.Assertions.assertThrows(

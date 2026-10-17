@@ -208,6 +208,26 @@ abstract class ActionsSupport extends WorkflowSupport {
         }
     }
 
+    /**
+     * Changes what the guards protect (a stored definition is immutable), as the superuser owner with triggers
+     * switched off; it sees every organization, so the statement names its own.
+     */
+    protected static void ownerWithoutTriggers(String sql, Object... parameters) {
+        try (Connection owner = TestDatabase.ownerConnection()) {
+            try (java.sql.Statement statement = owner.createStatement()) {
+                statement.execute("set session_replication_role = replica");
+            }
+            try (PreparedStatement update = owner.prepareStatement(sql)) {
+                for (int i = 0; i < parameters.length; i++) {
+                    update.setObject(i + 1, parameters[i]);
+                }
+                update.executeUpdate();
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("The statement failed: " + e.getSQLState(), e);
+        }
+    }
+
     protected static String newUuid() {
         return UUID.randomUUID().toString();
     }

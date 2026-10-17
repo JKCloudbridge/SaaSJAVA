@@ -67,6 +67,6 @@ class RetryPropertiesTest {
 
     @Provide
     Arbitrary<Double> randoms() {
-        return Arbitraries.doubles().between(0.0, 0.999999);
+        return Arbitraries.integers().between(0, 999_999).map(millionths -> millionths / 1_000_000.0);
     }
 }

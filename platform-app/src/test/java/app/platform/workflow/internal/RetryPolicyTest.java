@@ -164,8 +164,9 @@ class RetryPolicyTest {
 
     @Test
     void theWaitNeverPassesTheCapWhateverTheAttemptOrTheRandomNumber() {
-        for (int attempt : new int[] {6, 10, 40, 1000, Integer.MAX_VALUE}) {
+        for (int attempt : new int[] {9, 10, 40, 1000, Integer.MAX_VALUE}) {
             assertThat(RetryPolicy.delay(RETRY, attempt, 0.999999)).isEqualTo(Duration.ofHours(1));
+            assertThat(RetryPolicy.delay(RETRY, attempt, 0.0)).isEqualTo(Duration.ofHours(1));
         }
     }
 

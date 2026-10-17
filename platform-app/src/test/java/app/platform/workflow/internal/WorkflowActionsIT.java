@@ -152,7 +152,7 @@ class WorkflowActionsIT extends ActionsSupport {
                 .containsEntry("reason", "rejected_by_rule").containsEntry("failure_type", "BackgroundWriteException");
         assertThat(steps(setup.organization(), execution)).containsExactly("Set:FAILED:1");
         assertThat(setup.admin().get(RECORDS + "/" + id).body()).doesNotContain("LOUD-SECRET-TEXT");
-        assertThat(rows(setup.organization(), "select reason, failure_type, last_reason, last_failure_type "
+        assertThat(rows(setup.organization(), "select e.reason, e.failure_type, s.last_reason, s.last_failure_type "
                 + "from workflow_execution e join workflow_step s on s.execution_id = e.id").toString())
                 .doesNotContain("LOUD").doesNotContain("shout");
     }
@@ -195,8 +195,9 @@ class WorkflowActionsIT extends ActionsSupport {
                 update("Set", value("quantity__c", "12")));
         // The definition was good when it was saved; the stored literal is then made unreadable (a later release
         // changed what a number may be): the pipeline refuses it and says only that the value is invalid.
-        run(setup.organization(), "update workflow_version set actions = replace(actions::text, '\"12\"', "
-                + "'\"twelve\"')::jsonb");
+        ownerWithoutTriggers("update workflow_version set actions = replace(actions::text, '\"12\"', "
+                + "'\"twelve\"')::jsonb where tenant_id = cast(? as uuid)",
+                setup.organization().id().value().toString());
         record(setup.admin(), "{\"fieldA__c\":\"hello\"}");
         settle(setup.organization());
 
@@ -211,6 +212,7 @@ class WorkflowActionsIT extends ActionsSupport {
     @Test
     void aCreateMakesARecordOwnedByTheOwnerOfTheTriggeringRecordAndLinksIt() {
         Setup setup = setup();
+        addField(setup.admin(), OBJECT_B, "fieldB", "TEXT", "");
         addField(setup.admin(), OBJECT_B, "origin", "LOOKUP", ",\"settings\":{\"targetObject\":\"" + OBJECT + "\"}");
         workflowExists(setup.admin(), "Follow", recordTrigger("RECORD_CREATED"), null,
                 create("Make", OBJECT_B, "origin__c", value("fieldA__c", "follow-up"), copy("fieldB__c", "fieldA__c")));
@@ -301,7 +303,8 @@ class WorkflowActionsIT extends ActionsSupport {
         // The instance died before the end of the execution: it is claimed again, with the first step already done.
         run(setup.organization(), "update workflow_execution set status = 'RUNNING', finished_at = null, "
                 + "reason = null, attempts = 1, locked_until = now() - interval '1 minute', version = version + 1");
-        run(setup.organization(), "update workflow_step set status = 'COMPLETED' where position = 1");
+        run(setup.organization(), "update workflow_step set status = 'COMPLETED', finished_at = now(), "
+                + "version = version + 1 where position = 1");
         run(setup.organization(), "delete from workflow_step where position = 2");
 
         runWorker();

@@ -75,9 +75,11 @@ final class RetryPolicy {
      */
     static Duration delay(WorkflowProperties.Retry retry, int failedAttempts, double random) {
         int exponent = Math.max(0, failedAttempts - 1);
-        double base = retry.initialDelay().toMillis() * Math.pow(retry.multiplier(), exponent);
+        double cap = retry.maxDelay().toMillis();
+        // Capped before the jitter is taken: an enormous attempt number must not turn 0 x infinity into NaN.
+        double base = Math.min(cap, retry.initialDelay().toMillis() * Math.pow(retry.multiplier(), exponent));
         double jitter = Math.min(Math.max(random, 0.0), 0.999999) * retry.jitter() * base;
-        double millis = Math.min((double) retry.maxDelay().toMillis(), base + jitter);
+        double millis = Math.min(cap, base + jitter);
         return Duration.ofMillis(Math.max(retry.initialDelay().toMillis(), (long) millis));
     }
 

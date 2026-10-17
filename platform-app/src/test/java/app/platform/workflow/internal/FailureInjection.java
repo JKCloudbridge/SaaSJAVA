@@ -17,8 +17,11 @@ import org.springframework.context.annotation.Bean;
  * <p>The plan is static because the application context is shared by the tests of a class; a test calls {@link
  * #reset()} first.
  */
-@TestConfiguration
-public class FailureInjection {
+@TestConfiguration(proxyBeanMethods = false)
+public final class FailureInjection {
+
+    private FailureInjection() {
+    }
 
     /** One failure to throw. */
     private record Planned(RuntimeException failure, boolean afterTheEffect) {

@@ -119,7 +119,6 @@ class WorkflowActionDefinitionsIT extends WorkflowTestSupport {
                 set("Both", "{\"field\":\"status__c\",\"value\":\"x\",\"fromField\":\"note__c\"}"),
                 set("Neither", "{\"field\":\"status__c\"}"),
                 set("Twice", literal("status__c", "a"), literal("status__c", "b")),
-                set("Long", literal("status__c", "x".repeat(1001))),
                 "{\"type\":\"PUBLISH_EVENT\",\"name\":\"Announce\",\"settings\":{\"event\":\"a.b\"},\"assignments\":["
                         + literal("status__c", "x") + "]}",
                 set("Greedy", literal("status__c", "a")).replace("\"assignments\"", "\"maxAttempts\":9,"
@@ -128,8 +127,19 @@ class WorkflowActionDefinitionsIT extends WorkflowTestSupport {
         assertThat(refused.status()).as(refused.body()).isEqualTo(400);
         Map<String, List<String>> fields = JsonPath.read(refused.body(), "$.error.fields");
         assertThat(fields).containsKeys("actions[0].assignments", "actions[1].assignments[0]",
-                "actions[2].assignments[0]", "actions[3].assignments[1].field", "actions[4].assignments[0].value",
-                "actions[5].assignments", "actions[6].maxAttempts");
+                "actions[2].assignments[0]", "actions[3].assignments[1].field", "actions[4].assignments",
+                "actions[5].maxAttempts");
+    }
+
+    @Test
+    void aLiteralOverTheHardLimitIsRefusedAtTheDoorWithItsPlace() {
+        TestBrowser admin = adminWithTask(organization());
+
+        Response refused = admin.postJson(ORDER_WORKFLOWS, workflowRequest("Long", trigger("RECORD_CREATED"), null,
+                true, set("Long", literal("status__c", "x".repeat(1001)))));
+
+        assertThat(refused.status()).as(refused.body()).isEqualTo(400);
+        assertThat(refused.body()).contains("actions[0].assignments[0].value").doesNotContain("xxxxxxxxxx");
     }
 
     @Test
@@ -183,14 +193,14 @@ class WorkflowActionDefinitionsIT extends WorkflowTestSupport {
     @Test
     void aFieldThatAnActionNamesCannotBeRemovedLiveOrInAChangeSetAndTheRefusalNamesTheWorkflow() {
         TestBrowser admin = adminWithTask(organization());
-        workflowExists(admin, "Mark", trigger("RECORD_CREATED"), null, set("Mark", literal("status__c", "done"),
-                copy("note__c", "quantity__c")));
+        workflowExists(admin, "Mark", trigger("RECORD_CREATED"), null, set("Mark", literal("note__c", "done"),
+                copy("status__c", "note__c")));
 
-        Response live = admin.request("DELETE", "/api/v1/metadata/objects/Order__c/fields/status__c", null);
-        Response copied = admin.request("DELETE", "/api/v1/metadata/objects/Order__c/fields/quantity__c", null);
+        Response live = admin.request("DELETE", "/api/v1/metadata/objects/Order__c/fields/note__c", null);
+        Response copied = admin.request("DELETE", "/api/v1/metadata/objects/Order__c/fields/status__c", null);
         String set = createSet(admin, "removal");
         addChange(admin, set,
-                "{\"kind\":\"DELETE_FIELD\",\"objectApiName\":\"Order__c\",\"itemApiName\":\"status__c\"}");
+                "{\"kind\":\"DELETE_FIELD\",\"objectApiName\":\"Order__c\",\"itemApiName\":\"note__c\"}");
         Response publication = publish(admin, set);
 
         assertThat(live.status()).as(live.body()).isEqualTo(409);
@@ -253,8 +263,16 @@ class WorkflowActionDefinitionsIT extends WorkflowTestSupport {
         Organization organization = organization();
         TestBrowser admin = adminWithOrder(organization);
         workflowExists(admin, "Old", trigger("RECORD_CREATED"), null, announce("Tell", "a.b"));
-        run(organization, "update workflow_version set actions = '[{\"type\":\"PUBLISH_EVENT\",\"name\":\"Tell\","
-                + "\"settings\":{\"event\":\"a.b\"}}]'::jsonb");
+        // A stored version is immutable for everyone; the owner with triggers off plays "an older release wrote it".
+        try (java.sql.Connection owner = app.platform.testsupport.TestDatabase.ownerConnection();
+                java.sql.Statement statement = owner.createStatement()) {
+            statement.execute("set session_replication_role = replica");
+            statement.executeUpdate("update workflow_version set actions = '[{\"type\":\"PUBLISH_EVENT\","
+                    + "\"name\":\"Tell\",\"settings\":{\"event\":\"a.b\"}}]'::jsonb where tenant_id = '"
+                    + organization.id().value() + "'");
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException("The statement failed: " + e.getSQLState(), e);
+        }
 
         Response read = admin.get(ORDER_WORKFLOWS + "/Old__c");
 

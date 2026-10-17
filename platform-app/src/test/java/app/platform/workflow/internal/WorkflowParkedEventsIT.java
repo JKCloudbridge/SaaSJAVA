@@ -88,7 +88,8 @@ class WorkflowParkedEventsIT extends ActionsSupport {
     @Test
     void aParkedEventOfAnotherKindIsNotListedAndCannotBePutBackThroughThisDoor() {
         Setup setup = parkedRelease();
-        run(setup.organization(), "update outbox_event set event_type = 'tenant.activated' where status = 'DEAD'");
+        run(setup.organization(), "update outbox_event set event_type = 'tenant.activated', "
+                + "version = version + 1 where status = 'DEAD'");
 
         assertThat(JsonPath.<List<String>>read(setup.admin().get(PARKED).body(), "$.data[*].id")).isEmpty();
         String dead = owner("select id::text from outbox_event where status = 'DEAD' and tenant_id = cast(? as uuid)",
@@ -131,7 +132,8 @@ class WorkflowParkedEventsIT extends ActionsSupport {
 
         setup.admin().postJson(PARKED + "/" + event + "/redrive", "{}");
 
-        assertThat(owner("select attributes::text from audit_record where event_type = 'workflow.event.redriven'"))
-                .singleElement().satisfies(audit -> assertThat(audit).contains(event));
+        assertThat(owner("select attributes::text from audit_record where event_type = 'workflow.event.redriven' "
+                + "and attributes ->> 'event' = ?", event)).singleElement()
+                .satisfies(audit -> assertThat(audit).contains(event));
     }
 }
