@@ -1,9 +1,11 @@
 package app.platform.data.internal;
 
+import app.platform.data.BackgroundWrites;
 import app.platform.sharedkernel.TenantId;
 import app.platform.sharedkernel.audit.AuditOutcome;
 import app.platform.sharedkernel.audit.AuditRecord;
 import app.platform.sharedkernel.audit.AuditRecorder;
+import app.platform.sharedkernel.audit.AuditSource;
 import app.platform.sharedkernel.events.EventPublisher;
 import app.platform.sharedkernel.events.NewEvent;
 import app.platform.tenant.TenantContext;
@@ -40,23 +42,38 @@ class RecordChanges {
     }
 
     void created(UUID actor, String object, UUID id, long version, List<String> fields) {
-        write("created", actor, object, id, version, fields);
+        write("created", actor, object, id, version, fields, null);
     }
 
     void updated(UUID actor, String object, UUID id, long version, List<String> fields) {
-        write("updated", actor, object, id, version, fields);
+        write("updated", actor, object, id, version, fields, null);
+    }
+
+    /**
+     * A record created by a workflow (ADR-0139): no person to blame, so the audit record names the workflow and the
+     * execution (names and identifiers) and the event carries the chain (ADR-0140).
+     */
+    void createdByWorkflow(BackgroundWrites.Source source, String object, UUID id, long version,
+            List<String> fields) {
+        write("created", null, object, id, version, fields, source);
+    }
+
+    /** A record changed by a workflow, as {@link #createdByWorkflow}. */
+    void updatedByWorkflow(BackgroundWrites.Source source, String object, UUID id, long version,
+            List<String> fields) {
+        write("updated", null, object, id, version, fields, source);
     }
 
     void deleted(UUID actor, String object, UUID id, long version) {
-        write("deleted", actor, object, id, version, List.of());
+        write("deleted", actor, object, id, version, List.of(), null);
     }
 
     void restored(UUID actor, String object, UUID id, long version) {
-        write("restored", actor, object, id, version, List.of());
+        write("restored", actor, object, id, version, List.of(), null);
     }
 
     void purged(UUID actor, String object, UUID id, long version) {
-        write("purged", actor, object, id, version, List.of());
+        write("purged", actor, object, id, version, List.of(), null);
     }
 
     /**
@@ -221,7 +238,8 @@ class RecordChanges {
                 .with("pointers_cleared", Integer.toString(pointersCleared)));
     }
 
-    private void write(String kind, UUID actor, String object, UUID id, long version, List<String> fields) {
+    private void write(String kind, UUID actor, String object, UUID id, long version, List<String> fields,
+            BackgroundWrites.Source source) {
         TenantId tenant = contexts.current().map(TenantContext::tenantId).orElse(null);
         AuditRecord record = AuditRecord.of("data.record." + kind, AuditOutcome.SUCCESS).forUser(actor)
                 .inTenant(tenant).onObject(object, id.toString()).with("version", Long.toString(version));
@@ -229,11 +247,20 @@ class RecordChanges {
             record = record.with("field_count", Integer.toString(fields.size()))
                     .with("fields", String.join(",", fields));
         }
+        if (source != null) {
+            // Names and identifiers only (ADR-0139): which workflow, which run, never a value.
+            record = record.from(AuditSource.SYSTEM).with("actor", "platform").with("workflow", source.workflow())
+                    .with("execution", source.execution().toString());
+        }
         audit.record(record);
-        events.publish(new NewEvent("record." + kind, payload(object, id, version, fields)));
+        events.publish(new NewEvent("record." + kind, payload(object, id, version, fields, source)));
     }
 
     private String payload(String object, UUID id, Long version, List<String> fields) {
+        return payload(object, id, version, fields, null);
+    }
+
+    private String payload(String object, UUID id, Long version, List<String> fields, BackgroundWrites.Source source) {
         Map<String, Object> facts = new LinkedHashMap<>();
         facts.put("object", object);
         facts.put("recordId", id.toString());
@@ -242,6 +269,15 @@ class RecordChanges {
         }
         if (!fields.isEmpty()) {
             facts.put("fields", fields);
+        }
+        if (source != null && source.chain() != null) {
+            // The chain of workflow runs that led here, so the handler can continue it (ADR-0140): identifiers and a
+            // number only. A person's write has none, which reads as depth 0.
+            Map<String, Object> chain = new LinkedHashMap<>();
+            chain.put("root", source.chain().root().toString());
+            chain.put("depth", source.chain().depth());
+            chain.put("workflows", source.chain().workflows().stream().map(UUID::toString).toList());
+            facts.put("chain", chain);
         }
         return json.write(facts);
     }

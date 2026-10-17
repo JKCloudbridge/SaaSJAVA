@@ -9,6 +9,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -39,12 +40,21 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <p>The event carries the names of the changed fields and never their values; the record is read when the execution
  * runs (ADR-0137).
+ *
+ * <p><strong>Loops (ADR-0140).</strong> An event made by the write of an action carries the chain of executions that
+ * led to it. A workflow already in the chain is not started again (the execution is made as {@code SKIPPED} with the
+ * reason
+ * {@code loop_detected}, so an administrator can see that a loop was stopped), nor is any workflow beyond the deepest
+ * chain allowed ({@code depth_exceeded}), and past a number of executions per minute for one object the rest are
+ * delayed, not dropped ({@code rate_limited}). The rate is looked at only after a workflow matched, so an object with
+ * no workflow still costs one snapshot lookup.
  */
 @Component
 class WorkflowEventHandler implements EventHandler {
 
     private static final Logger LOG = LoggerFactory.getLogger(WorkflowEventHandler.class);
     private static final Set<String> TYPES = Set.of("record.created", "record.updated", "record.deleted");
+    private static final Duration RATE_WINDOW = Duration.ofMinutes(1);
 
     private final MetadataResolver resolver;
     private final ExecutionStore executions;
@@ -52,10 +62,12 @@ class WorkflowEventHandler implements EventHandler {
     private final Clock clock;
     private final Timer delay;
     private final Spans spans;
+    private final WorkflowProperties.Limits limits;
     private final JsonMapper json = JsonMapper.builder().build();
 
     WorkflowEventHandler(MetadataResolver resolver, ExecutionStore executions, MeterRegistry meters, Clock clock,
-            Spans spans) {
+            Spans spans, WorkflowProperties properties) {
+        this.limits = properties.limits();
         this.spans = spans;
         this.resolver = resolver;
         this.executions = executions;
@@ -111,17 +123,45 @@ class WorkflowEventHandler implements EventHandler {
         Long version = payload.path("version").isNumber() ? payload.path("version").longValue() : null;
         Set<String> fields = new HashSet<>();
         payload.path("fields").forEach(name -> fields.add(name.asString("")));
+        Chain chain = Chain.fromPayload(payload);
+        UUID root = chain.root() == null ? event.eventId() : chain.root();
         int queued = 0;
+        int created = -1;
         for (CompiledWorkflow compiled : candidates) {
             WorkflowDefinition definition = compiled.definition();
             if (!matches(definition.trigger(), event.type(), fields)) {
                 continue;
             }
+            String ended = null;
+            if (chain.contains(definition.id())) {
+                ended = "loop_detected";
+            } else if (chain.isTooDeep(limits.maxChainDepth())) {
+                ended = "depth_exceeded";
+            }
+            Instant runAt = null;
+            String reason = null;
+            if (ended == null) {
+                if (created < 0) {
+                    // Asked once per event, and only because a workflow matched.
+                    created = executions.createdSince(object, clock.instant().minus(RATE_WINDOW));
+                }
+                int minutesAhead = created / limits.maxExecutionsPerMinute();
+                if (minutesAhead > 0) {
+                    runAt = clock.instant().plus(RATE_WINDOW.multipliedBy(minutesAhead));
+                    reason = "rate_limited";
+                    meters.counter("platform.workflow.loops", "result", "rate_limited").increment();
+                }
+                created++;
+            } else {
+                reason = ended;
+                meters.counter("platform.workflow.loops", "result", ended).increment();
+            }
             boolean made = executions.insert(new ExecutionStore.NewExecution(definition.id(),
                     definition.versionId(), definition.apiName(), definition.definitionVersion(), object, record,
                     version, definition.trigger().kind().name(), event.eventId(), null,
-                    "event:" + event.eventId() + ":" + definition.versionId()));
-            if (made) {
+                    "event:" + event.eventId() + ":" + definition.versionId(), root, chain.depth(), chain.workflows(),
+                    runAt, ended == null ? null : "SKIPPED", reason));
+            if (made && ended == null) {
                 queued++;
                 meters.counter("platform.workflow.executions", "result", "queued").increment();
             }

@@ -40,6 +40,13 @@ final class Problems {
         }
     }
 
+    /** Everything found so far, by place. */
+    Map<String, List<String>> all() {
+        Map<String, List<String>> copy = new LinkedHashMap<>();
+        found.forEach((place, texts) -> copy.put(place, List.copyOf(texts)));
+        return copy;
+    }
+
     /** Whether any check has refused so far. */
     boolean any() {
         return !found.isEmpty();

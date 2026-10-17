@@ -101,8 +101,17 @@ public enum Ability {
      * to publish metadata changes, as every definition does (ADR-0068).
      */
     WORKFLOWS_MANAGE("workflows.manage", "Manage workflows",
-            "Create, change, switch on or off and remove workflows, and try a condition on sample values. Making a "
-                    + "change live needs the ability to publish metadata changes as well.");
+            "Create, change, switch on or off and remove workflows, try a condition and actions on sample values, and "
+                    + "cancel an execution that has not started. Making a change live needs the ability to publish "
+                    + "metadata changes as well."),
+
+    /**
+     * Run a dead-lettered execution again, one or many, and put back an event the platform gave up on (Sprint 23,
+     * ADR-0141, ADR-0143). Separate from managing workflows: replaying makes the platform act again on records.
+     */
+    WORKFLOWS_REPLAY("workflows.replay", "Replay workflow executions",
+            "Run an execution that ended as a dead letter again from the step that failed, one or many at once, and "
+                    + "put back an event the platform gave up on so that workflows see it.");
 
     private final String key;
     private final String title;

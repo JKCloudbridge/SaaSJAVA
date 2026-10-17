@@ -109,12 +109,38 @@ public record WorkflowDefinition(UUID id, UUID versionId, String objectApiName, 
      * @param type the type, one of the closed list {@code WorkflowActionTypes}
      * @param name its name inside the workflow
      * @param settings the settings of the type
+     * @param assignments the fields the action sets (Sprint 23), in order
+     * @param maxAttempts a number of attempts lower than the platform's, or null for the platform's (ADR-0142)
      */
-    public record Action(String type, String name, Map<String, String> settings) {
+    public record Action(String type, String name, Map<String, String> settings, List<Assignment> assignments,
+            Integer maxAttempts) {
 
-        /** Copies the settings. */
+        /** Copies the settings and the assignments. */
         public Action {
             settings = Map.copyOf(settings);
+            assignments = assignments == null ? List.of() : List.copyOf(assignments);
+        }
+
+        /** An action with no assignments and the platform's attempts. */
+        public Action(String type, String name, Map<String, String> settings) {
+            this(type, name, settings, List.of(), null);
+        }
+    }
+
+    /**
+     * One field an action sets (ADR-0138): a literal written as text the way a field's default is, or a copy of a field
+     * of the triggering record. Exactly one of {@code value} and {@code fromField} is set.
+     *
+     * @param field the field to set
+     * @param value the literal, or null
+     * @param fromField the field of the triggering record to copy, or null
+     */
+    public record Assignment(String field, String value, String fromField) {
+
+        /** Prints the field name only: a literal is text a person typed (ADR-0012). */
+        @Override
+        public String toString() {
+            return "Assignment[" + field + "]";
         }
     }
 

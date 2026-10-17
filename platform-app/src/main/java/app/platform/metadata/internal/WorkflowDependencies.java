@@ -46,6 +46,7 @@ class WorkflowDependencies implements DependencyGraph.Contributor {
                 trigger(object, workflow, self, sink);
                 condition(object, workflow, self, sink);
                 selection(object, workflow, self, sink);
+                actions(snapshot, object, workflow, self, sink);
             });
         }
     }
@@ -85,6 +86,42 @@ class WorkflowDependencies implements DependencyGraph.Contributor {
                 sink.violation(self, DependencyGraph.Node.object(object.apiName()), "Workflow " + workflow.apiName()
                         + " of " + object.apiName() + " has a condition that is not valid. " + problem.getMessage());
             }
+        }
+    }
+
+    /**
+     * Every field an action names is an edge (so removing it is refused naming the workflow), and what can be said
+     * about the actions with the objects known is a violation naming the place (ADR-0138).
+     */
+    private static void actions(MetadataSnapshot snapshot, ObjectDefinition object, WorkflowDefinition workflow,
+            DependencyGraph.Node self, DependencyGraph.Sink sink) {
+        List<WorkflowDefinition.Action> actions = workflow.actions();
+        for (int i = 0; i < actions.size(); i++) {
+            WorkflowActionChecks.check(object, snapshot::object, actions.get(i), "actions[" + i + "]",
+                    new WorkflowActionChecks.Report() {
+                        @Override
+                        public void needsField(String needed, String field, String relation) {
+                            sink.edge(self, relation, DependencyGraph.Node.field(needed, field));
+                        }
+
+                        @Override
+                        public void needsObject(String needed, String relation) {
+                            sink.edge(self, relation, DependencyGraph.Node.object(needed));
+                        }
+
+                        @Override
+                        public void problem(String place, String message) {
+                            sink.violation(self, DependencyGraph.Node.object(object.apiName()), "Workflow "
+                                    + workflow.apiName() + " of " + object.apiName() + " has an action that is not "
+                                    + "valid (" + place + "). " + message);
+                        }
+
+                        @Override
+                        public void missing(String place, String message) {
+                            // The edge to the missing field or object is the violation, in the words of every other
+                            // missing dependency.
+                        }
+                    });
         }
     }
 

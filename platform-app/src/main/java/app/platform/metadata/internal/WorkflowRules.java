@@ -5,6 +5,7 @@ import app.platform.metadata.WorkflowDefinition;
 import app.platformapi.QueryFilterNode;
 import app.platformapi.WorkflowActionSpec;
 import app.platformapi.WorkflowActionTypes;
+import app.platformapi.WorkflowAssignmentSpec;
 import app.platformapi.WorkflowTriggerSpec;
 import java.time.DayOfWeek;
 import java.time.Clock;
@@ -54,10 +55,15 @@ class WorkflowRules {
 
     private final ExpressionSupport support;
     private final Clock clock;
+    private final MetadataProperties properties;
+    private final WorkflowPlatformLimits platform;
 
-    WorkflowRules(ExpressionSupport support, Clock clock) {
+    WorkflowRules(ExpressionSupport support, Clock clock, MetadataProperties properties,
+            WorkflowPlatformLimits platform) {
         this.support = support;
         this.clock = clock;
+        this.properties = properties;
+        this.platform = platform;
     }
 
     /**
@@ -74,6 +80,11 @@ class WorkflowRules {
         String cleanCondition = condition(problems, condition);
         List<WorkflowActionSpec> cleanActions = actions(problems, actions);
         return new Checked(cleanLabel, cleanDescription, cleanTrigger, cleanCondition, cleanActions);
+    }
+
+    /** Checks the actions alone (the "try" endpoint): the same rules, kept apart from the rest of a definition. */
+    List<WorkflowActionSpec> checkActions(Problems problems, List<WorkflowActionSpec> actions) {
+        return actions(problems, actions);
     }
 
     // ---- the trigger ----
@@ -271,9 +282,14 @@ class WorkflowRules {
 
     // ---- the actions ----
 
-    private static List<WorkflowActionSpec> actions(Problems problems, List<WorkflowActionSpec> asked) {
+    private List<WorkflowActionSpec> actions(Problems problems, List<WorkflowActionSpec> asked) {
         if (asked == null || asked.isEmpty()) {
             problems.add("actions", "Give at least one action.");
+            return null;
+        }
+        int most = properties.limits().maxActionsPerWorkflow();
+        if (asked.size() > most) {
+            problems.add("actions", "A workflow has at most " + most + " actions.");
             return null;
         }
         List<WorkflowActionSpec> kept = new ArrayList<>();
@@ -291,13 +307,77 @@ class WorkflowRules {
                     .orElse(null);
             if (type == null) {
                 problems.add(place + ".type", "Choose a type of action from the list; this release has "
-                        + WorkflowActionTypes.all().stream().map(WorkflowActionTypes.Type::type).toList() + ".");
+                        + WorkflowActionTypes.all().stream().map(WorkflowActionTypes.Type::type).toList()
+                        + ". Starting an approval, an in-app notification and calling an integration come with "
+                        + "later releases.");
                 continue;
             }
             Map<String, String> settings = settings(problems, place, type, action.settings());
-            kept.add(new WorkflowActionSpec(type.type(), name, settings));
+            List<WorkflowAssignmentSpec> assignments = assignments(problems, place, type, action.assignments());
+            Integer attempts = attempts(problems, place, action.maxAttempts());
+            kept.add(new WorkflowActionSpec(type.type(), name, settings, assignments, attempts));
         }
         return problems.any() ? null : List.copyOf(kept);
+    }
+
+    /** The fields an action sets: only for the types that take them, each once, each a literal or a copy. */
+    private List<WorkflowAssignmentSpec> assignments(Problems problems, String place,
+            WorkflowActionTypes.Type type, List<WorkflowAssignmentSpec> given) {
+        if (type.assignments() == WorkflowActionTypes.Assignments.NONE) {
+            if (!given.isEmpty()) {
+                problems.add(place + ".assignments", "An action of type " + type.type() + " does not set fields; "
+                        + "leave this out.");
+            }
+            return List.of();
+        }
+        int most = properties.limits().maxAssignmentsPerAction();
+        if (type.type().equals(WorkflowActionTypes.UPDATE_RECORD) && given.isEmpty()) {
+            problems.add(place + ".assignments", "Name at least one field to set.");
+        }
+        if (given.size() > most) {
+            problems.add(place + ".assignments", "An action sets at most " + most + " fields.");
+            return List.of();
+        }
+        List<WorkflowAssignmentSpec> kept = new ArrayList<>();
+        Set<String> fields = new HashSet<>();
+        for (int i = 0; i < given.size(); i++) {
+            WorkflowAssignmentSpec assignment = given.get(i);
+            String where = place + ".assignments[" + i + "]";
+            String field = fieldName(problems, where + ".field", assignment.field());
+            if (field != null && !fields.add(field)) {
+                problems.add(where + ".field", "This field is set twice.");
+            }
+            boolean literal = assignment.value() != null;
+            boolean copy = assignment.fromField() != null && !assignment.fromField().isBlank();
+            String from = null;
+            if (literal == copy) {
+                problems.add(where, "Give either a value or a field to copy from, not both and not neither.");
+            } else if (copy) {
+                from = fieldName(problems, where + ".fromField", assignment.fromField());
+            } else if (assignment.value().length() > properties.limits().maxLiteralLength()) {
+                problems.add(where + ".value", "A value is at most " + properties.limits().maxLiteralLength()
+                        + " characters.");
+            } else if (assignment.value().isEmpty()) {
+                problems.add(where + ".value", "A value cannot be empty; to empty a field, copy it from a field that "
+                        + "has no value.");
+            }
+            if (field != null) {
+                kept.add(new WorkflowAssignmentSpec(field, copy ? null : assignment.value(), from));
+            }
+        }
+        return List.copyOf(kept);
+    }
+
+    private Integer attempts(Problems problems, String place, Integer asked) {
+        if (asked == null) {
+            return null;
+        }
+        if (asked < 1 || asked > platform.maxAttempts()) {
+            problems.add(place + ".maxAttempts", "Give a number of attempts from 1 to " + platform.maxAttempts()
+                    + ". An action can lower the number the platform allows, never raise it.");
+            return null;
+        }
+        return asked;
     }
 
     private static Map<String, String> settings(Problems problems, String place, WorkflowActionTypes.Type type,

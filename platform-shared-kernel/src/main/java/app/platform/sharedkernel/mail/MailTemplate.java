@@ -24,8 +24,14 @@ public enum MailTemplate {
     /**
      * An organization invited this address (Sprint 5, ADR-0028). The request names the organization and the invitation
      * (facts, no secret); at send time the relay sends a link to a new account or to an existing one, or nothing when
-     * the
-     * invitation is no longer open or the address is already a member.
+     * the invitation is no longer open or the address is already a member.
      */
-    INVITATION
+    INVITATION,
+
+    /**
+     * A workflow of an organization asks that a record needs the recipient's attention (Sprint 23, ADR-0138). The
+     * request names the organization, the object and the record (facts, no value of the record, no link); at send time
+     * the relay builds the link to the record on the organization's own host.
+     */
+    RECORD_NOTICE
 }

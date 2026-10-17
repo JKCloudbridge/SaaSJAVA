@@ -132,7 +132,7 @@ class WorkflowFlowsLogsAreCleanIT extends WorkflowSupport {
                         + "where o.event_type like 'workflow.%'").stream().map(row -> row.get("t")).toList());
         // Cleaned up.
         run(organization, "update workflow_execution set finished_at = now() - interval '100 days', "
-                + "version = version + 1 where status in ('COMPLETED', 'SKIPPED', 'FAILED')");
+                + "version = version + 1 where status in ('COMPLETED', 'SKIPPED', 'FAILED', 'DEAD_LETTERED')");
         dispatcher.purgeOnce();
         settle(organization);
 

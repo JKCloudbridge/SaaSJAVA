@@ -14,17 +14,18 @@ import app.platform.sharedkernel.TenantId;
 import app.platform.sharedkernel.logging.LogContext;
 import app.platform.tenant.TenantContext;
 import app.platform.tenant.TenantContexts;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -32,23 +33,27 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Runs one claimed execution (ADR-0137): restores the organization's context, reads the version of the workflow the
- * execution was created under and the record as it is now, judges the condition, and carries the actions out in order.
- * Every outcome is recorded; nothing is lost silently.
+ * Runs one claimed execution (ADR-0137, ADR-0141, ADR-0142): restores the organization's context, reads the version of
+ * the workflow the execution was created under and the record as it is now, judges the condition, and carries the
+ * actions out in order. Every outcome is recorded; nothing is lost silently.
  *
  * <p><strong>Transactions.</strong> The decision (is the workflow still on, is the record there, is the condition true)
- * is a read. Each step is a transaction of its own that renews the lease, carries the action out and marks the step
- * completed, so an action's database effects and its step commit together or not at all. An execution taken over
- * after a crash goes on after the steps that completed and never repeats one. The final status is a write of its own
- * that carries the claim's token: an instance that lost its lease cannot overwrite the outcome of the one that took
- * over.
+ * is a read. Each attempt of a step is a transaction of its own that renews the lease, carries the action out and marks
+ * the step completed, so an action's database effects and its step commit together or not at all. An execution taken
+ * over after a crash goes on after the steps that completed and never repeats one. The final status is a write of its
+ * own that carries the claim's token: an instance that lost its lease cannot overwrite the outcome of the one that
+ * took over.
  *
- * <p><strong>No retries here.</strong> A step that throws ends the execution as failed, with the type name of the
- * exception and never its message; retry with backoff, dead letters and replay are Sprint 23. A crash is different: the
- * lease expires, the execution is claimed again and the claim is counted, up to {@code max-attempts}.
+ * <p><strong>Retries.</strong> An attempt that fails is classified from the type of the failure (never its message,
+ * {@link RetryPolicy}). A transient failure with attempts left rolls the attempt back, records it on the step and puts
+ * the execution back in the queue, due after a backoff: no thread sleeps and no connection or lock is held while it
+ * waits. A permanent failure, or the last failed attempt, ends the execution as a dead letter that a person can replay.
+ * Attempts of a step and claims of an execution are different counters: a crash is not a failed attempt, and a failed
+ * attempt is not a crash.
  *
  * <p>The condition is judged against the record <em>as it is when this runs</em>, not as it was when the event was
- * made (ADR-0137). Nothing of the record, the condition or the settings is logged.
+ * made, except in a replay, where the person has decided to run it (ADR-0141). Nothing of the record, the condition or
+ * the settings is logged.
  */
 @Component
 class ExecutionRunner {
@@ -80,6 +85,18 @@ class ExecutionRunner {
         }
     }
 
+    /** What became of one step. */
+    private sealed interface StepOutcome {
+
+        /** The step completed; the claim's token is now this. */
+        record Done(long token) implements StepOutcome {
+        }
+
+        /** The step failed and will be attempted again later, or the execution ended; nothing more to do now. */
+        record Stopped() implements StepOutcome {
+        }
+    }
+
     private final TenantContexts contexts;
     private final TransactionTemplate transaction;
     private final ExecutionStore executions;
@@ -89,17 +106,19 @@ class ExecutionRunner {
     private final ActionRegistry actions;
     private final Entitlements entitlements;
     private final WorkflowProperties.Worker settings;
+    private final RetryPolicy retry;
     private final Clock clock;
     private final ErrorTracker tracker;
     private final MeterRegistry meters;
     private final Timer queueDelay;
     private final Timer duration;
+    private final DistributionSummary retryDelay;
     private final Spans spans;
 
     ExecutionRunner(TenantContexts contexts, PlatformTransactionManager transactions, ExecutionStore executions,
             MetadataResolver resolver, Metadata metadata, BackgroundRecords records, ActionRegistry actions,
-            Entitlements entitlements, WorkflowProperties properties, Clock clock, ErrorTracker tracker,
-            MeterRegistry meters, Spans spans) {
+            Entitlements entitlements, WorkflowProperties properties, RetryPolicy retry, Clock clock,
+            ErrorTracker tracker, MeterRegistry meters, Spans spans) {
         this.spans = spans;
         this.contexts = contexts;
         this.transaction = new TransactionTemplate(transactions);
@@ -110,6 +129,7 @@ class ExecutionRunner {
         this.actions = actions;
         this.entitlements = entitlements;
         this.settings = properties.worker();
+        this.retry = retry;
         this.clock = clock;
         this.tracker = tracker;
         this.meters = meters;
@@ -117,6 +137,8 @@ class ExecutionRunner {
                 .register(meters);
         this.duration = Timer.builder("platform.workflow.execution.duration").publishPercentileHistogram()
                 .register(meters);
+        this.retryDelay = DistributionSummary.builder("platform.workflow.retry.delay").baseUnit("seconds")
+                .publishPercentileHistogram().register(meters);
     }
 
     /** Runs the claimed execution in its organization's context. Never throws. */
@@ -126,7 +148,7 @@ class ExecutionRunner {
         queueDelay.record(Duration.between(claimed.queuedAt(), started));
         try {
             contexts.run(context, () -> spans.run("workflow.execution", Map.of("workflow.execution.id",
-                    claimed.id().toString(), "workflow.trigger", claimed.trigger(), "workflow.attempt",
+                    claimed.id().toString(), "workflow.trigger", claimed.trigger(), "workflow.claim",
                     Integer.toString(claimed.attempt())), () -> execute(claimed)));
         } catch (ClaimLost lost) {
             meters.counter("platform.workflow.executions", "result", "claim_lost").increment();
@@ -143,15 +165,20 @@ class ExecutionRunner {
         long token = claimed.version();
         if (claimed.attempt() > settings.maxAttempts()) {
             // Earlier claims never reported back: the process died or stalled each time (ADR-0137).
-            end(claimed, token, "FAILED", "attempts_exhausted", "AttemptsExhausted");
+            end(claimed, token, "DEAD_LETTERED", "attempts_exhausted", "AttemptsExhausted");
             return;
         }
         Verdict verdict;
         try {
             verdict = transaction.execute(status -> decide(claimed));
         } catch (RuntimeException failure) {
-            String type = failure.getClass().getSimpleName();
-            end(claimed, token, "FAILED", "decision_failed", type);
+            RetryPolicy.Failure how = RetryPolicy.classify(failure);
+            if (how.transientFailure() && claimed.attempt() < settings.maxAttempts()) {
+                Duration delay = retry.delay(claimed.attempt(), ThreadLocalRandom.current().nextDouble());
+                waitFor(claimed, token, delay, how.type());
+                return;
+            }
+            end(claimed, token, "DEAD_LETTERED", "decision_failed", how.type());
             tracker.track(new ErrorReport(failure, ErrorReport.UNKNOWN_REQUEST, LogContext.traceId(),
                     LogContext.tenantId(), "WORKFLOW", claimed.trigger()));
             return;
@@ -164,18 +191,25 @@ class ExecutionRunner {
             return;
         }
         List<WorkflowDefinition.Action> steps = verdict.pinned().workflow().definition().actions();
-        Set<Integer> done = new HashSet<>(transaction.execute(status -> executions.completedPositions(claimed.id())));
+        Map<Integer, ExecutionStore.StepState> states = new HashMap<>();
+        transaction.execute(status -> executions.stepStates(claimed.id())).forEach(
+                state -> states.put(state.position(), state));
+        Chain chain = new Chain(claimed.chainRoot(), claimed.chainDepth(), claimed.chainWorkflows())
+                .extendedBy(claimed.workflowId(), claimed.id());
         for (int index = 0; index < steps.size(); index++) {
             int position = index + 1;
-            if (done.contains(position)) {
+            ExecutionStore.StepState state = states.get(position);
+            // A replay resumes at a step: the ones before it completed in the execution it replays.
+            if (position < claimed.resumeStep() || state != null && "COMPLETED".equals(state.status())) {
                 continue;
             }
-            WorkflowDefinition.Action action = steps.get(index);
-            Optional<Long> next = step(claimed, token, position, action, verdict.pinned());
-            if (next.isEmpty()) {
+            int attempt = (state == null ? 0 : state.attempts()) + 1;
+            StepOutcome outcome = step(claimed, token, position, attempt, steps.get(index), verdict.pinned(), chain);
+            if (outcome instanceof StepOutcome.Done done) {
+                token = done.token();
+            } else {
                 return;
             }
-            token = next.get();
         }
         end(claimed, token, "COMPLETED", null, null);
     }
@@ -208,6 +242,10 @@ class ExecutionRunner {
         if (record.deleted() != wantsDeleted) {
             return Verdict.end("SKIPPED", record.deleted() ? "record_gone" : "record_restored");
         }
+        if (claimed.replayOf() != null) {
+            // A person decided to run it again; the condition is not judged a second time (ADR-0141).
+            return Verdict.go(pinned);
+        }
         ConditionOutcome outcome = pinned.workflow().evaluate(
                 records.engineValues(claimed.objectApiName(), record), clock.instant());
         return switch (outcome) {
@@ -220,55 +258,74 @@ class ExecutionRunner {
     // ---- one step ----
 
     /**
-     * Carries one action out.
+     * Makes one attempt of one step.
      *
-     * @return the claim's token after the step, or empty when the execution ended (the step failed)
+     * @param attempt the number of this attempt, counting the ones that ended before it
      */
-    private Optional<Long> step(DispatchStore.ClaimedExecution claimed, long token, int position,
-            WorkflowDefinition.Action action, PinnedWorkflow pinned) {
+    private StepOutcome step(DispatchStore.ClaimedExecution claimed, long token, int position, int attempt,
+            WorkflowDefinition.Action action, PinnedWorkflow pinned, Chain chain) {
         try {
-            Long next = transaction.execute(status -> {
-                Optional<Long> renewed = executions.renew(claimed.id(), token, settings.lease());
-                if (renewed.isEmpty()) {
-                    throw new ClaimLost();
-                }
-                ActionExecutor executor = actions.find(action.type()).orElseThrow(
-                        () -> new UnknownActionType());
-                executions.startStep(claimed.id(), position, action.name(), action.type());
-                executor.execute(new ActionExecutor.ActionContext(claimed.id(), pinned.workflow().definition()
-                        .apiName(), claimed.objectApiName(), claimed.recordId(), claimed.recordVersion(), position,
-                        action.name(), action.settings()));
-                executions.completeStep(claimed.id(), position);
-                return renewed.get();
-            });
-            return Optional.of(next);
+            Long next = spans.call("workflow.attempt", Map.of("workflow.execution.id", claimed.id().toString(),
+                    "workflow.step", Integer.toString(position), "workflow.attempt", Integer.toString(attempt),
+                    "workflow.action", action.type()), () -> transaction.execute(status -> {
+                        Optional<Long> renewed = executions.renew(claimed.id(), token, settings.lease());
+                        if (renewed.isEmpty()) {
+                            throw new ClaimLost();
+                        }
+                        ActionExecutor executor = actions.find(action.type()).orElseThrow(
+                                () -> StepFailure.permanent("unknown_action_type"));
+                        executions.startStep(claimed.id(), position, action.name(), action.type());
+                        executor.execute(new ActionExecutor.ActionContext(claimed.id(), claimed.workflowId(),
+                                pinned.workflow().definition().apiName(), claimed.objectApiName(), claimed.recordId(),
+                                claimed.recordVersion(), position, action.name(), action.settings(),
+                                action.assignments(), chain, claimed.replayGeneration()));
+                        executions.completeStep(claimed.id(), position);
+                        return renewed.get();
+                    }));
+            meters.counter("platform.workflow.attempts", "action", action.type(), "result", "succeeded").increment();
+            return new StepOutcome.Done(next);
         } catch (ClaimLost lost) {
             throw lost;
         } catch (RuntimeException failure) {
-            String type = failure.getClass().getSimpleName();
-            Boolean ended = transaction.execute(status -> {
-                executions.failedStep(claimed.id(), position, action.name(), action.type(), type);
-                return executions.finish(claimed.id(), token, "FAILED", "action_failed", type);
-            });
-            if (!Boolean.TRUE.equals(ended)) {
-                throw new ClaimLost();
-            }
-            meters.counter("platform.workflow.executions", "result", "failed").increment();
-            LOG.warn("A workflow step failed: {}", type);
-            tracker.track(new ErrorReport(failure, ErrorReport.UNKNOWN_REQUEST, LogContext.traceId(),
-                    LogContext.tenantId(), "WORKFLOW", action.type()));
-            return Optional.empty();
+            return failed(claimed, token, position, attempt, action, failure);
         }
     }
 
-    /** A stored action whose type this release does not carry out (a definition of a later release). */
-    private static final class UnknownActionType extends RuntimeException {
-
-        private static final long serialVersionUID = 1L;
-
-        UnknownActionType() {
-            super("The action type is not carried out by this release", null, false, false);
+    /** The attempt failed and was rolled back: retry it later or give the execution to a person. */
+    private StepOutcome failed(DispatchStore.ClaimedExecution claimed, long token, int position, int attempt,
+            WorkflowDefinition.Action action, RuntimeException failure) {
+        RetryPolicy.Failure how = RetryPolicy.classify(failure);
+        boolean again = how.transientFailure() && attempt < retry.attemptsAllowed(action.maxAttempts());
+        Duration delay = again ? retry.delay(attempt, ThreadLocalRandom.current().nextDouble()) : null;
+        String reason = how.transientFailure() && !again ? "retries_exhausted" : how.reason();
+        Boolean settled = transaction.execute(status -> {
+            executions.recordFailedAttempt(claimed.id(), position, action.name(), action.type(),
+                    again ? ExecutionStore.Attempt.RETRYING : ExecutionStore.Attempt.FAILED, delay, how.type(),
+                    how.reason());
+            return again
+                    ? executions.reschedule(claimed.id(), token, delay, "retry_scheduled", how.type(), true)
+                    : executions.finish(claimed.id(), token, "DEAD_LETTERED", reason, how.type());
+        });
+        if (!Boolean.TRUE.equals(settled)) {
+            throw new ClaimLost();
         }
+        meters.counter("platform.workflow.attempts", "action", action.type(), "result",
+                again ? "retry" : "dead_lettered").increment();
+        if (again) {
+            meters.counter("platform.workflow.retries").increment();
+            retryDelay.record(delay.toMillis() / 1000.0);
+            LOG.info("A workflow step failed and will be attempted again: {} {}", how.type(), how.reason());
+        } else {
+            meters.counter("platform.workflow.executions", "result", "dead_lettered").increment();
+            LOG.warn("A workflow step failed for good: {} {}", how.type(), how.reason());
+        }
+        // A refusal of the data or a reason the action named is an outcome of the definition and the data, not an
+        // error of the platform; what nobody classified, and a failure that outlasted its retries, is reported.
+        if (RetryPolicy.ACTION_FAILED.equals(how.reason()) || RetryPolicy.TRANSIENT.equals(how.reason())) {
+            tracker.track(new ErrorReport(failure, ErrorReport.UNKNOWN_REQUEST, LogContext.traceId(),
+                    LogContext.tenantId(), "WORKFLOW", action.type()));
+        }
+        return new StepOutcome.Stopped();
     }
 
     // ---- the end ----
@@ -281,5 +338,16 @@ class ExecutionRunner {
         }
         meters.counter("platform.workflow.executions", "result", status.toLowerCase(Locale.ROOT)).increment();
         LOG.debug("Execution {} ended {} {}", claimed.id(), status, reason);
+    }
+
+    /** Puts the execution back for another claim after a failure to decide (the claims are bounded). */
+    private void waitFor(DispatchStore.ClaimedExecution claimed, long token, Duration delay, String failureType) {
+        Boolean waiting = transaction.execute(s -> executions.reschedule(claimed.id(), token, delay,
+                "retry_scheduled", failureType, false));
+        if (!Boolean.TRUE.equals(waiting)) {
+            throw new ClaimLost();
+        }
+        meters.counter("platform.workflow.retries").increment();
+        retryDelay.record(delay.toMillis() / 1000.0);
     }
 }

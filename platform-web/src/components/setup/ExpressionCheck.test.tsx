@@ -222,4 +222,39 @@ describe("ExpressionCheck", () => {
 
     expect(await screen.findByTestId("check-valid")).toHaveTextContent("It asks for the moment of the save.");
   });
+
+  it("tries the condition of a workflow with the workflow's own check and says what the workflow would do", async () => {
+    const calls = fakeApi({
+      [CHECK]: () => json({ data: { valid: true, type: "BOOLEAN", fields: ["quantity__c"], usesClock: false } }),
+      "POST /api/v1/metadata/workflows/Order__c/check": () => json({ data: { outcome: "SKIPPED", actionProblems: {} } }),
+    });
+    renderCheck({ expression: "quantity__c > 1", purpose: "WORKFLOW_CONDITION", resultType: undefined });
+
+    fireEvent.click(screen.getByRole("button", { name: "Check the condition" }));
+    expect(await screen.findByTestId("check-valid")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Quantity/), { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: "Try it" }));
+
+    expect(await screen.findByTestId("check-outcome")).toHaveTextContent("The workflow is skipped");
+    expect(JSON.parse(calls.find((call) => call.key === CHECK)?.body ?? "{}")).toMatchObject({
+      purpose: "WORKFLOW_CONDITION",
+    });
+    expect(JSON.parse(calls.find((call) => call.key === "POST /api/v1/metadata/workflows/Order__c/check")?.body ?? "{}"))
+      .toEqual({ condition: "quantity__c > 1", values: { quantity__c: "0" } });
+    expect(calls.some((call) => call.key === TRY)).toBe(false);
+  });
+
+  it("says that the workflow runs, and where the condition cannot be worked out", async () => {
+    fakeApi({
+      [CHECK]: () => json({ data: { valid: true, type: "BOOLEAN", fields: ["quantity__c"], usesClock: false } }),
+      "POST /api/v1/metadata/workflows/Order__c/check": () => json({ data: { outcome: "RUNS", actionProblems: {} } }),
+    });
+    renderCheck({ expression: "quantity__c > 1", purpose: "WORKFLOW_CONDITION", resultType: undefined });
+    fireEvent.click(screen.getByRole("button", { name: "Check the condition" }));
+    await screen.findByTestId("check-valid");
+
+    fireEvent.click(screen.getByRole("button", { name: "Try it" }));
+
+    expect(await screen.findByTestId("check-outcome")).toHaveTextContent("The workflow runs");
+  });
 });

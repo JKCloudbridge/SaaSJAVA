@@ -8,6 +8,7 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -88,7 +89,10 @@ class MailStore {
                 .param("system", ActorId.SYSTEM.value())
                 .param("limit", limit)
                 .query(this::map)
-                .list();
+                .list()
+                // The statement does not promise an order; a claim that renews a token (ADR-0023) must still process
+                // in the order the mails became due, or the last one sent is not the one that is last by that order.
+                .stream().sorted(Comparator.comparing(ClaimedMail::createdAt).thenComparing(ClaimedMail::id)).toList();
     }
 
     /** @return false when the claim was lost */

@@ -15,8 +15,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 /**
- * Who may do what with workflows and their executions (Sprint 22, ADR-0136, ADR-0137): the usual tests of every
- * endpoint (allowed, denied, cross-tenant, forged tenant header, platform administrator refused, unauthenticated).
+ * Who may do what with workflows and their executions (Sprint 22, ADR-0136, ADR-0137; Sprint 23, ADR-0141, ADR-0143):
+ * the usual tests of every endpoint (allowed, denied, cross-tenant, forged tenant header, platform administrator
+ * refused, unauthenticated).
  */
 @PlatformIntegrationTest
 class WorkflowAccessIT extends WorkflowTestSupport {
@@ -40,7 +41,15 @@ class WorkflowAccessIT extends WorkflowTestSupport {
             new Call("DELETE", ORDER_WORKFLOWS + "/Watch__c", null),
             new Call("POST", ORDER_WORKFLOWS + "/check", "{\"condition\":null,\"values\":{}}"),
             new Call("GET", EXECUTIONS, null),
-            new Call("GET", EXECUTIONS + "/" + UUID.randomUUID(), null));
+            new Call("GET", EXECUTIONS + "/" + UUID.randomUUID(), null),
+            // Sprint 23: the catalogue, the dead letters, replay, cancel and the events the platform gave up on.
+            new Call("GET", WORKFLOWS + "/action-types", null),
+            new Call("GET", EXECUTIONS + "/dead-letters/summary", null),
+            new Call("POST", EXECUTIONS + "/" + UUID.randomUUID() + "/replay", "{}"),
+            new Call("POST", EXECUTIONS + "/replay", "{\"executions\":[\"" + UUID.randomUUID() + "\"]}"),
+            new Call("POST", EXECUTIONS + "/" + UUID.randomUUID() + "/cancel", null),
+            new Call("GET", "/api/v1/workflows/parked-events", null),
+            new Call("POST", "/api/v1/workflows/parked-events/" + UUID.randomUUID() + "/redrive", null));
 
     private TestBrowser adminWithWatch(Organization organization) {
         TestBrowser admin = adminWithOrder(organization);

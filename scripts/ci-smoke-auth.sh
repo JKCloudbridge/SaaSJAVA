@@ -22,7 +22,7 @@
 # the access back and checks the audit records and that a platform token is refused on an organization host.
 # Since Sprint 14 a step makes a record, changes it with its version, deletes and restores it and proves that an object with
 # a record cannot be removed. Since Sprint 15 a step proves the write pipeline: a required field, a refused value, a rule,
-# a formula, an auto-number. Since Sprint 15A a step proves record type assignments. Since Sprint 16A a step proves uniqueness and the recalculation of stored formula results. Since Sprint 17 a step proves record-level security, a file round trip, a bulk call, an import and a search (the image needs the object storage of the smoke job).
+# a formula, an auto-number. Since Sprint 15A a step proves record type assignments. Since Sprint 16A a step proves uniqueness and the recalculation of stored formula results. Since Sprint 17 a step proves record-level security, a file round trip, a bulk call, an import and a search (the image needs the object storage of the smoke job). Since Sprint 23 a step proves a workflow that writes: the catalogue, a dead letter with a stable reason, a replay that completes once.
 set -euo pipefail
 
 db="${1:?database container name}"
@@ -1117,4 +1117,61 @@ if [ -n "$mail" ]; then
   [ "$status" = "200" ] || fail "the record page resolution answered $status: $(cat "$body")"
   grep -Fq '"rule":"NONE"' "$body" || fail "an object with no assignment did not resolve to nothing: $(cat "$body")"
   echo "ok: an object with no record page configured has the platform's own, its assignments start empty and resolve to nothing, and an object that does not exist has no record page"
+  # 28. Workflows that write, fail, wait and are replayed (Sprint 23, ADR-0138 to ADR-0143): the catalogue the screens are
+  # built from, a workflow whose action cannot succeed (a unique value is taken) ends as a dead letter with a stable
+  # reason and no value in the history, a replay after the cause is mended completes once, and a second replay finds the
+  # first. Written carefully and NOT claimed to work until this job has run it.
+  status="$(client_call "$base/api/v1/metadata/workflows/action-types")"
+  [ "$status" = "200" ] || fail "the catalogue of workflows answered $status: $(cat "$body")"
+  grep -Fq '"type":"UPDATE_RECORD"' "$body" || fail "the catalogue lacks the update action: $(cat "$body")"
+  grep -Fq '"type":"SEND_EMAIL"' "$body" || fail "the catalogue lacks the mail action: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{"title__c":"workflow holder","ref__c":"SMOKE-DUP"}}' \
+    "$base/api/v1/objects/Lead__c/records")"
+  [ "$status" = "201" ] || fail "making the record that holds the value answered $status: $(cat "$body")"
+  holder_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"Clash","label":"Clash","description":"","active":true,"trigger":{"kind":"RECORD_CREATED"},"condition":"ref__c = '"'"'SMOKE-B'"'"'","actions":[{"type":"UPDATE_RECORD","name":"Take","settings":{},"assignments":[{"field":"ref__c","value":"SMOKE-DUP"}]}]}' \
+    "$base/api/v1/metadata/workflows/Lead__c")"
+  [ "$status" = "201" ] || fail "making the workflow answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{"title__c":"workflow target","ref__c":"SMOKE-B"}}' \
+    "$base/api/v1/objects/Lead__c/records")"
+  [ "$status" = "201" ] || fail "making the record the workflow acts on answered $status: $(cat "$body")"
+  target_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  dead=""
+  for attempt in $(seq 1 60); do
+    status="$(client_call "$base/api/v1/workflows/executions?dead=true&workflow=Clash__c")"
+    if [ "$status" = "200" ] && grep -Fq '"status":"DEAD_LETTERED"' "$body"; then dead=yes; break; fi
+    sleep 2
+  done
+  [ -n "$dead" ] || fail "the workflow did not end as a dead letter: $(cat "$body")"
+  grep -Fq '"reason":"unique_clash"' "$body" || fail "the dead letter has no stable reason: $(cat "$body")"
+  if grep -Fq 'SMOKE-DUP' "$body" || grep -Fq 'SMOKE-B' "$body"; then fail "the history repeats a value: $(cat "$body")"; fi
+  execution_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(client_call "$base/api/v1/workflows/executions/dead-letters/summary")"
+  [ "$status" = "200" ] || fail "the dead letter summary answered $status: $(cat "$body")"
+  grep -Fq '"total":1' "$body" || fail "the summary does not count the dead letter: $(cat "$body")"
+  # Mend the cause: the holder gives the value up, then replay.
+  status="$(client_call "$base/api/v1/objects/Lead__c/records/$holder_id")"
+  holder_version="$(grep -o '"version":[0-9]*' "$body" | head -1 | cut -d: -f2)"
+  status="$(client_call -X PATCH -H "$group_json" -d "{\"version\":$holder_version,\"fields\":{\"ref__c\":\"SMOKE-FREE\"}}" \
+    "$base/api/v1/objects/Lead__c/records/$holder_id")"
+  [ "$status" = "200" ] || fail "changing the holder answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/workflows/executions/$execution_id/replay")"
+  [ "$status" = "200" ] || fail "the replay answered $status: $(cat "$body")"
+  grep -Fq '"outcome":"REPLAYED"' "$body" || fail "the replay was not made: $(cat "$body")"
+  replay_id="$(grep -o '"replay":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  finished=""
+  for attempt in $(seq 1 60); do
+    status="$(client_call "$base/api/v1/workflows/executions/$replay_id")"
+    if [ "$status" = "200" ] && grep -Fq '"status":"COMPLETED"' "$body"; then finished=yes; break; fi
+    sleep 2
+  done
+  [ -n "$finished" ] || fail "the replay did not complete: $(cat "$body")"
+  status="$(client_call "$base/api/v1/objects/Lead__c/records/$target_id")"
+  grep -Fq '"ref__c":"SMOKE-DUP"' "$body" || fail "the replay did not change the record: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/workflows/executions/$execution_id/replay")"
+  grep -Fq '"outcome":"ALREADY_REPLAYED"' "$body" || fail "a second replay made another: $(cat "$body")"
+  status="$(client_call "$base/api/v1/workflows/parked-events")"
+  [ "$status" = "200" ] || fail "the parked events answered $status: $(cat "$body")"
+  grep -Fq '"data":[]' "$body" || fail "events are parked on a healthy image: $(cat "$body")"
+  echo "ok: the catalogue of workflows came from the server, a workflow whose update clashed with a unique value ended as a dead letter with a stable reason and no value in the history, a replay after the cause was mended completed once and changed the record, and a second replay found the first"
 fi

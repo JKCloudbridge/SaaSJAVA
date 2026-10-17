@@ -444,6 +444,18 @@ final class FieldRules {
 
     // ---- default values ----
 
+    /**
+     * Why the text cannot be the literal an action of a workflow sets on a field of this type, or null when it fits
+     * (ADR-0138): the rules of a default value, so there is one way to write a typed constant. A field that cannot have
+     * a default cannot be given a literal either.
+     */
+    static String literalProblem(FieldType type, FieldConfiguration configuration, String text) {
+        if (!type.allowsDefault()) {
+            return "A field of this type cannot be given a typed value here.";
+        }
+        return defaultProblem(type, configuration, text);
+    }
+
     /** Why the text cannot be the default value of such a field, or null when it fits. */
     private static String defaultProblem(FieldType type, FieldConfiguration configuration, String text) {
         switch (type) {

@@ -10,11 +10,60 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param enabled whether this instance runs the dispatcher (every instance may; they coordinate through the database)
  * @param worker how queued executions are claimed and run
  * @param scheduler how due schedules are claimed and fired
- * @param retention how long finished executions are kept
+ * @param retention how long finished executions and dead letters are kept
+ * @param retry how a failed attempt of an action is tried again (ADR-0142)
+ * @param limits the guards against loops and floods (ADR-0140) and the mail an organization's workflows may queue
  */
 @ConfigurationProperties("platform.workflow")
 record WorkflowProperties(@DefaultValue("true") boolean enabled, @DefaultValue Worker worker,
-        @DefaultValue Scheduler scheduler, @DefaultValue Retention retention) {
+        @DefaultValue Scheduler scheduler, @DefaultValue Retention retention, @DefaultValue Retry retry,
+        @DefaultValue Limits limits) {
+
+    /**
+     * How a failed attempt is tried again (ADR-0142).
+     *
+     * @param maxAttempts the most attempts of one step, the first included (default 5); a definition may lower it
+     * @param initialDelay the wait after the first failed attempt (default 30 seconds)
+     * @param maxDelay the longest wait between two attempts (default 1 hour)
+     * @param multiplier how much longer each wait is than the one before (default 2)
+     * @param jitter the share of the wait that is added at random, from 0 up (default 0.2); never negative, so a wait
+     *        is never shorter than the exponential term
+     */
+    record Retry(@DefaultValue("5") int maxAttempts, @DefaultValue("30s") Duration initialDelay,
+            @DefaultValue("1h") Duration maxDelay, @DefaultValue("2") double multiplier,
+            @DefaultValue("0.2") double jitter) {
+
+        Retry {
+            if (maxAttempts < 1 || maxAttempts > 100 || initialDelay.isNegative() || initialDelay.isZero()
+                    || maxDelay.compareTo(initialDelay) < 0 || jitter < 0 || jitter > 0.5 || multiplier > 10) {
+                throw new IllegalArgumentException("platform.workflow.retry.* is out of range");
+            }
+            if (multiplier < 1 + jitter) {
+                // The waits must not shrink from one attempt to the next (ADR-0142).
+                throw new IllegalArgumentException("platform.workflow.retry.multiplier must be at least 1 + jitter");
+            }
+        }
+    }
+
+    /**
+     * Guards against loops and floods (ADR-0140).
+     *
+     * @param maxChainDepth how many workflow executions may follow one another from one change (default 5)
+     * @param maxExecutionsPerMinute how many executions one object of one organization may start per minute before the
+     *        rest are delayed, not dropped (default 600)
+     * @param mailsPerOrganizationPerHour how many mails the workflows of one organization may queue per hour (default
+     *        500); past it a step waits for its next attempt
+     */
+    record Limits(@DefaultValue("5") int maxChainDepth, @DefaultValue("600") int maxExecutionsPerMinute,
+            @DefaultValue("500") int mailsPerOrganizationPerHour) {
+
+        Limits {
+            if (maxChainDepth < 1 || maxChainDepth > 50 || maxExecutionsPerMinute < 1
+                    || mailsPerOrganizationPerHour < 1) {
+                throw new IllegalArgumentException("platform.workflow.limits.* is out of range");
+            }
+        }
+    }
 
     /**
      * The worker.
@@ -69,13 +118,18 @@ record WorkflowProperties(@DefaultValue("true") boolean enabled, @DefaultValue W
      *        the audit records)
      * @param interval pause between two clean-ups (default 1 hour)
      * @param batchSize executions removed per organization and pass (default 1000)
+     * @param deadLetter how long a dead-lettered execution stays, longer than a completed one so a person has time to
+     *        look (default 180 days, never fewer than 30)
      */
     record Retention(@DefaultValue("90d") Duration executions, @DefaultValue("1h") Duration interval,
-            @DefaultValue("1000") int batchSize) {
+            @DefaultValue("1000") int batchSize, @DefaultValue("180d") Duration deadLetter) {
 
         Retention {
             if (executions.compareTo(Duration.ofDays(30)) < 0) {
                 throw new IllegalArgumentException("platform.workflow.retention.executions must be at least 30 days");
+            }
+            if (deadLetter.compareTo(Duration.ofDays(30)) < 0) {
+                throw new IllegalArgumentException("platform.workflow.retention.dead-letter must be at least 30 days");
             }
             if (interval.isNegative() || interval.isZero() || batchSize < 1) {
                 throw new IllegalArgumentException("platform.workflow.retention.* is out of range");

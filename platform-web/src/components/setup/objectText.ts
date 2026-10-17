@@ -95,6 +95,9 @@ export const CHANGE_KIND_TEXT: Record<string, string> = {
   CREATE_VALIDATION_RULE: "Add validation rule",
   UPDATE_VALIDATION_RULE: "Change validation rule",
   DELETE_VALIDATION_RULE: "Remove validation rule",
+  CREATE_WORKFLOW: "Add workflow",
+  UPDATE_WORKFLOW: "Change workflow",
+  DELETE_WORKFLOW: "Remove workflow",
   CREATE_RECORD_TYPE_ASSIGNMENT: "Let a profile use a record type",
   UPDATE_RECORD_TYPE_ASSIGNMENT: "Change a profile's default record type",
   DELETE_RECORD_TYPE_ASSIGNMENT: "Stop a profile from using a record type",
@@ -112,6 +115,7 @@ export const ITEM_TEXT: Record<string, string> = {
   CUSTOM_PAGE: "custom page",
   LAYOUT_ASSIGNMENT: "layout choice",
   VALIDATION_RULE: "validation rule",
+  WORKFLOW: "workflow",
   RECORD_TYPE_ASSIGNMENT: "record type choice",
 };
 export const RELEASE_KIND_TEXT: Record<string, string> = {

@@ -193,6 +193,22 @@ platform:
     # Every instance may run the dispatcher (the worker of queued executions and the scheduler); they coordinate
     # through the database (ADR-0135).
     enabled: ${PLATFORM_WORKFLOW_ENABLED:true}
+    # A failed attempt of an action that could succeed later (a lock, a lost connection) is tried again after a wait
+    # that grows with each attempt; a refusal of the data is not (ADR-0142). A definition may lower the attempts.
+    retry:
+      max-attempts: ${PLATFORM_WORKFLOW_RETRY_MAX_ATTEMPTS:5}
+      initial-delay: 30s
+      max-delay: 1h
+      multiplier: 2
+      jitter: 0.2
+    # The guards against a workflow that starts itself, and the mail an organization's workflows may queue (ADR-0140).
+    limits:
+      max-chain-depth: ${PLATFORM_WORKFLOW_MAX_CHAIN_DEPTH:5}
+      max-executions-per-minute: ${PLATFORM_WORKFLOW_MAX_EXECUTIONS_PER_MINUTE:600}
+      mails-per-organization-per-hour: 500
+    retention:
+      # A dead letter stays longer than a finished execution so that a person has time to look (never under 30 days).
+      dead-letter: 180d
   notification:
     # Every instance may run the mail relay; they coordinate through the database (ADR-0024).
     enabled: ${PLATFORM_MAIL_RELAY_ENABLED:true}
