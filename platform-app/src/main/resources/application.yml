@@ -189,6 +189,10 @@ platform:
   outbox:
     # Every instance may run the relay; they coordinate through the database (ADR-0016).
     enabled: ${PLATFORM_OUTBOX_ENABLED:true}
+  workflow:
+    # Every instance may run the dispatcher (the worker of queued executions and the scheduler); they coordinate
+    # through the database (ADR-0135).
+    enabled: ${PLATFORM_WORKFLOW_ENABLED:true}
   notification:
     # Every instance may run the mail relay; they coordinate through the database (ADR-0024).
     enabled: ${PLATFORM_MAIL_RELAY_ENABLED:true}

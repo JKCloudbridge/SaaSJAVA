@@ -581,6 +581,35 @@ public final class TenantScopedTables {
                             + "updated_by) values (?, 'Probe__c', ?, 'SHARED', cast('{}' as jsonb), ?, ?)",
                     tenant, probeName("V"), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
 
+    /** The workflows of organizations (Sprint 22). A probe row needs a custom object, which it creates. */
+    public static final TenantScopedTable WORKFLOW = new TenantScopedTable("workflow",
+            (connection, tenant) -> probeWorkflow(connection, tenant));
+
+    /** One definition of a workflow (Sprint 22). A probe row needs a workflow, which it creates. */
+    public static final TenantScopedTable WORKFLOW_VERSION = new TenantScopedTable("workflow_version",
+            (connection, tenant) -> probeWorkflowVersion(connection, tenant, probeWorkflow(connection, tenant), 1));
+
+    /** The executions of workflows (Sprint 22). A probe row needs a workflow and a version, which it creates. */
+    public static final TenantScopedTable WORKFLOW_EXECUTION = new TenantScopedTable("workflow_execution",
+            (connection, tenant) -> probeExecution(connection, tenant));
+
+    /** The steps of executions (Sprint 22). A probe row needs an execution, which it creates. */
+    public static final TenantScopedTable WORKFLOW_STEP = new TenantScopedTable("workflow_step",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into workflow_step (tenant_id, execution_id, position, name, action_type, created_by, "
+                            + "updated_by) values (?, ?, 1, 'Probe', 'PUBLISH_EVENT', ?, ?)",
+                    tenant, probeExecution(connection, tenant), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
+    /** The schedules of timed workflows (Sprint 22). A probe row needs a workflow, which it creates. */
+    public static final TenantScopedTable WORKFLOW_SCHEDULE = new TenantScopedTable("workflow_schedule",
+            (connection, tenant) -> {
+                UUID workflow = probeWorkflow(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into workflow_schedule (tenant_id, workflow_id, trigger_kind, definition_version, "
+                                + "next_fire_at, created_by, updated_by) values (?, ?, 'EVERY_DAY', 1, now(), ?, ?)",
+                        tenant, workflow, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
@@ -592,9 +621,48 @@ public final class TenantScopedTables {
             OBJECT_RECORD, AUTO_NUMBER_COUNTER, RECORD_TYPE_ASSIGNMENT, FIELD_SLOT, RECORD_LINK, LINK_INDEX,
             UNIQUE_ENFORCEMENT, FORMULA_RECALCULATION, OBJECT_SHARING_SETTING, SHARING_RULE, RECORD_SHARE,
             RECORD_FILE, FILE_OBJECT_CLEANUP, IMPORT_JOB, IMPORT_ERROR, SEARCH_TERM, SEARCH_FIELD, LIST_VIEW,
-            RECORD_PAGE_ASSIGNMENT);
+            RECORD_PAGE_ASSIGNMENT, WORKFLOW, WORKFLOW_VERSION, WORKFLOW_EXECUTION, WORKFLOW_STEP,
+            WORKFLOW_SCHEDULE);
 
     private TenantScopedTables() {
+    }
+
+    /** A workflow of the tenant for a probe row, on a custom object of its own; returns it. */
+    private static UUID probeWorkflow(java.sql.Connection connection, UUID tenant) throws java.sql.SQLException {
+        String object = probeObject(connection, tenant);
+        UUID workflow = UUID.randomUUID();
+        TenantFixtures.update(connection,
+                "insert into workflow (id, tenant_id, object_api_name, api_name, label, created_by, updated_by) "
+                        + "values (?, ?, ?, ?, 'Probe', ?, ?)",
+                workflow, tenant, object, probeName("Probe"), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        return workflow;
+    }
+
+    /** A definition of the workflow for a probe row; returns it. */
+    private static UUID probeWorkflowVersion(java.sql.Connection connection, UUID tenant, UUID workflow, int number)
+            throws java.sql.SQLException {
+        UUID version = UUID.randomUUID();
+        TenantFixtures.update(connection,
+                "insert into workflow_version (id, tenant_id, workflow_id, version_number, trigger_kind, trigger, "
+                        + "actions, created_by, updated_by) values (?, ?, ?, ?, 'RECORD_CREATED', "
+                        + "cast('{\"kind\":\"RECORD_CREATED\"}' as jsonb), cast('[]' as jsonb), ?, ?)",
+                version, tenant, workflow, number, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        return version;
+    }
+
+    /** An execution of the tenant for a probe row, with its workflow and version; returns it. */
+    private static UUID probeExecution(java.sql.Connection connection, UUID tenant) throws java.sql.SQLException {
+        UUID workflow = probeWorkflow(connection, tenant);
+        UUID version = probeWorkflowVersion(connection, tenant, workflow, 1);
+        UUID execution = UUID.randomUUID();
+        TenantFixtures.update(connection,
+                "insert into workflow_execution (id, tenant_id, workflow_id, workflow_version_id, "
+                        + "workflow_api_name, workflow_version_number, object_api_name, record_id, trigger_kind, "
+                        + "event_id, idempotency_key, created_by, updated_by) values (?, ?, ?, ?, 'Probe__c', 1, "
+                        + "'Probe__c', ?, 'RECORD_CREATED', ?, ?, ?, ?)",
+                execution, tenant, workflow, version, UUID.randomUUID(), UUID.randomUUID(),
+                "probe-" + execution, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        return execution;
     }
 
     /** A custom object of the tenant for a probe row, with a name of its own; returns its API name. */

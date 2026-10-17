@@ -17,6 +17,7 @@ import app.platform.metadata.RecordType;
 import app.platform.metadata.RecordTypeAssignment;
 import app.platform.metadata.Tab;
 import app.platform.metadata.ValidationRule;
+import app.platform.metadata.WorkflowDefinition;
 import app.platform.security.ObjectCatalog;
 import app.platform.tenant.TenantContexts;
 import java.util.ArrayList;
@@ -28,6 +29,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -44,6 +47,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Component
 class MetadataCatalogue implements Metadata {
 
+    private static final Logger LOG = LoggerFactory.getLogger(MetadataCatalogue.class);
+
     private final StandardMetadata standard;
     private final MetadataStore store;
     private final MetadataVersions versions;
@@ -59,13 +64,18 @@ class MetadataCatalogue implements Metadata {
     private final ValidationRuleStore validationRuleStore;
     private final RecordTypeAssignmentStore typeAssignmentStore;
     private final RecordPageAssignmentStore recordPageAssignmentStore;
+    private final WorkflowStore workflowStore;
+    private final WorkflowCodec workflowCodec;
 
     MetadataCatalogue(StandardMetadata standard, MetadataStore store, MetadataVersions versions,
             MetadataCache cache, TenantContexts contexts, ConfigCodec codec, TransactionTemplate transaction,
             RecordTypeStore recordTypeStore, RecordTypeCodec recordTypeCodec, DefinitionStore definitionStore,
             AssignmentStore assignmentStore, DefinitionCodec definitionCodec,
             ValidationRuleStore validationRuleStore, RecordTypeAssignmentStore typeAssignmentStore,
-            RecordPageAssignmentStore recordPageAssignmentStore) {
+            RecordPageAssignmentStore recordPageAssignmentStore, WorkflowStore workflowStore,
+            WorkflowCodec workflowCodec) {
+        this.workflowStore = workflowStore;
+        this.workflowCodec = workflowCodec;
         this.validationRuleStore = validationRuleStore;
         this.typeAssignmentStore = typeAssignmentStore;
         this.recordPageAssignmentStore = recordPageAssignmentStore;
@@ -131,6 +141,16 @@ class MetadataCatalogue implements Metadata {
     @Override
     public List<ValidationRule> validationRules(String objectApiName) {
         return snapshot().validationRules(objectApiName);
+    }
+
+    @Override
+    public List<WorkflowDefinition> workflows(String objectApiName) {
+        return snapshot().workflows(objectApiName);
+    }
+
+    @Override
+    public List<WorkflowDefinition> workflows() {
+        return snapshot().allWorkflows();
     }
 
     @Override
@@ -243,8 +263,20 @@ class MetadataCatalogue implements Metadata {
             recordPageAssignments.computeIfAbsent(row.objectApiName(), name -> new ArrayList<>())
                     .add(definitionCodec.recordPageAssignment(row));
         }
+        Map<String, List<WorkflowDefinition>> workflows = new LinkedHashMap<>();
+        for (WorkflowStore.Row row : workflowStore.all()) {
+            try {
+                workflows.computeIfAbsent(row.objectApiName(), name -> new ArrayList<>())
+                        .add(workflowCodec.definition(row));
+            } catch (IllegalStateException unreadable) {
+                // A stored trigger this release cannot read is left out rather than taking the whole catalogue down;
+                // saving the workflow again (or the dependency graph's report) is how it gets fixed.
+                LOG.warn("A workflow of {} is left out of the catalogue: {}", row.objectApiName(),
+                        unreadable.getMessage());
+            }
+        }
         return new MetadataSnapshot.Definitions(layouts, pages, assignments, applications, rules,
-                typeAssignments, tabs, customPages, recordPageAssignments);
+                typeAssignments, tabs, customPages, recordPageAssignments, workflows);
     }
 
     private FieldDefinition customField(MetadataStore.FieldRow row) {

@@ -61,10 +61,11 @@ final class SchemaConventions {
             "subscription", "entitlement_override", "embedded_token");
 
     /** Tables whose policies may admit a system scope next to the tenant, and the scopes they may name. */
-    static final Set<String> SYSTEM_SCOPE_TABLES = Set.of("outbox_event", "processed_event", "membership");
+    static final Set<String> SYSTEM_SCOPE_TABLES = Set.of("outbox_event", "processed_event", "membership",
+            "workflow_execution", "workflow_schedule");
 
     /** The system scopes that exist (the values of the {@code SystemScope} enum of the tenant module). */
-    static final Set<String> SYSTEM_SCOPES = Set.of("outbox_relay", "membership_lookup");
+    static final Set<String> SYSTEM_SCOPES = Set.of("outbox_relay", "membership_lookup", "workflow_dispatch");
 
     private static final String CURRENT_TENANT = "platform_current_tenant";
     private static final Pattern SCOPE_NAME = Pattern.compile("platform_in_system_scope\\('([a-z_]+)'");

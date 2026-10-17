@@ -22,7 +22,7 @@ final class DependencyGraph {
 
     /** The kinds of thing that can be depended on (a layout assignment and an application only depend). */
     enum Kind { OBJECT, FIELD, RECORD_TYPE, PICKLIST_VALUE, LAYOUT, RECORD_PAGE, APPLICATION, ASSIGNMENT,
-        VALIDATION_RULE, TYPE_ASSIGNMENT, SHARING_RULE, TAB, CUSTOM_PAGE, RECORD_PAGE_ASSIGNMENT }
+        VALIDATION_RULE, TYPE_ASSIGNMENT, SHARING_RULE, TAB, CUSTOM_PAGE, RECORD_PAGE_ASSIGNMENT, WORKFLOW }
 
     /**
      * A definition, by name only (never by what a person typed as a value).
@@ -82,6 +82,10 @@ final class DependencyGraph {
             return new Node(Kind.VALIDATION_RULE, object, rule, null);
         }
 
+        static Node workflow(String object, String workflow) {
+            return new Node(Kind.WORKFLOW, object, workflow, null);
+        }
+
         static Node typeAssignment(String object, String key) {
             return new Node(Kind.TYPE_ASSIGNMENT, object, key, null);
         }
@@ -105,6 +109,7 @@ final class DependencyGraph {
                 case VALIDATION_RULE -> "validation rule " + item + " of " + object;
                 case TYPE_ASSIGNMENT -> "the record type assignment " + item + " of " + object;
                 case SHARING_RULE -> "sharing rule " + item + " of " + object;
+                case WORKFLOW -> "workflow " + item + " of " + object;
                 case TAB -> "tab " + item;
                 case CUSTOM_PAGE -> "custom page " + item;
             };
@@ -228,6 +233,7 @@ final class DependencyGraph {
                     .anyMatch(assignment -> assignment.key().equals(node.item()));
             // A sharing rule only depends on fields; nothing needs it, so it is never asked for.
             case SHARING_RULE -> true;
+            case WORKFLOW -> snapshot.workflow(node.object(), node.item()).isPresent();
         };
     }
 

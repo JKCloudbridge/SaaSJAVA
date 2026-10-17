@@ -152,6 +152,12 @@ public final class ApiPaths {
     /** The scripts of custom pages, uploaded for those who manage metadata (Sprint 18, ADR-0127). */
     public static final String METADATA_CUSTOM_PAGE_ASSETS = V1 + "/metadata/custom-page-assets";
 
+    /** The workflows of the organization: definitions for those who manage them (Sprint 22). */
+    public static final String METADATA_WORKFLOWS = V1 + "/metadata/workflows";
+
+    /** The executions of workflows: the history of what ran, for those who may view workflows (Sprint 22). */
+    public static final String WORKFLOW_EXECUTIONS = V1 + "/workflows/executions";
+
     /** Checking and trying expressions, and the list of functions of the expression language (Sprint 13). */
     public static final String METADATA_EXPRESSIONS = V1 + "/metadata/expressions";
 

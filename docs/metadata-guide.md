@@ -480,3 +480,58 @@ Everything in sections 2 to 19 can be done in Setup without touching the API. Th
 
 **Sharing** (the *Sharing* section; needs the ability *Manage sharing*). Three things per object: the **default access** (private, public read only, public read and write), whether the **role hierarchy** gives access, and **sharing rules**. A rule gives the records owned by the members of a role (or of a public group), or the records that meet a condition on indexed fields, to a role, a role and those below it, or a public group, for reading or for reading and writing; a rule never gives the right to delete. **Sharing is live at once for everyone and is not part of a change set**; the section says so. An object nobody has set up lets every member who may read the object read every record.
 
+
+## 21. Workflows: automation you define as data (Sprint 22)
+
+A **workflow** says: *when this happens to a record of an object (or at this time), if this condition is true, do this.* It is
+a definition like a validation rule: you draft it, check it, publish it (live at once, or in a change set with other changes)
+and roll it back with the release. This sprint delivers the engine and its API; the builder screens and the execution history
+screen come with Sprint 23, and until then workflows are made and read through the API (`/api/v1/metadata/workflows`) and the
+history through `/api/v1/workflows/executions`.
+
+**What starts a workflow (the trigger).** A record was created, changed, or moved to the recycle bin
+(`RECORD_CREATED`, `RECORD_UPDATED`, `RECORD_DELETED`); a record was changed and one of the named fields was among the changed
+ones (`FIELD_CHANGED`); or a time: every day at a time of day (`EVERY_DAY`), every week on a day (`EVERY_WEEK`), once at one
+moment (`DATE_TIME`), or a number of days after the date in a date field of each record (`DAYS_AFTER_DATE`). A scheduled
+trigger has a time zone (`UTC` unless you name another, for example `Europe/Berlin`) and may have a **selection**, a filter that
+says which records it considers (otherwise every record of the object). Triggers from external systems come with the
+integration sprints and are refused until then.
+
+**The condition (optional).** One expression in the same language as validation rules and formulas; it must give true or
+false and may use `TODAY()` and `NOW()`. The workflow runs for a record only when it is true. It is judged on the record **as
+it is when the execution runs**, a moment after the change, not as it was at the change. There is no "old value": "changed to
+Submitted" is written as a condition on the current value (`status__c = 'Submitted'`) together with a trigger on `status__c`.
+You can try a condition on sample values before you save it (`POST .../workflows/{object}/check`).
+
+**The actions.** In order. This release has one type, **Publish event**: it announces a named event
+(`workflow.signal.<name>`) that says which object, record, workflow, execution and step, and carries no value of the record.
+Updating or creating records, e-mail, notifications, approvals and integrations come with Sprints 23 to 28.
+
+**When it runs.** Always **after** the change has been saved, never inside it: a workflow cannot reject, change or slow down a
+save (validation and permissions stay where they were). Each cause makes **one execution**, even if the platform delivers the
+event twice or two servers see it. An execution is queued, then picked up by a worker within a second or two. Timed workflows
+start up to about 15 seconds after their time.
+
+**What you can see afterwards.** Every execution is recorded: which workflow and which **version** of it, the record, the
+status (`QUEUED`, `RUNNING`, `COMPLETED`, `FAILED`, `CANCELLED`, `SKIPPED`), a reason when it did not run to the end, how many
+times a worker picked it up, and each step. The reasons are fixed words: `condition_false`, `condition_not_evaluable` (the
+condition could not be worked out for that record, for example a division by zero), `record_gone`, `record_restored`,
+`workflow_inactive`, `feature_off`, `object_missing`, `workflow_removed`, `action_failed` (with the type of the failure),
+`attempts_exhausted`. The history never keeps a value of a record, the condition or anything you typed. It is kept for 90
+days by default (never fewer than 30).
+
+**Versions.** Changing the trigger, the condition or the actions makes a **new version**; changing the label or the description
+or just switching it on or off does not. An execution always runs the version it was queued under, so publishing an edit never
+changes a run that is already waiting. Switching a workflow **off** (or removing it) also stops the executions that are still
+waiting. Old versions that no execution uses are cleaned up a week after they were replaced.
+
+**What a workflow cannot do yet.** Change a record, send anything, retry a failed step (a failed execution stays `FAILED`; retry,
+dead letters and replay are Sprint 23), start before a save (that is Sprint 25), or react to an external system.
+
+**What stops a removal.** A field or an object that a workflow names (in its trigger, its condition or its selection) cannot be
+removed; the refusal names the workflow. Switch off and remove the workflow first, or change it.
+
+**Who may.** *View workflows* reads definitions and the history; *Manage workflows* creates, changes, switches and removes them
+and tries conditions; making a change live also needs *Publish metadata changes*, and whoever checks or publishes a change set
+that contains a workflow needs *Manage workflows* as well. The organization's plan must include the feature **workflows**
+(a workflow can be made and switched on only then; switching off and removing are always possible).

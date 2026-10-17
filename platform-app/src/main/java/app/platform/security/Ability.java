@@ -89,7 +89,20 @@ public enum Ability {
      */
     VIEWS_SHARE("views.share", "Share list views",
             "Save a list view for everyone who may read the object, and change or remove the shared list views that "
-                    + "other members made.");
+                    + "other members made."),
+
+    /** See the workflows of the organization and the history of their executions (Sprint 22, ADR-0136). */
+    WORKFLOWS_VIEW("workflows.view", "View workflows",
+            "See the workflows of the organization and the history of what they ran, with the reason an execution "
+                    + "was skipped or failed."),
+
+    /**
+     * Create, change, switch on or off and remove workflows (Sprint 22). Making a workflow live also needs the ability
+     * to publish metadata changes, as every definition does (ADR-0068).
+     */
+    WORKFLOWS_MANAGE("workflows.manage", "Manage workflows",
+            "Create, change, switch on or off and remove workflows, and try a condition on sample values. Making a "
+                    + "change live needs the ability to publish metadata changes as well.");
 
     private final String key;
     private final String title;

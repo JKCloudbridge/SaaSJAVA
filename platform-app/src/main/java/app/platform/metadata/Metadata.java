@@ -49,6 +49,15 @@ public interface Metadata {
     List<ValidationRule> validationRules(String objectApiName);
 
     /**
+     * The workflows of the object (Sprint 22), by API name, active or not, each in the definition that new executions
+     * use; empty when it has none.
+     */
+    List<WorkflowDefinition> workflows(String objectApiName);
+
+    /** Every workflow of the organization (Sprint 22), by object and API name, active or not. */
+    List<WorkflowDefinition> workflows();
+
+    /**
      * The layout the object uses for a profile and a record type (Sprint 12, ADR-0071). The rules are tried in this
      * order and the first that applies wins: the profile together with the record type, the record type alone (its
      * layout), the profile alone, the default layout of the object. An assignment of a profile that no longer exists

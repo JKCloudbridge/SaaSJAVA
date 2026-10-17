@@ -1,6 +1,7 @@
 # ADR-0015: Row level security: roles, policies, system scope and what was verified
 
-- **Status:** Accepted
+- **Status:** Accepted. Amended by [ADR-0135](0135-the-workflow-dispatch-system-scope.md) (a third system scope, `workflow_dispatch`,
+  admitted by two tables of the workflow module)
 - **Date:** 2026-10-01
 - **Sprint:** S2
 - **Implements:** [ADR-0003](0003-rls-defence-in-depth.md) (database layer). Supersedes nothing.

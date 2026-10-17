@@ -19,6 +19,9 @@ import app.platformapi.CreateRecordPageRequest;
 import app.platformapi.CreateRecordTypeAssignmentRequest;
 import app.platformapi.CreateRecordTypeRequest;
 import app.platformapi.CreateValidationRuleRequest;
+import app.platformapi.CreateWorkflowRequest;
+import app.platformapi.UpdateWorkflowRequest;
+import app.platformapi.WorkflowView;
 import app.platformapi.FieldView;
 import app.platformapi.LayoutAssignmentView;
 import app.platformapi.LayoutView;
@@ -72,11 +75,14 @@ class ChangeApplier {
     private final RecordPageAssignmentService recordPageAssignments;
     private final RecordTypeAssignmentService typeAssignments;
     private final ValidationRuleService rules;
+    private final WorkflowService workflows;
     private final ChangeCodec codec;
 
     ChangeApplier(MetadataService metadata, RecordTypeService recordTypes, DefinitionService definitions,
             AssignmentService assignments, RecordPageAssignmentService recordPageAssignments,
-            ValidationRuleService rules, RecordTypeAssignmentService typeAssignments, ChangeCodec codec) {
+            ValidationRuleService rules, RecordTypeAssignmentService typeAssignments, WorkflowService workflows,
+            ChangeCodec codec) {
+        this.workflows = workflows;
         this.rules = rules;
         this.metadata = metadata;
         this.recordTypes = recordTypes;
@@ -131,6 +137,9 @@ class ChangeApplier {
             case CREATE_RECORD_PAGE_ASSIGNMENT -> createRecordPageAssignment(caller, change);
             case UPDATE_RECORD_PAGE_ASSIGNMENT -> updateRecordPageAssignment(caller, change);
             case DELETE_RECORD_PAGE_ASSIGNMENT -> deleteRecordPageAssignment(caller, change);
+            case CREATE_WORKFLOW -> createWorkflow(caller, change);
+            case UPDATE_WORKFLOW -> updateWorkflow(caller, change);
+            case DELETE_WORKFLOW -> deleteWorkflow(caller, change);
         };
     }
 
@@ -507,6 +516,32 @@ class ChangeApplier {
         rules.delete(caller, change.object(), change.item());
         return new Applied(Boolean.TRUE, List.of(codec.makeValidationRule(before)),
                 List.of(item("REMOVED", "VALIDATION_RULE", change.object(), change.item())));
+    }
+
+    // ---- workflows (Sprint 22) ----
+
+    private Applied createWorkflow(Caller caller, Change change) {
+        WorkflowView made = workflows.create(caller, change.object(), codec.read(change, CreateWorkflowRequest.class));
+        return new Applied(made, List.of(codec.removeWorkflow(change.object(), made.apiName())),
+                List.of(item("ADDED", "WORKFLOW", change.object(), made.apiName())));
+    }
+
+    private Applied updateWorkflow(Caller caller, Change change) {
+        WorkflowView before = workflows.workflow(change.object(), change.item());
+        WorkflowView after = workflows.update(caller, change.object(), change.item(),
+                codec.read(change, UpdateWorkflowRequest.class));
+        if (after.version().equals(before.version())) {
+            return new Applied(after, List.of(), List.of());
+        }
+        return new Applied(after, List.of(codec.restoreWorkflow(before, after.version())),
+                List.of(item("CHANGED", "WORKFLOW", change.object(), after.apiName())));
+    }
+
+    private Applied deleteWorkflow(Caller caller, Change change) {
+        WorkflowView before = workflows.workflow(change.object(), change.item());
+        workflows.delete(caller, change.object(), change.item());
+        return new Applied(Boolean.TRUE, List.of(codec.makeWorkflow(before)),
+                List.of(item("REMOVED", "WORKFLOW", change.object(), change.item())));
     }
 
     private static ReleaseItemView item(String action, String kind, String object, String item) {

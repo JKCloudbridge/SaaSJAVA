@@ -5572,6 +5572,329 @@
         "tags" : [ "Metadata" ]
       }
     },
+    "/api/v1/metadata/workflows" : {
+      "get" : {
+        "description" : "For members who may view workflows. Name an object to list only its workflows. NOT_FOUND for an object the organization does not have.",
+        "operationId" : "listWorkflows",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "object",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListWorkflowView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The workflows of the organization",
+        "tags" : [ "Workflows" ]
+      }
+    },
+    "/api/v1/metadata/workflows/{objectApiName}" : {
+      "post" : {
+        "description" : "Live at once, as a release of one change. The name is turned into the permanent API name with the ending __c. The trigger, the condition and the actions are closed data: the condition is in the expression language (true or false, it may use TODAY() and NOW()), and the actions are of the types of this release. The request is checked here (a VALIDATION_ERROR names every place); whether the fields it names exist is checked after the change and a CONFLICT names what is wrong. Executions run after the commit of the record change, never inside it. CONFLICT for an object whose records belong to the platform, at the limit, when the plan has no workflows, or when the result would break a dependency. Audited by name and counts, never by the text.",
+        "operationId" : "createWorkflow",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateWorkflowRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWorkflowView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Add a workflow to an object",
+        "tags" : [ "Workflows" ]
+      }
+    },
+    "/api/v1/metadata/workflows/{objectApiName}/check" : {
+      "post" : {
+        "description" : "Answers what would happen to a record with these values: RUNS (the condition is true, or there is none), SKIPPED (false or no value) or ERROR with the place when the evaluation itself fails. A condition that is not valid is a VALIDATION_ERROR naming the place. There are no records yet, so the values are typed as text for the type of each field. Nothing is stored and nothing is logged. Needs workflows.manage.",
+        "operationId" : "checkWorkflowCondition",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CheckWorkflowConditionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWorkflowConditionCheckView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Try a condition on sample values",
+        "tags" : [ "Workflows" ]
+      }
+    },
+    "/api/v1/metadata/workflows/{objectApiName}/{workflowApiName}" : {
+      "delete" : {
+        "description" : "Live at once, as a release of one change. Its queued executions end as CANCELLED with the reason workflow_removed; finished ones stay in the history until the clean-up. The undo of the release makes it again, as a new workflow.",
+        "operationId" : "deleteWorkflow",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "workflowApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a workflow",
+        "tags" : [ "Workflows" ]
+      },
+      "get" : {
+        "description" : "NOT_FOUND for a workflow the object does not have.",
+        "operationId" : "getWorkflow",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "workflowApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWorkflowView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One workflow",
+        "tags" : [ "Workflows" ]
+      },
+      "put" : {
+        "description" : "Live at once, as a release of one change. The API name and the object never change. A change of the trigger, the condition or the actions makes a new version of the definition; executions already queued keep the version they were created under. The trigger, the condition and the actions are closed data: the condition is in the expression language (true or false, it may use TODAY() and NOW()), and the actions are of the types of this release. The request is checked here (a VALIDATION_ERROR names every place); whether the fields it names exist is checked after the change and a CONFLICT names what is wrong. Executions run after the commit of the record change, never inside it. CONCURRENT_MODIFICATION when someone changed it since it was read.",
+        "operationId" : "updateWorkflow",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "workflowApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateWorkflowRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWorkflowView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change a workflow",
+        "tags" : [ "Workflows" ]
+      }
+    },
+    "/api/v1/metadata/workflows/{objectApiName}/{workflowApiName}/activation" : {
+      "post" : {
+        "description" : "Live at once, as a release of one change, and without a new version of the definition. A workflow that is switched off starts no new execution and also stops the queued ones (they end as SKIPPED with the reason workflow_inactive). CONFLICT when the plan has no workflows and the workflow is being switched on. CONCURRENT_MODIFICATION when someone changed it since it was read.",
+        "operationId" : "activateWorkflow",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "workflowApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WorkflowActivationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWorkflowView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Switch a workflow on or off",
+        "tags" : [ "Workflows" ]
+      }
+    },
     "/api/v1/objects/{objectApiName}/form" : {
       "get" : {
         "description" : "What a screen needs to draw the list, the create form and the edit form of the object for this member, in one answer. Only the fields the member may read are described (the others are absent, not masked), restricted to what the record type offers, with what they may type, the comparisons a filter accepts and whether a list can be ordered by each. The layout is the object's page layout for the member's profile and the record type, reduced to what they see, or one the platform makes when the object has none. recordType describes the object for one of the record types the member may use (VALIDATION_ERROR at recordType for any other, answered like a type that does not exist); without it, recordId (the record being edited) decides by the type that record holds, and without both the member's default type does. layout names the page layout to draw (a record page names one); a name that is not a layout of the object is ignored and the member's own resolution decides. Presentation only: every request that follows is decided again. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read (all three answer alike). Also NOT_FOUND for a record they cannot reach. Organization hosts only.",
@@ -9528,6 +9851,140 @@
         "summary" : "The organization of this host name",
         "tags" : [ "Tenant" ]
       }
+    },
+    "/api/v1/workflows/executions" : {
+      "get" : {
+        "description" : "Newest first, one page at a time, with filters for the workflow, the object, the status, the record and the time the execution was queued. For members who may view workflows. NOT_FOUND on the platform host, FORBIDDEN without the ability, VALIDATION_ERROR for a filter that is malformed.",
+        "operationId" : "listWorkflowExecutions",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 200,
+            "minimum" : 1
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 512,
+            "minLength" : 0
+          }
+        }, {
+          "in" : "query",
+          "name" : "workflow",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "object",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "record",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiPageResponseWorkflowExecutionView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The executions of workflows",
+        "tags" : [ "Workflows" ]
+      }
+    },
+    "/api/v1/workflows/executions/{executionId}" : {
+      "get" : {
+        "description" : "NOT_FOUND for an execution the organization does not have.",
+        "operationId" : "getWorkflowExecution",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "executionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWorkflowExecutionView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One execution with its steps",
+        "tags" : [ "Workflows" ]
+      }
     }
   },
   "components" : {
@@ -9760,6 +10217,21 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/RecordView"
+            }
+          },
+          "pagination" : {
+            "$ref" : "#/components/schemas/Pagination"
+          }
+        },
+        "required" : [ "data", "pagination" ]
+      },
+      "ApiPageResponseWorkflowExecutionView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WorkflowExecutionView"
             }
           },
           "pagination" : {
@@ -10470,6 +10942,18 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListWorkflowView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WorkflowView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseLookupLabelsView" : {
         "type" : "object",
         "properties" : {
@@ -10754,6 +11238,33 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/ValidationRuleView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseWorkflowConditionCheckView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/WorkflowConditionCheckView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseWorkflowExecutionView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/WorkflowExecutionView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseWorkflowView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/WorkflowView"
           }
         },
         "required" : [ "data" ]
@@ -11094,6 +11605,9 @@
           "createValidationRule" : {
             "$ref" : "#/components/schemas/CreateValidationRuleRequest"
           },
+          "createWorkflow" : {
+            "$ref" : "#/components/schemas/CreateWorkflowRequest"
+          },
           "itemApiName" : {
             "type" : "string",
             "maxLength" : 60,
@@ -11144,6 +11658,9 @@
           },
           "updateValidationRule" : {
             "$ref" : "#/components/schemas/UpdateValidationRuleRequest"
+          },
+          "updateWorkflow" : {
+            "$ref" : "#/components/schemas/UpdateWorkflowRequest"
           }
         },
         "required" : [ "kind" ]
@@ -11291,6 +11808,22 @@
           }
         },
         "required" : [ "expression", "objectApiName", "purpose" ]
+      },
+      "CheckWorkflowConditionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "condition" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "values" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }
+        }
       },
       "CompleteSignUpRequest" : {
         "type" : "object",
@@ -11729,6 +12262,46 @@
           }
         },
         "required" : [ "errorMessage", "expression", "label", "name" ]
+      },
+      "CreateWorkflowRequest" : {
+        "type" : "object",
+        "properties" : {
+          "actions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WorkflowActionSpec"
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          },
+          "active" : {
+            "type" : "boolean"
+          },
+          "condition" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "trigger" : {
+            "$ref" : "#/components/schemas/WorkflowTriggerSpec"
+          }
+        },
+        "required" : [ "actions", "label", "name", "trigger" ]
       },
       "CurrentUser" : {
         "type" : "object",
@@ -15948,6 +16521,45 @@
         },
         "required" : [ "active", "errorMessage", "expression", "label", "version" ]
       },
+      "UpdateWorkflowRequest" : {
+        "type" : "object",
+        "properties" : {
+          "actions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WorkflowActionSpec"
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          },
+          "active" : {
+            "type" : "boolean"
+          },
+          "condition" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "trigger" : {
+            "$ref" : "#/components/schemas/WorkflowTriggerSpec"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "actions", "active", "label", "trigger", "version" ]
+      },
       "ValidateRecordRequest" : {
         "type" : "object",
         "properties" : {
@@ -16223,6 +16835,239 @@
             "maxLength" : 255
           }
         }
+      },
+      "WorkflowActionSpec" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "settings" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "type" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "name", "type" ]
+      },
+      "WorkflowActivationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "active", "version" ]
+      },
+      "WorkflowConditionCheckView" : {
+        "type" : "object",
+        "properties" : {
+          "outcome" : {
+            "type" : "string"
+          },
+          "problem" : {
+            "$ref" : "#/components/schemas/ExpressionProblemView"
+          }
+        },
+        "required" : [ "outcome" ]
+      },
+      "WorkflowExecutionView" : {
+        "type" : "object",
+        "properties" : {
+          "attempts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "failureType" : {
+            "type" : "string"
+          },
+          "finishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "queuedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "recordId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "recordVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "steps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WorkflowStepView"
+            }
+          },
+          "trigger" : {
+            "type" : "string"
+          },
+          "workflow" : {
+            "type" : "string"
+          },
+          "workflowVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "attempts", "id", "objectApiName", "queuedAt", "recordId", "status", "trigger", "workflow", "workflowVersion" ]
+      },
+      "WorkflowStepView" : {
+        "type" : "object",
+        "properties" : {
+          "failureType" : {
+            "type" : "string"
+          },
+          "finishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "position" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "name", "position", "startedAt", "status", "type" ]
+      },
+      "WorkflowTriggerSpec" : {
+        "type" : "object",
+        "properties" : {
+          "at" : {
+            "type" : "string",
+            "maxLength" : 16,
+            "minLength" : 0
+          },
+          "dayOfWeek" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          },
+          "days" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "field" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "fields" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 60,
+              "minLength" : 0
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          },
+          "kind" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          },
+          "selection" : {
+            "$ref" : "#/components/schemas/QueryFilterNode"
+          },
+          "time" : {
+            "type" : "string",
+            "maxLength" : 5,
+            "minLength" : 0
+          },
+          "timeZone" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "kind" ]
+      },
+      "WorkflowView" : {
+        "type" : "object",
+        "properties" : {
+          "actions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WorkflowActionSpec"
+            }
+          },
+          "active" : {
+            "type" : "boolean"
+          },
+          "apiName" : {
+            "type" : "string"
+          },
+          "condition" : {
+            "type" : "string"
+          },
+          "definitionVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "trigger" : {
+            "$ref" : "#/components/schemas/WorkflowTriggerSpec"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "actions", "active", "apiName", "definitionVersion", "description", "label", "objectApiName", "trigger", "version" ]
       }
     }
   }

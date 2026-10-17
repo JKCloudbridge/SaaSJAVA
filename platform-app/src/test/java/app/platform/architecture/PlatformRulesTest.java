@@ -95,12 +95,13 @@ class PlatformRulesTest {
     }
 
     @Test
-    void onlyTheTenantOutboxAndIdentityModulesEnterASystemScope() {
+    void onlyTheTenantOutboxIdentityAndWorkflowModulesEnterASystemScope() {
         // Working across tenants is the one deliberate exception to tenant isolation (ADR-0015); it must stay
         // visible in a few places, never spread through the business modules. Identity joined in Sprint 5 for the
-        // read-only membership lookup behind the organization switcher (ADR-0027); the next test narrows it.
+        // read-only membership lookup behind the organization switcher (ADR-0027); workflow joined in Sprint 22 for
+        // the dispatcher (ADR-0135). The next two tests narrow both.
         noClasses().that().resideOutsideOfPackages("app.platform.tenant..", "app.platform.outbox..",
-                        "app.platform.identity..")
+                        "app.platform.identity..", "app.platform.workflow..")
                 .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.tenant.SystemScope")
                 .because("system scopes are platform infrastructure")
                 .allowEmptyShould(true)
@@ -115,6 +116,19 @@ class PlatformRulesTest {
                 .and().doNotHaveFullyQualifiedName("app.platform.identity.internal.OrganizationDirectory")
                 .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.tenant.SystemScope")
                 .because("only the organization directory may work across organizations")
+                .allowEmptyShould(true)
+                .check(platform);
+    }
+
+    @Test
+    void insideWorkflowOnlyTheDispatcherEntersASystemScope() {
+        // The dispatcher (ADR-0135) is the one place that claims queued executions and due schedules across
+        // organizations. Everything else in the module runs inside one organization's own tenant context.
+        noClasses().that().resideInAPackage("app.platform.workflow..")
+                .and().doNotHaveFullyQualifiedName("app.platform.workflow.internal.DispatchStore")
+                .and().doNotHaveFullyQualifiedName("app.platform.workflow.internal.Dispatcher")
+                .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.tenant.SystemScope")
+                .because("only the dispatcher may work across organizations")
                 .allowEmptyShould(true)
                 .check(platform);
     }

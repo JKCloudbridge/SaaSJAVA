@@ -2104,6 +2104,114 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/metadata/workflows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The workflows of the organization
+         * @description For members who may view workflows. Name an object to list only its workflows. NOT_FOUND for an object the organization does not have.
+         */
+        get: operations["listWorkflows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/workflows/{objectApiName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a workflow to an object
+         * @description Live at once, as a release of one change. The name is turned into the permanent API name with the ending __c. The trigger, the condition and the actions are closed data: the condition is in the expression language (true or false, it may use TODAY() and NOW()), and the actions are of the types of this release. The request is checked here (a VALIDATION_ERROR names every place); whether the fields it names exist is checked after the change and a CONFLICT names what is wrong. Executions run after the commit of the record change, never inside it. CONFLICT for an object whose records belong to the platform, at the limit, when the plan has no workflows, or when the result would break a dependency. Audited by name and counts, never by the text.
+         */
+        post: operations["createWorkflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/workflows/{objectApiName}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try a condition on sample values
+         * @description Answers what would happen to a record with these values: RUNS (the condition is true, or there is none), SKIPPED (false or no value) or ERROR with the place when the evaluation itself fails. A condition that is not valid is a VALIDATION_ERROR naming the place. There are no records yet, so the values are typed as text for the type of each field. Nothing is stored and nothing is logged. Needs workflows.manage.
+         */
+        post: operations["checkWorkflowCondition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/workflows/{objectApiName}/{workflowApiName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One workflow
+         * @description NOT_FOUND for a workflow the object does not have.
+         */
+        get: operations["getWorkflow"];
+        /**
+         * Change a workflow
+         * @description Live at once, as a release of one change. The API name and the object never change. A change of the trigger, the condition or the actions makes a new version of the definition; executions already queued keep the version they were created under. The trigger, the condition and the actions are closed data: the condition is in the expression language (true or false, it may use TODAY() and NOW()), and the actions are of the types of this release. The request is checked here (a VALIDATION_ERROR names every place); whether the fields it names exist is checked after the change and a CONFLICT names what is wrong. Executions run after the commit of the record change, never inside it. CONCURRENT_MODIFICATION when someone changed it since it was read.
+         */
+        put: operations["updateWorkflow"];
+        post?: never;
+        /**
+         * Remove a workflow
+         * @description Live at once, as a release of one change. Its queued executions end as CANCELLED with the reason workflow_removed; finished ones stay in the history until the clean-up. The undo of the release makes it again, as a new workflow.
+         */
+        delete: operations["deleteWorkflow"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/workflows/{objectApiName}/{workflowApiName}/activation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch a workflow on or off
+         * @description Live at once, as a release of one change, and without a new version of the definition. A workflow that is switched off starts no new execution and also stops the queued ones (they end as SKIPPED with the reason workflow_inactive). CONFLICT when the plan has no workflows and the workflow is being switched on. CONCURRENT_MODIFICATION when someone changed it since it was read.
+         */
+        post: operations["activateWorkflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/objects/{objectApiName}/form": {
         parameters: {
             query?: never;
@@ -3580,6 +3688,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/workflows/executions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The executions of workflows
+         * @description Newest first, one page at a time, with filters for the workflow, the object, the status, the record and the time the execution was queued. For members who may view workflows. NOT_FOUND on the platform host, FORBIDDEN without the ability, VALIDATION_ERROR for a filter that is malformed.
+         */
+        get: operations["listWorkflowExecutions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflows/executions/{executionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One execution with its steps
+         * @description NOT_FOUND for an execution the organization does not have.
+         */
+        get: operations["getWorkflowExecution"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3655,6 +3803,10 @@ export interface components {
         };
         ApiPageResponseRecordView: {
             data: components["schemas"]["RecordView"][];
+            pagination: components["schemas"]["Pagination"];
+        };
+        ApiPageResponseWorkflowExecutionView: {
+            data: components["schemas"]["WorkflowExecutionView"][];
             pagination: components["schemas"]["Pagination"];
         };
         ApiResponseAccessPolicyView: {
@@ -3852,6 +4004,9 @@ export interface components {
         ApiResponseListViewView: {
             data: components["schemas"]["ListViewView"];
         };
+        ApiResponseListWorkflowView: {
+            data: components["schemas"]["WorkflowView"][];
+        };
         ApiResponseLookupLabelsView: {
             data: components["schemas"]["LookupLabelsView"];
         };
@@ -3947,6 +4102,15 @@ export interface components {
         };
         ApiResponseValidationRuleView: {
             data: components["schemas"]["ValidationRuleView"];
+        };
+        ApiResponseWorkflowConditionCheckView: {
+            data: components["schemas"]["WorkflowConditionCheckView"];
+        };
+        ApiResponseWorkflowExecutionView: {
+            data: components["schemas"]["WorkflowExecutionView"];
+        };
+        ApiResponseWorkflowView: {
+            data: components["schemas"]["WorkflowView"];
         };
         /** @description What an application contains beyond its name: an icon, the profiles that see it, and its navigation in order. */
         ApplicationDefinition: {
@@ -4065,6 +4229,7 @@ export interface components {
             createRecordTypeAssignment?: components["schemas"]["CreateRecordTypeAssignmentRequest"];
             createTab?: components["schemas"]["CreateTabRequest"];
             createValidationRule?: components["schemas"]["CreateValidationRuleRequest"];
+            createWorkflow?: components["schemas"]["CreateWorkflowRequest"];
             itemApiName?: string;
             kind: string;
             objectApiName?: string;
@@ -4080,6 +4245,7 @@ export interface components {
             updateRecordTypeAssignment?: components["schemas"]["UpdateRecordTypeAssignmentRequest"];
             updateTab?: components["schemas"]["UpdateTabRequest"];
             updateValidationRule?: components["schemas"]["UpdateValidationRuleRequest"];
+            updateWorkflow?: components["schemas"]["UpdateWorkflowRequest"];
         };
         ChangeSetReportView: {
             items: components["schemas"]["ReleaseItemView"][];
@@ -4124,6 +4290,12 @@ export interface components {
             objectApiName: string;
             purpose: string;
             resultType?: string;
+        };
+        CheckWorkflowConditionRequest: {
+            condition?: string;
+            values?: {
+                [key: string]: string;
+            };
         };
         CompleteSignUpRequest: {
             displayName: string;
@@ -4237,6 +4409,15 @@ export interface components {
             expression: string;
             label: string;
             name: string;
+        };
+        CreateWorkflowRequest: {
+            actions: components["schemas"]["WorkflowActionSpec"][];
+            active?: boolean;
+            condition?: string;
+            description?: string;
+            label: string;
+            name: string;
+            trigger: components["schemas"]["WorkflowTriggerSpec"];
         };
         CurrentUser: {
             abilities: string[];
@@ -5532,6 +5713,16 @@ export interface components {
             /** Format: int64 */
             version: number;
         };
+        UpdateWorkflowRequest: {
+            actions: components["schemas"]["WorkflowActionSpec"][];
+            active: boolean;
+            condition?: string;
+            description?: string;
+            label: string;
+            trigger: components["schemas"]["WorkflowTriggerSpec"];
+            /** Format: int64 */
+            version: number;
+        };
         ValidateRecordRequest: {
             clear?: string[];
             fields?: {
@@ -5581,6 +5772,85 @@ export interface components {
             operator?: "EQUALS" | "NOT_EQUALS" | "IS_EMPTY" | "IS_NOT_EMPTY";
             value?: string | number | boolean;
         } & (unknown & unknown)) & (unknown | unknown | unknown | unknown);
+        WorkflowActionSpec: {
+            name: string;
+            settings?: {
+                [key: string]: string;
+            };
+            type: string;
+        };
+        WorkflowActivationRequest: {
+            active: boolean;
+            /** Format: int64 */
+            version: number;
+        };
+        WorkflowConditionCheckView: {
+            outcome: string;
+            problem?: components["schemas"]["ExpressionProblemView"];
+        };
+        WorkflowExecutionView: {
+            /** Format: int32 */
+            attempts: number;
+            failureType?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            /** Format: uuid */
+            id: string;
+            objectApiName: string;
+            /** Format: date-time */
+            queuedAt: string;
+            reason?: string;
+            /** Format: uuid */
+            recordId: string;
+            /** Format: int64 */
+            recordVersion?: number;
+            /** Format: date-time */
+            startedAt?: string;
+            status: string;
+            steps?: components["schemas"]["WorkflowStepView"][];
+            trigger: string;
+            workflow: string;
+            /** Format: int32 */
+            workflowVersion: number;
+        };
+        WorkflowStepView: {
+            failureType?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            name: string;
+            /** Format: int32 */
+            position: number;
+            /** Format: date-time */
+            startedAt: string;
+            status: string;
+            type: string;
+        };
+        WorkflowTriggerSpec: {
+            at?: string;
+            dayOfWeek?: string;
+            /** Format: int32 */
+            days?: number;
+            field?: string;
+            fields?: string[];
+            kind: string;
+            selection?: components["schemas"]["QueryFilterNode"];
+            time?: string;
+            timeZone?: string;
+        };
+        WorkflowView: {
+            actions: components["schemas"]["WorkflowActionSpec"][];
+            active: boolean;
+            apiName: string;
+            condition?: string;
+            /** Format: int32 */
+            definitionVersion: number;
+            description: string;
+            label: string;
+            objectApiName: string;
+            trigger: components["schemas"]["WorkflowTriggerSpec"];
+            /** Format: int64 */
+            version: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -10065,6 +10335,241 @@ export interface operations {
             };
         };
     };
+    listWorkflows: {
+        parameters: {
+            query?: {
+                object?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListWorkflowView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWorkflowRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWorkflowView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    checkWorkflowCondition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckWorkflowConditionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWorkflowConditionCheckView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                workflowApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWorkflowView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                workflowApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWorkflowRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWorkflowView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                workflowApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    activateWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                workflowApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowActivationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWorkflowView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     getObjectForm: {
         parameters: {
             query?: {
@@ -13061,6 +13566,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseTenantSummary"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listWorkflowExecutions: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+                workflow?: string;
+                object?: string;
+                status?: string;
+                record?: string;
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiPageResponseWorkflowExecutionView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getWorkflowExecution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                executionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWorkflowExecutionView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

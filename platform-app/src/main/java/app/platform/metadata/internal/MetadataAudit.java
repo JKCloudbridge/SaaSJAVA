@@ -113,6 +113,32 @@ class MetadataAudit {
                 .onObject(object + "." + name, null));
     }
 
+    // ---- workflows (Sprint 22, ADR-0136): names, the kind of trigger and counts, never a condition or a setting ----
+
+    void workflowCreated(UUID actor, String object, String name, boolean active, String triggerKind, int actions) {
+        write(AuditRecord.of("metadata.workflow.created", AuditOutcome.SUCCESS).forUser(actor)
+                .onObject(object + "." + name, null).with("active", Boolean.toString(active))
+                .with("trigger", triggerKind).with("actions", Integer.toString(actions)));
+    }
+
+    void workflowUpdated(UUID actor, String object, String name, String changed, boolean active,
+            int definitionVersion) {
+        write(AuditRecord.of("metadata.workflow.updated", AuditOutcome.SUCCESS).forUser(actor)
+                .onObject(object + "." + name, null).with("changed", changed)
+                .with("active", Boolean.toString(active))
+                .with("definition_version", Integer.toString(definitionVersion)));
+    }
+
+    void workflowActivated(UUID actor, String object, String name, boolean active) {
+        write(AuditRecord.of(active ? "metadata.workflow.activated" : "metadata.workflow.deactivated",
+                AuditOutcome.SUCCESS).forUser(actor).onObject(object + "." + name, null));
+    }
+
+    void workflowDeleted(UUID actor, String object, String name) {
+        write(AuditRecord.of("metadata.workflow.deleted", AuditOutcome.SUCCESS).forUser(actor)
+                .onObject(object + "." + name, null));
+    }
+
     /**
      * The audit object key of a definition: the object and the name, joined by a dot. The key of a layout assignment
      * has a tilde between the profile and the record type, which an audit key does not allow, so it becomes a dot.
