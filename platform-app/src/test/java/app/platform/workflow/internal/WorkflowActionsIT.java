@@ -229,8 +229,11 @@ class WorkflowActionsIT extends ActionsSupport {
         assertThat(JsonPath.<List<String>>read(made.body(), "$.data[*].fields.origin__c")).containsExactly(id);
         assertThat(JsonPath.<List<String>>read(made.body(), "$.data[*].ownerId")).containsExactly(owner);
         assertThat(statuses(setup.organization())).containsExactly("COMPLETED");
-        assertThat(owner("select count(*) from outbox_event where event_type = 'record.created' and payload ->> "
-                + "'object' = ?", OBJECT_B)).containsExactly("1");
+        // Scoped to this organization: an unscoped count over the whole shared test database would also see the
+        // ObjectB__c records other test classes make while the full suite runs (the same mistake Sprint 24 found and
+        // fixed in its own ApprovalMailIT).
+        assertThat(scalar(setup.organization(), "select count(*) from outbox_event where event_type = "
+                + "'record.created' and payload ->> 'object' = ?", OBJECT_B)).isEqualTo(1);
     }
 
     @Test
