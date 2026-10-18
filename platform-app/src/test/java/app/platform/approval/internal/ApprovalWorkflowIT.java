@@ -68,9 +68,13 @@ class ApprovalWorkflowIT extends ApprovalSupport {
         return "{\"kind\":\"APPROVAL_OUTCOME\",\"process\":\"" + process + "\",\"outcome\":\"" + outcome + "\"}";
     }
 
-    /** Waits until the organization has this many executions and none of them is still waiting or running. */
+    /**
+     * Waits until the organization has this many executions and none of them is still waiting or running. The budget
+     * matches {@code settle()} (not a correctness bound): a loaded CI runner can be slower than a developer machine
+     * to drain the dispatcher's queue.
+     */
     private static void executionsDone(Organization organization, int count) {
-        Awaitility.await().atMost(Duration.ofSeconds(120)).pollInterval(Duration.ofMillis(100)).until(
+        Awaitility.await().atMost(Duration.ofSeconds(180)).pollInterval(Duration.ofMillis(100)).until(
                 () -> scalar(organization, "select count(*) from workflow_execution") >= count
                         && scalar(organization, "select count(*) from workflow_execution where status in "
                                 + "('QUEUED', 'RUNNING')") == 0);
