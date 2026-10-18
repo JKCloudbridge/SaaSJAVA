@@ -104,12 +104,13 @@ class WorkflowService {
                 .map(type -> new WorkflowCatalogueView.CatalogueActionType(type.type(), type.summary(),
                         type.assignments().name(), type.assignedObject(), type.settings().stream().map(setting ->
                                 new WorkflowCatalogueView.CatalogueSetting(setting.key(), setting.required(),
-                                        setting.help(), setting.allowed(), setting.refers().name())).toList()))
+                                        setting.help(), setting.allowed(), setting.refers().name())).toList(),
+                        WorkflowActionTypes.beforeSave(type.type()) ? "BEFORE_SAVE" : "AFTER_SAVE"))
                 .toList();
         List<WorkflowCatalogueView.CatalogueTriggerKind> kinds = java.util.Arrays
                 .stream(WorkflowDefinition.Kind.values())
                 .map(kind -> new WorkflowCatalogueView.CatalogueTriggerKind(kind.name(), triggerSummary(kind),
-                        kind.scheduled(), triggerProperties(kind)))
+                        kind.scheduled(), triggerProperties(kind), kind.beforeSave() ? "BEFORE_SAVE" : "AFTER_SAVE"))
                 .toList();
         MetadataProperties.Limits limits = properties.limits();
         return new WorkflowCatalogueView(types, kinds, new WorkflowCatalogueView.CatalogueLimits(
@@ -128,6 +129,8 @@ class WorkflowService {
             case DATE_TIME -> "Once, at one moment, for each record that meets the selection.";
             case DAYS_AFTER_DATE -> "A number of days after the date in a field of each record.";
             case APPROVAL_OUTCOME -> "An approval of a record of the object ends: approved, rejected or withdrawn.";
+            case BEFORE_CREATE -> "Before a new record of the object is stored, inside the save.";
+            case BEFORE_UPDATE -> "Before a change to a record of the object is stored, inside the save.";
         };
     }
 
@@ -140,6 +143,7 @@ class WorkflowService {
             case DATE_TIME -> List.of("timeZone", "at", "selection");
             case DAYS_AFTER_DATE -> List.of("field", "days", "timeZone", "time", "selection");
             case APPROVAL_OUTCOME -> List.of("process", "outcome");
+            case BEFORE_CREATE, BEFORE_UPDATE -> List.of();
         };
     }
 
@@ -235,6 +239,7 @@ class WorkflowService {
         if (store.nameTaken(objectApiName, apiName)) {
             throw ApiException.validation("name", "A workflow with this name exists already on this object.");
         }
+        requireRoomForBeforeSave(objectApiName, checked.trigger());
         boolean active = request.active() == null || request.active();
         if (active) {
             requireFeature();
@@ -283,6 +288,11 @@ class WorkflowService {
         if (request.active() && (!row.active() || definitionChanged)) {
             requireFeature();
         }
+        // The kind of a workflow cannot change between phases: it would carry actions of the wrong one.
+        if (beforeSave(checked.trigger()) != beforeSave(oldTrigger)) {
+            throw ApiException.validation("trigger.kind", "A before-save automation stays one, and any other "
+                    + "workflow stays after-save: make a new workflow instead.");
+        }
         int definitionVersion = row.definitionVersion();
         versions.wrote();
         if (definitionChanged) {
@@ -322,6 +332,19 @@ class WorkflowService {
     private void requireManage(Caller caller) {
         if (!permissions.has(caller.membershipId(), Ability.WORKFLOWS_MANAGE)) {
             throw new ApiException(ErrorCode.FORBIDDEN);
+        }
+    }
+
+    private static boolean beforeSave(WorkflowTriggerSpec trigger) {
+        return WorkflowDefinition.Kind.fromCode(trigger.kind()).map(WorkflowDefinition.Kind::beforeSave)
+                .orElse(false);
+    }
+
+    /** An object has a bounded number of before-save automations: each one runs inside every save (ADR-0160). */
+    private void requireRoomForBeforeSave(String objectApiName, WorkflowTriggerSpec trigger) {
+        if (beforeSave(trigger) && store.countBeforeSave(objectApiName) >= platform.maxBeforeSavePerObject()) {
+            throw new ApiException(ErrorCode.CONFLICT, "The object has reached the most before-save automations it "
+                    + "may have (" + platform.maxBeforeSavePerObject() + "): each one runs inside every save.");
         }
     }
 

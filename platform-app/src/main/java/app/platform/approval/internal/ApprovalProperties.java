@@ -9,9 +9,11 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param limits the bounds of what a person can type and make
  * @param inbox how big a page of tasks or requests is
  * @param mail whether a task is announced by mail
+ * @param timer the reminders and escalations of steps that wait (Sprint 25, ADR-0159)
  */
 @ConfigurationProperties("platform.approval")
-record ApprovalProperties(@DefaultValue Limits limits, @DefaultValue Inbox inbox, @DefaultValue Mail mail) {
+record ApprovalProperties(@DefaultValue Limits limits, @DefaultValue Inbox inbox, @DefaultValue Mail mail,
+        @DefaultValue Timer timer) {
 
     /**
      * The bounds.
@@ -52,5 +54,26 @@ record ApprovalProperties(@DefaultValue Limits limits, @DefaultValue Inbox inbox
      * @param enabled whether a task is announced by mail (default true); the inbox always shows it
      */
     record Mail(@DefaultValue("true") boolean enabled) {
+    }
+
+    /**
+     * The timer that reminds, escalates and marks overdue (ADR-0159). Every instance may run one; they coordinate
+     * through the database.
+     *
+     * @param enabled whether this instance runs the timer (default true)
+     * @param pollInterval how often it looks for steps whose time has come (default 30 seconds)
+     * @param batchSize how many steps one look claims (default 50)
+     * @param lease how long a claimed step is invisible to other instances (default 2 minutes); the claim moves the
+     *        step's next look by this much, so an instance that dies mid-way hands the step to another after it
+     */
+    record Timer(@DefaultValue("true") boolean enabled, @DefaultValue("30s") java.time.Duration pollInterval,
+            @DefaultValue("50") int batchSize, @DefaultValue("2m") java.time.Duration lease) {
+
+        Timer {
+            if (batchSize < 1 || batchSize > 500 || pollInterval.compareTo(java.time.Duration.ofMillis(100)) < 0
+                    || lease.compareTo(java.time.Duration.ofSeconds(10)) < 0) {
+                throw new IllegalArgumentException("platform.approval.timer.* is out of range");
+            }
+        }
     }
 }

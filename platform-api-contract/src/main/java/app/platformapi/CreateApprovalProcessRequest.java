@@ -1,6 +1,8 @@
 package app.platformapi;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -26,12 +28,17 @@ import java.util.List;
  * @param outcomes what the end of the request sets on the record; left out, nothing
  * @param fallback who is asked when a step names nobody who can decide: a {@code USER} or a {@code GROUP}; left out, a
  *        request whose first step names nobody is refused
+ * @param remindAfterHours hours an active step may wait before the people asked are reminded (1 to 8760), or null for
+ *        never; a reminder is sent at most three times, then the request is marked overdue (Sprint 25)
+ * @param escalateAfterHours hours an active step may wait before the fallback approver is asked as well, once (1 to
+ *        8760), or null for never; needs a fallback (Sprint 25)
  */
 public record CreateApprovalProcessRequest(@NotBlank @Size(max = 40) String name,
         @NotBlank @Size(max = 80) String label,
         @Size(max = 500) String description, Boolean active, @Size(max = 4000) String entryCriteria,
         Boolean allowSelfApproval, @NotEmpty @Size(max = 20) List<@NotNull @Valid ApprovalStepSpec> steps,
-        @Valid ApprovalOutcomesSpec outcomes, @Valid ApprovalApproverSpec fallback) {
+        @Valid ApprovalOutcomesSpec outcomes, @Valid ApprovalApproverSpec fallback,
+        @Min(1) @Max(8760) Integer remindAfterHours, @Min(1) @Max(8760) Integer escalateAfterHours) {
 
     /** Copies the list. */
     public CreateApprovalProcessRequest {

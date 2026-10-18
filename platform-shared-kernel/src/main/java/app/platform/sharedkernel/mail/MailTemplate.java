@@ -42,5 +42,18 @@ public enum MailTemplate {
      * time the relay builds the link to the recipient's inbox on the organization's own host. A decision is never made
      * from a link: it only opens the inbox.
      */
-    APPROVAL_REQUEST
+    APPROVAL_REQUEST,
+
+    /**
+     * A task the recipient still has open has waited longer than the process allows (Sprint 25, ADR-0159). The request
+     * names the organization, the object and the label of the process: facts only, like {@link #APPROVAL_REQUEST}.
+     */
+    APPROVAL_REMINDER,
+
+    /**
+     * The trial of an organization is ending or has ended (Sprint 25, ADR-0162). The request names the organization and
+     * the stage ({@code ending_7d}, {@code ending_1d} or {@code suspended}); it goes to the people who administer the
+     * organization and cannot be switched off.
+     */
+    TRIAL_NOTICE
 }

@@ -665,5 +665,58 @@ nothing new starts but waiting requests finish.
 **After a request ends.** A workflow can follow it: the trigger *An approval ends* (any process or one, any outcome or one) starts a workflow, and the
 action *Start an approval* submits the record that started a workflow, once, and does not wait for the people.
 
-**Not possible in this release.** Reminders and escalation, sending a request back one step, parallel or conditional steps, approving by e-mail, approving
+**Not possible in this release.** Sending a request back one step, parallel or conditional steps, approving by e-mail, approving
 many at once, a permission as an approver and a platform-wide unlock ([ADR-0153](adr/0153-what-sprint-24-leaves-out-and-why.md)).
+
+## 24. Notices, reminders, automation before a save and the failure view (Sprint 25)
+
+Decisions: [ADR-0154](adr/0154-the-notification-model-in-app-notices.md) to [ADR-0166](adr/0166-what-sprint-25-leaves-out-and-why.md).
+
+**The bell and the list.** Every member has a bell in the header and a list at *Notifications*: a task waiting for them, a reminder, the decision on a request
+they made, a message from a workflow, and notices about the organization's trial. A notice is a short title and a line of text with a link to the record or
+to the inbox. It holds no value of the record, not even its title: the person opens the record, and the record's own permissions decide what they see.
+They mark one notice, or all of them, as read; read notices are removed after 30 days and unread ones after 180 (never before 7).
+
+**What each person receives.** *Notifications → Preferences* has a switch for each kind of notice (approvals, workflows, account) and each way (in the
+application, by mail). Everything is on until someone changes it. Account notices, such as the end of a trial, cannot be switched off. A person who
+switched a kind off still has the work itself (the task is in the inbox): a switch changes the message and nothing else.
+
+**The words of notices and mails.** *Setup → Notification text* shows the platform's words for each kind and lets you write your own for the four kinds an
+organization may word: *a task is waiting*, *a reminder*, *a request was decided* and *a workflow asks you to look*. A text has a title (at most 80
+characters) and a body (at most 500). It may use the placeholders the page lists for that kind, written in braces, such as `{organization}`, `{object}`,
+`{process}`, `{step}`, `{workflow}` and `{outcome}`: the names of things you set up, never a value from a record. It may not contain a link, an
+address, markup or a placeholder that is not listed; the page says which line is wrong and does not repeat what you typed. *Check* shows the result with
+sample names and stores nothing. A text is part of setup: it can be drafted in a change set, published and rolled back like a layout, and *Back to the
+platform's text* removes yours. A mail uses your body; its subject and its link are always the platform's.
+
+**Telling someone from a workflow.** The action *Tell a member* (`NOTIFY`) sends one notice about the record to its owner or to the person a user field
+of the record names. It is sent once however often the step is tried again. A person who switched these notices off gets none and the workflow still
+completes. If the field is empty, or the person no longer belongs to the organization, the workflow stops at that step with a reason you can read in its
+history.
+
+**Automation when a record is saved.** In the workflow builder choose *When saving*: *a record is created* or *a record is changed*. Such a workflow has one
+action, *Set fields*, which sets fields of the record being saved to a written value or a copy of another field of the same record, under an optional
+condition. It happens inside the save, so there is no waiting and no second change: the record is stored with the values already set, and everything a
+person's input must pass afterwards (required fields, links, unique values, validation rules, formulas) is applied to them too. If a rule refuses the
+result, the save is refused with the rule's own words. An object may have 10 such automations; they are judged on the record as saved, run in the order of
+their names, and a later one wins a field two of them set. It cannot change another record, send anything or call out: use a workflow after the save for
+that. Switching a workflow off stops it at once.
+
+**Reminders and escalation in approvals.** In the approval builder, *Reminders* has two optional numbers of hours. After the first, the people asked for
+the active step are reminded (at most three times, one reminder every that many hours); after the second, the fallback approver of the process is asked as
+well and becomes one more person who may decide. When the reminders are used up, the request is marked *overdue* and shown to those who watch for requests
+needing attention. A step that was decided, and a request that was recalled or ended, is never reminded. Escalation needs a fallback approver in the
+process, and the page says so.
+
+**The end of a trial.** An organization on a trial keeps working for 7 days after the trial ends. Its administrators are told 7 days and 1 day before it
+is suspended, and when it is, by mail and in the bell. Suspension is the same suspension a platform administrator can do by hand: sign-in stops and a
+platform administrator reinstates it once a plan is active. Nothing is ever deleted.
+
+**The failure view.** *Setup → Automation health* shows counts for your organization: executions waiting, retrying, set aside for a person, stuck for more
+than ten minutes, events the platform gave up delivering, approval requests nobody can decide, steps that are overdue, mails waiting and mails that could
+not be sent. Each count that needs attention links to the screen that lets you act. It shows numbers only. It needs the ability *View the health of automation*,
+which the administrator profile holds. Platform staff see the same counts for all organizations in the console, with no names.
+
+**Not possible in this release.** A digest, push messages, text messages, a field of the record in a notice, a link in your own text, naming a person or
+a group as the recipient of a workflow notice, a second escalation level, before-save automation that changes other records, and a weighted share of the
+queue by plan ([ADR-0166](adr/0166-what-sprint-25-leaves-out-and-why.md)).

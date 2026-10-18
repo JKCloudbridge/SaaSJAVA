@@ -12,6 +12,7 @@ const SECTIONS = [
   { href: "/console/plans", label: "Plans" },
   { href: "/console/people", label: "Platform people" },
   { href: "/console/sessions", label: "Sessions" },
+  { href: "/console/automation-health", label: "Automation health" },
   { href: "/console/audit", label: "Audit trail" },
 ];
 

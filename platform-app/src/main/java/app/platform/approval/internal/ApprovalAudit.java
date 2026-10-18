@@ -97,6 +97,15 @@ class ApprovalAudit {
         meters.counter("platform.approval.lock.overrides").increment();
     }
 
+    // ---- the timer (Sprint 25, ADR-0159): kinds, numbers and stable reasons, as ever ----
+
+    /** The timer did something to a step: {@code reminded}, {@code escalated} or {@code overdue}. */
+    void timer(String what, ApprovalStore.InstanceRow instance, int step, int count) {
+        record("timer." + what, null, instance, Map.of("step", Integer.toString(step), "count",
+                Integer.toString(count)));
+        meters.counter("platform.approval.timer", "result", what).increment();
+    }
+
     // ---- delegations ----
 
     void delegation(String kind, UUID actor, UUID delegator, UUID delegate, String object, String process,

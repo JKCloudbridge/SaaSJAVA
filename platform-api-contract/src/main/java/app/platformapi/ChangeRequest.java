@@ -15,7 +15,8 @@ import jakarta.validation.constraints.Size;
  *        {@code APPLICATION} and {@code LAYOUT_ASSIGNMENT} (for example {@code CREATE_LAYOUT}), since Sprint 13 for
  *        {@code VALIDATION_RULE}, since Sprint 15A for {@code RECORD_TYPE_ASSIGNMENT} and since Sprint 18 for
  *        {@code TAB} and {@code CUSTOM_PAGE}, since Sprint 20 for {@code RECORD_PAGE_ASSIGNMENT}, since Sprint 22
- *        for {@code WORKFLOW} and since Sprint 24 for {@code APPROVAL_PROCESS}
+ *        for {@code WORKFLOW}, since Sprint 24 for {@code APPROVAL_PROCESS} and since Sprint 25 for
+ *        {@code NOTIFICATION_TEMPLATE} (its item is the kind of notice)
  * @param objectApiName the API name of the object the change is about (for {@code CREATE_OBJECT}: the object to be
  *        made, with the ending __c); left out for the changes of applications
  * @param itemApiName the API name of the field, record type, layout, record page or application the change is about
@@ -52,6 +53,9 @@ import jakarta.validation.constraints.Size;
  * @param createApprovalProcess the request of {@code CREATE_APPROVAL_PROCESS} (Sprint 24)
  * @param updateApprovalProcess the request of {@code UPDATE_APPROVAL_PROCESS}; switching a process on or off is such a
  *        change that keeps the definition as it is
+ * @param createNotificationTemplate the request of {@code CREATE_NOTIFICATION_TEMPLATE} (Sprint 25); its item is the
+ *        kind of notice
+ * @param updateNotificationTemplate the request of {@code UPDATE_NOTIFICATION_TEMPLATE}
  */
 public record ChangeRequest(@NotBlank @Size(max = 40) String kind, @Size(max = 60) String objectApiName,
         @Size(max = 60) String itemApiName, @Valid CreateObjectRequest createObject,
@@ -73,7 +77,9 @@ public record ChangeRequest(@NotBlank @Size(max = 40) String kind, @Size(max = 6
         @Valid UpdateRecordPageAssignmentRequest updateRecordPageAssignment,
         @Valid CreateWorkflowRequest createWorkflow, @Valid UpdateWorkflowRequest updateWorkflow,
         @Valid CreateApprovalProcessRequest createApprovalProcess,
-        @Valid UpdateApprovalProcessRequest updateApprovalProcess) {
+        @Valid UpdateApprovalProcessRequest updateApprovalProcess,
+        @Valid CreateNotificationTemplateRequest createNotificationTemplate,
+        @Valid UpdateNotificationTemplateRequest updateNotificationTemplate) {
 
     @Override
     public String toString() {

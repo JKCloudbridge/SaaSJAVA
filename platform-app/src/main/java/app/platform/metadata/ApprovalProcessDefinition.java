@@ -25,15 +25,28 @@ import java.util.UUID;
  * @param steps the steps in order
  * @param outcomes what the end of a request sets on the record
  * @param fallback who is asked when a step names nobody who can decide, or null
+ * @param remindAfterHours hours an active step may wait before the people asked are reminded, or null for never
+ *        (Sprint 25, ADR-0159)
+ * @param escalateAfterHours hours an active step may wait before the fallback is asked as well, once, or null for
+ *        never; a process that escalates has a fallback
  * @param version the version of the process row, for concurrent changes
  */
 public record ApprovalProcessDefinition(UUID id, UUID versionId, String objectApiName, String apiName, String label,
         String description, boolean active, int definitionVersion, String entryCriteria, boolean allowSelfApproval,
-        List<Step> steps, Outcomes outcomes, Approver fallback, long version) {
+        List<Step> steps, Outcomes outcomes, Approver fallback, Integer remindAfterHours, Integer escalateAfterHours,
+        long version) {
 
     /** Copies the list. */
     public ApprovalProcessDefinition {
         steps = List.copyOf(steps);
+    }
+
+    /** A process that neither reminds nor escalates (the shape of Sprint 24). */
+    public ApprovalProcessDefinition(UUID id, UUID versionId, String objectApiName, String apiName, String label,
+            String description, boolean active, int definitionVersion, String entryCriteria,
+            boolean allowSelfApproval, List<Step> steps, Outcomes outcomes, Approver fallback, long version) {
+        this(id, versionId, objectApiName, apiName, label, description, active, definitionVersion, entryCriteria,
+                allowSelfApproval, steps, outcomes, fallback, null, null, version);
     }
 
     /** What a rule names, so a screen can offer the right choices. */

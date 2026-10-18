@@ -95,13 +95,14 @@ class PlatformRulesTest {
     }
 
     @Test
-    void onlyTheTenantOutboxIdentityAndWorkflowModulesEnterASystemScope() {
+    void onlyTheTenantOutboxIdentityWorkflowAndApprovalModulesEnterASystemScope() {
         // Working across tenants is the one deliberate exception to tenant isolation (ADR-0015); it must stay
         // visible in a few places, never spread through the business modules. Identity joined in Sprint 5 for the
         // read-only membership lookup behind the organization switcher (ADR-0027); workflow joined in Sprint 22 for
-        // the dispatcher (ADR-0135). The next two tests narrow both.
+        // the dispatcher (ADR-0135); approval joined in Sprint 25 for the timer of reminders (ADR-0159). The next
+        // tests narrow all three.
         noClasses().that().resideOutsideOfPackages("app.platform.tenant..", "app.platform.outbox..",
-                        "app.platform.identity..", "app.platform.workflow..")
+                        "app.platform.identity..", "app.platform.workflow..", "app.platform.approval..")
                 .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.tenant.SystemScope")
                 .because("system scopes are platform infrastructure")
                 .allowEmptyShould(true)
@@ -129,6 +130,19 @@ class PlatformRulesTest {
                 .and().doNotHaveFullyQualifiedName("app.platform.workflow.internal.Dispatcher")
                 .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.tenant.SystemScope")
                 .because("only the dispatcher may work across organizations")
+                .allowEmptyShould(true)
+                .check(platform);
+    }
+
+    @Test
+    void insideApprovalOnlyTheTimerAndItsStoreEnterASystemScope() {
+        // The timer (ADR-0159) is the one place that claims the due steps of approvals across organizations.
+        // Everything else in the module runs inside one organization's own tenant context.
+        noClasses().that().resideInAPackage("app.platform.approval..")
+                .and().doNotHaveFullyQualifiedName("app.platform.approval.internal.ApprovalTimerStore")
+                .and().doNotHaveFullyQualifiedName("app.platform.approval.internal.ApprovalTimer")
+                .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.tenant.SystemScope")
+                .because("only the approval timer may work across organizations")
                 .allowEmptyShould(true)
                 .check(platform);
     }

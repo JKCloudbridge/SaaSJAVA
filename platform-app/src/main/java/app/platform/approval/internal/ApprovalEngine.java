@@ -34,6 +34,7 @@ import app.platform.sharedkernel.ActorId;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -272,7 +273,7 @@ class ApprovalEngine implements Approvals {
         }
         store.insertHistory(instance.id(), null, "SUBMITTED", submitter, null, null, null, comment,
                 instance.processVersionNumber(), actor);
-        activate(instance, steps.get(0), first, actor);
+        activate(instance, steps.get(0), first, definition, actor);
         audit.submitted(submitter, instance, submitter == null ? "platform" : "person");
         return store.instance(instance.id()).orElseThrow();
     }
@@ -282,7 +283,8 @@ class ApprovalEngine implements Approvals {
      * an
      * administrator, ADR-0145 decision 6). Writes what was dropped and why, and tells the people asked.
      */
-    private void activate(InstanceRow instance, StepRow step, Resolved resolved, UUID actor) {
+    private void activate(InstanceRow instance, StepRow step, Resolved resolved, ApprovalProcessDefinition definition,
+            UUID actor) {
         if (!store.updateStep(step.id(), step.version(), "ACTIVE", actor)) {
             throw new ApiException(ErrorCode.CONCURRENT_MODIFICATION);
         }
@@ -308,7 +310,25 @@ class ApprovalEngine implements Approvals {
             InstanceRow now = store.instance(instance.id()).orElseThrow();
             save(now, "PENDING", step.position(), null, now.outcomeFailure(), false, actor);
         }
-        notifier.tasksCreated(instance, asked);
+        notifier.tasksCreated(instance, step, asked);
+        if (!asked.isEmpty()) {
+            startTimer(instance, step, definition, actor);
+        }
+    }
+
+    /**
+     * Starts the timer of a step that has people to decide it, when the process reminds or escalates (ADR-0159). The
+     * first look is at the first event that falls due; the timer works out the rest each time it looks.
+     */
+    private void startTimer(InstanceRow instance, StepRow step, ApprovalProcessDefinition definition, UUID actor) {
+        if (!ReminderSchedule.used(definition.remindAfterHours(), definition.escalateAfterHours())) {
+            return;
+        }
+        Instant first = ReminderSchedule.next(clock.instant(), definition.remindAfterHours(),
+                definition.escalateAfterHours(), ReminderSchedule.State.FRESH);
+        if (first != null) {
+            store.startTimer(instance.id(), step.id(), first, actor);
+        }
     }
 
     // ---- deciding ----
@@ -386,8 +406,121 @@ class ApprovalEngine implements Approvals {
                 definition.apiName());
         Resolved resolved = resolver.resolve(definition.steps().get(position - 1), context);
         InstanceRow current = store.instance(instance.id()).orElseThrow();
-        activate(current, next, resolved, actor);
+        activate(current, next, resolved, definition, actor);
         return store.instance(instance.id()).orElseThrow();
+    }
+
+    // ---- the timer (Sprint 25, ADR-0159) ----
+
+    /**
+     * The timer looks at a step whose time has come: reminds the people who still have an open task, asks the fallback
+     * approver as well, marks the request overdue. Everything happens under the lock of the record and the request, the
+     * same as a decision, so the two cannot interleave; a step that was decided while the timer waited for the lock is
+     * left alone. Each thing happens once (the unique rows of {@code approval_reminder}); what was done and when to
+     * look next are written to the timer row at the end, in the same transaction.
+     */
+    void onTimer(UUID stepId) {
+        ApprovalStore.TimerRow timer = store.timerOf(stepId).orElse(null);
+        StepRow seen = store.step(stepId).orElse(null);
+        UUID system = ActorId.SYSTEM.value();
+        if (timer == null || seen == null) {
+            return;
+        }
+        InstanceRow instance = hold(seen.instanceId());
+        StepRow step = store.step(stepId).orElseThrow();
+        if (!instance.pending() || !"ACTIVE".equals(step.status()) || step.activatedAt() == null) {
+            store.stopTimer(stepId, system);
+            return;
+        }
+        ApprovalProcessDefinition definition = pinned(instance).process().definition();
+        ReminderSchedule.State done = new ReminderSchedule.State(timer.remindersSent(), timer.escalatedAt() != null,
+                timer.overdueAt() != null);
+        Instant now = clock.instant();
+        List<ReminderSchedule.Event> due = ReminderSchedule.due(now, step.activatedAt(), definition.remindAfterHours(),
+                definition.escalateAfterHours(), done);
+        Instant escalatedAt = timer.escalatedAt();
+        Instant overdueAt = timer.overdueAt();
+        ReminderSchedule.Event reminder = ReminderSchedule.reminderToSend(due);
+        if (reminder != null && store.insertReminder(instance.id(), step.id(), "REMINDER", reminder.sequence(),
+                system)) {
+            remind(instance, step, reminder.sequence());
+        }
+        for (ReminderSchedule.Event event : due) {
+            if (event.kind() == ReminderSchedule.Kind.ESCALATION
+                    && store.insertReminder(instance.id(), step.id(), "ESCALATION", 1, system)) {
+                escalate(instance, step, definition);
+            } else if (event.kind() == ReminderSchedule.Kind.OVERDUE
+                    && store.insertReminder(instance.id(), step.id(), "OVERDUE", 1, system)) {
+                markOverdue(instance, step);
+            }
+            if (event.kind() == ReminderSchedule.Kind.ESCALATION) {
+                escalatedAt = now;
+            } else if (event.kind() == ReminderSchedule.Kind.OVERDUE) {
+                overdueAt = now;
+            }
+        }
+        ReminderSchedule.State after = ReminderSchedule.after(done, due);
+        Instant next = ReminderSchedule.next(step.activatedAt(), definition.remindAfterHours(),
+                definition.escalateAfterHours(), after);
+        if (!store.updateTimer(timer.id(), timer.version(), next, after.remindersSent(), escalatedAt, overdueAt,
+                system)) {
+            throw new ApiException(ErrorCode.CONCURRENT_MODIFICATION);
+        }
+    }
+
+    private void remind(InstanceRow instance, StepRow step, int sequence) {
+        List<UUID> open = store.assignmentsOf(instance.id()).stream()
+                .filter(task -> task.stepId().equals(step.id()) && "OPEN".equals(task.status()))
+                .map(AssignmentRow::assigneeId).distinct().toList();
+        store.insertHistory(instance.id(), step.position(), "REMINDER_SENT", null, null, null, null, null,
+                instance.processVersionNumber(), ActorId.SYSTEM.value());
+        notifier.reminded(instance, step, open, sequence);
+        audit.timer("reminded", instance, step.position(), open.size());
+    }
+
+    /** Asks the fallback approver as well, once; the person becomes one more task of the step (like an assign). */
+    private void escalate(InstanceRow instance, StepRow step, ApprovalProcessDefinition definition) {
+        UUID system = ActorId.SYSTEM.value();
+        List<UUID> added = new ArrayList<>();
+        if (definition.fallback() != null) {
+            DataRecord record = records.find(instance.objectApiName(), instance.recordId()).orElse(null);
+            Resolved fallback = resolver.resolve(new ApprovalProcessDefinition.Step(step.name(), step.label(),
+                    ApprovalProcessDefinition.Completion.ANY, List.of(definition.fallback())),
+                    new ApproverResolver.Context(record, instance.submittedBy(), definition.allowSelfApproval(), null,
+                            definition.objectApiName(), definition.apiName()));
+            for (Assignee person : fallback.assignees()) {
+                List<AssignmentRow> tasks = store.assignmentsOf(instance.id());
+                if (tasks.stream().anyMatch(task -> task.stepId().equals(step.id())
+                        && task.assigneeId().equals(person.userId()))) {
+                    continue;
+                }
+                Loaded loaded = load(instance, tasks);
+                if (ApprovalMachine.assign(loaded.model(), person.userId(), UUID.randomUUID()) instanceof Done done) {
+                    persist(loaded, done.model(), system);
+                    store.insertAssignment(instance.id(), step.id(), person.userId(), "FALLBACK", null, system);
+                    added.add(person.userId());
+                }
+            }
+        }
+        store.insertHistory(instance.id(), step.position(), "ESCALATED", null, null, null,
+                added.isEmpty() ? "nobody_to_ask" : null, null, instance.processVersionNumber(), system);
+        notifier.tasksCreated(instance, step, added);
+        audit.timer("escalated", instance, step.position(), added.size());
+    }
+
+    /** Marks the request overdue, unless something else already needs an administrator's attention. */
+    private void markOverdue(InstanceRow instance, StepRow step) {
+        UUID system = ActorId.SYSTEM.value();
+        InstanceRow current = store.instance(instance.id()).orElseThrow();
+        store.insertHistory(instance.id(), step.position(), "OVERDUE_MARKED", null, null, null, null, null,
+                instance.processVersionNumber(), system);
+        if (current.attention() == null) {
+            save(current, "PENDING", current.currentStep(), "overdue", current.outcomeFailure(), false, system);
+            store.insertHistory(instance.id(), step.position(), "ATTENTION_RAISED", null, null, null, "overdue",
+                    null, instance.processVersionNumber(), system);
+            audit.attention(current, step.position(), "overdue", true);
+        }
+        audit.timer("overdue", instance, step.position(), 1);
     }
 
     // ---- recall, cancel ----
@@ -454,7 +587,7 @@ class ApprovalEngine implements Approvals {
         store.insertHistory(id, step.position(), "REASSIGNED", member.userId(), null, to, null, comment(comment),
                 instance.processVersionNumber(), member.userId());
         audit.reassigned(member.userId(), instance, step.position(), false);
-        notifier.tasksCreated(instance, List.of(to));
+        notifier.tasksCreated(instance, loaded.stepAt(loaded.activePosition()), List.of(to));
         return store.instance(id).orElseThrow();
     }
 
@@ -483,7 +616,7 @@ class ApprovalEngine implements Approvals {
                     current.attention(), null, instance.processVersionNumber(), member.userId());
             audit.attention(current, step.position(), current.attention(), false);
         }
-        notifier.tasksCreated(instance, List.of(to));
+        notifier.tasksCreated(instance, loaded.stepAt(loaded.activePosition()), List.of(to));
         return store.instance(id).orElseThrow();
     }
 
@@ -527,6 +660,7 @@ class ApprovalEngine implements Approvals {
     private InstanceRow end(InstanceRow instance, String status, Outcome outcome, UUID actor) {
         InstanceRow current = store.instance(instance.id()).orElseThrow();
         save(current, status, null, null, current.outcomeFailure(), true, actor);
+        store.stopTimers(instance.id(), actor);
         String failure = outcome == null ? null
                 : applyOutcome(store.instance(instance.id()).orElseThrow(), pinned(instance).process().definition(),
                         outcome);
@@ -542,6 +676,7 @@ class ApprovalEngine implements Approvals {
             store.insertHistory(instance.id(), null, "OUTCOME_APPLIED", null, null, null, null, null,
                     instance.processVersionNumber(), actor);
         }
+        notifier.ended(ended, status, actor);
         audit.ended(status.toLowerCase(java.util.Locale.ROOT), actor.equals(ActorId.SYSTEM.value()) ? null : actor,
                 ended);
         return ended;

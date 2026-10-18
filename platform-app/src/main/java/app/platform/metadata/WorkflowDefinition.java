@@ -59,12 +59,24 @@ public record WorkflowDefinition(UUID id, UUID versionId, String objectApiName, 
         /** A number of days after the value of a date field of each record. */
         DAYS_AFTER_DATE(true),
         /** An approval of a record of the object ended (Sprint 24, ADR-0149). */
-        APPROVAL_OUTCOME(false);
+        APPROVAL_OUTCOME(false),
+        /** A record of the object is about to be created: runs inside the save, before it is stored (Sprint 25). */
+        BEFORE_CREATE(false),
+        /** A record of the object is about to be changed: runs inside the save, before it is stored (Sprint 25). */
+        BEFORE_UPDATE(false);
 
         private final boolean scheduled;
 
         Kind(boolean scheduled) {
             this.scheduled = scheduled;
+        }
+
+        /**
+         * Whether the workflow runs inside the save of the record, before it is stored (ADR-0160), and not after its
+         * commit like every other kind. Such a workflow is never an execution: nothing is queued for it.
+         */
+        public boolean beforeSave() {
+            return this == BEFORE_CREATE || this == BEFORE_UPDATE;
         }
 
         /** Whether the trigger is a time and not a change of a record. */

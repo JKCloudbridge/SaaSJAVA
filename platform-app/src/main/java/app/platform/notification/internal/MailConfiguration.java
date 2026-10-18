@@ -5,6 +5,6 @@ import org.springframework.context.annotation.Configuration;
 
 /** Wiring of the notification module (ADR-0024): its settings. The SMTP sender comes from the framework. */
 @Configuration
-@EnableConfigurationProperties(MailProperties.class)
+@EnableConfigurationProperties({MailProperties.class, NoticeProperties.class})
 class MailConfiguration {
 }

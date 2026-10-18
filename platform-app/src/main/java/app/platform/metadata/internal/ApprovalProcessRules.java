@@ -32,10 +32,12 @@ class ApprovalProcessRules {
 
     private static final Pattern STEP_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_]{0,59}");
     private static final Pattern FIELD_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_]{0,59}");
+    private static final int MOST_HOURS = 8760;
 
     /** What a request carries, cleaned and normalised, so that two requests that mean the same definition are equal. */
     record Checked(String label, String description, String entryCriteria, boolean allowSelfApproval,
-            List<ApprovalStepSpec> steps, ApprovalOutcomesSpec outcomes, ApprovalApproverSpec fallback) {
+            List<ApprovalStepSpec> steps, ApprovalOutcomesSpec outcomes, ApprovalApproverSpec fallback,
+            Integer remindAfterHours, Integer escalateAfterHours) {
     }
 
     private final ExpressionSupport support;
@@ -49,7 +51,7 @@ class ApprovalProcessRules {
     /** Checks every part of the request. */
     Checked check(Problems problems, String label, String description, String entryCriteria,
             Boolean allowSelfApproval, List<ApprovalStepSpec> steps, ApprovalOutcomesSpec outcomes,
-            ApprovalApproverSpec fallback) {
+            ApprovalApproverSpec fallback, Integer remindAfterHours, Integer escalateAfterHours) {
         String cleanLabel = problems.check(() -> NameRules.label("label", label));
         String cleanDescription = problems.check(() -> NameRules.description(description));
         String cleanCriteria = criteria(problems, entryCriteria);
@@ -57,7 +59,31 @@ class ApprovalProcessRules {
         ApprovalOutcomesSpec cleanOutcomes = outcomes(problems, outcomes);
         ApprovalApproverSpec cleanFallback = fallback(problems, fallback);
         return new Checked(cleanLabel, cleanDescription, cleanCriteria, Boolean.TRUE.equals(allowSelfApproval),
-                cleanSteps, cleanOutcomes, cleanFallback);
+                cleanSteps, cleanOutcomes, cleanFallback, hours(problems, "remindAfterHours", remindAfterHours),
+                escalation(problems, escalateAfterHours, cleanFallback));
+    }
+
+    /** Hours before a reminder or an escalation: 1 to a year, or none. */
+    private static Integer hours(Problems problems, String place, Integer asked) {
+        if (asked == null) {
+            return null;
+        }
+        if (asked < 1 || asked > MOST_HOURS) {
+            problems.add(place, "Give a number of hours from 1 to " + MOST_HOURS + ", or leave it out for never.");
+            return null;
+        }
+        return asked;
+    }
+
+    /** An escalation asks the fallback approver, so it needs one (ADR-0159). */
+    private static Integer escalation(Problems problems, Integer asked, ApprovalApproverSpec fallback) {
+        Integer hours = hours(problems, "escalateAfterHours", asked);
+        if (hours != null && fallback == null) {
+            problems.add("escalateAfterHours",
+                    "An escalation asks the fallback approver: name one, or leave this out.");
+            return null;
+        }
+        return hours;
     }
 
     /** Checks the steps alone (the "check" endpoint): the same rules, kept apart from the rest of a definition. */

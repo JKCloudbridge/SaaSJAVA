@@ -14,9 +14,12 @@ class WorkflowPlatformLimits {
 
     private final int maxAttempts;
     private final int maxChainDepth;
+    private final int maxBeforeSavePerObject;
 
     WorkflowPlatformLimits(@Value("${platform.workflow.retry.max-attempts:5}") int maxAttempts,
-            @Value("${platform.workflow.limits.max-chain-depth:5}") int maxChainDepth) {
+            @Value("${platform.workflow.limits.max-chain-depth:5}") int maxChainDepth,
+            @Value("${platform.data.before-save.max-per-object:10}") int maxBeforeSavePerObject) {
+        this.maxBeforeSavePerObject = maxBeforeSavePerObject;
         this.maxAttempts = maxAttempts;
         this.maxChainDepth = maxChainDepth;
     }
@@ -24,6 +27,11 @@ class WorkflowPlatformLimits {
     /** The most attempts of an action. */
     int maxAttempts() {
         return maxAttempts;
+    }
+
+    /** The most before-save automations one object may have (ADR-0160); the data module enforces the same number. */
+    int maxBeforeSavePerObject() {
+        return maxBeforeSavePerObject;
     }
 
     /** The deepest chain of workflows started one by another. */

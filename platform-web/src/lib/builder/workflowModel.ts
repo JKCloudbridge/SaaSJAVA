@@ -432,3 +432,49 @@ export function humanize(code: string): string {
 export function triggerText(trigger: TriggerSpec, catalogue: Catalogue): string {
   return catalogue.triggerKinds.find((kind) => kind.kind === trigger.kind)?.summary ?? humanize(trigger.kind);
 }
+
+// ---- the two phases of a workflow (Sprint 25, ADR-0160) ----
+
+/** When a workflow's actions run: after the record change is committed, or inside the save, before it is stored. */
+export type Phase = "AFTER_SAVE" | "BEFORE_SAVE";
+
+/** The phase of a kind of trigger, as the catalogue says it. */
+export function phaseOf(kind: CatalogueTriggerKind | undefined): Phase {
+  return kind?.phase === "BEFORE_SAVE" ? "BEFORE_SAVE" : "AFTER_SAVE";
+}
+
+/** The action types the catalogue offers in a phase. A before-save workflow takes only the types of its own phase. */
+export function actionTypesFor(catalogue: Catalogue, phase: Phase): CatalogueActionType[] {
+  return catalogue.actionTypes.filter((type) => (type.phase === "BEFORE_SAVE" ? "BEFORE_SAVE" : "AFTER_SAVE") === phase);
+}
+
+/**
+ * The draft with another trigger. When the trigger moves to the other phase the actions of the old phase cannot stay (the
+ * API refuses a before-save trigger with an after-save action and the other way round), so they are dropped, and the
+ * caller says so.
+ */
+export function withTrigger(draft: WorkflowDraft, trigger: TriggerDraft, catalogue: Catalogue): WorkflowDraft {
+  const before = phaseOf(catalogue.triggerKinds.find((one) => one.kind === draft.trigger.kind));
+  const after = phaseOf(catalogue.triggerKinds.find((one) => one.kind === trigger.kind));
+  if (before === after) {
+    return { ...draft, trigger };
+  }
+  const allowed = new Set(actionTypesFor(catalogue, after).map((type) => type.type));
+  return { ...draft, trigger, actions: draft.actions.filter((action) => allowed.has(action.type)) };
+}
+
+/** How many actions the move to another trigger would drop, so the builder can tell the person before it happens. */
+export function actionsLostByTrigger(draft: WorkflowDraft, kind: string, catalogue: Catalogue): number {
+  const next = phaseOf(catalogue.triggerKinds.find((one) => one.kind === kind));
+  const allowed = new Set(actionTypesFor(catalogue, next).map((type) => type.type));
+  return draft.actions.filter((action) => !allowed.has(action.type)).length;
+}
+
+/** What is not finished because of the phase: a before-save automation has exactly one action. A hint, not a rule. */
+export function phaseHints(draft: WorkflowDraft, catalogue: Catalogue): string[] {
+  const kind = catalogue.triggerKinds.find((one) => one.kind === draft.trigger.kind);
+  if (phaseOf(kind) === "BEFORE_SAVE" && draft.actions.length !== 1) {
+    return ["A before-save automation has exactly one action; it sets fields of the record being saved."];
+  }
+  return [];
+}

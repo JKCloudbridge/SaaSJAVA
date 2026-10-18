@@ -173,6 +173,21 @@ public final class ApiPaths {
     /** The member's side of approvals: inbox, requests, decisions and delegations (Sprint 24). */
     public static final String APPROVALS = V1 + "/approvals";
 
+    /** The in-app notices of the signed-in member (Sprint 25, ADR-0154). */
+    public static final String NOTIFICATIONS = V1 + "/notifications";
+
+    /** The signed-in member's choices of which notices and mails they want (Sprint 25, ADR-0156). */
+    public static final String NOTIFICATION_PREFERENCES = V1 + "/notification-preferences";
+
+    /** The text an administrator writes for notices and mails: definitions for those who manage them (Sprint 25). */
+    public static final String METADATA_NOTIFICATION_TEMPLATES = V1 + "/metadata/notification-templates";
+
+    /** The health of automation in the organization: counts of what is waiting or failed (Sprint 25, ADR-0163). */
+    public static final String AUTOMATION_HEALTH = V1 + "/automation/health";
+
+    /** The health of automation across organizations, without any name or value (Sprint 25, ADR-0163). */
+    public static final String PLATFORM_AUTOMATION_HEALTH = PLATFORM + "/automation/health";
+
     /** Checking and trying expressions, and the list of functions of the expression language (Sprint 13). */
     public static final String METADATA_EXPRESSIONS = V1 + "/metadata/expressions";
 

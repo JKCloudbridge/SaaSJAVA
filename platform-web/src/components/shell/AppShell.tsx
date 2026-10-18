@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { PLATFORM_BRAND_NAME } from "@/lib/brand";
 import { ControlBar } from "./ControlBar";
 import { OrganizationName } from "./OrganizationName";
@@ -33,6 +34,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="shell-context" aria-label="Session">
           <OrganizationName />
           <OrganizationSwitcher />
+          <NotificationBell />
           <UserMenu />
         </div>
       </header>

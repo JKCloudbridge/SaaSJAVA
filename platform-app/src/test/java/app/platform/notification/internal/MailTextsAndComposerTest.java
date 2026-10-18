@@ -34,7 +34,7 @@ class MailTextsAndComposerTest {
     private final Users users = mock(Users.class);
     private final AccountTokens tokens = mock(AccountTokens.class);
     private final Invitations invitations = mock(Invitations.class);
-    private final MailComposer composer = new MailComposer(users, invitations, tokens,
+    private final MailComposer composer = MailComposerSupport.composer(users, invitations, tokens,
             new MailLinks(PROPERTIES, "localhost"), mock(app.platform.tenant.Tenants.class));
 
     private static MailProperties properties(String sender, String baseUrl) {

@@ -28,6 +28,15 @@ public final class WorkflowActionTypes {
     /** Submits the triggering record for approval, as the platform; the workflow does not wait for the decision. */
     public static final String START_APPROVAL = "START_APPROVAL";
 
+    /** Tells a member in the application (Sprint 25, ADR-0161): one in-app notice about the triggering record. */
+    public static final String NOTIFY = "NOTIFY";
+
+    /**
+     * Sets fields of the record being saved, before it is stored (Sprint 25, ADR-0160). Only a workflow with a
+     * before-save trigger has it, and such a workflow has nothing else.
+     */
+    public static final String SET_FIELDS = "SET_FIELDS";
+
     /** The start of the type of every event a workflow publishes. */
     public static final String SIGNAL_PREFIX = "workflow.signal.";
 
@@ -153,6 +162,23 @@ public final class WorkflowActionTypes {
                     List.of(new Setting("process", true, NAME,
                             "The API name of the approval process of this object to submit the record under.",
                             Refers.APPROVAL_PROCESS))),
+            new Type(NOTIFY, "Tells a member in the application that a record needs attention: one notice in their "
+                    + "bell, which opens the record (a member who cannot read the record is told \"not found\"). "
+                    + "The member is the owner of the record or the person a user field of the record names. The "
+                    + "notice never contains a value of the record, only the label of the workflow and of the "
+                    + "object. A member who switched these notices off gets none; the text can be rewritten in "
+                    + "Notification text.", List.of(
+                    new Setting("recipient", true, Pattern.compile("^(OWNER|FIELD)$"),
+                            "Whom to tell: the owner of the record, or the person a user field names.",
+                            List.of("OWNER", "FIELD")),
+                    new Setting("recipientField", false, NAME,
+                            "For FIELD: a field of the object of this workflow that links to a user.",
+                            Refers.FIELD))),
+            new Type(SET_FIELDS, "Before the record is saved, sets fields of the record being saved to a value "
+                    + "written here or copied from another field of the same record. It is the whole of a "
+                    + "before-save automation: it writes no other record, sends nothing and starts nothing. What "
+                    + "it sets is checked afterwards like anything else a person typed: types, required fields, "
+                    + "unique fields, validation rules and formulas.", Assignments.TRIGGERING_OBJECT, List.of()),
             new Type(PUBLISH_EVENT, "Announces a named event that names the record (never a value of it), for other "
                     + "parts of the platform to react to.",
                     List.of(new Setting("event", true, Pattern.compile("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*){0,3}$"),
@@ -165,6 +191,14 @@ public final class WorkflowActionTypes {
     /** Every type, in a stable order. */
     public static List<Type> all() {
         return TYPES;
+    }
+
+    /**
+     * Whether the type runs inside the transaction of the save of a record (a before-save automation, ADR-0160) and not
+     * after its commit like every other type.
+     */
+    public static boolean beforeSave(String code) {
+        return SET_FIELDS.equals(code);
     }
 
     /** The type with the code, or empty for one this release does not know. */

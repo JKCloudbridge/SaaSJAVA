@@ -8,6 +8,9 @@ import app.platformapi.ApiException;
 import app.platformapi.ApplicationView;
 import app.platformapi.ChangeRequest;
 import app.platformapi.CreateApplicationRequest;
+import app.platformapi.CreateNotificationTemplateRequest;
+import app.platformapi.NotificationTemplateView;
+import app.platformapi.UpdateNotificationTemplateRequest;
 import app.platformapi.CreateCustomPageRequest;
 import app.platformapi.CreateRecordPageAssignmentRequest;
 import app.platformapi.CreateTabRequest;
@@ -88,7 +91,8 @@ final class ChangeCodec {
         // The key of a new layout or record page assignment comes from its request, so it is not asked for twice.
         if (kind.namesItem() && item == null && kind != Change.Kind.CREATE_LAYOUT_ASSIGNMENT
                 && kind != Change.Kind.CREATE_RECORD_TYPE_ASSIGNMENT
-                && kind != Change.Kind.CREATE_RECORD_PAGE_ASSIGNMENT) {
+                && kind != Change.Kind.CREATE_RECORD_PAGE_ASSIGNMENT
+                && kind != Change.Kind.CREATE_NOTIFICATION_TEMPLATE) {
             throw ApiException.validation("itemApiName", "Name the field, record type, layout, record page, "
                     + "application, tab, custom page or assignment this change is about.");
         }
@@ -110,7 +114,15 @@ final class ChangeCodec {
             case DELETE_OBJECT, DELETE_FIELD, DELETE_RECORD_TYPE, DELETE_LAYOUT, DELETE_RECORD_PAGE,
                     DELETE_APPLICATION, DELETE_LAYOUT_ASSIGNMENT, DELETE_VALIDATION_RULE,
                     DELETE_RECORD_TYPE_ASSIGNMENT, DELETE_TAB, DELETE_CUSTOM_PAGE, DELETE_RECORD_PAGE_ASSIGNMENT,
-                    DELETE_WORKFLOW, DELETE_APPROVAL_PROCESS -> new Change(kind, object, item, EMPTY);
+                    DELETE_WORKFLOW, DELETE_APPROVAL_PROCESS, DELETE_NOTIFICATION_TEMPLATE ->
+                    new Change(kind, object, item, EMPTY);
+            case CREATE_NOTIFICATION_TEMPLATE -> {
+                CreateNotificationTemplateRequest body = required(request.createNotificationTemplate(),
+                        "createNotificationTemplate", kind);
+                yield new Change(kind, "", body.kind().strip(), write(body));
+            }
+            case UPDATE_NOTIFICATION_TEMPLATE -> new Change(kind, "", item,
+                    write(required(request.updateNotificationTemplate(), "updateNotificationTemplate", kind)));
             case CREATE_APPROVAL_PROCESS -> new Change(kind, object, null,
                     write(required(request.createApprovalProcess(), "createApprovalProcess", kind)));
             case UPDATE_APPROVAL_PROCESS -> new Change(kind, object, item,
@@ -243,6 +255,8 @@ final class ChangeCodec {
                     withSuffix(name), EMPTY));
             case CREATE_APPROVAL_PROCESS -> restoreKey(new Change(Change.Kind.UPDATE_APPROVAL_PROCESS,
                     creation.object(), withSuffix(name), EMPTY));
+            case CREATE_NOTIFICATION_TEMPLATE -> restoreKey(new Change(Change.Kind.UPDATE_NOTIFICATION_TEMPLATE,
+                    creation.object(), creation.item(), EMPTY));
             default -> throw new IllegalArgumentException("Not a creation: " + creation.kind());
         };
     }
@@ -508,7 +522,7 @@ final class ChangeCodec {
         return new Change(Change.Kind.CREATE_APPROVAL_PROCESS, view.objectApiName(), null, write(
                 new CreateApprovalProcessRequest(withoutSuffix(view.apiName()), view.label(), view.description(),
                         view.active(), view.entryCriteria(), view.allowSelfApproval(), view.steps(), view.outcomes(),
-                        view.fallback())));
+                        view.fallback(), view.remindAfterHours(), view.escalateAfterHours())));
     }
 
     /** Puts the process back as it was, to be applied on top of {@code afterVersion}. */
@@ -516,7 +530,25 @@ final class ChangeCodec {
         return new Change(Change.Kind.UPDATE_APPROVAL_PROCESS, before.objectApiName(), before.apiName(), write(
                 new UpdateApprovalProcessRequest(before.label(), before.description(), before.active(),
                         before.entryCriteria(), before.allowSelfApproval(), before.steps(), before.outcomes(),
-                        before.fallback(), afterVersion)));
+                        before.fallback(), before.remindAfterHours(), before.escalateAfterHours(), afterVersion)));
+    }
+
+    // ---- notification text (Sprint 25) ----
+
+    Change removeNotificationTemplate(String kind) {
+        return new Change(Change.Kind.DELETE_NOTIFICATION_TEMPLATE, "", kind, EMPTY);
+    }
+
+    /** Writes the text again as it was. */
+    Change makeNotificationTemplate(NotificationTemplateView view) {
+        return new Change(Change.Kind.CREATE_NOTIFICATION_TEMPLATE, "", view.kind(), write(
+                new CreateNotificationTemplateRequest(view.kind(), view.title(), view.body())));
+    }
+
+    /** Puts the text back as it was, to be applied on top of {@code afterVersion}. */
+    Change restoreNotificationTemplate(NotificationTemplateView before, long afterVersion) {
+        return new Change(Change.Kind.UPDATE_NOTIFICATION_TEMPLATE, "", before.kind(), write(
+                new UpdateNotificationTemplateRequest(before.title(), before.body(), afterVersion)));
     }
 
     private static List<String> fieldsToSend(RecordTypeView view) {

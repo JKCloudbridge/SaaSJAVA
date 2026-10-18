@@ -68,7 +68,9 @@ final class WorkflowActionChecks {
     static void check(ObjectDefinition triggering, Function<String, Optional<ObjectDefinition>> objects,
             WorkflowDefinition.Action action, String place, Report report) {
         switch (action.type()) {
-            case WorkflowActionTypes.UPDATE_RECORD -> assignments(triggering, triggering, action, place, report, null);
+            case WorkflowActionTypes.UPDATE_RECORD, WorkflowActionTypes.SET_FIELDS ->
+                    assignments(triggering, triggering, action, place, report, null);
+            case WorkflowActionTypes.NOTIFY -> notify(triggering, action, place, report);
             case WorkflowActionTypes.CREATE_RECORD -> create(triggering, objects, action, place, report);
             case WorkflowActionTypes.SEND_EMAIL -> mail(triggering, action, place, report);
             case WorkflowActionTypes.START_APPROVAL -> {
@@ -199,6 +201,23 @@ final class WorkflowActionChecks {
         } else if (field.retired() || !(isEmail(field) || isUser(field))) {
             report.problem(place + ".settings.recipientField",
                     "This must be a field that holds an e-mail address or a link to a user.");
+        }
+    }
+
+    // ---- NOTIFY ----
+
+    private static void notify(ObjectDefinition triggering, WorkflowDefinition.Action action, String place,
+            Report report) {
+        String name = action.settings().get("recipientField");
+        if (name == null) {
+            return;
+        }
+        report.needsField(triggering.apiName(), name, "notifies the person in");
+        FieldDefinition field = triggering.field(name).orElse(null);
+        if (field == null) {
+            report.missing(place + ".settings.recipientField", NO_FIELD);
+        } else if (field.retired() || !isUser(field)) {
+            report.problem(place + ".settings.recipientField", "This must be a field that links to a user.");
         }
     }
 

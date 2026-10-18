@@ -189,6 +189,24 @@ platform:
   outbox:
     # Every instance may run the relay; they coordinate through the database (ADR-0016).
     enabled: ${PLATFORM_OUTBOX_ENABLED:true}
+  data:
+    # Before-save automation runs inside every save of an object that has one, so its bounds are a safety property
+    # (ADR-0160): the most automations that run for one save, the time all of them may take together, and the switch an
+    # operator uses if one ever misbehaves.
+    before-save:
+      enabled: ${PLATFORM_BEFORE_SAVE_ENABLED:true}
+      max-per-object: 10
+      time-budget: 500ms
+  licensing:
+    # The end of a trial (ADR-0162): the organization keeps working for the grace period, its administrators are told
+    # 7 days and 1 day before it is suspended and when it is. Nothing is ever deleted.
+    trial:
+      enabled: ${PLATFORM_TRIAL_JOB_ENABLED:true}
+      grace: 7d
+      first-notice-days: 7
+      final-notice-days: 1
+      interval: 10m
+      batch-size: 50
   workflow:
     # Every instance may run the dispatcher (the worker of queued executions and the scheduler); they coordinate
     # through the database (ADR-0135).
@@ -206,6 +224,10 @@ platform:
       max-chain-depth: ${PLATFORM_WORKFLOW_MAX_CHAIN_DEPTH:5}
       max-executions-per-minute: ${PLATFORM_WORKFLOW_MAX_EXECUTIONS_PER_MINUTE:600}
       mails-per-organization-per-hour: 500
+    # Each claim takes at most this many executions of one organization, so the organizations that have work are served
+    # by turns and a long queue of one cannot keep the others waiting (ADR-0164).
+    worker:
+      per-organization: ${PLATFORM_WORKFLOW_PER_ORGANIZATION:3}
     retention:
       # A dead letter stays longer than a finished execution so that a person has time to look (never under 30 days).
       dead-letter: 180d
@@ -222,6 +244,13 @@ platform:
     # Whether a person who is asked to decide is also told by mail (the inbox always shows the task, ADR-0152).
     mail:
       enabled: true
+    # The timer that reminds the people asked, asks the fallback approver as well and marks a step overdue (ADR-0159).
+    # Every instance may run one; they coordinate through the database.
+    timer:
+      enabled: ${PLATFORM_APPROVAL_TIMER_ENABLED:true}
+      poll-interval: 30s
+      batch-size: 50
+      lease: 2m
   notification:
     # Every instance may run the mail relay; they coordinate through the database (ADR-0024).
     enabled: ${PLATFORM_MAIL_RELAY_ENABLED:true}
@@ -229,6 +258,18 @@ platform:
     # a deployment names its own.
     sender-address: ${PLATFORM_MAIL_SENDER}
     public-base-url: ${PLATFORM_PUBLIC_BASE_URL}
+    # In-app notices (ADR-0154): the page sizes and how long notices stay. Read ones go after 30 days, unread ones after
+    # 180, and nothing younger than the floor of 7 days is ever removed.
+    notices:
+      page-size: 30
+      max-page-size: 100
+      retention:
+        enabled: true
+        read-keep: 30d
+        unread-keep: 180d
+        floor: 7d
+        interval: 1h
+        batch-size: 1000
   identity:
     # Behind a trusted proxy that overwrites X-Forwarded-For (the source address of rate limits and audit records);
     # with the API reachable directly a caller could choose its own address, which is why the default is off.

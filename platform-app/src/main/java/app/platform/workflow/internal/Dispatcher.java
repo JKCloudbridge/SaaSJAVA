@@ -41,6 +41,8 @@ class Dispatcher implements SmartLifecycle {
     private static final Duration MAINTENANCE_INTERVAL = Duration.ofSeconds(30);
     private static final int SCHEDULE_BATCH = 10;
     private static final int ORGANIZATIONS_PER_PASS = 50;
+    /** The number of buckets the organizations are grouped into for the queue age metric (ADR-0164). */
+    static final int AGE_BUCKETS = 8;
 
     private final DispatchStore store;
     private final ExecutionRunner runner;
@@ -53,6 +55,8 @@ class Dispatcher implements SmartLifecycle {
     private final MeterRegistry meters;
     private final AtomicLong queueDepth = new AtomicLong();
     private final AtomicLong deadLetters = new AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLongArray queueAge =
+            new java.util.concurrent.atomic.AtomicLongArray(AGE_BUCKETS);
 
     private ScheduledExecutorService executor;
     private volatile boolean running;
@@ -73,6 +77,11 @@ class Dispatcher implements SmartLifecycle {
         meters.gauge("platform.workflow.queue.depth", queueDepth);
         // Alert-ready: more than zero means a person has something to look at (ADR-0143).
         meters.gauge("platform.workflow.dead_letters", deadLetters);
+        for (int bucket = 0; bucket < AGE_BUCKETS; bucket++) {
+            int which = bucket;
+            io.micrometer.core.instrument.Gauge.builder("platform.workflow.queue.age", queueAge,
+                    ages -> ages.get(which)).tag("bucket", Integer.toString(bucket)).register(meters);
+        }
     }
 
     // ---- one poll of each kind (public to the package so a test can drive them without waiting) ----
@@ -84,7 +93,8 @@ class Dispatcher implements SmartLifecycle {
      */
     int pollExecutionsOnce() {
         List<DispatchStore.ClaimedExecution> claimed = asDispatcher(
-                () -> store.claimExecutions(properties.worker().batchSize(), properties.worker().lease()));
+                () -> store.claimExecutions(properties.worker().batchSize(), properties.worker().perOrganization(),
+                        properties.worker().lease()));
         claimed.forEach(runner::run);
         return claimed.size();
     }
@@ -138,6 +148,29 @@ class Dispatcher implements SmartLifecycle {
     void sampleQueue() {
         queueDepth.set(asDispatcher(store::queued));
         deadLetters.set(asDispatcher(store::deadLetters));
+        long[] ages = asDispatcher(() -> store.oldestDueByBucket(AGE_BUCKETS));
+        for (int bucket = 0; bucket < AGE_BUCKETS; bucket++) {
+            queueAge.set(bucket, ages[bucket]);
+        }
+    }
+
+    /**
+     * What this instance last measured of the queue.
+     *
+     * @param queued executions due and waiting
+     * @param deadLettered executions set aside for a person, across organizations
+     * @param oldestSeconds how long the longest-waiting organization has waited
+     */
+    record Sample(long queued, long deadLettered, long oldestSeconds) {
+    }
+
+    /** The last measurement, for the health of automation across organizations (ADR-0163). */
+    Sample sample() {
+        long oldest = 0;
+        for (int bucket = 0; bucket < AGE_BUCKETS; bucket++) {
+            oldest = Math.max(oldest, queueAge.get(bucket));
+        }
+        return new Sample(queueDepth.get(), deadLetters.get(), oldest);
     }
 
     private <T> T asDispatcher(Supplier<T> work) {

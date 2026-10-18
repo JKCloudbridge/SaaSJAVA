@@ -12,6 +12,7 @@ import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
 import type { DragPayload } from "@/lib/builder/dragPayload";
 import {
+  actionTypesFor,
   assignedObjectOf,
   definitionOf,
   draftFromView,
@@ -21,10 +22,13 @@ import {
   moveActionBefore,
   newAction,
   objectsNamedBy,
+  phaseHints,
+  phaseOf,
   settableFields,
   snapshotOf,
   triggerHints,
   unfinishedActions,
+  withTrigger,
   type ActionDraft,
   type Catalogue,
   type WorkflowDraft,
@@ -182,7 +186,8 @@ export function WorkflowBuilder() {
   const listHref = "/setup/workflows";
   const open = unfinishedActions(current, kinds);
   const kind = kinds.triggerKinds.find((one) => one.kind === current.trigger.kind);
-  const triggerOpen = triggerHints(current.trigger, kind);
+  const triggerOpen = [...triggerHints(current.trigger, kind), ...phaseHints(current, kinds)];
+  const phase = phaseOf(kind);
   const fieldsOf = (name: string) => views[name]?.fields ?? [];
   const settableOf = (name: string) => settableFields(fieldsOf(name), fieldTypes);
   const workflowFields = fieldsOf(objectApiName);
@@ -372,7 +377,7 @@ export function WorkflowBuilder() {
           </div>
           <label>
             <input type="checkbox" checked={current.active} onChange={(event) => edit({ active: event.target.checked })} />{" "}
-            Switched on (it starts runs)
+            Switched on{phase === "BEFORE_SAVE" ? " (it runs inside every save)" : " (it starts runs)"}
           </label>
         </div>
       </section>
@@ -386,7 +391,10 @@ export function WorkflowBuilder() {
           fields={workflowFields}
           processes={processes}
           outcomes={outcomes}
-          onChange={(trigger) => edit({ trigger })}
+          onChange={(trigger) => {
+            setChecked(undefined);
+            setDraft((now) => (now ? withTrigger(now, trigger, kinds) : now));
+          }}
         />
         {triggerOpen.length > 0 ? (
           <ul className="hint" data-testid="trigger-hints">
@@ -436,7 +444,7 @@ export function WorkflowBuilder() {
                 id: "actions",
                 label: "Actions",
                 empty: "This release offers no action.",
-                items: kinds.actionTypes.map((one) => ({
+                items: actionTypesFor(kinds, phase).map((one) => ({
                   key: `action:${one.type}`,
                   label: humanize(one.type),
                   title: one.summary,

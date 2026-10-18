@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { CATALOGUE, FIELD_TYPES, ORDER_FIELDS, WATCH } from "@/test/workflows";
 import {
   actionHints,
+  actionTypesFor,
+  actionsLostByTrigger,
   addAssignment,
   assignedObjectOf,
   changeAction,
@@ -17,6 +19,8 @@ import {
   newAction,
   nudgeAction,
   objectsNamedBy,
+  phaseHints,
+  phaseOf,
   removeAction,
   removeAssignment,
   settableFields,
@@ -25,6 +29,7 @@ import {
   triggerSpec,
   triggerText,
   unfinishedActions,
+  withTrigger,
 } from "./workflowModel";
 
 const MAKE = CATALOGUE.actionTypes[1]!;
@@ -232,5 +237,43 @@ describe("what the page offers", () => {
     expect(humanize("")).toBe("");
     expect(triggerText({ kind: "EVERY_MORNING" }, CATALOGUE)).toBe(CATALOGUE.triggerKinds[2]?.summary);
     expect(triggerText({ kind: "UNHEARD_OF" }, CATALOGUE)).toBe("Unheard of");
+  });
+});
+
+describe("the two phases of a workflow", () => {
+  const after = CATALOGUE.triggerKinds[0]!;
+  const before = CATALOGUE.triggerKinds[3]!;
+
+  it("reads the phase of a trigger and the actions of a phase from the catalogue", () => {
+    expect(phaseOf(after)).toBe("AFTER_SAVE");
+    expect(phaseOf(before)).toBe("BEFORE_SAVE");
+    expect(phaseOf(undefined)).toBe("AFTER_SAVE");
+    expect(actionTypesFor(CATALOGUE, "BEFORE_SAVE").map((type) => type.type)).toEqual(["TIDY_UP"]);
+    expect(actionTypesFor(CATALOGUE, "AFTER_SAVE").map((type) => type.type)).not.toContain("TIDY_UP");
+  });
+
+  it("keeps the actions when the trigger stays in its phase, and drops those of the old phase when it crosses", () => {
+    const draft = { ...emptyDraft(CATALOGUE), actions: [newAction("SIGNAL", []), newAction("SET_FIELDS", [])] };
+
+    const same = withTrigger(draft, { ...draft.trigger, kind: "WHEN_FIELD_MOVES" }, CATALOGUE);
+    expect(same.actions).toHaveLength(2);
+
+    expect(actionsLostByTrigger(draft, "WHEN_SAVING", CATALOGUE)).toBe(2);
+    const crossed = withTrigger(draft, { ...draft.trigger, kind: "WHEN_SAVING" }, CATALOGUE);
+    expect(crossed.actions).toEqual([]);
+    expect(crossed.trigger.kind).toBe("WHEN_SAVING");
+
+    const back = withTrigger({ ...crossed, actions: [newAction("TIDY_UP", [])] }, { ...crossed.trigger, kind: "WHEN_MADE" }, CATALOGUE);
+    expect(back.actions).toEqual([]);
+  });
+
+  it("hints that a before-save automation has exactly one action, and says nothing for the other phase", () => {
+    const draft = emptyDraft(CATALOGUE);
+    expect(phaseHints(draft, CATALOGUE)).toEqual([]);
+
+    const saving = { ...draft, trigger: { ...draft.trigger, kind: "WHEN_SAVING" } };
+    expect(phaseHints(saving, CATALOGUE)).toHaveLength(1);
+    expect(phaseHints({ ...saving, actions: [newAction("TIDY_UP", [])] }, CATALOGUE)).toEqual([]);
+    expect(phaseHints({ ...saving, actions: [newAction("TIDY_UP", []), newAction("TIDY_UP", [])] }, CATALOGUE)).toHaveLength(1);
   });
 });

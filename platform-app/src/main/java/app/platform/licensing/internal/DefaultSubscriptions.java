@@ -89,6 +89,22 @@ class DefaultSubscriptions implements Subscriptions {
     }
 
     @Override
+    public java.util.List<TrialEnd> overTrials(Instant now, int limit) {
+        return store.overTrials(now, limit);
+    }
+
+    @Override
+    public java.util.Set<String> trialStagesDone(UUID subscriptionId, Instant trialEndsAt) {
+        return store.trialStagesDone(subscriptionId, trialEndsAt);
+    }
+
+    @Override
+    public boolean markTrialStage(TenantId tenant, UUID subscriptionId, Instant trialEndsAt, String stage,
+            ActorId actor) {
+        return store.markTrialStage(tenant, subscriptionId, trialEndsAt, stage, actor);
+    }
+
+    @Override
     public Optional<SubscriptionView> of(TenantId tenant) {
         return store.subscription(tenant).map(LicensingStore.SubscriptionRow::view);
     }

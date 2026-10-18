@@ -213,6 +213,14 @@ ol {
   font-size: var(--font-size-sm);
 }
 
+/* The bell in the header (Sprint 25): the icon and, when something is unread, the number beside it. */
+.bell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: inherit;
+}
+
 .org-name {
   padding: var(--space-1) var(--space-2-5);
   border-radius: var(--radius-pill);

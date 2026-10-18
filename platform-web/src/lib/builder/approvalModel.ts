@@ -58,6 +58,10 @@ export interface ApprovalDraft {
   outcomes: OutcomesDraft;
   /** The fallback approver: empty kind means none. */
   fallback: { kind: string; value: string };
+  /** Hours an active step may wait before the people asked are reminded, as typed; empty means never (Sprint 25). */
+  remindAfterHours: string;
+  /** Hours an active step may wait before the fallback approver is asked as well, as typed; empty means never. */
+  escalateAfterHours: string;
 }
 
 // ---- making a draft ----
@@ -74,6 +78,8 @@ export function emptyDraft(catalogue: Catalogue): ApprovalDraft {
     steps: [],
     outcomes: emptyOutcomes(catalogue),
     fallback: { kind: "", value: "" },
+    remindAfterHours: "",
+    escalateAfterHours: "",
   };
 }
 
@@ -123,6 +129,9 @@ export function draftFromView(view: ProcessView, catalogue: Catalogue): Approval
     steps: view.steps.map(stepFromSpec),
     outcomes,
     fallback: view.fallback ? { kind: view.fallback.kind, value: view.fallback.value ?? "" } : { kind: "", value: "" },
+    remindAfterHours: view.remindAfterHours === undefined || view.remindAfterHours === null ? "" : String(view.remindAfterHours),
+    escalateAfterHours:
+      view.escalateAfterHours === undefined || view.escalateAfterHours === null ? "" : String(view.escalateAfterHours),
   };
 }
 
@@ -172,6 +181,8 @@ export function definitionOf(draft: ApprovalDraft, catalogue: Catalogue) {
     ...(draft.fallback.kind === ""
       ? {}
       : { fallback: approverSpec({ id: "", kind: draft.fallback.kind, value: draft.fallback.value }, fallbackKind) }),
+    ...(draft.remindAfterHours.trim() === "" ? {} : { remindAfterHours: Number(draft.remindAfterHours) }),
+    ...(draft.escalateAfterHours.trim() === "" ? {} : { escalateAfterHours: Number(draft.escalateAfterHours) }),
   };
 }
 

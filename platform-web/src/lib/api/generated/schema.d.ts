@@ -760,6 +760,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/automation/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The health of automation in the organization
+         * @description Counts of what waits, what retries, what was set aside, which events were given up on, which approvals have nobody to decide them or are overdue, and which mails are stuck, each with the place to look. Counts only: never a value of a record. Needs automation.view. Organization hosts only.
+         */
+        get: operations["getAutomationHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/data-access/mine": {
         parameters: {
             query?: never;
@@ -1864,6 +1884,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/metadata/notification-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The text of every kind of notice an administrator may write
+         * @description For each kind: the text in use (the platform's own until somebody writes one), the platform's own text to start from, the placeholders the kind allows and the version to send back. For members who may view metadata.
+         */
+        get: operations["listNotificationTemplates"];
+        put?: never;
+        /**
+         * Write the text of a kind of notice
+         * @description Live at once, as a release of one change. The text is plain: at most 80 characters of title on one line and 500 of body, no markup, no link and no address (the platform adds its own link). It may use the placeholders of its kind in braces; each stands for a label of the organization and never for a value of a record. Audited by kind, never by the text. VALIDATION_ERROR names every place that is wrong, also when the text has been written already for the kind.
+         */
+        post: operations["createNotificationTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/notification-templates/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a text and see it with sample labels
+         * @description The real rules answer. Nothing is stored, audited or logged, and no part of the text is repeated in the answer. The preview uses sample labels and never a value of a record. Needs metadata.view and metadata.manage or metadata.publish.
+         */
+        post: operations["checkNotificationTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/notification-templates/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change the text of a kind of notice
+         * @description Live at once, as a release of one change. The text is plain: at most 80 characters of title on one line and 500 of body, no markup, no link and no address (the platform adds its own link). It may use the placeholders of its kind in braces; each stands for a label of the organization and never for a value of a record. Audited by kind, never by the text. CONCURRENT_MODIFICATION when someone changed it since it was read; NOT_FOUND when the platform's own text is in use.
+         */
+        put: operations["updateNotificationTemplate"];
+        post?: never;
+        /**
+         * Go back to the platform's own text
+         * @description Live at once, as a release of one change. Notices already created are not rewritten: their words are built when they are read, so they show the platform's text from now on. The undo of the release writes the text again.
+         */
+        delete: operations["resetNotificationTemplate"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/metadata/objects": {
         parameters: {
             query?: never;
@@ -2684,6 +2772,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's choices of which notices and mails they want
+         * @description One entry per category and channel, with the words to show, whether it is on, and whether the platform fixes it on. A switch the caller never touched is on.
+         */
+        get: operations["getNotificationPreferences"];
+        /**
+         * Change some of the caller's choices
+         * @description Only the switches named change. A switch the platform fixes on (the account category) is refused with VALIDATION_ERROR naming the place. A switch that is off creates no in-app notice from now on and sends no mail of that category; nothing already made is removed.
+         */
+        put: operations["updateNotificationPreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's notices
+         * @description Newest first, cursor paging. Only the caller's own notices are ever returned. The words are built now from the template of the kind, so a change of text reaches old notices; they hold labels and never a value of a record. The href leads to the inbox or to a record; the page it opens decides what the caller may see. Narrow to the unread ones with unread=true.
+         */
+        get: operations["listNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark all of the caller's notices read
+         * @description Only the caller's own.
+         */
+        post: operations["markAllNotificationsRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How many notices the caller has not read
+         * @description For the bell in the header: one count, cheap to ask on focus.
+         */
+        get: operations["getNotificationSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark one of the caller's notices read
+         * @description NOT_FOUND for a notice that is not the caller's, exactly like one that does not exist. Marking a read notice again changes nothing.
+         */
+        post: operations["markNotificationRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/objects/{objectApiName}/form": {
         parameters: {
             query?: never;
@@ -3380,6 +3572,26 @@ export interface paths {
          * @description Newest first, one page at a time, with filters for time, person, kind and target. For platform administrators. Shows platform events only, never an organization's own administration or data. Platform host only.
          */
         get: operations["listPlatformAuditEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform/automation/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The health of automation across organizations (platform console)
+         * @description Counts of what waits, what is set aside, what is overdue and what is stuck, across all organizations, without any name or value. For platform administrators and support. Platform host only.
+         */
+        get: operations["getPlatformAutomationHealth"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4417,6 +4629,10 @@ export interface components {
             data: components["schemas"]["AuditEventView"][];
             pagination: components["schemas"]["Pagination"];
         };
+        ApiPageResponseNotificationView: {
+            data: components["schemas"]["NotificationView"][];
+            pagination: components["schemas"]["Pagination"];
+        };
         ApiPageResponsePlatformOrganizationSummary: {
             data: components["schemas"]["PlatformOrganizationSummary"][];
             pagination: components["schemas"]["Pagination"];
@@ -4462,6 +4678,9 @@ export interface components {
         };
         ApiResponseApprovalResolutionView: {
             data: components["schemas"]["ApprovalResolutionView"];
+        };
+        ApiResponseAutomationHealthView: {
+            data: components["schemas"]["AutomationHealthView"];
         };
         ApiResponseBulkRecordsResponse: {
             data: components["schemas"]["BulkRecordsResponse"];
@@ -4672,6 +4891,21 @@ export interface components {
         };
         ApiResponseMemberAccessView: {
             data: components["schemas"]["MemberAccessView"];
+        };
+        ApiResponseNotificationPreferencesView: {
+            data: components["schemas"]["NotificationPreferencesView"];
+        };
+        ApiResponseNotificationSummaryView: {
+            data: components["schemas"]["NotificationSummaryView"];
+        };
+        ApiResponseNotificationTemplateCheckView: {
+            data: components["schemas"]["NotificationTemplateCheckView"];
+        };
+        ApiResponseNotificationTemplateView: {
+            data: components["schemas"]["NotificationTemplateView"];
+        };
+        ApiResponseNotificationTemplatesView: {
+            data: components["schemas"]["NotificationTemplatesView"];
         };
         ApiResponseObjectFormView: {
             data: components["schemas"]["ObjectFormView"];
@@ -4948,10 +5182,14 @@ export interface components {
             definitionVersion: number;
             description: string;
             entryCriteria?: string;
+            /** Format: int32 */
+            escalateAfterHours?: number;
             fallback?: components["schemas"]["ApprovalApproverSpec"];
             label: string;
             objectApiName: string;
             outcomes: components["schemas"]["ApprovalOutcomesSpec"];
+            /** Format: int32 */
+            remindAfterHours?: number;
             steps: components["schemas"]["ApprovalStepSpec"][];
             /** Format: int64 */
             version: number;
@@ -5048,6 +5286,24 @@ export interface components {
             source: string;
             type: string;
         };
+        AutomationHealthItemView: {
+            /** Format: int64 */
+            count: number;
+            href?: string;
+            key: string;
+            label: string;
+            needsAttention: boolean;
+        };
+        AutomationHealthSectionView: {
+            items: components["schemas"]["AutomationHealthItemView"][];
+            key: string;
+            title: string;
+        };
+        AutomationHealthView: {
+            /** Format: date-time */
+            generatedAt: string;
+            sections: components["schemas"]["AutomationHealthSectionView"][];
+        };
         BulkRecordItem: {
             clear?: string[];
             fields?: {
@@ -5091,6 +5347,7 @@ export interface components {
         CatalogueActionType: {
             assignedObject?: string;
             assignments: string;
+            phase: string;
             settings: components["schemas"]["CatalogueSetting"][];
             summary: string;
             type: string;
@@ -5120,6 +5377,7 @@ export interface components {
         };
         CatalogueTriggerKind: {
             kind: string;
+            phase: string;
             properties: string[];
             scheduled: boolean;
             summary: string;
@@ -5141,6 +5399,7 @@ export interface components {
             createField?: components["schemas"]["CreateFieldRequest"];
             createLayout?: components["schemas"]["CreateLayoutRequest"];
             createLayoutAssignment?: components["schemas"]["CreateLayoutAssignmentRequest"];
+            createNotificationTemplate?: components["schemas"]["CreateNotificationTemplateRequest"];
             createObject?: components["schemas"]["CreateObjectRequest"];
             createRecordPage?: components["schemas"]["CreateRecordPageRequest"];
             createRecordPageAssignment?: components["schemas"]["CreateRecordPageAssignmentRequest"];
@@ -5158,6 +5417,7 @@ export interface components {
             updateField?: components["schemas"]["UpdateFieldRequest"];
             updateLayout?: components["schemas"]["UpdateLayoutRequest"];
             updateLayoutAssignment?: components["schemas"]["UpdateLayoutAssignmentRequest"];
+            updateNotificationTemplate?: components["schemas"]["UpdateNotificationTemplateRequest"];
             updateObject?: components["schemas"]["UpdateObjectRequest"];
             updateRecordPage?: components["schemas"]["UpdateRecordPageRequest"];
             updateRecordPageAssignment?: components["schemas"]["UpdateRecordPageAssignmentRequest"];
@@ -5219,6 +5479,11 @@ export interface components {
             purpose: string;
             resultType?: string;
         };
+        CheckNotificationTemplateRequest: {
+            body?: string;
+            kind: string;
+            title?: string;
+        };
         CheckWorkflowConditionRequest: {
             actions?: components["schemas"]["WorkflowActionSpec"][];
             condition?: string;
@@ -5262,10 +5527,14 @@ export interface components {
             allowSelfApproval?: boolean;
             description?: string;
             entryCriteria?: string;
+            /** Format: int32 */
+            escalateAfterHours?: number;
             fallback?: components["schemas"]["ApprovalApproverSpec"];
             label: string;
             name: string;
             outcomes?: components["schemas"]["ApprovalOutcomesSpec"];
+            /** Format: int32 */
+            remindAfterHours?: number;
             steps: components["schemas"]["ApprovalStepSpec"][];
         };
         CreateChangeSetRequest: {
@@ -5307,6 +5576,11 @@ export interface components {
             definition: components["schemas"]["ListViewDefinition"];
             label: string;
             scope: string;
+        };
+        CreateNotificationTemplateRequest: {
+            body: string;
+            kind: string;
+            title: string;
         };
         CreateObjectRequest: {
             description?: string;
@@ -5952,6 +6226,56 @@ export interface components {
             /** @enum {string} */
             type: "OBJECT" | "RECORD_PAGE" | "LINK" | "HEADING" | "TAB";
         } & (unknown & unknown & unknown & unknown & unknown);
+        NotificationPlaceholderView: {
+            help: string;
+            name: string;
+        };
+        NotificationPreferencesView: {
+            choices: components["schemas"]["PreferenceChoiceView"][];
+        };
+        NotificationSummaryView: {
+            /** Format: int32 */
+            unread: number;
+        };
+        NotificationTemplateCheckView: {
+            previewBody?: string;
+            previewTitle?: string;
+            problems: {
+                [key: string]: string[];
+            };
+        };
+        NotificationTemplateView: {
+            body: string;
+            category: string;
+            custom: boolean;
+            defaultBody: string;
+            defaultTitle: string;
+            kind: string;
+            placeholders: components["schemas"]["NotificationPlaceholderView"][];
+            summary: string;
+            title: string;
+            /** Format: int64 */
+            version?: number;
+        };
+        NotificationTemplatesView: {
+            /** Format: int32 */
+            bodyMax: number;
+            templates: components["schemas"]["NotificationTemplateView"][];
+            /** Format: int32 */
+            titleMax: number;
+        };
+        NotificationView: {
+            body: string;
+            category: string;
+            /** Format: date-time */
+            createdAt: string;
+            href?: string;
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            read: boolean;
+            title: string;
+        };
         ObjectFormView: {
             actions: components["schemas"]["FormActionsView"];
             fields: components["schemas"]["FormFieldView"][];
@@ -6141,6 +6465,20 @@ export interface components {
             /** Format: date-time */
             serverTime: string;
             service: string;
+        };
+        PreferenceChoiceRequest: {
+            category: string;
+            channel: string;
+            enabled: boolean;
+        };
+        PreferenceChoiceView: {
+            category: string;
+            categoryLabel: string;
+            channel: string;
+            channelLabel: string;
+            description: string;
+            enabled: boolean;
+            locked: boolean;
         };
         ProblemView: {
             dependent?: string;
@@ -6638,9 +6976,13 @@ export interface components {
             allowSelfApproval: boolean;
             description?: string;
             entryCriteria?: string;
+            /** Format: int32 */
+            escalateAfterHours?: number;
             fallback?: components["schemas"]["ApprovalApproverSpec"];
             label: string;
             outcomes?: components["schemas"]["ApprovalOutcomesSpec"];
+            /** Format: int32 */
+            remindAfterHours?: number;
             steps: components["schemas"]["ApprovalStepSpec"][];
             /** Format: int64 */
             version: number;
@@ -6681,6 +7023,15 @@ export interface components {
             definition: components["schemas"]["ListViewDefinition"];
             label: string;
             scope: string;
+            /** Format: int64 */
+            version: number;
+        };
+        UpdateNotificationPreferencesRequest: {
+            choices: components["schemas"]["PreferenceChoiceRequest"][];
+        };
+        UpdateNotificationTemplateRequest: {
+            body: string;
+            title: string;
             /** Format: int64 */
             version: number;
         };
@@ -8249,6 +8600,35 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getAutomationHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseAutomationHealthView"];
+                };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {
@@ -10399,6 +10779,165 @@ export interface operations {
             };
         };
     };
+    listNotificationTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNotificationTemplatesView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createNotificationTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateNotificationTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNotificationTemplateView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    checkNotificationTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckNotificationTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNotificationTemplateCheckView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateNotificationTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateNotificationTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNotificationTemplateView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    resetNotificationTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     listObjects: {
         parameters: {
             query?: never;
@@ -12520,6 +13059,186 @@ export interface operations {
             };
         };
     };
+    getNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNotificationPreferencesView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateNotificationPreferencesRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNotificationPreferencesView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listNotifications: {
+        parameters: {
+            query?: {
+                unread?: boolean;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiPageResponseNotificationView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    markAllNotificationsRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getNotificationSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNotificationSummaryView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    markNotificationRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     getObjectForm: {
         parameters: {
             query?: {
@@ -13966,6 +14685,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiPageResponseAuditEventView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getPlatformAutomationHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseAutomationHealthView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

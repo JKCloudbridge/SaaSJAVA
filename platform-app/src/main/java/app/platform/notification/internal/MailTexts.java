@@ -1,5 +1,6 @@
 package app.platform.notification.internal;
 
+import app.platform.sharedkernel.notice.NoticeText;
 import java.util.Map;
 
 /**
@@ -162,6 +163,45 @@ final class MailTexts {
                 it: nothing changes.
                 """),
 
+        APPROVAL_REMINDER(
+                "A decision is still waiting for you",
+                """
+                Hello,
+
+                A record of {{objectLabel}} in the organization "{{organization}}" has waited longer than expected \
+                for your decision in the approval "{{process}}". Open your approvals here:
+
+                {{link}}
+
+                You need to sign in. Nothing is decided by opening the link, and what you can see of the record is \
+                what your access allows. If you do not know this organization or did not expect this message, ignore \
+                it: nothing changes.
+                """),
+
+        TRIAL_ENDING(
+                "The trial of your organization is ending",
+                """
+                Hello,
+
+                The trial of the organization "{{organization}}" has ended or is about to end. If no plan is active \
+                in {{days}}, the organization is suspended: nobody can sign in to it, but nothing is deleted, and a \
+                platform administrator can open it again once a plan is active.
+
+                This message goes to the people who administer the organization.
+                """),
+
+        TRIAL_SUSPENDED(
+                "Your organization is suspended",
+                """
+                Hello,
+
+                The trial of the organization "{{organization}}" is over and the organization is suspended: nobody \
+                can sign in to it. Nothing was deleted. A platform administrator can open it again once a plan is \
+                active.
+
+                This message goes to the people who administer the organization.
+                """),
+
         FIRST_ADMINISTRATOR_EXISTING(
                 "You have been invited to set up an organization",
                 """
@@ -190,7 +230,8 @@ final class MailTexts {
         }
     }
 
-    private static final int MAX_NAME_LENGTH = 80;
+    private static final String CUSTOM_FOOTER = "You need to sign in, and what you see is what your access allows. "
+            + "If you do not know this organization or did not expect this message, ignore it: nothing changes.";
 
     private MailTexts() {
     }
@@ -201,18 +242,27 @@ final class MailTexts {
      * (colon, slash, at-sign, dot) and anything that could break a line is dropped, so the name can only be a name.
      */
     static String safeName(String name) {
-        StringBuilder safe = new StringBuilder();
-        for (int i = 0; i < name.length() && safe.length() < MAX_NAME_LENGTH; ) {
-            int point = name.codePointAt(i);
-            i += Character.charCount(point);
-            if (Character.isLetterOrDigit(point) || " -'&,()".indexOf(point) >= 0) {
-                safe.appendCodePoint(point);
-            } else if (Character.isWhitespace(point)) {
-                safe.append(' ');
-            }
+        return NoticeText.safeName(name);
+    }
+
+    /**
+     * The plain-text body of a mail whose words an administrator wrote (Sprint 25, ADR-0155): their text, then the
+     * platform's own link and footer. The text has passed {@link NoticeText#validate} when it was saved and has its
+     * placeholders filled with cleaned labels, so it holds no link and no address of its own.
+     */
+    static String customText(String body, String link) {
+        return "Hello,\n\n" + body + "\n\nOpen it here:\n\n" + link + "\n\n" + CUSTOM_FOOTER;
+    }
+
+    /** The HTML form of {@link #customText}: paragraphs, the link as a link, every inserted value escaped. */
+    static String customHtml(String body, String link) {
+        StringBuilder html = new StringBuilder("<!doctype html><html><body><p>Hello,</p>");
+        for (String paragraph : body.strip().split("\n\n")) {
+            html.append("<p>").append(escape(paragraph.strip()).replace("\n", "<br>")).append("</p>");
         }
-        String result = safe.toString().strip().replaceAll(" {2,}", " ");
-        return result.isEmpty() ? "an organization" : result;
+        html.append("<p>Open it here:</p><p>").append(asLinkIfAddress(escape(link))).append("</p><p>")
+                .append(escape(CUSTOM_FOOTER)).append("</p></body></html>");
+        return html.toString();
     }
 
     /** The plain-text body with the values inserted as they are. */

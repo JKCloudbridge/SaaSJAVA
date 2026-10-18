@@ -78,6 +78,15 @@ class WorkflowStore {
                 .param("object", objectApiName).query(Integer.class).single();
     }
 
+    /** How many before-save automations the object has (ADR-0160). */
+    int countBeforeSave(String objectApiName) {
+        return jdbc.sql("select count(*) from workflow w join workflow_version v on v.workflow_id = w.id "
+                        + "and v.version_number = w.definition_version and v.deleted_at is null "
+                        + "where w.object_api_name = :object and w.deleted_at is null "
+                        + "and v.trigger_kind in ('BEFORE_CREATE', 'BEFORE_UPDATE')")
+                .param("object", objectApiName).query(Integer.class).single();
+    }
+
     /** Makes the workflow with its first definition. */
     Row insert(String objectApiName, String apiName, String label, String description, boolean active, String trigger,
             String condition, String actions, UUID actor) {

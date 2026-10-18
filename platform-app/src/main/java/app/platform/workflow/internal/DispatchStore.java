@@ -58,30 +58,96 @@ class DispatchStore {
         this.jdbc = jdbc;
     }
 
-    /** Claims up to {@code limit} due executions, oldest first. */
-    List<ClaimedExecution> claimExecutions(int limit, Duration lease) {
-        return jdbc.sql("""
-                update workflow_execution e
-                   set status = 'RUNNING', started_at = coalesce(e.started_at, now()),
-                       locked_until = now() + make_interval(secs => cast(:lease as double precision)),
-                       attempts = e.attempts + 1, version = e.version + 1, updated_by = :system
-                 where e.id in (select d.id from workflow_execution d
-                                 where d.status in ('QUEUED', 'RUNNING') and d.run_at <= now()
-                                   and (d.locked_until is null or d.locked_until < now())
-                                   and d.deleted_at is null
-                                 order by d.run_at, d.id
-                                 limit :limit
-                                 for update skip locked)
-                returning e.id, e.tenant_id, e.workflow_id, e.workflow_version_id, e.object_api_name, e.record_id,
-                          e.record_version, e.trigger_kind, e.attempts, e.version, e.created_at, e.chain_root,
-                          e.chain_depth, array_to_string(e.chain_workflows, ',') as chain_workflows, e.replay_of,
-                          e.replay_generation, e.resume_step
-                """)
+    /**
+     * The statement that claims executions fairly (Sprint 25, ADR-0164). Three steps in one statement:
+     * <ol>
+     * <li>the organizations that have something due, found by a skip scan over the index (one probe per organization,
+     * not one per row);</li>
+     * <li>for each, its own oldest due executions up to {@code :cap}, numbered by turn: 1 is its oldest, 2 its
+     *     next;</li>
+     * <li>the first {@code :limit} of all of them in the order of turn and then of age, so every organization with work
+     * gets its first execution before any gets its second, and none gets more than the cap.</li>
+     * </ol>
+     * The chosen rows are then locked with {@code skip locked} and claimed. Two instances that choose the same rows
+     * simply split them: the one that loses a row to the other claims fewer this time and more the next.
+     */
+    private static final String FAIR_CLAIM = """
+            with recursive due_tenants(tenant_id) as (
+                (select e.tenant_id from workflow_execution e
+                  where e.status in ('QUEUED', 'RUNNING') and e.run_at <= now() and e.deleted_at is null
+                    and (e.locked_until is null or e.locked_until < now())
+                  order by e.tenant_id limit 1)
+                union all
+                select (select e.tenant_id from workflow_execution e
+                         where e.tenant_id > d.tenant_id and e.status in ('QUEUED', 'RUNNING')
+                           and e.run_at <= now() and e.deleted_at is null
+                           and (e.locked_until is null or e.locked_until < now())
+                         order by e.tenant_id limit 1)
+                  from due_tenants d where d.tenant_id is not null
+            ),
+            candidates as (
+                select r.id, r.turn, r.run_at
+                  from due_tenants t
+                 cross join lateral (
+                       select x.id, x.run_at, row_number() over (order by x.run_at, x.id) as turn
+                         from (select c.id, c.run_at from workflow_execution c
+                                where c.tenant_id = t.tenant_id and c.status in ('QUEUED', 'RUNNING')
+                                  and c.run_at <= now() and c.deleted_at is null
+                                  and (c.locked_until is null or c.locked_until < now())
+                                order by c.run_at, c.id limit :cap) x) r
+                 where t.tenant_id is not null
+                 order by r.turn, r.run_at, r.id
+                 limit :limit
+            ),
+            picked as (
+                select e.id from workflow_execution e
+                 where e.id in (select id from candidates)
+                   and e.status in ('QUEUED', 'RUNNING') and e.run_at <= now() and e.deleted_at is null
+                   and (e.locked_until is null or e.locked_until < now())
+                 order by e.run_at, e.id
+                 for update skip locked
+            )
+            update workflow_execution e
+               set status = 'RUNNING', started_at = coalesce(e.started_at, now()),
+                   locked_until = now() + make_interval(secs => cast(:lease as double precision)),
+                   attempts = e.attempts + 1, version = e.version + 1, updated_by = :system
+              from picked
+             where e.id = picked.id
+            returning e.id, e.tenant_id, e.workflow_id, e.workflow_version_id, e.object_api_name, e.record_id,
+                      e.record_version, e.trigger_kind, e.attempts, e.version, e.created_at, e.chain_root,
+                      e.chain_depth, array_to_string(e.chain_workflows, ',') as chain_workflows, e.replay_of,
+                      e.replay_generation, e.resume_step
+            """;
+
+    /**
+     * Claims up to {@code limit} due executions, a fair share for each organization (ADR-0164): no organization gets
+     * more than {@code perOrganization} of them, and the organizations that have work are served by turns.
+     */
+    List<ClaimedExecution> claimExecutions(int limit, int perOrganization, Duration lease) {
+        return jdbc.sql(FAIR_CLAIM)
                 .param("lease", lease.toMillis() / 1000.0).param("system", ActorId.SYSTEM.value())
-                .param("limit", limit).query(DispatchStore::execution).list().stream()
+                .param("cap", perOrganization).param("limit", limit)
+                .query(DispatchStore::execution).list().stream()
                 // The statement does not promise an order; handle in the order the rows became due (ADR-0016's idiom).
                 .sorted(Comparator.comparing(ClaimedExecution::queuedAt).thenComparing(ClaimedExecution::id))
                 .toList();
+    }
+
+    /**
+     * How old the oldest due execution is, by bucket of organization, in seconds (ADR-0164, ADR-0163). A bucket is a
+     * hash of the organization's identifier modulo {@code buckets}: a tag with a handful of values that says whether
+     * some organizations wait, and never which, so no organization is named in a metric.
+     */
+    long[] oldestDueByBucket(int buckets) {
+        long[] ages = new long[buckets];
+        jdbc.sql("select abs(hashtext(tenant_id::text)) % :buckets as bucket, "
+                        + "extract(epoch from (now() - min(run_at)))::bigint as age from workflow_execution "
+                        + "where status = 'QUEUED' and run_at <= now() and deleted_at is null group by 1")
+                .param("buckets", buckets).query((rs, row) -> {
+                    ages[rs.getInt("bucket")] = Math.max(0, rs.getLong("age"));
+                    return 0;
+                }).list();
+        return ages;
     }
 
     /** Claims up to {@code limit} due schedules, the one due longest ago first. */

@@ -4,6 +4,9 @@ import app.platform.identity.OrganizationAdministration.Caller;
 import app.platformapi.ApiException;
 import app.platformapi.ApplicationView;
 import app.platformapi.CreateApplicationRequest;
+import app.platformapi.CreateNotificationTemplateRequest;
+import app.platformapi.NotificationTemplateView;
+import app.platformapi.UpdateNotificationTemplateRequest;
 import app.platformapi.CreateCustomPageRequest;
 import app.platformapi.CreateTabRequest;
 import app.platformapi.CustomPageView;
@@ -80,12 +83,14 @@ class ChangeApplier {
     private final ValidationRuleService rules;
     private final WorkflowService workflows;
     private final ApprovalProcessService approvals;
+    private final NotificationTemplateService templates;
     private final ChangeCodec codec;
 
     ChangeApplier(MetadataService metadata, RecordTypeService recordTypes, DefinitionService definitions,
             AssignmentService assignments, RecordPageAssignmentService recordPageAssignments,
             ValidationRuleService rules, RecordTypeAssignmentService typeAssignments, WorkflowService workflows,
-            ApprovalProcessService approvals, ChangeCodec codec) {
+            ApprovalProcessService approvals, NotificationTemplateService templates, ChangeCodec codec) {
+        this.templates = templates;
         this.approvals = approvals;
         this.workflows = workflows;
         this.rules = rules;
@@ -148,6 +153,9 @@ class ChangeApplier {
             case CREATE_APPROVAL_PROCESS -> createApprovalProcess(caller, change);
             case UPDATE_APPROVAL_PROCESS -> updateApprovalProcess(caller, change);
             case DELETE_APPROVAL_PROCESS -> deleteApprovalProcess(caller, change);
+            case CREATE_NOTIFICATION_TEMPLATE -> createNotificationTemplate(caller, change);
+            case UPDATE_NOTIFICATION_TEMPLATE -> updateNotificationTemplate(caller, change);
+            case DELETE_NOTIFICATION_TEMPLATE -> deleteNotificationTemplate(caller, change);
         };
     }
 
@@ -577,6 +585,33 @@ class ChangeApplier {
         approvals.delete(caller, change.object(), change.item());
         return new Applied(Boolean.TRUE, List.of(codec.makeApprovalProcess(before)),
                 List.of(item("REMOVED", "APPROVAL_PROCESS", change.object(), change.item())));
+    }
+
+    // ---- notification text (Sprint 25, ADR-0155) ----
+
+    private Applied createNotificationTemplate(Caller caller, Change change) {
+        NotificationTemplateView made = templates.create(caller,
+                codec.read(change, CreateNotificationTemplateRequest.class));
+        return new Applied(made, List.of(codec.removeNotificationTemplate(made.kind())),
+                List.of(item("ADDED", "NOTIFICATION_TEMPLATE", "", made.kind())));
+    }
+
+    private Applied updateNotificationTemplate(Caller caller, Change change) {
+        NotificationTemplateView before = templates.template(change.item());
+        NotificationTemplateView after = templates.update(caller, change.item(),
+                codec.read(change, UpdateNotificationTemplateRequest.class));
+        if (after.version() == null || after.version().equals(before.version())) {
+            return new Applied(after, List.of(), List.of());
+        }
+        return new Applied(after, List.of(codec.restoreNotificationTemplate(before, after.version())),
+                List.of(item("CHANGED", "NOTIFICATION_TEMPLATE", "", after.kind())));
+    }
+
+    private Applied deleteNotificationTemplate(Caller caller, Change change) {
+        NotificationTemplateView before = templates.template(change.item());
+        templates.delete(caller, change.item());
+        return new Applied(Boolean.TRUE, List.of(codec.makeNotificationTemplate(before)),
+                List.of(item("REMOVED", "NOTIFICATION_TEMPLATE", "", change.item())));
     }
 
     private static ReleaseItemView item(String action, String kind, String object, String item) {

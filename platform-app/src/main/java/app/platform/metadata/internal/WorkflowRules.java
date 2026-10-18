@@ -81,6 +81,7 @@ class WorkflowRules {
         WorkflowTriggerSpec cleanTrigger = trigger(problems, trigger, mustBeFuture);
         String cleanCondition = condition(problems, condition);
         List<WorkflowActionSpec> cleanActions = actions(problems, actions);
+        phase(problems, cleanTrigger, cleanActions);
         return new Checked(cleanLabel, cleanDescription, cleanTrigger, cleanCondition, cleanActions);
     }
 
@@ -99,7 +100,8 @@ class WorkflowRules {
         WorkflowDefinition.Kind kind = WorkflowDefinition.Kind.fromCode(trigger.kind()).orElse(null);
         if (kind == null) {
             problems.add("trigger.kind", "Choose one of RECORD_CREATED, RECORD_UPDATED, RECORD_DELETED, "
-                    + "FIELD_CHANGED, EVERY_DAY, EVERY_WEEK, DATE_TIME, DAYS_AFTER_DATE or APPROVAL_OUTCOME. "
+                    + "FIELD_CHANGED, EVERY_DAY, EVERY_WEEK, DATE_TIME, DAYS_AFTER_DATE, APPROVAL_OUTCOME, "
+                    + "BEFORE_CREATE or BEFORE_UPDATE. "
                     + "Triggers from external systems are not available yet.");
             return null;
         }
@@ -347,10 +349,11 @@ class WorkflowRules {
             if (type == null) {
                 problems.add(place + ".type", "Choose a type of action from the list; this release has "
                         + WorkflowActionTypes.all().stream().map(WorkflowActionTypes.Type::type).toList()
-                        + ". An in-app notification and calling an integration come with later releases.");
+                        + ". Calling an integration comes with a later release.");
                 continue;
             }
             Map<String, String> settings = settings(problems, place, type, action.settings());
+            related(problems, place, type, settings);
             List<WorkflowAssignmentSpec> assignments = assignments(problems, place, type, action.assignments());
             Integer attempts = attempts(problems, place, action.maxAttempts());
             kept.add(new WorkflowActionSpec(type.type(), name, settings, assignments, attempts));
@@ -369,7 +372,9 @@ class WorkflowRules {
             return List.of();
         }
         int most = properties.limits().maxAssignmentsPerAction();
-        if (type.type().equals(WorkflowActionTypes.UPDATE_RECORD) && given.isEmpty()) {
+        boolean writes = type.type().equals(WorkflowActionTypes.UPDATE_RECORD)
+                || type.type().equals(WorkflowActionTypes.SET_FIELDS);
+        if (writes && given.isEmpty()) {
             problems.add(place + ".assignments", "Name at least one field to set.");
         }
         if (given.size() > most) {
@@ -404,6 +409,50 @@ class WorkflowRules {
             }
         }
         return List.copyOf(kept);
+    }
+
+    /**
+     * A workflow runs in one phase (ADR-0160): a before-save trigger takes exactly one action, {@code SET_FIELDS}, and
+     * that action belongs to no other trigger, because it is carried out inside the save of the record and not after
+     * its commit.
+     */
+    private static void phase(Problems problems, WorkflowTriggerSpec trigger, List<WorkflowActionSpec> actions) {
+        if (trigger == null || actions == null) {
+            return;
+        }
+        boolean before = WorkflowDefinition.Kind.fromCode(trigger.kind()).map(WorkflowDefinition.Kind::beforeSave)
+                .orElse(false);
+        for (int i = 0; i < actions.size(); i++) {
+            boolean actionBefore = WorkflowActionTypes.beforeSave(actions.get(i).type());
+            if (before && !actionBefore) {
+                problems.add("actions[" + i + "].type", "A before-save automation only sets fields of the record "
+                        + "being saved: its action is SET_FIELDS.");
+            } else if (!before && actionBefore) {
+                problems.add("actions[" + i + "].type", "SET_FIELDS belongs to a before-save trigger "
+                        + "(BEFORE_CREATE or BEFORE_UPDATE).");
+            }
+            if (before && actions.get(i).maxAttempts() != null) {
+                problems.add("actions[" + i + "].maxAttempts", "A before-save automation runs once, inside the "
+                        + "save: it has no attempts to set.");
+            }
+        }
+        if (before && actions.size() != 1) {
+            problems.add("actions", "A before-save automation has exactly one action: SET_FIELDS.");
+        }
+    }
+
+    /** Rules between the settings of one action that no single setting can state. */
+    private static void related(Problems problems, String place, WorkflowActionTypes.Type type,
+            Map<String, String> settings) {
+        if (!type.type().equals(WorkflowActionTypes.NOTIFY)) {
+            return;
+        }
+        boolean field = "FIELD".equals(settings.get("recipient"));
+        if (field && !settings.containsKey("recipientField")) {
+            problems.add(place + ".settings.recipientField", "Name the user field when the recipient is FIELD.");
+        } else if (!field && settings.containsKey("recipientField")) {
+            problems.add(place + ".settings.recipientField", "Leave this out when the recipient is the owner.");
+        }
     }
 
     private Integer attempts(Problems problems, String place, Integer asked) {

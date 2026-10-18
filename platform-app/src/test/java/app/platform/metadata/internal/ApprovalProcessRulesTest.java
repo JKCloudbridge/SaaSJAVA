@@ -44,7 +44,7 @@ class ApprovalProcessRulesTest {
     private static Map<String, List<String>> problems(String criteria, List<ApprovalStepSpec> steps,
             ApprovalOutcomesSpec outcomes, ApprovalApproverSpec fallback) {
         Problems found = new Problems();
-        RULES.check(found, "Label", "", criteria, false, steps, outcomes, fallback);
+        RULES.check(found, "Label", "", criteria, false, steps, outcomes, fallback, null, null);
         try {
             found.throwIfAny();
             return Map.of();
@@ -109,7 +109,7 @@ class ApprovalProcessRulesTest {
     void theKindsThatNeedNoValueAreCleanedOfOne() {
         Problems found = new Problems();
         RULES.check(found, "Label", "", null, null, List.of(step("A", "any",
-                new ApprovalApproverSpec("owner_role_manager", null))), null, null);
+                new ApprovalApproverSpec("owner_role_manager", null))), null, null, null, null);
 
         assertThat(found.any()).isFalse();
     }

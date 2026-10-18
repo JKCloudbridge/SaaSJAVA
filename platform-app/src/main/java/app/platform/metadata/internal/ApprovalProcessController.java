@@ -143,7 +143,8 @@ class ApprovalProcessController {
             ApprovalProcessView current = service.process(objectApiName, processApiName);
             UpdateApprovalProcessRequest same = new UpdateApprovalProcessRequest(current.label(),
                     current.description(), body.active(), current.entryCriteria(), current.allowSelfApproval(),
-                    current.steps(), current.outcomes(), current.fallback(), body.version());
+                    current.steps(), current.outcomes(), current.fallback(), current.remindAfterHours(),
+                    current.escalateAfterHours(), body.version());
             return lifecycle.applyNow(caller, codec.now(Change.Kind.UPDATE_APPROVAL_PROCESS, objectApiName,
                     processApiName, same), ApprovalProcessView.class);
         }));

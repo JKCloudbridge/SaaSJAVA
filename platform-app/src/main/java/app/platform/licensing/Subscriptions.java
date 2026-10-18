@@ -48,4 +48,35 @@ public interface Subscriptions {
 
     /** The subscriptions of several organizations at once (for a list); organizations without one are absent. */
     Map<TenantId, SubscriptionView> of(Collection<TenantId> tenants);
+
+    /**
+     * A trial that is over (Sprint 25, ADR-0162).
+     *
+     * @param tenant the organization
+     * @param subscriptionId the subscription
+     * @param trialEndsAt the end that passed; an extended trial has a new one and its stages start again
+     */
+    record TrialEnd(TenantId tenant, java.util.UUID subscriptionId, java.time.Instant trialEndsAt) {
+    }
+
+    /**
+     * Trials whose end has passed and that have not been suspended for that end, the longest-over first, at most
+     * {@code limit}. Platform-level read; it opens no organization.
+     */
+    java.util.List<TrialEnd> overTrials(java.time.Instant now, int limit);
+
+    /**
+     * The stages of the end of this trial that have happened ({@code NOTICE_FIRST}, {@code NOTICE_FINAL},
+     * {@code SUSPENDED}).
+     */
+    java.util.Set<String> trialStagesDone(java.util.UUID subscriptionId, java.time.Instant trialEndsAt);
+
+    /**
+     * Notes that a stage of the end of a trial happened, once. The unique key is what makes each notice, and the
+     * suspension, happen once however many instances run the job.
+     *
+     * @return true when this call made the note, false when it had been made before
+     */
+    boolean markTrialStage(TenantId tenant, java.util.UUID subscriptionId, java.time.Instant trialEndsAt, String stage,
+            ActorId actor);
 }

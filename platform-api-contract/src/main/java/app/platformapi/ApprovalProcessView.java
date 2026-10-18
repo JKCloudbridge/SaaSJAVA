@@ -19,13 +19,16 @@ import java.util.List;
  * @param steps the steps in order
  * @param outcomes what the end of a request sets on the record
  * @param fallback who is asked when a step names nobody who can decide, or null
+ * @param remindAfterHours hours an active step may wait before the people asked are reminded, or null for never
+ * @param escalateAfterHours hours an active step may wait before the fallback approver is asked as well, once, or
+ *        null for never
  * @param version the version to send back when changing it
  */
 public record ApprovalProcessView(@NotNull String apiName, @NotNull String objectApiName, @NotNull String label,
         @NotNull String description, @NotNull Boolean active, @NotNull Integer definitionVersion, String entryCriteria,
         @NotNull Boolean allowSelfApproval, @NotNull List<ApprovalStepSpec> steps,
         @NotNull ApprovalOutcomesSpec outcomes,
-        ApprovalApproverSpec fallback, @NotNull Long version) {
+        ApprovalApproverSpec fallback, Integer remindAfterHours, Integer escalateAfterHours, @NotNull Long version) {
 
     /** Copies the list. */
     public ApprovalProcessView {

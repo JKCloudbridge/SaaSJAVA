@@ -30,9 +30,11 @@ public record WorkflowCatalogueView(@NotNull List<CatalogueActionType> actionTyp
      * @param assignedObject for {@code NAMED_OBJECT}: the key of the setting that names the object whose fields are
      *        set, otherwise null
      * @param settings the settings the type takes
+     * @param phase {@code AFTER_SAVE} (runs after the record change committed) or {@code BEFORE_SAVE} (runs inside the
+     *        save, Sprint 25); a workflow has actions of one phase, the phase of its trigger
      */
     public record CatalogueActionType(@NotNull String type, @NotNull String summary, @NotNull String assignments,
-            String assignedObject, @NotNull List<CatalogueSetting> settings) {
+            String assignedObject, @NotNull List<CatalogueSetting> settings, @NotNull String phase) {
 
         /** Copies the list. */
         public CatalogueActionType {
@@ -66,9 +68,11 @@ public record WorkflowCatalogueView(@NotNull List<CatalogueActionType> actionTyp
      * @param summary when it starts the workflow, in words
      * @param scheduled whether it is a time and not a change of a record
      * @param properties the properties of the trigger this kind uses
+     * @param phase {@code AFTER_SAVE} or {@code BEFORE_SAVE}: a before-save trigger runs its actions inside the save of
+     *        the record and takes only the actions of that phase (Sprint 25)
      */
     public record CatalogueTriggerKind(@NotNull String kind, @NotNull String summary, @NotNull Boolean scheduled,
-            @NotNull List<String> properties) {
+            @NotNull List<String> properties, @NotNull String phase) {
 
         /** Copies the list. */
         public CatalogueTriggerKind {

@@ -35,7 +35,8 @@
             "security",
             "data",
             "identity",
-            "licensing"
+            "licensing",
+            "observability"
         })
 package app.platform.approval;
 

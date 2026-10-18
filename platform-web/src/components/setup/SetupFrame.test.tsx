@@ -71,3 +71,19 @@ describe("SetupFrame", () => {
     expect(screen.queryByRole("link", { name: /General/ })).toBeNull();
   });
 });
+
+describe("SetupFrame (Sprint 25)", () => {
+  it("lists the notification text and the health of automation after the approval processes", () => {
+    render(
+      <SetupFrame>
+        <p>page content</p>
+      </SetupFrame>,
+    );
+
+    const labels = screen.getAllByRole("link").map((link) => link.textContent);
+    expect(labels.indexOf("Notification text")).toBe(labels.indexOf("Approval processes") + 1);
+    expect(labels.indexOf("Automation health")).toBe(labels.indexOf("Notification text") + 1);
+    expect(screen.getByRole("link", { name: "Notification text" })).toHaveAttribute("href", "/setup/notification-text");
+    expect(screen.getByRole("link", { name: "Automation health" })).toHaveAttribute("href", "/setup/automation-health");
+  });
+});

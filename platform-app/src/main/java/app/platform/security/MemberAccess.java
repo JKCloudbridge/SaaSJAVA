@@ -166,4 +166,11 @@ public interface MemberAccess {
 
     /** Role names by identifier, for the invitation list. */
     Map<UUID, String> roleNames();
+
+    /**
+     * The people who administer the organization: the users of the active members who hold the Organization
+     * administrator profile (Sprint 25, ADR-0162: the end of a trial is told to them). Just identifiers, in a stable
+     * order; empty when nobody holds it. Answers for the organization of the thread's tenant context.
+     */
+    List<UUID> administrators();
 }
