@@ -9,6 +9,8 @@ import type { components } from "@/lib/api/generated/schema";
 type FieldView = components["schemas"]["FieldView"];
 type CheckView = components["schemas"]["ExpressionCheckView"];
 type TestView = components["schemas"]["ExpressionTestView"];
+/** What trying an expression gave: the engine's own answer, or (for a workflow condition) the workflow check's. */
+type TryView = Pick<TestView, "outcome"> & Partial<Pick<TestView, "message" | "value" | "problem">>;
 
 /** The words for the type an expression gives, from the type the API names. */
 const TYPE_WORDS: Record<string, string> = {
@@ -57,7 +59,7 @@ export function ExpressionCheck({
 }: {
   objectApiName: string;
   expression: string;
-  purpose: "FORMULA" | "VALIDATION_RULE";
+  purpose: "FORMULA" | "VALIDATION_RULE" | "WORKFLOW_CONDITION";
   /** For a formula: the type it must give, when one is chosen. */
   resultType?: string;
   /** For a rule: the message of the rejection, shown when the sample values would be rejected. */
@@ -68,7 +70,7 @@ export function ExpressionCheck({
 }) {
   const key = `${purpose}|${resultType ?? ""}|${expression}`;
   const [checked, setChecked] = useState<Answer<CheckView> | undefined>();
-  const [tried, setTried] = useState<Answer<TestView> | undefined>();
+  const [tried, setTried] = useState<Answer<TryView> | undefined>();
   const [values, setValues] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
@@ -107,6 +109,19 @@ export function ExpressionCheck({
       }),
     );
     try {
+      if (purpose === "WORKFLOW_CONDITION") {
+        // The condition of a workflow is tried by the workflow's own check, which answers what the workflow would do.
+        const { data, error, response } = await api.POST("/api/v1/metadata/workflows/{objectApiName}/check", {
+          params: { path: { objectApiName } },
+          body: { condition: expression, values: given },
+        });
+        setTried(
+          data
+            ? { key, result: { outcome: data.data.outcome, problem: data.data.problem } }
+            : { key, failure: await failureText(error, response) },
+        );
+        return;
+      }
       const { data, error, response } = await api.POST("/api/v1/metadata/expressions/test", {
         body: { objectApiName, expression, purpose, values: given },
       });
@@ -188,8 +203,12 @@ export function ExpressionCheck({
 }
 
 /** What the sample values would do, in words, from what the API answered. */
-function outcomeText(result: TestView, ruleMessage: string | undefined): string {
+function outcomeText(result: TryView, ruleMessage: string | undefined): string {
   switch (result.outcome) {
+    case "RUNS":
+      return "The workflow runs: the condition is true for these values.";
+    case "SKIPPED":
+      return "The workflow is skipped: the condition is false, or has no value, for these values.";
     case "REJECTED":
       return `Rejected: ${result.message || ruleMessage || "the condition is true for these values."}`;
     case "PASSED":

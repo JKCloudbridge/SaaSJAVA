@@ -22,6 +22,28 @@ cd platform
 The result goes to `benchmark/results/<time>-workflow-<size>/summary.md`; the exit code is 0 when every judged threshold was met,
 2 otherwise. Record the judged result in ADR-0133 ("Result"), with the machine, the relay settings and the number of instances.
 
+## Workflows that write (Sprint 23)
+
+`-Actions update` asks the same question for executions that change a record (`UPDATE_RECORD`), with thresholds A1 to A6 written
+in [ADR-0133](../../docs/adr/0133-event-processing-stays-on-the-outbox-decision-d3-final.md) ("Sprint 23: write actions") before the
+mode ever ran. It measures A1 to A6 only, and needs the application with the dispatcher on (`PLATFORM_WORKFLOW_ENABLED=true`, the
+default): the actions are what is measured.
+
+```powershell
+.\benchmark\workflow\run-event-benchmark.ps1 -Actions update -Size smoke       # proves the harness; NOT a measurement
+.\benchmark\workflow\run-event-benchmark.ps1 -Actions update                   # one instance: A1, A2, A3, A5, A6
+.\benchmark\workflow\run-event-benchmark.ps1 -Actions update -BaselineRate 60  # three instances: also A4 (60 = the A1 of one)
+```
+
+| Threshold | How |
+|-----------|-----|
+| A1 | A backlog of triggering events for real records; the relay, the handler and the dispatcher drain it; rate = completed executions / seconds |
+| A2 | Triggers arrive at half of A1's rate for 2 minutes; p95 and p99 of the time from the trigger's `outbox_event.created_at` to the execution's `finished_at` |
+| A3 | `record.updated` events that carry a `chain` divided by completed executions: exactly 1 |
+| A4 | The A1 rate of a run with three instances divided by the `-BaselineRate` of a run with one |
+| A5 | The T2 backlog of an organization with no workflow, drained while the other organization's actions run |
+| A6 | Eight `pgbench` writers (a record changed and its event written in one transaction) while a backlog of triggers is being turned into writes, then while there is none; ratio of the p95 values |
+
 ## What it does
 
 It makes two organizations (slugs start with `bench-`): one with 20 workflows on one object (10 on `RECORD_UPDATED`, 5 on
@@ -40,5 +62,5 @@ It makes two organizations (slugs start with `bench-`): one with 20 workflows on
 
 Latency is measured at the database for T4 and T5 and inside the handler for T6: no network time and no request time. The
 generated events are the shape the publisher writes, not events of real writes. A pass is a pass only for the machine, the
-relay settings and the data size recorded with it (ADR-0082). The script was written in Sprint 22 and has been parsed but not
-run: its first run is the smoke run above.
+relay settings and the data size recorded with it (ADR-0082). The script was written in Sprint 22 and extended in Sprint 23; both
+modes have been parsed but not run: the first run of each is its smoke run.

@@ -5610,6 +5610,36 @@
         "tags" : [ "Workflows" ]
       }
     },
+    "/api/v1/metadata/workflows/action-types" : {
+      "get" : {
+        "description" : "The types of action with the settings each takes, the kinds of trigger with the properties each uses, and the limits the platform enforces. The screens build their palette and forms from this and hold no list of their own. For members who may view workflows.",
+        "operationId" : "getWorkflowCatalogue",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWorkflowCatalogueView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "What a workflow can be made of",
+        "tags" : [ "Workflows" ]
+      }
+    },
     "/api/v1/metadata/workflows/{objectApiName}" : {
       "post" : {
         "description" : "Live at once, as a release of one change. The name is turned into the permanent API name with the ending __c. The trigger, the condition and the actions are closed data: the condition is in the expression language (true or false, it may use TODAY() and NOW()), and the actions are of the types of this release. The request is checked here (a VALIDATION_ERROR names every place); whether the fields it names exist is checked after the change and a CONFLICT names what is wrong. Executions run after the commit of the record change, never inside it. CONFLICT for an object whose records belong to the platform, at the limit, when the plan has no workflows, or when the result would break a dependency. Audited by name and counts, never by the text.",
@@ -5660,7 +5690,7 @@
     },
     "/api/v1/metadata/workflows/{objectApiName}/check" : {
       "post" : {
-        "description" : "Answers what would happen to a record with these values: RUNS (the condition is true, or there is none), SKIPPED (false or no value) or ERROR with the place when the evaluation itself fails. A condition that is not valid is a VALIDATION_ERROR naming the place. There are no records yet, so the values are typed as text for the type of each field. Nothing is stored and nothing is logged. Needs workflows.manage.",
+        "description" : "Answers what would happen to a record with these values: RUNS (the condition is true, or there is none), SKIPPED (false or no value) or ERROR with the place when the evaluation itself fails. A condition that is not valid is a VALIDATION_ERROR naming the place. There are no records yet, so the values are typed as text for the type of each field. Name actions to learn, by place, which fields they name do not exist or cannot be set, which literals do not fit and which required field of a created record is missing. Nothing is stored and nothing is logged. Needs workflows.manage.",
         "operationId" : "checkWorkflowCondition",
         "parameters" : [ {
           "in" : "path",
@@ -5702,7 +5732,7 @@
             "description" : "Error. The code says what went wrong; the message is safe to show."
           }
         },
-        "summary" : "Try a condition on sample values",
+        "summary" : "Try a condition on sample values, and the actions on the object",
         "tags" : [ "Workflows" ]
       }
     },
@@ -9854,7 +9884,7 @@
     },
     "/api/v1/workflows/executions" : {
       "get" : {
-        "description" : "Newest first, one page at a time, with filters for the workflow, the object, the status, the record and the time the execution was queued. For members who may view workflows. NOT_FOUND on the platform host, FORBIDDEN without the ability, VALIDATION_ERROR for a filter that is malformed.",
+        "description" : "Newest first, one page at a time, with filters for the workflow, the object, the status, the trigger, the record and the time the execution was queued. dead=true lists the dead letters (the same as status=DEAD_LETTERED). For members who may view workflows. NOT_FOUND on the platform host, FORBIDDEN without the ability, VALIDATION_ERROR for a filter that is malformed.",
         "operationId" : "listWorkflowExecutions",
         "parameters" : [ {
           "in" : "query",
@@ -9895,6 +9925,20 @@
           "required" : false,
           "schema" : {
             "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "trigger",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dead",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
           }
         }, {
           "in" : "query",
@@ -9947,9 +9991,79 @@
         "tags" : [ "Workflows" ]
       }
     },
+    "/api/v1/workflows/executions/dead-letters/summary" : {
+      "get" : {
+        "description" : "Counted by workflow and stable reason, the largest group first. A dead letter that has been replayed is not counted. For members who may view workflows.",
+        "operationId" : "getWorkflowDeadLetterSummary",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWorkflowDeadLetterSummaryView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "How many dead letters wait for a person",
+        "tags" : [ "Workflows" ]
+      }
+    },
+    "/api/v1/workflows/executions/replay" : {
+      "post" : {
+        "description" : "At most 200. One result per execution, each in a savepoint of its own: one that cannot be replayed does not stop the others, and there is no all-or-nothing form. Needs workflows.replay.",
+        "operationId" : "replayWorkflowExecutions",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WorkflowBulkReplayRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWorkflowBulkReplayView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Run several dead letters again",
+        "tags" : [ "Workflows" ]
+      }
+    },
     "/api/v1/workflows/executions/{executionId}" : {
       "get" : {
-        "description" : "NOT_FOUND for an execution the organization does not have.",
+        "description" : "Each step shows its status, how many attempts ended, when the next one is due and the stable reason and failure type of the last failure; never a value. NOT_FOUND for an execution the organization does not have.",
         "operationId" : "getWorkflowExecution",
         "parameters" : [ {
           "in" : "path",
@@ -9983,6 +10097,155 @@
           }
         },
         "summary" : "One execution with its steps",
+        "tags" : [ "Workflows" ]
+      }
+    },
+    "/api/v1/workflows/executions/{executionId}/cancel" : {
+      "post" : {
+        "description" : "For an execution that is queued, including one that waits for its next attempt. CONFLICT when it is running or finished. Needs workflows.manage.",
+        "operationId" : "cancelWorkflowExecution",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "executionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWorkflowExecutionView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Cancel an execution that has not started",
+        "tags" : [ "Workflows" ]
+      }
+    },
+    "/api/v1/workflows/executions/{executionId}/replay" : {
+      "post" : {
+        "description" : "Makes a new execution that resumes at the step that failed, or a later one named in fromStep (a step that completed is never run again), against the record as it is now. The condition is not judged again. Replaying twice, or at the same moment, makes one new execution: the answer is then ALREADY_REPLAYED with the one that exists. Only a dead letter is replayed (NOT_REPLAYABLE). A switched-off or removed workflow, a missing plan feature and a record that is gone end the replay as for any execution. Needs workflows.replay. NOT_FOUND for an execution the organization does not have.",
+        "operationId" : "replayWorkflowExecution",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "executionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WorkflowReplayRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWorkflowReplayResultView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Run a dead letter again",
+        "tags" : [ "Workflows" ]
+      }
+    },
+    "/api/v1/workflows/parked-events" : {
+      "get" : {
+        "description" : "The record events and releases whose handlers kept failing and were set aside (at most 200, newest first). Never the payload. For members who may view workflows.",
+        "operationId" : "listWorkflowParkedEvents",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListParkedEventView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Events the platform gave up on that workflows depend on",
+        "tags" : [ "Workflows" ]
+      }
+    },
+    "/api/v1/workflows/parked-events/{eventId}/redrive" : {
+      "post" : {
+        "description" : "The event is delivered again as if it were new. Handlers that already handled it skip it, so nothing is done twice; one that did not handles it now (a release whose schedules were never made makes them). Redriving twice changes nothing the second time (NOT_FOUND). Needs workflows.replay.",
+        "operationId" : "redriveWorkflowParkedEvent",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "eventId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Put a parked event back",
         "tags" : [ "Workflows" ]
       }
     }
@@ -10741,6 +11004,18 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListParkedEventView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ParkedEventView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListPlanInfo" : {
         "type" : "object",
         "properties" : {
@@ -11242,6 +11517,24 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseWorkflowBulkReplayView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/WorkflowBulkReplayView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseWorkflowCatalogueView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/WorkflowCatalogueView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseWorkflowConditionCheckView" : {
         "type" : "object",
         "properties" : {
@@ -11251,11 +11544,29 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseWorkflowDeadLetterSummaryView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/WorkflowDeadLetterSummaryView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseWorkflowExecutionView" : {
         "type" : "object",
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/WorkflowExecutionView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseWorkflowReplayResultView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/WorkflowReplayResultView"
           }
         },
         "required" : [ "data" ]
@@ -11524,6 +11835,30 @@
         },
         "required" : [ "operation", "results" ]
       },
+      "CatalogueActionType" : {
+        "type" : "object",
+        "properties" : {
+          "assignedObject" : {
+            "type" : "string"
+          },
+          "assignments" : {
+            "type" : "string"
+          },
+          "settings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CatalogueSetting"
+            }
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "assignments", "settings", "summary", "type" ]
+      },
       "CatalogueItem" : {
         "type" : "object",
         "properties" : {
@@ -11535,6 +11870,77 @@
           }
         },
         "required" : [ "key", "name" ]
+      },
+      "CatalogueLimits" : {
+        "type" : "object",
+        "properties" : {
+          "maxActionsPerWorkflow" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxAssignmentsPerAction" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxAttempts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxChainDepth" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxLiteralLength" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "maxActionsPerWorkflow", "maxAssignmentsPerAction", "maxAttempts", "maxChainDepth", "maxLiteralLength" ]
+      },
+      "CatalogueSetting" : {
+        "type" : "object",
+        "properties" : {
+          "allowed" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "help" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "refersTo" : {
+            "type" : "string"
+          },
+          "required" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "allowed", "help", "key", "refersTo", "required" ]
+      },
+      "CatalogueTriggerKind" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          },
+          "properties" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "scheduled" : {
+            "type" : "boolean"
+          },
+          "summary" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "kind", "properties", "scheduled", "summary" ]
       },
       "ChangeOwnerRequest" : {
         "type" : "object",
@@ -11812,6 +12218,14 @@
       "CheckWorkflowConditionRequest" : {
         "type" : "object",
         "properties" : {
+          "actions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WorkflowActionSpec"
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          },
           "condition" : {
             "type" : "string",
             "maxLength" : 4000,
@@ -12529,6 +12943,25 @@
           }
         },
         "required" : [ "fields", "key", "label" ]
+      },
+      "DeadLetterGroup" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "workflow" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "count", "objectApiName", "reason", "workflow" ]
       },
       "EmbeddedTokenRequest" : {
         "type" : "object",
@@ -14446,6 +14879,30 @@
           }
         },
         "required" : [ "hasMore", "limit" ]
+      },
+      "ParkedEventView" : {
+        "type" : "object",
+        "properties" : {
+          "attempts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "lastFailureType" : {
+            "type" : "string"
+          },
+          "occurredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "attempts", "id", "occurredAt", "type" ]
       },
       "PermissionEntry" : {
         "type" : "object",
@@ -16839,6 +17296,20 @@
       "WorkflowActionSpec" : {
         "type" : "object",
         "properties" : {
+          "assignments" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WorkflowAssignmentSpec"
+            },
+            "maxItems" : 100,
+            "minItems" : 0
+          },
+          "maxAttempts" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 100,
+            "minimum" : 1
+          },
           "name" : {
             "type" : "string",
             "maxLength" : 60,
@@ -16871,9 +17342,87 @@
         },
         "required" : [ "active", "version" ]
       },
+      "WorkflowAssignmentSpec" : {
+        "type" : "object",
+        "properties" : {
+          "field" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "fromField" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "value" : {
+            "type" : "string",
+            "maxLength" : 1000,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "field" ]
+      },
+      "WorkflowBulkReplayRequest" : {
+        "type" : "object",
+        "properties" : {
+          "executions" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            },
+            "maxItems" : 200,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "executions" ]
+      },
+      "WorkflowBulkReplayView" : {
+        "type" : "object",
+        "properties" : {
+          "results" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WorkflowReplayResultView"
+            }
+          }
+        },
+        "required" : [ "results" ]
+      },
+      "WorkflowCatalogueView" : {
+        "type" : "object",
+        "properties" : {
+          "actionTypes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CatalogueActionType"
+            }
+          },
+          "limits" : {
+            "$ref" : "#/components/schemas/CatalogueLimits"
+          },
+          "triggerKinds" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CatalogueTriggerKind"
+            }
+          }
+        },
+        "required" : [ "actionTypes", "limits", "triggerKinds" ]
+      },
       "WorkflowConditionCheckView" : {
         "type" : "object",
         "properties" : {
+          "actionProblems" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            }
+          },
           "outcome" : {
             "type" : "string"
           },
@@ -16881,12 +17430,32 @@
             "$ref" : "#/components/schemas/ExpressionProblemView"
           }
         },
-        "required" : [ "outcome" ]
+        "required" : [ "actionProblems", "outcome" ]
+      },
+      "WorkflowDeadLetterSummaryView" : {
+        "type" : "object",
+        "properties" : {
+          "groups" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DeadLetterGroup"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "groups", "total" ]
       },
       "WorkflowExecutionView" : {
         "type" : "object",
         "properties" : {
           "attempts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "chainDepth" : {
             "type" : "integer",
             "format" : "int32"
           },
@@ -16919,6 +17488,26 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "replayGeneration" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "replayOf" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "replayedBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "resumeStep" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "runAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
           "startedAt" : {
             "type" : "string",
             "format" : "date-time"
@@ -16943,11 +17532,45 @@
             "format" : "int32"
           }
         },
-        "required" : [ "attempts", "id", "objectApiName", "queuedAt", "recordId", "status", "trigger", "workflow", "workflowVersion" ]
+        "required" : [ "attempts", "chainDepth", "id", "objectApiName", "queuedAt", "recordId", "replayGeneration", "resumeStep", "runAt", "status", "trigger", "workflow", "workflowVersion" ]
+      },
+      "WorkflowReplayRequest" : {
+        "type" : "object",
+        "properties" : {
+          "fromStep" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 1
+          }
+        }
+      },
+      "WorkflowReplayResultView" : {
+        "type" : "object",
+        "properties" : {
+          "execution" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "replay" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        },
+        "required" : [ "execution", "outcome" ]
       },
       "WorkflowStepView" : {
         "type" : "object",
         "properties" : {
+          "attempts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "failureType" : {
             "type" : "string"
           },
@@ -16958,9 +17581,16 @@
           "name" : {
             "type" : "string"
           },
+          "nextAttemptAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
           "position" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "reason" : {
+            "type" : "string"
           },
           "startedAt" : {
             "type" : "string",
@@ -16973,7 +17603,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "name", "position", "startedAt", "status", "type" ]
+        "required" : [ "attempts", "name", "position", "startedAt", "status", "type" ]
       },
       "WorkflowTriggerSpec" : {
         "type" : "object",

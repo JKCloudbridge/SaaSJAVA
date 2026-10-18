@@ -34,7 +34,7 @@ class WorkflowDependenciesTest {
     private static final ExpressionSupport SUPPORT = new ExpressionSupport(new ExpressionEngine(Limits.standard()),
             new MetadataProperties(
                     new MetadataProperties.Limits(200, 500, 1000, 50, 200, 50, 50, 20, 20, 200, 50, 5, 500, 4, 200, 50,
-                            200, 1_000_000, 200, 50, 200),
+                            200, 1_000_000, 200, 50, 200, 10, 25, 1000),
                     new MetadataProperties.Cache(true, 1000)));
     private static final List<Action> ACTIONS = List.of(new Action("PUBLISH_EVENT", "Announce",
             Map.of("event", "order.created")));

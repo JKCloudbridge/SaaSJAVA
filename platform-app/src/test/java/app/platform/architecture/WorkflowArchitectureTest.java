@@ -10,8 +10,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
- * What keeps workflows from becoming a second path to the platform (Sprint 22, ADR-0133 to ADR-0137). The module graph
- * itself is verified by the module tests; these are the rules that graph cannot say.
+ * What keeps workflows from becoming a second path to the platform (Sprint 22, ADR-0133 to ADR-0137; Sprint 23,
+ * ADR-0138 to ADR-0144). The module graph itself is verified by the module tests; these are the rules that graph cannot
+ * say.
  */
 @Tag("architecture")
 class WorkflowArchitectureTest {
@@ -50,8 +51,45 @@ class WorkflowArchitectureTest {
         noClasses().that().resideInAPackage("app.platform.workflow..")
                 .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.data.StorageStrategy")
                 .orShould().dependOnClassesThat().haveFullyQualifiedName("app.platform.data.Records")
-                .because("a workflow reads through BackgroundRecords; changing records is a later action type that "
-                        + "goes through Records and is reviewed on its own")
+                .because("a workflow reads through BackgroundRecords and writes through BackgroundWrites, the one "
+                        + "reviewed place where background work changes a record (ADR-0139)")
+                .allowEmptyShould(true)
+                .check(platform);
+    }
+
+    @Test
+    void onlyTheWorkflowModuleCanChangeARecordAsThePlatform() {
+        // BackgroundWrites skips the member gate and the permissions, so its callers are a reviewed list of one: no
+        // controller, import, bulk or other module reaches it (ADR-0139). The data module implements it.
+        noClasses().that().resideOutsideOfPackages("app.platform.workflow..", "app.platform.data..")
+                .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.data.BackgroundWrites")
+                .because("background writes are for workflows only")
+                .allowEmptyShould(true)
+                .check(platform);
+        noClasses().that().resideInAPackage("app.platform.data.internal..")
+                .and().haveSimpleNameNotContaining("BackgroundWrites")
+                .should().dependOnClassesThat()
+                .haveFullyQualifiedName("app.platform.data.internal.DefaultBackgroundWrites")
+                .because("the platform door is entered by the interface only")
+                .allowEmptyShould(true)
+                .check(platform);
+    }
+
+    @Test
+    void theWorkflowModuleSendsMailOnlyThroughTheQueueOfTheSharedKernel() {
+        // The queue holds facts; the notification module builds and sends (ADR-0024). Nothing in workflows knows how.
+        noClasses().that().resideInAPackage("app.platform.workflow..")
+                .should().dependOnClassesThat().resideInAPackage("app.platform.notification..")
+                .allowEmptyShould(true)
+                .check(platform);
+    }
+
+    @Test
+    void parkedEventsAreReachedThroughTheSharedKernelContractOnly() {
+        // The outbox implements ParkedEvents; nothing outside it names its classes (ADR-0143).
+        noClasses().that().resideOutsideOfPackages("app.platform.outbox..")
+                .should().dependOnClassesThat().haveFullyQualifiedName(
+                        "app.platform.outbox.internal.OutboxParkedEvents")
                 .allowEmptyShould(true)
                 .check(platform);
     }

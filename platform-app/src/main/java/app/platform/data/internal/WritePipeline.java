@@ -15,6 +15,7 @@ import app.platform.metadata.RecordType;
 import app.platform.security.ObjectAccess;
 import app.platform.security.ObjectAction;
 import app.platform.security.RecordAction;
+import app.platformapi.ApiException;
 import app.platform.sharedkernel.directory.ReferenceDirectory;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -29,6 +30,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import org.springframework.stereotype.Component;
 
 /**
@@ -136,19 +139,31 @@ class WritePipeline {
      */
     Plan run(RecordGate.Passed passed, ObjectAccess access, DataRecord current, String requestedType,
             Map<String, Object> set, List<String> clear) {
+        return run(passed, access, current, requestedType, set, clear, stage -> { });
+    }
+
+    /**
+     * Runs a write through the stages, telling the observer which stage refused it before the refusal is thrown. The
+     * platform's own writes (ADR-0139) use it to turn a refusal into a stable reason; a person's write ignores it.
+     *
+     * @param refused called with the name of the stage (one of {@link #STAGES}) that found problems
+     */
+    Plan run(RecordGate.Passed passed, ObjectAccess access, DataRecord current, String requestedType,
+            Map<String, Object> set, List<String> clear, Consumer<String> refused) {
         ObjectDefinition object = passed.object();
         boolean creating = current == null;
         Map<String, Object> held = current == null ? Map.of() : current.fields();
         String heldType = current == null ? null : current.recordType();
 
         // 1. shape
-        RecordValues.Checked checked = shape.check(set, clear, !creating && requestedType == null);
+        RecordValues.Checked checked = refusing("shape", refused, () -> shape.check(set, clear,
+                !creating && requestedType == null));
 
         // 2. record type
         Findings typeFindings = new Findings();
         Optional<RecordType> resolved = recordTypes.resolve(object, passed.membershipId(), requestedType, heldType,
                 typeFindings);
-        typeFindings.throwIfAny();
+        throwIfAny("record type", typeFindings, refused);
         RecordType type = resolved.orElse(null);
         String typeName = resolved.map(RecordType::apiName).orElse(heldType);
 
@@ -159,7 +174,7 @@ class WritePipeline {
         List<String> allowed = security.checkWrite(object, access, named, permission);
         recordTypes.checkOffered(type, object, allowed.stream().filter(checked.set()::containsKey).toList(),
                 permission);
-        permission.throwIfAny();
+        throwIfAny("field permission", permission, refused);
 
         Map<String, Object> values = new LinkedHashMap<>(checked.set());
         List<String> cleared = new ArrayList<>(checked.clear());
@@ -182,7 +197,7 @@ class WritePipeline {
         if (typing.isEmpty()) {
             RecordTypeCheck.checkPicklists(type, typed, held, typing);
         }
-        typing.throwIfAny();
+        throwIfAny("type", typing, refused);
 
         Map<String, Object> merged = new HashMap<>(held);
         cleared.forEach(merged::remove);
@@ -192,7 +207,7 @@ class WritePipeline {
         Findings required = new Findings();
         checkRequired(object, type, access, merged, Set.copyOf(typed.keySet()), Set.copyOf(cleared), creating,
                 required);
-        required.throwIfAny();
+        throwIfAny("required", required, refused);
 
         // The shared lock of the object and the constraints that are enforced, read together (ADR-0101, ADR-0111).
         RecordSlots.Active active = slots.begin(object);
@@ -206,7 +221,7 @@ class WritePipeline {
                 && recordLinks.pairTaken(object, merged, current == null ? null : current.id())) {
             links.add(RecordLinks.masterDetails(object).get(1).apiName(), PAIR_TAKEN);
         }
-        links.throwIfAny();
+        throwIfAny("relationship", links, refused);
 
         // 7. unique (the database refuses a duplicate that slips past this, and the answer is the same)
         Findings unique = new Findings();
@@ -216,7 +231,7 @@ class WritePipeline {
                 unique.add(FieldSecurity.place(access, probe.place()), probe.pair() ? PAIR_TAKEN : VALUE_TAKEN);
             }
         }
-        unique.throwIfAny();
+        throwIfAny("unique", unique, refused);
 
         // 7. rules (a rule that reads a formula field judges the value this save gives it)
         Findings rules = new Findings();
@@ -225,7 +240,7 @@ class WritePipeline {
             calculations.formulas(object, ruleValues, access, new Findings());
         }
         calculations.rules(object, ruleValues, access, rules);
-        rules.throwIfAny();
+        throwIfAny("rule", rules, refused);
 
         // 8. formulas, after the auto-numbers (the last thing that can lock a row)
         Map<String, Object> generated = creating ? autoNumbers(passed, object, type) : Map.of();
@@ -233,7 +248,7 @@ class WritePipeline {
         Findings formulas = new Findings();
         Map<String, Object> results = calculations.formulas(object, Calculations.engineValues(object, merged), access,
                 formulas);
-        formulas.throwIfAny();
+        throwIfAny("formula", formulas, refused);
 
         Map<String, Object> toStore = new LinkedHashMap<>(typed);
         toStore.putAll(generated);
@@ -259,6 +274,24 @@ class WritePipeline {
         });
         SlotCopy copies = slots.copyIndexed(active, object, after);
         return new Plan(typeName, toStore, toClear, copies);
+    }
+
+    // ---- reporting which stage refused ----
+
+    private static void throwIfAny(String stage, Findings findings, Consumer<String> refused) {
+        if (!findings.isEmpty()) {
+            refused.accept(stage);
+            findings.throwIfAny();
+        }
+    }
+
+    private static <T> T refusing(String stage, Consumer<String> refused, Supplier<T> check) {
+        try {
+            return check.get();
+        } catch (ApiException refusal) {
+            refused.accept(stage);
+            throw refusal;
+        }
     }
 
     // ---- defaults ----
@@ -368,6 +401,10 @@ class WritePipeline {
      * record of an object they may not use all give the same answer, so a write is no way to find out what exists.
      */
     private Set<UUID> reachable(UUID membershipId, String targetObject, Collection<UUID> ids) {
+        if (membershipId == null) {
+            // The platform acting for a workflow (ADR-0139): the target need only be a live record of the object.
+            return storage.liveIds(targetObject, ids);
+        }
         ObjectAccess access = security.accessOf(membershipId, targetObject);
         if (!access.can(ObjectAction.READ)) {
             return Set.of();

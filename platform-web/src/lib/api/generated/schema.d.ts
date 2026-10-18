@@ -2124,6 +2124,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/metadata/workflows/action-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a workflow can be made of
+         * @description The types of action with the settings each takes, the kinds of trigger with the properties each uses, and the limits the platform enforces. The screens build their palette and forms from this and hold no list of their own. For members who may view workflows.
+         */
+        get: operations["getWorkflowCatalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/metadata/workflows/{objectApiName}": {
         parameters: {
             query?: never;
@@ -2154,8 +2174,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Try a condition on sample values
-         * @description Answers what would happen to a record with these values: RUNS (the condition is true, or there is none), SKIPPED (false or no value) or ERROR with the place when the evaluation itself fails. A condition that is not valid is a VALIDATION_ERROR naming the place. There are no records yet, so the values are typed as text for the type of each field. Nothing is stored and nothing is logged. Needs workflows.manage.
+         * Try a condition on sample values, and the actions on the object
+         * @description Answers what would happen to a record with these values: RUNS (the condition is true, or there is none), SKIPPED (false or no value) or ERROR with the place when the evaluation itself fails. A condition that is not valid is a VALIDATION_ERROR naming the place. There are no records yet, so the values are typed as text for the type of each field. Name actions to learn, by place, which fields they name do not exist or cannot be set, which literals do not fit and which required field of a created record is missing. Nothing is stored and nothing is logged. Needs workflows.manage.
          */
         post: operations["checkWorkflowCondition"];
         delete?: never;
@@ -3697,11 +3717,51 @@ export interface paths {
         };
         /**
          * The executions of workflows
-         * @description Newest first, one page at a time, with filters for the workflow, the object, the status, the record and the time the execution was queued. For members who may view workflows. NOT_FOUND on the platform host, FORBIDDEN without the ability, VALIDATION_ERROR for a filter that is malformed.
+         * @description Newest first, one page at a time, with filters for the workflow, the object, the status, the trigger, the record and the time the execution was queued. dead=true lists the dead letters (the same as status=DEAD_LETTERED). For members who may view workflows. NOT_FOUND on the platform host, FORBIDDEN without the ability, VALIDATION_ERROR for a filter that is malformed.
          */
         get: operations["listWorkflowExecutions"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflows/executions/dead-letters/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How many dead letters wait for a person
+         * @description Counted by workflow and stable reason, the largest group first. A dead letter that has been replayed is not counted. For members who may view workflows.
+         */
+        get: operations["getWorkflowDeadLetterSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflows/executions/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run several dead letters again
+         * @description At most 200. One result per execution, each in a savepoint of its own: one that cannot be replayed does not stop the others, and there is no all-or-nothing form. Needs workflows.replay.
+         */
+        post: operations["replayWorkflowExecutions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3717,11 +3777,91 @@ export interface paths {
         };
         /**
          * One execution with its steps
-         * @description NOT_FOUND for an execution the organization does not have.
+         * @description Each step shows its status, how many attempts ended, when the next one is due and the stable reason and failure type of the last failure; never a value. NOT_FOUND for an execution the organization does not have.
          */
         get: operations["getWorkflowExecution"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflows/executions/{executionId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an execution that has not started
+         * @description For an execution that is queued, including one that waits for its next attempt. CONFLICT when it is running or finished. Needs workflows.manage.
+         */
+        post: operations["cancelWorkflowExecution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflows/executions/{executionId}/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a dead letter again
+         * @description Makes a new execution that resumes at the step that failed, or a later one named in fromStep (a step that completed is never run again), against the record as it is now. The condition is not judged again. Replaying twice, or at the same moment, makes one new execution: the answer is then ALREADY_REPLAYED with the one that exists. Only a dead letter is replayed (NOT_REPLAYABLE). A switched-off or removed workflow, a missing plan feature and a record that is gone end the replay as for any execution. Needs workflows.replay. NOT_FOUND for an execution the organization does not have.
+         */
+        post: operations["replayWorkflowExecution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflows/parked-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Events the platform gave up on that workflows depend on
+         * @description The record events and releases whose handlers kept failing and were set aside (at most 200, newest first). Never the payload. For members who may view workflows.
+         */
+        get: operations["listWorkflowParkedEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflows/parked-events/{eventId}/redrive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a parked event back
+         * @description The event is delivered again as if it were new. Handlers that already handled it skip it, so nothing is done twice; one that did not handles it now (a release whose schedules were never made makes them). Redriving twice changes nothing the second time (NOT_FOUND). Needs workflows.replay.
+         */
+        post: operations["redriveWorkflowParkedEvent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3953,6 +4093,9 @@ export interface components {
         ApiResponseListOrganizationSummary: {
             data: components["schemas"]["OrganizationSummary"][];
         };
+        ApiResponseListParkedEventView: {
+            data: components["schemas"]["ParkedEventView"][];
+        };
         ApiResponseListPlanInfo: {
             data: components["schemas"]["PlanInfo"][];
         };
@@ -4103,11 +4246,23 @@ export interface components {
         ApiResponseValidationRuleView: {
             data: components["schemas"]["ValidationRuleView"];
         };
+        ApiResponseWorkflowBulkReplayView: {
+            data: components["schemas"]["WorkflowBulkReplayView"];
+        };
+        ApiResponseWorkflowCatalogueView: {
+            data: components["schemas"]["WorkflowCatalogueView"];
+        };
         ApiResponseWorkflowConditionCheckView: {
             data: components["schemas"]["WorkflowConditionCheckView"];
         };
+        ApiResponseWorkflowDeadLetterSummaryView: {
+            data: components["schemas"]["WorkflowDeadLetterSummaryView"];
+        };
         ApiResponseWorkflowExecutionView: {
             data: components["schemas"]["WorkflowExecutionView"];
+        };
+        ApiResponseWorkflowReplayResultView: {
+            data: components["schemas"]["WorkflowReplayResultView"];
         };
         ApiResponseWorkflowView: {
             data: components["schemas"]["WorkflowView"];
@@ -4202,9 +4357,41 @@ export interface components {
             /** Format: int32 */
             succeeded?: number;
         };
+        CatalogueActionType: {
+            assignedObject?: string;
+            assignments: string;
+            settings: components["schemas"]["CatalogueSetting"][];
+            summary: string;
+            type: string;
+        };
         CatalogueItem: {
             key: string;
             name: string;
+        };
+        CatalogueLimits: {
+            /** Format: int32 */
+            maxActionsPerWorkflow: number;
+            /** Format: int32 */
+            maxAssignmentsPerAction: number;
+            /** Format: int32 */
+            maxAttempts: number;
+            /** Format: int32 */
+            maxChainDepth: number;
+            /** Format: int32 */
+            maxLiteralLength: number;
+        };
+        CatalogueSetting: {
+            allowed: string[];
+            help: string;
+            key: string;
+            refersTo: string;
+            required: boolean;
+        };
+        CatalogueTriggerKind: {
+            kind: string;
+            properties: string[];
+            scheduled: boolean;
+            summary: string;
         };
         ChangeOwnerRequest: {
             /** Format: uuid */
@@ -4292,6 +4479,7 @@ export interface components {
             resultType?: string;
         };
         CheckWorkflowConditionRequest: {
+            actions?: components["schemas"]["WorkflowActionSpec"][];
             condition?: string;
             values?: {
                 [key: string]: string;
@@ -4487,6 +4675,13 @@ export interface components {
             fields: components["schemas"]["DataField"][];
             key: string;
             label: string;
+        };
+        DeadLetterGroup: {
+            /** Format: int64 */
+            count: number;
+            objectApiName: string;
+            reason: string;
+            workflow: string;
         };
         EmbeddedTokenRequest: {
             customPage?: string;
@@ -5085,6 +5280,16 @@ export interface components {
             /** Format: int32 */
             limit: number;
             nextCursor?: string;
+        };
+        ParkedEventView: {
+            /** Format: int32 */
+            attempts: number;
+            /** Format: uuid */
+            id: string;
+            lastFailureType?: string;
+            /** Format: date-time */
+            occurredAt: string;
+            type: string;
         };
         PermissionEntry: {
             actions: string[];
@@ -5773,6 +5978,9 @@ export interface components {
             value?: string | number | boolean;
         } & (unknown & unknown)) & (unknown | unknown | unknown | unknown);
         WorkflowActionSpec: {
+            assignments?: components["schemas"]["WorkflowAssignmentSpec"][];
+            /** Format: int32 */
+            maxAttempts?: number;
             name: string;
             settings?: {
                 [key: string]: string;
@@ -5784,13 +5992,39 @@ export interface components {
             /** Format: int64 */
             version: number;
         };
+        WorkflowAssignmentSpec: {
+            field: string;
+            fromField?: string;
+            value?: string;
+        };
+        WorkflowBulkReplayRequest: {
+            executions: string[];
+        };
+        WorkflowBulkReplayView: {
+            results: components["schemas"]["WorkflowReplayResultView"][];
+        };
+        WorkflowCatalogueView: {
+            actionTypes: components["schemas"]["CatalogueActionType"][];
+            limits: components["schemas"]["CatalogueLimits"];
+            triggerKinds: components["schemas"]["CatalogueTriggerKind"][];
+        };
         WorkflowConditionCheckView: {
+            actionProblems: {
+                [key: string]: string[];
+            };
             outcome: string;
             problem?: components["schemas"]["ExpressionProblemView"];
+        };
+        WorkflowDeadLetterSummaryView: {
+            groups: components["schemas"]["DeadLetterGroup"][];
+            /** Format: int64 */
+            total: number;
         };
         WorkflowExecutionView: {
             /** Format: int32 */
             attempts: number;
+            /** Format: int32 */
+            chainDepth: number;
             failureType?: string;
             /** Format: date-time */
             finishedAt?: string;
@@ -5804,6 +6038,16 @@ export interface components {
             recordId: string;
             /** Format: int64 */
             recordVersion?: number;
+            /** Format: int32 */
+            replayGeneration: number;
+            /** Format: uuid */
+            replayOf?: string;
+            /** Format: uuid */
+            replayedBy?: string;
+            /** Format: int32 */
+            resumeStep: number;
+            /** Format: date-time */
+            runAt: string;
             /** Format: date-time */
             startedAt?: string;
             status: string;
@@ -5813,13 +6057,30 @@ export interface components {
             /** Format: int32 */
             workflowVersion: number;
         };
+        WorkflowReplayRequest: {
+            /** Format: int32 */
+            fromStep?: number;
+        };
+        WorkflowReplayResultView: {
+            /** Format: uuid */
+            execution: string;
+            outcome: string;
+            reason?: string;
+            /** Format: uuid */
+            replay?: string;
+        };
         WorkflowStepView: {
+            /** Format: int32 */
+            attempts: number;
             failureType?: string;
             /** Format: date-time */
             finishedAt?: string;
             name: string;
+            /** Format: date-time */
+            nextAttemptAt?: string;
             /** Format: int32 */
             position: number;
+            reason?: string;
             /** Format: date-time */
             startedAt: string;
             status: string;
@@ -10366,6 +10627,35 @@ export interface operations {
             };
         };
     };
+    getWorkflowCatalogue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWorkflowCatalogueView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     createWorkflow: {
         parameters: {
             query?: never;
@@ -13587,6 +13877,8 @@ export interface operations {
                 workflow?: string;
                 object?: string;
                 status?: string;
+                trigger?: string;
+                dead?: boolean;
                 record?: string;
                 from?: string;
                 to?: string;
@@ -13604,6 +13896,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiPageResponseWorkflowExecutionView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getWorkflowDeadLetterSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWorkflowDeadLetterSummaryView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    replayWorkflowExecutions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowBulkReplayRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWorkflowBulkReplayView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -13636,6 +13990,130 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ApiResponseWorkflowExecutionView"];
                 };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    cancelWorkflowExecution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                executionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWorkflowExecutionView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    replayWorkflowExecution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                executionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["WorkflowReplayRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseWorkflowReplayResultView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listWorkflowParkedEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListParkedEventView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    redriveWorkflowParkedEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                eventId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {

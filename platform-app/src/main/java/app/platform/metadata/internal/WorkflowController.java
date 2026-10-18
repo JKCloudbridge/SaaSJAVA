@@ -7,6 +7,7 @@ import app.platformapi.CheckWorkflowConditionRequest;
 import app.platformapi.CreateWorkflowRequest;
 import app.platformapi.UpdateWorkflowRequest;
 import app.platformapi.WorkflowActivationRequest;
+import app.platformapi.WorkflowCatalogueView;
 import app.platformapi.WorkflowConditionCheckView;
 import app.platformapi.WorkflowView;
 import io.swagger.v3.oas.annotations.Operation;
@@ -66,6 +67,18 @@ class WorkflowController {
     ApiResponse<List<WorkflowView>> list(@RequestParam(name = "object", required = false) String objectApiName) {
         return ApiResponse.of(administration.run("metadata.workflow.list", Ability.WORKFLOWS_VIEW,
                 caller -> service.workflows(objectApiName)));
+    }
+
+    @GetMapping(ApiPaths.METADATA_WORKFLOW_CATALOGUE)
+    @Operation(
+            operationId = "getWorkflowCatalogue",
+            summary = "What a workflow can be made of",
+            description = "The types of action with the settings each takes, the kinds of trigger with the properties "
+                    + "each uses, and the limits the platform enforces. The screens build their palette and forms "
+                    + "from this and hold no list of their own. For members who may view workflows.")
+    ApiResponse<WorkflowCatalogueView> catalogue() {
+        return ApiResponse.of(administration.run("metadata.workflow.catalogue", Ability.WORKFLOWS_VIEW,
+                caller -> service.catalogue()));
     }
 
     @GetMapping(WORKFLOWS + "/{objectApiName}/{workflowApiName}")
@@ -147,12 +160,14 @@ class WorkflowController {
     @PostMapping(WORKFLOWS + "/{objectApiName}/check")
     @Operation(
             operationId = "checkWorkflowCondition",
-            summary = "Try a condition on sample values",
+            summary = "Try a condition on sample values, and the actions on the object",
             description = "Answers what would happen to a record with these values: RUNS (the condition is true, or "
                     + "there is none), SKIPPED (false or no value) or ERROR with the place when the evaluation "
                     + "itself fails. A condition that is not valid is a VALIDATION_ERROR naming the place. There are "
-                    + "no records yet, so the values are typed as text for the type of each field. Nothing is "
-                    + "stored and nothing is logged. Needs workflows.manage.")
+                    + "no records yet, so the values are typed as text for the type of each field. Name actions to "
+                    + "learn, by place, which fields they name do not exist or cannot be set, which literals do not "
+                    + "fit and which required field of a created record is missing. Nothing is stored and nothing "
+                    + "is logged. Needs workflows.manage.")
     ApiResponse<WorkflowConditionCheckView> check(@PathVariable String objectApiName,
             @Valid @RequestBody CheckWorkflowConditionRequest body) {
         return ApiResponse.of(administration.run("metadata.workflow.check", Ability.WORKFLOWS_MANAGE,

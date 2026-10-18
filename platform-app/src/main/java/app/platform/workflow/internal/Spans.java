@@ -26,16 +26,23 @@ class Spans {
 
     /** Runs the work in a span of this name with these tags. */
     void run(String name, Map<String, String> tags, Runnable work) {
+        call(name, tags, () -> {
+            work.run();
+            return null;
+        });
+    }
+
+    /** Runs the work in a span of this name with these tags and gives back what it gives. */
+    <T> T call(String name, Map<String, String> tags, java.util.function.Supplier<T> work) {
         Tracer current = tracer.getIfAvailable();
         if (current == null) {
-            work.run();
-            return;
+            return work.get();
         }
         Span span = current.nextSpan().name(name);
         tags.forEach(span::tag);
         span.start();
         try (Tracer.SpanInScope _ = current.withSpan(span)) {
-            work.run();
+            return work.get();
         } catch (RuntimeException failure) {
             // The type name only: the message of a library exception can quote the data that failed.
             span.tag("error.type", failure.getClass().getSimpleName());

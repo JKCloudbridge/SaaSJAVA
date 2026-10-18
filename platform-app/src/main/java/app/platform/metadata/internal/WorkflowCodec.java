@@ -59,8 +59,7 @@ class WorkflowCodec {
                     spec.time() == null ? null : LocalTime.parse(spec.time()),
                     spec.dayOfWeek() == null ? null : DayOfWeek.valueOf(spec.dayOfWeek()),
                     spec.at() == null ? null : LocalDateTime.parse(spec.at()), spec.selection());
-            List<WorkflowDefinition.Action> actions = readActions(row.actions()).stream()
-                    .map(action -> new WorkflowDefinition.Action(action.type(), action.name(), action.settings()))
+            List<WorkflowDefinition.Action> actions = readActions(row.actions()).stream().map(WorkflowCodec::action)
                     .toList();
             return new WorkflowDefinition(row.id(), row.versionId(), row.objectApiName(), row.apiName(), row.label(),
                     row.description(), row.active(), row.definitionVersion(), trigger, row.condition(), actions,
@@ -68,6 +67,13 @@ class WorkflowCodec {
         } catch (DateTimeException | IllegalArgumentException e) {
             throw new IllegalStateException("A stored workflow has a trigger this release cannot read", e);
         }
+    }
+
+    /** The public action of a stored or requested one. */
+    static WorkflowDefinition.Action action(WorkflowActionSpec action) {
+        return new WorkflowDefinition.Action(action.type(), action.name(), action.settings(),
+                action.assignments().stream().map(assignment -> new WorkflowDefinition.Assignment(assignment.field(),
+                        assignment.value(), assignment.fromField())).toList(), action.maxAttempts());
     }
 
     WorkflowView view(WorkflowStore.Row row) {

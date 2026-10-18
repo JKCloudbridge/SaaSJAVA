@@ -37,14 +37,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.test.context.TestPropertySource;
 
 /**
  * Provisioning an organization for a client (Sprint 6, ADR-0037): a platform administrator sets it up with a plan and
  * invites its first administrator; it stays closed until that person accepts, which opens it; the administrator can
  * resend and cancel; the mail says the right things and nothing else; the answers do not depend on whether the address
- * has an account. The mail relay is driven by the test; the mail server is a real SMTP catcher.
+ * has an account. The mail relay is driven by the test (its own background poll is off, or it would race the test's
+ * {@code drain} calls and could send two resends out of order); the mail server is a real SMTP catcher.
  */
 @PlatformIntegrationTest
+@TestPropertySource(properties = "platform.notification.enabled=false")
 class ProvisioningIT {
 
     private static final String SUBJECT = "You have been invited to set up an organization";

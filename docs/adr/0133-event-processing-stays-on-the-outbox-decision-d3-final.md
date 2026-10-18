@@ -62,6 +62,28 @@ ADR.
 
 Not yet run. See "Status".
 
+## Sprint 23: write actions (thresholds A1 to A6, written before any measurement)
+
+Sprint 22 measured events that start executions which publish an event. From Sprint 23 an execution can **write** a record
+(`UPDATE_RECORD`, `CREATE_RECORD`), which makes one more event and one more transaction through the whole write pipeline for
+every execution, so the question of this ADR is asked again for that load. The thresholds below were fixed on 2026-10-17,
+before the mode `-Actions update` of the script (`benchmark/workflow/run-event-benchmark.ps1`) had ever run, and are never
+moved after a number is seen. A failed threshold reopens the broker question exactly as T1 to T6 do: **stop and bring it to the
+product owner**; nothing further is built on the outbox until it is decided.
+
+| # | What | Threshold |
+|---|------|-----------|
+| A1 | Completed workflow updates per second, one instance, the dispatcher on, executions that each change one record; the backlog must not grow over 10 minutes | >= 50 per second |
+| A2 | Delay from the commit of the triggering event to the commit of the action's write, at half of A1's rate | p95 <= 5 s and p99 <= 15 s |
+| A3 | `record.updated` events made per completed action (amplification) | exactly 1, so nothing runs away |
+| A4 | Three instances, as A1 | >= 1.8 x A1 |
+| A5 | T2 measured again (events of an organization with no workflow) while the actions of another organization run | >= 200 per second, T6 unchanged |
+| A6 | p95 of a person's record write (8 concurrent writers) while actions run, against the same load without actions | <= 1.10 x |
+
+The mode needs the application with the dispatcher on (the actions are what is measured), the organizations are made by SQL
+like the others (slugs start with `bench-`), and the result is appended here with the machine, the settings and the number of
+instances. Running it is the product owner's. See `benchmark/workflow/README.md`.
+
 ## Consequences
 
 - No new infrastructure to operate for automation; the database the platform already runs carries the events.
