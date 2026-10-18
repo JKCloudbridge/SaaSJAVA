@@ -126,7 +126,7 @@ public final class NoticeText {
         Matcher found = PLACEHOLDER.matcher(text);
         while (found.find()) {
             if (!allowed.contains(found.group(1))) {
-                problems.add(new Problem(place, "{" + found.group(1) + "} is not available here. Use "
+                problems.add(new Problem(place, "A placeholder here is not one of this kind's. Use "
                         + allowed.stream().map(name -> "{" + name + "}").toList() + "."));
             }
         }

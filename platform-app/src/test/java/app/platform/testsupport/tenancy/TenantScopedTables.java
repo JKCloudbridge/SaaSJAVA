@@ -667,12 +667,21 @@ public final class TenantScopedTables {
                             + "updated_by) values (?, ?, 'APPROVALS', 'MAIL', false, ?, ?)",
                     tenant, UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
 
-    /** The text administrators wrote for notices (Sprint 25). */
+    /**
+     * The text administrators wrote for notices (Sprint 25). The kind is unique per tenant, so the harness (which
+     * inserts several rows for the same tenant) cycles through the closed list of kinds instead of repeating one.
+     */
     public static final TenantScopedTable NOTIFICATION_TEMPLATE = new TenantScopedTable("notification_template",
-            (connection, tenant) -> TenantFixtures.update(connection,
-                    "insert into notification_template (tenant_id, kind, title, body, created_by, updated_by) "
-                            + "values (?, 'WORKFLOW_NOTICE', 'Probe', 'Probe', ?, ?)",
-                    tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+            notificationTemplateInserter());
+
+    private static TenantScopedTable.RowInserter notificationTemplateInserter() {
+        String[] kinds = {"APPROVAL_TASK", "APPROVAL_REMINDER", "APPROVAL_DECIDED", "WORKFLOW_NOTICE"};
+        java.util.concurrent.atomic.AtomicInteger next = new java.util.concurrent.atomic.AtomicInteger();
+        return (connection, tenant) -> TenantFixtures.update(connection,
+                "insert into notification_template (tenant_id, kind, title, body, created_by, updated_by) "
+                        + "values (?, ?, 'Probe', 'Probe', ?, ?)",
+                tenant, kinds[next.getAndIncrement() % kinds.length], ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+    }
 
     /** The timers of active approval steps (Sprint 25). A probe row needs a request and a step, which it creates. */
     public static final TenantScopedTable APPROVAL_STEP_TIMER = new TenantScopedTable("approval_step_timer",
