@@ -47,7 +47,7 @@ public enum NoticeKind {
         this.category = category;
         this.floor = floor;
         this.writable = writable;
-        this.facts = facts;
+        this.facts = Set.copyOf(facts);
     }
 
     /** The category a preference switches. */
@@ -67,7 +67,9 @@ public enum NoticeKind {
 
     /** The names of the facts a notice of this kind may carry. */
     public Set<String> facts() {
-        return facts;
+        // A new, separately-identified immutable copy: the enum's own field is never handed out (SpotBugs
+        // EI_EXPOSE_REP).
+        return Set.copyOf(facts);
     }
 
     /** The kind with the stored code, or empty. */

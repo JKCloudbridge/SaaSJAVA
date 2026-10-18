@@ -139,6 +139,7 @@ class DefaultBackgroundWrites implements BackgroundWrites {
         return switch (stage) {
             case "record type" -> Reason.RECORD_TYPE_REJECTED;
             case "field permission" -> Reason.FIELD_NOT_WRITABLE;
+            case "before save" -> Reason.AUTOMATION_FAILED;
             case "required" -> Reason.REQUIRED_MISSING;
             case "relationship" -> Reason.LINK_TARGET_GONE;
             case "unique" -> Reason.UNIQUE_CLASH;

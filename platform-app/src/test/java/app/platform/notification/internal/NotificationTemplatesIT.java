@@ -97,9 +97,9 @@ class NotificationTemplatesIT extends NotificationSupport {
             assertThat(refused.status()).as(body).isEqualTo(400);
             assertThat(refused.body()).contains("body").doesNotContain(secret);
         }
-        Response long_ = admin.postJson(TEMPLATES, create("WORKFLOW_NOTICE", "x".repeat(81), "ok"));
-        assertThat(long_.status()).isEqualTo(400);
-        assertThat(long_.body()).contains("title");
+        Response tooLong = admin.postJson(TEMPLATES, create("WORKFLOW_NOTICE", "x".repeat(81), "ok"));
+        assertThat(tooLong.status()).isEqualTo(400);
+        assertThat(tooLong.body()).contains("title");
         assertThat(custom(admin, "WORKFLOW_NOTICE")).as("nothing was stored").isFalse();
     }
 

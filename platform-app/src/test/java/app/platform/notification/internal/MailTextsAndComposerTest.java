@@ -57,7 +57,7 @@ class MailTextsAndComposerTest {
     void everyMessageIsFilledCompletelyAndHasBothForms() {
         Map<String, String> values = Map.of("link", "http://localhost:3000/x#token=abc", "lifetime", "24 hours",
                 "signInLink", "http://localhost:3000/sign-in", "forgotLink", "http://localhost:3000/forgot-password",
-                "organization", "Organization A", "objectLabel", "Order", "process", "Large order");
+                "organization", "Organization A", "objectLabel", "Order", "process", "Large order", "days", "7 days");
         for (MailTexts.Kind kind : MailTexts.Kind.values()) {
             assertThat(MailTexts.text(kind, values)).as(kind + " text").doesNotContain("{{").isNotBlank();
             assertThat(MailTexts.html(kind, values)).as(kind + " html").doesNotContain("{{").startsWith("<!doctype");

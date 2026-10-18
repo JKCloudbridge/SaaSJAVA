@@ -120,7 +120,7 @@ final class ReminderSchedule {
             switch (event.kind()) {
                 case REMINDER -> reminders = Math.max(reminders, event.sequence());
                 case ESCALATION -> escalated = true;
-                case OVERDUE -> overdue = true;
+                default -> overdue = true;
             }
         }
         return new State(reminders, escalated, overdue);

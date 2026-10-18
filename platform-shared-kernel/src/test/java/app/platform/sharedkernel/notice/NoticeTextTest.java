@@ -34,8 +34,8 @@ class NoticeTextTest {
         List<Problem> problems = NoticeText.validate(NoticeKind.WORKFLOW_NOTICE, "T", "Look at {process} and {title}.");
 
         assertThat(places(problems)).containsExactly("body", "body");
-        assertThat(problems.get(0).message()).contains("{process}").contains("{workflow}");
-        assertThat(problems.get(1).message()).contains("{title}");
+        assertThat(problems.get(0).message()).doesNotContain("{process}").contains("{workflow}");
+        assertThat(problems.get(1).message()).doesNotContain("{title}").contains("{workflow}");
     }
 
     @Test

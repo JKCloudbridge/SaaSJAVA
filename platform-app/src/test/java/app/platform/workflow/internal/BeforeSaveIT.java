@@ -47,7 +47,7 @@ class BeforeSaveIT extends ActionsSupport {
 
         assertThat(fieldOf(setup.admin(), id, "fieldB__c")).isEqualTo("stamped");
         assertThat(fieldOf(setup.admin(), id, "fieldC__c")).isEqualTo("hello");
-        assertThat(versionOfRecord(setup.admin(), id)).as("one save, one version").isEqualTo(1L);
+        assertThat(versionOfRecord(setup.admin(), id)).as("one save, one version").isEqualTo(0L);
         settle(setup.organization());
         assertThat(executions(setup.organization())).as("nothing is queued: it ran inside the save").isEmpty();
     }
@@ -78,7 +78,7 @@ class BeforeSaveIT extends ActionsSupport {
 
         assertThat(changed.status()).as(changed.body()).isEqualTo(200);
         assertThat(fieldOf(setup.admin(), id, "fieldB__c")).isEqualTo("touched");
-        assertThat(versionOfRecord(setup.admin(), id)).isEqualTo(2L);
+        assertThat(versionOfRecord(setup.admin(), id)).isEqualTo(1L);
     }
 
     @Test
@@ -126,8 +126,9 @@ class BeforeSaveIT extends ActionsSupport {
         workflowExists(setup.admin(), "Stamp", recordTrigger("BEFORE_CREATE"), null,
                 setFields("Set", value("fieldB__c", "stamped")));
 
-        Response bulk = setup.admin().postJson(RECORDS + "/bulk", "{\"allOrNone\":true,\"records\":["
-                + "{\"fields\":{\"fieldA__c\":\"one\"}},{\"fields\":{\"fieldA__c\":\"two\"}}]}");
+        Response bulk = setup.admin().postJson(RECORDS + "/bulk",
+                "{\"operation\":\"CREATE\",\"allOrNone\":true,\"records\":["
+                        + "{\"fields\":{\"fieldA__c\":\"one\"}},{\"fields\":{\"fieldA__c\":\"two\"}}]}");
 
         assertThat(bulk.status()).as(bulk.body()).isIn(200, 201);
         assertThat(JsonPath.<List<String>>read(setup.admin().get(RECORDS).body(), "$.data[*].fields.fieldB__c"))
