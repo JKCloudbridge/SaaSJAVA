@@ -87,9 +87,13 @@ class ApprovalResolveService {
     /**
      * People who can be asked to decide, found by a part of their name: for the pickers of a reassignment, a delegation
      * and a rule. Any member may search; the answer is names and identifiers of active members who hold a licence and
-     * nothing else.
+     * nothing else. The text must match something: blank or missing text answers empty, so the membership cannot be
+     * read page by page through this endpoint.
      */
     List<ApprovalPersonView> people(String text, Integer limit) {
+        if (text == null || text.isBlank()) {
+            return List.of();
+        }
         int size = limit == null ? 20 : Math.max(1, Math.min(limit, 50));
         Map<UUID, String> names = new java.util.HashMap<>();
         return resolver.eligible(text, size, names).stream()

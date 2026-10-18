@@ -152,7 +152,11 @@ class ApprovalAccessIT extends ApprovalSupport {
         assertThat(decide(setup.approver().browser(), setup.request(), "cancel", null).status()).isEqualTo(403);
         assertThat(decide(setup.submitter().browser(), setup.request(), "cancel", null).status())
                 .as("the submitter may recall, not cancel").isEqualTo(403);
-        assertThat(decide(steward.browser(), setup.request(), "cancel", "ended").status()).isEqualTo(200);
+        // The steward holds only the override ability, not view or manage, so they cannot read the request through
+        // GET /instances/{id} (ADR-0152: that needs the task, the submitter or view-all); they would read the version
+        // from the record's approval panel in practice. Here the version is asked through the administrator instead.
+        assertThat(decide(steward.browser(), setup.request(), "cancel", "ended", instanceVersion(setup.admin(),
+                setup.request())).status()).isEqualTo(200);
     }
 
     @Test

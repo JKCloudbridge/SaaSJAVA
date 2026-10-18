@@ -36,7 +36,9 @@ import org.springframework.stereotype.Component;
  * role, a profile or a field does not change a step already active.
  */
 @Component
-class ApproverResolver {
+// final: the constructor refuses to build with no "User" reference-label contract; a class that cannot be
+// subclassed closes the finalizer-attack path SpotBugs warns about for a throwing constructor (CT_CONSTRUCTOR_THROW).
+final class ApproverResolver {
 
     private static final String USER_OBJECT = "User";
 

@@ -50,7 +50,7 @@ describe("PersonPicker", () => {
     expect(calls).toHaveLength(0);
 
     await type("us");
-    fireEvent.click(await screen.findByRole("button", { name: "User B" }));
+    fireEvent.click(screen.getByRole("button", { name: "User B" }));
 
     expect(screen.getByTestId("held")).toHaveTextContent("u-2");
     expect(screen.getByTestId("who-chosen")).toHaveTextContent("User B");
@@ -76,7 +76,7 @@ describe("PersonPicker", () => {
     fakeApi({ "GET /api/v1/approvals/people": () => json({ data: [{ userId: "u-1", name: "User A" }] }) });
     render(<Harness />);
     await type("us");
-    fireEvent.click(await screen.findByRole("button", { name: "User A" }));
+    fireEvent.click(screen.getByRole("button", { name: "User A" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Choose someone else" }));
 
@@ -90,6 +90,6 @@ describe("PersonPicker", () => {
 
     await type("us");
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("You may not search for people.");
+    expect(screen.getByRole("alert")).toHaveTextContent("You may not search for people.");
   });
 });

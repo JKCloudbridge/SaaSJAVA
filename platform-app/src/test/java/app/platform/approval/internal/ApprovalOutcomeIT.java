@@ -135,7 +135,7 @@ class ApprovalOutcomeIT extends ApprovalSupport {
         String record = record(setup.submitter().browser(), "{\"fieldA__c\":\"trip\"}");
         String request = submitted(setup.submitter().browser(), record, setup.process());
         approve(setup.approver().browser(), request);
-        assertThat(setup.admin().request("DELETE", METADATA_OBJECTS + "/" + OBJECT + "/validation-rules/NoApproved",
+        assertThat(setup.admin().request("DELETE", METADATA_OBJECTS + "/" + OBJECT + "/validation-rules/NoApproved__c",
                 null).status()).isBetween(200, 204);
 
         Response again = setup.admin().postJson(INSTANCES + "/" + request + "/outcome", "{\"recordVersion\":"
@@ -159,7 +159,7 @@ class ApprovalOutcomeIT extends ApprovalSupport {
         String record = record(setup.submitter().browser(), "{\"fieldA__c\":\"trip\"}");
         String request = submitted(setup.submitter().browser(), record, setup.process());
         approve(setup.approver().browser(), request);
-        setup.admin().request("DELETE", METADATA_OBJECTS + "/" + OBJECT + "/validation-rules/NoApproved", null);
+        setup.admin().request("DELETE", METADATA_OBJECTS + "/" + OBJECT + "/validation-rules/NoApproved__c", null);
         long requestVersion = instanceVersion(setup.admin(), request);
 
         Response member = setup.approver().browser().postJson(INSTANCES + "/" + request + "/outcome",

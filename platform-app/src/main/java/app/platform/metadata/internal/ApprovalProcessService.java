@@ -11,7 +11,6 @@ import app.platform.security.Ability;
 import app.platform.security.Permissions;
 import app.platform.sharedkernel.approval.ApprovalUsage;
 import app.platformapi.ApiException;
-import app.platformapi.ApprovalApproverSpec;
 import app.platformapi.ApprovalCatalogueView;
 import app.platformapi.ApprovalOutcomesSpec;
 import app.platformapi.ApprovalProcessCheckView;

@@ -91,7 +91,7 @@ class ApprovalMailIT extends ApprovalSupport {
 
         submit(third.browser(), record, setup.process(), null);
 
-        assertThat(owner("select count(*) from mail_queue where template = 'APPROVAL_REQUEST'").get(0))
-                .as("only the first request asked anybody").isEqualTo("1");
+        assertThat(queuedMails(setup.manager().member().person().email().toLowerCase()))
+                .as("only the first request asked anybody").hasSize(1);
     }
 }

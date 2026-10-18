@@ -61,9 +61,9 @@ class WorkflowActionDefinitionsIT extends WorkflowTestSupport {
 
         assertThat(catalogue.status()).as(catalogue.body()).isEqualTo(200);
         assertThat(JsonPath.<List<String>>read(catalogue.body(), "$.data.actionTypes[*].type")).containsExactly(
-                "UPDATE_RECORD", "CREATE_RECORD", "SEND_EMAIL", "PUBLISH_EVENT");
+                "UPDATE_RECORD", "CREATE_RECORD", "SEND_EMAIL", "START_APPROVAL", "PUBLISH_EVENT");
         assertThat(JsonPath.<List<String>>read(catalogue.body(), "$.data.actionTypes[*].assignments"))
-                .containsExactly("TRIGGERING_OBJECT", "NAMED_OBJECT", "NONE", "NONE");
+                .containsExactly("TRIGGERING_OBJECT", "NAMED_OBJECT", "NONE", "NONE", "NONE");
         assertThat(JsonPath.<List<String>>read(catalogue.body(), "$.data.actionTypes[1].settings[*].refersTo"))
                 .containsExactly("OBJECT", "ASSIGNED_FIELD");
         assertThat(JsonPath.<String>read(catalogue.body(), "$.data.actionTypes[1].assignedObject")).isEqualTo("object");

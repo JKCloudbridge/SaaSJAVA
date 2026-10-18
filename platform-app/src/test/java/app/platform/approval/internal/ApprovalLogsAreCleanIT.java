@@ -79,7 +79,9 @@ class ApprovalLogsAreCleanIT extends ApprovalSupport {
         Person deputy = person(organization, admin);
         Person delegate = person(organization, admin);
         Person steward = person(organization, admin, "approvals.override-lock");
-        String process = processExists(admin, createRequest("Expense", "fieldA__c <> '" + criteriaText + "'", false,
+        // fieldA__c is the object's title field (the first readable text field): it is legitimately shown in the
+        // inbox to a sighted approver (ADR-0146), so the value that must never leak lives in fieldB__c instead.
+        String process = processExists(admin, createRequest("Expense", "fieldA__c != '" + criteriaText + "'", false,
                 null, outcomes(assignment("fieldC__c", outcomeText), assignment("fieldB__c", outcomeText),
                         assignment("fieldB__c", outcomeText)),
                 step("Manager", "ANY", user(manager.userId())), step("Finance", "ANY", user(finance.userId()))));
@@ -88,24 +90,26 @@ class ApprovalLogsAreCleanIT extends ApprovalSupport {
                 .status()).isEqualTo(201);
 
         // Submitted with a comment, a write refused by the lock, an override, approved by a delegate, handed on.
-        String one = record(submitter.browser(), "{\"fieldA__c\":\"" + recordText + "\"}");
+        String one = record(submitter.browser(), "{\"fieldA__c\":\"Expense\",\"fieldB__c\":\"" + recordText + "\"}");
         Response madeFirst = submit(submitter.browser(), one, process, commentText);
         assertThat(madeFirst.status()).as(madeFirst.body()).isEqualTo(201);
         String firstRequest = JsonPath.read(madeFirst.body(), "$.data.summary.id");
-        change(submitter.browser(), one, "{\"fieldA__c\":\"" + recordText + "x\"}");
+        change(submitter.browser(), one, "{\"fieldB__c\":\"" + recordText + "x\"}");
         change(steward.browser(), one, "{\"fieldB__c\":\"" + recordText + "\"}");
         ended(decide(delegate.browser(), firstRequest, "approve", commentText));
         ended(reassign(finance.browser(), firstRequest, deputy.userId()));
         ended(decide(deputy.browser(), firstRequest, "approve", commentText));
 
         // Rejected, recalled, cancelled.
-        String two = record(submitter.browser(), "{\"fieldA__c\":\"" + recordText + "\"}");
+        String two = record(submitter.browser(), "{\"fieldA__c\":\"Expense\",\"fieldB__c\":\"" + recordText + "\"}");
         String second = submitted(submitter.browser(), two, process);
         ended(decide(manager.browser(), second, "reject", reasonText));
-        String three = record(submitter.browser(), "{\"fieldA__c\":\"" + recordText + "\"}");
+        String three = record(submitter.browser(), "{\"fieldA__c\":\"Expense\",\"fieldB__c\":\"" + recordText
+                + "\"}");
         String third = submitted(submitter.browser(), three, process);
         ended(decide(submitter.browser(), third, "recall", commentText));
-        String four = record(submitter.browser(), "{\"fieldA__c\":\"" + recordText + "\"}");
+        String four = record(submitter.browser(), "{\"fieldA__c\":\"Expense\",\"fieldB__c\":\"" + recordText
+                + "\"}");
         String fourth = submitted(submitter.browser(), four, process);
         ended(decide(admin, fourth, "cancel", reasonText));
 
@@ -114,11 +118,12 @@ class ApprovalLogsAreCleanIT extends ApprovalSupport {
                 + "\"label\":\"NoOutcome\",\"expression\":\"fieldC__c = '" + outcomeText + "'\",\"errorMessage\":\""
                 + ruleMessage + "\"}");
         assertThat(rule.status()).as(rule.body()).isEqualTo(201);
-        String five = record(submitter.browser(), "{\"fieldA__c\":\"" + recordText + "\"}");
+        String five = record(submitter.browser(), "{\"fieldA__c\":\"Expense\",\"fieldB__c\":\"" + recordText
+                + "\"}");
         String fifth = submitted(submitter.browser(), five, process);
         ended(decide(manager.browser(), fifth, "approve", commentText));
         ended(decide(finance.browser(), fifth, "approve", commentText));
-        admin.request("DELETE", METADATA_OBJECTS + "/" + OBJECT + "/validation-rules/NoOutcome", null);
+        admin.request("DELETE", METADATA_OBJECTS + "/" + OBJECT + "/validation-rules/NoOutcome__c", null);
         admin.postJson(INSTANCES + "/" + fifth + "/outcome", "{\"recordVersion\":" + recordVersion(admin, five)
                 + ",\"version\":" + instanceVersion(admin, fifth) + "}");
         settle(organization);

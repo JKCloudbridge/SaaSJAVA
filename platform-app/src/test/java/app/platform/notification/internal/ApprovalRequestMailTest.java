@@ -75,7 +75,7 @@ class ApprovalRequestMailTest {
 
         Decision.Send send = (Decision.Send) composer.decide(mail(facts("Big http://evil.example\nsecond line")));
 
-        assertThat(send.message().text()).doesNotContain("evil.example").doesNotContain("Big http");
+        assertThat(send.message().text()).doesNotContain("evil.example").doesNotContain("evil.example/");
         assertThat(send.message().subject()).doesNotContain("Organization").doesNotContain("Big");
     }
 

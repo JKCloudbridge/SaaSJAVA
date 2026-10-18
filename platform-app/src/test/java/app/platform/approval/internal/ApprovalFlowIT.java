@@ -62,7 +62,8 @@ class ApprovalFlowIT extends ApprovalSupport {
         assertThat(openRequests(setup.manager().browser())).containsExactly(request);
         assertThat(openRequests(setup.finance().browser())).as("finance is asked only when its step is active")
                 .isEmpty();
-        assertThat(approve(setup.finance().browser(), request).status()).as("no task yet").isEqualTo(404);
+        assertThat(decide(setup.finance().browser(), request, "approve", null, instanceVersion(setup.admin(),
+                request)).status()).as("no task yet").isEqualTo(404);
 
         Response first = approve(setup.manager().browser(), request);
         assertThat(first.status()).as(first.body()).isEqualTo(200);
@@ -155,7 +156,8 @@ class ApprovalFlowIT extends ApprovalSupport {
         String record = record(setup.submitter().browser(), "{\"fieldA__c\":\"trip\"}");
         String request = submitted(setup.submitter().browser(), record, setup.process());
 
-        assertThat(decide(stranger.browser(), request, "recall", null).status()).as("not theirs").isEqualTo(404);
+        assertThat(decide(stranger.browser(), request, "recall", null, instanceVersion(setup.admin(), request))
+                .status()).as("not theirs").isEqualTo(404);
         assertThat(instance(stranger.browser(), request).status()).isEqualTo(404);
         Response recalled = decide(setup.submitter().browser(), request, "recall", "Changed my mind");
 

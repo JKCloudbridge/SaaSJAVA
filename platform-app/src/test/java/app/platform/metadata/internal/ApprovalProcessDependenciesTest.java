@@ -12,8 +12,10 @@ import app.platform.metadata.ApprovalProcessDefinition.Completion;
 import app.platform.metadata.ApprovalProcessDefinition.Outcomes;
 import app.platform.metadata.ApprovalProcessDefinition.Step;
 import app.platform.metadata.DefinitionKind;
+import app.platform.metadata.FieldConfiguration;
 import app.platform.metadata.FieldConfiguration.NoConfiguration;
 import app.platform.metadata.FieldConfiguration.ReferenceConfiguration;
+import app.platform.metadata.FieldConfiguration.TextConfiguration;
 import app.platform.metadata.FieldDefinition;
 import app.platform.metadata.FieldType;
 import app.platform.metadata.ObjectDefinition;
@@ -38,8 +40,10 @@ class ApprovalProcessDependenciesTest {
                     new MetadataProperties.Cache(true, 1000)));
 
     private static FieldDefinition field(String name, FieldType type) {
+        FieldConfiguration configuration = type == FieldType.TEXT || type == FieldType.LONG_TEXT
+                ? new TextConfiguration(255) : new NoConfiguration();
         return new FieldDefinition("Expense__c", name, name, "", DefinitionKind.CUSTOM, type, false, false, null,
-                new NoConfiguration(), false, 0);
+                configuration, false, 0);
     }
 
     private static FieldDefinition lookup(String name, String target) {

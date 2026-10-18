@@ -92,18 +92,15 @@ describe("ApprovalBuilder", () => {
     expect(screen.queryByTestId("unsaved")).toBeNull();
   });
 
-  it("builds the palette from the catalogue and from nothing else: the steps and one chip for every kind of rule", async () => {
+  it("builds the palette from the catalogue and from nothing else: a step chip, and one chip per kind of rule under its own tab", async () => {
     fakeApi(answers());
     render(<ApprovalBuilder />);
     await loaded();
 
-    expect(palette().getAllByRole("button").map((chip) => chip.textContent)).toEqual([
-      "A step",
-      "User",
-      "Group",
-      "Owner",
-      "Record user",
-    ]);
+    expect(palette().getByRole("button", { name: "A step" })).toBeInTheDocument();
+    fireEvent.click(palette().getByRole("button", { name: "Who is asked" }));
+    expect(within(palette().getByTestId("palette-grid")).getAllByRole("button").map((chip) => chip.textContent))
+      .toEqual(["User", "Group", "Owner", "Record user"]);
   });
 
   it("changes with the catalogue: a kind the API adds is in the palette and a kind it drops is not", async () => {
@@ -117,6 +114,7 @@ describe("ApprovalBuilder", () => {
     fakeApi(answers({ "GET /api/v1/metadata/approvals/catalogue": () => json({ data: changed }) }));
     render(<ApprovalBuilder />);
     await loaded();
+    fireEvent.click(palette().getByRole("button", { name: "Who is asked" }));
 
     expect(palette().getByRole("button", { name: "Brand new" })).toBeInTheDocument();
     expect(palette().queryByRole("button", { name: "Owner" })).toBeNull();

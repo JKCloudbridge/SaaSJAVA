@@ -82,13 +82,16 @@ class ApprovalProcessRulesTest {
 
     @Test
     void aRuleOfAKindThatTakesAnIdentifierNeedsOneAndOneThatTakesNoneTakesNone() {
-        Map<String, List<String>> found = problems(null, List.of(step("A", "ANY",
-                new ApprovalApproverSpec("USER", "not-an-identifier"), new ApprovalApproverSpec("OWNER", "extra"),
-                new ApprovalApproverSpec("RECORD_USER", "1bad"), new ApprovalApproverSpec("NOBODY", null))), null,
-                null);
+        // Two steps, not one: the shared properties cap a step at 2 rules for who is asked.
+        Map<String, List<String>> found = problems(null, List.of(
+                step("A", "ANY", new ApprovalApproverSpec("USER", "not-an-identifier"),
+                        new ApprovalApproverSpec("OWNER", "extra")),
+                step("B", "ANY", new ApprovalApproverSpec("RECORD_USER", "1bad"),
+                        new ApprovalApproverSpec("NOBODY", null))),
+                null, null);
 
         assertThat(found).containsKeys("steps[0].approvers[0].value", "steps[0].approvers[1].value",
-                "steps[0].approvers[2].value", "steps[0].approvers[3].kind");
+                "steps[1].approvers[0].value", "steps[1].approvers[1].kind");
     }
 
     @Test

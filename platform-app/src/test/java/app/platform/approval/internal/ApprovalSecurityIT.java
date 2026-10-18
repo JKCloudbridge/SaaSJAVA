@@ -72,7 +72,9 @@ class ApprovalSecurityIT extends ApprovalSupport {
         Organization organization = organization();
         TestBrowser admin = adminWithData(organization);
         Person submitter = person(organization, admin);
-        Person approver = person(organization, admin);
+        // Blind: a sighted approver would legitimately be shown the record's title (the inbox's own rule), which
+        // would be this same literal if it were the title field. A value is never carried regardless of who reads it.
+        Person approver = blind(organization, admin);
         String process = processExists(admin, createRequest("Expense", null, false, null,
                 outcomes(assignment("fieldC__c", "Approved"), "", ""),
                 step("One", "ANY", user(approver.userId()))));
