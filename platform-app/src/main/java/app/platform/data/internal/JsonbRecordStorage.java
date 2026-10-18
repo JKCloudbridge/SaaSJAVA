@@ -81,6 +81,11 @@ class JsonbRecordStorage implements StorageStrategy {
     private static final String LIVE_IDS = "select id from object_record where tenant_id = :tenant "
             + "and object_api_name = :object and deleted_at is null and id in (:ids)";
 
+    // The row lock of the record lock guard (ADR-0148): live or binned, in identifier order so that two of them cannot
+    // wait on each other.
+    private static final String LOCK_ROWS = "select id from object_record where tenant_id = :tenant "
+            + "and object_api_name = :object and id in (:ids) order by id for update";
+
     // Live or in the recycle bin: the rules of record-level security judge a binned record as they judged it alive.
     private static final String IDS_MEETING = "select id from object_record where tenant_id = :tenant "
             + "and object_api_name = :object and id in (:ids)";
@@ -329,6 +334,15 @@ class JsonbRecordStorage implements StorageStrategy {
         }
         return Set.copyOf(jdbc.sql(LIVE_IDS).param("tenant", tenant()).param("object", objectApiName)
                 .param("ids", List.copyOf(ids)).query(UUID.class).list());
+    }
+
+    @Override
+    public List<UUID> lockRows(String objectApiName, Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql(LOCK_ROWS).param("tenant", tenant()).param("object", objectApiName)
+                .param("ids", List.copyOf(ids)).query(UUID.class).list();
     }
 
     @Override

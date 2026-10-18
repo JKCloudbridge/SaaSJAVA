@@ -22,8 +22,12 @@
  * <p>Other modules may use only the types in this package (its public API). Everything in sub-packages is
  * internal. Allowed outgoing dependencies are declared below and verified by the architecture tests. The module needs
  * nothing from {@code expression}: the compiled conditions arrive through the runtime contract of {@code metadata}, as
- * the compiled rules do for {@code data} (ADR-0136). {@code approval}, {@code notification} and {@code integration}
- * were listed in the plan and are added by the sprints that need them, not before.
+ * the compiled rules do for {@code data} (ADR-0136). {@code notification} and {@code integration} were listed in the
+ * plan
+ * and are added by the sprints that need them, not before. Since Sprint 24 the action {@code START_APPROVAL} submits a
+ * record through the public interface {@code Approvals} of the {@code approval} module (new edge
+ * {@code workflow -> approval}, ADR-0150); the module {@code approval} never depends on this one, so there is no cycle:
+ * what follows the end of an approval is a workflow that starts from the {@code approval.*} events (ADR-0149).
  */
 @ApplicationModule(
         displayName = "Workflow",
@@ -35,7 +39,8 @@
             "data",
             "identity",
             "licensing",
-            "observability"
+            "observability",
+            "approval"
         })
 package app.platform.workflow;
 

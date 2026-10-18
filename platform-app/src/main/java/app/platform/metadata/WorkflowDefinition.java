@@ -57,7 +57,9 @@ public record WorkflowDefinition(UUID id, UUID versionId, String objectApiName, 
         /** Once, at one moment. */
         DATE_TIME(true),
         /** A number of days after the value of a date field of each record. */
-        DAYS_AFTER_DATE(true);
+        DAYS_AFTER_DATE(true),
+        /** An approval of a record of the object ended (Sprint 24, ADR-0149). */
+        APPROVAL_OUTCOME(false);
 
         private final boolean scheduled;
 
@@ -93,13 +95,22 @@ public record WorkflowDefinition(UUID id, UUID versionId, String objectApiName, 
      * @param dayOfWeek for {@link Kind#EVERY_WEEK}: the day
      * @param at for {@link Kind#DATE_TIME}: the local date and time, in the zone
      * @param selection for the scheduled kinds: which records start it, or null for every live record
+     * @param process for {@link Kind#APPROVAL_OUTCOME}: the approval process whose end starts it, or null for any
+     * @param outcome for {@link Kind#APPROVAL_OUTCOME}: {@code APPROVED}, {@code REJECTED} or {@code RECALLED}, or
+     *        null for any
      */
     public record Trigger(Kind kind, List<String> fields, String field, Integer days, ZoneId timeZone, LocalTime time,
-            DayOfWeek dayOfWeek, LocalDateTime at, QueryFilterNode selection) {
+            DayOfWeek dayOfWeek, LocalDateTime at, QueryFilterNode selection, String process, String outcome) {
 
         /** Copies the list. */
         public Trigger {
             fields = fields == null ? List.of() : List.copyOf(fields);
+        }
+
+        /** A trigger that is not the end of an approval. */
+        public Trigger(Kind kind, List<String> fields, String field, Integer days, ZoneId timeZone, LocalTime time,
+                DayOfWeek dayOfWeek, LocalDateTime at, QueryFilterNode selection) {
+            this(kind, fields, field, days, timeZone, time, dayOfWeek, at, selection, null, null);
         }
     }
 

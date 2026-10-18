@@ -59,7 +59,7 @@ export function ExpressionCheck({
 }: {
   objectApiName: string;
   expression: string;
-  purpose: "FORMULA" | "VALIDATION_RULE" | "WORKFLOW_CONDITION";
+  purpose: "FORMULA" | "VALIDATION_RULE" | "WORKFLOW_CONDITION" | "APPROVAL_ENTRY";
   /** For a formula: the type it must give, when one is chosen. */
   resultType?: string;
   /** For a rule: the message of the rejection, shown when the sample values would be rejected. */
@@ -122,6 +122,19 @@ export function ExpressionCheck({
         );
         return;
       }
+      if (purpose === "APPROVAL_ENTRY") {
+        // The entry criteria of an approval are tried by the approval's own check, which answers what a submit would do.
+        const { data, error, response } = await api.POST("/api/v1/metadata/approvals/{objectApiName}/check", {
+          params: { path: { objectApiName } },
+          body: { entryCriteria: expression, values: given },
+        });
+        setTried(
+          data
+            ? { key, result: { outcome: data.data.outcome, problem: data.data.problem } }
+            : { key, failure: await failureText(error, response) },
+        );
+        return;
+      }
       const { data, error, response } = await api.POST("/api/v1/metadata/expressions/test", {
         body: { objectApiName, expression, purpose, values: given },
       });
@@ -133,7 +146,8 @@ export function ExpressionCheck({
     }
   }
 
-  const verb = purpose === "FORMULA" ? "Check the formula" : "Check the condition";
+  const verb =
+    purpose === "FORMULA" ? "Check the formula" : purpose === "APPROVAL_ENTRY" ? "Check the criteria" : "Check the condition";
 
   return (
     <div className="stack" data-testid={testId}>
@@ -194,7 +208,9 @@ export function ExpressionCheck({
                 {outcome.failure}
               </p>
             ) : null}
-            {outcome?.result ? <p data-testid={`${testId}-outcome`}>{outcomeText(outcome.result, ruleMessage)}</p> : null}
+            {outcome?.result ? (
+              <p data-testid={`${testId}-outcome`}>{outcomeText(outcome.result, ruleMessage, purpose)}</p>
+            ) : null}
           </div>
         </fieldset>
       ) : null}
@@ -203,12 +219,17 @@ export function ExpressionCheck({
 }
 
 /** What the sample values would do, in words, from what the API answered. */
-function outcomeText(result: TryView, ruleMessage: string | undefined): string {
+function outcomeText(result: TryView, ruleMessage: string | undefined, purpose: string): string {
+  const approval = purpose === "APPROVAL_ENTRY";
   switch (result.outcome) {
     case "RUNS":
-      return "The workflow runs: the condition is true for these values.";
+      return approval
+        ? "The record can be submitted: the criteria are true for these values."
+        : "The workflow runs: the condition is true for these values.";
     case "SKIPPED":
-      return "The workflow is skipped: the condition is false, or has no value, for these values.";
+      return approval
+        ? "The record cannot be submitted: the criteria are false, or have no value, for these values."
+        : "The workflow is skipped: the condition is false, or has no value, for these values.";
     case "REJECTED":
       return `Rejected: ${result.message || ruleMessage || "the condition is true for these values."}`;
     case "PASSED":

@@ -111,7 +111,34 @@ public enum Ability {
      */
     WORKFLOWS_REPLAY("workflows.replay", "Replay workflow executions",
             "Run an execution that ended as a dead letter again from the step that failed, one or many at once, and "
-                    + "put back an event the platform gave up on so that workflows see it.");
+                    + "put back an event the platform gave up on so that workflows see it."),
+
+    /** See the approval processes of the organization (Sprint 24, ADR-0152). */
+    APPROVALS_VIEW("approvals.view", "View approval processes",
+            "See the approval processes of the organization: their steps, who is asked and what an outcome sets."),
+
+    /**
+     * Create, change, switch on or off and remove approval processes, try them on a record, make delegations for other
+     * people, assign a person to a step nobody can decide and apply an outcome again (Sprint 24, ADR-0152). Making a
+     * definition live also needs the ability to publish metadata changes, as every definition does (ADR-0068).
+     */
+    APPROVALS_MANAGE("approvals.manage", "Manage approvals",
+            "Create, change, switch on or off and remove approval processes, try one on a record, make a delegation "
+                    + "for somebody else, assign a person to a step that nobody can decide and apply an outcome again. "
+                    + "Making a change live needs the ability to publish metadata changes as well."),
+
+    /** See every approval request and its history for the records the member can read (Sprint 24, ADR-0152). */
+    APPROVALS_VIEW_ALL("approvals.view-all", "View every approval",
+            "See every approval request, its steps and its history, for the records you can read. Without it you see "
+                    + "the requests you submitted or were asked to decide."),
+
+    /**
+     * Change a record that is locked by a pending approval, recall or cancel a request that is not yours (Sprint 24,
+     * ADR-0148). Every use is audited with the reason.
+     */
+    APPROVALS_OVERRIDE_LOCK("approvals.override-lock", "Override the lock of an approval",
+            "Change a record while it is being approved, and recall or cancel an approval request that is not yours. "
+                    + "Every use is recorded in the audit trail and in the history of the approval.");
 
     private final String key;
     private final String title;

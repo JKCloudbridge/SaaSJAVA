@@ -379,6 +379,17 @@ class ExecutionStore {
                 .param(SYSTEM, ActorId.SYSTEM.value()).update();
     }
 
+    /**
+     * Records a stable reason on a step that goes on to complete: the start of an approval that found one pending
+     * already (ADR-0150) is a success that says what it found.
+     */
+    void noteStep(UUID executionId, int position, String reason) {
+        jdbc.sql("update workflow_step set last_reason = :reason, version = version + 1, updated_by = :system "
+                        + "where execution_id = :id and position = :position and deleted_at is null")
+                .param("reason", reason).param(SYSTEM, ActorId.SYSTEM.value()).param("id", executionId)
+                .param("position", position).update();
+    }
+
     /** Completes the step; the attempt that succeeded counts. */
     void completeStep(UUID executionId, int position) {
         jdbc.sql("update workflow_step set status = 'COMPLETED', finished_at = now(), attempts = attempts + 1, "

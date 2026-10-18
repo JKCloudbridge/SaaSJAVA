@@ -19,6 +19,9 @@ import app.platformapi.CreateRecordPageRequest;
 import app.platformapi.CreateRecordTypeAssignmentRequest;
 import app.platformapi.CreateRecordTypeRequest;
 import app.platformapi.CreateValidationRuleRequest;
+import app.platformapi.ApprovalProcessView;
+import app.platformapi.CreateApprovalProcessRequest;
+import app.platformapi.UpdateApprovalProcessRequest;
 import app.platformapi.CreateWorkflowRequest;
 import app.platformapi.UpdateWorkflowRequest;
 import app.platformapi.WorkflowView;
@@ -76,12 +79,14 @@ class ChangeApplier {
     private final RecordTypeAssignmentService typeAssignments;
     private final ValidationRuleService rules;
     private final WorkflowService workflows;
+    private final ApprovalProcessService approvals;
     private final ChangeCodec codec;
 
     ChangeApplier(MetadataService metadata, RecordTypeService recordTypes, DefinitionService definitions,
             AssignmentService assignments, RecordPageAssignmentService recordPageAssignments,
             ValidationRuleService rules, RecordTypeAssignmentService typeAssignments, WorkflowService workflows,
-            ChangeCodec codec) {
+            ApprovalProcessService approvals, ChangeCodec codec) {
+        this.approvals = approvals;
         this.workflows = workflows;
         this.rules = rules;
         this.metadata = metadata;
@@ -140,6 +145,9 @@ class ChangeApplier {
             case CREATE_WORKFLOW -> createWorkflow(caller, change);
             case UPDATE_WORKFLOW -> updateWorkflow(caller, change);
             case DELETE_WORKFLOW -> deleteWorkflow(caller, change);
+            case CREATE_APPROVAL_PROCESS -> createApprovalProcess(caller, change);
+            case UPDATE_APPROVAL_PROCESS -> updateApprovalProcess(caller, change);
+            case DELETE_APPROVAL_PROCESS -> deleteApprovalProcess(caller, change);
         };
     }
 
@@ -542,6 +550,33 @@ class ChangeApplier {
         workflows.delete(caller, change.object(), change.item());
         return new Applied(Boolean.TRUE, List.of(codec.makeWorkflow(before)),
                 List.of(item("REMOVED", "WORKFLOW", change.object(), change.item())));
+    }
+
+    // ---- approval processes (Sprint 24) ----
+
+    private Applied createApprovalProcess(Caller caller, Change change) {
+        ApprovalProcessView made = approvals.create(caller, change.object(),
+                codec.read(change, CreateApprovalProcessRequest.class));
+        return new Applied(made, List.of(codec.removeApprovalProcess(change.object(), made.apiName())),
+                List.of(item("ADDED", "APPROVAL_PROCESS", change.object(), made.apiName())));
+    }
+
+    private Applied updateApprovalProcess(Caller caller, Change change) {
+        ApprovalProcessView before = approvals.process(change.object(), change.item());
+        ApprovalProcessView after = approvals.update(caller, change.object(), change.item(),
+                codec.read(change, UpdateApprovalProcessRequest.class));
+        if (after.version().equals(before.version())) {
+            return new Applied(after, List.of(), List.of());
+        }
+        return new Applied(after, List.of(codec.restoreApprovalProcess(before, after.version())),
+                List.of(item("CHANGED", "APPROVAL_PROCESS", change.object(), after.apiName())));
+    }
+
+    private Applied deleteApprovalProcess(Caller caller, Change change) {
+        ApprovalProcessView before = approvals.process(change.object(), change.item());
+        approvals.delete(caller, change.object(), change.item());
+        return new Applied(Boolean.TRUE, List.of(codec.makeApprovalProcess(before)),
+                List.of(item("REMOVED", "APPROVAL_PROCESS", change.object(), change.item())));
     }
 
     private static ReleaseItemView item(String action, String kind, String object, String item) {

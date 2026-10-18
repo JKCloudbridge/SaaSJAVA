@@ -59,7 +59,10 @@ record Change(Kind kind, String object, String item, String payload) {
         DELETE_RECORD_PAGE_ASSIGNMENT(Entity.RECORD_PAGE_ASSIGNMENT, true),
         CREATE_WORKFLOW(Entity.WORKFLOW, false),
         UPDATE_WORKFLOW(Entity.WORKFLOW, true),
-        DELETE_WORKFLOW(Entity.WORKFLOW, true);
+        DELETE_WORKFLOW(Entity.WORKFLOW, true),
+        CREATE_APPROVAL_PROCESS(Entity.APPROVAL_PROCESS, false),
+        UPDATE_APPROVAL_PROCESS(Entity.APPROVAL_PROCESS, true),
+        DELETE_APPROVAL_PROCESS(Entity.APPROVAL_PROCESS, true);
 
         private final Entity entity;
         private final boolean namesItem;
@@ -94,7 +97,7 @@ record Change(Kind kind, String object, String item, String payload) {
 
     /** The kinds of definition. */
     enum Entity { OBJECT, FIELD, RECORD_TYPE, LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT, VALIDATION_RULE,
-        RECORD_TYPE_ASSIGNMENT, TAB, CUSTOM_PAGE, RECORD_PAGE_ASSIGNMENT, WORKFLOW;
+        RECORD_TYPE_ASSIGNMENT, TAB, CUSTOM_PAGE, RECORD_PAGE_ASSIGNMENT, WORKFLOW, APPROVAL_PROCESS;
 
         /** Whether the kind of definition belongs to the organization and not to one object. */
         boolean organizationWide() {

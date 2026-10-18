@@ -61,6 +61,10 @@ final class Checker {
             throw fail(Kind.TYPE, root.offset(), "A workflow condition must give true or false (the workflow runs "
                     + "when it is true), but this gives " + type.words() + ".");
         }
+        if (purpose == Purpose.APPROVAL_ENTRY && type != ExpressionType.BOOLEAN) {
+            throw fail(Kind.TYPE, root.offset(), "The entry criteria of an approval must give true or false (a record "
+                    + "can be submitted when it is true), but this gives " + type.words() + ".");
+        }
         return new Result(type, new ArrayList<>(fields), usesClock);
     }
 

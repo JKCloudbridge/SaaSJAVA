@@ -70,6 +70,7 @@ class MailComposer {
             case PASSWORD_RESET_REQUEST -> reset(mail);
             case INVITATION -> invitation(mail);
             case RECORD_NOTICE -> recordNotice(mail);
+            case APPROVAL_REQUEST -> approvalRequest(mail);
             case PASSWORD_CHANGED -> notice(mail, MailTexts.Kind.PASSWORD_CHANGED, "notice_sent");
             case ACCOUNT_LOCKED -> notice(mail, MailTexts.Kind.ACCOUNT_LOCKED, "notice_sent");
         };
@@ -152,6 +153,27 @@ class MailComposer {
                 "objectLabel", MailTexts.safeName(mail.variables().getOrDefault("object_label", "")),
                 "link", links.record(tenant.slug().value(), object, recordId));
         return send(mail, MailTexts.Kind.RECORD_NOTICE, values, "notice_sent");
+    }
+
+    /**
+     * A record waits for the recipient's decision (Sprint 24, ADR-0152): the organization, the object and the label of
+     * the
+     * process, all passed through {@code safeName}, and the link to the inbox. No title and no value of the record.
+     */
+    private Decision approvalRequest(ClaimedMail mail) {
+        UUID tenantId = uuid(mail.variables().get("organization_id"));
+        if (tenantId == null) {
+            return new Decision.Suppress("notice_unknown");
+        }
+        Tenant tenant = tenants.findById(new TenantId(tenantId)).orElse(null);
+        if (tenant == null || tenant.status() != TenantStatus.ACTIVE) {
+            return new Decision.Suppress("organization_not_open");
+        }
+        Map<String, String> values = Map.of("organization", MailTexts.safeName(tenant.displayName()),
+                "objectLabel", MailTexts.safeName(mail.variables().getOrDefault("object_label", "")),
+                "process", MailTexts.safeName(mail.variables().getOrDefault("process_label", "")),
+                "link", links.approvals(tenant.slug().value()));
+        return send(mail, MailTexts.Kind.APPROVAL_REQUEST, values, "approval_request_sent");
     }
 
     private static UUID uuid(String text) {

@@ -249,8 +249,10 @@ class RecordChanges {
         }
         if (source != null) {
             // Names and identifiers only (ADR-0139): which workflow, which run, never a value.
-            record = record.from(AuditSource.SYSTEM).with("actor", "platform").with("workflow", source.workflow())
-                    .with("execution", source.execution().toString());
+            boolean approval = source.kind() == BackgroundWrites.Kind.APPROVAL;
+            record = record.from(AuditSource.SYSTEM).with("actor", "platform")
+                    .with(approval ? "approval" : "workflow", source.name())
+                    .with(approval ? "request" : "execution", source.execution().toString());
         }
         audit.record(record);
         events.publish(new NewEvent("record." + kind, payload(object, id, version, fields, source)));

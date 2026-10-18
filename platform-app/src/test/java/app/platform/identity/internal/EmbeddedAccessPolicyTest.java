@@ -55,11 +55,26 @@ class EmbeddedAccessPolicyTest {
                 "/api/v1/auth/sign-in", "/api/v1/auth/sign-out", "/api/v1/auth/sign-out-all",
                 "/api/v1/auth/refresh", "/api/v1/auth/password", "/api/v1/auth/switch", "/api/v1/oauth2/token",
                 "/api/v1/platform/status", "/api/v1/platform/people", "/api/v1/support-access",
-                "/api/v1/organizations", "/api/v1/openapi")) {
+                "/api/v1/organizations", "/api/v1/openapi", "/api/v1/approvals/inbox",
+                "/api/v1/approvals/instances/0198/approve", "/api/v1/approvals/delegations",
+                "/api/v1/metadata/approvals", "/api/v1/metadata/approvals/catalogue")) {
             for (String method : List.of("GET", "POST", "PUT", "PATCH", "DELETE")) {
                 assertThat(EmbeddedAccessPolicy.permits(method, path)).as(method + " " + path).isFalse();
             }
         }
+    }
+
+    @Test
+    void aScriptMayReadTheApprovalPanelOfARecordButNeverSubmitOrChangeIt() {
+        String panel = "/api/v1/objects/Expense__c/records/0198/approval";
+
+        assertThat(EmbeddedAccessPolicy.permits("GET", panel)).isTrue();
+        for (String method : List.of("POST", "PUT", "PATCH", "DELETE")) {
+            assertThat(EmbeddedAccessPolicy.permits(method, panel)).as(method + " " + panel).isFalse();
+        }
+        assertThat(EmbeddedAccessPolicy.permits("POST", "/api/v1/objects/Expense__c/records")).as("the rest of the "
+                + "data interface is untouched").isTrue();
+        assertThat(EmbeddedAccessPolicy.permits("PATCH", "/api/v1/objects/Expense__c/records/0198")).isTrue();
     }
 
     @Test

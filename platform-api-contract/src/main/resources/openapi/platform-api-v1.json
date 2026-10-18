@@ -340,6 +340,731 @@
         "tags" : [ "Applications" ]
       }
     },
+    "/api/v1/approvals/delegations" : {
+      "get" : {
+        "description" : "The caller's own by default. Name a delegator, or ask for all, only with approvals.manage (FORBIDDEN otherwise).",
+        "operationId" : "listApprovalDelegations",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "delegator",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "all",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListApprovalDelegationView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Delegations",
+        "tags" : [ "Approvals" ]
+      },
+      "post" : {
+        "description" : "The delegate is asked beside the delegator (the delegator keeps the task) whenever a step becomes active within the range; tasks already assigned are not moved. No chains and none to oneself; the range is at most 366 days, both days count, in the time zone of the delegation. The delegate must be an active member who holds a licence. A member makes one for themselves; approvals.manage is needed for another person. Audited.",
+        "operationId" : "createApprovalDelegation",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateApprovalDelegationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalDelegationView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Name a delegate for a range of days",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/approvals/delegations/{id}" : {
+      "delete" : {
+        "description" : "The delegator, or a member who holds approvals.manage. Tasks the delegate already holds stay. NOT_FOUND for a delegation that does not exist.",
+        "operationId" : "revokeApprovalDelegation",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "End a delegation",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/approvals/inbox" : {
+      "get" : {
+        "description" : "Three tabs: TO_APPROVE (open tasks), DELEGATED (open tasks that came through a delegation) and DECIDED (approved, rejected or handed on). Open tasks are oldest first, decided ones newest first; cursor paging. Each task names its record by the title only when the caller can read the record, and says so when they cannot: an approval grants no access. Narrow by object and process.",
+        "operationId" : "listApprovalTasks",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "tab",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "object",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "process",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiPageResponseApprovalTaskView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The caller's tasks",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/approvals/inbox/summary" : {
+      "get" : {
+        "description" : "For the header: the number of open tasks and whether the member has anything to do with approvals (the plan has the feature, or they were asked or submitted something).",
+        "operationId" : "getApprovalInboxSummary",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalInboxSummaryView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "How many tasks wait for the caller, and whether to show the link",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/approvals/instances" : {
+      "get" : {
+        "description" : "Newest first, cursor paging. A member sees the requests they submitted or were asked to decide; a member who holds approvals.view-all or approvals.manage sees every request for the records they can read. Narrow by status, object, process, record, or attention (requests that nobody can decide right now).",
+        "operationId" : "listApprovals",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "object",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "process",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "attention",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        }, {
+          "in" : "query",
+          "name" : "record",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiPageResponseApprovalInstanceSummaryView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Approval requests the caller may see",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/approvals/instances/{id}" : {
+      "get" : {
+        "description" : "The steps with the people asked, what the caller may do now, and the history for those who may see it (the submitter, anyone who was asked, and members with approvals.view-all for a record they can read). The history never shows a value of the record. NOT_FOUND for what the caller may not see. ",
+        "operationId" : "getApproval",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalInstanceView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One approval request",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/approvals/instances/{id}/approve" : {
+      "post" : {
+        "description" : "Allowed to a person who holds an open task of the active step, whatever their abilities; the task is checked in the transaction, with their standing (an active member who holds the licence their profile needs). On a step that needs any one approver the first approval completes it and the second approver's call is CONCURRENT_MODIFICATION. The comment is text of a person: at most 2000 characters, kept in the history and shown only to those who may see it; it is never logged and never sent in an event or a mail. The version is the one the caller read; a request that changed since is answered CONCURRENT_MODIFICATION and names nothing. NOT_FOUND for what the caller may not see. ",
+        "operationId" : "approveApproval",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ApprovalDecisionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalInstanceView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Approve the caller's task",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/approvals/instances/{id}/assign" : {
+      "post" : {
+        "description" : "For a member who holds approvals.manage: the way out of a step that nobody can decide (its attention is cleared). The person must be an active member with a licence and hold no task of the step yet. The comment is text of a person: at most 2000 characters, kept in the history and shown only to those who may see it; it is never logged and never sent in an event or a mail. The version is the one the caller read; a request that changed since is answered CONCURRENT_MODIFICATION and names nothing. NOT_FOUND for what the caller may not see. ",
+        "operationId" : "assignApproval",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ApprovalReassignRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalInstanceView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Ask one more person to decide the active step",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/approvals/instances/{id}/cancel" : {
+      "post" : {
+        "description" : "A member who holds approvals.override-lock; FORBIDDEN otherwise. The record is unlocked. This is the only way a request becomes CANCELLED. The comment is text of a person: at most 2000 characters, kept in the history and shown only to those who may see it; it is never logged and never sent in an event or a mail. The version is the one the caller read; a request that changed since is answered CONCURRENT_MODIFICATION and names nothing. NOT_FOUND for what the caller may not see. ",
+        "operationId" : "cancelApproval",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ApprovalDecisionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalInstanceView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "End a request as an administrator",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/approvals/instances/{id}/outcome" : {
+      "post" : {
+        "description" : "For a member who holds approvals.manage, when the request ended but a rule refused what the process sets on the record (the request shows the stable reason). It writes the same updates to the record as it is now, so the record version the caller read is sent back; it is refused while a newer request of the record is pending. Audited. The version is the one the caller read; a request that changed since is answered CONCURRENT_MODIFICATION and names nothing. NOT_FOUND for what the caller may not see. ",
+        "operationId" : "reapplyApprovalOutcome",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ApprovalReapplyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalInstanceView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Make the outcome updates again after they were refused",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/approvals/instances/{id}/reassign" : {
+      "post" : {
+        "description" : "To one person who is an active member with a licence and holds no task of the step yet (so a task never goes back or loops); the submitter is excluded unless the process allows it. Recorded with both names. The comment is text of a person: at most 2000 characters, kept in the history and shown only to those who may see it; it is never logged and never sent in an event or a mail. The version is the one the caller read; a request that changed since is answered CONCURRENT_MODIFICATION and names nothing. NOT_FOUND for what the caller may not see. ",
+        "operationId" : "reassignApproval",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ApprovalReassignRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalInstanceView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Hand the caller's task to one other person",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/approvals/instances/{id}/recall" : {
+      "post" : {
+        "description" : "The person who submitted it, or a member who holds approvals.override-lock. The record is unlocked and the outcome updates for RECALLED are made in the same transaction. The comment is text of a person: at most 2000 characters, kept in the history and shown only to those who may see it; it is never logged and never sent in an event or a mail. The version is the one the caller read; a request that changed since is answered CONCURRENT_MODIFICATION and names nothing. NOT_FOUND for what the caller may not see. ",
+        "operationId" : "recallApproval",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ApprovalDecisionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalInstanceView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Withdraw a request",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/approvals/instances/{id}/reject" : {
+      "post" : {
+        "description" : "Ends the step and the request as REJECTED, whatever the completion rule. The comment is required (VALIDATION_ERROR otherwise). The comment is text of a person: at most 2000 characters, kept in the history and shown only to those who may see it; it is never logged and never sent in an event or a mail. The version is the one the caller read; a request that changed since is answered CONCURRENT_MODIFICATION and names nothing. NOT_FOUND for what the caller may not see. ",
+        "operationId" : "rejectApproval",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ApprovalDecisionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalInstanceView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Reject the caller's task",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/approvals/people" : {
+      "get" : {
+        "description" : "Active members who hold the licence their profile needs, found by a part of their name, at most 50 at a time; the text must match, so the list of members cannot be read page by page. For the pickers of a reassignment, a delegation and an approver rule. Names and identifiers only.",
+        "operationId" : "searchApprovalPeople",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "text",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListApprovalPersonView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "People who can be asked to decide",
+        "tags" : [ "Approvals" ]
+      }
+    },
     "/api/v1/audit-events" : {
       "get" : {
         "description" : "Newest first, one page at a time, with filters for time, person, kind and target. For members who may view the audit trail. NOT_FOUND on the platform host, FORBIDDEN without the ability, VALIDATION_ERROR for a filter that is malformed.",
@@ -2383,6 +3108,437 @@
         },
         "summary" : "Change an application",
         "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/approvals" : {
+      "get" : {
+        "description" : "For members who may view approvals. Name an object to list only its processes. NOT_FOUND for an object the organization does not have.",
+        "operationId" : "listApprovalProcesses",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "object",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListApprovalProcessView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The approval processes of the organization",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/metadata/approvals/catalogue" : {
+      "get" : {
+        "description" : "The kinds of approver rule with what each one's value names, the completion rules, the outcomes, the states of a request and of a step, and the limits the platform enforces. The screens build their forms and filters from this and hold no list of their own. For members who may view approvals.",
+        "operationId" : "getApprovalCatalogue",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalCatalogueView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "What an approval process can be made of",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/metadata/approvals/choices" : {
+      "get" : {
+        "description" : "For the builder of approval processes. Needs approvals.manage.",
+        "operationId" : "getApprovalChoices",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalChoicesView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The profiles, roles and public groups an approver rule can name",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/metadata/approvals/{objectApiName}" : {
+      "post" : {
+        "description" : "Live at once, as a release of one change. The name is turned into the permanent API name with the ending __c. The entry criteria are in the expression language (true or false, they may use TODAY() and NOW()); the steps name who is asked by closed kinds of rule; the outcomes set fields of the record to literals. The request is checked here (a VALIDATION_ERROR names every place); whether the fields it names exist is checked after the change and a CONFLICT names what is wrong. A request that is already pending keeps the definition it started under. CONFLICT for an object whose records belong to the platform, at the limit, when the plan has no approvals, or when the result would break a dependency. Audited by name and counts, never by the text.",
+        "operationId" : "createApprovalProcess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateApprovalProcessRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalProcessView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Add an approval process to an object",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/metadata/approvals/{objectApiName}/check" : {
+      "post" : {
+        "description" : "Answers what would happen to a record with these values: RUNS (the criteria are true, or there are none), SKIPPED (false or no value: the record could not be submitted) or ERROR with the place when the evaluation itself fails. Criteria that are not valid are a VALIDATION_ERROR naming the place. There are no records yet, so the values are typed as text for the type of each field. Name steps and outcomes to learn, by place, which fields they name do not exist or cannot be used and which literals do not fit. Nothing is stored and nothing is logged. Needs approvals.manage. Who would be asked for a real record is another question: see resolve.",
+        "operationId" : "checkApprovalProcess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CheckApprovalProcessRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalProcessCheckView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Try entry criteria on sample values, and the steps and outcomes on the object",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/metadata/approvals/{objectApiName}/resolve" : {
+      "post" : {
+        "description" : "Works out, for a record the caller can read, the people each of the given steps would ask, the people left out and why (inactive, unlicensed, the submitter), and whether the fallback approver would be used or nobody could be asked. The very resolution a real request uses; nothing is stored, locked or sent. Needs approvals.manage.",
+        "operationId" : "resolveApprovalProcess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ResolveApprovalRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalResolutionView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Who would each step ask for a record?",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/metadata/approvals/{objectApiName}/{processApiName}" : {
+      "delete" : {
+        "description" : "Live at once, as a release of one change. CONFLICT while the process has a request waiting for a decision: switch it off and remove it when they have ended. The undo of the release makes it again, as a new process.",
+        "operationId" : "deleteApprovalProcess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "processApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove an approval process",
+        "tags" : [ "Approvals" ]
+      },
+      "get" : {
+        "description" : "NOT_FOUND for a process the object does not have.",
+        "operationId" : "getApprovalProcess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "processApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalProcessView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One approval process",
+        "tags" : [ "Approvals" ]
+      },
+      "put" : {
+        "description" : "Live at once, as a release of one change. The API name and the object never change. A change of the entry criteria, the steps, the outcomes, the fallback or the self-approval rule makes a new version of the definition; requests already pending keep the version they started under. The entry criteria are in the expression language (true or false, they may use TODAY() and NOW()); the steps name who is asked by closed kinds of rule; the outcomes set fields of the record to literals. The request is checked here (a VALIDATION_ERROR names every place); whether the fields it names exist is checked after the change and a CONFLICT names what is wrong. A request that is already pending keeps the definition it started under. CONCURRENT_MODIFICATION when someone changed it since it was read.",
+        "operationId" : "updateApprovalProcess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "processApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateApprovalProcessRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalProcessView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change an approval process",
+        "tags" : [ "Approvals" ]
+      }
+    },
+    "/api/v1/metadata/approvals/{objectApiName}/{processApiName}/activation" : {
+      "post" : {
+        "description" : "Live at once, as a release of one change, and without a new version of the definition. A process that is switched off starts no new request; requests already pending finish and keep their lock. CONFLICT when the plan has no approvals and the process is being switched on. CONCURRENT_MODIFICATION when someone changed it since it was read.",
+        "operationId" : "activateApprovalProcess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "processApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ApprovalProcessActivationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalProcessView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Switch an approval process on or off",
+        "tags" : [ "Approvals" ]
       }
     },
     "/api/v1/metadata/change-sets" : {
@@ -6971,6 +8127,106 @@
         "tags" : [ "Records" ]
       }
     },
+    "/api/v1/objects/{objectApiName}/records/{id}/approval" : {
+      "get" : {
+        "description" : "Whether the record is locked, the pending request or the last one that ended, the processes the caller could submit it under, and what the caller may do now. The record must be readable by the caller; otherwise it does not exist. A field the caller may not read is never shown, and neither is any value of the record.",
+        "operationId" : "getRecordApproval",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRecordApprovalView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The approval panel of a record",
+        "tags" : [ "Approvals" ]
+      },
+      "post" : {
+        "description" : "For a member who may edit the record. The process is the one named, or the only active one whose entry criteria the record meets (none, or more than one, is a CONFLICT that says so). CONFLICT when the first step names nobody who can decide, when the plan has no approvals or when another person's request is pending; a request the caller submitted already is returned unchanged. The record is locked in the same transaction. The comment is text of a person: at most 2000 characters, kept in the history and shown only to those who may see it; it is never logged and never sent in an event or a mail. ",
+        "operationId" : "submitRecordForApproval",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SubmitApprovalRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseApprovalInstanceView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Submit a record for approval",
+        "tags" : [ "Approvals" ]
+      }
+    },
     "/api/v1/objects/{objectApiName}/records/{id}/files" : {
       "get" : {
         "description" : "In the order they were stored. Needs the right to read the record. NOT_FOUND for an object or record that does not exist, that the caller may not reach, or that is in the recycle bin: all answer alike. SERVICE_UNAVAILABLE (503, with Retry-After) when the object store does not answer; nothing is stored then. ",
@@ -10428,6 +11684,36 @@
         "description" : "The permanent name of a layout, a record page, an application, a tab or a custom page. It ends with __c.",
         "pattern" : "^[A-Z][A-Za-z0-9_]{0,55}__c$"
       },
+      "ApiPageResponseApprovalInstanceSummaryView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalInstanceSummaryView"
+            }
+          },
+          "pagination" : {
+            "$ref" : "#/components/schemas/Pagination"
+          }
+        },
+        "required" : [ "data", "pagination" ]
+      },
+      "ApiPageResponseApprovalTaskView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalTaskView"
+            }
+          },
+          "pagination" : {
+            "$ref" : "#/components/schemas/Pagination"
+          }
+        },
+        "required" : [ "data", "pagination" ]
+      },
       "ApiPageResponseAuditEventView" : {
         "type" : "object",
         "properties" : {
@@ -10517,6 +11803,78 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/ApplicationView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseApprovalCatalogueView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ApprovalCatalogueView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseApprovalChoicesView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ApprovalChoicesView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseApprovalDelegationView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ApprovalDelegationView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseApprovalInboxSummaryView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ApprovalInboxSummaryView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseApprovalInstanceView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ApprovalInstanceView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseApprovalProcessCheckView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ApprovalProcessCheckView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseApprovalProcessView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ApprovalProcessView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseApprovalResolutionView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ApprovalResolutionView"
           }
         },
         "required" : [ "data" ]
@@ -10759,6 +12117,42 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/ApplicationView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListApprovalDelegationView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalDelegationView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListApprovalPersonView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalPersonView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListApprovalProcessView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalProcessView"
             }
           }
         },
@@ -11355,6 +12749,15 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseRecordApprovalView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/RecordApprovalView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseRecordCheckView" : {
         "type" : "object",
         "properties" : {
@@ -11632,6 +13035,636 @@
         },
         "required" : [ "apiName", "definition", "description", "label", "version" ]
       },
+      "ApprovalActionsView" : {
+        "type" : "object",
+        "properties" : {
+          "canApprove" : {
+            "type" : "boolean"
+          },
+          "canAssign" : {
+            "type" : "boolean"
+          },
+          "canCancel" : {
+            "type" : "boolean"
+          },
+          "canReapply" : {
+            "type" : "boolean"
+          },
+          "canReassign" : {
+            "type" : "boolean"
+          },
+          "canRecall" : {
+            "type" : "boolean"
+          },
+          "canReject" : {
+            "type" : "boolean"
+          },
+          "canSubmit" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "canApprove", "canAssign", "canCancel", "canReapply", "canReassign", "canRecall", "canReject", "canSubmit" ]
+      },
+      "ApprovalApproverSpec" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          },
+          "value" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "kind" ]
+      },
+      "ApprovalAssignmentView" : {
+        "type" : "object",
+        "properties" : {
+          "assignee" : {
+            "$ref" : "#/components/schemas/ApprovalPersonView"
+          },
+          "decidedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "forPerson" : {
+            "$ref" : "#/components/schemas/ApprovalPersonView"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "via" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "assignee", "id", "status", "via" ]
+      },
+      "ApprovalCatalogueView" : {
+        "type" : "object",
+        "properties" : {
+          "approverKinds" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApproverKind"
+            }
+          },
+          "completions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Choice"
+            }
+          },
+          "limits" : {
+            "$ref" : "#/components/schemas/Limits"
+          },
+          "outcomes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Choice"
+            }
+          },
+          "states" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Choice"
+            }
+          },
+          "stepStates" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Choice"
+            }
+          }
+        },
+        "required" : [ "approverKinds", "completions", "limits", "outcomes", "states", "stepStates" ]
+      },
+      "ApprovalChoiceView" : {
+        "type" : "object",
+        "properties" : {
+          "apiName" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "apiName", "label" ]
+      },
+      "ApprovalChoicesView" : {
+        "type" : "object",
+        "properties" : {
+          "groups" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Named"
+            }
+          },
+          "profiles" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Named"
+            }
+          },
+          "roles" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Named"
+            }
+          }
+        },
+        "required" : [ "groups", "profiles", "roles" ]
+      },
+      "ApprovalDecisionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "comment" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "version" ]
+      },
+      "ApprovalDelegationView" : {
+        "type" : "object",
+        "properties" : {
+          "delegate" : {
+            "$ref" : "#/components/schemas/ApprovalPersonView"
+          },
+          "delegator" : {
+            "$ref" : "#/components/schemas/ApprovalPersonView"
+          },
+          "endsOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "inForce" : {
+            "type" : "boolean"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "processApiName" : {
+            "type" : "string"
+          },
+          "startsOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "timeZone" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "delegate", "delegator", "endsOn", "id", "inForce", "startsOn", "timeZone" ]
+      },
+      "ApprovalFieldSpec" : {
+        "type" : "object",
+        "properties" : {
+          "field" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "value" : {
+            "type" : "string",
+            "maxLength" : 1000,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "field", "value" ]
+      },
+      "ApprovalHistoryView" : {
+        "type" : "object",
+        "properties" : {
+          "actor" : {
+            "$ref" : "#/components/schemas/ApprovalPersonView"
+          },
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "comment" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "onBehalfOf" : {
+            "$ref" : "#/components/schemas/ApprovalPersonView"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "stepPosition" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "target" : {
+            "$ref" : "#/components/schemas/ApprovalPersonView"
+          }
+        },
+        "required" : [ "at", "id", "kind" ]
+      },
+      "ApprovalInboxSummaryView" : {
+        "type" : "object",
+        "properties" : {
+          "available" : {
+            "type" : "boolean"
+          },
+          "openTasks" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "available", "openTasks" ]
+      },
+      "ApprovalInstanceSummaryView" : {
+        "type" : "object",
+        "properties" : {
+          "attention" : {
+            "type" : "string"
+          },
+          "currentStep" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "currentStepLabel" : {
+            "type" : "string"
+          },
+          "finishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "outcomeFailure" : {
+            "type" : "string"
+          },
+          "processApiName" : {
+            "type" : "string"
+          },
+          "processLabel" : {
+            "type" : "string"
+          },
+          "processVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "recordId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "stepCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "submittedBy" : {
+            "$ref" : "#/components/schemas/ApprovalPersonView"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "id", "objectApiName", "processApiName", "processLabel", "processVersion", "recordId", "startedAt", "status", "stepCount", "version" ]
+      },
+      "ApprovalInstanceView" : {
+        "type" : "object",
+        "properties" : {
+          "actions" : {
+            "$ref" : "#/components/schemas/ApprovalActionsView"
+          },
+          "history" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalHistoryView"
+            }
+          },
+          "historyVisible" : {
+            "type" : "boolean"
+          },
+          "steps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalStepView"
+            }
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/ApprovalInstanceSummaryView"
+          }
+        },
+        "required" : [ "actions", "history", "historyVisible", "steps", "summary" ]
+      },
+      "ApprovalOutcomesSpec" : {
+        "type" : "object",
+        "properties" : {
+          "approved" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalFieldSpec"
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          },
+          "recalled" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalFieldSpec"
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          },
+          "rejected" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalFieldSpec"
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          }
+        }
+      },
+      "ApprovalPersonView" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "userId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        },
+        "required" : [ "userId" ]
+      },
+      "ApprovalProcessActivationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "active", "version" ]
+      },
+      "ApprovalProcessCheckView" : {
+        "type" : "object",
+        "properties" : {
+          "outcome" : {
+            "type" : "string"
+          },
+          "problem" : {
+            "$ref" : "#/components/schemas/ExpressionProblemView"
+          },
+          "problems" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            }
+          }
+        },
+        "required" : [ "outcome", "problems" ]
+      },
+      "ApprovalProcessView" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "allowSelfApproval" : {
+            "type" : "boolean"
+          },
+          "apiName" : {
+            "type" : "string"
+          },
+          "definitionVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "entryCriteria" : {
+            "type" : "string"
+          },
+          "fallback" : {
+            "$ref" : "#/components/schemas/ApprovalApproverSpec"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "outcomes" : {
+            "$ref" : "#/components/schemas/ApprovalOutcomesSpec"
+          },
+          "steps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalStepSpec"
+            }
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "active", "allowSelfApproval", "apiName", "definitionVersion", "description", "label", "objectApiName", "outcomes", "steps", "version" ]
+      },
+      "ApprovalReapplyRequest" : {
+        "type" : "object",
+        "properties" : {
+          "recordVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "recordVersion", "version" ]
+      },
+      "ApprovalReassignRequest" : {
+        "type" : "object",
+        "properties" : {
+          "comment" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          },
+          "toUserId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "toUserId", "version" ]
+      },
+      "ApprovalResolutionView" : {
+        "type" : "object",
+        "properties" : {
+          "steps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ResolvedStep"
+            }
+          }
+        },
+        "required" : [ "steps" ]
+      },
+      "ApprovalStepSpec" : {
+        "type" : "object",
+        "properties" : {
+          "approvers" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalApproverSpec"
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          },
+          "completion" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "approvers", "completion", "label", "name" ]
+      },
+      "ApprovalStepView" : {
+        "type" : "object",
+        "properties" : {
+          "activatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "assignments" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalAssignmentView"
+            }
+          },
+          "completion" : {
+            "type" : "string"
+          },
+          "finishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "position" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "assignments", "completion", "label", "name", "position", "status" ]
+      },
+      "ApprovalTaskView" : {
+        "type" : "object",
+        "properties" : {
+          "actions" : {
+            "$ref" : "#/components/schemas/ApprovalActionsView"
+          },
+          "assignmentId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "decidedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "forPerson" : {
+            "$ref" : "#/components/schemas/ApprovalPersonView"
+          },
+          "instance" : {
+            "$ref" : "#/components/schemas/ApprovalInstanceSummaryView"
+          },
+          "objectLabel" : {
+            "type" : "string"
+          },
+          "recordReadable" : {
+            "type" : "boolean"
+          },
+          "recordTitle" : {
+            "type" : "string"
+          },
+          "since" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "stepLabel" : {
+            "type" : "string"
+          },
+          "via" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "actions", "assignmentId", "instance", "recordReadable", "since", "status", "stepLabel", "via" ]
+      },
       "ApproveSupportAccessRequest" : {
         "type" : "object",
         "properties" : {
@@ -11642,6 +13675,21 @@
             "minimum" : 15
           }
         }
+      },
+      "ApproverKind" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "valueRefersTo" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "kind", "summary", "valueRefersTo" ]
       },
       "AssignPolicyRequest" : {
         "type" : "object",
@@ -11978,6 +14026,9 @@
           "createApplication" : {
             "$ref" : "#/components/schemas/CreateApplicationRequest"
           },
+          "createApprovalProcess" : {
+            "$ref" : "#/components/schemas/CreateApprovalProcessRequest"
+          },
           "createCustomPage" : {
             "$ref" : "#/components/schemas/CreateCustomPageRequest"
           },
@@ -12031,6 +14082,9 @@
           },
           "updateApplication" : {
             "$ref" : "#/components/schemas/UpdateApplicationRequest"
+          },
+          "updateApprovalProcess" : {
+            "$ref" : "#/components/schemas/UpdateApprovalProcessRequest"
           },
           "updateCustomPage" : {
             "$ref" : "#/components/schemas/UpdateCustomPageRequest"
@@ -12189,6 +14243,33 @@
         },
         "required" : [ "id", "kind", "objectApiName", "position" ]
       },
+      "CheckApprovalProcessRequest" : {
+        "type" : "object",
+        "properties" : {
+          "entryCriteria" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "outcomes" : {
+            "$ref" : "#/components/schemas/ApprovalOutcomesSpec"
+          },
+          "steps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalStepSpec"
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          },
+          "values" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
       "CheckExpressionRequest" : {
         "type" : "object",
         "properties" : {
@@ -12238,6 +14319,18 @@
             }
           }
         }
+      },
+      "Choice" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "summary" ]
       },
       "CompleteSignUpRequest" : {
         "type" : "object",
@@ -12294,6 +14387,89 @@
           }
         },
         "required" : [ "definition", "label", "name" ]
+      },
+      "CreateApprovalDelegationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "delegateId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "delegatorId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "endsOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "objectApiName" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "processApiName" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          },
+          "startsOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "timeZone" : {
+            "type" : "string",
+            "maxLength" : 64,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "delegateId", "endsOn", "startsOn", "timeZone" ]
+      },
+      "CreateApprovalProcessRequest" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "allowSelfApproval" : {
+            "type" : "boolean"
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "entryCriteria" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "fallback" : {
+            "$ref" : "#/components/schemas/ApprovalApproverSpec"
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "outcomes" : {
+            "$ref" : "#/components/schemas/ApprovalOutcomesSpec"
+          },
+          "steps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalStepSpec"
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "label", "name", "steps" ]
       },
       "CreateChangeSetRequest" : {
         "type" : "object",
@@ -13009,7 +15185,7 @@
       "ErrorCode" : {
         "type" : "string",
         "description" : "Stable machine-readable error code. Branch on this, never on the message.",
-        "enum" : [ "VALIDATION_ERROR", "MALFORMED_REQUEST", "UNAUTHENTICATED", "FORBIDDEN", "NOT_FOUND", "METHOD_NOT_ALLOWED", "NOT_ACCEPTABLE", "CONFLICT", "CONCURRENT_MODIFICATION", "PAYLOAD_TOO_LARGE", "UNSUPPORTED_MEDIA_TYPE", "RATE_LIMITED", "INTERNAL_ERROR", "SERVICE_UNAVAILABLE", "TENANT_UNAVAILABLE" ]
+        "enum" : [ "VALIDATION_ERROR", "MALFORMED_REQUEST", "UNAUTHENTICATED", "FORBIDDEN", "NOT_FOUND", "METHOD_NOT_ALLOWED", "NOT_ACCEPTABLE", "CONFLICT", "CONCURRENT_MODIFICATION", "PAYLOAD_TOO_LARGE", "UNSUPPORTED_MEDIA_TYPE", "RATE_LIMITED", "INTERNAL_ERROR", "SERVICE_UNAVAILABLE", "TENANT_UNAVAILABLE", "RECORD_LOCKED" ]
       },
       "ExpressionCheckView" : {
         "type" : "object",
@@ -14023,6 +16199,32 @@
         },
         "required" : [ "reason" ]
       },
+      "Limits" : {
+        "type" : "object",
+        "properties" : {
+          "maxApproversPerStep" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxCommentLength" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxDelegationDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxOutcomeFields" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxSteps" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "maxApproversPerStep", "maxCommentLength", "maxDelegationDays", "maxOutcomeFields", "maxSteps" ]
+      },
       "LinkedRecordView" : {
         "type" : "object",
         "properties" : {
@@ -14282,6 +16484,19 @@
           }
         },
         "required" : [ "apiName", "items", "label" ]
+      },
+      "Named" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "name" ]
       },
       "NavigationEntryView" : {
         "type" : "object",
@@ -15339,6 +17554,33 @@
         },
         "required" : [ "reason" ]
       },
+      "RecordApprovalView" : {
+        "type" : "object",
+        "properties" : {
+          "actions" : {
+            "$ref" : "#/components/schemas/ApprovalActionsView"
+          },
+          "available" : {
+            "type" : "boolean"
+          },
+          "current" : {
+            "$ref" : "#/components/schemas/ApprovalInstanceView"
+          },
+          "locked" : {
+            "type" : "boolean"
+          },
+          "notSubmittableReason" : {
+            "type" : "string"
+          },
+          "processes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalChoiceView"
+            }
+          }
+        },
+        "required" : [ "actions", "available", "locked", "processes" ]
+      },
       "RecordCheckView" : {
         "type" : "object",
         "properties" : {
@@ -15857,6 +18099,61 @@
         },
         "required" : [ "newPassword", "token" ]
       },
+      "ResolveApprovalRequest" : {
+        "type" : "object",
+        "properties" : {
+          "allowSelfApproval" : {
+            "type" : "boolean"
+          },
+          "fallback" : {
+            "$ref" : "#/components/schemas/ApprovalApproverSpec"
+          },
+          "recordId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "steps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalStepSpec"
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "recordId", "steps" ]
+      },
+      "ResolvedStep" : {
+        "type" : "object",
+        "properties" : {
+          "label" : {
+            "type" : "string"
+          },
+          "left" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "nobody" : {
+            "type" : "boolean"
+          },
+          "people" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalPersonView"
+            }
+          },
+          "usesFallback" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "label", "left", "name", "nobody", "people", "usesFallback" ]
+      },
       "RoleView" : {
         "type" : "object",
         "properties" : {
@@ -16311,6 +18608,21 @@
         },
         "required" : [ "operation" ]
       },
+      "SubmitApprovalRequest" : {
+        "type" : "object",
+        "properties" : {
+          "comment" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          },
+          "process" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          }
+        }
+      },
       "SubscriptionInfo" : {
         "type" : "object",
         "properties" : {
@@ -16641,6 +18953,51 @@
           }
         },
         "required" : [ "definition", "label", "version" ]
+      },
+      "UpdateApprovalProcessRequest" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "allowSelfApproval" : {
+            "type" : "boolean"
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "entryCriteria" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "fallback" : {
+            "$ref" : "#/components/schemas/ApprovalApproverSpec"
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "outcomes" : {
+            "$ref" : "#/components/schemas/ApprovalOutcomesSpec"
+          },
+          "steps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalStepSpec"
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "active", "allowSelfApproval", "label", "steps", "version" ]
       },
       "UpdateCustomPageRequest" : {
         "type" : "object",
@@ -17640,6 +19997,16 @@
           "kind" : {
             "type" : "string",
             "maxLength" : 30,
+            "minLength" : 0
+          },
+          "outcome" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "process" : {
+            "type" : "string",
+            "maxLength" : 60,
             "minLength" : 0
           },
           "selection" : {

@@ -81,10 +81,12 @@ class RecordRemoval {
     private final LinkBackfill linkFill;
     private final FormulaResults formulas;
     private final RecordPermission permission;
+    private final RecordLockGuard lockGuard;
 
     RecordRemoval(StorageStrategy storage, RecordLinks links, RecordSlots slots, RecordChanges changes,
             Metadata metadata, Decisions decisions, RecordProperties properties, LinkBackfill linkFill,
-            FormulaResults formulas, RecordPermission permission) {
+            FormulaResults formulas, RecordPermission permission, RecordLockGuard lockGuard) {
+        this.lockGuard = lockGuard;
         this.permission = permission;
         this.linkFill = linkFill;
         this.formulas = formulas;
@@ -110,6 +112,7 @@ class RecordRemoval {
             return null;
         }
         Plan plan = plan(passed, root);
+        requireNoneLocked(passed, plan);
         for (Doomed doomed : plan.removedWith()) {
             DataRecord removed = storage.softDelete(doomed.object(), doomed.id(), passed.userId(), root.id());
             if (removed != null) {
@@ -125,6 +128,19 @@ class RecordRemoval {
                     plan.removedWith().size(), plan.toClear().size());
         }
         return deleted;
+    }
+
+    /**
+     * A removal changes other records too: the details it takes with it and the pointers it clears. None of them may be
+     * being approved (ADR-0148); the records of one object are locked in identifier order, the objects in name order.
+     */
+    private void requireNoneLocked(RecordGate.Passed passed, Plan plan) {
+        Map<String, Set<UUID>> reached = new java.util.TreeMap<>();
+        plan.removedWith().forEach(doomed -> reached.computeIfAbsent(doomed.object(), name -> new HashSet<>())
+                .add(doomed.id()));
+        plan.toClear().forEach(pointer -> reached.computeIfAbsent(pointer.object(), name -> new HashSet<>())
+                .add(pointer.id()));
+        reached.forEach((object, ids) -> lockGuard.requireOpenAmong(passed, object, ids));
     }
 
     /** Looks at everything the removal would touch and refuses, or lists what to do. Writes nothing. */

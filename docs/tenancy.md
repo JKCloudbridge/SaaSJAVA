@@ -578,3 +578,53 @@ Short form of ADR-0138 to ADR-0144; the administrator's view is [metadata-guide.
   `components/workflows/Executions*.tsx` and `ExecutionDetail.tsx`, `src/lib/workflows/runsModel.ts` (the words). The screens hold no
   action type, trigger kind, setting name or limit (`noListsInTheBrowser.test.ts`); the catalogue and the abilities of the signed-in
   member come from the API.
+
+## Approvals, the record lock and delegation (Sprint 24)
+
+Short form of ADR-0145 to ADR-0153; the administrator's view is [metadata-guide.md](metadata-guide.md) section 23.
+
+- **Tables** (all tenant-scoped, V055, in `TenantScopedTables`): `approval_process` and the immutable `approval_process_version` (the definitions; the metadata
+  module owns them), `approval_instance` (the request, pinned to its version, with `attention`, `outcome_failure` and the chain), `approval_step_instance`,
+  `approval_assignment` (a task), the append-only `approval_history` (no update or delete, a trigger refuses both, also for the owner) and
+  `approval_delegation`. None of them feeds an answer of `Permissions` or `Decisions`, so none has the security-version trigger.
+- **The pending request is the lock.** A partial unique index (`approval_instance_one_pending`) allows one `PENDING` request per record; there is no lock row
+  to forget to release. `RecordLocks.locked(object, record)` is the question; `approval` implements it, `data` asks it through **one** class,
+  `RecordLockGuard`, and an architecture test (`ApprovalArchitectureTest`) keeps every other class in `data` from naming the contract.
+- **Honouring the lock in a new write path.** Call the guard before the write and after the permission stage, with the same member: `requireOpen(passed, id)`
+  for one record, `requireOpenAmong(passed, object, ids)` for the records a cascade or a pointer clearing reaches, `requireOpenForPlatform(object, id)` for
+  the platform's own write. The guard takes the row lock of the record first (`StorageStrategy.lockRows`, ids in order) and only then reads the lock, which
+  is what makes a write and a submit that race end in one order. `RecordLockGuardCoverageTest` reads the sources of `data` and fails when a class that calls
+  a writing method of the storage is on neither its list of guarded writers nor its list of exempt ones (with a reason); add the class to the right list in
+  the same change. A share is deliberately not guarded (`RecordAuthorization.forShare`); the owner and files are.
+- **Lock order.** access lock, member row, pool row, **record row, request row, step and task rows**. Every path that touches a request takes the record's row
+  first (`BackgroundRecords.findAndHold`); cascades lock in id order. A new path that takes these in another order can deadlock.
+- **A refusal of the lock** is `409 RECORD_LOCKED` in the fixed words of `RecordLockGuard` (naming no process, step or person); a bulk call reports it per
+  record; the platform's own write fails with the permanent reason `record_locked`. The override is `approvals.override-lock`: audited
+  (`approval.lock.overridden`) and written into the history (`LOCK_OVERRIDDEN`).
+- **The engine.** `ApprovalMachine` is the pure state machine (`ApprovalMachineTest`, `ApprovalMachinePropertyTest`: whatever the order of actions, at most one
+  step is active, a finished request has no open task, a task is decided once). `ApprovalEngine` does the I/O around it in one transaction: it holds the
+  record, then the request, loads, applies, persists and writes the history in the same transaction. A decision carries the version of the request it read
+  and the first to commit wins (`CONCURRENT_MODIFICATION` for the other).
+- **Outcome updates** run in a **nested savepoint** (`TransactionTemplate` with `PROPAGATION_NESTED`) after the status is written, through
+  `BackgroundWrites` with `Source.approval(...)`. A `BackgroundWriteException` rolls back only the savepoint: the request keeps `outcome_failure` with the stable
+  reason key and the history `OUTCOME_FAILED`; `reapply` runs the same code again against the record version the caller read. Never put a value in either.
+- **Adding a kind of approver.** An entry in `ApprovalProcessDefinition.ApproverKind`; its text and `valueRefersTo` in `ApprovalProcessService.catalogue` (the
+  screens draw their palette and pickers from the catalogue and need nothing); its value rule in `ApprovalProcessRules`; if the value names a field, its edge
+  and violation in `ApprovalProcessDependencies`; the facts it needs in `ApproverResolver` (read what it needs through `ApproverDirectory` or the record) and
+  the pure rule in `ApproverResolution`; a row in `ApproverResolutionTest`. Resolution happens when a step becomes active and the result is kept as tasks.
+- **Delegation.** `approval_delegation` holds the days in the delegation's own time zone (both inclusive); the resolver adds the delegate beside the delegator
+  with `via = DELEGATED` and `for_user_id`; a delegate's own delegation is not followed. A decision of a delegate writes `on_behalf_of`.
+- **Workflows.** `StartApprovalAction` calls `Approvals.startByPlatform` inside the step's transaction (so it happens once with its step) and notes
+  `already_pending` on the step; `WorkflowEventHandler` starts `APPROVAL_OUTCOME` workflows from `approval.approved|rejected|recalled`. The chain of the
+  workflow run is stored on the request (`chain_root`, `chain_depth`, `chain_workflows`) and carried by the events and by the outcome write.
+- **Settings** `platform.approval.*`: `limits.comment-length` (2000), `limits.max-delegations-per-person` (20), `limits.max-delegation-days` (366),
+  `inbox.page-size` (50) and `max-page-size` (200), `mail.enabled` (true); metadata limits `platform.metadata.limits.max-approval-processes-per-object`,
+  `max-approval-steps`, `max-approvers-per-step`, `max-approval-outcome-fields` and `max-approval-versions`.
+- **Events and audit.** `approval.submitted|approved|rejected|recalled|cancelled` (identifiers, the process and request, the outcome, the chain); audit
+  `approval.*` and `metadata.approvalprocess.*` by names and counts; metrics `platform.approval.instances{result}`, `.decisions{kind}`, `.step.duration`,
+  `.lock.overrides`. There is no gauge of pending requests: counting them across organizations would need a system scope.
+- **Tests.** No database: `ApprovalMachineTest`, `ApprovalMachinePropertyTest`, `ApproverResolutionTest`, `ApprovalProcessRulesTest`,
+  `ApprovalProcessDependenciesTest`, `RecordLockGuardTest`, `RecordLockGuardCoverageTest`, `ApprovalArchitectureTest`, `ApprovalRequestMailTest`,
+  `EmbeddedAccessPolicyTest`. Real PostgreSQL: `ApprovalFlowIT` (the exit criterion), `RecordLockIT`, `RecordLockRaceIT` (two threads), `ApprovalOutcomeIT`,
+  `ApprovalWorkflowIT`, `ApprovalDefinitionsIT`, `DelegationIT`, `ApprovalEntitlementIT`, `ApprovalSecurityIT`, `ApprovalAccessIT`, `ApprovalMailIT`,
+  `ApprovalLogsAreCleanIT`; the isolation harness lists the seven tables (`approval_history` is refused for an update by its trigger, which the harness accepts).

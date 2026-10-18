@@ -147,6 +147,21 @@ final class MailTexts {
                 organization or did not expect this message, ignore it: nothing changes.
                 """),
 
+        APPROVAL_REQUEST(
+                "A record needs your decision",
+                """
+                Hello,
+
+                A record of {{objectLabel}} in the organization "{{organization}}" is waiting for your decision \
+                in the approval "{{process}}". Open your approvals here:
+
+                {{link}}
+
+                You need to sign in. Nothing is decided by opening the link, and what you can see of the record is \
+                what your access allows. If you do not know this organization or did not expect this message, ignore \
+                it: nothing changes.
+                """),
+
         FIRST_ADMINISTRATOR_EXISTING(
                 "You have been invited to set up an organization",
                 """

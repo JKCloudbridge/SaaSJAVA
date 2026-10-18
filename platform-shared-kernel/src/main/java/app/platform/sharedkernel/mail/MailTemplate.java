@@ -33,5 +33,14 @@ public enum MailTemplate {
      * request names the organization, the object and the record (facts, no value of the record, no link); at send time
      * the relay builds the link to the record on the organization's own host.
      */
-    RECORD_NOTICE
+    RECORD_NOTICE,
+
+    /**
+     * A record needs the recipient's decision (Sprint 24, ADR-0152). The request names the organization, the object
+     * (its
+     * API name and label), the record and the label of the process: facts, no value and no title of the record. At send
+     * time the relay builds the link to the recipient's inbox on the organization's own host. A decision is never made
+     * from a link: it only opens the inbox.
+     */
+    APPROVAL_REQUEST
 }

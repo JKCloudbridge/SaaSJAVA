@@ -57,4 +57,37 @@ class WorkflowEventMatchingTest {
         assertThat(WorkflowEventHandler.matches(of(Kind.RECORD_CREATED), "record.restored", Set.of())).isFalse();
         assertThat(WorkflowEventHandler.matches(of(Kind.RECORD_DELETED), "record.purged", Set.of())).isFalse();
     }
+
+    private static Trigger ofApproval(String process, String outcome) {
+        return new Trigger(Kind.APPROVAL_OUTCOME, List.of(), null, null, ZoneId.of("UTC"), LocalTime.MIDNIGHT, null,
+                null, null, process, outcome);
+    }
+
+    @Test
+    void theEndOfAnApprovalStartsOnlyTheApprovalTriggerThatNamesItsProcessAndOutcomeOrNamesNone() {
+        assertThat(WorkflowEventHandler.matches(ofApproval("Large__c", "APPROVED"), "approval.approved", Set.of(),
+                "Large__c", "APPROVED")).isTrue();
+        assertThat(WorkflowEventHandler.matches(ofApproval("Large__c", "APPROVED"), "approval.rejected", Set.of(),
+                "Large__c", "REJECTED")).as("another outcome").isFalse();
+        assertThat(WorkflowEventHandler.matches(ofApproval("Large__c", "APPROVED"), "approval.approved", Set.of(),
+                "Small__c", "APPROVED")).as("another process").isFalse();
+        assertThat(WorkflowEventHandler.matches(ofApproval(null, null), "approval.recalled", Set.of(), "Any__c",
+                "RECALLED")).as("a trigger that names neither takes any").isTrue();
+        assertThat(WorkflowEventHandler.matches(ofApproval(null, "REJECTED"), "approval.approved", Set.of(),
+                "Any__c", "APPROVED")).isFalse();
+    }
+
+    @Test
+    void anApprovalTriggerNeverStartsOnARecordEventAndARecordTriggerNeverOnTheEndOfAnApproval() {
+        for (String type : List.of("record.created", "record.updated", "record.deleted")) {
+            assertThat(WorkflowEventHandler.matches(ofApproval(null, null), type, Set.of("a__c"), null, null))
+                    .as(type).isFalse();
+        }
+        for (Kind kind : List.of(Kind.RECORD_CREATED, Kind.RECORD_UPDATED, Kind.RECORD_DELETED, Kind.FIELD_CHANGED)) {
+            assertThat(WorkflowEventHandler.matches(of(kind, "a__c"), "approval.approved", Set.of("a__c"), "P__c",
+                    "APPROVED")).as(kind.toString()).isFalse();
+        }
+        assertThat(WorkflowEventHandler.matches(ofApproval(null, null), "approval.submitted", Set.of(), "P__c",
+                "APPROVED")).as("the start of an approval starts nothing").isFalse();
+    }
 }

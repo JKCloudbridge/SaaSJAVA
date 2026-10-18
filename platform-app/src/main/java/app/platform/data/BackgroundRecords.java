@@ -38,6 +38,16 @@ public interface BackgroundRecords {
     Map<String, Object> engineValues(String objectApiName, DataRecord record);
 
     /**
+     * The record, live or in the recycle bin, with its row held until the end of the transaction (Sprint 24, ADR-0148).
+     * This is the first step of submitting a record for approval: the write guard takes the same row lock before it
+     * looks at the lock, so a write and a submit are decided one after the other and a record never changes after the
+     * approval began. It changes nothing.
+     *
+     * @return the record as it is now, or empty when there is none
+     */
+    Optional<DataRecord> findAndHold(String objectApiName, UUID id);
+
+    /**
      * One page of the live records of the object that meet the selection, in identifier order. No refusal for a scan of
      * a large object: the work is bounded by its page, not by what a person's request may cost.
      *

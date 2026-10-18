@@ -100,9 +100,9 @@ class RecordSharing {
         changes.unshared(passed.userId(), passed.object().apiName(), id, existing.granteeType());
     }
 
-    /** Gives the record to another owner. */
+    /** Gives the record to another owner. The owner is a field of the record, so a locked record is refused. */
     DataRecord changeOwner(String objectApiName, UUID id, UUID newOwner, long expectedVersion) {
-        RecordGate.Passed passed = manage(objectApiName, id);
+        RecordGate.Passed passed = authorization.forEdit(objectApiName, id);
         ReferenceDirectory users = directories.get("User");
         if (users == null || !users.exists(newOwner)) {
             throw ApiException.validation("ownerId", "Is not a member of this organization.");
@@ -122,9 +122,12 @@ class RecordSharing {
         return FieldSecurity.visible(changed, access);
     }
 
-    /** The gate for managing a record: the member may change it ({@link RecordAuthorization#forEdit}). */
+    /**
+     * The gate for managing who sees a record: the member may change it, an approval's lock aside
+     * ({@link RecordAuthorization#forShare}).
+     */
     private RecordGate.Passed manage(String objectApiName, UUID id) {
-        return authorization.forEdit(objectApiName, id);
+        return authorization.forShare(objectApiName, id);
     }
 
     private static ShareLevel level(String name) {

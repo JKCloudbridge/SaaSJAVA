@@ -58,12 +58,14 @@ class WorkflowArchitectureTest {
     }
 
     @Test
-    void onlyTheWorkflowModuleCanChangeARecordAsThePlatform() {
-        // BackgroundWrites skips the member gate and the permissions, so its callers are a reviewed list of one: no
+    void onlyTheWorkflowAndApprovalModulesCanChangeARecordAsThePlatform() {
+        // BackgroundWrites skips the member gate and the permissions, so its callers are a reviewed list of two (the
+        // workflow actions, ADR-0139, and the outcome update of an approval, ADR-0149): no
         // controller, import, bulk or other module reaches it (ADR-0139). The data module implements it.
-        noClasses().that().resideOutsideOfPackages("app.platform.workflow..", "app.platform.data..")
+        noClasses().that().resideOutsideOfPackages("app.platform.workflow..", "app.platform.approval..",
+                "app.platform.data..")
                 .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.data.BackgroundWrites")
-                .because("background writes are for workflows only")
+                .because("background writes are for workflows and the outcome of an approval only")
                 .allowEmptyShould(true)
                 .check(platform);
         noClasses().that().resideInAPackage("app.platform.data.internal..")

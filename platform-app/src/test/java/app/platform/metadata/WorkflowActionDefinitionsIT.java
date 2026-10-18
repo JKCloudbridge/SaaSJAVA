@@ -146,7 +146,7 @@ class WorkflowActionDefinitionsIT extends WorkflowTestSupport {
     void theLaterActionsAreRefusedAsUnknownTypesAndTheAnswerListsWhatThisReleaseHas() {
         TestBrowser admin = adminWithTask(organization());
 
-        for (String type : List.of("START_APPROVAL", "NOTIFY", "CALL_INTEGRATION")) {
+        for (String type : List.of("NOTIFY", "CALL_INTEGRATION")) {
             Response refused = admin.postJson(ORDER_WORKFLOWS, workflowRequest("Later", trigger("RECORD_CREATED"), null,
                     true, "{\"type\":\"" + type + "\",\"name\":\"X\",\"settings\":{}}"));
 

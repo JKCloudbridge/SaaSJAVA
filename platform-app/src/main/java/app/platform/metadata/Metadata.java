@@ -58,6 +58,16 @@ public interface Metadata {
     List<WorkflowDefinition> workflows();
 
     /**
+     * The approval processes of the object (Sprint 24), by API name, active or not, each in the definition that new
+     * requests use; empty when it has none. Whether an object has any process at all, active or not, is also the cheap
+     * question of the record lock guard (ADR-0148).
+     */
+    List<ApprovalProcessDefinition> approvalProcesses(String objectApiName);
+
+    /** Every approval process of the organization (Sprint 24), by object and API name, active or not. */
+    List<ApprovalProcessDefinition> approvalProcesses();
+
+    /**
      * The layout the object uses for a profile and a record type (Sprint 12, ADR-0071). The rules are tried in this
      * order and the first that applies wins: the profile together with the record type, the record type alone (its
      * layout), the profile alone, the default layout of the object. An assignment of a profile that no longer exists

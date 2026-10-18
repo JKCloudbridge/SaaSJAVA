@@ -1,6 +1,7 @@
 package app.platform.metadata.internal;
 
 import app.platform.metadata.ApplicationDefinition;
+import app.platform.metadata.ApprovalProcessDefinition;
 import app.platform.metadata.CustomPage;
 import app.platform.metadata.DefinitionKind;
 import app.platform.metadata.FieldDefinition;
@@ -66,6 +67,8 @@ class MetadataCatalogue implements Metadata {
     private final RecordPageAssignmentStore recordPageAssignmentStore;
     private final WorkflowStore workflowStore;
     private final WorkflowCodec workflowCodec;
+    private final ApprovalProcessStore approvalStore;
+    private final ApprovalProcessCodec approvalCodec;
 
     MetadataCatalogue(StandardMetadata standard, MetadataStore store, MetadataVersions versions,
             MetadataCache cache, TenantContexts contexts, ConfigCodec codec, TransactionTemplate transaction,
@@ -73,7 +76,9 @@ class MetadataCatalogue implements Metadata {
             AssignmentStore assignmentStore, DefinitionCodec definitionCodec,
             ValidationRuleStore validationRuleStore, RecordTypeAssignmentStore typeAssignmentStore,
             RecordPageAssignmentStore recordPageAssignmentStore, WorkflowStore workflowStore,
-            WorkflowCodec workflowCodec) {
+            WorkflowCodec workflowCodec, ApprovalProcessStore approvalStore, ApprovalProcessCodec approvalCodec) {
+        this.approvalStore = approvalStore;
+        this.approvalCodec = approvalCodec;
         this.workflowStore = workflowStore;
         this.workflowCodec = workflowCodec;
         this.validationRuleStore = validationRuleStore;
@@ -151,6 +156,16 @@ class MetadataCatalogue implements Metadata {
     @Override
     public List<WorkflowDefinition> workflows() {
         return snapshot().allWorkflows();
+    }
+
+    @Override
+    public List<ApprovalProcessDefinition> approvalProcesses(String objectApiName) {
+        return snapshot().approvalProcesses(objectApiName);
+    }
+
+    @Override
+    public List<ApprovalProcessDefinition> approvalProcesses() {
+        return snapshot().allApprovalProcesses();
     }
 
     @Override
@@ -275,8 +290,19 @@ class MetadataCatalogue implements Metadata {
                         unreadable.getMessage());
             }
         }
+        Map<String, List<ApprovalProcessDefinition>> approvals = new LinkedHashMap<>();
+        for (ApprovalProcessStore.Row row : approvalStore.all()) {
+            try {
+                approvals.computeIfAbsent(row.objectApiName(), name -> new ArrayList<>())
+                        .add(approvalCodec.definition(row));
+            } catch (IllegalStateException unreadable) {
+                // As for a workflow: left out rather than taking the whole catalogue down.
+                LOG.warn("An approval process of {} is left out of the catalogue: {}", row.objectApiName(),
+                        unreadable.getMessage());
+            }
+        }
         return new MetadataSnapshot.Definitions(layouts, pages, assignments, applications, rules,
-                typeAssignments, tabs, customPages, recordPageAssignments, workflows);
+                typeAssignments, tabs, customPages, recordPageAssignments, workflows, approvals);
     }
 
     private FieldDefinition customField(MetadataStore.FieldRow row) {

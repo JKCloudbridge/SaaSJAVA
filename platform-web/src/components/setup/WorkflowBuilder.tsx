@@ -67,6 +67,8 @@ export function WorkflowBuilder() {
   const [checked, setChecked] = useState<CheckView | undefined>();
   const [checkFailure, setCheckFailure] = useState<string | undefined>();
   const [checking, setChecking] = useState(false);
+  const [processes, setProcesses] = useState<{ apiName: string; label: string }[]>([]);
+  const [outcomes, setOutcomes] = useState<{ code: string; summary: string }[]>([]);
   const asked = useRef(new Set<string>());
 
   const ensureObject = useCallback(async (name: string) => {
@@ -102,6 +104,19 @@ export function WorkflowBuilder() {
       setObjects(objectList.data?.data ?? []);
       setFieldTypes(typeList.data?.data ?? []);
       void ensureObject(objectApiName);
+      // The approval processes of the object and the ways an approval can end are offered where a workflow names them. A
+      // person who may not view approvals gets none; the API judges what is saved.
+      try {
+        const [approvalList, approvalCatalogue] = await Promise.all([
+          api.GET("/api/v1/metadata/approvals", { params: { query: { object: objectApiName } } }),
+          api.GET("/api/v1/metadata/approvals/catalogue"),
+        ]);
+        setProcesses((approvalList.data?.data ?? []).map((one) => ({ apiName: one.apiName, label: one.label })));
+        setOutcomes(approvalCatalogue.data?.data.outcomes ?? []);
+      } catch {
+        setProcesses([]);
+        setOutcomes([]);
+      }
       if (creating) {
         const fresh = emptyDraft(catalogueAnswer.data.data);
         setDraft(fresh);
@@ -369,6 +384,8 @@ export function WorkflowBuilder() {
           objectApiName={objectApiName}
           trigger={current.trigger}
           fields={workflowFields}
+          processes={processes}
+          outcomes={outcomes}
           onChange={(trigger) => edit({ trigger })}
         />
         {triggerOpen.length > 0 ? (
@@ -457,6 +474,7 @@ export function WorkflowBuilder() {
                   settableOf={settableOf}
                   problems={problemsOf(index)}
                   attemptsLimit={kinds.limits.maxAttempts}
+                  processes={processes}
                   onChange={editActions}
                   onDrop={dropAt}
                 />

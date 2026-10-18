@@ -619,3 +619,51 @@ and the actions, built by dragging an action type from the palette (or choosing 
 Everything the palette, the settings and the limits show comes from the platform, not from the screen. *Setup, Workflow runs*: the
 list with filters, the dead letters with counts by workflow and reason, the parked events, Replay and Cancel (one and many), and the
 detail of a run with its steps.
+
+## 23. Approvals: a record decided in steps (Sprint 24)
+
+For administrators. An **approval process** decides a record in steps. When a person submits a record, it is **locked**; each step asks the people the
+process names; when the request ends the record is unlocked and the process may set a few fields of it. The decisions in this section are
+[ADR-0145](adr/0145-the-approval-model-processes-versions-instances-and-states.md) to [ADR-0153](adr/0153-what-sprint-24-leaves-out-and-why.md).
+
+**What you need.** The plan feature `approvals` (without it no process can be made and no request can start) and the abilities: `approvals.view` to see
+the processes, `approvals.manage` to build them and to help a stuck request, and `metadata.publish` as well to make a change live (the same two-key rule as
+for workflows). `approvals.view-all` shows every request for the records a member can read; `approvals.override-lock` lets a member change a locked record
+and end a request. A person who is **asked** to decide needs none of these: they act because of the task they hold.
+
+**Build a manager-then-finance approval.** Setup, *Approval processes*, choose the object, *New approval process*. Give it a name and a label; add the
+entry criteria if only some records may be submitted (for example `amount__c > 100`; empty means any record). Drag a *step* in (or choose it in the palette),
+call it *Manager*, then drag *who is asked* rules onto it: a named person, a public group, the owner of the record, a person named in a field of the record.
+Add a second step *Finance* the same way. For each step choose whether **any one** approver decides it or **every** approver must approve. One rejection ends
+the whole request. Under *Outcomes* say which fields the process sets when the request is approved, rejected or withdrawn, to a literal you type (a
+literal only: nothing is calculated). *Who would be asked?* works out, for a record you choose, the very people a real request would ask and why somebody is left
+out. *Check the process* tries it against the object. Save: it is live at once, or goes into the change set you chose.
+
+**Who gets left out.** The people are worked out when a step starts and then kept: a later change of a group or a role does not move a task that exists.
+A person who is not an active member, who holds no licence, or who submitted the request (unless you ticked *the person who submits may also be asked*)
+is left out and the history says why. If nobody is left for the **first** step the submit is refused and nothing is locked. If nobody is left for a **later**
+step the request waits, shows *Nobody can decide this step*, and a member with `approvals.manage` asks somebody (*Ask someone as well*). You can name a
+**fallback** approver (a person or a group) who is asked only when the rules leave nobody.
+
+**What the lock does.** While a request is pending nobody can change or remove the record, whatever their permission: not through the screen, a bulk call,
+an import, a workflow, a change of owner, a file, or a delete of a record that points at it. They are told *This record is being approved…* (`RECORD_LOCKED`).
+Reading, searching and **sharing** are unaffected. A member with `approvals.override-lock` may change it anyway; that is audited and written into the
+history of the request. The lock opens the moment the request ends, however it ends.
+
+**What a delegate sees.** A member can name a delegate for a range of days (*Delegations*). While it is in force the delegate is asked **beside** the
+delegator, who keeps the task, so someone who comes back early is not locked out. Tasks that already exist are not moved, a delegate's own delegation is not
+followed, and the history shows who decided for whom.
+
+**When the outcome cannot be written.** The decision stands. The record is unlocked, the request shows the reason (for example *A validation rule refused the
+change*), the history says *The record could not be updated*, and a member with `approvals.manage` can make the update again once the cause is gone (it is
+made on the record as it is now, so a record changed in between is refused and you read it again).
+
+**Changing a process while requests are waiting.** A request keeps the version of the process it started under. A process cannot be removed, and neither can
+its object, while a request is waiting; switch it off (it starts nothing new, the waiting ones finish) and remove it later. If the plan loses the feature,
+nothing new starts but waiting requests finish.
+
+**After a request ends.** A workflow can follow it: the trigger *An approval ends* (any process or one, any outcome or one) starts a workflow, and the
+action *Start an approval* submits the record that started a workflow, once, and does not wait for the people.
+
+**Not possible in this release.** Reminders and escalation, sending a request back one step, parallel or conditional steps, approving by e-mail, approving
+many at once, a permission as an approver and a platform-wide unlock ([ADR-0153](adr/0153-what-sprint-24-leaves-out-and-why.md)).

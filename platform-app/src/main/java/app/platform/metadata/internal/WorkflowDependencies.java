@@ -57,6 +57,10 @@ class WorkflowDependencies implements DependencyGraph.Contributor {
         for (String field : trigger.fields()) {
             sink.edge(self, "starts when it changes", DependencyGraph.Node.field(object.apiName(), field));
         }
+        if (trigger.kind() == WorkflowDefinition.Kind.APPROVAL_OUTCOME && trigger.process() != null) {
+            sink.edge(self, "starts when it ends", DependencyGraph.Node.approvalProcess(object.apiName(),
+                    trigger.process()));
+        }
         if (trigger.kind() == WorkflowDefinition.Kind.DAYS_AFTER_DATE && trigger.field() != null) {
             sink.edge(self, "counts days from", DependencyGraph.Node.field(object.apiName(), trigger.field()));
             FieldDefinition field = object.field(trigger.field()).orElse(null);
@@ -107,6 +111,11 @@ class WorkflowDependencies implements DependencyGraph.Contributor {
                         @Override
                         public void needsObject(String needed, String relation) {
                             sink.edge(self, relation, DependencyGraph.Node.object(needed));
+                        }
+
+                        @Override
+                        public void needsApprovalProcess(String needed, String process, String relation) {
+                            sink.edge(self, relation, DependencyGraph.Node.approvalProcess(needed, process));
                         }
 
                         @Override

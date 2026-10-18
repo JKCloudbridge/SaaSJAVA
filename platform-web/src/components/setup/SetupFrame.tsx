@@ -15,12 +15,20 @@ const SECTIONS = [
   { href: "/setup/tabs", label: "Tabs" },
   { href: "/setup/workflows", label: "Workflows" },
   { href: "/workflows/executions", label: "Workflow runs" },
+  { href: "/setup/approvals", label: "Approval processes" },
   { href: "/setup/changes", label: "Change sets" },
   { href: "/setup/history", label: "History" },
 ];
 
 /** The pages where a change can be made, so the person can choose where it goes: live at once or into a change set. */
-const OBJECT_PAGES = ["/setup/objects", "/setup/applications", "/setup/tabs", "/setup/workflows", "/setup/changes"];
+const OBJECT_PAGES = [
+  "/setup/objects",
+  "/setup/applications",
+  "/setup/tabs",
+  "/setup/workflows",
+  "/setup/approvals",
+  "/setup/changes",
+];
 
 /**
  * The frame of the setup pages (profiles, access policies, groups, roles, objects, applications, tabs, workflows, the runs of

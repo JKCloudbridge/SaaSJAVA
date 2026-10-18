@@ -17,7 +17,7 @@ export type RecordState =
   | { status: "failed"; message: string };
 
 /** Reads one record by identifier, again whenever the object or the identifier changes. Shared with {@link RecordPageView}. */
-export function useRecord(objectApiName: string, recordId: string | undefined): RecordState {
+export function useRecord(objectApiName: string, recordId: string | undefined, refresh = 0): RecordState {
   const key = `${objectApiName}|${recordId ?? ""}`;
   const [loaded, setLoaded] = useState<{ key: string; outcome: Outcome<{ data: RecordView }> } | null>(null);
 
@@ -36,7 +36,7 @@ export function useRecord(objectApiName: string, recordId: string | undefined): 
     return () => {
       live = false;
     };
-  }, [key, objectApiName, recordId]);
+  }, [key, objectApiName, recordId, refresh]);
 
   if (!recordId) {
     return { status: "failed", message: "" };

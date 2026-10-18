@@ -73,6 +73,8 @@ describe("the draft of a workflow", () => {
       time: "09:30",
       dayOfWeek: "MONDAY",
       at: "2030-01-01T10:00",
+      process: "",
+      outcome: "",
       selection: { op: "EQ", field: "status__c", values: ["Open"] },
     };
 

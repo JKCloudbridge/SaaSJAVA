@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 class ActionsTest {
 
     private static final List<String> TYPES = List.of("UPDATE_RECORD", "CREATE_RECORD", "SEND_EMAIL",
-            "PUBLISH_EVENT");
+            "PUBLISH_EVENT", "START_APPROVAL");
 
     /** Keeps the events it was asked to publish. */
     private static final class Published implements EventPublisher {
@@ -59,7 +59,6 @@ class ActionsTest {
         ActionRegistry registry = new ActionRegistry(executorsOf(TYPES.toArray(String[]::new)));
 
         TYPES.forEach(type -> assertThat(registry.find(type)).as(type).isPresent());
-        assertThat(registry.find("START_APPROVAL")).as("a type of a later release").isEmpty();
         assertThat(registry.find("CALL_INTEGRATION")).as("a type of a later release").isEmpty();
     }
 

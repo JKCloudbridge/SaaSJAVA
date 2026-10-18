@@ -37,14 +37,39 @@ public interface BackgroundWrites {
         }
     }
 
+    /** The two callers that may write as the platform (ADR-0139, ADR-0149). */
+    enum Kind {
+        /** A workflow action. */
+        WORKFLOW,
+        /** The outcome update of an approval. */
+        APPROVAL
+    }
+
     /**
      * Who is writing, for the audit record and the event.
      *
-     * @param workflow the API name of the workflow
-     * @param execution the execution
-     * @param chain the chain the write belongs to
+     * @param kind who writes: a workflow or an approval
+     * @param name the API name of the workflow or of the approval process
+     * @param execution the execution of the workflow, or the approval request
+     * @param chain the chain the write belongs to; null for the outcome of a request a person submitted (the first
+     *        workflow it triggers starts a chain)
      */
-    record Source(String workflow, UUID execution, Chain chain) {
+    record Source(Kind kind, String name, UUID execution, Chain chain) {
+
+        /** A write of a workflow. */
+        public Source(String workflow, UUID execution, Chain chain) {
+            this(Kind.WORKFLOW, workflow, execution, chain);
+        }
+
+        /** The outcome update of an approval request. */
+        public static Source approval(String process, UUID request, Chain chain) {
+            return new Source(Kind.APPROVAL, process, request, chain);
+        }
+
+        /** The API name of the workflow, or of the approval process. */
+        public String workflow() {
+            return name;
+        }
     }
 
     /** What a field is set to. */
