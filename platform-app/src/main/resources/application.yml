@@ -209,6 +209,19 @@ platform:
     retention:
       # A dead letter stays longer than a finished execution so that a person has time to look (never under 30 days).
       dead-letter: 180d
+  approval:
+    # The bounds of what a person can type and make (ADR-0147, ADR-0151). The database holds the same ceilings.
+    limits:
+      comment-length: 2000
+      max-delegations-per-person: 20
+      max-delegation-days: 366
+    # The pages of the inbox and of the lists of requests.
+    inbox:
+      page-size: 50
+      max-page-size: 200
+    # Whether a person who is asked to decide is also told by mail (the inbox always shows the task, ADR-0152).
+    mail:
+      enabled: true
   notification:
     # Every instance may run the mail relay; they coordinate through the database (ADR-0024).
     enabled: ${PLATFORM_MAIL_RELAY_ENABLED:true}

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { NO_ACTIONS as NO_APPROVAL_ACTIONS } from "@/test/approvals";
 import { fakeApi, json, refusal, type Call, type Handler } from "@/test/fakeApi";
 import { ShellProviders } from "@/test/shellApi";
 import { DEAL_FORM, deal, field, page } from "@/test/records";
@@ -29,6 +30,7 @@ const LABELS = "POST /api/v1/objects/Deal__c/lookups/ownerId/labels";
 const FILES = "GET /api/v1/objects/Deal__c/records/r1/files";
 const CONTACT_FORM = "GET /api/v1/objects/Contact__c/form";
 const CONTACT_QUERY = "POST /api/v1/objects/Contact__c/records/query";
+const APPROVAL = "GET /api/v1/objects/Deal__c/records/r1/approval";
 
 const DETAILS = { kind: "DETAILS", label: "Details", columns: [] } as const;
 const RELATED = {
@@ -90,6 +92,8 @@ function api(more: Record<string, Handler> = {}, form: ObjectForm = DEAL_FORM, d
     [LABELS]: () => json({ data: { labels: {} } }),
     [FILES]: () => json({ data: [] }),
     [CONTACT_FORM]: () => json({ data: CONTACTS }),
+    [APPROVAL]: () =>
+      json({ data: { available: false, locked: false, processes: [], actions: NO_APPROVAL_ACTIONS } }),
     ...more,
   });
 }

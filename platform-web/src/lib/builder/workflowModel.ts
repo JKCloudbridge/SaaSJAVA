@@ -52,6 +52,9 @@ export interface TriggerDraft {
   time: string;
   dayOfWeek: string;
   at: string;
+  /** For the kind that starts when an approval ends: the process (empty: any) and the outcome (empty: any). */
+  process: string;
+  outcome: string;
   selection?: QueryFilterNode;
 }
 
@@ -68,7 +71,18 @@ export interface WorkflowDraft {
 // ---- making a draft ----
 
 export function emptyTrigger(kind = ""): TriggerDraft {
-  return { kind, fields: [], field: "", days: "", timeZone: "", time: "", dayOfWeek: "", at: "" };
+  return {
+    kind,
+    fields: [],
+    field: "",
+    days: "",
+    timeZone: "",
+    time: "",
+    dayOfWeek: "",
+    at: "",
+    process: "",
+    outcome: "",
+  };
 }
 
 /** A new workflow: no name yet, switched on, the first kind of trigger the API offers. */
@@ -116,6 +130,8 @@ export function triggerFromSpec(spec: TriggerSpec): TriggerDraft {
     time: spec.time ?? "",
     dayOfWeek: spec.dayOfWeek ?? "",
     at: spec.at ?? "",
+    process: spec.process ?? "",
+    outcome: spec.outcome ?? "",
     selection: spec.selection,
   };
 }
@@ -158,6 +174,12 @@ export function triggerSpec(trigger: TriggerDraft, kind: CatalogueTriggerKind | 
   }
   if (uses.has("at") && trigger.at !== "") {
     spec.at = trigger.at;
+  }
+  if (uses.has("process") && trigger.process.trim() !== "") {
+    spec.process = trigger.process.trim();
+  }
+  if (uses.has("outcome") && trigger.outcome.trim() !== "") {
+    spec.outcome = trigger.outcome.trim();
   }
   if (uses.has("selection") && trigger.selection) {
     spec.selection = trigger.selection;

@@ -43,6 +43,11 @@ record MetadataProperties(@DefaultValue Limits limits, @DefaultValue Cache cache
      * @param maxActionsPerWorkflow actions in one workflow (default 10, Sprint 23)
      * @param maxAssignmentsPerAction fields one action sets (default 25, Sprint 23)
      * @param maxLiteralLength the longest literal an action sets, in characters (default 1000, Sprint 23)
+     * @param maxApprovalProcessesPerObject approval processes per object (default 10, Sprint 24)
+     * @param maxApprovalVersions definitions one approval process may have been through (default 200, Sprint 24)
+     * @param maxApprovalSteps steps in one approval process (default 10, at most 20, Sprint 24)
+     * @param maxApproversPerStep approver rules in one step (default 10, at most 20, Sprint 24)
+     * @param maxApprovalOutcomeFields fields one outcome of an approval sets (default 20, Sprint 24)
      */
     record Limits(@DefaultValue("200") int maxObjects, @DefaultValue("500") int maxFieldsPerObject,
             @DefaultValue("1000") int maxPicklistValues, @DefaultValue("50") int maxRecordTypesPerObject,
@@ -56,7 +61,10 @@ record MetadataProperties(@DefaultValue Limits limits, @DefaultValue Cache cache
             @DefaultValue("1000000") int maxCustomPageBytes,
             @DefaultValue("200") int maxRecordPageAssignmentsPerObject, @DefaultValue("50") int maxWorkflowsPerObject,
             @DefaultValue("200") int maxWorkflowVersions, @DefaultValue("10") int maxActionsPerWorkflow,
-            @DefaultValue("25") int maxAssignmentsPerAction, @DefaultValue("1000") int maxLiteralLength) {
+            @DefaultValue("25") int maxAssignmentsPerAction, @DefaultValue("1000") int maxLiteralLength,
+            @DefaultValue("10") int maxApprovalProcessesPerObject, @DefaultValue("200") int maxApprovalVersions,
+            @DefaultValue("10") int maxApprovalSteps, @DefaultValue("10") int maxApproversPerStep,
+            @DefaultValue("20") int maxApprovalOutcomeFields) {
 
         Limits {
             if (maxObjects < 1 || maxFieldsPerObject < 1 || maxPicklistValues < 1 || maxRecordTypesPerObject < 1
@@ -68,7 +76,10 @@ record MetadataProperties(@DefaultValue Limits limits, @DefaultValue Cache cache
                     || maxCustomPageBytes > 5_000_000 || maxRecordPageAssignmentsPerObject < 1
                     || maxWorkflowsPerObject < 1 || maxWorkflowVersions < 1 || maxActionsPerWorkflow < 1
                     || maxActionsPerWorkflow > 20 || maxAssignmentsPerAction < 1 || maxAssignmentsPerAction > 100
-                    || maxLiteralLength < 1 || maxLiteralLength > 1000) {
+                    || maxLiteralLength < 1 || maxLiteralLength > 1000 || maxApprovalProcessesPerObject < 1
+                    || maxApprovalVersions < 1 || maxApprovalSteps < 1 || maxApprovalSteps > 20
+                    || maxApproversPerStep < 1 || maxApproversPerStep > 20 || maxApprovalOutcomeFields < 1
+                    || maxApprovalOutcomeFields > 20) {
                 throw new IllegalArgumentException("platform.metadata.limits.* must be at least 1");
             }
         }

@@ -1,6 +1,7 @@
 package app.platform.metadata.internal;
 
 import app.platform.metadata.ApplicationDefinition;
+import app.platform.metadata.ApprovalProcessDefinition;
 import app.platform.metadata.CustomPage;
 import app.platform.metadata.LayoutAssignment;
 import app.platform.metadata.LayoutResolution;
@@ -53,13 +54,26 @@ final class MetadataSnapshot {
      * @param customPages the custom pages of the organization (Sprint 18)
      * @param recordPageAssignments the record page assignments by object (Sprint 20)
      * @param workflows the workflows by object, each in the definition new executions use (Sprint 22)
+     * @param approvalProcesses the approval processes by object, each in the definition new requests use (Sprint 24)
      */
     record Definitions(Map<String, List<PageLayout>> layouts, Map<String, List<RecordPage>> recordPages,
             Map<String, List<LayoutAssignment>> assignments, List<ApplicationDefinition> applications,
             Map<String, List<ValidationRule>> validationRules,
             Map<String, List<RecordTypeAssignment>> recordTypeAssignments, List<Tab> tabs,
             List<CustomPage> customPages, Map<String, List<RecordPageAssignment>> recordPageAssignments,
-            Map<String, List<WorkflowDefinition>> workflows) {
+            Map<String, List<WorkflowDefinition>> workflows,
+            Map<String, List<ApprovalProcessDefinition>> approvalProcesses) {
+
+        /** The definitions of Sprints 12 to 23 (no approval processes). */
+        Definitions(Map<String, List<PageLayout>> layouts, Map<String, List<RecordPage>> recordPages,
+                Map<String, List<LayoutAssignment>> assignments, List<ApplicationDefinition> applications,
+                Map<String, List<ValidationRule>> validationRules,
+                Map<String, List<RecordTypeAssignment>> recordTypeAssignments, List<Tab> tabs,
+                List<CustomPage> customPages, Map<String, List<RecordPageAssignment>> recordPageAssignments,
+                Map<String, List<WorkflowDefinition>> workflows) {
+            this(layouts, recordPages, assignments, applications, validationRules, recordTypeAssignments, tabs,
+                    customPages, recordPageAssignments, workflows, Map.of());
+        }
 
         /** The definitions of Sprints 12 to 20 (no workflows). */
         Definitions(Map<String, List<PageLayout>> layouts, Map<String, List<RecordPage>> recordPages,
@@ -73,6 +87,7 @@ final class MetadataSnapshot {
 
         /** Copies what is given, so that the snapshot cannot change after it is built. */
         Definitions {
+            approvalProcesses = frozen(approvalProcesses);
             workflows = frozen(workflows);
             layouts = frozen(layouts);
             recordPages = frozen(recordPages);
@@ -288,6 +303,19 @@ final class MetadataSnapshot {
 
     Optional<WorkflowDefinition> workflow(String objectApiName, String apiName) {
         return workflows(objectApiName).stream().filter(workflow -> workflow.apiName().equals(apiName)).findFirst();
+    }
+
+    List<ApprovalProcessDefinition> approvalProcesses(String objectApiName) {
+        return definitions.approvalProcesses().getOrDefault(objectApiName, List.of());
+    }
+
+    List<ApprovalProcessDefinition> allApprovalProcesses() {
+        return definitions.approvalProcesses().values().stream().flatMap(List::stream).toList();
+    }
+
+    Optional<ApprovalProcessDefinition> approvalProcess(String objectApiName, String apiName) {
+        return approvalProcesses(objectApiName).stream().filter(process -> process.apiName().equals(apiName))
+                .findFirst();
     }
 
     List<ValidationRule> validationRules(String objectApiName) {

@@ -14,8 +14,8 @@ import jakarta.validation.constraints.Size;
  *        {@code DELETE_RECORD_TYPE}, and since Sprint 12 the same three for {@code LAYOUT}, {@code RECORD_PAGE},
  *        {@code APPLICATION} and {@code LAYOUT_ASSIGNMENT} (for example {@code CREATE_LAYOUT}), since Sprint 13 for
  *        {@code VALIDATION_RULE}, since Sprint 15A for {@code RECORD_TYPE_ASSIGNMENT} and since Sprint 18 for
- *        {@code TAB} and {@code CUSTOM_PAGE}, since Sprint 20 for {@code RECORD_PAGE_ASSIGNMENT} and since Sprint 22
- *        for {@code WORKFLOW}
+ *        {@code TAB} and {@code CUSTOM_PAGE}, since Sprint 20 for {@code RECORD_PAGE_ASSIGNMENT}, since Sprint 22
+ *        for {@code WORKFLOW} and since Sprint 24 for {@code APPROVAL_PROCESS}
  * @param objectApiName the API name of the object the change is about (for {@code CREATE_OBJECT}: the object to be
  *        made, with the ending __c); left out for the changes of applications
  * @param itemApiName the API name of the field, record type, layout, record page or application the change is about
@@ -49,6 +49,9 @@ import jakarta.validation.constraints.Size;
  * @param createWorkflow the request of {@code CREATE_WORKFLOW} (Sprint 22)
  * @param updateWorkflow the request of {@code UPDATE_WORKFLOW}; switching a workflow on or off is such a change that
  *        keeps the trigger, the condition and the actions as they are
+ * @param createApprovalProcess the request of {@code CREATE_APPROVAL_PROCESS} (Sprint 24)
+ * @param updateApprovalProcess the request of {@code UPDATE_APPROVAL_PROCESS}; switching a process on or off is such a
+ *        change that keeps the definition as it is
  */
 public record ChangeRequest(@NotBlank @Size(max = 40) String kind, @Size(max = 60) String objectApiName,
         @Size(max = 60) String itemApiName, @Valid CreateObjectRequest createObject,
@@ -68,7 +71,9 @@ public record ChangeRequest(@NotBlank @Size(max = 40) String kind, @Size(max = 6
         @Valid CreateCustomPageRequest createCustomPage, @Valid UpdateCustomPageRequest updateCustomPage,
         @Valid CreateRecordPageAssignmentRequest createRecordPageAssignment,
         @Valid UpdateRecordPageAssignmentRequest updateRecordPageAssignment,
-        @Valid CreateWorkflowRequest createWorkflow, @Valid UpdateWorkflowRequest updateWorkflow) {
+        @Valid CreateWorkflowRequest createWorkflow, @Valid UpdateWorkflowRequest updateWorkflow,
+        @Valid CreateApprovalProcessRequest createApprovalProcess,
+        @Valid UpdateApprovalProcessRequest updateApprovalProcess) {
 
     @Override
     public String toString() {

@@ -1174,4 +1174,50 @@ if [ -n "$mail" ]; then
   [ "$status" = "200" ] || fail "the parked events answered $status: $(cat "$body")"
   grep -Fq '"data":[]' "$body" || fail "events are parked on a healthy image: $(cat "$body")"
   echo "ok: the catalogue of workflows came from the server, a workflow whose update clashed with a unique value ended as a dead letter with a stable reason and no value in the history, a replay after the cause was mended completed once and changed the record, and a second replay found the first"
+  # 29. Approvals (Sprint 24, ADR-0145 to ADR-0153): the catalogue the screens are built from, a process of two steps whose
+  # entry the one signed-in administrator may decide themselves (the process allows it, because the job has one person), a
+  # record submitted and locked, both steps approved, the outcome update made and the record free again, with the history
+  # complete. A refused write while locked needs a second person, who is not here: the integration tests prove it. Written
+  # carefully and NOT claimed to work until this job has run it.
+  status="$(client_call "$base/api/v1/metadata/approvals/catalogue")"
+  [ "$status" = "200" ] || fail "the catalogue of approvals answered $status: $(cat "$body")"
+  grep -Fq '"kind":"OWNER"' "$body" || fail "the catalogue lacks the owner rule: $(cat "$body")"
+  grep -Fq '"code":"ANY"' "$body" || fail "the catalogue lacks the completion rules: $(cat "$body")"
+  status="$(client_call "$base/api/v1/auth/me")"
+  [ "$status" = "200" ] || fail "who am I answered $status: $(cat "$body")"
+  my_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"SmokeApproval","label":"Smoke approval","description":"","active":true,"allowSelfApproval":true,"steps":[{"name":"Manager","label":"Manager","completion":"ANY","approvers":[{"kind":"USER","value":"'"$my_id"'"}]},{"name":"Finance","label":"Finance","completion":"ANY","approvers":[{"kind":"USER","value":"'"$my_id"'"}]}],"outcomes":{"approved":[{"field":"title__c","value":"approved by the smoke test"}],"rejected":[],"recalled":[]}}' \
+    "$base/api/v1/metadata/approvals/Lead__c")"
+  [ "$status" = "201" ] || fail "making the approval process answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{"title__c":"approval holder"}}' \
+    "$base/api/v1/objects/Lead__c/records")"
+  [ "$status" = "201" ] || fail "making the record to approve answered $status: $(cat "$body")"
+  approval_record="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(client_call -X POST -H "$group_json" -d '{"process":"SmokeApproval__c","comment":null}' \
+    "$base/api/v1/objects/Lead__c/records/$approval_record/approval")"
+  [ "$status" = "201" ] || fail "submitting the record answered $status: $(cat "$body")"
+  request_id="$(grep -o '"id":"[^"]*"' "$body" | head -1 | cut -d'"' -f4)"
+  status="$(client_call "$base/api/v1/objects/Lead__c/records/$approval_record/approval")"
+  [ "$status" = "200" ] || fail "the approval panel answered $status: $(cat "$body")"
+  grep -Fq '"locked":true' "$body" || fail "the record is not locked while it is being approved: $(cat "$body")"
+  for decision in 1 2; do
+    status="$(client_call "$base/api/v1/approvals/instances/$request_id")"
+    [ "$status" = "200" ] || fail "reading the request answered $status: $(cat "$body")"
+    request_version="$(grep -o '"version":[0-9]*' "$body" | head -1 | cut -d: -f2)"
+    status="$(client_call -X POST -H "$group_json" -d "{\"version\":$request_version,\"comment\":\"smoke step $decision\"}" \
+      "$base/api/v1/approvals/instances/$request_id/approve")"
+    [ "$status" = "200" ] || fail "approving step $decision answered $status: $(cat "$body")"
+  done
+  grep -Fq '"status":"APPROVED"' "$body" || fail "the request did not end approved: $(cat "$body")"
+  for kind in SUBMITTED TASK_APPROVED STEP_APPROVED APPROVED OUTCOME_APPLIED; do
+    grep -Fq "\"kind\":\"$kind\"" "$body" || fail "the history lacks $kind: $(cat "$body")"
+  done
+  status="$(client_call "$base/api/v1/objects/Lead__c/records/$approval_record")"
+  grep -Fq '"title__c":"approved by the smoke test"' "$body" || fail "the outcome update was not made: $(cat "$body")"
+  status="$(client_call "$base/api/v1/objects/Lead__c/records/$approval_record/approval")"
+  grep -Fq '"locked":false' "$body" || fail "the record is still locked after the approval ended: $(cat "$body")"
+  status="$(client_call "$base/api/v1/approvals/inbox?tab=DECIDED")"
+  [ "$status" = "200" ] || fail "the decided tab answered $status: $(cat "$body")"
+  grep -Fq "$request_id" "$body" || fail "the decided tab lacks the request: $(cat "$body")"
+  echo "ok: the catalogue of approvals came from the server, a two-step approval locked the record, was approved in both steps with the outcome update made and the history complete, and the record was free again"
 fi

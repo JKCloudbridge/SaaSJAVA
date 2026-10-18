@@ -6,6 +6,49 @@ import { usePlatformAddress } from "@/lib/account/usePlatformAddress";
 import { setupHref as setupLink } from "@/lib/applications/setupLink";
 import { useSession } from "@/lib/session/SessionProvider";
 import { Icon } from "@/components/ui/Icon";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api/client";
+
+/**
+ * The link to the approvals inbox, with the number of tasks that wait. The API says whether to show it at all (the plan has
+ * approvals, or the member was asked or submitted something) and how many tasks wait; the link is a convenience and the
+ * inbox page answers for itself. A failure to ask shows no link and no error: nothing about approvals is lost by it.
+ */
+function ApprovalsItem({ pathname }: { pathname: string }) {
+  const [summary, setSummary] = useState<{ open: number; available: boolean } | undefined>();
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      try {
+        const { data } = await api.GET("/api/v1/approvals/inbox/summary");
+        if (live && data) {
+          setSummary({ open: data.data.openTasks, available: data.data.available });
+        }
+      } catch {
+        // No link, no error.
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [pathname]);
+  if (!summary?.available) {
+    return null;
+  }
+  return (
+    <li>
+      <Link href="/approvals" aria-current={pathname.startsWith("/approvals") ? "page" : undefined}>
+        <Icon name="clipboard" />
+        Approvals
+        {summary.open > 0 ? (
+          <span className="badge" data-testid="approvals-count" aria-label={`${summary.open} waiting`}>
+            {summary.open}
+          </span>
+        ) : null}
+      </Link>
+    </li>
+  );
+}
 
 /**
  * The main navigation. "Members" is offered to a signed-in person on an organization's address; whether the person may
@@ -54,6 +97,7 @@ export function ShellNav() {
           </Link>
         </li>
       ) : null}
+      {showMembers ? <ApprovalsItem pathname={pathname} /> : null}
       {showAudit ? (
         <li>
           <Link href="/audit" aria-current={pathname === "/audit" ? "page" : undefined}>

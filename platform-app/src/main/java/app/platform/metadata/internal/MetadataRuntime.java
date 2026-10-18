@@ -4,10 +4,13 @@ import app.platform.expression.Compiled;
 import app.platform.expression.ExpressionEngine;
 import app.platform.expression.ExpressionException;
 import app.platform.expression.Purpose;
+import app.platform.metadata.ApprovalProcessDefinition;
+import app.platform.metadata.CompiledApprovalProcess;
 import app.platform.metadata.CompiledFormula;
 import app.platform.metadata.CompiledRule;
 import app.platform.metadata.CompiledWorkflow;
 import app.platform.metadata.ConditionOutcome;
+import app.platform.metadata.PinnedApprovalProcess;
 import app.platform.metadata.PinnedWorkflow;
 import app.platform.metadata.WorkflowDefinition;
 import app.platform.metadata.FieldConfiguration.FormulaConfiguration;
@@ -47,13 +50,14 @@ class MetadataRuntime implements MetadataResolver {
 
     /** What is made of one object: its active rules and its calculable formulas in calculation order. */
     private record ObjectArtefacts(List<CompiledRule> rules, List<CompiledFormula> formulas,
-            List<CompiledWorkflow> workflows) {
+            List<CompiledWorkflow> workflows, List<CompiledApprovalProcess> approvals) {
 
         /** Copies the lists. */
         ObjectArtefacts {
             rules = List.copyOf(rules);
             formulas = List.copyOf(formulas);
             workflows = List.copyOf(workflows);
+            approvals = List.copyOf(approvals);
         }
     }
 
@@ -61,15 +65,20 @@ class MetadataRuntime implements MetadataResolver {
     private final ExpressionSupport support;
     private final WorkflowStore workflowStore;
     private final WorkflowCodec workflowCodec;
+    private final ApprovalProcessStore approvalStore;
+    private final ApprovalProcessCodec approvalCodec;
     private final Counter built;
     private final Counter served;
 
     MetadataRuntime(MetadataCatalogue catalogue, ExpressionSupport support, WorkflowStore workflowStore,
-            WorkflowCodec workflowCodec, MeterRegistry meters) {
+            WorkflowCodec workflowCodec, ApprovalProcessStore approvalStore, ApprovalProcessCodec approvalCodec,
+            MeterRegistry meters) {
         this.catalogue = catalogue;
         this.support = support;
         this.workflowStore = workflowStore;
         this.workflowCodec = workflowCodec;
+        this.approvalStore = approvalStore;
+        this.approvalCodec = approvalCodec;
         this.built = Counter.builder("platform.metadata.artefacts").tag("result", "built").register(meters);
         this.served = Counter.builder("platform.metadata.artefacts").tag("result", "served").register(meters);
     }
@@ -86,6 +95,41 @@ class MetadataRuntime implements MetadataResolver {
             ObjectDefinition object = catalogue.snapshot().object(definition.objectApiName()).orElse(null);
             return new PinnedWorkflow(compileWorkflow(definition, object), row.active(), row.removed());
         });
+    }
+
+    @Override
+    public List<CompiledApprovalProcess> approvalProcesses(String objectApiName) {
+        return artefacts(objectApiName).approvals();
+    }
+
+    @Override
+    public Optional<PinnedApprovalProcess> approvalProcessVersion(UUID versionId) {
+        return approvalStore.version(versionId).map(row -> {
+            ApprovalProcessDefinition definition = approvalCodec.definition(row);
+            ObjectDefinition object = catalogue.snapshot().object(definition.objectApiName()).orElse(null);
+            return new PinnedApprovalProcess(compileApproval(definition, object), row.active(), row.removed());
+        });
+    }
+
+    /**
+     * An approval process made ready. One whose entry criteria no longer pass (a field they used was removed in a way
+     * the graph did not refuse) is made all the same and judges every record as not evaluable, so a request is refused
+     * with that reason and never started on a guess.
+     */
+    private CompiledApprovalProcess compileApproval(ApprovalProcessDefinition definition, ObjectDefinition object) {
+        ExpressionEngine engine = support.engine();
+        if (definition.entryCriteria() == null) {
+            return new ApprovalProcess(definition, null, false, engine);
+        }
+        if (object == null) {
+            return new ApprovalProcess(definition, null, true, engine);
+        }
+        try {
+            return new ApprovalProcess(definition, engine.compile(definition.entryCriteria(),
+                    ExpressionSupport.schemaOf(object), Purpose.APPROVAL_ENTRY), false, engine);
+        } catch (ExpressionException invalid) {
+            return new ApprovalProcess(definition, null, true, engine);
+        }
     }
 
     /**
@@ -143,9 +187,15 @@ class MetadataRuntime implements MetadataResolver {
     private ObjectArtefacts make(MetadataSnapshot snapshot, String objectApiName) {
         ObjectDefinition object = snapshot.object(objectApiName).orElse(null);
         if (object == null) {
-            return new ObjectArtefacts(List.of(), List.of(), List.of());
+            return new ObjectArtefacts(List.of(), List.of(), List.of(), List.of());
         }
         ExpressionEngine engine = support.engine();
+        List<CompiledApprovalProcess> approvals = new ArrayList<>();
+        for (ApprovalProcessDefinition process : snapshot.approvalProcesses(objectApiName)) {
+            if (process.active()) {
+                approvals.add(compileApproval(process, object));
+            }
+        }
         List<CompiledWorkflow> workflows = new ArrayList<>();
         for (WorkflowDefinition workflow : snapshot.workflows(objectApiName)) {
             if (workflow.active()) {
@@ -173,7 +223,56 @@ class MetadataRuntime implements MetadataResolver {
             formulas.add(new Formula(objectApiName, entry.field(), entry.compiled(), analysis.depthOf(name),
                     engine));
         }
-        return new ObjectArtefacts(rules, formulas, workflows);
+        return new ObjectArtefacts(rules, formulas, workflows, approvals);
+    }
+
+    /** An approval process made ready. */
+    private static final class ApprovalProcess implements CompiledApprovalProcess {
+
+        private final ApprovalProcessDefinition definition;
+        private final Compiled criteria;
+        private final boolean broken;
+        private final ExpressionEngine engine;
+
+        ApprovalProcess(ApprovalProcessDefinition definition, Compiled criteria, boolean broken,
+                ExpressionEngine engine) {
+            this.definition = definition;
+            this.criteria = criteria;
+            this.broken = broken;
+            this.engine = engine;
+        }
+
+        @Override
+        public ApprovalProcessDefinition definition() {
+            return definition;
+        }
+
+        @Override
+        public List<String> fields() {
+            return criteria == null ? List.of() : criteria.fields();
+        }
+
+        @Override
+        public ConditionOutcome evaluate(Map<String, Object> values, Instant now) {
+            if (broken) {
+                return ConditionOutcome.NOT_EVALUABLE;
+            }
+            if (criteria == null) {
+                return ConditionOutcome.TRUE;
+            }
+            try {
+                return Boolean.TRUE.equals(engine.evaluate(criteria, values, now)) ? ConditionOutcome.TRUE
+                        : ConditionOutcome.FALSE;
+            } catch (ExpressionException problem) {
+                return ConditionOutcome.NOT_EVALUABLE;
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "CompiledApprovalProcess[" + definition.objectApiName() + "." + definition.apiName() + " v"
+                    + definition.definitionVersion() + "]";
+        }
     }
 
     /** A workflow made ready. */

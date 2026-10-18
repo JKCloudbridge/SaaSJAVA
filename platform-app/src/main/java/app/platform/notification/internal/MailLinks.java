@@ -37,6 +37,14 @@ class MailLinks {
         return scheme + "://" + slug + "." + baseDomain + port + "/records/" + objectApiName + "/" + recordId;
     }
 
+    /**
+     * The approver's inbox on the organization's own host (ADR-0152). A decision is never made from a link: this only
+     * opens the page where the person signs in and decides.
+     */
+    String approvals(String slug) {
+        return scheme + "://" + slug + "." + baseDomain + port + "/approvals";
+    }
+
     String signUpComplete(String token) {
         return base + "/sign-up/complete#token=" + token;
     }

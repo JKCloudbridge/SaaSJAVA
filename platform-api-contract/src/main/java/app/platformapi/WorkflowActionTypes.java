@@ -25,6 +25,9 @@ public final class WorkflowActionTypes {
     /** Queues a platform mail to the person the record names. */
     public static final String SEND_EMAIL = "SEND_EMAIL";
 
+    /** Submits the triggering record for approval, as the platform; the workflow does not wait for the decision. */
+    public static final String START_APPROVAL = "START_APPROVAL";
+
     /** The start of the type of every event a workflow publishes. */
     public static final String SIGNAL_PREFIX = "workflow.signal.";
 
@@ -50,7 +53,9 @@ public final class WorkflowActionTypes {
         /** The API name of a field of the object of the workflow. */
         FIELD,
         /** The API name of a field of the object whose records the action sets (see {@link Type#assignedObject}). */
-        ASSIGNED_FIELD
+        ASSIGNED_FIELD,
+        /** The API name of an approval process of the object of the workflow (Sprint 24). */
+        APPROVAL_PROCESS
     }
 
     /**
@@ -140,6 +145,14 @@ public final class WorkflowActionTypes {
                                     "A user field or an e-mail field of the object of this workflow.", Refers.FIELD),
                             new Setting("template", true, Pattern.compile("^" + TEMPLATE_RECORD_NOTICE + "$"),
                                     "Which mail to send.", List.of(TEMPLATE_RECORD_NOTICE)))),
+            new Type(START_APPROVAL, "Submits the record that started the workflow for approval under a process of the "
+                    + "object. The platform is the submitter. The workflow does not wait for "
+                    + "the decision: what follows "
+                    + "the decision is another workflow that starts when the approval ends. A record that is already "
+                    + "being approved is not submitted twice; the step simply completes.",
+                    List.of(new Setting("process", true, NAME,
+                            "The API name of the approval process of this object to submit the record under.",
+                            Refers.APPROVAL_PROCESS))),
             new Type(PUBLISH_EVENT, "Announces a named event that names the record (never a value of it), for other "
                     + "parts of the platform to react to.",
                     List.of(new Setting("event", true, Pattern.compile("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*){0,3}$"),

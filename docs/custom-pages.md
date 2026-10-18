@@ -63,6 +63,8 @@ honestly; `EmbeddedAccessPolicyTest.everyRuleSaysWhyItIsThere` only checks it's 
 `EmbeddedAccessPolicyTest` proving both the new path is reachable and that it still isn't reachable with the wrong method. The policy can
 only *narrow* what the signed-in member could already do — never route around `Decisions`/`Permissions`.
 
+**Something a script must never do for a person.** The one list is an allow-list with a carve-out: `EmbeddedAccessPolicy.isApprovalRequest` refuses every method but a read on `/objects/{object}/records/{id}/approval`, because submitting a record for approval locks it and asks people to decide, which is a person's own act (ADR-0152). Do the same, with a case in `EmbeddedAccessPolicyTest`, for any later action that commits other people to something.
+
 **Change the token's lifetime.** `platform.identity.tokens.embedded` (default `5m`). The hard ceiling is in the database
 (`embedded_token_short_lived`, 15 minutes) — raise that constraint first (a new migration) if you need to go past it, and update
 `IdentityProperties.Tokens` validation to match. Also update `RENEW_BEFORE_MS` in `hostChannel.ts` if the new lifetime is short enough that

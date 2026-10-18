@@ -1,6 +1,7 @@
 package app.platform.metadata.internal;
 
 import app.platform.expression.ExpressionException;
+import app.platform.metadata.ApprovalProcessDefinition;
 import app.platform.metadata.WorkflowDefinition;
 import app.platformapi.QueryFilterNode;
 import app.platformapi.WorkflowActionSpec;
@@ -39,6 +40,7 @@ class WorkflowRules {
 
     private static final Pattern ACTION_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_]{0,59}");
     private static final Pattern FIELD_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_]{0,59}");
+    private static final Pattern PROCESS_NAME = Pattern.compile("[A-Z][A-Za-z0-9_]{0,55}__c");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT);
     private static final DateTimeFormatter AT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm", Locale.ROOT);
     private static final int MOST_SELECTION_NODES = 50;
@@ -97,8 +99,8 @@ class WorkflowRules {
         WorkflowDefinition.Kind kind = WorkflowDefinition.Kind.fromCode(trigger.kind()).orElse(null);
         if (kind == null) {
             problems.add("trigger.kind", "Choose one of RECORD_CREATED, RECORD_UPDATED, RECORD_DELETED, "
-                    + "FIELD_CHANGED, EVERY_DAY, EVERY_WEEK, DATE_TIME or DAYS_AFTER_DATE. Triggers from external "
-                    + "systems are not available yet.");
+                    + "FIELD_CHANGED, EVERY_DAY, EVERY_WEEK, DATE_TIME, DAYS_AFTER_DATE or APPROVAL_OUTCOME. "
+                    + "Triggers from external systems are not available yet.");
             return null;
         }
         boolean fieldsWanted = kind == WorkflowDefinition.Kind.FIELD_CHANGED;
@@ -108,7 +110,10 @@ class WorkflowRules {
         boolean dayWanted = kind == WorkflowDefinition.Kind.EVERY_WEEK;
         boolean atWanted = kind == WorkflowDefinition.Kind.DATE_TIME;
         boolean zoneWanted = kind.scheduled();
+        boolean approvalWanted = kind == WorkflowDefinition.Kind.APPROVAL_OUTCOME;
 
+        refuseUnused(problems, "process", approvalWanted, trigger.process() != null, kind);
+        refuseUnused(problems, "outcome", approvalWanted, trigger.outcome() != null, kind);
         refuseUnused(problems, "fields", fieldsWanted, trigger.fields() != null && !trigger.fields().isEmpty(), kind);
         refuseUnused(problems, "field", dateFieldWanted, trigger.field() != null, kind);
         refuseUnused(problems, "days", dateFieldWanted, trigger.days() != null, kind);
@@ -157,10 +162,44 @@ class WorkflowRules {
         if (selection != null && zoneWanted) {
             selectionShape(problems, selection);
         }
+        String process = null;
+        String outcome = null;
+        if (approvalWanted) {
+            process = process(problems, trigger.process());
+            outcome = outcome(problems, trigger.outcome());
+        }
         if (problems.any()) {
             return null;
         }
-        return new WorkflowTriggerSpec(kind.name(), fields, field, days, zone, time, dayOfWeek, at, selection);
+        return new WorkflowTriggerSpec(kind.name(), fields, field, days, zone, time, dayOfWeek, at, selection, process,
+                outcome);
+    }
+
+    /** The approval process whose end starts the workflow: left out for any process of the object. */
+    private static String process(Problems problems, String asked) {
+        if (asked == null || asked.isBlank()) {
+            return null;
+        }
+        String clean = asked.strip();
+        if (!PROCESS_NAME.matcher(clean).matches()) {
+            problems.add("trigger.process", "Give the API name of an approval process of this object, for example "
+                    + "LargeExpense__c, or leave it out for any.");
+            return null;
+        }
+        return clean;
+    }
+
+    /** The outcome that starts the workflow: left out for any of the three. */
+    private static String outcome(Problems problems, String asked) {
+        if (asked == null || asked.isBlank()) {
+            return null;
+        }
+        String clean = asked.strip().toUpperCase(Locale.ROOT);
+        if (ApprovalProcessDefinition.Outcome.fromCode(clean).isEmpty()) {
+            problems.add("trigger.outcome", "Choose APPROVED, REJECTED or RECALLED, or leave it out for any.");
+            return null;
+        }
+        return clean;
     }
 
     private static void refuseUnused(Problems problems, String property, boolean wanted, boolean present,
@@ -308,8 +347,7 @@ class WorkflowRules {
             if (type == null) {
                 problems.add(place + ".type", "Choose a type of action from the list; this release has "
                         + WorkflowActionTypes.all().stream().map(WorkflowActionTypes.Type::type).toList()
-                        + ". Starting an approval, an in-app notification and calling an integration come with "
-                        + "later releases.");
+                        + ". An in-app notification and calling an integration come with later releases.");
                 continue;
             }
             Map<String, String> settings = settings(problems, place, type, action.settings());

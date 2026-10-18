@@ -35,6 +35,11 @@ public final class BackgroundWriteException extends RuntimeException {
         RECORD_IN_BIN("record_in_bin", false),
         /** The object does not exist or its records belong to a platform module. */
         OBJECT_UNAVAILABLE("object_unavailable", false),
+        /**
+         * The record is being approved and nobody changes it until the approval ends (Sprint 24, ADR-0148). Permanent:
+         * a replay after the approval ended is the answer.
+         */
+        RECORD_LOCKED("record_locked", false),
         /** Somebody else changed the record between the read and the write: the next attempt reads it again. */
         CONCURRENT_MODIFICATION("concurrent_modification", true);
 

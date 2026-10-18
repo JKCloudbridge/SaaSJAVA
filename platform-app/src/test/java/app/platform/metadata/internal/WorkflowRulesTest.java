@@ -28,11 +28,11 @@ class WorkflowRulesTest {
     private static final ExpressionSupport SUPPORT = new ExpressionSupport(new ExpressionEngine(Limits.standard()),
             new MetadataProperties(
                     new MetadataProperties.Limits(200, 500, 1000, 50, 200, 50, 50, 20, 20, 200, 50, 5, 500, 4, 200, 50,
-                            200, 1_000_000, 200, 50, 200, 10, 25, 1000),
+                            200, 1_000_000, 200, 50, 200, 10, 25, 1000, 10, 200, 10, 10, 20),
                     new MetadataProperties.Cache(true, 1000)));
     private static final WorkflowRules RULES = new WorkflowRules(SUPPORT, Clock.fixed(NOW, ZoneOffset.UTC),
             new MetadataProperties(new MetadataProperties.Limits(200, 500, 1000, 50, 200, 50, 50, 20, 20, 200, 50, 5,
-                    500, 4, 200, 50, 200, 1_000_000, 200, 50, 200, 10, 25, 1000),
+                    500, 4, 200, 50, 200, 1_000_000, 200, 50, 200, 10, 25, 1000, 10, 200, 10, 10, 20),
                     new MetadataProperties.Cache(true, 1000)),
             new WorkflowPlatformLimits(5, 5));
     private static final List<WorkflowActionSpec> ONE_ACTION = List.of(signal("Announce", "order.created"));
@@ -264,5 +264,39 @@ class WorkflowRulesTest {
 
         assertThat(found).containsOnlyKeys("trigger.timeZone", "trigger.time", "trigger.dayOfWeek", "condition",
                 "actions");
+    }
+
+    // ---- the end of an approval ----
+
+    private static WorkflowTriggerSpec approval(String process, String outcome) {
+        return new WorkflowTriggerSpec("APPROVAL_OUTCOME", null, null, null, null, null, null, null, null, process,
+                outcome);
+    }
+
+    @Test
+    void anApprovalTriggerNamesAProcessAndAnOutcomeOrNamesNoneAndIsCleaned() {
+        WorkflowRules.Checked named = checked(approval(" Large__c ", " approved "), null, ONE_ACTION);
+        WorkflowRules.Checked any = checked(approval(null, null), null, ONE_ACTION);
+
+        assertThat(named.trigger().process()).isEqualTo("Large__c");
+        assertThat(named.trigger().outcome()).isEqualTo("APPROVED");
+        assertThat(any.trigger().process()).isNull();
+        assertThat(any.trigger().outcome()).isNull();
+    }
+
+    @Test
+    void anApprovalTriggerRefusesAProcessNameThatIsNotOneAndAnOutcomeThatIsNotOneOfThree() {
+        Map<String, List<String>> found = problems(approval("not a name", "SECRET-OUTCOME"), null, ONE_ACTION, true);
+
+        assertThat(found).containsOnlyKeys("trigger.process", "trigger.outcome");
+        assertThat(found.values().stream().flatMap(List::stream)).noneMatch(text -> text.contains("SECRET-"));
+    }
+
+    @Test
+    void theApprovalPropertiesBelongToTheApprovalTriggerAlone() {
+        WorkflowTriggerSpec trigger = new WorkflowTriggerSpec("RECORD_CREATED", null, null, null, null, null, null,
+                null, null, "Large__c", "APPROVED");
+
+        assertThat(problems(trigger, null, ONE_ACTION, true)).containsOnlyKeys("trigger.process", "trigger.outcome");
     }
 }

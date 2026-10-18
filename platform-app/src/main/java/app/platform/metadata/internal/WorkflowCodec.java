@@ -58,7 +58,8 @@ class WorkflowCodec {
                     spec.days(), spec.timeZone() == null ? null : ZoneId.of(spec.timeZone()),
                     spec.time() == null ? null : LocalTime.parse(spec.time()),
                     spec.dayOfWeek() == null ? null : DayOfWeek.valueOf(spec.dayOfWeek()),
-                    spec.at() == null ? null : LocalDateTime.parse(spec.at()), spec.selection());
+                    spec.at() == null ? null : LocalDateTime.parse(spec.at()), spec.selection(), spec.process(),
+                    spec.outcome());
             List<WorkflowDefinition.Action> actions = readActions(row.actions()).stream().map(WorkflowCodec::action)
                     .toList();
             return new WorkflowDefinition(row.id(), row.versionId(), row.objectApiName(), row.apiName(), row.label(),

@@ -610,6 +610,48 @@ public final class TenantScopedTables {
                         tenant, workflow, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
             });
 
+    /** The approval processes of organizations (Sprint 24). A probe row needs a custom object, which it creates. */
+    public static final TenantScopedTable APPROVAL_PROCESS = new TenantScopedTable("approval_process",
+            (connection, tenant) -> probeApprovalProcess(connection, tenant));
+
+    /** One definition of an approval process (Sprint 24). A probe row needs a process, which it creates. */
+    public static final TenantScopedTable APPROVAL_PROCESS_VERSION = new TenantScopedTable("approval_process_version",
+            (connection, tenant) -> probeApprovalVersion(connection, tenant, probeApprovalProcess(connection, tenant)));
+
+    /** The requests made under approval processes (Sprint 24). A probe row needs a process and a version. */
+    public static final TenantScopedTable APPROVAL_INSTANCE = new TenantScopedTable("approval_instance",
+            (connection, tenant) -> probeApprovalInstance(connection, tenant));
+
+    /** The steps of requests (Sprint 24). A probe row needs a request, which it creates. */
+    public static final TenantScopedTable APPROVAL_STEP_INSTANCE = new TenantScopedTable("approval_step_instance",
+            (connection, tenant) -> probeApprovalStep(connection, tenant, probeApprovalInstance(connection, tenant)));
+
+    /** The tasks of requests (Sprint 24). A probe row needs a request and a step, which it creates. */
+    public static final TenantScopedTable APPROVAL_ASSIGNMENT = new TenantScopedTable("approval_assignment",
+            (connection, tenant) -> {
+                UUID instance = probeApprovalInstance(connection, tenant);
+                UUID step = probeApprovalStep(connection, tenant, instance);
+                TenantFixtures.update(connection,
+                        "insert into approval_assignment (tenant_id, instance_id, step_id, assignee_id, created_by, "
+                                + "updated_by) values (?, ?, ?, ?, ?, ?)",
+                        tenant, instance, step, UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** The append-only history of requests (Sprint 24). A probe row needs a request, which it creates. */
+    public static final TenantScopedTable APPROVAL_HISTORY = new TenantScopedTable("approval_history",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into approval_history (tenant_id, instance_id, kind, process_version_number, created_by, "
+                            + "updated_by) values (?, ?, 'SUBMITTED', 1, ?, ?)",
+                    tenant, probeApprovalInstance(connection, tenant), ActorId.SYSTEM.value(),
+                    ActorId.SYSTEM.value()));
+
+    /** The delegations of approvals (Sprint 24). */
+    public static final TenantScopedTable APPROVAL_DELEGATION = new TenantScopedTable("approval_delegation",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into approval_delegation (tenant_id, delegator_id, delegate_id, starts_on, ends_on, "
+                            + "created_by, updated_by) values (?, ?, ?, current_date, current_date + 1, ?, ?)",
+                    tenant, UUID.randomUUID(), UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
@@ -622,7 +664,8 @@ public final class TenantScopedTables {
             UNIQUE_ENFORCEMENT, FORMULA_RECALCULATION, OBJECT_SHARING_SETTING, SHARING_RULE, RECORD_SHARE,
             RECORD_FILE, FILE_OBJECT_CLEANUP, IMPORT_JOB, IMPORT_ERROR, SEARCH_TERM, SEARCH_FIELD, LIST_VIEW,
             RECORD_PAGE_ASSIGNMENT, WORKFLOW, WORKFLOW_VERSION, WORKFLOW_EXECUTION, WORKFLOW_STEP,
-            WORKFLOW_SCHEDULE);
+            WORKFLOW_SCHEDULE, APPROVAL_PROCESS, APPROVAL_PROCESS_VERSION, APPROVAL_INSTANCE,
+            APPROVAL_STEP_INSTANCE, APPROVAL_ASSIGNMENT, APPROVAL_HISTORY, APPROVAL_DELEGATION);
 
     private TenantScopedTables() {
     }
@@ -663,6 +706,59 @@ public final class TenantScopedTables {
                 execution, tenant, workflow, version, UUID.randomUUID(), UUID.randomUUID(),
                 "probe-" + execution, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
         return execution;
+    }
+
+    /** An approval process of the tenant for a probe row, on a custom object of its own; returns it. */
+    private static UUID probeApprovalProcess(java.sql.Connection connection, UUID tenant)
+            throws java.sql.SQLException {
+        String object = probeObject(connection, tenant);
+        UUID process = UUID.randomUUID();
+        TenantFixtures.update(connection,
+                "insert into approval_process (id, tenant_id, object_api_name, api_name, label, created_by, "
+                        + "updated_by) values (?, ?, ?, ?, 'Probe', ?, ?)",
+                process, tenant, object, probeName("Probe"), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        return process;
+    }
+
+    /** A definition of the approval process for a probe row (one step, no outcome updates); returns it. */
+    private static UUID probeApprovalVersion(java.sql.Connection connection, UUID tenant, UUID process)
+            throws java.sql.SQLException {
+        UUID version = UUID.randomUUID();
+        TenantFixtures.update(connection,
+                "insert into approval_process_version (id, tenant_id, process_id, version_number, steps, outcomes, "
+                        + "created_by, updated_by) values (?, ?, ?, 1, "
+                        + "cast('[{\"name\":\"Probe\",\"label\":\"Probe\",\"completion\":\"ANY\",\"approvers\":[]}]' "
+                        + "as jsonb), cast('{}' as jsonb), ?, ?)",
+                version, tenant, process, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        return version;
+    }
+
+    /** A pending request of the tenant for a probe row, with its process and version; returns it. */
+    private static UUID probeApprovalInstance(java.sql.Connection connection, UUID tenant)
+            throws java.sql.SQLException {
+        UUID process = probeApprovalProcess(connection, tenant);
+        UUID version = probeApprovalVersion(connection, tenant, process);
+        UUID instance = UUID.randomUUID();
+        TenantFixtures.update(connection,
+                "insert into approval_instance (id, tenant_id, process_id, process_version_id, process_api_name, "
+                        + "process_label, process_version_number, object_api_name, record_id, record_version, "
+                        + "status, current_step, created_by, updated_by) values (?, ?, ?, ?, 'Probe__c', 'Probe', 1, "
+                        + "'Probe__c', ?, 1, 'PENDING', 1, ?, ?)",
+                instance, tenant, process, version, UUID.randomUUID(), ActorId.SYSTEM.value(),
+                ActorId.SYSTEM.value());
+        return instance;
+    }
+
+    /** An active step of the request for a probe row; returns it. */
+    private static UUID probeApprovalStep(java.sql.Connection connection, UUID tenant, UUID instance)
+            throws java.sql.SQLException {
+        UUID step = UUID.randomUUID();
+        TenantFixtures.update(connection,
+                "insert into approval_step_instance (id, tenant_id, instance_id, position, name, label, completion, "
+                        + "status, activated_at, created_by, updated_by) values (?, ?, ?, 1, 'Probe', 'Probe', 'ANY', "
+                        + "'ACTIVE', now(), ?, ?)",
+                step, tenant, instance, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        return step;
     }
 
     /** A custom object of the tenant for a probe row, with a name of its own; returns its API name. */

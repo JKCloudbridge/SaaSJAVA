@@ -19,12 +19,18 @@ export function WorkflowTriggerEditor({
   objectApiName,
   trigger,
   fields,
+  processes = [],
+  outcomes = [],
   onChange,
 }: {
   catalogue: Catalogue;
   objectApiName: string;
   trigger: TriggerDraft;
   fields: readonly FieldView[];
+  /** The approval processes of the object (for the kind that starts when an approval ends). */
+  processes?: readonly { apiName: string; label: string }[];
+  /** The outcomes an approval can end with, as the approval catalogue lists them. */
+  outcomes?: readonly { code: string; summary: string }[];
   onChange: (trigger: TriggerDraft) => void;
 }) {
   const kind = catalogue.triggerKinds.find((one) => one.kind === trigger.kind);
@@ -76,6 +82,34 @@ export function WorkflowTriggerEditor({
             ))}
           </div>
         </fieldset>
+      ) : null}
+
+      {uses.has("process") ? (
+        <div className="field">
+          <label htmlFor="trigger-process">Approval process</label>
+          <select id="trigger-process" value={trigger.process} onChange={(event) => change({ process: event.target.value })}>
+            <option value="">Any process of this object</option>
+            {processes.map((one) => (
+              <option key={one.apiName} value={one.apiName}>
+                {one.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
+      {uses.has("outcome") ? (
+        <div className="field">
+          <label htmlFor="trigger-outcome">How it ended</label>
+          <select id="trigger-outcome" value={trigger.outcome} onChange={(event) => change({ outcome: event.target.value })}>
+            <option value="">Any way it can end</option>
+            {outcomes.map((one) => (
+              <option key={one.code} value={one.code} title={one.summary}>
+                {humanize(one.code)}
+              </option>
+            ))}
+          </select>
+        </div>
       ) : null}
 
       {uses.has("field") ? (

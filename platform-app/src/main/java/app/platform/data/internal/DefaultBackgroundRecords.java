@@ -37,6 +37,12 @@ class DefaultBackgroundRecords implements BackgroundRecords {
     }
 
     @Override
+    public Optional<DataRecord> findAndHold(String objectApiName, UUID id) {
+        storage.lockRows(objectApiName, List.of(id));
+        return Optional.ofNullable(storage.find(objectApiName, id));
+    }
+
+    @Override
     public Map<String, Object> engineValues(String objectApiName, DataRecord record) {
         ObjectDefinition object = metadata.object(objectApiName).orElseThrow(
                 () -> new IllegalStateException("The organization has no such object"));

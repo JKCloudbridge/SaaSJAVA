@@ -136,6 +136,290 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/approvals/delegations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Delegations
+         * @description The caller's own by default. Name a delegator, or ask for all, only with approvals.manage (FORBIDDEN otherwise).
+         */
+        get: operations["listApprovalDelegations"];
+        put?: never;
+        /**
+         * Name a delegate for a range of days
+         * @description The delegate is asked beside the delegator (the delegator keeps the task) whenever a step becomes active within the range; tasks already assigned are not moved. No chains and none to oneself; the range is at most 366 days, both days count, in the time zone of the delegation. The delegate must be an active member who holds a licence. A member makes one for themselves; approvals.manage is needed for another person. Audited.
+         */
+        post: operations["createApprovalDelegation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/delegations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * End a delegation
+         * @description The delegator, or a member who holds approvals.manage. Tasks the delegate already holds stay. NOT_FOUND for a delegation that does not exist.
+         */
+        delete: operations["revokeApprovalDelegation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's tasks
+         * @description Three tabs: TO_APPROVE (open tasks), DELEGATED (open tasks that came through a delegation) and DECIDED (approved, rejected or handed on). Open tasks are oldest first, decided ones newest first; cursor paging. Each task names its record by the title only when the caller can read the record, and says so when they cannot: an approval grants no access. Narrow by object and process.
+         */
+        get: operations["listApprovalTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/inbox/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How many tasks wait for the caller, and whether to show the link
+         * @description For the header: the number of open tasks and whether the member has anything to do with approvals (the plan has the feature, or they were asked or submitted something).
+         */
+        get: operations["getApprovalInboxSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/instances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Approval requests the caller may see
+         * @description Newest first, cursor paging. A member sees the requests they submitted or were asked to decide; a member who holds approvals.view-all or approvals.manage sees every request for the records they can read. Narrow by status, object, process, record, or attention (requests that nobody can decide right now).
+         */
+        get: operations["listApprovals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/instances/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One approval request
+         * @description The steps with the people asked, what the caller may do now, and the history for those who may see it (the submitter, anyone who was asked, and members with approvals.view-all for a record they can read). The history never shows a value of the record. NOT_FOUND for what the caller may not see.
+         */
+        get: operations["getApproval"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/instances/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve the caller's task
+         * @description Allowed to a person who holds an open task of the active step, whatever their abilities; the task is checked in the transaction, with their standing (an active member who holds the licence their profile needs). On a step that needs any one approver the first approval completes it and the second approver's call is CONCURRENT_MODIFICATION. The comment is text of a person: at most 2000 characters, kept in the history and shown only to those who may see it; it is never logged and never sent in an event or a mail. The version is the one the caller read; a request that changed since is answered CONCURRENT_MODIFICATION and names nothing. NOT_FOUND for what the caller may not see.
+         */
+        post: operations["approveApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/instances/{id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask one more person to decide the active step
+         * @description For a member who holds approvals.manage: the way out of a step that nobody can decide (its attention is cleared). The person must be an active member with a licence and hold no task of the step yet. The comment is text of a person: at most 2000 characters, kept in the history and shown only to those who may see it; it is never logged and never sent in an event or a mail. The version is the one the caller read; a request that changed since is answered CONCURRENT_MODIFICATION and names nothing. NOT_FOUND for what the caller may not see.
+         */
+        post: operations["assignApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/instances/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End a request as an administrator
+         * @description A member who holds approvals.override-lock; FORBIDDEN otherwise. The record is unlocked. This is the only way a request becomes CANCELLED. The comment is text of a person: at most 2000 characters, kept in the history and shown only to those who may see it; it is never logged and never sent in an event or a mail. The version is the one the caller read; a request that changed since is answered CONCURRENT_MODIFICATION and names nothing. NOT_FOUND for what the caller may not see.
+         */
+        post: operations["cancelApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/instances/{id}/outcome": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make the outcome updates again after they were refused
+         * @description For a member who holds approvals.manage, when the request ended but a rule refused what the process sets on the record (the request shows the stable reason). It writes the same updates to the record as it is now, so the record version the caller read is sent back; it is refused while a newer request of the record is pending. Audited. The version is the one the caller read; a request that changed since is answered CONCURRENT_MODIFICATION and names nothing. NOT_FOUND for what the caller may not see.
+         */
+        post: operations["reapplyApprovalOutcome"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/instances/{id}/reassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hand the caller's task to one other person
+         * @description To one person who is an active member with a licence and holds no task of the step yet (so a task never goes back or loops); the submitter is excluded unless the process allows it. Recorded with both names. The comment is text of a person: at most 2000 characters, kept in the history and shown only to those who may see it; it is never logged and never sent in an event or a mail. The version is the one the caller read; a request that changed since is answered CONCURRENT_MODIFICATION and names nothing. NOT_FOUND for what the caller may not see.
+         */
+        post: operations["reassignApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/instances/{id}/recall": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw a request
+         * @description The person who submitted it, or a member who holds approvals.override-lock. The record is unlocked and the outcome updates for RECALLED are made in the same transaction. The comment is text of a person: at most 2000 characters, kept in the history and shown only to those who may see it; it is never logged and never sent in an event or a mail. The version is the one the caller read; a request that changed since is answered CONCURRENT_MODIFICATION and names nothing. NOT_FOUND for what the caller may not see.
+         */
+        post: operations["recallApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/instances/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject the caller's task
+         * @description Ends the step and the request as REJECTED, whatever the completion rule. The comment is required (VALIDATION_ERROR otherwise). The comment is text of a person: at most 2000 characters, kept in the history and shown only to those who may see it; it is never logged and never sent in an event or a mail. The version is the one the caller read; a request that changed since is answered CONCURRENT_MODIFICATION and names nothing. NOT_FOUND for what the caller may not see.
+         */
+        post: operations["rejectApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/approvals/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * People who can be asked to decide
+         * @description Active members who hold the licence their profile needs, found by a part of their name, at most 50 at a time; the text must match, so the list of members cannot be read page by page. For the pickers of a reassignment, a delegation and an approver rule. Names and identifiers only.
+         */
+        get: operations["searchApprovalPeople"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audit-events": {
         parameters: {
             query?: never;
@@ -1087,6 +1371,174 @@ export interface paths {
          * @description Live at once, as a release of one change. NOT_FOUND for an application the organization does not have. Audited.
          */
         delete: operations["deleteApplication"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The approval processes of the organization
+         * @description For members who may view approvals. Name an object to list only its processes. NOT_FOUND for an object the organization does not have.
+         */
+        get: operations["listApprovalProcesses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/approvals/catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What an approval process can be made of
+         * @description The kinds of approver rule with what each one's value names, the completion rules, the outcomes, the states of a request and of a step, and the limits the platform enforces. The screens build their forms and filters from this and hold no list of their own. For members who may view approvals.
+         */
+        get: operations["getApprovalCatalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/approvals/choices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The profiles, roles and public groups an approver rule can name
+         * @description For the builder of approval processes. Needs approvals.manage.
+         */
+        get: operations["getApprovalChoices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/approvals/{objectApiName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an approval process to an object
+         * @description Live at once, as a release of one change. The name is turned into the permanent API name with the ending __c. The entry criteria are in the expression language (true or false, they may use TODAY() and NOW()); the steps name who is asked by closed kinds of rule; the outcomes set fields of the record to literals. The request is checked here (a VALIDATION_ERROR names every place); whether the fields it names exist is checked after the change and a CONFLICT names what is wrong. A request that is already pending keeps the definition it started under. CONFLICT for an object whose records belong to the platform, at the limit, when the plan has no approvals, or when the result would break a dependency. Audited by name and counts, never by the text.
+         */
+        post: operations["createApprovalProcess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/approvals/{objectApiName}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try entry criteria on sample values, and the steps and outcomes on the object
+         * @description Answers what would happen to a record with these values: RUNS (the criteria are true, or there are none), SKIPPED (false or no value: the record could not be submitted) or ERROR with the place when the evaluation itself fails. Criteria that are not valid are a VALIDATION_ERROR naming the place. There are no records yet, so the values are typed as text for the type of each field. Name steps and outcomes to learn, by place, which fields they name do not exist or cannot be used and which literals do not fit. Nothing is stored and nothing is logged. Needs approvals.manage. Who would be asked for a real record is another question: see resolve.
+         */
+        post: operations["checkApprovalProcess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/approvals/{objectApiName}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who would each step ask for a record?
+         * @description Works out, for a record the caller can read, the people each of the given steps would ask, the people left out and why (inactive, unlicensed, the submitter), and whether the fallback approver would be used or nobody could be asked. The very resolution a real request uses; nothing is stored, locked or sent. Needs approvals.manage.
+         */
+        post: operations["resolveApprovalProcess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/approvals/{objectApiName}/{processApiName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One approval process
+         * @description NOT_FOUND for a process the object does not have.
+         */
+        get: operations["getApprovalProcess"];
+        /**
+         * Change an approval process
+         * @description Live at once, as a release of one change. The API name and the object never change. A change of the entry criteria, the steps, the outcomes, the fallback or the self-approval rule makes a new version of the definition; requests already pending keep the version they started under. The entry criteria are in the expression language (true or false, they may use TODAY() and NOW()); the steps name who is asked by closed kinds of rule; the outcomes set fields of the record to literals. The request is checked here (a VALIDATION_ERROR names every place); whether the fields it names exist is checked after the change and a CONFLICT names what is wrong. A request that is already pending keeps the definition it started under. CONCURRENT_MODIFICATION when someone changed it since it was read.
+         */
+        put: operations["updateApprovalProcess"];
+        post?: never;
+        /**
+         * Remove an approval process
+         * @description Live at once, as a release of one change. CONFLICT while the process has a request waiting for a decision: switch it off and remove it when they have ended. The undo of the release makes it again, as a new process.
+         */
+        delete: operations["deleteApprovalProcess"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/metadata/approvals/{objectApiName}/{processApiName}/activation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch an approval process on or off
+         * @description Live at once, as a release of one change, and without a new version of the definition. A process that is switched off starts no new request; requests already pending finish and keep their lock. CONFLICT when the plan has no approvals and the process is being switched on. CONCURRENT_MODIFICATION when someone changed it since it was read.
+         */
+        post: operations["activateApprovalProcess"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2592,6 +3044,30 @@ export interface paths {
         patch: operations["updateRecord"];
         trace?: never;
     };
+    "/api/v1/objects/{objectApiName}/records/{id}/approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The approval panel of a record
+         * @description Whether the record is locked, the pending request or the last one that ended, the processes the caller could submit it under, and what the caller may do now. The record must be readable by the caller; otherwise it does not exist. A field the caller may not read is never shown, and neither is any value of the record.
+         */
+        get: operations["getRecordApproval"];
+        put?: never;
+        /**
+         * Submit a record for approval
+         * @description For a member who may edit the record. The process is the one named, or the only active one whose entry criteria the record meets (none, or more than one, is a CONFLICT that says so). CONFLICT when the first step names nobody who can decide, when the plan has no approvals or when another person's request is pending; a request the caller submitted already is returned unchanged. The record is locked in the same transaction. The comment is text of a person: at most 2000 characters, kept in the history and shown only to those who may see it; it is never logged and never sent in an event or a mail.
+         */
+        post: operations["submitRecordForApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/objects/{objectApiName}/records/{id}/files": {
         parameters: {
             query?: never;
@@ -3929,6 +4405,14 @@ export interface components {
         };
         /** @description The permanent name of a layout, a record page, an application, a tab or a custom page. It ends with __c. */
         ApiNameShape: string;
+        ApiPageResponseApprovalInstanceSummaryView: {
+            data: components["schemas"]["ApprovalInstanceSummaryView"][];
+            pagination: components["schemas"]["Pagination"];
+        };
+        ApiPageResponseApprovalTaskView: {
+            data: components["schemas"]["ApprovalTaskView"][];
+            pagination: components["schemas"]["Pagination"];
+        };
         ApiPageResponseAuditEventView: {
             data: components["schemas"]["AuditEventView"][];
             pagination: components["schemas"]["Pagination"];
@@ -3954,6 +4438,30 @@ export interface components {
         };
         ApiResponseApplicationView: {
             data: components["schemas"]["ApplicationView"];
+        };
+        ApiResponseApprovalCatalogueView: {
+            data: components["schemas"]["ApprovalCatalogueView"];
+        };
+        ApiResponseApprovalChoicesView: {
+            data: components["schemas"]["ApprovalChoicesView"];
+        };
+        ApiResponseApprovalDelegationView: {
+            data: components["schemas"]["ApprovalDelegationView"];
+        };
+        ApiResponseApprovalInboxSummaryView: {
+            data: components["schemas"]["ApprovalInboxSummaryView"];
+        };
+        ApiResponseApprovalInstanceView: {
+            data: components["schemas"]["ApprovalInstanceView"];
+        };
+        ApiResponseApprovalProcessCheckView: {
+            data: components["schemas"]["ApprovalProcessCheckView"];
+        };
+        ApiResponseApprovalProcessView: {
+            data: components["schemas"]["ApprovalProcessView"];
+        };
+        ApiResponseApprovalResolutionView: {
+            data: components["schemas"]["ApprovalResolutionView"];
         };
         ApiResponseBulkRecordsResponse: {
             data: components["schemas"]["BulkRecordsResponse"];
@@ -4032,6 +4540,15 @@ export interface components {
         };
         ApiResponseListApplicationView: {
             data: components["schemas"]["ApplicationView"][];
+        };
+        ApiResponseListApprovalDelegationView: {
+            data: components["schemas"]["ApprovalDelegationView"][];
+        };
+        ApiResponseListApprovalPersonView: {
+            data: components["schemas"]["ApprovalPersonView"][];
+        };
+        ApiResponseListApprovalProcessView: {
+            data: components["schemas"]["ApprovalProcessView"][];
         };
         ApiResponseListCatalogueItem: {
             data: components["schemas"]["CatalogueItem"][];
@@ -4192,6 +4709,9 @@ export interface components {
         ApiResponseProfileView: {
             data: components["schemas"]["ProfileView"];
         };
+        ApiResponseRecordApprovalView: {
+            data: components["schemas"]["RecordApprovalView"];
+        };
         ApiResponseRecordCheckView: {
             data: components["schemas"]["RecordCheckView"];
         };
@@ -4282,9 +4802,220 @@ export interface components {
             /** Format: int64 */
             version: number;
         };
+        ApprovalActionsView: {
+            canApprove: boolean;
+            canAssign: boolean;
+            canCancel: boolean;
+            canReapply: boolean;
+            canReassign: boolean;
+            canRecall: boolean;
+            canReject: boolean;
+            canSubmit: boolean;
+        };
+        ApprovalApproverSpec: {
+            kind: string;
+            value?: string;
+        };
+        ApprovalAssignmentView: {
+            assignee: components["schemas"]["ApprovalPersonView"];
+            /** Format: date-time */
+            decidedAt?: string;
+            forPerson?: components["schemas"]["ApprovalPersonView"];
+            /** Format: uuid */
+            id: string;
+            status: string;
+            via: string;
+        };
+        ApprovalCatalogueView: {
+            approverKinds: components["schemas"]["ApproverKind"][];
+            completions: components["schemas"]["Choice"][];
+            limits: components["schemas"]["Limits"];
+            outcomes: components["schemas"]["Choice"][];
+            states: components["schemas"]["Choice"][];
+            stepStates: components["schemas"]["Choice"][];
+        };
+        ApprovalChoiceView: {
+            apiName: string;
+            label: string;
+        };
+        ApprovalChoicesView: {
+            groups: components["schemas"]["Named"][];
+            profiles: components["schemas"]["Named"][];
+            roles: components["schemas"]["Named"][];
+        };
+        ApprovalDecisionRequest: {
+            comment?: string;
+            /** Format: int64 */
+            version: number;
+        };
+        ApprovalDelegationView: {
+            delegate: components["schemas"]["ApprovalPersonView"];
+            delegator: components["schemas"]["ApprovalPersonView"];
+            /** Format: date */
+            endsOn: string;
+            /** Format: uuid */
+            id: string;
+            inForce: boolean;
+            objectApiName?: string;
+            processApiName?: string;
+            /** Format: date */
+            startsOn: string;
+            timeZone: string;
+        };
+        ApprovalFieldSpec: {
+            field: string;
+            value: string;
+        };
+        ApprovalHistoryView: {
+            actor?: components["schemas"]["ApprovalPersonView"];
+            /** Format: date-time */
+            at: string;
+            comment?: string;
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            onBehalfOf?: components["schemas"]["ApprovalPersonView"];
+            reason?: string;
+            /** Format: int32 */
+            stepPosition?: number;
+            target?: components["schemas"]["ApprovalPersonView"];
+        };
+        ApprovalInboxSummaryView: {
+            available: boolean;
+            /** Format: int32 */
+            openTasks: number;
+        };
+        ApprovalInstanceSummaryView: {
+            attention?: string;
+            /** Format: int32 */
+            currentStep?: number;
+            currentStepLabel?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            /** Format: uuid */
+            id: string;
+            objectApiName: string;
+            outcomeFailure?: string;
+            processApiName: string;
+            processLabel: string;
+            /** Format: int32 */
+            processVersion: number;
+            /** Format: uuid */
+            recordId: string;
+            /** Format: date-time */
+            startedAt: string;
+            status: string;
+            /** Format: int32 */
+            stepCount: number;
+            submittedBy?: components["schemas"]["ApprovalPersonView"];
+            /** Format: int64 */
+            version: number;
+        };
+        ApprovalInstanceView: {
+            actions: components["schemas"]["ApprovalActionsView"];
+            history: components["schemas"]["ApprovalHistoryView"][];
+            historyVisible: boolean;
+            steps: components["schemas"]["ApprovalStepView"][];
+            summary: components["schemas"]["ApprovalInstanceSummaryView"];
+        };
+        ApprovalOutcomesSpec: {
+            approved?: components["schemas"]["ApprovalFieldSpec"][];
+            recalled?: components["schemas"]["ApprovalFieldSpec"][];
+            rejected?: components["schemas"]["ApprovalFieldSpec"][];
+        };
+        ApprovalPersonView: {
+            name?: string;
+            /** Format: uuid */
+            userId: string;
+        };
+        ApprovalProcessActivationRequest: {
+            active: boolean;
+            /** Format: int64 */
+            version: number;
+        };
+        ApprovalProcessCheckView: {
+            outcome: string;
+            problem?: components["schemas"]["ExpressionProblemView"];
+            problems: {
+                [key: string]: string[];
+            };
+        };
+        ApprovalProcessView: {
+            active: boolean;
+            allowSelfApproval: boolean;
+            apiName: string;
+            /** Format: int32 */
+            definitionVersion: number;
+            description: string;
+            entryCriteria?: string;
+            fallback?: components["schemas"]["ApprovalApproverSpec"];
+            label: string;
+            objectApiName: string;
+            outcomes: components["schemas"]["ApprovalOutcomesSpec"];
+            steps: components["schemas"]["ApprovalStepSpec"][];
+            /** Format: int64 */
+            version: number;
+        };
+        ApprovalReapplyRequest: {
+            /** Format: int64 */
+            recordVersion: number;
+            /** Format: int64 */
+            version: number;
+        };
+        ApprovalReassignRequest: {
+            comment?: string;
+            /** Format: uuid */
+            toUserId: string;
+            /** Format: int64 */
+            version: number;
+        };
+        ApprovalResolutionView: {
+            steps: components["schemas"]["ResolvedStep"][];
+        };
+        ApprovalStepSpec: {
+            approvers: components["schemas"]["ApprovalApproverSpec"][];
+            completion: string;
+            label: string;
+            name: string;
+        };
+        ApprovalStepView: {
+            /** Format: date-time */
+            activatedAt?: string;
+            assignments: components["schemas"]["ApprovalAssignmentView"][];
+            completion: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            label: string;
+            name: string;
+            /** Format: int32 */
+            position: number;
+            status: string;
+        };
+        ApprovalTaskView: {
+            actions: components["schemas"]["ApprovalActionsView"];
+            /** Format: uuid */
+            assignmentId: string;
+            /** Format: date-time */
+            decidedAt?: string;
+            forPerson?: components["schemas"]["ApprovalPersonView"];
+            instance: components["schemas"]["ApprovalInstanceSummaryView"];
+            objectLabel?: string;
+            recordReadable: boolean;
+            recordTitle?: string;
+            /** Format: date-time */
+            since: string;
+            status: string;
+            stepLabel: string;
+            via: string;
+        };
         ApproveSupportAccessRequest: {
             /** Format: int32 */
             minutes?: number;
+        };
+        ApproverKind: {
+            kind: string;
+            summary: string;
+            valueRefersTo: string;
         };
         AssignPolicyRequest: {
             /** Format: uuid */
@@ -4405,6 +5136,7 @@ export interface components {
         };
         ChangeRequest: {
             createApplication?: components["schemas"]["CreateApplicationRequest"];
+            createApprovalProcess?: components["schemas"]["CreateApprovalProcessRequest"];
             createCustomPage?: components["schemas"]["CreateCustomPageRequest"];
             createField?: components["schemas"]["CreateFieldRequest"];
             createLayout?: components["schemas"]["CreateLayoutRequest"];
@@ -4421,6 +5153,7 @@ export interface components {
             kind: string;
             objectApiName?: string;
             updateApplication?: components["schemas"]["UpdateApplicationRequest"];
+            updateApprovalProcess?: components["schemas"]["UpdateApprovalProcessRequest"];
             updateCustomPage?: components["schemas"]["UpdateCustomPageRequest"];
             updateField?: components["schemas"]["UpdateFieldRequest"];
             updateLayout?: components["schemas"]["UpdateLayoutRequest"];
@@ -4472,6 +5205,14 @@ export interface components {
             /** Format: int32 */
             position: number;
         };
+        CheckApprovalProcessRequest: {
+            entryCriteria?: string;
+            outcomes?: components["schemas"]["ApprovalOutcomesSpec"];
+            steps?: components["schemas"]["ApprovalStepSpec"][];
+            values?: {
+                [key: string]: string;
+            };
+        };
         CheckExpressionRequest: {
             expression: string;
             objectApiName: string;
@@ -4484,6 +5225,10 @@ export interface components {
             values?: {
                 [key: string]: string;
             };
+        };
+        Choice: {
+            code: string;
+            summary: string;
         };
         CompleteSignUpRequest: {
             displayName: string;
@@ -4498,6 +5243,30 @@ export interface components {
             description?: string;
             label: string;
             name: string;
+        };
+        CreateApprovalDelegationRequest: {
+            /** Format: uuid */
+            delegateId: string;
+            /** Format: uuid */
+            delegatorId?: string;
+            /** Format: date */
+            endsOn: string;
+            objectApiName?: string;
+            processApiName?: string;
+            /** Format: date */
+            startsOn: string;
+            timeZone: string;
+        };
+        CreateApprovalProcessRequest: {
+            active?: boolean;
+            allowSelfApproval?: boolean;
+            description?: string;
+            entryCriteria?: string;
+            fallback?: components["schemas"]["ApprovalApproverSpec"];
+            label: string;
+            name: string;
+            outcomes?: components["schemas"]["ApprovalOutcomesSpec"];
+            steps: components["schemas"]["ApprovalStepSpec"][];
         };
         CreateChangeSetRequest: {
             description?: string;
@@ -4702,7 +5471,7 @@ export interface components {
          * @description Stable machine-readable error code. Branch on this, never on the message.
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "MALFORMED_REQUEST" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "NOT_ACCEPTABLE" | "CONFLICT" | "CONCURRENT_MODIFICATION" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "TENANT_UNAVAILABLE";
+        ErrorCode: "VALIDATION_ERROR" | "MALFORMED_REQUEST" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "NOT_ACCEPTABLE" | "CONFLICT" | "CONCURRENT_MODIFICATION" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "TENANT_UNAVAILABLE" | "RECORD_LOCKED";
         ExpressionCheckView: {
             fields: string[];
             problem?: components["schemas"]["ExpressionProblemView"];
@@ -5060,6 +5829,18 @@ export interface components {
             confirm?: string;
             reason: string;
         };
+        Limits: {
+            /** Format: int32 */
+            maxApproversPerStep: number;
+            /** Format: int32 */
+            maxCommentLength: number;
+            /** Format: int32 */
+            maxDelegationDays: number;
+            /** Format: int32 */
+            maxOutcomeFields: number;
+            /** Format: int32 */
+            maxSteps: number;
+        };
         LinkedRecordView: {
             fields: {
                 [key: string]: unknown;
@@ -5142,6 +5923,11 @@ export interface components {
             iconKey?: string;
             items: components["schemas"]["NavigationEntryView"][];
             label: string;
+        };
+        Named: {
+            /** Format: uuid */
+            id: string;
+            name: string;
         };
         NavigationEntryView: {
             /** Format: uuid */
@@ -5417,6 +6203,14 @@ export interface components {
         ReasonRequest: {
             reason: string;
         };
+        RecordApprovalView: {
+            actions: components["schemas"]["ApprovalActionsView"];
+            available: boolean;
+            current?: components["schemas"]["ApprovalInstanceView"];
+            locked: boolean;
+            notSubmittableReason?: string;
+            processes: components["schemas"]["ApprovalChoiceView"][];
+        };
         RecordCheckView: {
             calculated: {
                 [key: string]: unknown;
@@ -5593,6 +6387,23 @@ export interface components {
             newPassword: string;
             token: string;
         };
+        ResolveApprovalRequest: {
+            allowSelfApproval?: boolean;
+            fallback?: components["schemas"]["ApprovalApproverSpec"];
+            /** Format: uuid */
+            recordId: string;
+            steps: components["schemas"]["ApprovalStepSpec"][];
+        };
+        ResolvedStep: {
+            label: string;
+            left: {
+                [key: string]: number;
+            };
+            name: string;
+            nobody: boolean;
+            people: components["schemas"]["ApprovalPersonView"][];
+            usesFallback: boolean;
+        };
         RoleView: {
             description: string;
             /** Format: uuid */
@@ -5727,6 +6538,10 @@ export interface components {
             };
             operation: string;
         };
+        SubmitApprovalRequest: {
+            comment?: string;
+            process?: string;
+        };
         SubscriptionInfo: {
             /** Format: date-time */
             periodEndsAt?: string;
@@ -5815,6 +6630,18 @@ export interface components {
             definition: components["schemas"]["ApplicationDefinition"];
             description?: string;
             label: string;
+            /** Format: int64 */
+            version: number;
+        };
+        UpdateApprovalProcessRequest: {
+            active: boolean;
+            allowSelfApproval: boolean;
+            description?: string;
+            entryCriteria?: string;
+            fallback?: components["schemas"]["ApprovalApproverSpec"];
+            label: string;
+            outcomes?: components["schemas"]["ApprovalOutcomesSpec"];
+            steps: components["schemas"]["ApprovalStepSpec"][];
             /** Format: int64 */
             version: number;
         };
@@ -6094,6 +6921,8 @@ export interface components {
             field?: string;
             fields?: string[];
             kind: string;
+            outcome?: string;
+            process?: string;
             selection?: components["schemas"]["QueryFilterNode"];
             time?: string;
             timeZone?: string;
@@ -6389,6 +7218,509 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseCustomPageScriptView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listApprovalDelegations: {
+        parameters: {
+            query?: {
+                delegator?: string;
+                all?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListApprovalDelegationView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createApprovalDelegation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApprovalDelegationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalDelegationView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    revokeApprovalDelegation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listApprovalTasks: {
+        parameters: {
+            query?: {
+                tab?: string;
+                object?: string;
+                process?: string;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiPageResponseApprovalTaskView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getApprovalInboxSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalInboxSummaryView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listApprovals: {
+        parameters: {
+            query?: {
+                status?: string;
+                object?: string;
+                process?: string;
+                attention?: boolean;
+                record?: string;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiPageResponseApprovalInstanceSummaryView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalInstanceView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    approveApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalInstanceView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    assignApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalReassignRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalInstanceView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    cancelApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalInstanceView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    reapplyApprovalOutcome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalReapplyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalInstanceView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    reassignApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalReassignRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalInstanceView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    recallApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalInstanceView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    rejectApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalInstanceView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    searchApprovalPeople: {
+        parameters: {
+            query?: {
+                text?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListApprovalPersonView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -8102,6 +9434,334 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listApprovalProcesses: {
+        parameters: {
+            query?: {
+                object?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListApprovalProcessView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getApprovalCatalogue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalCatalogueView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getApprovalChoices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalChoicesView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createApprovalProcess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApprovalProcessRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalProcessView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    checkApprovalProcess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckApprovalProcessRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalProcessCheckView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    resolveApprovalProcess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveApprovalRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalResolutionView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getApprovalProcess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                processApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalProcessView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateApprovalProcess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                processApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateApprovalProcessRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalProcessView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteApprovalProcess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                processApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    activateApprovalProcess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                processApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalProcessActivationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalProcessView"];
+                };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {
@@ -11586,6 +13246,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseRecordView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getRecordApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRecordApprovalView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    submitRecordForApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitApprovalRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseApprovalInstanceView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

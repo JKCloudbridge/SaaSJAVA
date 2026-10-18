@@ -22,7 +22,8 @@ final class DependencyGraph {
 
     /** The kinds of thing that can be depended on (a layout assignment and an application only depend). */
     enum Kind { OBJECT, FIELD, RECORD_TYPE, PICKLIST_VALUE, LAYOUT, RECORD_PAGE, APPLICATION, ASSIGNMENT,
-        VALIDATION_RULE, TYPE_ASSIGNMENT, SHARING_RULE, TAB, CUSTOM_PAGE, RECORD_PAGE_ASSIGNMENT, WORKFLOW }
+        VALIDATION_RULE, TYPE_ASSIGNMENT, SHARING_RULE, TAB, CUSTOM_PAGE, RECORD_PAGE_ASSIGNMENT, WORKFLOW,
+        APPROVAL_PROCESS }
 
     /**
      * A definition, by name only (never by what a person typed as a value).
@@ -86,6 +87,10 @@ final class DependencyGraph {
             return new Node(Kind.WORKFLOW, object, workflow, null);
         }
 
+        static Node approvalProcess(String object, String process) {
+            return new Node(Kind.APPROVAL_PROCESS, object, process, null);
+        }
+
         static Node typeAssignment(String object, String key) {
             return new Node(Kind.TYPE_ASSIGNMENT, object, key, null);
         }
@@ -110,6 +115,7 @@ final class DependencyGraph {
                 case TYPE_ASSIGNMENT -> "the record type assignment " + item + " of " + object;
                 case SHARING_RULE -> "sharing rule " + item + " of " + object;
                 case WORKFLOW -> "workflow " + item + " of " + object;
+                case APPROVAL_PROCESS -> "approval process " + item + " of " + object;
                 case TAB -> "tab " + item;
                 case CUSTOM_PAGE -> "custom page " + item;
             };
@@ -234,6 +240,7 @@ final class DependencyGraph {
             // A sharing rule only depends on fields; nothing needs it, so it is never asked for.
             case SHARING_RULE -> true;
             case WORKFLOW -> snapshot.workflow(node.object(), node.item()).isPresent();
+            case APPROVAL_PROCESS -> snapshot.approvalProcess(node.object(), node.item()).isPresent();
         };
     }
 

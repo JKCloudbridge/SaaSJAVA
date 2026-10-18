@@ -45,6 +45,18 @@ describe("SetupFrame", () => {
     expect(screen.getByRole("link", { name: "Workflow runs" })).toHaveAttribute("href", "/workflows/executions");
   });
 
+  it("lists the approval processes after the runs of workflows", () => {
+    render(
+      <SetupFrame>
+        <p>page content</p>
+      </SetupFrame>,
+    );
+
+    const labels = screen.getAllByRole("link").map((link) => link.textContent);
+    expect(labels.indexOf("Approval processes")).toBe(labels.indexOf("Workflow runs") + 1);
+    expect(screen.getByRole("link", { name: "Approval processes" })).toHaveAttribute("href", "/setup/approvals");
+  });
+
   it("shows the General tab as a marker that goes nowhere, so no branding feature is implied", () => {
     render(
       <SetupFrame>

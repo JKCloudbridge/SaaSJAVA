@@ -87,6 +87,16 @@ public interface StorageStrategy {
      */
     Set<UUID> liveIds(String objectApiName, Collection<UUID> ids);
 
+    /**
+     * Takes the row lock of these records of the object, in identifier order, and holds it until the end of the
+     * transaction (Sprint 24, ADR-0148): the first step of the record lock guard and of a submit for approval, so that
+     * the two are decided one after the other. It changes nothing and does not change the version. Records that do not
+     * exist are simply not locked.
+     *
+     * @return the identifiers whose rows were locked, in identifier order
+     */
+    List<UUID> lockRows(String objectApiName, Collection<UUID> ids);
+
     /** Moves a live record to the recycle bin; null when there is no live record with the identifier. */
     default DataRecord softDelete(String objectApiName, UUID id, UUID actor) {
         return softDelete(objectApiName, id, actor, null);

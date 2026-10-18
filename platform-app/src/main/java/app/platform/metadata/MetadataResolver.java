@@ -47,4 +47,21 @@ public interface MetadataResolver {
      * @return the version, or empty when it no longer exists
      */
     Optional<PinnedWorkflow> workflowVersion(UUID versionId);
+
+    /**
+     * The active approval processes of the object, made ready, in the definition that new requests use (Sprint 24,
+     * ADR-0145). Kept with the snapshot like the rules; empty when the object has none. A process whose entry criteria
+     * no
+     * longer pass the language is still listed and judges every record as {@link ConditionOutcome#NOT_EVALUABLE}.
+     */
+    List<CompiledApprovalProcess> approvalProcesses(String objectApiName);
+
+    /**
+     * One version of an approval process, made ready, with the standing of the process now (Sprint 24). A request runs
+     * the version it started under whatever was published since.
+     *
+     * @param versionId the identifier of the version the request names
+     * @return the version, or empty when it no longer exists
+     */
+    Optional<PinnedApprovalProcess> approvalProcessVersion(UUID versionId);
 }

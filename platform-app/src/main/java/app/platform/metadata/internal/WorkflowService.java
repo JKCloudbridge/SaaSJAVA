@@ -127,6 +127,7 @@ class WorkflowService {
             case EVERY_WEEK -> "Every week on a day at a time of day, for each record that meets the selection.";
             case DATE_TIME -> "Once, at one moment, for each record that meets the selection.";
             case DAYS_AFTER_DATE -> "A number of days after the date in a field of each record.";
+            case APPROVAL_OUTCOME -> "An approval of a record of the object ends: approved, rejected or withdrawn.";
         };
     }
 
@@ -138,6 +139,7 @@ class WorkflowService {
             case EVERY_WEEK -> List.of("timeZone", "time", "dayOfWeek", "selection");
             case DATE_TIME -> List.of("timeZone", "at", "selection");
             case DAYS_AFTER_DATE -> List.of("field", "days", "timeZone", "time", "selection");
+            case APPROVAL_OUTCOME -> List.of("process", "outcome");
         };
     }
 

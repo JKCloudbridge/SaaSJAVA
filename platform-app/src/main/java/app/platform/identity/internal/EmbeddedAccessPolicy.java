@@ -70,12 +70,26 @@ final class EmbeddedAccessPolicy {
         if (path == null || path.isEmpty() || !path.startsWith(ApiPaths.V1 + "/") || oddlyShaped(path)) {
             return false;
         }
+        if (!READ.contains(method) && isApprovalRequest(path)) {
+            // Submitting a record for approval locks it and asks people to decide: it is a person's own act, never a
+            // script's (ADR-0152). Reading the panel to draw it stays inside the data interface.
+            return false;
+        }
         return RULES.stream().anyMatch(rule -> rule.permits(method, path));
     }
 
     /** The reasons the rules are there, for the documentation and for a test that every rule explains itself. */
     static List<String> reasons() {
         return RULES.stream().map(Rule::why).toList();
+    }
+
+    /** Whether the path is the approval of one record: {@code /objects/<object>/records/<id>/approval}. */
+    private static boolean isApprovalRequest(String path) {
+        if (!path.startsWith(ApiPaths.OBJECTS + "/")) {
+            return false;
+        }
+        String[] segments = path.substring(ApiPaths.OBJECTS.length() + 1).split("/");
+        return segments.length == 4 && "records".equals(segments[1]) && "approval".equals(segments[3]);
     }
 
     private static boolean oddlyShaped(String path) {

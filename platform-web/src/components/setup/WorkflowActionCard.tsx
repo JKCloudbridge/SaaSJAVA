@@ -38,6 +38,7 @@ export function WorkflowActionCard({
   settableOf,
   problems,
   attemptsLimit,
+  processes = [],
   onChange,
   onDrop,
 }: {
@@ -53,6 +54,8 @@ export function WorkflowActionCard({
   settableOf: (objectApiName: string) => readonly FieldView[];
   problems: readonly string[];
   attemptsLimit: number;
+  /** The approval processes of the workflow's object, for a setting that names one. */
+  processes?: readonly { apiName: string; label: string }[];
   onChange: (change: (actions: readonly ActionDraft[]) => ActionDraft[]) => void;
   onDrop: (payload: DragPayload, before: number) => void;
 }) {
@@ -129,7 +132,9 @@ export function WorkflowActionCard({
                     value: field.apiName,
                     label: field.label,
                   }))
-                : setting.allowed.map((one) => ({ value: one, label: humanize(one) }));
+                : setting.refersTo === "APPROVAL_PROCESS"
+                  ? processes.map((one) => ({ value: one.apiName, label: one.label }))
+                  : setting.allowed.map((one) => ({ value: one, label: humanize(one) }));
         return (
           <div className="field" key={setting.key}>
             <label htmlFor={id}>

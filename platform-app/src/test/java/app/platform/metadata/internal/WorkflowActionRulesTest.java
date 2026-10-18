@@ -24,7 +24,7 @@ class WorkflowActionRulesTest {
 
     private static final MetadataProperties PROPERTIES = new MetadataProperties(
             new MetadataProperties.Limits(200, 500, 1000, 50, 200, 50, 50, 20, 20, 200, 50, 5, 500, 4, 200, 50, 200,
-                    1_000_000, 200, 50, 200, 3, 6, 12),
+                    1_000_000, 200, 50, 200, 3, 6, 12, 10, 200, 10, 10, 20),
             new MetadataProperties.Cache(true, 1000));
     private static final WorkflowRules RULES = new WorkflowRules(
             new ExpressionSupport(new ExpressionEngine(Limits.standard()), PROPERTIES),
@@ -81,7 +81,7 @@ class WorkflowActionRulesTest {
 
     @Test
     void aTypeOfALaterReleaseIsRefusedAndTheAnswerListsWhatThisReleaseHas() {
-        for (String type : List.of("START_APPROVAL", "NOTIFY", "CALL_INTEGRATION", "RUN_SCRIPT")) {
+        for (String type : List.of("NOTIFY", "CALL_INTEGRATION", "RUN_SCRIPT")) {
             Map<String, List<String>> found = problemsOf(new WorkflowActionSpec(type, "X", Map.of()));
 
             assertThat(found.get("actions[0].type")).singleElement().asString().contains("UPDATE_RECORD")

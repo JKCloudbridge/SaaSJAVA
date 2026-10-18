@@ -61,9 +61,9 @@ class WorkflowActionDefinitionsIT extends WorkflowTestSupport {
 
         assertThat(catalogue.status()).as(catalogue.body()).isEqualTo(200);
         assertThat(JsonPath.<List<String>>read(catalogue.body(), "$.data.actionTypes[*].type")).containsExactly(
-                "UPDATE_RECORD", "CREATE_RECORD", "SEND_EMAIL", "PUBLISH_EVENT");
+                "UPDATE_RECORD", "CREATE_RECORD", "SEND_EMAIL", "START_APPROVAL", "PUBLISH_EVENT");
         assertThat(JsonPath.<List<String>>read(catalogue.body(), "$.data.actionTypes[*].assignments"))
-                .containsExactly("TRIGGERING_OBJECT", "NAMED_OBJECT", "NONE", "NONE");
+                .containsExactly("TRIGGERING_OBJECT", "NAMED_OBJECT", "NONE", "NONE", "NONE");
         assertThat(JsonPath.<List<String>>read(catalogue.body(), "$.data.actionTypes[1].settings[*].refersTo"))
                 .containsExactly("OBJECT", "ASSIGNED_FIELD");
         assertThat(JsonPath.<String>read(catalogue.body(), "$.data.actionTypes[1].assignedObject")).isEqualTo("object");
@@ -146,7 +146,7 @@ class WorkflowActionDefinitionsIT extends WorkflowTestSupport {
     void theLaterActionsAreRefusedAsUnknownTypesAndTheAnswerListsWhatThisReleaseHas() {
         TestBrowser admin = adminWithTask(organization());
 
-        for (String type : List.of("START_APPROVAL", "NOTIFY", "CALL_INTEGRATION")) {
+        for (String type : List.of("NOTIFY", "CALL_INTEGRATION")) {
             Response refused = admin.postJson(ORDER_WORKFLOWS, workflowRequest("Later", trigger("RECORD_CREATED"), null,
                     true, "{\"type\":\"" + type + "\",\"name\":\"X\",\"settings\":{}}"));
 

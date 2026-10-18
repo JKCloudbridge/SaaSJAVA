@@ -35,6 +35,14 @@ final class WorkflowActionChecks {
         /** The action needs this object. */
         void needsObject(String object, String relation);
 
+        /**
+         * The action, or the trigger, needs this approval process of the object (an edge of the graph: removing the
+         * process is refused naming the workflow). The "try" endpoint cannot tell whether it exists and ignores it.
+         */
+        default void needsApprovalProcess(String object, String process, String relation) {
+            // Edges matter to the graph only.
+        }
+
         /** Something is wrong with a field that exists, or with the shape. Reported in both uses. */
         void problem(String place, String message);
 
@@ -63,6 +71,12 @@ final class WorkflowActionChecks {
             case WorkflowActionTypes.UPDATE_RECORD -> assignments(triggering, triggering, action, place, report, null);
             case WorkflowActionTypes.CREATE_RECORD -> create(triggering, objects, action, place, report);
             case WorkflowActionTypes.SEND_EMAIL -> mail(triggering, action, place, report);
+            case WorkflowActionTypes.START_APPROVAL -> {
+                String process = action.settings().get("process");
+                if (process != null) {
+                    report.needsApprovalProcess(triggering.apiName(), process, "starts an approval under");
+                }
+            }
             default -> {
                 // PUBLISH_EVENT and any later type with nothing to say about fields.
             }
@@ -192,7 +206,8 @@ final class WorkflowActionChecks {
         return effective(field) == FieldType.EMAIL;
     }
 
-    private static boolean isUser(FieldDefinition field) {
+    /** Whether the field is a lookup to a user (the platform-owned object {@code User}). */
+    static boolean isUser(FieldDefinition field) {
         return field.type() == FieldType.LOOKUP && field.configuration() instanceof ReferenceConfiguration reference
                 && USER_OBJECT.equals(reference.targetObject());
     }

@@ -14,6 +14,7 @@ import { FieldReadValue } from "./FieldRegistry";
 import { RecordDetails } from "./RecordDetails";
 import { RecordForm } from "./RecordForm";
 import { RecordPageRelatedList } from "./RecordPageRelatedList";
+import { ApprovalPanel, type ApprovalState } from "./ApprovalPanel";
 import { RecordFiles } from "./RecordFiles";
 import { SharePanel } from "./SharePanel";
 import { headingOf, useRecord } from "./RecordFormPage";
@@ -79,11 +80,13 @@ export function RecordPageView({ objectApiName, recordId, listHref, recordHref, 
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | undefined>();
   const [overriddenRecord, setOverriddenRecord] = useState<RecordView | undefined>();
+  const [approval, setApproval] = useState<ApprovalState>({ locked: false, mayOverride: false });
+  const [refresh, setRefresh] = useState(0);
   const { state: pageState, reload: reloadPage } = useRecordPage(objectApiName, recordType, recordId);
   const page = pageState.status === "ready" ? pageState.page : pageState.status === "loading" ? pageState.previous : undefined;
   // The form is asked once the page has named its layout; while another page is on its way the last good one stays.
   const { state } = useObjectForm(objectApiName, recordType, recordId, page?.layout ?? undefined, page !== undefined);
-  const recordState = useRecord(objectApiName, recordId);
+  const recordState = useRecord(objectApiName, recordId, refresh);
   const form = state.status === "ready" ? state.form : state.status === "loading" ? state.previous : undefined;
 
   if (state.status === "failed" || pageState.status === "failed" || recordState.status === "failed") {
@@ -113,6 +116,10 @@ export function RecordPageView({ objectApiName, recordId, listHref, recordHref, 
   const mayDelete = offered("DELETE") !== undefined && form.actions.delete;
   const mayClone = offered("CLONE") !== undefined && form.actions.create && newHref !== undefined;
   const mayShare = offered("SHARE") !== undefined && form.actions.update && ownerField !== undefined;
+  // A record that is being approved cannot be changed or removed (ADR-0148); the lock comes from the approval panel, which
+  // reads it from the API. Someone who may override it is not held back here: the API decides again on every call.
+  const lockedForMe = approval.locked && !approval.mayOverride;
+  const lockedWords = "This record is locked while it is being approved.";
 
   // A page whose every block was left out for this member still shows the record.
   const blocks = allBlocks(page);
@@ -204,7 +211,14 @@ export function RecordPageView({ objectApiName, recordId, listHref, recordHref, 
             ) : (
               <>
                 {mayEdit ? (
-                  <button type="button" className="button" onClick={startEditing} data-testid="page-edit">
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={startEditing}
+                    disabled={lockedForMe}
+                    title={lockedForMe ? lockedWords : undefined}
+                    data-testid="page-edit"
+                  >
                     {offered("EDIT")?.label ?? "Edit"}
                   </button>
                 ) : null}
@@ -230,7 +244,14 @@ export function RecordPageView({ objectApiName, recordId, listHref, recordHref, 
                       </button>
                     </span>
                   ) : (
-                    <button type="button" className="button button-danger" onClick={() => setConfirmingDelete(true)} data-testid="page-delete">
+                    <button
+                      type="button"
+                      className="button button-danger"
+                      onClick={() => setConfirmingDelete(true)}
+                      disabled={lockedForMe}
+                      title={lockedForMe ? lockedWords : undefined}
+                      data-testid="page-delete"
+                    >
                       {offered("DELETE")?.label ?? "Delete"}
                     </button>
                   )
@@ -265,6 +286,19 @@ export function RecordPageView({ objectApiName, recordId, listHref, recordHref, 
           </div>
         ) : null}
       </div>
+
+      <ApprovalPanel
+        objectApiName={objectApiName}
+        recordId={recordId}
+        recordVersion={record.version}
+        refresh={refresh}
+        onState={setApproval}
+        onChanged={() => {
+          setOverriddenRecord(undefined);
+          setRefresh((now) => now + 1);
+          reloadPage();
+        }}
+      />
 
       {sharing && ownerField ? (
         <SharePanel

@@ -28,11 +28,13 @@ class RecordAuthorization {
     private final RecordGate gate;
     private final StorageStrategy storage;
     private final Decisions decisions;
+    private final RecordLockGuard lockGuard;
 
-    RecordAuthorization(RecordGate gate, StorageStrategy storage, Decisions decisions) {
+    RecordAuthorization(RecordGate gate, StorageStrategy storage, Decisions decisions, RecordLockGuard lockGuard) {
         this.gate = gate;
         this.storage = storage;
         this.decisions = decisions;
+        this.lockGuard = lockGuard;
     }
 
     /** The member may read the record (otherwise it does not exist for them). */
@@ -44,9 +46,22 @@ class RecordAuthorization {
 
     /**
      * The member may change the record: they may use the object and change records of it, the record exists and they
-     * can reach it, and they may change it.
+     * can reach it, and they may change it, and the record is not being approved (ADR-0148; asked last, so that a
+     * member who may not change the record learns nothing of an approval). Used for what is part of the record: its
+     * owner and its files.
      */
     RecordGate.Passed forEdit(String objectApiName, UUID id) {
+        RecordGate.Passed passed = forShare(objectApiName, id);
+        lockGuard.requireOpen(passed, id);
+        return passed;
+    }
+
+    /**
+     * As {@link #forEdit} but without the lock of an approval: who may see the record is not what is approved, so a
+     * share can be made or taken back while a record is locked (ADR-0148 decision 2). It grants an approver nothing
+     * (ADR-0146).
+     */
+    RecordGate.Passed forShare(String objectApiName, UUID id) {
         RecordGate.Passed passed = gate.pass(objectApiName, ObjectAction.UPDATE);
         requireReachable(passed, id);
         if (!decisions.can(passed.membershipId(), passed.object().apiName(), ObjectAction.UPDATE,

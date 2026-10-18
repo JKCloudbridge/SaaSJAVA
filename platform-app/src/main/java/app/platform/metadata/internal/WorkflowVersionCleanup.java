@@ -17,8 +17,9 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Removes old definitions of workflows that nothing names any more (ADR-0136): not the current definition of a workflow
- * and not one an execution still points at. The database decides what is named (a foreign key), so this module never
+ * Removes old definitions of workflows (ADR-0136) and of approval processes (ADR-0145) that nothing names any more: not
+ * the current definition and not one an execution or a request still points at. The database decides what is named (a
+ * foreign key), so this module never
  * reads the tables of executions. A definition is kept for a week after it was replaced, so a person who just changed a
  * workflow can still look at what it was in the history of an execution that ran under it.
  *
@@ -38,14 +39,16 @@ class WorkflowVersionCleanup implements SmartLifecycle {
     private final Tenants tenants;
     private final TenantContexts contexts;
     private final WorkflowStore store;
+    private final ApprovalProcessStore approvalStore;
     private final TransactionTemplate transaction;
     private ScheduledExecutorService executor;
 
     WorkflowVersionCleanup(Tenants tenants, TenantContexts contexts, WorkflowStore store,
-            PlatformTransactionManager transactions) {
+            ApprovalProcessStore approvalStore, PlatformTransactionManager transactions) {
         this.tenants = tenants;
         this.contexts = contexts;
         this.store = store;
+        this.approvalStore = approvalStore;
         this.transaction = new TransactionTemplate(transactions);
     }
 
@@ -73,7 +76,8 @@ class WorkflowVersionCleanup implements SmartLifecycle {
     private int cleanOne(Tenant tenant) {
         try {
             Integer count = contexts.call(TenantContext.of(tenant.id()),
-                    () -> transaction.execute(status -> store.cleanVersions(GRACE, BATCH)));
+                    () -> transaction.execute(status -> store.cleanVersions(GRACE, BATCH)
+                            + approvalStore.cleanVersions(GRACE, BATCH)));
             return count == null ? 0 : count;
         } catch (RuntimeException e) {
             LOG.warn("Cleaning old workflow definitions failed ({})", e.getClass().getSimpleName());

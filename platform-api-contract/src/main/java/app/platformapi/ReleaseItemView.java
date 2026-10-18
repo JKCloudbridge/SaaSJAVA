@@ -9,7 +9,8 @@ import jakarta.validation.constraints.NotNull;
  * @param kind {@code OBJECT}, {@code FIELD}, {@code RECORD_TYPE}, {@code LAYOUT}, {@code RECORD_PAGE},
  *        {@code APPLICATION}, {@code LAYOUT_ASSIGNMENT}, (since Sprint 13) {@code VALIDATION_RULE}, (since
  *        Sprint 15A) {@code RECORD_TYPE_ASSIGNMENT}, (since Sprint 18) {@code TAB} or {@code CUSTOM_PAGE}, (since
- *        Sprint 20) {@code RECORD_PAGE_ASSIGNMENT} or (since Sprint 22) {@code WORKFLOW}
+ *        Sprint 20) {@code RECORD_PAGE_ASSIGNMENT} (since Sprint 22) {@code WORKFLOW} or (since Sprint 24) {@code
+ * APPROVAL_PROCESS}
  * @param objectApiName the object it is about, empty for an application
  * @param itemApiName the field, record type, layout, record page, application or assignment key, or null for the
  *        object itself

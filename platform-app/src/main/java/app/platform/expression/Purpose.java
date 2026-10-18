@@ -16,7 +16,13 @@ public enum Purpose {
      * The condition of a workflow (Sprint 22, ADR-0136): it must give true or false, and it may use the clock because
      * it is judged when the execution runs, not stored.
      */
-    WORKFLOW_CONDITION(true);
+    WORKFLOW_CONDITION(true),
+
+    /**
+     * The entry criteria of an approval process (Sprint 24, ADR-0145): it must give true or false, and it may use the
+     * clock because it is judged when a record is submitted, not stored.
+     */
+    APPROVAL_ENTRY(true);
 
     private final boolean clockAllowed;
 

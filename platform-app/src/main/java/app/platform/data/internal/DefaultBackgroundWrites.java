@@ -46,9 +46,11 @@ class DefaultBackgroundWrites implements BackgroundWrites {
     private final RecordLinks links;
     private final SearchIndexer searchIndex;
     private final RecordChanges changes;
+    private final RecordLockGuard lockGuard;
 
     DefaultBackgroundWrites(Metadata metadata, WritePipeline pipeline, StorageStrategy storage, RecordLinks links,
-            SearchIndexer searchIndex, RecordChanges changes) {
+            SearchIndexer searchIndex, RecordChanges changes, RecordLockGuard lockGuard) {
+        this.lockGuard = lockGuard;
         this.metadata = metadata;
         this.pipeline = pipeline;
         this.storage = storage;
@@ -80,6 +82,9 @@ class DefaultBackgroundWrites implements BackgroundWrites {
     @Override
     public DataRecord update(Source source, String objectApiName, UUID recordId, List<Assignment> assignments) {
         ObjectDefinition object = object(objectApiName);
+        // The lock of an approval (ADR-0148): the row lock first, then the lock, then the record as it is. The outcome
+        // update of an approval ends the request first, in this same transaction, so it passes.
+        lockGuard.requireOpenForPlatform(object.apiName(), recordId);
         DataRecord current = storage.find(object.apiName(), recordId);
         if (current == null) {
             throw new BackgroundWriteException(Reason.RECORD_GONE);

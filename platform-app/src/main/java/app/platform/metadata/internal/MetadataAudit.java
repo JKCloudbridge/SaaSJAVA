@@ -139,6 +139,32 @@ class MetadataAudit {
                 .onObject(object + "." + name, null));
     }
 
+    // ---- approval processes (Sprint 24, ADR-0145): names, counts and flags, never criteria, labels or values ----
+
+    void approvalProcessCreated(UUID actor, String object, String name, boolean active, int steps) {
+        write(AuditRecord.of("metadata.approvalprocess.created", AuditOutcome.SUCCESS).forUser(actor)
+                .onObject(object + "." + name, null).with("active", Boolean.toString(active))
+                .with("steps", Integer.toString(steps)));
+    }
+
+    void approvalProcessUpdated(UUID actor, String object, String name, String changed, boolean active,
+            int definitionVersion) {
+        write(AuditRecord.of("metadata.approvalprocess.updated", AuditOutcome.SUCCESS).forUser(actor)
+                .onObject(object + "." + name, null).with("changed", changed)
+                .with("active", Boolean.toString(active))
+                .with("definition_version", Integer.toString(definitionVersion)));
+    }
+
+    void approvalProcessActivated(UUID actor, String object, String name, boolean active) {
+        write(AuditRecord.of(active ? "metadata.approvalprocess.activated" : "metadata.approvalprocess.deactivated",
+                AuditOutcome.SUCCESS).forUser(actor).onObject(object + "." + name, null));
+    }
+
+    void approvalProcessDeleted(UUID actor, String object, String name) {
+        write(AuditRecord.of("metadata.approvalprocess.deleted", AuditOutcome.SUCCESS).forUser(actor)
+                .onObject(object + "." + name, null));
+    }
+
     /**
      * The audit object key of a definition: the object and the name, joined by a dot. The key of a layout assignment
      * has a tilde between the profile and the record type, which an audit key does not allow, so it becomes a dot.

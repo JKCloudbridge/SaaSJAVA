@@ -47,11 +47,13 @@ class DefaultRecords implements Records {
     private final SearchIndexer searchIndex;
     private final SearchEngine search;
     private final RecordPermission permission;
+    private final RecordLockGuard lockGuard;
 
     DefaultRecords(RecordGate gate, WritePipeline pipeline, FieldSecurity security, StorageStrategy storage,
             RecordChanges changes, QueryService queries, RecordVisibility visibility,
             RecordLinks links, RecordRemoval removal, SearchIndexer searchIndex, SearchEngine search,
-            RecordPermission permission) {
+            RecordPermission permission, RecordLockGuard lockGuard) {
+        this.lockGuard = lockGuard;
         this.permission = permission;
         this.searchIndex = searchIndex;
         this.search = search;
@@ -222,6 +224,9 @@ class DefaultRecords implements Records {
             throw ApiException.notFound(NO_RECORD);
         }
         permission.require(passed, access, id, action);
+        // The lock of an approval (ADR-0148): asked last, so that a member who may not reach the record learns nothing
+        // of it, and before any value is judged. It takes the row lock first and reads the lock after it.
+        lockGuard.requireOpen(passed, id);
         return found;
     }
 

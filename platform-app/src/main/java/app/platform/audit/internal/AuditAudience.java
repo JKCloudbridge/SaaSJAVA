@@ -40,6 +40,7 @@ record AuditAudience(boolean organization, boolean platform) {
      */
     static boolean reasonVisible(String type) {
         return type.startsWith("access.") || type.startsWith("membership.") || type.startsWith("support_access.")
-                || type.startsWith("retention.") || type.startsWith("tenant.") || type.startsWith("metadata.");
+                || type.startsWith("retention.") || type.startsWith("tenant.") || type.startsWith("metadata.")
+                || type.startsWith("approval.");
     }
 }

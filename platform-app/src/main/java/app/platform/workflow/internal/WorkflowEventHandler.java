@@ -53,7 +53,8 @@ import tools.jackson.databind.json.JsonMapper;
 class WorkflowEventHandler implements EventHandler {
 
     private static final Logger LOG = LoggerFactory.getLogger(WorkflowEventHandler.class);
-    private static final Set<String> TYPES = Set.of("record.created", "record.updated", "record.deleted");
+    private static final Set<String> TYPES = Set.of("record.created", "record.updated", "record.deleted",
+            "approval.approved", "approval.rejected", "approval.recalled");
     private static final Duration RATE_WINDOW = Duration.ofMinutes(1);
 
     private final MetadataResolver resolver;
@@ -120,16 +121,20 @@ class WorkflowEventHandler implements EventHandler {
         if (candidates.isEmpty()) {
             return "no_workflow";
         }
-        Long version = payload.path("version").isNumber() ? payload.path("version").longValue() : null;
+        // The version of an approval event is the version of the request, not of the record (ADR-0149).
+        boolean approval = event.type().startsWith("approval.");
+        Long version = !approval && payload.path("version").isNumber() ? payload.path("version").longValue() : null;
         Set<String> fields = new HashSet<>();
         payload.path("fields").forEach(name -> fields.add(name.asString("")));
+        String process = approval ? payload.path("process").asString("") : null;
+        String outcome = approval ? payload.path("outcome").asString("") : null;
         Chain chain = Chain.fromPayload(payload);
         UUID root = chain.root() == null ? event.eventId() : chain.root();
         int queued = 0;
         int created = -1;
         for (CompiledWorkflow compiled : candidates) {
             WorkflowDefinition definition = compiled.definition();
-            if (!matches(definition.trigger(), event.type(), fields)) {
+            if (!matches(definition.trigger(), event.type(), fields, process, outcome)) {
                 continue;
             }
             String ended = null;
@@ -172,12 +177,25 @@ class WorkflowEventHandler implements EventHandler {
 
     /** Whether the trigger starts on this kind of event with these changed fields. */
     static boolean matches(WorkflowDefinition.Trigger trigger, String eventType, Set<String> changedFields) {
+        return matches(trigger, eventType, changedFields, null, null);
+    }
+
+    /**
+     * Whether the trigger starts on this kind of event, with these changed fields or, for the end of an approval
+     * (ADR-0149), this process and this outcome: a trigger that names no process or no outcome takes any.
+     */
+    static boolean matches(WorkflowDefinition.Trigger trigger, String eventType, Set<String> changedFields,
+            String process, String outcome) {
         return switch (eventType) {
             case "record.created" -> trigger.kind() == WorkflowDefinition.Kind.RECORD_CREATED;
             case "record.updated" -> trigger.kind() == WorkflowDefinition.Kind.RECORD_UPDATED
                     || trigger.kind() == WorkflowDefinition.Kind.FIELD_CHANGED
                             && trigger.fields().stream().anyMatch(changedFields::contains);
             case "record.deleted" -> trigger.kind() == WorkflowDefinition.Kind.RECORD_DELETED;
+            case "approval.approved", "approval.rejected", "approval.recalled" ->
+                    trigger.kind() == WorkflowDefinition.Kind.APPROVAL_OUTCOME
+                            && (trigger.process() == null || trigger.process().equals(process))
+                            && (trigger.outcome() == null || trigger.outcome().equals(outcome));
             default -> false;
         };
     }

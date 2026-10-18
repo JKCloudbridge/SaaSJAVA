@@ -164,6 +164,15 @@ public final class ApiPaths {
     /** The events the relay gave up on that workflows depend on, and the way to put one back (Sprint 23, ADR-0143). */
     public static final String WORKFLOW_PARKED_EVENTS = V1 + "/workflows/parked-events";
 
+    /** The approval processes of the organization: definitions for those who manage them (Sprint 24). */
+    public static final String METADATA_APPROVALS = V1 + "/metadata/approvals";
+
+    /** What an approval process can be made of: approver kinds, completion rules, states and limits (Sprint 24). */
+    public static final String METADATA_APPROVAL_CATALOGUE = V1 + "/metadata/approvals/catalogue";
+
+    /** The member's side of approvals: inbox, requests, decisions and delegations (Sprint 24). */
+    public static final String APPROVALS = V1 + "/approvals";
+
     /** Checking and trying expressions, and the list of functions of the expression language (Sprint 13). */
     public static final String METADATA_EXPRESSIONS = V1 + "/metadata/expressions";
 

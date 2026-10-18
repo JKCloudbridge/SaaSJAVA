@@ -53,7 +53,14 @@ public enum ErrorCode {
      * The organization addressed by the host exists but is not open for use (suspended, deactivated or still being
      * set up). The message never says which, so the answer reveals no more than the host name already does.
      */
-    TENANT_UNAVAILABLE(403, "This organization is not available.");
+    TENANT_UNAVAILABLE(403, "This organization is not available."),
+
+    /**
+     * The record is being approved (Sprint 24, ADR-0148): nobody changes it until the approval ends, unless they hold
+     * the
+     * ability to override. The words name no process, step or person.
+     */
+    RECORD_LOCKED(409, "This record is being approved and cannot be changed until the approval ends.");
 
     private final int httpStatus;
     private final String defaultMessage;
