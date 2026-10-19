@@ -15,6 +15,7 @@ export const CATALOGUE: Catalogue = {
       summary: "Sets fields of the record that started the workflow.",
       assignments: "TRIGGERING_OBJECT",
       settings: [],
+      phase: "AFTER_SAVE",
     },
     {
       type: "MAKE_RECORD",
@@ -25,6 +26,7 @@ export const CATALOGUE: Catalogue = {
         { key: "target", required: true, help: "The object to make a record of.", allowed: [], refersTo: "OBJECT" },
         { key: "linkField", required: false, help: "A link back to the record.", allowed: [], refersTo: "ASSIGNED_FIELD" },
       ],
+      phase: "AFTER_SAVE",
     },
     {
       type: "TELL_SOMEONE",
@@ -34,23 +36,34 @@ export const CATALOGUE: Catalogue = {
         { key: "who", required: true, help: "The field that names the person.", allowed: [], refersTo: "FIELD" },
         { key: "which", required: true, help: "Which mail.", allowed: ["PLAIN_NOTICE"], refersTo: "NONE" },
       ],
+      phase: "AFTER_SAVE",
     },
     {
       type: "SIGNAL",
       summary: "Announces an event.",
       assignments: "NONE",
       settings: [{ key: "event", required: true, help: "The name of the event.", allowed: [], refersTo: "NONE" }],
+      phase: "AFTER_SAVE",
+    },
+    {
+      type: "TIDY_UP",
+      summary: "Sets fields of the record being saved.",
+      assignments: "TRIGGERING_OBJECT",
+      settings: [],
+      phase: "BEFORE_SAVE",
     },
   ],
   triggerKinds: [
-    { kind: "WHEN_MADE", summary: "A record is made.", scheduled: false, properties: [] },
-    { kind: "WHEN_FIELD_MOVES", summary: "A chosen field changes.", scheduled: false, properties: ["fields"] },
+    { kind: "WHEN_MADE", summary: "A record is made.", scheduled: false, properties: [], phase: "AFTER_SAVE" },
+    { kind: "WHEN_FIELD_MOVES", summary: "A chosen field changes.", scheduled: false, properties: ["fields"], phase: "AFTER_SAVE" },
     {
       kind: "EVERY_MORNING",
       summary: "Every morning, for each record that meets the selection.",
       scheduled: true,
       properties: ["timeZone", "time", "selection"],
+      phase: "AFTER_SAVE",
     },
+    { kind: "WHEN_SAVING", summary: "A record is about to be saved.", scheduled: false, properties: [], phase: "BEFORE_SAVE" },
   ],
   limits: { maxActionsPerWorkflow: 7, maxAssignmentsPerAction: 9, maxLiteralLength: 321, maxAttempts: 4, maxChainDepth: 3 },
 };

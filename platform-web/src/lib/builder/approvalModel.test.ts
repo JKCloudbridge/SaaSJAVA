@@ -171,3 +171,35 @@ describe("the approval model", () => {
     expect(humanize("")).toBe("");
   });
 });
+
+describe("the time a step may wait", () => {
+  it("starts empty, which means never", () => {
+    const draft = emptyDraft(CATALOGUE);
+
+    expect(draft.remindAfterHours).toBe("");
+    expect(draft.escalateAfterHours).toBe("");
+    const request = definitionOf(draft, CATALOGUE);
+    expect(request).not.toHaveProperty("remindAfterHours");
+    expect(request).not.toHaveProperty("escalateAfterHours");
+  });
+
+  it("is read from the process and sent as numbers, and only when it is typed", () => {
+    const draft = draftFromView({ ...PROCESS, remindAfterHours: 24, escalateAfterHours: 72 }, CATALOGUE);
+
+    expect(draft.remindAfterHours).toBe("24");
+    expect(draft.escalateAfterHours).toBe("72");
+    const request = definitionOf(draft, CATALOGUE);
+    expect(request).toMatchObject({ remindAfterHours: 24, escalateAfterHours: 72 });
+
+    const cleared = definitionOf({ ...draft, remindAfterHours: " ", escalateAfterHours: "" }, CATALOGUE);
+    expect(cleared).not.toHaveProperty("remindAfterHours");
+    expect(cleared).not.toHaveProperty("escalateAfterHours");
+  });
+
+  it("makes the draft unsaved when either time changes", () => {
+    const draft = draftFromView(PROCESS, CATALOGUE);
+
+    expect(snapshotOf({ ...draft, remindAfterHours: "12" })).not.toBe(snapshotOf(draft));
+    expect(snapshotOf({ ...draft, escalateAfterHours: "48" })).not.toBe(snapshotOf(draft));
+  });
+});

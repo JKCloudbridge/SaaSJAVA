@@ -236,6 +236,18 @@ class MetadataAudit {
                 .with("permission_lines_ended", Integer.toString(permissionLinesEnded)));
     }
 
+    // ---- notification text (Sprint 25, ADR-0155): the kind only, never the title or the body ----
+
+    void notificationTemplateWritten(UUID actor, String kind, boolean created) {
+        String action = created ? "metadata.notificationtemplate.created" : "metadata.notificationtemplate.updated";
+        write(AuditRecord.of(action, AuditOutcome.SUCCESS).forUser(actor).onObject(kind, null));
+    }
+
+    void notificationTemplateReset(UUID actor, String kind) {
+        write(AuditRecord.of("metadata.notificationtemplate.reset", AuditOutcome.SUCCESS).forUser(actor)
+                .onObject(kind, null));
+    }
+
     /** An organization tried to change something the platform defines. Written after the transaction ended. */
     void protectedChangeRefused(UUID actor, String action, String object) {
         write(AuditRecord.of("metadata.change.refused", AuditOutcome.DENIED).forUser(actor)

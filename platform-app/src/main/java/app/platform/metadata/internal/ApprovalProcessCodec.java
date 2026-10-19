@@ -64,6 +64,7 @@ class ApprovalProcessCodec {
         return new ApprovalProcessDefinition(row.id(), row.versionId(), row.objectApiName(), row.apiName(), row.label(),
                 row.description(), row.active(), row.definitionVersion(), row.entryCriteria(), row.allowSelfApproval(),
                 steps, outcomes(readOutcomes(row.outcomes())), fallback == null ? null : approver(fallback),
+                row.remindAfterHours(), row.escalateAfterHours(),
                 row.version());
     }
 
@@ -95,6 +96,7 @@ class ApprovalProcessCodec {
     ApprovalProcessView view(ApprovalProcessStore.Row row) {
         return new ApprovalProcessView(row.apiName(), row.objectApiName(), row.label(), row.description(), row.active(),
                 row.definitionVersion(), row.entryCriteria(), row.allowSelfApproval(), readSteps(row.steps()),
-                readOutcomes(row.outcomes()), readFallback(row.fallback()), row.version());
+                readOutcomes(row.outcomes()), readFallback(row.fallback()), row.remindAfterHours(),
+                row.escalateAfterHours(), row.version());
     }
 }

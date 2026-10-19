@@ -29,7 +29,7 @@ class RetryPolicyTest {
     private static final WorkflowProperties.Retry RETRY = new WorkflowProperties.Retry(5, Duration.ofSeconds(30),
             Duration.ofHours(1), 2, 0.2);
     private static final RetryPolicy POLICY = new RetryPolicy(new WorkflowProperties(true,
-            new WorkflowProperties.Worker(2, Duration.ofSeconds(1), 10, Duration.ofMinutes(2), 3),
+            new WorkflowProperties.Worker(2, Duration.ofSeconds(1), 10, Duration.ofMinutes(2), 3, 3),
             new WorkflowProperties.Scheduler(Duration.ofSeconds(15), Duration.ofMinutes(5), 500, 100_000, 5),
             new WorkflowProperties.Retention(Duration.ofDays(90), Duration.ofHours(1), 1000, Duration.ofDays(180)),
             RETRY, new WorkflowProperties.Limits(5, 600, 500)));

@@ -374,6 +374,11 @@ class DefaultMemberAccess implements MemberAccess {
     }
 
     @Override
+    public List<UUID> administrators() {
+        return work.run(store::administratorUsers);
+    }
+
+    @Override
     public Map<UUID, String> roleNames() {
         return work.run(() -> store.roles().stream()
                 .collect(Collectors.toMap(AccessStore.RoleRow::id, AccessStore.RoleRow::name)));

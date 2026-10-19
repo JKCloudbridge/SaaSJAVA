@@ -19,7 +19,8 @@ class ApprovalProcessStore {
 
     private static final String CURRENT = "select p.id, v.id as version_id, p.object_api_name, p.api_name, p.label, "
             + "p.description, p.active, p.definition_version, v.entry_criteria, v.allow_self_approval, "
-            + "v.steps::text as steps, v.outcomes::text as outcomes, v.fallback::text as fallback, p.version, "
+            + "v.steps::text as steps, v.outcomes::text as outcomes, v.fallback::text as fallback, "
+            + "v.remind_after_hours, v.escalate_after_hours, p.version, "
             + "p.deleted_at is not null as removed "
             + "from approval_process p join approval_process_version v on v.process_id = p.id "
             + "and v.version_number = p.definition_version and v.deleted_at is null ";
@@ -31,12 +32,15 @@ class ApprovalProcessStore {
      * @param steps the steps as JSON
      * @param outcomes the outcomes as JSON
      * @param fallback the fallback approver as JSON, or null
+     * @param remindAfterHours hours before the people asked are reminded, or null
+     * @param escalateAfterHours hours before the fallback is asked as well, or null
      * @param version the version of the process row
      * @param removed whether the process was removed
      */
     record Row(UUID id, UUID versionId, String objectApiName, String apiName, String label, String description,
             boolean active, int definitionVersion, String entryCriteria, boolean allowSelfApproval, String steps,
-            String outcomes, String fallback, long version, boolean removed) {
+            String outcomes, String fallback, Integer remindAfterHours, Integer escalateAfterHours, long version,
+            boolean removed) {
     }
 
     private final JdbcClient jdbc;
@@ -65,6 +69,7 @@ class ApprovalProcessStore {
         return jdbc.sql("select p.id, v.id as version_id, p.object_api_name, p.api_name, p.label, p.description, "
                         + "p.active, v.version_number as definition_version, v.entry_criteria, v.allow_self_approval, "
                         + "v.steps::text as steps, v.outcomes::text as outcomes, v.fallback::text as fallback, "
+                        + "v.remind_after_hours, v.escalate_after_hours, "
                         + "p.version, p.deleted_at is not null as removed "
                         + "from approval_process_version v join approval_process p on p.id = v.process_id "
                         + "where v.id = :id and v.deleted_at is null")
@@ -86,6 +91,7 @@ class ApprovalProcessStore {
     /** Makes the process with its first definition. */
     Row insert(String objectApiName, String apiName, String label, String description, boolean active,
             String entryCriteria, boolean allowSelfApproval, String steps, String outcomes, String fallback,
+            Integer remindAfterHours, Integer escalateAfterHours,
             UUID actor) {
         UUID id = jdbc.sql("insert into approval_process (object_api_name, api_name, label, description, active, "
                         + "definition_version, created_by, updated_by) values (:object, :name, :label, "
@@ -93,20 +99,23 @@ class ApprovalProcessStore {
                 .param("object", objectApiName).param("name", apiName).param("label", label)
                 .param("description", description).param("active", active).param("actor", actor)
                 .query(UUID.class).single();
-        insertVersion(id, 1, entryCriteria, allowSelfApproval, steps, outcomes, fallback, actor);
+        insertVersion(id, 1, entryCriteria, allowSelfApproval, steps, outcomes, fallback, remindAfterHours,
+                escalateAfterHours, actor);
         return find(objectApiName, apiName).orElseThrow();
     }
 
     /** Writes a new definition of the process. @return the identifier of the new version */
     UUID insertVersion(UUID processId, int number, String entryCriteria, boolean allowSelfApproval, String steps,
-            String outcomes, String fallback, UUID actor) {
+            String outcomes, String fallback, Integer remindAfterHours, Integer escalateAfterHours, UUID actor) {
         return jdbc.sql("insert into approval_process_version (process_id, version_number, entry_criteria, "
-                        + "allow_self_approval, steps, outcomes, fallback, created_by, updated_by) values "
+                        + "allow_self_approval, steps, outcomes, fallback, remind_after_hours, escalate_after_hours, "
+                        + "created_by, updated_by) values "
                         + "(:process, :number, :criteria, :self, cast(:steps as jsonb), cast(:outcomes as jsonb), "
-                        + "cast(:fallback as jsonb), :actor, :actor) returning id")
+                        + "cast(:fallback as jsonb), :remind, :escalate, :actor, :actor) returning id")
                 .param("process", processId).param("number", number).param("criteria", entryCriteria)
                 .param("self", allowSelfApproval).param("steps", steps).param("outcomes", outcomes)
-                .param("fallback", fallback).param("actor", actor).query(UUID.class).single();
+                .param("fallback", fallback).param("remind", remindAfterHours).param("escalate", escalateAfterHours)
+                .param("actor", actor).query(UUID.class).single();
     }
 
     /** Changes the process when it still has the version the caller read; false when it does not. */
@@ -134,12 +143,18 @@ class ApprovalProcessStore {
                 .query(Integer.class).single();
     }
 
+    private static Integer hours(ResultSet rs, String column) throws SQLException {
+        int value = rs.getInt(column);
+        return rs.wasNull() ? null : value;
+    }
+
     private static Row row(ResultSet rs, int row) throws SQLException {
         return new Row(rs.getObject("id", UUID.class), rs.getObject("version_id", UUID.class),
                 rs.getString("object_api_name"), rs.getString("api_name"), rs.getString("label"),
                 rs.getString("description"), rs.getBoolean("active"), rs.getInt("definition_version"),
                 rs.getString("entry_criteria"), rs.getBoolean("allow_self_approval"), rs.getString("steps"),
-                rs.getString("outcomes"), rs.getString("fallback"), rs.getLong("version"),
+                rs.getString("outcomes"), rs.getString("fallback"), hours(rs, "remind_after_hours"),
+                hours(rs, "escalate_after_hours"), rs.getLong("version"),
                 rs.getBoolean("removed"));
     }
 }

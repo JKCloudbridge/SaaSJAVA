@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 class ActionsTest {
 
     private static final List<String> TYPES = List.of("UPDATE_RECORD", "CREATE_RECORD", "SEND_EMAIL",
-            "START_APPROVAL", "PUBLISH_EVENT");
+            "START_APPROVAL", "NOTIFY", "SET_FIELDS", "PUBLISH_EVENT");
 
     /** Keeps the events it was asked to publish. */
     private static final class Published implements EventPublisher {

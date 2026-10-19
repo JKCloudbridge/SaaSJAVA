@@ -16,7 +16,7 @@ class WorkflowPropertiesTest {
     @Test
     void theDefaultsSuitADeployment() {
         WorkflowProperties properties = new WorkflowProperties(true, new WorkflowProperties.Worker(2,
-                Duration.ofSeconds(1), 10, Duration.ofMinutes(2), 3), new WorkflowProperties.Scheduler(
+                Duration.ofSeconds(1), 10, Duration.ofMinutes(2), 3, 3), new WorkflowProperties.Scheduler(
                         Duration.ofSeconds(15), Duration.ofMinutes(5), 500, 100_000, 5),
                 retention(Duration.ofDays(90)), new WorkflowProperties.Retry(5, Duration.ofSeconds(30),
                         Duration.ofHours(1), 2, 0.2), new WorkflowProperties.Limits(5, 600, 500));
@@ -72,13 +72,16 @@ class WorkflowPropertiesTest {
 
     @Test
     void theWorkerBoundsAreChecked() {
-        assertThatThrownBy(() -> new WorkflowProperties.Worker(0, Duration.ofSeconds(1), 10, Duration.ofMinutes(2), 3))
+        assertThatThrownBy(() -> new WorkflowProperties.Worker(0, Duration.ofSeconds(1), 10,
+                Duration.ofMinutes(2), 3, 3))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new WorkflowProperties.Worker(2, Duration.ZERO, 10, Duration.ofMinutes(2), 3))
+        assertThatThrownBy(() -> new WorkflowProperties.Worker(2, Duration.ZERO, 10, Duration.ofMinutes(2), 3, 3))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new WorkflowProperties.Worker(2, Duration.ofSeconds(1), 500, Duration.ofMinutes(2), 3))
+        assertThatThrownBy(() -> new WorkflowProperties.Worker(2, Duration.ofSeconds(1), 500,
+                Duration.ofMinutes(2), 3, 3))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new WorkflowProperties.Worker(2, Duration.ofSeconds(1), 10, Duration.ofMinutes(2), 0))
+        assertThatThrownBy(() -> new WorkflowProperties.Worker(2, Duration.ofSeconds(1), 10,
+                Duration.ofMinutes(2), 0, 3))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

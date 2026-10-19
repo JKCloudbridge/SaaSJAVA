@@ -1220,4 +1220,34 @@ if [ -n "$mail" ]; then
   [ "$status" = "200" ] || fail "the decided tab answered $status: $(cat "$body")"
   grep -Fq "$request_id" "$body" || fail "the decided tab lacks the request: $(cat "$body")"
   echo "ok: the catalogue of approvals came from the server, a two-step approval locked the record, was approved in both steps with the outcome update made and the history complete, and the record was free again"
+  # 30. Notices, text, switches, before-save automation and the failure view (Sprint 25, ADR-0154 to ADR-0166): the member's
+  # bell and list answer, the switches come from the server and the floor is refused, the administrator's text is checked
+  # (a check stores nothing), an automation before a save sets a field in the very save, and the failure view answers with
+  # counts. Written carefully and NOT claimed to work until this job has run it.
+  status="$(client_call "$base/api/v1/notifications/summary")"
+  [ "$status" = "200" ] || fail "the notice summary answered $status: $(cat "$body")"
+  grep -Fq '"unread"' "$body" || fail "the summary lacks the unread count: $(cat "$body")"
+  status="$(client_call "$base/api/v1/notifications")"
+  [ "$status" = "200" ] || fail "the notice list answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/notification-preferences")"
+  [ "$status" = "200" ] || fail "the switches answered $status: $(cat "$body")"
+  grep -Fq '"ACCOUNT"' "$body" || fail "the switches lack the account category: $(cat "$body")"
+  status="$(client_call -X PUT -H "$group_json" -d '{"choices":[{"category":"ACCOUNT","channel":"MAIL","enabled":false}]}' \
+    "$base/api/v1/notification-preferences")"
+  [ "$status" = "400" ] || fail "the floor of the platform was allowed to be switched off ($status): $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"kind":"WORKFLOW_NOTICE","title":"Look","body":"{workflow} asks you to look."}' \
+    "$base/api/v1/metadata/notification-templates/check")"
+  [ "$status" = "200" ] || fail "checking a text answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/metadata/notification-templates")"
+  grep -Fq '"custom":false' "$body" || fail "a check stored a text: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"StampOnSave","label":"Stamp on save","description":"","active":true,"trigger":{"kind":"BEFORE_CREATE"},"condition":"title__c = '"'"'stamp me'"'"'","actions":[{"type":"SET_FIELDS","name":"Stamp","settings":{},"assignments":[{"field":"title__c","value":"stamped by the smoke test"}]}]}' \
+    "$base/api/v1/metadata/workflows/Lead__c")"
+  [ "$status" = "201" ] || fail "making the before-save automation answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"fields":{"title__c":"stamp me"}}' "$base/api/v1/objects/Lead__c/records")"
+  [ "$status" = "201" ] || fail "making the record to stamp answered $status: $(cat "$body")"
+  grep -Fq '"title__c":"stamped by the smoke test"' "$body" || fail "the automation did not set the field in the save: $(cat "$body")"
+  status="$(client_call "$base/api/v1/automation/health")"
+  [ "$status" = "200" ] || fail "the failure view answered $status: $(cat "$body")"
+  grep -Fq '"workflows.queued"' "$body" || fail "the failure view lacks the workflow counts: $(cat "$body")"
+  echo "ok: the bell and the list answered, the floor of the switches was refused, a text was checked without being stored, an automation before a save set a field in the very save, and the failure view answered with counts"
 fi

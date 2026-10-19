@@ -548,6 +548,43 @@ export function ApprovalBuilder() {
         </p>
       </section>
 
+      <section aria-labelledby="approval-waiting-heading" className="card" data-testid="waiting">
+        <h3 id="approval-waiting-heading">When a step waits too long (optional)</h3>
+        <div className="record-grid record-grid-two">
+          <div className="field">
+            <label htmlFor="approval-remind-after">Remind the people asked after (hours)</label>
+            <input
+              id="approval-remind-after"
+              type="number"
+              min={1}
+              inputMode="numeric"
+              value={current.remindAfterHours}
+              onChange={(event) => edit({ remindAfterHours: event.target.value })}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="approval-escalate-after">Ask the fallback approver as well after (hours)</label>
+            <input
+              id="approval-escalate-after"
+              type="number"
+              min={1}
+              inputMode="numeric"
+              value={current.escalateAfterHours}
+              onChange={(event) => edit({ escalateAfterHours: event.target.value })}
+            />
+          </div>
+        </div>
+        <p className="hint">
+          Left empty, a step waits for ever. A reminder is sent to the people who still have a task, a few times, and then the
+          request is marked overdue so an administrator can see it. Asking the fallback approver needs a fallback above.
+        </p>
+        {current.escalateAfterHours.trim() !== "" && current.fallback.kind === "" ? (
+          <p className="hint" data-testid="waiting-hint">
+            Choose a fallback approver above, or leave the escalation empty.
+          </p>
+        ) : null}
+      </section>
+
       <section aria-labelledby="approval-outcomes-heading" className="card" data-testid="outcomes">
         <h3 id="approval-outcomes-heading">When it ends</h3>
         <p className="hint">

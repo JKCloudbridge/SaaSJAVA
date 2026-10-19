@@ -34,7 +34,7 @@ class RecordNoticeMailTest {
     private static final TenantId TENANT = new TenantId(UUID.randomUUID());
 
     private final Tenants tenants = mock(Tenants.class);
-    private final MailComposer composer = new MailComposer(mock(Users.class), mock(Invitations.class),
+    private final MailComposer composer = MailComposerSupport.composer(mock(Users.class), mock(Invitations.class),
             mock(AccountTokens.class), new MailLinks(new MailProperties(true, "no-reply@example.test",
                     "https://platform.example.test:8443", java.time.Duration.ofSeconds(2), 10,
                     java.time.Duration.ofMinutes(2), 10, java.time.Duration.ofSeconds(30),

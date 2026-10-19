@@ -1680,6 +1680,36 @@
         "tags" : [ "Authentication" ]
       }
     },
+    "/api/v1/automation/health" : {
+      "get" : {
+        "description" : "Counts of what waits, what retries, what was set aside, which events were given up on, which approvals have nobody to decide them or are overdue, and which mails are stuck, each with the place to look. Counts only: never a value of a record. Needs automation.view. Organization hosts only.",
+        "operationId" : "getAutomationHealth",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAutomationHealthView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The health of automation in the organization",
+        "tags" : [ "Automation health" ]
+      }
+    },
     "/api/v1/data-access/mine" : {
       "get" : {
         "description" : "Their effective permissions on objects and fields (profile while licensed, access policies, the access policies of their groups, individual grants), with implied actions written out. Presentation only: every request is decided again by the server. NOT_FOUND on the platform host.",
@@ -4280,6 +4310,191 @@
         },
         "summary" : "The stored formulas that do not pass the expression language",
         "tags" : [ "Metadata" ]
+      }
+    },
+    "/api/v1/metadata/notification-templates" : {
+      "get" : {
+        "description" : "For each kind: the text in use (the platform's own until somebody writes one), the platform's own text to start from, the placeholders the kind allows and the version to send back. For members who may view metadata.",
+        "operationId" : "listNotificationTemplates",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNotificationTemplatesView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The text of every kind of notice an administrator may write",
+        "tags" : [ "Notification text" ]
+      },
+      "post" : {
+        "description" : "Live at once, as a release of one change. The text is plain: at most 80 characters of title on one line and 500 of body, no markup, no link and no address (the platform adds its own link). It may use the placeholders of its kind in braces; each stands for a label of the organization and never for a value of a record. Audited by kind, never by the text. VALIDATION_ERROR names every place that is wrong, also when the text has been written already for the kind.",
+        "operationId" : "createNotificationTemplate",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateNotificationTemplateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNotificationTemplateView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Write the text of a kind of notice",
+        "tags" : [ "Notification text" ]
+      }
+    },
+    "/api/v1/metadata/notification-templates/check" : {
+      "post" : {
+        "description" : "The real rules answer. Nothing is stored, audited or logged, and no part of the text is repeated in the answer. The preview uses sample labels and never a value of a record. Needs metadata.view and metadata.manage or metadata.publish.",
+        "operationId" : "checkNotificationTemplate",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CheckNotificationTemplateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNotificationTemplateCheckView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Check a text and see it with sample labels",
+        "tags" : [ "Notification text" ]
+      }
+    },
+    "/api/v1/metadata/notification-templates/{kind}" : {
+      "delete" : {
+        "description" : "Live at once, as a release of one change. Notices already created are not rewritten: their words are built when they are read, so they show the platform's text from now on. The undo of the release writes the text again.",
+        "operationId" : "resetNotificationTemplate",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "kind",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Go back to the platform's own text",
+        "tags" : [ "Notification text" ]
+      },
+      "put" : {
+        "description" : "Live at once, as a release of one change. The text is plain: at most 80 characters of title on one line and 500 of body, no markup, no link and no address (the platform adds its own link). It may use the placeholders of its kind in braces; each stands for a label of the organization and never for a value of a record. Audited by kind, never by the text. CONCURRENT_MODIFICATION when someone changed it since it was read; NOT_FOUND when the platform's own text is in use.",
+        "operationId" : "updateNotificationTemplate",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "kind",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateNotificationTemplateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNotificationTemplateView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change the text of a kind of notice",
+        "tags" : [ "Notification text" ]
       }
     },
     "/api/v1/metadata/objects" : {
@@ -7081,6 +7296,213 @@
         "tags" : [ "Workflows" ]
       }
     },
+    "/api/v1/notification-preferences" : {
+      "get" : {
+        "description" : "One entry per category and channel, with the words to show, whether it is on, and whether the platform fixes it on. A switch the caller never touched is on.",
+        "operationId" : "getNotificationPreferences",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNotificationPreferencesView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The caller's choices of which notices and mails they want",
+        "tags" : [ "Notifications" ]
+      },
+      "put" : {
+        "description" : "Only the switches named change. A switch the platform fixes on (the account category) is refused with VALIDATION_ERROR naming the place. A switch that is off creates no in-app notice from now on and sends no mail of that category; nothing already made is removed.",
+        "operationId" : "updateNotificationPreferences",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateNotificationPreferencesRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNotificationPreferencesView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change some of the caller's choices",
+        "tags" : [ "Notifications" ]
+      }
+    },
+    "/api/v1/notifications" : {
+      "get" : {
+        "description" : "Newest first, cursor paging. Only the caller's own notices are ever returned. The words are built now from the template of the kind, so a change of text reaches old notices; they hold labels and never a value of a record. The href leads to the inbox or to a record; the page it opens decides what the caller may see. Narrow to the unread ones with unread=true.",
+        "operationId" : "listNotifications",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "unread",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiPageResponseNotificationView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The caller's notices",
+        "tags" : [ "Notifications" ]
+      }
+    },
+    "/api/v1/notifications/read-all" : {
+      "post" : {
+        "description" : "Only the caller's own.",
+        "operationId" : "markAllNotificationsRead",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Mark all of the caller's notices read",
+        "tags" : [ "Notifications" ]
+      }
+    },
+    "/api/v1/notifications/summary" : {
+      "get" : {
+        "description" : "For the bell in the header: one count, cheap to ask on focus.",
+        "operationId" : "getNotificationSummary",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNotificationSummaryView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "How many notices the caller has not read",
+        "tags" : [ "Notifications" ]
+      }
+    },
+    "/api/v1/notifications/{id}/read" : {
+      "post" : {
+        "description" : "NOT_FOUND for a notice that is not the caller's, exactly like one that does not exist. Marking a read notice again changes nothing.",
+        "operationId" : "markNotificationRead",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Mark one of the caller's notices read",
+        "tags" : [ "Notifications" ]
+      }
+    },
     "/api/v1/objects/{objectApiName}/form" : {
       "get" : {
         "description" : "What a screen needs to draw the list, the create form and the edit form of the object for this member, in one answer. Only the fields the member may read are described (the others are absent, not masked), restricted to what the record type offers, with what they may type, the comparisons a filter accepts and whether a list can be ordered by each. The layout is the object's page layout for the member's profile and the record type, reduced to what they see, or one the platform makes when the object has none. recordType describes the object for one of the record types the member may use (VALIDATION_ERROR at recordType for any other, answered like a type that does not exist); without it, recordId (the record being edited) decides by the type that record holds, and without both the member's default type does. layout names the page layout to draw (a record page names one); a name that is not a layout of the object is ignored and the member's own resolution decides. Presentation only: every request that follows is decided again. NOT_FOUND for an object that does not exist, that a platform module owns or that the caller may not read (all three answer alike). Also NOT_FOUND for a record they cannot reach. Organization hosts only.",
@@ -9165,6 +9587,36 @@
           }
         },
         "summary" : "The audit events of the platform (platform console)",
+        "tags" : [ "Platform console" ]
+      }
+    },
+    "/api/v1/platform/automation/health" : {
+      "get" : {
+        "description" : "Counts of what waits, what is set aside, what is overdue and what is stuck, across all organizations, without any name or value. For platform administrators and support. Platform host only.",
+        "operationId" : "getPlatformAutomationHealth",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAutomationHealthView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The health of automation across organizations (platform console)",
         "tags" : [ "Platform console" ]
       }
     },
@@ -11729,6 +12181,21 @@
         },
         "required" : [ "data", "pagination" ]
       },
+      "ApiPageResponseNotificationView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NotificationView"
+            }
+          },
+          "pagination" : {
+            "$ref" : "#/components/schemas/Pagination"
+          }
+        },
+        "required" : [ "data", "pagination" ]
+      },
       "ApiPageResponsePlatformOrganizationSummary" : {
         "type" : "object",
         "properties" : {
@@ -11875,6 +12342,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/ApprovalResolutionView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseAutomationHealthView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/AutomationHealthView"
           }
         },
         "required" : [ "data" ]
@@ -12637,6 +13113,51 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/MemberAccessView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseNotificationPreferencesView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/NotificationPreferencesView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseNotificationSummaryView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/NotificationSummaryView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseNotificationTemplateCheckView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/NotificationTemplateCheckView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseNotificationTemplateView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/NotificationTemplateView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseNotificationTemplatesView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/NotificationTemplatesView"
           }
         },
         "required" : [ "data" ]
@@ -13485,6 +14006,10 @@
           "entryCriteria" : {
             "type" : "string"
           },
+          "escalateAfterHours" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "fallback" : {
             "$ref" : "#/components/schemas/ApprovalApproverSpec"
           },
@@ -13496,6 +14021,10 @@
           },
           "outcomes" : {
             "$ref" : "#/components/schemas/ApprovalOutcomesSpec"
+          },
+          "remindAfterHours" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "steps" : {
             "type" : "array",
@@ -13768,6 +14297,62 @@
         },
         "required" : [ "attributes", "id", "occurredAt", "outcome", "source", "type" ]
       },
+      "AutomationHealthItemView" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "href" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "needsAttention" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "count", "key", "label", "needsAttention" ]
+      },
+      "AutomationHealthSectionView" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AutomationHealthItemView"
+            }
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "items", "key", "title" ]
+      },
+      "AutomationHealthView" : {
+        "type" : "object",
+        "properties" : {
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "sections" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AutomationHealthSectionView"
+            }
+          }
+        },
+        "required" : [ "generatedAt", "sections" ]
+      },
       "BulkRecordItem" : {
         "type" : "object",
         "properties" : {
@@ -13892,6 +14477,9 @@
           "assignments" : {
             "type" : "string"
           },
+          "phase" : {
+            "type" : "string"
+          },
           "settings" : {
             "type" : "array",
             "items" : {
@@ -13905,7 +14493,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "assignments", "settings", "summary", "type" ]
+        "required" : [ "assignments", "phase", "settings", "summary", "type" ]
       },
       "CatalogueItem" : {
         "type" : "object",
@@ -13975,6 +14563,9 @@
           "kind" : {
             "type" : "string"
           },
+          "phase" : {
+            "type" : "string"
+          },
           "properties" : {
             "type" : "array",
             "items" : {
@@ -13988,7 +14579,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "kind", "properties", "scheduled", "summary" ]
+        "required" : [ "kind", "phase", "properties", "scheduled", "summary" ]
       },
       "ChangeOwnerRequest" : {
         "type" : "object",
@@ -14040,6 +14631,9 @@
           },
           "createLayoutAssignment" : {
             "$ref" : "#/components/schemas/CreateLayoutAssignmentRequest"
+          },
+          "createNotificationTemplate" : {
+            "$ref" : "#/components/schemas/CreateNotificationTemplateRequest"
           },
           "createObject" : {
             "$ref" : "#/components/schemas/CreateObjectRequest"
@@ -14097,6 +14691,9 @@
           },
           "updateLayoutAssignment" : {
             "$ref" : "#/components/schemas/UpdateLayoutAssignmentRequest"
+          },
+          "updateNotificationTemplate" : {
+            "$ref" : "#/components/schemas/UpdateNotificationTemplateRequest"
           },
           "updateObject" : {
             "$ref" : "#/components/schemas/UpdateObjectRequest"
@@ -14296,6 +14893,27 @@
         },
         "required" : [ "expression", "objectApiName", "purpose" ]
       },
+      "CheckNotificationTemplateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "body" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          },
+          "kind" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "title" : {
+            "type" : "string",
+            "maxLength" : 1000,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "kind" ]
+      },
       "CheckWorkflowConditionRequest" : {
         "type" : "object",
         "properties" : {
@@ -14444,6 +15062,12 @@
             "maxLength" : 4000,
             "minLength" : 0
           },
+          "escalateAfterHours" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 8760,
+            "minimum" : 1
+          },
           "fallback" : {
             "$ref" : "#/components/schemas/ApprovalApproverSpec"
           },
@@ -14459,6 +15083,12 @@
           },
           "outcomes" : {
             "$ref" : "#/components/schemas/ApprovalOutcomesSpec"
+          },
+          "remindAfterHours" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 8760,
+            "minimum" : 1
           },
           "steps" : {
             "type" : "array",
@@ -14622,6 +15252,27 @@
           }
         },
         "required" : [ "definition", "label", "scope" ]
+      },
+      "CreateNotificationTemplateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "body" : {
+            "type" : "string",
+            "maxLength" : 1000,
+            "minLength" : 0
+          },
+          "kind" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "title" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "body", "kind", "title" ]
       },
       "CreateObjectRequest" : {
         "type" : "object",
@@ -16650,6 +17301,153 @@
         },
         "required" : [ "type" ]
       },
+      "NotificationPlaceholderView" : {
+        "type" : "object",
+        "properties" : {
+          "help" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "help", "name" ]
+      },
+      "NotificationPreferencesView" : {
+        "type" : "object",
+        "properties" : {
+          "choices" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PreferenceChoiceView"
+            }
+          }
+        },
+        "required" : [ "choices" ]
+      },
+      "NotificationSummaryView" : {
+        "type" : "object",
+        "properties" : {
+          "unread" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "unread" ]
+      },
+      "NotificationTemplateCheckView" : {
+        "type" : "object",
+        "properties" : {
+          "previewBody" : {
+            "type" : "string"
+          },
+          "previewTitle" : {
+            "type" : "string"
+          },
+          "problems" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            }
+          }
+        },
+        "required" : [ "problems" ]
+      },
+      "NotificationTemplateView" : {
+        "type" : "object",
+        "properties" : {
+          "body" : {
+            "type" : "string"
+          },
+          "category" : {
+            "type" : "string"
+          },
+          "custom" : {
+            "type" : "boolean"
+          },
+          "defaultBody" : {
+            "type" : "string"
+          },
+          "defaultTitle" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "placeholders" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NotificationPlaceholderView"
+            }
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "body", "category", "custom", "defaultBody", "defaultTitle", "kind", "placeholders", "summary", "title" ]
+      },
+      "NotificationTemplatesView" : {
+        "type" : "object",
+        "properties" : {
+          "bodyMax" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "templates" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NotificationTemplateView"
+            }
+          },
+          "titleMax" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "bodyMax", "templates", "titleMax" ]
+      },
+      "NotificationView" : {
+        "type" : "object",
+        "properties" : {
+          "body" : {
+            "type" : "string"
+          },
+          "category" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "href" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "read" : {
+            "type" : "boolean"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "body", "category", "createdAt", "id", "kind", "read", "title" ]
+      },
       "ObjectFormView" : {
         "type" : "object",
         "properties" : {
@@ -17324,6 +18122,52 @@
           }
         },
         "required" : [ "apiVersion", "databaseTime", "serverTime", "service" ]
+      },
+      "PreferenceChoiceRequest" : {
+        "type" : "object",
+        "properties" : {
+          "category" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "channel" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "enabled" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "category", "channel", "enabled" ]
+      },
+      "PreferenceChoiceView" : {
+        "type" : "object",
+        "properties" : {
+          "category" : {
+            "type" : "string"
+          },
+          "categoryLabel" : {
+            "type" : "string"
+          },
+          "channel" : {
+            "type" : "string"
+          },
+          "channelLabel" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "locked" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "category", "categoryLabel", "channel", "channelLabel", "description", "enabled", "locked" ]
       },
       "ProblemView" : {
         "type" : "object",
@@ -18973,6 +19817,12 @@
             "maxLength" : 4000,
             "minLength" : 0
           },
+          "escalateAfterHours" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 8760,
+            "minimum" : 1
+          },
           "fallback" : {
             "$ref" : "#/components/schemas/ApprovalApproverSpec"
           },
@@ -18983,6 +19833,12 @@
           },
           "outcomes" : {
             "$ref" : "#/components/schemas/ApprovalOutcomesSpec"
+          },
+          "remindAfterHours" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 8760,
+            "minimum" : 1
           },
           "steps" : {
             "type" : "array",
@@ -19125,6 +19981,40 @@
           }
         },
         "required" : [ "definition", "label", "scope", "version" ]
+      },
+      "UpdateNotificationPreferencesRequest" : {
+        "type" : "object",
+        "properties" : {
+          "choices" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PreferenceChoiceRequest"
+            },
+            "maxItems" : 20,
+            "minItems" : 1
+          }
+        },
+        "required" : [ "choices" ]
+      },
+      "UpdateNotificationTemplateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "body" : {
+            "type" : "string",
+            "maxLength" : 1000,
+            "minLength" : 0
+          },
+          "title" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "body", "title", "version" ]
       },
       "UpdateObjectRequest" : {
         "type" : "object",

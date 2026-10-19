@@ -109,8 +109,15 @@ class SendEmailAction implements ActionExecutor {
         }
         mail.enqueue(new MailRequest(MailTemplate.RECORD_NOTICE, address, userId, Map.of(
                 "organization_id", contexts.require().tenantId().value().toString(),
-                "object", object.apiName(), "object_label", object.label(),
+                "object", object.apiName(), "object_label", object.label(), "workflow_label", workflowLabel(context),
                 "record_id", context.recordId().toString())));
+    }
+
+    /** The label of the workflow, for the words an administrator may have written (ADR-0155); never a value. */
+    private String workflowLabel(ActionContext context) {
+        return metadata.workflows(context.objectApiName()).stream()
+                .filter(workflow -> workflow.apiName().equals(context.workflowApiName()))
+                .map(workflow -> workflow.label()).findFirst().orElse(context.workflowApiName());
     }
 
     private static UUID userOf(Object value) {

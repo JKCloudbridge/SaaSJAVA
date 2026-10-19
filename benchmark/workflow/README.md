@@ -64,3 +64,24 @@ Latency is measured at the database for T4 and T5 and inside the handler for T6:
 generated events are the shape the publisher writes, not events of real writes. A pass is a pass only for the machine, the
 relay settings and the data size recorded with it (ADR-0082). The script was written in Sprint 22 and extended in Sprint 23; both
 modes have been parsed but not run: the first run of each is its smoke run.
+
+## Fair share and the loss-free guarantee (Sprint 25)
+
+`-Actions fair` asks whether one organization's long queue keeps another waiting, using thresholds F1 to F3 written in
+[ADR-0165](../../docs/adr/0165-chaos-and-load-tests-and-the-d3-measurements.md) before the mode ever ran. It needs the application with the
+dispatcher on (`PLATFORM_WORKFLOW_ENABLED=true`) and the default cap (`platform.workflow.worker.per-organization`, 3).
+
+```powershell
+.enchmarkworkflowun-event-benchmark.ps1 -Actions fair -Size smoke   # proves the harness; NOT a measurement
+.enchmarkworkflowun-event-benchmark.ps1 -Actions fair               # F1, F2, F3
+```
+
+| Threshold | How |
+|-----------|-----|
+| F1 | A queue of triggers of one organization is half worked off; a short queue of 20 arrives in another; p95 of the time from creation to the end of those 20 is at most 10 s |
+| F2 | Executions per second of the long queue over the whole period: at least 40, one instance (the turns must not collapse the rate) |
+| F3 | One execution for every event and every one completed: nothing lost, nothing made twice |
+
+The crash side of the same guarantee is proved by an integration test that does not need this folder (`WorkerCrashIT`, ADR-0165).
+The full D3 runs (`T1` to `T6`, `A1` to `A6`) and the full `F` run are left for the pre-production rehearsal on the intended instance; the
+smoke sizes prove the harness only.

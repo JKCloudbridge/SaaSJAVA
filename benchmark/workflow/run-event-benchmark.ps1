@@ -30,6 +30,13 @@
    .\benchmark\workflow\run-event-benchmark.ps1 -Actions update                          # one instance: A1, A2, A3, A5, A6
    .\benchmark\workflow\run-event-benchmark.ps1 -Actions update -BaselineRate 60         # three instances: also A4 (the A1 of one)
 
+ -Actions fair (Sprint 25, ADR-0164, ADR-0165): the fair share of the worker. A long queue of one organization is worked off
+ while a short one arrives; the thresholds F1 to F3 are written below and in ADR-0165 before the mode ever ran. Needs the
+ application running WITH the dispatcher and the default cap of three executions per organization and look:
+
+   .enchmarkworkflowun-event-benchmark.ps1 -Actions fair -Size smoke        # proves the harness; NOT a measurement
+   .enchmarkworkflowun-event-benchmark.ps1 -Actions fair                    # F1, F2, F3
+
  It is the product owner's to run, on the intended hardware.
 #>
 param(
@@ -38,7 +45,7 @@ param(
     [string]$ComposeFile = (Join-Path $PSScriptRoot '..\..\infra\local\docker-compose.yml'),
     [string]$ManagementUrl = 'http://localhost:8081',
     [double]$BaselineRate = 0,
-    [ValidateSet('none', 'update')] [string]$Actions = 'none',
+    [ValidateSet('none', 'update', 'fair')] [string]$Actions = 'none',
     [switch]$CleanupOnly
 )
 
@@ -63,6 +70,11 @@ $A4 = 1.8      # three instances, times A1
 $A5 = 200      # events per second for an organization with no workflow, re-measured while actions run (T6 unchanged)
 $A6 = 1.10     # p95 of a person's record write while actions run, against the same while they do not
 
+# ---- the thresholds of ADR-0165 for the fair share of the worker (Sprint 25), fixed before any number existed ----
+$F1 = 10.0   # seconds, p95 from creation to the end of a short queue that arrives while a long one is worked off
+$F2 = 40     # executions per second of the long queue, one instance: the turns must not collapse the rate
+$F3 = 1      # one execution for every event and every one completed: nothing lost, nothing made twice
+
 $sizes = @{
     smoke   = @{ Backlog1 = 1000;  Backlog2 = 2000;   PacedSeconds = 15;  WriterSeconds = 15; Judged = $false; Records = 300;  Paced = 20 }
     default = @{ Backlog1 = 60000; Backlog2 = 120000;  PacedSeconds = 120; WriterSeconds = 60; Judged = $true;  Records = 20000; Paced = 120 }
@@ -83,8 +95,9 @@ $container = (docker compose -f $ComposeFile ps -q postgres).Trim()
 if (-not $container) { throw 'The postgres service of infra/local is not running.' }
 
 function Psql([string]$sql) {
-    $out = docker exec -i -e PGPASSWORD=$($settings['POSTGRES_PASSWORD']) $container psql -U $settings['POSTGRES_USER'] `
-        -d $settings['POSTGRES_DB'] -v ON_ERROR_STOP=1 -At -c $sql
+    # Pipe via stdin rather than -c to avoid PowerShell 5.1 stripping double-quotes inside the argument.
+    $out = $sql | docker exec -i -e PGPASSWORD=$($settings['POSTGRES_PASSWORD']) $container psql -U $settings['POSTGRES_USER'] `
+        -d $settings['POSTGRES_DB'] -v ON_ERROR_STOP=1 -At
     if ($LASTEXITCODE -ne 0) { throw "psql failed for: $sql" }
     return ($out -join "`n").Trim()
 }
@@ -291,6 +304,75 @@ if ($Actions -eq 'update') {
     JudgeA "A4 >= $A4 x A1" $results.A4 { param($m) $m -ge $A4 }
     JudgeA "A5 >= $A5 events/s" $results.A5 { param($m) $m -ge $A5 }
     JudgeA "A6 <= $A6 x" $results.A6 { param($m) $m -le $A6 }
+    Set-Content -Path (Join-Path $resultDir 'summary.md') -Value $lines -Encoding utf8
+    Note ''
+    Note "Written to $resultDir. The benchmark organizations remain; remove them with -CleanupOnly."
+    if ($failed) { exit 2 }
+    exit 0
+}
+
+if ($Actions -eq 'fair') {
+    Note "# Fair share benchmark ($Size) $stamp"
+    Note ''
+    if (-not $plan.Judged) { Note '**Smoke run: it proves the harness works. Nothing here is a measurement and nothing is judged.**' }
+    Note 'The application must run WITH the dispatcher (PLATFORM_WORKFLOW_ENABLED=true) and the fair share cap in its default (3).'
+
+    $heavy = New-Organization 'heavy'
+    $small = New-Organization 'small'
+    foreach ($tenant in @($heavy, $small)) {
+        Psql "insert into subscription (bound_tenant_id, plan_id, status, trial_ends_at, created_by, updated_by) select '$tenant', id, 'TRIAL', now() + interval '30 days', '$SystemActor', '$SystemActor' from plan where key = 'trial'" | Out-Null
+        $workflow = [guid]::NewGuid().ToString()
+        $trigger = '{""kind"":""FIELD_CHANGED"",""fields"":[""status__c""]}'
+        $step = '[{""type"":""PUBLISH_EVENT"",""name"":""Say"",""settings"":{""event"":""bench.fair""}}]'
+        Psql "insert into workflow (id, tenant_id, object_api_name, api_name, label, created_by, updated_by) values ('$workflow', '$tenant', 'Bench__c', 'Sayer__c', 'Sayer', '$SystemActor', '$SystemActor')" | Out-Null
+        Psql "insert into workflow_version (tenant_id, workflow_id, version_number, trigger_kind, trigger, actions, created_by, updated_by) values ('$tenant', '$workflow', 1, 'FIELD_CHANGED', cast('$trigger' as jsonb), cast('$step' as jsonb), '$SystemActor', '$SystemActor')" | Out-Null
+    }
+    Note "Organizations made: one with a long queue ($heavy), one with a short one ($small)."
+    Start-Sleep -Seconds 3
+
+    function Add-Executions([string]$tenant, [int]$count) {
+        Psql "insert into object_record (tenant_id, object_api_name, owner_id, payload, created_by, updated_by) select '$tenant', 'Bench__c', '$SystemActor', jsonb_build_object('status__c', 'new'), '$SystemActor', '$SystemActor' from generate_series(1, $count)" | Out-Null
+        Psql "insert into outbox_event (tenant_id, event_type, payload, created_by, updated_by) select '$tenant', 'record.updated', jsonb_build_object('object', 'Bench__c', 'recordId', id, 'version', 1, 'fields', jsonb_build_array('status__c')), '$SystemActor', '$SystemActor' from (select id from object_record where tenant_id = '$tenant' and object_api_name = 'Bench__c' order by id limit $count) as chosen" | Out-Null
+    }
+    function Unfinished([string]$tenant) { return [int](Psql "select count(*) from workflow_execution where tenant_id = '$tenant' and status in ('QUEUED', 'RUNNING')") }
+
+    # F1 and F2: a long queue is made, and while it is worked off a short one arrives. The wait of the short one is what
+    # fair share protects; the rate of the long one must not collapse because of the turns.
+    Add-Executions $heavy $plan.Records
+    while ((Unfinished $heavy) -lt ($plan.Records / 2)) { Start-Sleep -Milliseconds 200 }
+    $started = Get-Date
+    $arrival = Psql 'select clock_timestamp()'
+    Add-Executions $small 20
+    while ((Pending $small) -gt 0 -or (Unfinished $small) -gt 0) { Start-Sleep -Milliseconds 200 }
+    $delays = Psql "select round(percentile_cont(0.95) within group (order by extract(epoch from (finished_at - created_at)))::numeric, 3) from workflow_execution where tenant_id = '$small' and status = 'COMPLETED' and created_at >= '$arrival'"
+    $results.F1 = [double]$delays
+    Note "F1: the short queue's executions took p95 $($results.F1) s from creation to the end while the long queue was being worked off."
+    while ((Pending $heavy) -gt 0 -or (Unfinished $heavy) -gt 0) { Start-Sleep -Milliseconds 500 }
+    $seconds = ((Get-Date) - $started).TotalSeconds
+    $done = [int](Psql "select count(*) from workflow_execution where tenant_id = '$heavy' and status = 'COMPLETED'")
+    $results.F2 = [math]::Round($done / [math]::Max($seconds, 0.001), 1)
+    Note "F2: $done executions of the long queue completed, $($results.F2) per second over the period."
+
+    # F3: nothing lost, nothing made twice: one execution for every event, all completed.
+    $events = [int](Psql "select count(*) from outbox_event where tenant_id in ('$heavy', '$small') and event_type = 'record.updated'")
+    $executions = [int](Psql "select count(*) from workflow_execution where tenant_id in ('$heavy', '$small')")
+    $completed = [int](Psql "select count(*) from workflow_execution where tenant_id in ('$heavy', '$small') and status = 'COMPLETED'")
+    $results.F3 = if ($events -gt 0 -and $executions -eq $events -and $completed -eq $executions) { 1 } else { 0 }
+    Note "F3: $events events, $executions executions, $completed completed."
+
+    Note ''
+    Note '| Threshold | Measured | Pass |'
+    Note '|-----------|----------|------|'
+    $failed = $false
+    function JudgeF([string]$name, $measured, [scriptblock]$passes) {
+        $pass = if ($measured -eq $null) { $null } else { & $passes $measured }
+        $text = if ($pass -eq $null) { 'not measured' } elseif ($pass) { 'PASS' } else { 'FAIL' }
+        if ($plan.Judged -and $pass -eq $false) { $script:failed = $true }
+        Note "| $name | $measured | $(if ($plan.Judged) { $text } else { 'not judged (smoke)' }) |"
+    }
+    JudgeF "F1 p95 <= $F1 s" $results.F1 { param($m) $m -le $F1 }
+    JudgeF "F2 >= $F2 executions/s" $results.F2 { param($m) $m -ge $F2 }
+    JudgeF "F3 = $F3 (nothing lost, nothing made twice)" $results.F3 { param($m) $m -eq $F3 }
     Set-Content -Path (Join-Path $resultDir 'summary.md') -Value $lines -Encoding utf8
     Note ''
     Note "Written to $resultDir. The benchmark organizations remain; remove them with -CleanupOnly."

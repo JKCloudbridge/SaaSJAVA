@@ -260,13 +260,107 @@ class ApprovalStore {
 
     /** Sets the status of a step (and its times) when it still has the version the caller read. */
     boolean updateStep(UUID id, long version, String status, UUID actor) {
-        return jdbc.sql("update approval_step_instance set status = :status, "
+        boolean updated = jdbc.sql("update approval_step_instance set status = :status, "
                         + "activated_at = case when :status = 'ACTIVE' then now() else activated_at end, "
                         + "finished_at = case when :status in ('APPROVED', 'REJECTED', 'SKIPPED') then now() "
                         + "else finished_at end, version = version + 1, updated_by = :actor "
                         + "where id = :id and version = :version and deleted_at is null")
                 .param("status", status).param("actor", actor).param("id", id).param("version", version)
                 .update() == 1;
+        if (updated && !"ACTIVE".equals(status)) {
+            // A step that is not active has no timer (ADR-0159): a reminder is never sent for a decided step.
+            stopTimer(id, actor);
+        }
+        return updated;
+    }
+
+    /** Requests that wait for a decision, and those among them that nobody can decide right now. */
+    record PendingCounts(long pending, long needingAttention) {
+    }
+
+    /** What the failure view of the organization counts (Sprint 25, ADR-0163). */
+    PendingCounts pendingCounts() {
+        return jdbc.sql("select count(*) filter (where status = 'PENDING') as pending, "
+                        + "count(*) filter (where status = 'PENDING' and attention is not null "
+                        + "and attention <> 'overdue') as attention from approval_instance where deleted_at is null")
+                .query((rs, row) -> new PendingCounts(rs.getLong("pending"), rs.getLong("attention"))).single();
+    }
+
+    // ---- timers (Sprint 25, ADR-0159) ----
+
+    /** The timer of an active step. */
+    record TimerRow(UUID id, UUID instanceId, UUID stepId, Instant nextTimerAt, int remindersSent,
+            Instant escalatedAt, Instant overdueAt, long version) {
+    }
+
+    /** Starts the timer of a step that has just become active, looking at it first at {@code first}. */
+    void startTimer(UUID instanceId, UUID stepId, Instant first, UUID actor) {
+        jdbc.sql("insert into approval_step_timer (instance_id, step_id, next_timer_at, created_by, updated_by) "
+                        + "values (:instance, :step, :first, :actor, :actor) "
+                        + "on conflict (tenant_id, step_id) where deleted_at is null do nothing")
+                .param("instance", instanceId).param("step", stepId).param("first", java.sql.Timestamp.from(first))
+                .param("actor", actor).update();
+    }
+
+    Optional<TimerRow> timerOf(UUID stepId) {
+        return jdbc.sql("select id, instance_id, step_id, next_timer_at, reminders_sent, escalated_at, overdue_at, "
+                        + "version from approval_step_timer where step_id = :step and deleted_at is null")
+                .param("step", stepId).query(ApprovalStore::timerRow).optional();
+    }
+
+    /** Records what the timer did and when it looks next (null: never). False when the row moved on meanwhile. */
+    boolean updateTimer(UUID id, long version, Instant next, int remindersSent, Instant escalatedAt,
+            Instant overdueAt, UUID actor) {
+        return jdbc.sql("update approval_step_timer set next_timer_at = :next, reminders_sent = :sent, "
+                        + "escalated_at = :escalated, overdue_at = :overdue, version = version + 1, "
+                        + "updated_by = :actor where id = :id and version = :version and deleted_at is null")
+                .param("next", next == null ? null : java.sql.Timestamp.from(next), Types.TIMESTAMP)
+                .param("sent", remindersSent)
+                .param("escalated", escalatedAt == null ? null : java.sql.Timestamp.from(escalatedAt),
+                        Types.TIMESTAMP)
+                .param("overdue", overdueAt == null ? null : java.sql.Timestamp.from(overdueAt), Types.TIMESTAMP)
+                .param("actor", actor).param("id", id).param("version", version).update() == 1;
+    }
+
+    /** Makes the timers of every step of a request look no more (the request ended). */
+    void stopTimers(UUID instanceId, UUID actor) {
+        jdbc.sql("update approval_step_timer set next_timer_at = null, ended_at = coalesce(ended_at, now()), "
+                        + "version = version + 1, updated_by = :actor "
+                        + "where instance_id = :instance and ended_at is null and deleted_at is null")
+                .param("actor", actor).param("instance", instanceId).update();
+    }
+
+    /** Makes the timer look at a step no more (the step ended). */
+    void stopTimer(UUID stepId, UUID actor) {
+        jdbc.sql("update approval_step_timer set next_timer_at = null, ended_at = coalesce(ended_at, now()), "
+                        + "version = version + 1, updated_by = :actor "
+                        + "where step_id = :step and ended_at is null and deleted_at is null")
+                .param("actor", actor).param("step", stepId).update();
+    }
+
+    /**
+     * Notes that the timer did something to a step, once. @return true when this call made the note, false when it was
+     * made before (by this or another instance)
+     */
+    boolean insertReminder(UUID instanceId, UUID stepId, String kind, int sequence, UUID actor) {
+        return jdbc.sql("insert into approval_reminder (instance_id, step_id, kind, sequence, created_by, "
+                        + "updated_by) values (:instance, :step, :kind, :sequence, :actor, :actor) "
+                        + "on conflict (tenant_id, step_id, kind, sequence) where deleted_at is null do nothing")
+                .param("instance", instanceId).param("step", stepId).param("kind", kind)
+                .param("sequence", sequence).param("actor", actor).update() == 1;
+    }
+
+    /** How many active steps of the organization are overdue now (the failure view, ADR-0163). */
+    int overdueSteps() {
+        return jdbc.sql("select count(*) from approval_step_timer where overdue_at is not null and ended_at is null "
+                        + "and deleted_at is null")
+                .query(Integer.class).single();
+    }
+
+    private static TimerRow timerRow(ResultSet rs, int row) throws SQLException {
+        return new TimerRow(rs.getObject("id", UUID.class), rs.getObject("instance_id", UUID.class),
+                rs.getObject("step_id", UUID.class), instant(rs, "next_timer_at"), rs.getInt("reminders_sent"),
+                instant(rs, "escalated_at"), instant(rs, "overdue_at"), rs.getLong("version"));
     }
 
     // ---- tasks ----

@@ -220,7 +220,7 @@ class ApprovalProcessService {
         String apiName = problems.check(() -> NameRules.objectApiName(request.name()));
         ApprovalProcessRules.Checked checked = rules.check(problems, request.label(), request.description(),
                 request.entryCriteria(), request.allowSelfApproval(), request.steps(), request.outcomes(),
-                request.fallback());
+                request.fallback(), request.remindAfterHours(), request.escalateAfterHours());
         problems.throwIfAny();
         if (store.count(objectApiName) >= properties.limits().maxApprovalProcessesPerObject()) {
             throw new ApiException(ErrorCode.CONFLICT, "The object has reached the most approval processes it may "
@@ -238,7 +238,8 @@ class ApprovalProcessService {
         try {
             row = store.insert(objectApiName, apiName, checked.label(), checked.description(), active,
                     checked.entryCriteria(), checked.allowSelfApproval(), codec.writeSteps(checked.steps()),
-                    codec.writeOutcomes(checked.outcomes()), codec.writeFallback(checked.fallback()), caller.userId());
+                    codec.writeOutcomes(checked.outcomes()), codec.writeFallback(checked.fallback()),
+                    checked.remindAfterHours(), checked.escalateAfterHours(), caller.userId());
         } catch (DuplicateKeyException e) {
             throw ApiException.validation("name", "An approval process with this name exists already on this object.");
         }
@@ -254,7 +255,7 @@ class ApprovalProcessService {
         Problems problems = new Problems();
         ApprovalProcessRules.Checked checked = rules.check(problems, request.label(), request.description(),
                 request.entryCriteria(), request.allowSelfApproval(), request.steps(), request.outcomes(),
-                request.fallback());
+                request.fallback(), request.remindAfterHours(), request.escalateAfterHours());
         problems.throwIfAny();
         if (row.version() != request.version()) {
             throw new ApiException(ErrorCode.CONCURRENT_MODIFICATION);
@@ -264,6 +265,8 @@ class ApprovalProcessService {
                 || !codec.writeSteps(checked.steps()).equals(codec.writeSteps(codec.readSteps(row.steps())))
                 || !codec.writeOutcomes(checked.outcomes())
                         .equals(codec.writeOutcomes(codec.readOutcomes(row.outcomes())))
+                || !Objects.equals(checked.remindAfterHours(), row.remindAfterHours())
+                || !Objects.equals(checked.escalateAfterHours(), row.escalateAfterHours())
                 || !Objects.equals(codec.writeFallback(checked.fallback()),
                         codec.writeFallback(codec.readFallback(row.fallback())));
         List<String> changed = new ArrayList<>();
@@ -288,7 +291,8 @@ class ApprovalProcessService {
             }
             store.insertVersion(row.id(), definitionVersion, checked.entryCriteria(), checked.allowSelfApproval(),
                     codec.writeSteps(checked.steps()), codec.writeOutcomes(checked.outcomes()),
-                    codec.writeFallback(checked.fallback()), caller.userId());
+                    codec.writeFallback(checked.fallback()), checked.remindAfterHours(), checked.escalateAfterHours(),
+                    caller.userId());
         }
         if (!store.update(row.id(), request.version(), checked.label(), checked.description(), request.active(),
                 definitionVersion, caller.userId())) {

@@ -29,7 +29,7 @@ class WorkflowActionRulesTest {
     private static final WorkflowRules RULES = new WorkflowRules(
             new ExpressionSupport(new ExpressionEngine(Limits.standard()), PROPERTIES),
             Clock.fixed(Instant.parse("2026-10-17T12:00:00Z"), ZoneOffset.UTC), PROPERTIES,
-            new WorkflowPlatformLimits(4, 5));
+            new WorkflowPlatformLimits(4, 5, 10));
 
     private static WorkflowAssignmentSpec literal(String field, String value) {
         return new WorkflowAssignmentSpec(field, value, null);
@@ -81,7 +81,7 @@ class WorkflowActionRulesTest {
 
     @Test
     void aTypeOfALaterReleaseIsRefusedAndTheAnswerListsWhatThisReleaseHas() {
-        for (String type : List.of("NOTIFY", "CALL_INTEGRATION", "RUN_SCRIPT")) {
+        for (String type : List.of("CALL_INTEGRATION", "RUN_SCRIPT")) {
             Map<String, List<String>> found = problemsOf(new WorkflowActionSpec(type, "X", Map.of()));
 
             assertThat(found.get("actions[0].type")).singleElement().asString().contains("UPDATE_RECORD")

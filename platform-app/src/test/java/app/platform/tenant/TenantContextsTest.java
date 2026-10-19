@@ -254,5 +254,6 @@ class TenantContextsTest {
         assertThat(SystemScope.OUTBOX_RELAY.settingValue()).isEqualTo("outbox_relay");
         assertThat(SystemScope.MEMBERSHIP_LOOKUP.settingValue()).isEqualTo("membership_lookup");
         assertThat(SystemScope.WORKFLOW_DISPATCH.settingValue()).isEqualTo("workflow_dispatch");
+        assertThat(SystemScope.APPROVAL_TIMERS.settingValue()).isEqualTo("approval_timers");
     }
 }

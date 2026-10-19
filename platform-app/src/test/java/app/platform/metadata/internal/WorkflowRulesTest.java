@@ -34,7 +34,7 @@ class WorkflowRulesTest {
             new MetadataProperties(new MetadataProperties.Limits(200, 500, 1000, 50, 200, 50, 50, 20, 20, 200, 50, 5,
                     500, 4, 200, 50, 200, 1_000_000, 200, 50, 200, 10, 25, 1000, 10, 200, 10, 10, 20),
                     new MetadataProperties.Cache(true, 1000)),
-            new WorkflowPlatformLimits(5, 5));
+            new WorkflowPlatformLimits(5, 5, 10));
     private static final List<WorkflowActionSpec> ONE_ACTION = List.of(signal("Announce", "order.created"));
 
     private static WorkflowActionSpec signal(String name, String event) {
@@ -298,5 +298,69 @@ class WorkflowRulesTest {
                 null, null, "Large__c", "APPROVED");
 
         assertThat(problems(trigger, null, ONE_ACTION, true)).containsOnlyKeys("trigger.process", "trigger.outcome");
+    }
+
+    // ---- the two phases (Sprint 25, ADR-0160) ----
+
+    private static WorkflowActionSpec setFields(String name) {
+        return new WorkflowActionSpec("SET_FIELDS", name, Map.of(),
+                List.of(new app.platformapi.WorkflowAssignmentSpec("status__c", "done", null)), null);
+    }
+
+    private static WorkflowActionSpec notify(String name, Map<String, String> settings) {
+        return new WorkflowActionSpec("NOTIFY", name, settings);
+    }
+
+    @Test
+    void aBeforeSaveTriggerTakesExactlyOneSetFieldsActionAndNothingElse() {
+        assertThat(problems(kind("BEFORE_CREATE"), null, List.of(setFields("Tidy")), true)).isEmpty();
+        assertThat(problems(kind("BEFORE_UPDATE"), "quantity__c > 1", List.of(setFields("Tidy")), true)).isEmpty();
+
+        assertThat(problems(kind("BEFORE_CREATE"), null, ONE_ACTION, true)).containsOnlyKeys("actions[0].type");
+        assertThat(problems(kind("BEFORE_UPDATE"), null, List.of(setFields("A"), setFields("B")), true))
+                .containsOnlyKeys("actions");
+    }
+
+    @Test
+    void setFieldsBelongsToABeforeSaveTriggerAlone() {
+        Map<String, List<String>> found = problems(kind("RECORD_CREATED"), null, List.of(setFields("Tidy")), true);
+
+        assertThat(found).containsOnlyKeys("actions[0].type");
+        assertThat(found.get("actions[0].type").get(0)).contains("before-save");
+    }
+
+    @Test
+    void aBeforeSaveAutomationRunsOnceSoItHasNoAttemptsToSet() {
+        WorkflowActionSpec tidy = new WorkflowActionSpec("SET_FIELDS", "Tidy", Map.of(),
+                List.of(new app.platformapi.WorkflowAssignmentSpec("status__c", "done", null)), 2);
+
+        assertThat(problems(kind("BEFORE_CREATE"), null, List.of(tidy), true))
+                .containsOnlyKeys("actions[0].maxAttempts");
+    }
+
+    @Test
+    void aBeforeSaveAutomationNeedsAFieldToSetLikeAnUpdate() {
+        WorkflowActionSpec empty = new WorkflowActionSpec("SET_FIELDS", "Tidy", Map.of());
+
+        assertThat(problems(kind("BEFORE_CREATE"), null, List.of(empty), true)).containsKey("actions[0].assignments");
+    }
+
+    @Test
+    void theNotifyActionNeedsItsRecipientAndTheFieldOnlyForAFieldRecipient() {
+        assertThat(problems(kind("RECORD_CREATED"), null, List.of(notify("Tell", Map.of("recipient", "OWNER"))), true))
+                .isEmpty();
+        assertThat(problems(kind("RECORD_CREATED"), null,
+                List.of(notify("Tell", Map.of("recipient", "FIELD", "recipientField", "manager__c"))), true)).isEmpty();
+
+        assertThat(problems(kind("RECORD_CREATED"), null, List.of(notify("Tell", Map.of())), true))
+                .containsKey("actions[0].settings.recipient");
+        assertThat(problems(kind("RECORD_CREATED"), null, List.of(notify("Tell", Map.of("recipient", "FIELD"))), true))
+                .containsOnlyKeys("actions[0].settings.recipientField");
+        assertThat(problems(kind("RECORD_CREATED"), null,
+                List.of(notify("Tell", Map.of("recipient", "OWNER", "recipientField", "manager__c"))), true))
+                .containsOnlyKeys("actions[0].settings.recipientField");
+        assertThat(problems(kind("RECORD_CREATED"), null,
+                List.of(notify("Tell", Map.of("recipient", "EVERYONE"))), true))
+                .containsKey("actions[0].settings.recipient");
     }
 }

@@ -75,13 +75,17 @@ record WorkflowProperties(@DefaultValue("true") boolean enabled, @DefaultValue W
      *        runner renews it before every step, so it must exceed the longest single step (default 2 minutes)
      * @param maxAttempts how many times an execution may be claimed before it is set aside as failed without being run
      *        again; a claim is counted when it is made, so a run that keeps killing the process ends (default 3)
+     * @param perOrganization the most executions of one organization that one claim takes (default 3): the queue is
+     *        shared by turns between the organizations that have work, so one organization with a long queue cannot
+     *        keep the others waiting (Sprint 25, ADR-0164)
      */
     record Worker(@DefaultValue("2") int threads, @DefaultValue("1s") Duration pollInterval,
             @DefaultValue("10") int batchSize, @DefaultValue("2m") Duration lease,
-            @DefaultValue("3") int maxAttempts) {
+            @DefaultValue("3") int maxAttempts, @DefaultValue("3") int perOrganization) {
 
         Worker {
             if (threads < 1 || threads > 16 || batchSize < 1 || batchSize > 200 || maxAttempts < 1
+                    || perOrganization < 1 || perOrganization > batchSize
                     || pollInterval.isNegative() || pollInterval.isZero() || lease.isNegative() || lease.isZero()) {
                 throw new IllegalArgumentException("platform.workflow.worker.* is out of range");
             }

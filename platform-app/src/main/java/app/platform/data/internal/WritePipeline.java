@@ -45,6 +45,8 @@ import org.springframework.stereotype.Component;
  * permission of Sprint 17 goes between the gate and this step;</li>
  * <li><b>type</b>: each value belongs in its field, and a picklist value is one the record type allows
  * ({@link FieldValue});</li>
+ * <li><b>before save</b>: the automations of the object with a before-save trigger set fields of the record
+ * ({@link BeforeSave}, Sprint 25, ADR-0160), so that everything below judges what they set;</li>
  * <li><b>required</b>: a required field and a master-detail have a value after the write;</li>
  * <li><b>relationship</b>: a linked record exists, is live and is of the target object, in this organization;</li>
  * <li><b>unique</b>: no other live record holds the value of a unique field, or links the same two parents of a
@@ -63,7 +65,8 @@ import org.springframework.stereotype.Component;
 class WritePipeline {
 
     /** The stages in the order they run and answer. Tests hold the pipeline to this list. */
-    static final List<String> STAGES = List.of("shape", "record type", "field permission", "type", "required",
+    static final List<String> STAGES = List.of("shape", "record type", "field permission", "type", "before save",
+            "required",
             "relationship", "unique", "rule", "formula");
 
     private static final String MISSING_LINK = "The linked record does not exist.";
@@ -106,11 +109,13 @@ class WritePipeline {
     private final RecordLinks recordLinks;
     private final Map<String, ReferenceDirectory> directories;
     private final RecordVisibility visibility;
+    private final BeforeSave beforeSave;
 
     WritePipeline(RecordValues shape, RecordTypeCheck recordTypes, FieldSecurity security,
             Calculations calculations, AutoNumbers autoNumbers, StorageStrategy storage, Metadata metadata,
             RecordSlots slots, RecordLinks recordLinks, List<ReferenceDirectory> directories,
-            RecordVisibility visibility) {
+            RecordVisibility visibility, BeforeSave beforeSave) {
+        this.beforeSave = beforeSave;
         this.visibility = visibility;
         this.shape = shape;
         this.recordTypes = recordTypes;
@@ -202,6 +207,25 @@ class WritePipeline {
         Map<String, Object> merged = new HashMap<>(held);
         cleared.forEach(merged::remove);
         merged.putAll(typed);
+
+        // 4b. before save: automations set fields of this record, once, judged on the record as it is now (ADR-0160)
+        if (beforeSave.any(object.apiName(), creating)) {
+            Findings automation = new Findings();
+            BeforeSave.Changes automated = beforeSave.run(object, type, creating, merged, held, automation);
+            throwIfAny("before save", automation, refused);
+            automated.set().forEach((field, value) -> {
+                typed.put(field, value);
+                cleared.remove(field);
+                merged.put(field, value);
+            });
+            automated.clear().forEach(field -> {
+                typed.remove(field);
+                if (!cleared.contains(field)) {
+                    cleared.add(field);
+                }
+                merged.remove(field);
+            });
+        }
 
         // 5. required
         Findings required = new Findings();

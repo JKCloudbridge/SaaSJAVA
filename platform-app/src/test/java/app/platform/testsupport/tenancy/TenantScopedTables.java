@@ -652,6 +652,59 @@ public final class TenantScopedTables {
                             + "created_by, updated_by) values (?, ?, ?, current_date, current_date + 1, ?, ?)",
                     tenant, UUID.randomUUID(), UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
 
+    /** The in-app notices of members (Sprint 25). */
+    public static final TenantScopedTable NOTIFICATION = new TenantScopedTable("notification",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into notification (tenant_id, recipient_id, kind, dedupe_key, created_by, updated_by) "
+                            + "values (?, ?, 'WORKFLOW_NOTICE', ?, ?, ?)",
+                    tenant, UUID.randomUUID(), "probe:" + UUID.randomUUID(), ActorId.SYSTEM.value(),
+                    ActorId.SYSTEM.value()));
+
+    /** The notification preferences of members (Sprint 25). */
+    public static final TenantScopedTable NOTIFICATION_PREFERENCE = new TenantScopedTable("notification_preference",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into notification_preference (tenant_id, user_id, category, channel, enabled, created_by, "
+                            + "updated_by) values (?, ?, 'APPROVALS', 'MAIL', false, ?, ?)",
+                    tenant, UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
+    /**
+     * The text administrators wrote for notices (Sprint 25). The kind is unique per tenant, so the harness (which
+     * inserts several rows for the same tenant) cycles through the closed list of kinds instead of repeating one.
+     */
+    public static final TenantScopedTable NOTIFICATION_TEMPLATE = new TenantScopedTable("notification_template",
+            notificationTemplateInserter());
+
+    private static TenantScopedTable.RowInserter notificationTemplateInserter() {
+        String[] kinds = {"APPROVAL_TASK", "APPROVAL_REMINDER", "APPROVAL_DECIDED", "WORKFLOW_NOTICE"};
+        java.util.concurrent.atomic.AtomicInteger next = new java.util.concurrent.atomic.AtomicInteger();
+        return (connection, tenant) -> TenantFixtures.update(connection,
+                "insert into notification_template (tenant_id, kind, title, body, created_by, updated_by) "
+                        + "values (?, ?, 'Probe', 'Probe', ?, ?)",
+                tenant, kinds[next.getAndIncrement() % kinds.length], ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+    }
+
+    /** The timers of active approval steps (Sprint 25). A probe row needs a request and a step, which it creates. */
+    public static final TenantScopedTable APPROVAL_STEP_TIMER = new TenantScopedTable("approval_step_timer",
+            (connection, tenant) -> {
+                UUID instance = probeApprovalInstance(connection, tenant);
+                UUID step = probeApprovalStep(connection, tenant, instance);
+                TenantFixtures.update(connection,
+                        "insert into approval_step_timer (tenant_id, instance_id, step_id, next_timer_at, created_by, "
+                                + "updated_by) values (?, ?, ?, now() + interval '1 hour', ?, ?)",
+                        tenant, instance, step, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** What the timer did to a step, once (Sprint 25). A probe row needs a request and a step, which it creates. */
+    public static final TenantScopedTable APPROVAL_REMINDER = new TenantScopedTable("approval_reminder",
+            (connection, tenant) -> {
+                UUID instance = probeApprovalInstance(connection, tenant);
+                UUID step = probeApprovalStep(connection, tenant, instance);
+                TenantFixtures.update(connection,
+                        "insert into approval_reminder (tenant_id, instance_id, step_id, kind, sequence, created_by, "
+                                + "updated_by) values (?, ?, ?, 'REMINDER', 1, ?, ?)",
+                        tenant, instance, step, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
@@ -665,7 +718,8 @@ public final class TenantScopedTables {
             RECORD_FILE, FILE_OBJECT_CLEANUP, IMPORT_JOB, IMPORT_ERROR, SEARCH_TERM, SEARCH_FIELD, LIST_VIEW,
             RECORD_PAGE_ASSIGNMENT, WORKFLOW, WORKFLOW_VERSION, WORKFLOW_EXECUTION, WORKFLOW_STEP,
             WORKFLOW_SCHEDULE, APPROVAL_PROCESS, APPROVAL_PROCESS_VERSION, APPROVAL_INSTANCE,
-            APPROVAL_STEP_INSTANCE, APPROVAL_ASSIGNMENT, APPROVAL_HISTORY, APPROVAL_DELEGATION);
+            APPROVAL_STEP_INSTANCE, APPROVAL_ASSIGNMENT, APPROVAL_HISTORY, APPROVAL_DELEGATION, NOTIFICATION,
+            NOTIFICATION_PREFERENCE, NOTIFICATION_TEMPLATE, APPROVAL_STEP_TIMER, APPROVAL_REMINDER);
 
     private TenantScopedTables() {
     }

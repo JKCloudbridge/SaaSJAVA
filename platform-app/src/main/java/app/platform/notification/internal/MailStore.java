@@ -119,6 +119,39 @@ class MailStore {
                 Map.of("error", errorType));
     }
 
+    /**
+     * What waits and what failed in the mail queue (Sprint 25, ADR-0163).
+     *
+     * @param queued mails waiting to be sent or tried again
+     * @param dead mails the relay gave up on
+     * @param oldestSeconds how long the longest-waiting due mail has waited, or 0
+     */
+    record Counts(long queued, long dead, long oldestSeconds) {
+    }
+
+    /** The counts of the mails of one organization (the queue is platform-level; the organization is a variable). */
+    Counts countsFor(UUID organization) {
+        return counts("and variables ->> 'organization_id' = :organization", organization);
+    }
+
+    /** The counts across organizations. */
+    Counts counts() {
+        return counts("", null);
+    }
+
+    private Counts counts(String narrowing, UUID organization) {
+        var statement = jdbc.sql("select count(*) filter (where status = 'QUEUED') as queued, "
+                + "count(*) filter (where status = 'DEAD') as dead, "
+                + "coalesce(extract(epoch from (now() - min(next_attempt_at) filter (where status = 'QUEUED' "
+                + "and next_attempt_at <= now())))::bigint, 0) as oldest from mail_queue "
+                + "where status in ('QUEUED', 'DEAD') " + narrowing);
+        if (organization != null) {
+            statement = statement.param("organization", organization.toString());
+        }
+        return statement.query((rs, row) -> new Counts(rs.getLong("queued"), rs.getLong("dead"),
+                Math.max(0, rs.getLong("oldest")))).single();
+    }
+
     /** Removes finished mails (sent or suppressed) older than the retention, at most one batch. */
     int purgeFinished(Duration retention) {
         return purge("status in ('SENT', 'SUPPRESSED')", retention);

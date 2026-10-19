@@ -62,7 +62,11 @@ record Change(Kind kind, String object, String item, String payload) {
         DELETE_WORKFLOW(Entity.WORKFLOW, true),
         CREATE_APPROVAL_PROCESS(Entity.APPROVAL_PROCESS, false),
         UPDATE_APPROVAL_PROCESS(Entity.APPROVAL_PROCESS, true),
-        DELETE_APPROVAL_PROCESS(Entity.APPROVAL_PROCESS, true);
+        DELETE_APPROVAL_PROCESS(Entity.APPROVAL_PROCESS, true),
+        /** A notification template is named by its kind of notice, also when it is made (Sprint 25, ADR-0155). */
+        CREATE_NOTIFICATION_TEMPLATE(Entity.NOTIFICATION_TEMPLATE, true),
+        UPDATE_NOTIFICATION_TEMPLATE(Entity.NOTIFICATION_TEMPLATE, true),
+        DELETE_NOTIFICATION_TEMPLATE(Entity.NOTIFICATION_TEMPLATE, true);
 
         private final Entity entity;
         private final boolean namesItem;
@@ -97,11 +101,12 @@ record Change(Kind kind, String object, String item, String payload) {
 
     /** The kinds of definition. */
     enum Entity { OBJECT, FIELD, RECORD_TYPE, LAYOUT, RECORD_PAGE, APPLICATION, LAYOUT_ASSIGNMENT, VALIDATION_RULE,
-        RECORD_TYPE_ASSIGNMENT, TAB, CUSTOM_PAGE, RECORD_PAGE_ASSIGNMENT, WORKFLOW, APPROVAL_PROCESS;
+        RECORD_TYPE_ASSIGNMENT, TAB, CUSTOM_PAGE, RECORD_PAGE_ASSIGNMENT, WORKFLOW, APPROVAL_PROCESS,
+        NOTIFICATION_TEMPLATE;
 
         /** Whether the kind of definition belongs to the organization and not to one object. */
         boolean organizationWide() {
-            return this == APPLICATION || this == TAB || this == CUSTOM_PAGE;
+            return this == APPLICATION || this == TAB || this == CUSTOM_PAGE || this == NOTIFICATION_TEMPLATE;
         }
     }
 }

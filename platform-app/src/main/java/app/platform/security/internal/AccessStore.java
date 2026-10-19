@@ -128,6 +128,14 @@ class AccessStore {
                 .param("id", id).query(AccessStore::profile).optional();
     }
 
+    /** The users of the active members who hold the Organization administrator system profile. */
+    List<UUID> administratorUsers() {
+        return jdbc.sql("select ma.user_id from member_access ma join profile p on p.id = ma.profile_id "
+                        + "and p.system_key = 'administrator' and p.deleted_at is null "
+                        + "where ma.deleted_at is null order by ma.user_id")
+                .query(UUID.class).list();
+    }
+
     Optional<ProfileRow> systemProfile(String systemKey) {
         return jdbc.sql("select " + PROFILE_COLUMNS + " from profile p where p.system_key = :key "
                         + "and p.deleted_at is null")

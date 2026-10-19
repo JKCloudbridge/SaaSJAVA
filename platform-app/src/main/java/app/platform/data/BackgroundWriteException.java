@@ -29,6 +29,8 @@ public final class BackgroundWriteException extends RuntimeException {
         REJECTED_BY_RULE("rejected_by_rule", false),
         /** A formula could not be evaluated. */
         FORMULA_FAILED("formula_failed", false),
+        /** A before-save automation misfit a field or the automations overran their time budget. */
+        AUTOMATION_FAILED("automation_failed", false),
         /** The record does not exist. */
         RECORD_GONE("record_gone", false),
         /** The record is in the recycle bin, where it is read-only. */

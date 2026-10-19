@@ -16,6 +16,8 @@ const SECTIONS = [
   { href: "/setup/workflows", label: "Workflows" },
   { href: "/workflows/executions", label: "Workflow runs" },
   { href: "/setup/approvals", label: "Approval processes" },
+  { href: "/setup/notification-text", label: "Notification text" },
+  { href: "/setup/automation-health", label: "Automation health" },
   { href: "/setup/changes", label: "Change sets" },
   { href: "/setup/history", label: "History" },
 ];
@@ -27,6 +29,7 @@ const OBJECT_PAGES = [
   "/setup/tabs",
   "/setup/workflows",
   "/setup/approvals",
+  "/setup/notification-text",
   "/setup/changes",
 ];
 

@@ -138,7 +138,15 @@ public enum Ability {
      */
     APPROVALS_OVERRIDE_LOCK("approvals.override-lock", "Override the lock of an approval",
             "Change a record while it is being approved, and recall or cancel an approval request that is not yours. "
-                    + "Every use is recorded in the audit trail and in the history of the approval.");
+                    + "Every use is recorded in the audit trail and in the history of the approval."),
+
+    /**
+     * See the health of automation: what waits, what failed, what is overdue (Sprint 25, ADR-0163). Counts only; the
+     * lists behind them need the abilities of workflows and approvals.
+     */
+    AUTOMATION_VIEW("automation.view", "View the health of automation",
+            "See how many workflow executions wait or failed, how many events and mails are stuck, and how many "
+                    + "approvals are overdue or have nobody to decide them.");
 
     private final String key;
     private final String title;

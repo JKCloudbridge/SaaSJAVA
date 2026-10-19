@@ -208,6 +208,40 @@ class LicensingStore {
     private static final String SUBSCRIPTION_COLUMNS = "s.id, s.bound_tenant_id, s.plan_id, p.key, p.name, s.status, "
             + "s.started_at, s.trial_ends_at, s.period_ends_at";
 
+    // ---- the end of a trial (Sprint 25, ADR-0162) ----
+
+    /** Trials that are over and have not been suspended for this end yet, the longest-over first. */
+    List<app.platform.licensing.Subscriptions.TrialEnd> overTrials(java.time.Instant now, int limit) {
+        return jdbc.sql("select s.id, s.bound_tenant_id, s.trial_ends_at from subscription s "
+                        + "where s.status = 'TRIAL' and s.trial_ends_at <= :now and s.deleted_at is null "
+                        + "and not exists (select 1 from subscription_notice n where n.subscription_id = s.id "
+                        + "and n.stage = 'SUSPENDED' and n.trial_ends_at = s.trial_ends_at and n.deleted_at is null) "
+                        + "order by s.trial_ends_at, s.id limit :limit")
+                .param("now", java.sql.Timestamp.from(now)).param("limit", limit)
+                .query((rs, row) -> new app.platform.licensing.Subscriptions.TrialEnd(
+                        new TenantId(rs.getObject("bound_tenant_id", UUID.class)),
+                        rs.getObject("id", UUID.class), rs.getTimestamp("trial_ends_at").toInstant()))
+                .list();
+    }
+
+    /** The stages of the end of this trial that have happened. */
+    java.util.Set<String> trialStagesDone(UUID subscriptionId, java.time.Instant trialEndsAt) {
+        return new java.util.HashSet<>(jdbc.sql("select stage from subscription_notice where subscription_id = :id "
+                        + "and trial_ends_at = :ends and deleted_at is null")
+                .param("id", subscriptionId).param("ends", java.sql.Timestamp.from(trialEndsAt))
+                .query(String.class).list());
+    }
+
+    /** Notes a stage, once. @return true when this call made the note, false when it was made before */
+    boolean markTrialStage(TenantId tenant, UUID subscriptionId, java.time.Instant trialEndsAt, String stage,
+            ActorId actor) {
+        return jdbc.sql("insert into subscription_notice (bound_tenant_id, subscription_id, stage, trial_ends_at, "
+                        + "created_by, updated_by) values (:tenant, :id, :stage, :ends, :actor, :actor) "
+                        + "on conflict (subscription_id, stage, trial_ends_at) where deleted_at is null do nothing")
+                .param("tenant", tenant.value()).param("id", subscriptionId).param("stage", stage)
+                .param("ends", java.sql.Timestamp.from(trialEndsAt)).param("actor", actor.value()).update() == 1;
+    }
+
     Optional<SubscriptionRow> subscription(TenantId tenant) {
         return jdbc.sql("select " + SUBSCRIPTION_COLUMNS + " from subscription s join plan p on p.id = s.plan_id "
                         + "where s.bound_tenant_id = :tenant and s.deleted_at is null")

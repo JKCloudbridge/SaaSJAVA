@@ -103,6 +103,7 @@ describe("WorkflowBuilder", () => {
       "When made",
       "When field moves",
       "Every morning",
+      "When saving",
     ]);
     expect(screen.getByText(/At most 7 actions in a workflow, 9 fields in an action, 321 characters/)).toBeInTheDocument();
     expect(screen.getByText(/up to 3 in a row/)).toBeInTheDocument();
@@ -110,7 +111,7 @@ describe("WorkflowBuilder", () => {
   });
 
   it("changes with the catalogue: a type the API adds is in the palette and a type it drops is not", async () => {
-    const changed = { ...CATALOGUE, actionTypes: [...CATALOGUE.actionTypes.slice(0, 1), { type: "BRAND_NEW", summary: "New.", assignments: "NONE", settings: [] }] };
+    const changed = { ...CATALOGUE, actionTypes: [...CATALOGUE.actionTypes.slice(0, 1), { type: "BRAND_NEW", summary: "New.", assignments: "NONE", settings: [], phase: "AFTER_SAVE" }] };
     fakeApi(answers({ "GET /api/v1/metadata/workflows/action-types": () => json({ data: changed }) }));
     render(<WorkflowBuilder />);
     await loaded();
@@ -296,5 +297,27 @@ describe("WorkflowBuilder", () => {
     render(<WorkflowBuilder />);
 
     expect(await screen.findByTestId("workflow-builder-failed")).toHaveTextContent("You may not view workflows.");
+  });
+
+  it("offers only the actions of the phase of the trigger, and drops those that no longer fit when the phase changes", async () => {
+    fakeApi(answers());
+    render(<WorkflowBuilder />);
+    await loaded();
+
+    expect(palette().queryByRole("button", { name: "Tidy up" })).toBeNull();
+    expect(actionCards().length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("radio", { name: "When saving" }));
+
+    expect(palette().getByRole("button", { name: "Tidy up" })).toBeInTheDocument();
+    expect(palette().queryByRole("button", { name: "Signal" })).toBeNull();
+    expect(screen.queryAllByTestId("workflow-action")).toHaveLength(0);
+    expect(screen.getByTestId("trigger-hints")).toHaveTextContent("exactly one action");
+
+    fireEvent.keyDown(palette().getByRole("button", { name: "Tidy up" }), { key: "Enter" });
+    expect(actionCards()).toHaveLength(1);
+    expect(screen.queryByTestId("trigger-hints")).toBeNull();
+    expect(screen.getByLabelText(/Switched on/)).toBeInTheDocument();
+    expect(screen.getByText(/it runs inside every save/)).toBeInTheDocument();
   });
 });

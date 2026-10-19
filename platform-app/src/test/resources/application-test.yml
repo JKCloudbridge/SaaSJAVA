@@ -46,6 +46,18 @@ platform:
     enabled: false
     sender-address: no-reply@example.test
     public-base-url: http://localhost:3000
+    notices:
+      retention:
+        # Tests drive the clean-up of notices themselves (runOnce), or switch it on for the one context that wants it.
+        enabled: false
+  approval:
+    timer:
+      # Tests drive the timer of reminders themselves (pollOnce), or switch it on for the one context that wants it.
+      enabled: false
+  licensing:
+    trial:
+      # Tests drive the end of a trial themselves (runOnce), or switch it on for the one context that wants it.
+      enabled: false
   outbox:
     # Tests drive the relay themselves, or switch it on for the one context that wants it to poll.
     enabled: false

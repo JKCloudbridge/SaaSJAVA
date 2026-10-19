@@ -78,6 +78,8 @@ export function ApprovalProcessesPanel() {
             steps: process.steps,
             outcomes: process.outcomes,
             fallback: process.fallback,
+            remindAfterHours: process.remindAfterHours,
+            escalateAfterHours: process.escalateAfterHours,
             version: process.version,
           },
         });

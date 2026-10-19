@@ -26,7 +26,15 @@ public enum SystemScope {
      * and {@code workflow_execution} admit it, and no other table does. The work itself always runs inside the
      * organization's own tenant context.
      */
-    WORKFLOW_DISPATCH("workflow_dispatch", false);
+    WORKFLOW_DISPATCH("workflow_dispatch", false),
+
+    /**
+     * The approval timer: finds the active steps of approvals whose reminder or escalation is due, in every
+     * organization, and claims them (Sprint 25, ADR-0159). The policies of {@code approval_step_timer} admit it for
+     * reading and for the claim, and no other table does. The work itself always runs inside the organization's own
+     * tenant context.
+     */
+    APPROVAL_TIMERS("approval_timers", false);
 
     private final String settingValue;
     private final boolean audited;

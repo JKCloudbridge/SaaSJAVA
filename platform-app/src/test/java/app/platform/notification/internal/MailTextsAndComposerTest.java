@@ -34,7 +34,7 @@ class MailTextsAndComposerTest {
     private final Users users = mock(Users.class);
     private final AccountTokens tokens = mock(AccountTokens.class);
     private final Invitations invitations = mock(Invitations.class);
-    private final MailComposer composer = new MailComposer(users, invitations, tokens,
+    private final MailComposer composer = MailComposerSupport.composer(users, invitations, tokens,
             new MailLinks(PROPERTIES, "localhost"), mock(app.platform.tenant.Tenants.class));
 
     private static MailProperties properties(String sender, String baseUrl) {
@@ -57,7 +57,7 @@ class MailTextsAndComposerTest {
     void everyMessageIsFilledCompletelyAndHasBothForms() {
         Map<String, String> values = Map.of("link", "http://localhost:3000/x#token=abc", "lifetime", "24 hours",
                 "signInLink", "http://localhost:3000/sign-in", "forgotLink", "http://localhost:3000/forgot-password",
-                "organization", "Organization A", "objectLabel", "Order", "process", "Large order");
+                "organization", "Organization A", "objectLabel", "Order", "process", "Large order", "days", "7 days");
         for (MailTexts.Kind kind : MailTexts.Kind.values()) {
             assertThat(MailTexts.text(kind, values)).as(kind + " text").doesNotContain("{{").isNotBlank();
             assertThat(MailTexts.html(kind, values)).as(kind + " html").doesNotContain("{{").startsWith("<!doctype");

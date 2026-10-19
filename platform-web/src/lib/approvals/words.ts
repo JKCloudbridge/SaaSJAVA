@@ -8,6 +8,7 @@ import { humanize } from "@/lib/builder/approvalModel";
 
 const REASONS: Record<string, string> = {
   no_approver: "Nobody can be asked to decide this step right now. An administrator can assign someone.",
+  overdue: "This step has waited longer than the process allows. An administrator can ask someone else.",
   approver_unresolvable: "The people for this step cannot be worked out any more. An administrator can assign someone.",
   inactive: "was not an active member",
   unlicensed: "did not hold a licence",
@@ -51,6 +52,9 @@ const HISTORY: Record<string, string> = {
   OUTCOME_FAILED: "The record could not be updated",
   OUTCOME_REAPPLIED: "The update was made again",
   LOCK_OVERRIDDEN: "Changed while locked",
+  REMINDER_SENT: "A reminder was sent",
+  ESCALATED: "The fallback approver was asked as well",
+  OVERDUE_MARKED: "Marked overdue",
 };
 
 /** The words for one line of the history, from its kind. */

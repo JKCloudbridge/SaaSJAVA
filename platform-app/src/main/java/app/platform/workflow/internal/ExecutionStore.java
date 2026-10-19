@@ -428,6 +428,39 @@ class ExecutionStore {
                 .param("reason", reason).param(SYSTEM, ActorId.SYSTEM.value()).update();
     }
 
+    /**
+     * What waits and what failed in the organization (Sprint 25, ADR-0163).
+     *
+     * @param queued executions that are due and wait for a worker
+     * @param running executions a worker holds
+     * @param stale queued executions that have waited longer than the bound
+     * @param deadLettered executions set aside for a person
+     * @param retrying steps that wait for their next attempt
+     * @param oldestQueuedSeconds how long the longest-waiting due execution has waited, or 0
+     */
+    record Health(long queued, long running, long stale, long deadLettered, long retrying, long oldestQueuedSeconds) {
+    }
+
+    /** The counts of the failure view for the organization of the tenant context. Counts only. */
+    Health health(Duration staleAfter) {
+        return jdbc.sql("""
+                select count(*) filter (where status = 'QUEUED' and run_at <= now()) as queued,
+                       count(*) filter (where status = 'RUNNING') as running,
+                       count(*) filter (where status = 'QUEUED' and run_at <= now() - make_interval(secs =>
+                           cast(:stale as double precision))) as stale,
+                       count(*) filter (where status = 'DEAD_LETTERED') as dead,
+                       coalesce(extract(epoch from (now() - min(run_at) filter (where status = 'QUEUED'
+                           and run_at <= now())))::bigint, 0) as oldest,
+                       (select count(*) from workflow_step where status = 'RETRYING' and deleted_at is null)
+                           as retrying
+                  from workflow_execution where deleted_at is null
+                """)
+                .param("stale", staleAfter.toMillis() / 1000.0)
+                .query((rs, row) -> new Health(rs.getLong("queued"), rs.getLong("running"), rs.getLong("stale"),
+                        rs.getLong("dead"), rs.getLong("retrying"), Math.max(0, rs.getLong("oldest"))))
+                .single();
+    }
+
     /** How many mails the steps of this organization completed since the instant (the hourly limit, ADR-0138). */
     int mailStepsSince(Instant since) {
         return jdbc.sql("select count(*) from workflow_step where action_type = 'SEND_EMAIL' "
