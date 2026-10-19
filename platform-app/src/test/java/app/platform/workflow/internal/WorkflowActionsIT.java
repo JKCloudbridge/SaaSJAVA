@@ -287,7 +287,7 @@ class WorkflowActionsIT extends ActionsSupport {
         List<String> queued = queuedMails(address);
         assertThat(queued).hasSize(1);
         assertThat(JsonPath.<Map<String, String>>read(queued.get(0), "$")).containsOnlyKeys("organization_id",
-                "object", "object_label", "record_id");
+                "object", "object_label", "record_id", "workflow_label");
         assertThat(queued.get(0)).doesNotContain("SECRET-TITLE").doesNotContain("Quarterly");
         assertThat(statuses(setup.organization())).containsExactly("COMPLETED");
     }

@@ -123,7 +123,7 @@ class TrialEndIT {
     @Test
     void theFirstWarningGoesToTheAdministratorsOnceAsAMailAndANotice() {
         Organization organization = organization();
-        trialEnding(organization, "-1 minute");
+        trialEnding(organization, "-1 hour");
 
         job.runOnce();
         job.runOnce();
@@ -141,7 +141,7 @@ class TrialEndIT {
     @Test
     void theFinalWarningComesAfterTheFirstAndTheOrganizationIsStillOpen() {
         Organization organization = organization();
-        trialEnding(organization, "-1 minute");
+        trialEnding(organization, "-1 hour");
         job.runOnce();
         trialMovedBack(organization, "6 days 12 hours");
 
@@ -187,7 +187,7 @@ class TrialEndIT {
     @Test
     void anExtendedTrialStartsItsStagesAgain() {
         Organization organization = organization();
-        trialEnding(organization, "-1 minute");
+        trialEnding(organization, "-1 hour");
         job.runOnce();
         assertThat(mails(organization)).isEqualTo(1);
 
@@ -195,7 +195,7 @@ class TrialEndIT {
         job.runOnce();
         assertThat(mails(organization)).as("the new end is far away").isEqualTo(1);
 
-        trialEnding(organization, "-1 minute");
+        trialEnding(organization, "-1 hour");
         job.runOnce();
 
         assertThat(mails(organization)).as("a new end, a new first warning").isEqualTo(2);
