@@ -15,8 +15,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Who made each definition of an object and who last changed it (UA3, ADR-0169). Every definition row already carries
- * the base columns {@code created_by}, {@code created_at}, {@code updated_by} and {@code updated_at} (ADR-0010), so this
- * reads them back; it stores nothing and changes no other view.
+ * the base columns {@code created_by}, {@code created_at}, {@code updated_by} and {@code updated_at} (ADR-0010), so
+ * this reads them back; it stores nothing and changes no other view.
  *
  * <p>A name is shown only for a person who is an active member of the organization (the {@code User} directory of the
  * identity module answers, so no other module is read), and the platform's own actor is shown as {@code Platform}. A

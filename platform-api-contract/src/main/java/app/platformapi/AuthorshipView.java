@@ -18,6 +18,6 @@ import java.time.Instant;
  * @param updatedBy who last changed it, when that can be shown
  * @param updatedAt when it was last changed
  */
-public record AuthorshipView(@NotNull String kind, @NotNull String apiName, String createdBy, @NotNull Instant createdAt,
-        String updatedBy, @NotNull Instant updatedAt) {
+public record AuthorshipView(@NotNull String kind, @NotNull String apiName, String createdBy,
+        @NotNull Instant createdAt, String updatedBy, @NotNull Instant updatedAt) {
 }
