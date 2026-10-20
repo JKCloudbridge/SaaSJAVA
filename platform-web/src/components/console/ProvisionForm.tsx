@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { COMMON_TEXT, commonFailureText, problems } from "@/components/account/messages";
 import { suggestSlug } from "@/components/account/CreateOrganizationForm";
+import { DetailGrid, DetailPage, DetailSection } from "@/components/ui/lists/DetailPage";
 import { api } from "@/lib/api/client";
 import { failureFromResponse } from "@/lib/api/errors";
 import type { components } from "@/lib/api/generated/schema";
@@ -86,81 +87,92 @@ export function ProvisionForm() {
 
   if (created) {
     return (
-      <div data-testid="provisioned" className="stack">
+      <DetailPage listLabel="Organizations" backHref="/console" title="Set up an organization" testId="provisioned">
         <p role="status">
           {created.name} was set up. It stays closed until its first administrator accepts the invitation that was sent.
         </p>
         <p>
           <Link href={`/console/organizations/${created.id}`}>Open the organization</Link>
         </p>
-      </div>
+      </DetailPage>
     );
   }
 
   return (
-    <form className="form" onSubmit={(event) => void submit(event)} noValidate>
-      <h2>Set up an organization for a client</h2>
-      {message ? (
-        <p className="form-message" role="alert" data-testid="provision-message">
-          {message}
-        </p>
-      ) : null}
-      <div className="field">
-        <label htmlFor="provision-name">Organization name</label>
-        <input
-          id="provision-name"
-          type="text"
-          value={displayName}
-          onChange={(event) => {
-            setDisplayName(event.target.value);
-            if (!slugEdited) {
-              setSlug(suggestSlug(event.target.value));
-            }
-          }}
-          required
-        />
-      </div>
-      <div className="field">
-        <label htmlFor="provision-slug">Short name for the web address</label>
-        <input
-          id="provision-slug"
-          type="text"
-          autoComplete="off"
-          value={slug}
-          onChange={(event) => {
-            setSlugEdited(true);
-            setSlug(event.target.value);
-          }}
-          required
-        />
-      </div>
-      <div className="field">
-        <label htmlFor="provision-plan">Plan</label>
-        <select id="provision-plan" value={planKey} onChange={(event) => setPlanKey(event.target.value)} required>
-          {plans.map((plan) => (
-            <option key={plan.key} value={plan.key}>
-              {plan.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="field">
-        <label htmlFor="provision-email">E-mail address of the first administrator</label>
-        <input
-          id="provision-email"
-          type="email"
-          autoComplete="off"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          required
-        />
-      </div>
-      <p>
-        An invitation is sent to this address. The answer is the same whether or not the address already has an account.
-      </p>
-      <button type="submit" className="button" disabled={submitting}>
-        {submitting ? "Setting up…" : "Set up the organization"}
-      </button>
-    </form>
+    <DetailPage
+      listLabel="Organizations"
+      backHref="/console"
+      title="Set up an organization"
+      intro="An invitation is sent to the first administrator. The answer is the same whether or not the address already has an account."
+      notices={
+        message ? (
+          <p className="form-message" role="alert" data-testid="provision-message">
+            {message}
+          </p>
+        ) : null
+      }
+      actions={
+        <button type="submit" form="provision-form" className="button" disabled={submitting}>
+          {submitting ? "Setting up…" : "Set up the organization"}
+        </button>
+      }
+    >
+      <form id="provision-form" onSubmit={(event) => void submit(event)} noValidate>
+        <DetailSection title="For a client">
+          <DetailGrid>
+            <div className="field">
+              <label htmlFor="provision-name">Organization name</label>
+              <input
+                id="provision-name"
+                type="text"
+                value={displayName}
+                onChange={(event) => {
+                  setDisplayName(event.target.value);
+                  if (!slugEdited) {
+                    setSlug(suggestSlug(event.target.value));
+                  }
+                }}
+                required
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="provision-slug">Short name for the web address</label>
+              <input
+                id="provision-slug"
+                type="text"
+                autoComplete="off"
+                value={slug}
+                onChange={(event) => {
+                  setSlugEdited(true);
+                  setSlug(event.target.value);
+                }}
+                required
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="provision-plan">Plan</label>
+              <select id="provision-plan" value={planKey} onChange={(event) => setPlanKey(event.target.value)} required>
+                {plans.map((plan) => (
+                  <option key={plan.key} value={plan.key}>
+                    {plan.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="provision-email">E-mail address of the first administrator</label>
+              <input
+                id="provision-email"
+                type="email"
+                autoComplete="off"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+              />
+            </div>
+          </DetailGrid>
+        </DetailSection>
+      </form>
+    </DetailPage>
   );
 }

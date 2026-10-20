@@ -43,25 +43,8 @@ describe("ConsoleFrame", () => {
 
     expect(await screen.findByText("console content")).toBeInTheDocument();
     expect(screen.getByTestId("console-roles")).toHaveTextContent("PLATFORM_ADMIN");
-    expect(screen.getByRole("link", { name: "Set up an organization" })).toHaveAttribute(
-      "href",
-      "/console/organizations/new",
-    );
-  });
-
-  it("lists the health of automation between the sessions and the audit trail", async () => {
-    fakeApi({
-      "GET /api/v1/tenant/current": () => refusal("NOT_FOUND", "No organization exists.", 404),
-      "GET /api/v1/auth/me": () => json({ data: { ...PERSON, platformRoles: ["PLATFORM_SUPPORT"] } }),
-    });
-
-    renderFrame();
-
-    await screen.findByText("console content");
-    const labels = screen.getAllByRole("link").map((link) => link.textContent);
-    expect(labels.indexOf("Automation health")).toBe(labels.indexOf("Sessions") + 1);
-    expect(labels.indexOf("Audit trail")).toBe(labels.indexOf("Automation health") + 1);
-    expect(screen.getByRole("link", { name: "Automation health" })).toHaveAttribute("href", "/console/automation-health");
+    // The rail beside the page belongs to the shell now (ShellRail.test.tsx); the frame has none of its own.
+    expect(screen.queryByRole("navigation")).toBeNull();
   });
 
   it("does the same once under StrictMode, which runs effects twice in development", async () => {

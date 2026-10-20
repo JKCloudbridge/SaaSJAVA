@@ -1,16 +1,6 @@
-import { HomeActions } from "@/components/account/HomeActions";
-import { PlatformStatusCard } from "@/components/PlatformStatusCard";
+import { Landing } from "@/components/shell/Landing";
 
+/** The start page: sends a signed-in member of an organization to where they land, and welcomes everybody else. */
 export default function HomePage() {
-  return (
-    <>
-      <h1>Welcome</h1>
-      <p>
-        This is the web frontend of the platform. It shows what the platform API tells it; the API decides everything
-        else. The panel below asks the API for its status.
-      </p>
-      <HomeActions />
-      <PlatformStatusCard />
-    </>
-  );
+  return <Landing />;
 }

@@ -1,13 +1,17 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi, json, refusal } from "@/test/fakeApi";
+import { setUrl } from "@/test/navigation";
 import { AccessPoliciesPanel } from "./AccessPoliciesPanel";
 import { ProfilesPanel } from "./ProfilesPanel";
 import { RolesPanel } from "./RolesPanel";
 
+vi.mock("next/navigation", async () => (await import("@/test/navigation")).navigationMock);
+
 beforeEach(() => {
   document.cookie = "XSRF-TOKEN=test-token; path=/";
+  act(() => setUrl("/setup"));
 });
 
 afterEach(() => {
@@ -63,63 +67,151 @@ const CUSTOM_PROFILE = {
   members: 0,
 };
 
+const profileApi = (extra: Record<string, () => Response> = {}, profiles = [ADMIN_PROFILE, MEMBER_PROFILE, CUSTOM_PROFILE]) =>
+  fakeApi({
+    "GET /api/v1/profiles": () => json({ data: profiles }),
+    "GET /api/v1/abilities": () => json(ABILITIES),
+    "GET /api/v1/licence-types": () => json(TYPES),
+    [`GET /api/v1/profiles/${CUSTOM_PROFILE.id}/data-access`]: () => refusal("FORBIDDEN", "Not for this test.", 403),
+    ...extra,
+  });
+
 describe("ProfilesPanel", () => {
-  it("lists the profiles as the API reports them and offers only what the data allows", async () => {
-    fakeApi({
-      "GET /api/v1/profiles": () => json({ data: [ADMIN_PROFILE, MEMBER_PROFILE, CUSTOM_PROFILE] }),
-      "GET /api/v1/abilities": () => json(ABILITIES),
-      "GET /api/v1/licence-types": () => json(TYPES),
-    });
+  it("lists the profiles as a table with a tag for system, default and custom ones", async () => {
+    profileApi();
     render(<ProfilesPanel />);
 
     const rows = await screen.findAllByTestId("profile-row");
     expect(rows).toHaveLength(3);
-    expect(rows[0]).toHaveTextContent("Organization administrator (system)");
-    expect(within(rows[0] as HTMLElement).queryByRole("button", { name: "Change" })).toBeNull();
-    expect(within(rows[0] as HTMLElement).queryByRole("button", { name: "Remove" })).toBeNull();
-    expect(rows[1]).toHaveTextContent("(default for new members)");
-    expect(within(rows[1] as HTMLElement).queryByRole("button", { name: "Remove" })).toBeNull();
-    expect(rows[2]).toHaveTextContent("Invite members");
-    expect(within(rows[2] as HTMLElement).getByRole("button", { name: "Remove" })).toBeInTheDocument();
+    expect(rows[0]).toHaveTextContent("Organization administrator");
+    expect(rows[0]).toHaveTextContent("System");
+    expect(rows[1]).toHaveTextContent("Default for new members");
+    expect(rows[2]).toHaveTextContent("Custom");
+    expect(screen.getByRole("columnheader", { name: "Licence type" })).toBeInTheDocument();
   });
 
-  it("creates a profile with the chosen licence type and abilities", async () => {
-    const calls = fakeApi({
-      "GET /api/v1/profiles": () => json({ data: [MEMBER_PROFILE] }),
-      "GET /api/v1/abilities": () => json(ABILITIES),
-      "GET /api/v1/licence-types": () => json(TYPES),
-      "POST /api/v1/profiles": () => json({ data: CUSTOM_PROFILE }, 201),
-    });
+  it("filters the loaded profiles with the search box", async () => {
+    profileApi();
     render(<ProfilesPanel />);
     await screen.findAllByTestId("profile-row");
 
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "profile-a" } });
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search profiles" }), { target: { value: "admin" } });
+    expect(screen.getAllByTestId("profile-row")).toHaveLength(1);
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search profiles" }), { target: { value: "zzz" } });
+    expect(screen.getByText("Nothing matches “zzz”.")).toBeInTheDocument();
+  });
+
+  it("opens a profile as a page with a breadcrumb, and offers only what the data allows", async () => {
+    profileApi();
+    render(<ProfilesPanel />);
+    const rows = await screen.findAllByTestId("profile-row");
+
+    // The administrator profile: no change, no remove, no make default.
+    fireEvent.click(within(rows[0] as HTMLElement).getByRole("button", { name: "Organization administrator" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "Organization administrator" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Change" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Make default" })).toBeNull();
+    expect(screen.getByTestId("profile-abilities")).toHaveTextContent("Manage access");
+
+    // Back through the breadcrumb, then the default profile: changeable, not removable.
+    fireEvent.click(screen.getByRole("button", { name: "Profiles" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Member" }));
+    expect(await screen.findByRole("button", { name: "Change" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Make default" })).toBeNull();
+
+    // A custom profile: all three.
+    fireEvent.click(screen.getByRole("button", { name: "Profiles" }));
+    fireEvent.click(await screen.findByRole("button", { name: "profile-a" }));
+    expect(await screen.findByRole("button", { name: "Remove" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Make default" })).toBeInTheDocument();
+    expect(screen.getByTestId("profile-abilities")).toHaveTextContent("Invite members");
+  });
+
+  it("shows the permissions on data of the profile as a section of its page", async () => {
+    profileApi();
+    render(<ProfilesPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "profile-a" }));
+
+    expect(await screen.findByRole("group", { name: "Permissions on data" })).toBeInTheDocument();
+  });
+
+  it("creates a profile with the chosen licence type and abilities, then returns to the list", async () => {
+    const calls = profileApi(
+      { "POST /api/v1/profiles": () => json({ data: CUSTOM_PROFILE }, 201) },
+      [MEMBER_PROFILE],
+    );
+    render(<ProfilesPanel />);
+    await screen.findAllByTestId("profile-row");
+
+    fireEvent.click(screen.getByRole("button", { name: "New profile" }));
+    fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "profile-a" } });
     fireEvent.change(screen.getByLabelText("Licence type"), { target: { value: "admin" } });
     fireEvent.click(screen.getByLabelText(/Invite members/));
     fireEvent.click(screen.getByRole("button", { name: "Create the profile" }));
 
     expect(await screen.findByTestId("profiles-notice")).toHaveTextContent("The profile was created.");
+    expect(await screen.findByTestId("profiles")).toBeInTheDocument();
     expect(calls.find((call) => call.key === "POST /api/v1/profiles")?.body).toBe(
       JSON.stringify({ name: "profile-a", description: "", licenceType: "admin", abilities: ["members.invite"] }),
     );
   });
 
+  it("changes a profile in place and shows the notice on the same page", async () => {
+    const calls = profileApi({ [`PUT /api/v1/profiles/${CUSTOM_PROFILE.id}`]: () => json({ data: CUSTOM_PROFILE }) });
+    render(<ProfilesPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "profile-a" }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Change" }));
+    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "For the field team." } });
+    fireEvent.click(screen.getByRole("button", { name: "Save the profile" }));
+
+    expect(await screen.findByTestId("profiles-notice")).toHaveTextContent("The profile was saved.");
+    expect(screen.getByRole("heading", { level: 1, name: "profile-a" })).toBeInTheDocument();
+    expect(calls.find((call) => call.key === `PUT /api/v1/profiles/${CUSTOM_PROFILE.id}`)?.body).toBe(
+      JSON.stringify({
+        name: "profile-a",
+        description: "For the field team.",
+        licenceType: "user",
+        abilities: ["members.invite"],
+      }),
+    );
+  });
+
+  it("makes a profile the default for new members", async () => {
+    const calls = profileApi({
+      [`POST /api/v1/profiles/${CUSTOM_PROFILE.id}/default`]: () => new Response(null, { status: 204 }),
+    });
+    render(<ProfilesPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "profile-a" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Make default" }));
+
+    expect(await screen.findByTestId("profiles-notice")).toHaveTextContent("New members now get this profile.");
+    expect(calls.map((call) => call.key)).toContain(`POST /api/v1/profiles/${CUSTOM_PROFILE.id}/default`);
+  });
+
   it("shows the API's own words when a profile cannot be removed", async () => {
-    fakeApi({
-      "GET /api/v1/profiles": () => json({ data: [MEMBER_PROFILE, CUSTOM_PROFILE] }),
-      "GET /api/v1/abilities": () => json(ABILITIES),
-      "GET /api/v1/licence-types": () => json(TYPES),
-      "DELETE /api/v1/profiles/33333333-3333-4333-8333-333333333333": () =>
+    profileApi({
+      [`DELETE /api/v1/profiles/${CUSTOM_PROFILE.id}`]: () =>
         refusal("CONFLICT", "Members still hold this profile. Give them another profile first.", 409),
     });
     render(<ProfilesPanel />);
-    const rows = await screen.findAllByTestId("profile-row");
-
-    fireEvent.click(within(rows[1] as HTMLElement).getByRole("button", { name: "Remove" }));
+    fireEvent.click(await screen.findByRole("button", { name: "profile-a" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
 
     expect(await screen.findByTestId("profiles-problem")).toHaveTextContent(
       "Members still hold this profile. Give them another profile first.",
     );
+  });
+
+  it("says plainly that an open profile no longer exists", async () => {
+    profileApi();
+    act(() => setUrl("/setup/profiles?open=99999999-9999-4999-8999-999999999999"));
+    render(<ProfilesPanel />);
+
+    expect(await screen.findByText("This profile does not exist any more.")).toBeInTheDocument();
   });
 
   it("says what the API answered when the caller may not manage access", async () => {
@@ -145,7 +237,7 @@ describe("AccessPoliciesPanel", () => {
   };
   const POOLS = { data: [{ licenceType: "admin", name: "Administrator", quantity: 3, assigned: 2, available: 1 }] };
 
-  it("lists policies with the numbers of the licence they need", async () => {
+  it("lists policies with a tag for the licence they need", async () => {
     fakeApi({
       "GET /api/v1/access-policies": () => json({ data: [POLICY] }),
       "GET /api/v1/abilities": () => json(ABILITIES),
@@ -155,8 +247,24 @@ describe("AccessPoliciesPanel", () => {
     render(<AccessPoliciesPanel />);
 
     const row = await screen.findByTestId("policy-row");
-    expect(row).toHaveTextContent("See members");
+    expect(row).toHaveTextContent("policy-a");
+    expect(row).toHaveTextContent("Needs a admin licence");
+  });
+
+  it("shows the abilities and the numbers of the licence on the policy's page", async () => {
+    fakeApi({
+      "GET /api/v1/access-policies": () => json({ data: [POLICY] }),
+      "GET /api/v1/abilities": () => json(ABILITIES),
+      "GET /api/v1/licence-types": () => json(TYPES),
+      "GET /api/v1/licences": () => json(POOLS),
+      [`GET /api/v1/access-policies/${POLICY.id}/data-access`]: () => refusal("FORBIDDEN", "Not for this test.", 403),
+    });
+    render(<AccessPoliciesPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "policy-a" }));
+
+    expect(await screen.findByTestId("policy-abilities")).toHaveTextContent("See members");
     expect(screen.getByTestId("policy-licence")).toHaveTextContent("admin (1 of 3 free)");
+    expect(screen.getByRole("group", { name: "Permissions on data" })).toBeInTheDocument();
   });
 
   it("creates a licence-bound policy and shows a refusal in the API's words", async () => {
@@ -170,7 +278,8 @@ describe("AccessPoliciesPanel", () => {
     render(<AccessPoliciesPanel />);
     await screen.findByText("There are no access policies yet.");
 
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "policy-a" } });
+    fireEvent.click(screen.getByRole("button", { name: "New access policy" }));
+    fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "policy-a" } });
     fireEvent.change(screen.getByLabelText("Needs a licence of type"), { target: { value: "admin" } });
     fireEvent.click(screen.getByLabelText(/See members/));
     fireEvent.click(screen.getByRole("button", { name: "Create the access policy" }));
@@ -179,6 +288,25 @@ describe("AccessPoliciesPanel", () => {
     expect(calls.find((call) => call.key === "POST /api/v1/access-policies")?.body).toBe(
       JSON.stringify({ name: "policy-a", description: "", abilities: ["members.view"], requiredLicenceType: "admin" }),
     );
+    // The form stays open with what was typed, so the person can correct it.
+    expect(screen.getByLabelText("Name")).toHaveValue("policy-a");
+  });
+
+  it("removes a policy from its page and shows the notice on the list", async () => {
+    fakeApi({
+      "GET /api/v1/access-policies": () => json({ data: [POLICY] }),
+      "GET /api/v1/abilities": () => json(ABILITIES),
+      "GET /api/v1/licence-types": () => json(TYPES),
+      "GET /api/v1/licences": () => json(POOLS),
+      [`GET /api/v1/access-policies/${POLICY.id}/data-access`]: () => refusal("FORBIDDEN", "Not for this test.", 403),
+      [`DELETE /api/v1/access-policies/${POLICY.id}`]: () => new Response(null, { status: 204 }),
+    });
+    render(<AccessPoliciesPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "policy-a" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+
+    expect(await screen.findByTestId("policies-notice")).toHaveTextContent("The access policy was removed.");
+    expect(await screen.findByTestId("policies")).toBeInTheDocument();
   });
 });
 
@@ -192,7 +320,7 @@ describe("RolesPanel", () => {
     members: 1,
   };
 
-  it("shows the tree with sub-roles under their parent", async () => {
+  it("shows the tree with sub-roles under their parent, indented", async () => {
     fakeApi({ "GET /api/v1/roles": () => json({ data: [BELOW, TOP] }) });
     render(<RolesPanel />);
 
@@ -201,7 +329,22 @@ describe("RolesPanel", () => {
       expect.stringContaining("role-a"),
       expect.stringContaining("role-b"),
     ]);
+    const first = within(rows[0] as HTMLElement).getAllByRole("cell")[0] as HTMLElement;
+    const second = within(rows[1] as HTMLElement).getAllByRole("cell")[0] as HTMLElement;
+    expect(first.style.paddingInlineStart).toContain("* 0");
+    expect(second.style.paddingInlineStart).toContain("* 1");
     expect(screen.getByText(/gives no ability/)).toBeInTheDocument();
+  });
+
+  it("shows the parent and the roles below on the role's page", async () => {
+    fakeApi({ "GET /api/v1/roles": () => json({ data: [TOP, BELOW] }) });
+    render(<RolesPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "role-a" }));
+
+    expect(await screen.findByTestId("role-below")).toHaveTextContent("role-b");
+    fireEvent.click(screen.getByRole("button", { name: "role-b" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "role-b" })).toBeInTheDocument();
+    expect(screen.getByText("role-a", { selector: ".dl-value" })).toBeInTheDocument();
   });
 
   it("repeats the API's words when a move would make a loop", async () => {
@@ -211,9 +354,9 @@ describe("RolesPanel", () => {
         refusal("CONFLICT", "A role cannot be placed below itself or below one of its own sub-roles.", 409),
     });
     render(<RolesPanel />);
-    const rows = await screen.findAllByTestId("role-row");
+    fireEvent.click(await screen.findByRole("button", { name: "role-a" }));
 
-    fireEvent.click(within(rows[0] as HTMLElement).getByRole("button", { name: "Change" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Change" }));
     fireEvent.change(screen.getByLabelText("Works under"), { target: { value: BELOW.id } });
     fireEvent.click(screen.getByRole("button", { name: "Save the role" }));
 
@@ -227,13 +370,13 @@ describe("RolesPanel", () => {
 
 describe("the setup pages under React strict mode (effects run twice in development)", () => {
   it("load their lists and still work once", async () => {
-    const calls = fakeApi({
-      "GET /api/v1/profiles": () => json({ data: [MEMBER_PROFILE] }),
-      "GET /api/v1/abilities": () => json(ABILITIES),
-      "GET /api/v1/licence-types": () => json(TYPES),
-      "GET /api/v1/roles": () => json({ data: [] }),
-      "POST /api/v1/profiles": () => json({ data: CUSTOM_PROFILE }, 201),
-    });
+    const calls = profileApi(
+      {
+        "GET /api/v1/roles": () => json({ data: [] }),
+        "POST /api/v1/profiles": () => json({ data: CUSTOM_PROFILE }, 201),
+      },
+      [MEMBER_PROFILE],
+    );
     render(
       <StrictMode>
         <ProfilesPanel />
@@ -241,7 +384,8 @@ describe("the setup pages under React strict mode (effects run twice in developm
     );
     await screen.findAllByTestId("profile-row");
 
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "profile-a" } });
+    fireEvent.click(screen.getByRole("button", { name: "New profile" }));
+    fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "profile-a" } });
     fireEvent.click(screen.getByRole("button", { name: "Create the profile" }));
 
     expect(await screen.findByTestId("profiles-notice")).toHaveTextContent("The profile was created.");

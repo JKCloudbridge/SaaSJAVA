@@ -72,6 +72,15 @@ describe("ApprovalProcessesPanel", () => {
     expect(push).toHaveBeenCalledWith("/setup/approvals/Trip__c/new");
   });
 
+  it("filters the loaded processes with the search box", async () => {
+    fakeApi(answers([PROCESS, { ...PROCESS, apiName: "Idle__c", label: "Idle", active: false }]));
+    render(<ApprovalProcessesPanel />);
+    await screen.findAllByTestId("approval-process-row");
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search approval processes" }), { target: { value: "idle" } });
+    expect(screen.getAllByTestId("approval-process-row")).toHaveLength(1);
+  });
+
   it("switches a process off with the version it read, live", async () => {
     const calls = fakeApi({ ...answers(), [ACTIVATION]: () => json({ data: { ...PROCESS, active: false } }) });
     render(<ApprovalProcessesPanel />);

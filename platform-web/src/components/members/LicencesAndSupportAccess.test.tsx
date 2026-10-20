@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi, json, refusal } from "@/test/fakeApi";
+import { setUrl } from "@/test/navigation";
 import { MembersPanel } from "./MembersPanel";
 import { SupportAccessPanel } from "./SupportAccessPanel";
 
@@ -52,8 +53,11 @@ const POOLS = {
   ],
 };
 
+vi.mock("next/navigation", async () => (await import("@/test/navigation")).navigationMock);
+
 beforeEach(() => {
   document.cookie = "XSRF-TOKEN=test-token; path=/";
+  act(() => setUrl("/members"));
 });
 
 afterEach(() => {
@@ -71,19 +75,31 @@ describe("MembersPanel licences", () => {
     });
   }
 
-  it("shows the numbers per licence type and the licence each member holds", async () => {
+  it("shows the numbers per licence type as a band above the list and the licence each member holds", async () => {
     api();
     render(<MembersPanel />);
 
     const pools = await screen.findByTestId("licence-pools");
-    expect(pools).toHaveTextContent("Administrator");
-    expect(within(pools).getAllByRole("row")).toHaveLength(3);
+    const tiles = within(pools).getAllByTestId("licence-pool");
+    expect(tiles).toHaveLength(2);
+    expect(tiles[0]).toHaveTextContent("User");
+    expect(tiles[0]).toHaveTextContent("3 of 5");
+    expect(tiles[0]).toHaveTextContent("2 free");
+    expect(tiles[1]).toHaveTextContent("Administrator");
     const rows = await screen.findAllByTestId("member-row");
     expect(within(rows[1] as HTMLElement).getByTestId("member-licence")).toHaveTextContent("user");
     expect(within(rows[0] as HTMLElement).getByTestId("member-licence")).toHaveTextContent("none");
-    expect(within(rows[0] as HTMLElement).getByTestId("member-profile")).toHaveTextContent("Waiting for a licence");
-    expect(within(rows[2] as HTMLElement).queryByRole("button", { name: /Give/ })).toBeNull();
+    expect(rows[0]).toHaveTextContent("Waiting for a licence");
     expect(screen.getByText(/grants no permission by itself/)).toBeInTheDocument();
+  });
+
+  it("offers no licence button on the page of a deactivated member", async () => {
+    api();
+    render(<MembersPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "User B" }));
+
+    const page = await screen.findByTestId("member-detail");
+    expect(within(page).queryByRole("button", { name: /Give/ })).toBeNull();
   });
 
   it("gives the licence a profile needs, takes one back, and shows the API's words when none is free", async () => {
@@ -92,13 +108,15 @@ describe("MembersPanel licences", () => {
         refusal("CONFLICT", "No licence of this type is free.", 409),
     });
     render(<MembersPanel />);
-    const rows = await screen.findAllByTestId("member-row");
 
-    fireEvent.click(within(rows[0] as HTMLElement).getByRole("button", { name: "Give a licence" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Admin A (you)" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Give a licence" }));
     expect(await screen.findByTestId("members-problem")).toHaveTextContent("No licence of this type is free.");
     expect(calls.some((c) => c.key === "PUT /api/v1/members/11111111-1111-4111-8111-111111111111/licence")).toBe(true);
 
-    fireEvent.click(within(rows[1] as HTMLElement).getByRole("button", { name: "Take back" }));
+    fireEvent.click(screen.getByRole("button", { name: "Members" }));
+    fireEvent.click(await screen.findByRole("button", { name: "User A" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Take back" }));
     await waitFor(() =>
       expect(calls.map((c) => c.key)).toContain("DELETE /api/v1/members/22222222-2222-4222-8222-222222222222/licence"),
     );

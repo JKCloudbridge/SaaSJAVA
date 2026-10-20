@@ -119,3 +119,16 @@ export function useSession(): SessionApi {
   }
   return context;
 }
+
+/**
+ * Whether a button that needs the ability should be drawn. The abilities are the API's own list for the signed-in member,
+ * so this is only a courtesy: it is false only when the list is known and lacks the ability, and the API still decides
+ * (and answers in its own words) whatever the page offered. Without a session (a test of a single panel) it is true.
+ */
+export function useOffers(ability: string): boolean {
+  const context = useContext(SessionContext);
+  if (context?.state.status !== "signedIn") {
+    return true;
+  }
+  return context.state.user.abilities.includes(ability);
+}

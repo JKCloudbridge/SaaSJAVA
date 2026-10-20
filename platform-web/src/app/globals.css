@@ -62,6 +62,11 @@ p {
   margin-bottom: var(--space-1);
 }
 
+/* The change-set selector sits above the title on the pages that have one (UA1). */
+.shell-main > section[aria-label="Where changes go"] {
+  margin-bottom: var(--space-4);
+}
+
 .shell-main > h1 + p {
   color: var(--color-text-muted);
   max-width: 48rem;
@@ -154,12 +159,21 @@ ol {
 .shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: var(--shell-nav-width) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: var(--shell-header-height) auto 1fr;
+  grid-template-areas:
+    "header"
+    "control"
+    "main";
+}
+
+/* The pages that have a side rail (the Home pages, the console) put it beside the content (UA1, ADR-0167). */
+.shell:has(> .side-rail) {
+  grid-template-columns: var(--shell-nav-width) minmax(0, 1fr);
   grid-template-areas:
     "header header"
     "control control"
-    "nav main";
+    "rail main";
 }
 
 .shell-header {
@@ -181,9 +195,11 @@ ol {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2-5);
+  color: inherit;
   font-weight: 700;
   font-size: var(--font-size-lg);
   letter-spacing: -0.01em;
+  text-decoration: none;
   white-space: nowrap;
 }
 
@@ -258,45 +274,127 @@ ol {
   gap: var(--space-2);
 }
 
-.shell-nav {
-  grid-area: nav;
-  padding: var(--space-4) var(--space-3);
-  background: var(--color-surface);
+/*
+ * The side rail (UA1, ADR-0167): one rail for every area that has one. It runs beside the content from the strip down,
+ * as the design shows. Links are plain items; a group is a quiet main item with a small arrow that opens the links
+ * below it, one level deep, with a thin guide line beside them.
+ */
+.side-rail {
+  grid-area: rail;
+  position: sticky;
+  top: calc(var(--shell-header-height) + var(--control-bar-height));
+  align-self: start;
+  max-height: calc(100vh - var(--shell-header-height) - var(--control-bar-height));
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-2-5);
+  background: var(--color-surface-sunken);
   border-right: var(--border-width) solid var(--color-border);
 }
 
-.shell-nav ul {
+.side-rail-label {
+  margin: 0;
+  padding: var(--space-1-5) var(--space-2) var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+}
+
+.side-rail ul {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: var(--space-1);
+  gap: var(--space-0-5);
 }
 
-.shell-nav a {
+.side-rail-link,
+.side-rail-group-button {
   display: flex;
   align-items: center;
-  gap: var(--space-2-5);
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
   padding: var(--space-2) var(--space-2-5);
+  border: 0;
   border-radius: var(--radius-sm);
+  background: none;
   color: var(--color-text);
+  font: inherit;
   font-size: var(--font-size-sm);
-  font-weight: 500;
+  line-height: 1.3;
+  text-align: left;
   text-decoration: none;
+  cursor: pointer;
   transition:
     background var(--transition),
     color var(--transition);
 }
 
-.shell-nav a:hover {
-  background: var(--color-surface-sunken);
+.side-rail-link:hover,
+.side-rail-group-button:hover {
+  background: color-mix(in srgb, var(--color-border) 50%, transparent);
   color: var(--color-text);
 }
 
-.shell-nav a[aria-current="page"] {
+.side-rail-link[aria-current="page"] {
   background: var(--color-accent-soft);
   color: var(--color-accent);
   font-weight: 600;
+}
+
+/* A group header is quieter than a page: no weight, and the accent only to say the current page is inside it. */
+.side-rail-group-button {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.side-rail-group-button[data-current="true"] {
+  color: var(--color-accent);
+}
+
+.side-rail-arrow {
+  flex: 0 0 auto;
+  width: 0.875rem;
+  height: 0.875rem;
+  transition: transform var(--transition-calm);
+}
+
+.side-rail-group-button[aria-expanded="true"] .side-rail-arrow {
+  transform: rotate(180deg);
+}
+
+/* The links of a group open downwards: the row height moves from nothing to its own, which needs no measured height. */
+.side-rail-sub {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--transition-calm),
+    visibility var(--transition-calm);
+}
+
+.side-rail-group[data-open="true"] > .side-rail-sub {
+  grid-template-rows: 1fr;
+  visibility: visible;
+}
+
+.side-rail-sub > ul {
+  min-height: 0;
+  overflow: hidden;
+  margin-left: var(--space-3);
+  padding-left: var(--space-2);
+  border-left: var(--border-width) solid var(--color-border-strong);
+}
+
+.side-rail-sub .side-rail-link {
+  padding-block: var(--space-1-5);
+}
+
+/* The button that opens the rail on a narrow screen; on a wide one the rail is always open. */
+.side-rail-toggle {
+  display: none;
 }
 
 .nav-icon {
@@ -1003,8 +1101,14 @@ ol.stack > li time {
   top: calc(100% + var(--space-2));
   left: 0;
   z-index: 30;
-  width: var(--launcher-width);
+  /* The panel is as wide as its columns, and the columns grow with the number of applications (UA1). */
+  width: calc(
+    var(--launcher-columns, 2) * var(--launcher-tile-width) + (var(--launcher-columns, 2) - 1) * var(--space-1-5) +
+      2 * var(--space-2-5)
+  );
   max-width: calc(100vw - var(--space-6));
+  max-height: calc(100vh - var(--shell-header-height) - var(--control-bar-height) - var(--space-5));
+  overflow-y: auto;
   padding: var(--space-2-5);
   background: var(--color-surface);
   border: var(--border-width) solid var(--color-border);
@@ -1027,7 +1131,7 @@ ol.stack > li time {
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--launcher-columns, 2), minmax(0, 1fr));
   gap: var(--space-1-5);
 }
 
@@ -1147,18 +1251,17 @@ ol.stack > li time {
   margin: 0;
   padding: 0;
   display: flex;
-  align-items: stretch;
+  align-items: center;
   height: 100%;
   gap: var(--space-1);
 }
 
+/* The tabs of the strip are pills, as the design shows: the current one is a white chip with a thin outline. */
 .control-tab {
   display: inline-flex;
   align-items: center;
-  height: 100%;
-  padding: 0 var(--space-3);
-  border-bottom: calc(var(--border-width) * 2) solid transparent;
-  margin-bottom: calc(var(--border-width) * -1);
+  padding: var(--space-1-5) var(--space-3);
+  border-radius: var(--radius-sm);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   font-weight: 500;
@@ -1175,8 +1278,9 @@ a.control-tab:hover {
 }
 
 .control-tab[aria-current="page"] {
-  border-bottom-color: var(--color-accent);
-  color: var(--color-accent);
+  background: var(--color-surface);
+  box-shadow: inset 0 0 0 var(--border-width) var(--color-border);
+  color: var(--color-text);
   font-weight: 600;
 }
 
@@ -1300,13 +1404,14 @@ a.control-tab:hover {
  * ---------------------------------------------------------------------------------------------------------------- */
 
 @media (max-width: 48rem) {
-  .shell {
+  .shell,
+  .shell:has(> .side-rail) {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto auto 1fr;
     grid-template-areas:
       "header"
       "control"
-      "nav"
+      "rail"
       "main";
   }
 
@@ -1317,23 +1422,51 @@ a.control-tab:hover {
     flex-wrap: wrap;
   }
 
-  .shell-nav {
+  /* The rail becomes a menu above the content: one button, and the same list, groups and all, opens below it. */
+  .side-rail {
     position: static;
     max-height: none;
     padding: var(--space-2) var(--space-3);
     border-right: none;
     border-bottom: var(--border-width) solid var(--color-border);
-    overflow-x: auto;
   }
 
-  .shell-nav > ul {
+  .side-rail-label {
+    display: none;
+  }
+
+  .side-rail-toggle {
     display: flex;
-    gap: var(--space-1);
     align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: var(--space-2) var(--space-2-5);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
   }
 
-  .shell-nav a {
-    white-space: nowrap;
+  .side-rail-toggle-here {
+    color: var(--color-text-muted);
+    font-weight: 500;
+  }
+
+  .side-rail-toggle[aria-expanded="true"] .side-rail-arrow {
+    transform: rotate(180deg);
+  }
+
+  .side-rail-body {
+    display: none;
+    padding-top: var(--space-2);
+  }
+
+  .side-rail-body[data-open="true"] {
+    display: block;
   }
 
   .shell-main {
@@ -2033,4 +2166,313 @@ a.control-tab:hover {
   .palette {
     position: static;
   }
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * List and detail pages (UA2, ADR-0168)
+ * One frame for every Home screen: a quiet title band (breadcrumb, title, search and the buttons), then the body. A list
+ * is a table whose first cell opens the row; a detail is sections of label and value pairs. Built once, used by all.
+ * ---------------------------------------------------------------------------------------------------------------- */
+
+.shell-main section.page-frame {
+  padding: 0;
+}
+
+.page-head {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface-sunken);
+  border-bottom: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.page-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.page-head h1 {
+  flex: 1 1 12rem;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.page-head-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.page-head-bar {
+  background: var(--color-surface-sunken);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+}
+
+.page-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  padding: var(--space-5);
+  min-width: 0;
+}
+
+.page-intro {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1-5);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.breadcrumb-link {
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.breadcrumb-link:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+
+.search-box {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.search-box-icon {
+  position: absolute;
+  left: var(--space-2-5);
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.search-box input[type="search"] {
+  width: var(--search-min-width);
+  max-width: 100%;
+  padding-left: calc(var(--space-2-5) + 1.25rem);
+}
+
+.table-list td {
+  vertical-align: middle;
+}
+
+.table-list td:last-child {
+  text-align: left;
+}
+
+.table-list td.cell-tag {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table-list td.cell-muted {
+  color: var(--color-text-muted);
+}
+
+.table-list tbody tr[data-openable="true"] {
+  cursor: pointer;
+}
+
+.table-list tbody tr.table-list-empty:hover td {
+  background: none;
+}
+
+.table-list .table-list-empty td {
+  padding: var(--space-5) var(--space-3-5);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.row-open {
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.row-open:hover {
+  color: var(--color-accent);
+}
+
+.row-name {
+  font-weight: 600;
+}
+
+.row-extra {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 400;
+}
+
+.detail-section + .detail-section,
+.detail-section + form,
+form + .detail-section {
+  margin-top: var(--space-5);
+}
+
+.detail-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3-5);
+  padding-bottom: var(--space-2);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.detail-section-title {
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-5);
+}
+
+.detail-item {
+  min-width: 0;
+}
+
+.span-2 {
+  grid-column: 1 / -1;
+}
+
+.dl-label {
+  margin-bottom: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.dl-value {
+  font-size: var(--font-size-sm);
+  word-break: break-word;
+}
+
+.dl-value.muted {
+  color: var(--color-text-muted);
+}
+
+.dl-value.mono {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+@media (max-width: 40rem) {
+  .detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-head,
+  .page-body {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+
+  .page-head-tools {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .search-box {
+    flex: 1 1 auto;
+  }
+
+  .search-box input[type="search"] {
+    width: 100%;
+  }
+}
+
+/* A band of figures above a list or on a page of counts: a label, a big number, a quiet line under it. */
+.stat-band {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stat-band > li {
+  display: grid;
+  gap: var(--space-0-5);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.shell-main section .stat-band {
+  margin: 0;
+  padding: 0;
+}
+
+.shell-main section .stat-band > li {
+  margin: 0;
+}
+
+.stat-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+}
+
+.stat-value {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.stat-note {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+/* A filter bar or a timeline inside the page frame is part of it, not a second raised card. */
+.page-body .filters,
+.page-body ol.stack > li {
+  box-shadow: none;
+}
+
+.page-body .filters {
+  background: var(--color-surface-sunken);
 }

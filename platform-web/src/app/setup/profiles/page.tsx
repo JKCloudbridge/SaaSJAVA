@@ -1,19 +1,16 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { ProfilesPanel } from "@/components/setup/ProfilesPanel";
-import { SetupFrame } from "@/components/setup/SetupFrame";
 
 export const metadata: Metadata = {
   title: "Profiles",
 };
 
-/** The profiles of the organization this address belongs to. */
+/** The profiles of the organization this address belongs to (a list; a row opens in the same pane). */
 export default function ProfilesPage() {
   return (
-    <>
-      <h1>Profiles</h1>
-      <SetupFrame>
-        <ProfilesPanel />
-      </SetupFrame>
-    </>
+    <Suspense fallback={null}>
+      <ProfilesPanel />
+    </Suspense>
   );
 }

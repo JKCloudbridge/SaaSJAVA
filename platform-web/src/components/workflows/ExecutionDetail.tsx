@@ -8,6 +8,9 @@ import { ActionMessages, failureText, useAction } from "@/components/console/use
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
 import { humanize } from "@/lib/builder/workflowModel";
+import { DetailGrid, DetailItem, DetailPage, DetailSection } from "@/components/ui/lists/DetailPage";
+import { PageFrame } from "@/components/ui/lists/PageFrame";
+import { Tag } from "@/components/ui/lists/Tag";
 import { useObjectForm } from "@/lib/records/hooks";
 import { useSession } from "@/lib/session/SessionProvider";
 import {
@@ -61,13 +64,19 @@ export function ExecutionDetail() {
 
   if (failure) {
     return (
-      <p className="form-message" role="alert" data-testid="run-failed">
-        {failure}
-      </p>
+      <PageFrame title="Workflow run">
+        <p className="form-message" role="alert" data-testid="run-failed">
+          {failure}
+        </p>
+      </PageFrame>
     );
   }
   if (!execution) {
-    return <p aria-live="polite">Loading…</p>;
+    return (
+      <PageFrame title="Workflow run">
+        <p aria-live="polite">Loading…</p>
+      </PageFrame>
+    );
   }
   const run: Execution = execution;
 
@@ -97,72 +106,50 @@ export function ExecutionDetail() {
   }
 
   return (
-    <section aria-labelledby="run-heading" className="stack" data-testid="run">
-      <nav aria-label="Where you are" className="breadcrumb">
-        <Link href="/workflows/executions">Workflow runs</Link>
-        <span aria-hidden="true"> / </span>
-        <span aria-current="page">{run.workflow}</span>
-      </nav>
-      <h2 id="run-heading">
-        {run.workflow} <span className="badge">{statusText(run.status)}</span>
-      </h2>
-      {run.reason ? (
-        <p data-testid="run-reason">
-          {reasonText(run.reason)}
-          {run.failureType ? <span className="hint"> ({run.failureType})</span> : null}
-        </p>
-      ) : null}
-      <ActionMessages notice={notice} problem={problem} testId="run" />
-
-      <dl className="facts">
-        <dt>Record</dt>
-        <dd>
-          <RecordReference objectApiName={run.objectApiName} recordId={run.recordId} />
-        </dd>
-        <dt>Started by</dt>
-        <dd>{humanize(run.trigger)}</dd>
-        <dt>Version of the workflow</dt>
-        <dd>{run.workflowVersion}</dd>
-        <dt>Queued</dt>
-        <dd>{new Date(run.queuedAt).toLocaleString()}</dd>
-        {run.startedAt ? (
-          <>
-            <dt>Started</dt>
-            <dd>{new Date(run.startedAt).toLocaleString()}</dd>
-          </>
-        ) : null}
-        {run.finishedAt ? (
-          <>
-            <dt>Ended</dt>
-            <dd>{new Date(run.finishedAt).toLocaleString()}</dd>
-          </>
-        ) : null}
-        {run.status === "QUEUED" ? (
-          <>
-            <dt>Due</dt>
-            <dd>{new Date(run.runAt).toLocaleString()}</dd>
-          </>
-        ) : null}
-        <dt>Workflows in a row before it</dt>
-        <dd>{run.chainDepth}</dd>
-        {run.replayOf ? (
-          <>
-            <dt>Replays</dt>
-            <dd>
-              <Link href={`/workflows/executions/${run.replayOf}`}>The earlier run</Link>, resuming at step{" "}
-              {run.resumeStep}
-            </dd>
-          </>
-        ) : null}
-        {run.replayedBy ? (
-          <>
-            <dt>Replayed by</dt>
-            <dd>
+    <DetailPage
+      listLabel="Workflow runs"
+      backHref="/workflows/executions"
+      title={run.workflow}
+      testId="run"
+      notices={
+        <>
+          {run.reason ? (
+            <p data-testid="run-reason">
+              {reasonText(run.reason)}
+              {run.failureType ? <span className="hint"> ({run.failureType})</span> : null}
+            </p>
+          ) : null}
+          <ActionMessages notice={notice} problem={problem} testId="run" />
+        </>
+      }
+    >
+      <DetailSection title="Detail">
+        <DetailGrid>
+          <DetailItem label="Status">
+            <Tag>{statusText(run.status)}</Tag>
+          </DetailItem>
+          <DetailItem label="Record">
+            <RecordReference objectApiName={run.objectApiName} recordId={run.recordId} />
+          </DetailItem>
+          <DetailItem label="Started by">{humanize(run.trigger)}</DetailItem>
+          <DetailItem label="Version of the workflow">{run.workflowVersion}</DetailItem>
+          <DetailItem label="Queued">{new Date(run.queuedAt).toLocaleString()}</DetailItem>
+          {run.startedAt ? <DetailItem label="Started">{new Date(run.startedAt).toLocaleString()}</DetailItem> : null}
+          {run.finishedAt ? <DetailItem label="Ended">{new Date(run.finishedAt).toLocaleString()}</DetailItem> : null}
+          {run.status === "QUEUED" ? <DetailItem label="Due">{new Date(run.runAt).toLocaleString()}</DetailItem> : null}
+          <DetailItem label="Workflows in a row before it">{run.chainDepth}</DetailItem>
+          {run.replayOf ? (
+            <DetailItem label="Replays">
+              <Link href={`/workflows/executions/${run.replayOf}`}>The earlier run</Link>, resuming at step {run.resumeStep}
+            </DetailItem>
+          ) : null}
+          {run.replayedBy ? (
+            <DetailItem label="Replayed by">
               <Link href={`/workflows/executions/${run.replayedBy}`}>A newer run</Link>
-            </dd>
-          </>
-        ) : null}
-      </dl>
+            </DetailItem>
+          ) : null}
+        </DetailGrid>
+      </DetailSection>
 
       {offersReplay(run) || offersCancel(run) ? (
         <div className="card" role="group" aria-label="What can be done with this run" data-testid="run-actions">
@@ -196,44 +183,45 @@ export function ExecutionDetail() {
         </p>
       ) : null}
 
-      <h3>Steps</h3>
-      {(run.steps ?? []).length === 0 ? (
-        <p className="hint">No step has started.</p>
-      ) : (
-        <table className="table" data-testid="steps">
-          <thead>
-            <tr>
-              <th>Step</th>
-              <th>Action</th>
-              <th>State</th>
-              <th>Attempts</th>
-              <th>Last failure</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(run.steps ?? []).map((step) => (
-              <tr key={step.position} data-testid="step-row">
-                <td>
-                  {step.position}. {step.name}
-                </td>
-                <td>{humanize(step.type)}</td>
-                <td>
-                  {stepStatusText(step.status)}
-                  {step.nextAttemptAt ? (
-                    <div className="hint">Next attempt {new Date(step.nextAttemptAt).toLocaleString()}</div>
-                  ) : null}
-                </td>
-                <td>{step.attempts}</td>
-                <td>
-                  {step.reason ? <div>{reasonText(step.reason)}</div> : null}
-                  {step.failureType ? <div className="hint">{step.failureType}</div> : null}
-                </td>
+      <DetailSection title="Steps">
+        {(run.steps ?? []).length === 0 ? (
+          <p className="hint">No step has started.</p>
+        ) : (
+          <table className="table" data-testid="steps">
+            <thead>
+              <tr>
+                <th>Step</th>
+                <th>Action</th>
+                <th>State</th>
+                <th>Attempts</th>
+                <th>Last failure</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </section>
+            </thead>
+            <tbody>
+              {(run.steps ?? []).map((step) => (
+                <tr key={step.position} data-testid="step-row">
+                  <td>
+                    {step.position}. {step.name}
+                  </td>
+                  <td>{humanize(step.type)}</td>
+                  <td>
+                    {stepStatusText(step.status)}
+                    {step.nextAttemptAt ? (
+                      <div className="hint">Next attempt {new Date(step.nextAttemptAt).toLocaleString()}</div>
+                    ) : null}
+                  </td>
+                  <td>{step.attempts}</td>
+                  <td>
+                    {step.reason ? <div>{reasonText(step.reason)}</div> : null}
+                    {step.failureType ? <div className="hint">{step.failureType}</div> : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </DetailSection>
+    </DetailPage>
   );
 }
 

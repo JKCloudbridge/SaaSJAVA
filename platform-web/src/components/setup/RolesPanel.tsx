@@ -1,15 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { COMMON_TEXT } from "@/components/account/messages";
-import { ActionMessages, failureText, useAction } from "@/components/console/useAction";
+import { ActionMessages, failureText } from "@/components/console/useAction";
+import { DetailGrid, DetailItem, DetailPage, DetailSection, MissingDetail } from "@/components/ui/lists/DetailPage";
+import { ListPage } from "@/components/ui/lists/ListPage";
+import { useListScreen } from "@/components/ui/lists/useListScreen";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
+import { useOffers } from "@/lib/session/SessionProvider";
 
 type Role = components["schemas"]["RoleView"];
 
 interface Draft {
-  id?: string;
   name: string;
   description: string;
   parentId: string;
@@ -17,9 +20,14 @@ interface Draft {
 
 const EMPTY: Draft = { name: "", description: "", parentId: "" };
 
+interface TreeRow {
+  role: Role;
+  depth: number;
+}
+
 /** A role with its depth in the tree, parents before their sub-roles. A loop (which the API refuses) cannot hang the page. */
-function inTreeOrder(roles: Role[]): Array<{ role: Role; depth: number }> {
-  const result: Array<{ role: Role; depth: number }> = [];
+function inTreeOrder(roles: Role[]): TreeRow[] {
+  const result: TreeRow[] = [];
   const seen = new Set<string>();
   const add = (parentId: string | undefined, depth: number) => {
     for (const role of roles.filter((candidate) => (candidate.parentId ?? undefined) === parentId)) {
@@ -36,14 +44,17 @@ function inTreeOrder(roles: Role[]): Array<{ role: Role; depth: number }> {
 }
 
 /**
- * The role hierarchy of the organization the address names. A role decides which records a member may see once records
- * exist; it gives no ability and changes nothing a member can do today. The page shows what the API answers and its own
- * words for every refusal (a move that would make a loop is refused by the API, not by this page).
+ * The role hierarchy of the organization the address names, a list with the tree shown by indentation. A role decides which
+ * records a member may see once records exist; it gives no ability and changes nothing a member can do today. A row opens
+ * the role (its parent, sub-roles, members); New opens the same page as a form. The page shows what the API answers and its
+ * own words for every refusal (a move that would make a loop is refused by the API, not by this page).
  */
 export function RolesPanel() {
   const [roles, setRoles] = useState<Role[] | undefined>();
   const [failure, setFailure] = useState<string | undefined>();
+  const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY);
+  const offersManage = useOffers("access.manage");
 
   const reload = useCallback(async () => {
     try {
@@ -63,145 +74,228 @@ export function RolesPanel() {
     void Promise.resolve().then(reload);
   }, [reload]);
 
-  const { busy, notice, problem, act } = useAction(reload);
+  const screen = useListScreen(reload);
+  const { busy, notice, problem, act } = screen;
+  const tree = useMemo(() => (roles ? inTreeOrder(roles) : undefined), [roles]);
 
-  function save(event: FormEvent<HTMLFormElement>) {
+  const bodyOf = () => ({ name: draft.name, description: draft.description, parentId: draft.parentId || undefined });
+
+  function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const body = { name: draft.name, description: draft.description, parentId: draft.parentId || undefined };
     void act(async () => {
-      const result = draft.id
-        ? await api.PUT("/api/v1/roles/{roleId}", { params: { path: { roleId: draft.id } }, body })
-        : await api.POST("/api/v1/roles", { body });
+      const result = await api.POST("/api/v1/roles", { body: bodyOf() });
       if (result.response.ok) {
-        setDraft(EMPTY);
+        screen.back(true);
       }
-      return { error: result.error, response: result.response, text: draft.id ? "The role was saved." : "The role was created." };
+      return { error: result.error, response: result.response, text: "The role was created." };
     });
   }
+
+  const save = (role: Role) => (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void act(async () => {
+      const result = await api.PUT("/api/v1/roles/{roleId}", { params: { path: { roleId: role.id } }, body: bodyOf() });
+      if (result.response.ok) {
+        setEditing(false);
+      }
+      return { error: result.error, response: result.response, text: "The role was saved." };
+    });
+  };
 
   const remove = (role: Role) =>
     act(async () => {
       const { error, response } = await api.DELETE("/api/v1/roles/{roleId}", { params: { path: { roleId: role.id } } });
+      if (response.ok) {
+        screen.back(true);
+      }
       return { error, response, text: "The role was removed." };
     });
 
-  if (failure) {
+  const messages = <ActionMessages notice={notice} problem={problem} testId="roles" />;
+
+  const fields = (current: Role | undefined) => (
+    <>
+      <div className="field">
+        <label htmlFor="role-name">Name</label>
+        <input
+          id="role-name"
+          value={draft.name}
+          maxLength={80}
+          onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+          required
+        />
+      </div>
+      <div className="field">
+        <label htmlFor="role-parent">Works under</label>
+        <select
+          id="role-parent"
+          value={draft.parentId}
+          onChange={(event) => setDraft({ ...draft, parentId: event.target.value })}
+        >
+          <option value="">Nobody (a top role)</option>
+          {(roles ?? [])
+            .filter((role) => role.id !== current?.id)
+            .map((role) => (
+              <option key={role.id} value={role.id}>
+                {role.name}
+              </option>
+            ))}
+        </select>
+      </div>
+      <div className="field span-2">
+        <label htmlFor="role-description">Description</label>
+        <input
+          id="role-description"
+          value={draft.description}
+          maxLength={500}
+          onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+        />
+      </div>
+    </>
+  );
+
+  if (screen.creating && roles) {
+    const cancel = () => screen.back();
     return (
-      <p className="form-message" role="alert" data-testid="roles-failed">
-        {failure}
-      </p>
+      <DetailPage
+        listLabel="Roles"
+        onBack={cancel}
+        title="New role"
+        notices={messages}
+        actions={
+          <>
+            <button type="button" className="button button-secondary" onClick={cancel}>
+              Cancel
+            </button>
+            <button type="submit" form="role-form" className="button" disabled={busy}>
+              Create the role
+            </button>
+          </>
+        }
+      >
+        <form id="role-form" onSubmit={create} noValidate>
+          <DetailSection title="Detail">
+            <DetailGrid>{fields(undefined)}</DetailGrid>
+          </DetailSection>
+        </form>
+      </DetailPage>
     );
   }
-  if (!roles) {
-    return <p aria-live="polite">Loading…</p>;
+
+  const role = roles?.find((candidate) => candidate.id === screen.openId);
+  if (screen.openId && roles && !role) {
+    return <MissingDetail listLabel="Roles" onBack={() => screen.back()} what="This role does not exist any more." />;
+  }
+
+  if (roles && role) {
+    const parent = roles.find((candidate) => candidate.id === role.parentId);
+    const below = roles.filter((candidate) => candidate.parentId === role.id);
+    return (
+      <DetailPage
+        listLabel="Roles"
+        onBack={() => screen.back()}
+        title={role.name}
+        notices={messages}
+        testId="role-detail"
+        actions={
+          editing ? (
+            <>
+              <button type="button" className="button button-secondary" onClick={() => setEditing(false)}>
+                Cancel
+              </button>
+              <button type="submit" form="role-form" className="button" disabled={busy}>
+                Save the role
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="button button-danger" disabled={busy} onClick={() => void remove(role)}>
+                Remove
+              </button>
+              <button
+                type="button"
+                className="button"
+                disabled={busy}
+                onClick={() => {
+                  setDraft({ name: role.name, description: role.description, parentId: role.parentId ?? "" });
+                  setEditing(true);
+                }}
+              >
+                Change
+              </button>
+            </>
+          )
+        }
+      >
+        <form id="role-form" onSubmit={save(role)} noValidate>
+          <DetailSection title="Detail">
+            <DetailGrid>
+              {editing ? (
+                fields(role)
+              ) : (
+                <>
+                  <DetailItem label="Name">{role.name}</DetailItem>
+                  <DetailItem label="Works under" tone={parent ? undefined : "muted"}>
+                    {parent ? parent.name : "Nobody (a top role)"}
+                  </DetailItem>
+                  <DetailItem label="Description" wide tone={role.description ? undefined : "muted"}>
+                    {role.description || "—"}
+                  </DetailItem>
+                  <DetailItem label="Members">{role.members}</DetailItem>
+                </>
+              )}
+            </DetailGrid>
+          </DetailSection>
+        </form>
+        <DetailSection title="Roles below this one">
+          {below.length === 0 ? (
+            <p className="dl-value muted">No role works under this one.</p>
+          ) : (
+            <ul data-testid="role-below">
+              {below.map((candidate) => (
+                <li key={candidate.id}>
+                  <button type="button" className="link-button" onClick={() => screen.open(candidate.id)}>
+                    {candidate.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DetailSection>
+      </DetailPage>
+    );
   }
 
   return (
-    <div className="stack">
-      <p>
-        Roles form a tree that says who works under whom. Once records exist, a role decides which records a member may see. A
-        role gives no ability, so choosing one changes nothing a member can do today.
-      </p>
-      <ActionMessages notice={notice} problem={problem} testId="roles" />
-
-      <section aria-labelledby="role-form-heading">
-        <h2 id="role-form-heading">{draft.id ? "Change the role" : "Create a role"}</h2>
-        <form className="form" onSubmit={save} noValidate>
-          <div className="field">
-            <label htmlFor="role-name">Name</label>
-            <input
-              id="role-name"
-              value={draft.name}
-              maxLength={80}
-              onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-              required
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="role-description">Description</label>
-            <input
-              id="role-description"
-              value={draft.description}
-              maxLength={500}
-              onChange={(event) => setDraft({ ...draft, description: event.target.value })}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="role-parent">Works under</label>
-            <select
-              id="role-parent"
-              value={draft.parentId}
-              onChange={(event) => setDraft({ ...draft, parentId: event.target.value })}
-            >
-              <option value="">Nobody (a top role)</option>
-              {roles
-                .filter((role) => role.id !== draft.id)
-                .map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name}
-                  </option>
-                ))}
-            </select>
-          </div>
-          <button type="submit" className="button" disabled={busy}>
-            {draft.id ? "Save the role" : "Create the role"}
-          </button>{" "}
-          {draft.id ? (
-            <button type="button" className="link-button" onClick={() => setDraft(EMPTY)}>
-              Cancel
-            </button>
-          ) : null}
-        </form>
-      </section>
-
-      <section aria-labelledby="roles-heading">
-        <h2 id="roles-heading">Roles</h2>
-        {roles.length === 0 ? <p>There are no roles yet.</p> : null}
-        {roles.length > 0 ? (
-          <table className="table" data-testid="roles">
-            <thead>
-              <tr>
-                <th>Role</th>
-                <th>Members</th>
-                <th>
-                  <span className="visually-hidden">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {inTreeOrder(roles).map(({ role, depth }) => (
-                <tr key={role.id} data-testid="role-row">
-                  <td style={{ paddingInlineStart: `calc(var(--space-4) * ${depth + 1})` }}>
-                    {role.name}
-                    {role.description ? <div className="hint">{role.description}</div> : null}
-                  </td>
-                  <td>{role.members}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="link-button"
-                      disabled={busy}
-                      onClick={() =>
-                        setDraft({
-                          id: role.id,
-                          name: role.name,
-                          description: role.description,
-                          parentId: role.parentId ?? "",
-                        })
-                      }
-                    >
-                      Change
-                    </button>{" "}
-                    <button type="button" className="link-button" disabled={busy} onClick={() => void remove(role)}>
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : null}
-      </section>
-    </div>
+    <ListPage<TreeRow>
+      title="Roles"
+      intro="Roles form a tree that says who works under whom. Once records exist, a role decides which records a member may see. A role gives no ability, so choosing one changes nothing a member can do today."
+      items={tree}
+      failure={failure}
+      rowKey={(row) => row.role.id}
+      primaryHeader="Role"
+      primary={(row) => row.role.name}
+      primaryExtra={(row) => row.role.description || null}
+      primaryIndent={(row) => row.depth}
+      columns={[{ key: "members", header: "Members", kind: "muted", cell: (row) => row.role.members }]}
+      onOpen={(row) => {
+        setEditing(false);
+        screen.open(row.role.id);
+      }}
+      searchText={(row) => `${row.role.name} ${row.role.description}`}
+      onNew={
+        offersManage
+          ? () => {
+              setDraft(EMPTY);
+              screen.create();
+            }
+          : undefined
+      }
+      newLabel="New role"
+      notices={messages}
+      emptyText="There are no roles yet."
+      testId="roles"
+      rowTestId="role-row"
+    />
   );
 }

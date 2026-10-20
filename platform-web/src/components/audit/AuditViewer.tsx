@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { COMMON_TEXT } from "@/components/account/messages";
 import { failureText } from "@/components/console/useAction";
+import { PageFrame } from "@/components/ui/lists/PageFrame";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
 
@@ -120,6 +121,11 @@ function toIso(local: string): string | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }
 
+const INTRO: Record<AuditScope, string> = {
+  organization: "Who changed what in this organization, and when. Newest first.",
+  platform: "What happened on the platform: platform actions, support access, organization status, retention. Newest first.",
+};
+
 /**
  * The audit viewer (Sprint 9): what happened in the organization (or on the platform), newest first, with filters and
  * "Show more". It shows exactly what the API answers, in the API's own words when it refuses, and says so plainly when
@@ -196,7 +202,7 @@ export function AuditViewer({ scope }: { scope: AuditScope }) {
   const filtered = Object.values(applied).some((value) => value !== "");
 
   return (
-    <div className="stack">
+    <PageFrame title="Audit trail" intro={INTRO[scope]} testId="audit-viewer">
       <form onSubmit={search} aria-label="Filter the audit events" className="filters">
         <label>
           Kind
@@ -287,6 +293,6 @@ export function AuditViewer({ scope }: { scope: AuditScope }) {
           </button>
         </p>
       ) : null}
-    </div>
+    </PageFrame>
   );
 }

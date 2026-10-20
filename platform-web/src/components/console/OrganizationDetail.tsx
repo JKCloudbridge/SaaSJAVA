@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { COMMON_TEXT } from "@/components/account/messages";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
+import { DetailPage, DetailSection } from "@/components/ui/lists/DetailPage";
+import { PageFrame } from "@/components/ui/lists/PageFrame";
 import { ActionWithReason } from "./ActionWithReason";
 import { ActionMessages, failureText, useAction } from "./useAction";
 
@@ -58,13 +60,19 @@ export function OrganizationDetail() {
   const { busy, notice, problem, act } = useAction(reload);
 
   if (detail.kind === "loading") {
-    return <p aria-live="polite">Loading…</p>;
+    return (
+      <PageFrame title="Organization">
+        <p aria-live="polite">Loading…</p>
+      </PageFrame>
+    );
   }
   if (detail.kind === "failed") {
     return (
-      <p className="form-message" role="alert" data-testid="organization-failed">
-        {detail.message}
-      </p>
+      <PageFrame title="Organization">
+        <p className="form-message" role="alert" data-testid="organization-failed">
+          {detail.message}
+        </p>
+      </PageFrame>
     );
   }
   const organization = detail.value;
@@ -119,13 +127,19 @@ export function OrganizationDetail() {
     });
 
   return (
-    <div className="stack" data-testid="organization-detail">
-      <h2>{organization.displayName}</h2>
-      <p>
-        <span className="mono">{organization.slug}</span> · {organization.status} since{" "}
-        {new Date(organization.statusChangedAt).toLocaleString()}
-      </p>
-      <ActionMessages notice={notice} problem={problem} testId="organization" />
+    <DetailPage
+      listLabel="Organizations"
+      backHref="/console"
+      title={organization.displayName}
+      testId="organization-detail"
+      intro={
+        <>
+          <span className="mono">{organization.slug}</span> · {organization.status} since{" "}
+          {new Date(organization.statusChangedAt).toLocaleString()}
+        </>
+      }
+      notices={<ActionMessages notice={notice} problem={problem} testId="organization" />}
+    >
 
       <div className="field">
         <label htmlFor="change-reason">Reason for the changes below (kept in the audit trail, no personal data)</label>
@@ -154,8 +168,7 @@ export function OrganizationDetail() {
         }
       />
 
-      <section aria-labelledby="pools-heading">
-        <h3 id="pools-heading">Licences</h3>
+      <DetailSection title="Licences">
         {organization.pools.length === 0 ? <p>No licence pools.</p> : null}
         {organization.pools.length > 0 ? (
           <table className="table" data-testid="pools">
@@ -177,10 +190,9 @@ export function OrganizationDetail() {
             </tbody>
           </table>
         ) : null}
-      </section>
+      </DetailSection>
 
-      <section aria-labelledby="features-heading">
-        <h3 id="features-heading">Features</h3>
+      <DetailSection title="Features">
         <table className="table" data-testid="entitlements">
           <thead>
             <tr>
@@ -230,7 +242,7 @@ export function OrganizationDetail() {
             ))}
           </tbody>
         </table>
-      </section>
+      </DetailSection>
 
       <FirstAdministratorSection
         info={organization.firstAdministrator}
@@ -247,8 +259,7 @@ export function OrganizationDetail() {
         }
       />
 
-      <section aria-labelledby="lifecycle-heading" className="stack">
-        <h3 id="lifecycle-heading">Lifecycle</h3>
+      <DetailSection title="Lifecycle" stack>
         <div>
           <ActionWithReason
             label="Suspend"
@@ -284,7 +295,7 @@ export function OrganizationDetail() {
             }
           />
         </div>
-      </section>
+      </DetailSection>
 
       <SupportAccessSection
         grants={grants}
@@ -299,7 +310,7 @@ export function OrganizationDetail() {
           })
         }
       />
-    </div>
+    </DetailPage>
   );
 }
 
@@ -331,8 +342,7 @@ function SubscriptionSection({
   }
 
   return (
-    <section aria-labelledby="subscription-heading" className="stack">
-      <h3 id="subscription-heading">Subscription</h3>
+    <DetailSection title="Subscription" stack>
       {subscription ? (
         <p data-testid="subscription">
           Plan {subscription.planName} ({subscription.status})
@@ -380,7 +390,7 @@ function SubscriptionSection({
           Change the subscription
         </button>
       </form>
-    </section>
+    </DetailSection>
   );
 }
 
@@ -437,8 +447,7 @@ function FirstAdministratorSection({
 }) {
   const [email, setEmail] = useState("");
   return (
-    <section aria-labelledby="first-admin-heading" className="stack">
-      <h3 id="first-admin-heading">First administrator</h3>
+    <DetailSection title="First administrator" stack>
       {info ? (
         <p data-testid="first-administrator">
           Invitation {info.status.toLowerCase()}, {info.sentCount} sent, link works until{" "}
@@ -478,7 +487,7 @@ function FirstAdministratorSection({
           Send the invitation
         </button>
       </form>
-    </section>
+    </DetailSection>
   );
 }
 
@@ -494,8 +503,7 @@ function SupportAccessSection({
   const [reason, setReason] = useState("");
   const [minutes, setMinutes] = useState("60");
   return (
-    <section aria-labelledby="support-heading" className="stack">
-      <h3 id="support-heading">Support access</h3>
+    <DetailSection title="Support access" stack>
       <p>
         Nobody on the platform has access to an organization&apos;s data. Ask the organization; an administrator of
         theirs approves for a limited time.
@@ -559,6 +567,6 @@ function SupportAccessSection({
           Ask for access
         </button>
       </form>
-    </section>
+    </DetailSection>
   );
 }

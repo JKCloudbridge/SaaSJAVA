@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fakeApi, json } from "@/test/fakeApi";
+import { fakeApi, json, refusal } from "@/test/fakeApi";
 import { ApplicationsPanel } from "./ApplicationsPanel";
 
 beforeEach(() => {
@@ -60,7 +60,30 @@ describe("ApplicationsPanel", () => {
 
     expect(screen.getByRole("link", { name: "New application" })).toHaveAttribute("href", "/setup/applications/new");
     expect(within(row).getByRole("link", { name: "Sales" })).toHaveAttribute("href", "/setup/applications/Sales__c");
-    expect(within(row).getByRole("link", { name: "Build" })).toHaveAttribute("href", "/setup/applications/Sales__c");
+    // A click anywhere on the row opens the builder: the first cell is the real link.
+    expect(within(row).getAllByRole("link")).toHaveLength(1);
+  });
+
+  it("shows who sees an application as a tag and filters the loaded rows with the search box", async () => {
+    fakeApi(answers([SALES, { ...SALES, apiName: "Open__c", label: "Open", definition: { items: [] } }]));
+    render(<ApplicationsPanel />);
+    const rows = await screen.findAllByTestId("application-row");
+
+    expect(within(rows[1] as HTMLElement).getByText("Every member")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search applications" }), { target: { value: "open" } });
+    expect(screen.getAllByTestId("application-row")).toHaveLength(1);
+    expect(screen.getByText("Showing 1 of 2.")).toBeInTheDocument();
+  });
+
+  it("says so when there are none, and shows the API's words when the list cannot be read", async () => {
+    fakeApi(answers([]));
+    const { unmount } = render(<ApplicationsPanel />);
+    expect(await screen.findByText("No applications yet.")).toBeInTheDocument();
+    unmount();
+
+    fakeApi({ [LIST]: () => refusal("FORBIDDEN", "You may not view applications.", 403) });
+    render(<ApplicationsPanel />);
+    expect(await screen.findByTestId("applications-failed")).toHaveTextContent("You may not view applications.");
   });
 
   it("removes an application live", async () => {

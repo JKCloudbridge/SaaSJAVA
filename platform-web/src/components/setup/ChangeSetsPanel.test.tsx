@@ -1,12 +1,16 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi, json, refusal } from "@/test/fakeApi";
+import { setUrl } from "@/test/navigation";
 import { ChangeSetsPanel } from "./ChangeSetsPanel";
+
+vi.mock("next/navigation", async () => (await import("@/test/navigation")).navigationMock);
 
 beforeEach(() => {
   document.cookie = "XSRF-TOKEN=test-token; path=/";
   window.sessionStorage.clear();
+  act(() => setUrl("/setup/changes"));
 });
 
 afterEach(() => {
@@ -44,8 +48,14 @@ function listAnswers(extra: Record<string, () => Response> = {}) {
   };
 }
 
+/** Opens the open change set from the list by its name. */
+async function openDraft() {
+  fireEvent.click(await screen.findByRole("button", { name: "Drop department" }));
+  return screen.findByTestId("change-row");
+}
+
 describe("ChangeSetsPanel", () => {
-  it("lists the change sets and opens the first with its changes, under React strict mode", async () => {
+  it("lists the change sets with their number of changes and a status tag, under React strict mode", async () => {
     fakeApi(listAnswers());
 
     render(
@@ -56,16 +66,40 @@ describe("ChangeSetsPanel", () => {
 
     const rows = await screen.findAllByTestId("change-set-row");
     expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("Open");
+    expect(rows[1]).toHaveTextContent("Published");
     expect(rows[1]).toHaveTextContent("release 3");
-    const change = await screen.findByTestId("change-row");
+  });
+
+  it("opens a change set as a page with its changes and filters the list with the search box", async () => {
+    fakeApi(listAnswers());
+    render(<ChangeSetsPanel />);
+    await screen.findAllByTestId("change-set-row");
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search change sets" }), { target: { value: "earlier" } });
+    expect(screen.getAllByTestId("change-set-row")).toHaveLength(1);
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search change sets" }), { target: { value: "" } });
+
+    const change = await openDraft();
     expect(change).toHaveTextContent("Remove field");
     expect(change).toHaveTextContent("department__c");
+    expect(screen.getByRole("heading", { level: 1, name: "Drop department" })).toBeInTheDocument();
+  });
+
+  it("offers no actions on a change set that is already published", async () => {
+    fakeApi(listAnswers({ "GET /api/v1/metadata/change-sets/set-0": () => json({ data: PUBLISHED }) }));
+    render(<ChangeSetsPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "Earlier" }));
+
+    await screen.findByTestId("change-set");
+    expect(screen.queryByRole("button", { name: "Publish it" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Discard it" })).toBeNull();
   });
 
   it("checks a change set and shows the problem with what depends on it", async () => {
     fakeApi(listAnswers({ [`POST ${SET}/validate`]: () => json({ data: INVALID }) }));
     render(<ChangeSetsPanel />);
-    await screen.findByTestId("change-row");
+    await openDraft();
 
     fireEvent.click(screen.getByRole("button", { name: "Check it" }));
 
@@ -88,7 +122,7 @@ describe("ChangeSetsPanel", () => {
       }),
     );
     render(<ChangeSetsPanel />);
-    await screen.findByTestId("change-row");
+    await openDraft();
 
     fireEvent.click(screen.getByRole("button", { name: "Preview it" }));
 
@@ -113,7 +147,7 @@ describe("ChangeSetsPanel", () => {
       }),
     );
     render(<ChangeSetsPanel />);
-    await screen.findByTestId("change-row");
+    await openDraft();
 
     fireEvent.click(screen.getByRole("button", { name: "Publish it" }));
 
@@ -125,7 +159,7 @@ describe("ChangeSetsPanel", () => {
   it("publishes a change set and says so", async () => {
     const calls = fakeApi(listAnswers({ [`POST ${SET}/publish`]: () => json({ data: { ...DRAFT, status: "PUBLISHED" } }) }));
     render(<ChangeSetsPanel />);
-    await screen.findByTestId("change-row");
+    await openDraft();
 
     fireEvent.click(screen.getByRole("button", { name: "Publish it" }));
 
@@ -136,7 +170,7 @@ describe("ChangeSetsPanel", () => {
   it("discards only after a second click", async () => {
     const calls = fakeApi(listAnswers({ [`DELETE ${SET}`]: () => new Response(null, { status: 204 }) }));
     render(<ChangeSetsPanel />);
-    await screen.findByTestId("change-row");
+    await openDraft();
 
     fireEvent.click(screen.getByRole("button", { name: "Discard it" }));
     expect(calls.some((call) => call.key === `DELETE ${SET}`)).toBe(false);
@@ -149,7 +183,7 @@ describe("ChangeSetsPanel", () => {
   it("takes a change out of an open change set", async () => {
     const calls = fakeApi(listAnswers({ [`DELETE ${SET}/changes/c-1`]: () => json({ data: DRAFT }) }));
     render(<ChangeSetsPanel />);
-    const change = await screen.findByTestId("change-row");
+    const change = await openDraft();
 
     fireEvent.click(within(change).getByRole("button", { name: "Take out" }));
 
@@ -165,9 +199,10 @@ describe("ChangeSetsPanel", () => {
       }),
     );
     render(<ChangeSetsPanel />);
-    await screen.findByTestId("change-row");
+    await screen.findAllByTestId("change-set-row");
 
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Drop department" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Start a change set" }));
+    fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "Drop department" } });
     fireEvent.click(screen.getByRole("button", { name: "Start the change set" }));
 
     expect(await screen.findByTestId("change-sets-problem")).toHaveTextContent("An open change set with this name exists already.");
@@ -179,7 +214,7 @@ describe("ChangeSetsPanel", () => {
   it("chooses the change set to work in, and stops again", async () => {
     fakeApi(listAnswers());
     render(<ChangeSetsPanel />);
-    await screen.findByTestId("change-row");
+    await openDraft();
 
     fireEvent.click(screen.getByRole("button", { name: "Work in it" }));
     expect(window.sessionStorage.getItem("platform.workingChangeSet")).toBe("set-1");

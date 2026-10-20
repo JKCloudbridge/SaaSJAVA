@@ -48,6 +48,7 @@
   --shadow-1: 0 1px 2px rgb(16 24 40 / 6%), 0 1px 3px rgb(16 24 40 / 5%);
   --shadow-2: 0 10px 30px rgb(16 24 40 / 15%);
   --transition: 120ms ease;
+  --transition-calm: 200ms ease;
 
   /*
    * type: the design's sans and monospace families, served from this application (src/fonts, loaded in the root layout), so nothing is
@@ -72,7 +73,7 @@
   --size-control: 1.75rem;
   --size-control-lg: 2rem;
   --control-bar-height: 2.75rem;
-  --launcher-width: 18.5rem;
+  --launcher-tile-width: 8.5rem;
   --search-min-width: 16rem;
   --field-min-width: 10rem;
   --cell-max-width: 20rem;

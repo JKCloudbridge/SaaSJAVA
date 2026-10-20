@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { HealthPanel } from "@/components/automation/HealthPanel";
 import { ConsoleFrame } from "@/components/console/ConsoleFrame";
+import { HealthPanel } from "@/components/automation/HealthPanel";
 
 export const metadata: Metadata = {
   title: "Automation health",
@@ -9,11 +9,8 @@ export const metadata: Metadata = {
 /** What waits, what failed and what is overdue in automation across organizations, as counts without any name. */
 export default function PlatformAutomationHealthPage() {
   return (
-    <>
-      <h1>Platform console</h1>
-      <ConsoleFrame>
-        <HealthPanel scope="platform" />
-      </ConsoleFrame>
-    </>
+    <ConsoleFrame>
+      <HealthPanel scope="platform" />
+    </ConsoleFrame>
   );
 }

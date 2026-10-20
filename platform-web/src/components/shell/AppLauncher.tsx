@@ -1,24 +1,36 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { AppIcon } from "@/components/ui/AppIcon";
 import { Icon } from "@/components/ui/Icon";
 import { useApplications } from "@/lib/applications/ApplicationsProvider";
 import { applicationHref } from "@/lib/applications/entries";
 
+/** How many columns the grid has for this many tiles: the panel grows wider instead of growing one long column. */
+export function launcherColumns(tiles: number): number {
+  if (tiles <= 4) {
+    return 2;
+  }
+  return tiles <= 9 ? 3 : 4;
+}
+
 /**
  * The application launcher (Sprint 18, ADR-0128): a button in the control bar that opens a grid of the member's own
- * applications, exactly as the API lists them. Choosing one opens it on the same organization and address; it is not the
- * organization switcher. It lists nothing the API did not (the browser hardcodes no application), shows an honest
- * message while loading, when the list could not be had, and when there is nothing to open, and works from the keyboard:
- * it opens with Enter or Space, moves between applications with the arrow keys, and closes with Escape, returning
- * focus to the button.
+ * applications, exactly as the API lists them. Choosing one opens it on the same organization and address; it is
+ * not the organization switcher. It lists nothing the API did not (the browser hardcodes no application), shows an
+ * honest message while loading, when the list could not be had, and when there is nothing to open, and works from the
+ * keyboard: it opens with Enter or Space, moves between applications with the arrow keys, and closes with Escape,
+ * returning focus to the button.
+ *
+ * <p>The grid grows with the number of applications (UA1, ADR-0167): two columns for a few, more columns and a wider
+ * panel as the list gets longer, and the panel scrolls when it would be taller than the screen. A person who may set
+ * things up also gets a tile to start a new application.
  *
  * @param current the API name of the application that is open, marked in the grid
- * @param setupHref where the member can set applications up, if they may be offered the way
+ * @param canSetUp whether the member has an ability the setup pages are for, so may be offered the way to them
  */
-export function AppLauncher({ current, setupHref }: { current?: string; setupHref: string | null }) {
+export function AppLauncher({ current, canSetUp }: { current?: string; canSetUp: boolean }) {
   const { state, refresh } = useApplications();
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement | null>(null);
@@ -56,6 +68,9 @@ export function AppLauncher({ current, setupHref }: { current?: string; setupHre
     };
   }, [open, close]);
 
+  const applications = state.applications;
+  const columns = launcherColumns(applications.length + (canSetUp ? 1 : 0));
+
   function onGridKey(event: KeyboardEvent<HTMLUListElement>) {
     const keys = ["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp", "Home", "End"];
     if (!keys.includes(event.key)) {
@@ -63,7 +78,6 @@ export function AppLauncher({ current, setupHref }: { current?: string; setupHre
     }
     const tiles = Array.from(event.currentTarget.querySelectorAll<HTMLElement>("a"));
     const at = tiles.indexOf(document.activeElement as HTMLElement);
-    const columns = 2;
     const next =
       event.key === "Home" ? 0
       : event.key === "End" ? tiles.length - 1
@@ -77,7 +91,6 @@ export function AppLauncher({ current, setupHref }: { current?: string; setupHre
     }
   }
 
-  const applications = state.applications;
   return (
     <div className="launcher">
       <button
@@ -93,9 +106,16 @@ export function AppLauncher({ current, setupHref }: { current?: string; setupHre
         <Icon name={open ? "close" : "menu"} className="launcher-icon" />
       </button>
       {open ? (
-        <div ref={panel} id={panelId} className="launcher-panel" role="dialog" aria-label="Applications">
+        <div
+          ref={panel}
+          id={panelId}
+          className="launcher-panel"
+          role="dialog"
+          aria-label="Applications"
+          style={{ "--launcher-columns": columns } as CSSProperties}
+        >
           <p className="launcher-label">Applications</p>
-          {applications.length > 0 ? (
+          {applications.length > 0 || canSetUp ? (
             <ul className="launcher-grid" onKeyDown={onGridKey}>
               {applications.map((application) => (
                 <li key={application.apiName}>
@@ -110,29 +130,45 @@ export function AppLauncher({ current, setupHref }: { current?: string; setupHre
                   </Link>
                 </li>
               ))}
+              {canSetUp ? (
+                <li>
+                  <Link href="/setup/applications/new" className="launcher-tile" onClick={() => close(false)}>
+                    <span className="app-icon">
+                      <Icon name="plus" className="app-icon-glyph" />
+                    </span>
+                    <span className="launcher-tile-name">New application</span>
+                  </Link>
+                </li>
+              ) : null}
             </ul>
-          ) : state.status === "idle" || state.status === "loading" ? (
-            <p className="launcher-note" role="status">
-              Loading your applications…
-            </p>
-          ) : state.status === "error" ? (
-            <div className="launcher-note" role="alert">
-              <p>{state.message}</p>
+          ) : null}
+          {applications.length === 0 ? (
+            state.status === "idle" || state.status === "loading" ? (
+              <p className="launcher-note" role="status">
+                Loading your applications…
+              </p>
+            ) : state.status === "error" ? (
+              <div className="launcher-note" role="alert">
+                <p>{state.message}</p>
+                <button type="button" className="link-button" onClick={() => void refresh()}>
+                  Try again
+                </button>
+              </div>
+            ) : (
+              <p className="launcher-note" role="status">
+                No applications are set up for you yet.
+              </p>
+            )
+          ) : null}
+          {applications.length > 0 && state.status === "error" ? (
+            <p className="launcher-note" role="alert">
+              {state.message}{" "}
               <button type="button" className="link-button" onClick={() => void refresh()}>
                 Try again
               </button>
-            </div>
-          ) : (
-            <p className="launcher-note" role="status">
-              No applications are set up for you yet.
-            </p>
-          )}
-          {applications.length > 0 && state.status === "error" ? (
-            <p className="launcher-note" role="alert">
-              {state.message} <button type="button" className="link-button" onClick={() => void refresh()}>Try again</button>
             </p>
           ) : null}
-          {setupHref ? (
+          {canSetUp ? (
             <Link href="/setup/applications" className="launcher-footer" onClick={() => close(false)}>
               <Icon name="setup" className="launcher-icon" />
               Manage applications

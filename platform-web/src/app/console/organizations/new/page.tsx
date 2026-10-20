@@ -9,11 +9,8 @@ export const metadata: Metadata = {
 /** A platform administrator sets up an organization for a client and invites its first administrator. */
 export default function ProvisionPage() {
   return (
-    <>
-      <h1>Platform console</h1>
-      <ConsoleFrame>
-        <ProvisionForm />
-      </ConsoleFrame>
-    </>
+    <ConsoleFrame>
+      <ProvisionForm />
+    </ConsoleFrame>
   );
 }

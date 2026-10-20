@@ -1,10 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { COMMON_TEXT } from "@/components/account/messages";
-import { ActionMessages, failureText, useAction } from "@/components/console/useAction";
+import { ActionMessages, failureText } from "@/components/console/useAction";
+import { DetailGrid, DetailItem, DetailPage, DetailSection, MissingDetail } from "@/components/ui/lists/DetailPage";
+import { ListPage } from "@/components/ui/lists/ListPage";
+import { Tag } from "@/components/ui/lists/Tag";
+import { useListScreen } from "@/components/ui/lists/useListScreen";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
+import { useOffers } from "@/lib/session/SessionProvider";
 import { AbilityPicker } from "./AbilityPicker";
 import { DataAccessEditor } from "./DataAccessEditor";
 
@@ -19,7 +24,6 @@ interface Loaded {
 }
 
 interface Draft {
-  id?: string;
   name: string;
   description: string;
   licenceType: string;
@@ -28,16 +32,25 @@ interface Draft {
 
 const EMPTY: Draft = { name: "", description: "", licenceType: "user", abilities: [] };
 
+const draftOf = (profile: Profile): Draft => ({
+  name: profile.name,
+  description: profile.description,
+  licenceType: profile.licenceType,
+  abilities: profile.abilities,
+});
+
 /**
  * The profiles of the organization the address names: the base set of abilities of a member, belonging to one licence
- * type. Anyone who manages access creates, changes and removes them; the page shows what the API answers and its own words
- * for every refusal, and never decides who may do what or which licence is free.
+ * type. A list; a row opens the profile (its details, abilities and permissions on data); New opens the same page as a form.
+ * Anyone who manages access creates, changes and removes them; the page shows what the API answers and its own words for
+ * every refusal, and never decides who may do what or which licence is free.
  */
 export function ProfilesPanel() {
   const [loaded, setLoaded] = useState<Loaded | undefined>();
   const [failure, setFailure] = useState<string | undefined>();
+  const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY);
-  const [permissionsOf, setPermissionsOf] = useState<Profile | undefined>();
+  const offersManage = useOffers("access.manage");
 
   const reload = useCallback(async () => {
     try {
@@ -65,32 +78,52 @@ export function ProfilesPanel() {
     void Promise.resolve().then(reload);
   }, [reload]);
 
-  const { busy, notice, problem, act } = useAction(reload);
+  const screen = useListScreen(reload);
+  const { busy, notice, problem, act } = screen;
 
-  function save(event: FormEvent<HTMLFormElement>) {
+  const openNew = () => {
+    setDraft(EMPTY);
+    setEditing(false);
+    screen.create();
+  };
+  const openRow = (profile: Profile) => {
+    setEditing(false);
+    screen.open(profile.id);
+  };
+
+  function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const body = {
-      name: draft.name,
-      description: draft.description,
-      licenceType: draft.licenceType,
-      abilities: draft.abilities,
-    };
     void act(async () => {
-      const result = draft.id
-        ? await api.PUT("/api/v1/profiles/{profileId}", { params: { path: { profileId: draft.id } }, body })
-        : await api.POST("/api/v1/profiles", { body });
+      const result = await api.POST("/api/v1/profiles", { body: draft });
       if (result.response.ok) {
-        setDraft(EMPTY);
+        screen.back(true);
       }
-      return { error: result.error, response: result.response, text: draft.id ? "The profile was saved." : "The profile was created." };
+      return { error: result.error, response: result.response, text: "The profile was created." };
     });
   }
+
+  const save = (profile: Profile) => (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void act(async () => {
+      const result = await api.PUT("/api/v1/profiles/{profileId}", {
+        params: { path: { profileId: profile.id } },
+        body: draft,
+      });
+      if (result.response.ok) {
+        setEditing(false);
+      }
+      return { error: result.error, response: result.response, text: "The profile was saved." };
+    });
+  };
 
   const remove = (profile: Profile) =>
     act(async () => {
       const { error, response } = await api.DELETE("/api/v1/profiles/{profileId}", {
         params: { path: { profileId: profile.id } },
       });
+      if (response.ok) {
+        screen.back(true);
+      }
       return { error, response, text: "The profile was removed." };
     });
 
@@ -102,154 +135,265 @@ export function ProfilesPanel() {
       return { error, response, text: "New members now get this profile." };
     });
 
-  if (failure) {
+  const messages = <ActionMessages notice={notice} problem={problem} testId="profiles" />;
+
+  if (screen.creating && loaded) {
     return (
-      <p className="form-message" role="alert" data-testid="profiles-failed">
-        {failure}
-      </p>
+      <ProfileForm
+        title="New profile"
+        loaded={loaded}
+        draft={draft}
+        onDraft={setDraft}
+        onSubmit={create}
+        submitLabel="Create the profile"
+        onCancel={() => screen.back()}
+        busy={busy}
+        notices={messages}
+      />
     );
   }
-  if (!loaded) {
-    return <p aria-live="polite">Loading…</p>;
+
+  const profile = loaded?.profiles.find((candidate) => candidate.id === screen.openId);
+  if (screen.openId && loaded && !profile) {
+    return <MissingDetail listLabel="Profiles" onBack={() => screen.back()} what="This profile does not exist any more." />;
   }
 
-  const nameOf = (key: string) => loaded.abilities.find((ability) => ability.key === key)?.name ?? key;
+  if (loaded && profile) {
+    const nameOf = (key: string) => loaded.abilities.find((ability) => ability.key === key)?.name ?? key;
+    const actions = editing ? (
+      <>
+        <button type="button" className="button button-secondary" onClick={() => setEditing(false)}>
+          Cancel
+        </button>
+        <button type="submit" form="profile-form" className="button" disabled={busy}>
+          Save the profile
+        </button>
+      </>
+    ) : (
+      <>
+        {profile.system || profile.defaultProfile ? null : (
+          <button type="button" className="button button-danger" disabled={busy} onClick={() => void remove(profile)}>
+            Remove
+          </button>
+        )}
+        {profile.fullAccess || profile.defaultProfile ? null : (
+          <button type="button" className="button button-secondary" disabled={busy} onClick={() => void makeDefault(profile)}>
+            Make default
+          </button>
+        )}
+        {profile.fullAccess ? null : (
+          <button
+            type="button"
+            className="button"
+            disabled={busy}
+            onClick={() => {
+              setDraft(draftOf(profile));
+              setEditing(true);
+            }}
+          >
+            Change
+          </button>
+        )}
+      </>
+    );
+    return (
+      <DetailPage
+        listLabel="Profiles"
+        onBack={() => screen.back()}
+        title={profile.name}
+        actions={actions}
+        notices={messages}
+        testId="profile-detail"
+      >
+        <form id="profile-form" onSubmit={save(profile)} noValidate>
+          <DetailSection title="Detail">
+            <DetailGrid>
+              {editing ? (
+                <ProfileFields loaded={loaded} draft={draft} onDraft={setDraft} />
+              ) : (
+                <>
+                  <DetailItem label="Name">{profile.name}</DetailItem>
+                  <DetailItem label="Licence type">{profile.licenceType}</DetailItem>
+                  <DetailItem label="Description" wide tone={profile.description ? undefined : "muted"}>
+                    {profile.description || "—"}
+                  </DetailItem>
+                  <DetailItem label="Members">{profile.members}</DetailItem>
+                  <DetailItem label="Status">
+                    {profile.system ? <Tag>System</Tag> : <Tag>Custom</Tag>}{" "}
+                    {profile.defaultProfile ? <Tag tone="on">Default for new members</Tag> : null}
+                  </DetailItem>
+                </>
+              )}
+            </DetailGrid>
+          </DetailSection>
+          <DetailSection title="Abilities">
+            {editing ? (
+              <AbilityPicker
+                legend="Abilities"
+                abilities={loaded.abilities}
+                selected={draft.abilities}
+                onChange={(abilities) => setDraft({ ...draft, abilities })}
+              />
+            ) : (
+              <p className="dl-value" data-testid="profile-abilities">
+                {profile.abilities.length === 0 ? "none" : profile.abilities.map(nameOf).join(", ")}
+              </p>
+            )}
+          </DetailSection>
+        </form>
+        <DetailSection title="Permissions on data">
+          <DataAccessEditor
+            key={profile.id}
+            target={{ kind: "profile", id: profile.id }}
+            title={`Permissions on data: ${profile.name}`}
+          />
+        </DetailSection>
+      </DetailPage>
+    );
+  }
 
   return (
-    <div className="stack">
-      <p>
-        A profile is the base set of abilities of a member and belongs to one licence type: giving a member a profile uses one
-        licence of that type. A member has exactly one profile.
-      </p>
-      <ActionMessages notice={notice} problem={problem} testId="profiles" />
+    <ListPage<Profile>
+      title="Profiles"
+      intro="A profile is the base set of abilities of a member and belongs to one licence type: giving a member a profile uses one licence of that type. A member has exactly one profile."
+      items={loaded?.profiles}
+      failure={failure}
+      rowKey={(row) => row.id}
+      primaryHeader="Name"
+      primary={(row) => row.name}
+      primaryExtra={(row) => row.description || null}
+      columns={[
+        { key: "licence", header: "Licence type", kind: "muted", cell: (row) => row.licenceType },
+        { key: "members", header: "Members", kind: "muted", cell: (row) => row.members },
+        {
+          key: "status",
+          header: "Status",
+          kind: "tag",
+          cell: (row) => (
+            <>
+              {row.defaultProfile ? <Tag tone="on">Default for new members</Tag> : null}{" "}
+              <Tag>{row.system ? "System" : "Custom"}</Tag>
+            </>
+          ),
+        },
+      ]}
+      onOpen={openRow}
+      searchText={(row) => `${row.name} ${row.description} ${row.licenceType}`}
+      onNew={offersManage ? openNew : undefined}
+      newLabel="New profile"
+      notices={messages}
+      emptyText="There are no profiles yet."
+      testId="profiles"
+      rowTestId="profile-row"
+    />
+  );
+}
 
-      <section aria-labelledby="profile-form-heading">
-        <h2 id="profile-form-heading">{draft.id ? "Change the profile" : "Create a profile"}</h2>
-        <form className="form" onSubmit={save} noValidate>
-          <div className="field">
-            <label htmlFor="profile-name">Name</label>
-            <input
-              id="profile-name"
-              value={draft.name}
-              maxLength={80}
-              onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-              required
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="profile-description">Description</label>
-            <input
-              id="profile-description"
-              value={draft.description}
-              maxLength={500}
-              onChange={(event) => setDraft({ ...draft, description: event.target.value })}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="profile-licence">Licence type</label>
-            <select
-              id="profile-licence"
-              value={draft.licenceType}
-              onChange={(event) => setDraft({ ...draft, licenceType: event.target.value })}
-            >
-              {loaded.licenceTypes
-                .filter((type) => type.kind === "SEAT")
-                .map((type) => (
-                  <option key={type.key} value={type.key}>
-                    {type.name}
-                  </option>
-                ))}
-            </select>
-          </div>
+/** The fields of a profile as a form: name, description, licence type. */
+function ProfileFields({
+  loaded,
+  draft,
+  onDraft,
+}: {
+  loaded: Loaded;
+  draft: Draft;
+  onDraft: (next: Draft) => void;
+}) {
+  return (
+    <>
+      <div className="field">
+        <label htmlFor="profile-name">Name</label>
+        <input
+          id="profile-name"
+          value={draft.name}
+          maxLength={80}
+          onChange={(event) => onDraft({ ...draft, name: event.target.value })}
+          required
+        />
+      </div>
+      <div className="field">
+        <label htmlFor="profile-licence">Licence type</label>
+        <select
+          id="profile-licence"
+          value={draft.licenceType}
+          onChange={(event) => onDraft({ ...draft, licenceType: event.target.value })}
+        >
+          {loaded.licenceTypes
+            .filter((type) => type.kind === "SEAT")
+            .map((type) => (
+              <option key={type.key} value={type.key}>
+                {type.name}
+              </option>
+            ))}
+        </select>
+      </div>
+      <div className="field span-2">
+        <label htmlFor="profile-description">Description</label>
+        <input
+          id="profile-description"
+          value={draft.description}
+          maxLength={500}
+          onChange={(event) => onDraft({ ...draft, description: event.target.value })}
+        />
+      </div>
+    </>
+  );
+}
+
+/** A new profile: the same page as an existing one, as a form. */
+function ProfileForm({
+  title,
+  loaded,
+  draft,
+  onDraft,
+  onSubmit,
+  submitLabel,
+  onCancel,
+  busy,
+  notices,
+}: {
+  title: string;
+  loaded: Loaded;
+  draft: Draft;
+  onDraft: (next: Draft) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  submitLabel: string;
+  onCancel: () => void;
+  busy: boolean;
+  notices: ReactNode;
+}) {
+  return (
+    <DetailPage
+      listLabel="Profiles"
+      onBack={onCancel}
+      title={title}
+      notices={notices}
+      actions={
+        <>
+          <button type="button" className="button button-secondary" onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="submit" form="profile-form" className="button" disabled={busy}>
+            {submitLabel}
+          </button>
+        </>
+      }
+    >
+      <form id="profile-form" onSubmit={onSubmit} noValidate>
+        <DetailSection title="Detail">
+          <DetailGrid>
+            <ProfileFields loaded={loaded} draft={draft} onDraft={onDraft} />
+          </DetailGrid>
+        </DetailSection>
+        <DetailSection title="Abilities">
           <AbilityPicker
             legend="Abilities"
             abilities={loaded.abilities}
             selected={draft.abilities}
-            onChange={(abilities) => setDraft({ ...draft, abilities })}
+            onChange={(abilities) => onDraft({ ...draft, abilities })}
           />
-          <button type="submit" className="button" disabled={busy}>
-            {draft.id ? "Save the profile" : "Create the profile"}
-          </button>{" "}
-          {draft.id ? (
-            <button type="button" className="link-button" onClick={() => setDraft(EMPTY)}>
-              Cancel
-            </button>
-          ) : null}
-        </form>
-      </section>
-
-      <section aria-labelledby="profiles-heading">
-        <h2 id="profiles-heading">Profiles</h2>
-        <table className="table" data-testid="profiles">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Licence type</th>
-              <th>Abilities</th>
-              <th>Members</th>
-              <th>
-                <span className="visually-hidden">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {loaded.profiles.map((profile) => (
-              <tr key={profile.id} data-testid="profile-row">
-                <td>
-                  {profile.name}
-                  {profile.system ? " (system)" : ""}
-                  {profile.defaultProfile ? " (default for new members)" : ""}
-                  {profile.description ? <div className="hint">{profile.description}</div> : null}
-                </td>
-                <td>{profile.licenceType}</td>
-                <td>{profile.abilities.length === 0 ? "none" : profile.abilities.map(nameOf).join(", ")}</td>
-                <td>{profile.members}</td>
-                <td>
-                  <button type="button" className="link-button" onClick={() => setPermissionsOf(profile)}>
-                    Permissions on data
-                  </button>{" "}
-                  {profile.fullAccess ? null : (
-                    <button
-                      type="button"
-                      className="link-button"
-                      disabled={busy}
-                      onClick={() =>
-                        setDraft({
-                          id: profile.id,
-                          name: profile.name,
-                          description: profile.description,
-                          licenceType: profile.licenceType,
-                          abilities: profile.abilities,
-                        })
-                      }
-                    >
-                      Change
-                    </button>
-                  )}{" "}
-                  {profile.fullAccess || profile.defaultProfile ? null : (
-                    <button type="button" className="link-button" disabled={busy} onClick={() => void makeDefault(profile)}>
-                      Make default
-                    </button>
-                  )}{" "}
-                  {profile.system || profile.defaultProfile ? null : (
-                    <button type="button" className="link-button" disabled={busy} onClick={() => void remove(profile)}>
-                      Remove
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      {permissionsOf ? (
-        <DataAccessEditor
-          key={permissionsOf.id}
-          target={{ kind: "profile", id: permissionsOf.id }}
-          title={`Permissions on data: ${permissionsOf.name}`}
-        />
-      ) : null}
-    </div>
+        </DetailSection>
+      </form>
+    </DetailPage>
   );
 }

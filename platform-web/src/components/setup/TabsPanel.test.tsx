@@ -1,12 +1,16 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi, json, type Handler } from "@/test/fakeApi";
+import { setUrl } from "@/test/navigation";
 import { TabsPanel } from "./TabsPanel";
+
+vi.mock("next/navigation", async () => (await import("@/test/navigation")).navigationMock);
 
 beforeEach(() => {
   document.cookie = "XSRF-TOKEN=test-token; path=/";
   window.sessionStorage.clear();
+  act(() => setUrl("/setup/tabs"));
 });
 
 afterEach(() => {
@@ -56,10 +60,11 @@ describe("TabsPanel", () => {
     expect(rows).toHaveLength(3);
     expect(rows[0]).toHaveTextContent("Account");
     expect(rows[0]).toHaveTextContent("Object");
-    expect(within(rows[0] as HTMLElement).queryByRole("button", { name: "Change" })).toBeNull();
+    // An object tab needs nothing made, so it does not open; a custom tab does.
+    expect(within(rows[0] as HTMLElement).queryByRole("button")).toBeNull();
     expect(rows[2]).toHaveTextContent("Custom");
     expect(rows[2]).toHaveTextContent("Field map");
-    expect(within(rows[2] as HTMLElement).getByRole("button", { name: "Change" })).toBeInTheDocument();
+    expect(within(rows[2] as HTMLElement).getByRole("button", { name: "Field map" })).toBeInTheDocument();
   });
 
   it("filters the list by what is typed", async () => {
@@ -71,7 +76,7 @@ describe("TabsPanel", () => {
     expect(screen.getAllByTestId("tab-row")).toHaveLength(1);
     fireEvent.change(screen.getByLabelText("Search tabs"), { target: { value: "nothing like it" } });
     expect(screen.queryAllByTestId("tab-row")).toHaveLength(0);
-    expect(screen.getByText(/No tab matches/)).toBeInTheDocument();
+    expect(screen.getByText("Nothing matches “nothing like it”.")).toBeInTheDocument();
   });
 
   it("makes a tab with a new custom page: stores the script, makes the page, then the tab", async () => {
@@ -91,7 +96,7 @@ describe("TabsPanel", () => {
     fireEvent.change(add.getByLabelText("Label"), { target: { value: "Gauge board" } });
     fireEvent.change(add.getByLabelText("Script file"), { target: { files: [script()] } });
     fireEvent.change(add.getByLabelText(/Reference for server code/), { target: { value: "gauge-service" } });
-    fireEvent.click(add.getByRole("button", { name: "Add the tab" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add the tab" }));
 
     expect(await screen.findByTestId("tabs-notice")).toHaveTextContent("The tab was added.");
     const order = calls.map((call) => call.key).filter((key) => key.startsWith("POST"));
@@ -135,7 +140,7 @@ describe("TabsPanel", () => {
     fireEvent.change(add.getByLabelText("Name"), { target: { value: "Gauge" } });
     fireEvent.change(add.getByLabelText("Label"), { target: { value: "Gauge" } });
     fireEvent.change(add.getByLabelText("Script file"), { target: { files: [script("let x = 1;")] } });
-    fireEvent.click(add.getByRole("button", { name: "Add the tab" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add the tab" }));
 
     await waitFor(() => expect(seen).toHaveLength(1));
     expect(seen[0]).toEqual({ type: "text/javascript", token: "test-token" });
@@ -156,11 +161,11 @@ describe("TabsPanel", () => {
     fireEvent.change(add.getByLabelText("Name"), { target: { value: "Gauge" } });
     fireEvent.change(add.getByLabelText("Label"), { target: { value: "Gauge" } });
 
-    fireEvent.click(add.getByRole("button", { name: "Add the tab" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add the tab" }));
     expect(await screen.findByTestId("tabs-problem")).toHaveTextContent("Choose the script file");
 
     fireEvent.change(add.getByLabelText("Script file"), { target: { files: [script()] } });
-    fireEvent.click(add.getByRole("button", { name: "Add the tab" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add the tab" }));
     await waitFor(() => expect(screen.getByTestId("tabs-problem")).toHaveTextContent("larger than the most allowed"));
     expect(calls.some((call) => call.key === "POST /api/v1/metadata/custom-pages")).toBe(false);
   });
@@ -176,7 +181,7 @@ describe("TabsPanel", () => {
     fireEvent.change(add.getByLabelText("Label"), { target: { value: "Again" } });
     fireEvent.change(add.getByLabelText("Custom page"), { target: { value: "FieldMap__c" } });
     expect(add.queryByLabelText("Script file")).toBeNull();
-    fireEvent.click(add.getByRole("button", { name: "Add the tab" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add the tab" }));
 
     expect(await screen.findByTestId("tabs-notice")).toHaveTextContent("The tab was added.");
     expect(calls.some((call) => call.key === "POST /api/v1/metadata/custom-page-assets")).toBe(false);
@@ -194,17 +199,19 @@ describe("TabsPanel", () => {
     render(<TabsPanel />);
     const rows = await screen.findAllByTestId("tab-row");
 
-    fireEvent.click(within(rows[2] as HTMLElement).getByRole("button", { name: "Change" }));
+    fireEvent.click(within(rows[2] as HTMLElement).getByRole("button", { name: "Field map" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Change" }));
     fireEvent.change(form("Change the tab").getByLabelText("Label"), { target: { value: "Map of fields" } });
-    fireEvent.click(form("Change the tab").getByRole("button", { name: "Save the tab" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save the tab" }));
     expect(await screen.findByTestId("tabs-notice")).toHaveTextContent("The tab was saved.");
     const sent = JSON.parse(calls.find((call) => call.key === "PUT /api/v1/metadata/tabs/Map__c")?.body ?? "{}");
     expect(sent).toEqual({
       label: "Map of fields", description: "", version: 4, definition: { kind: "CUSTOM", customPage: "FieldMap__c" },
     });
 
-    fireEvent.click(within((await screen.findAllByTestId("tab-row"))[2] as HTMLElement).getByRole("button", { name: "Remove" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
     await waitFor(() => expect(calls.some((call) => call.key === "DELETE /api/v1/metadata/tabs/Map__c")).toBe(true));
+    expect(await screen.findByTestId("tabs")).toBeInTheDocument();
   });
 
   it("replaces the script of a page and removes a page", async () => {
@@ -243,7 +250,7 @@ describe("TabsPanel", () => {
     fireEvent.change(add.getByLabelText("Name"), { target: { value: "Again" } });
     fireEvent.change(add.getByLabelText("Label"), { target: { value: "Again" } });
     fireEvent.change(add.getByLabelText("Custom page"), { target: { value: "FieldMap__c" } });
-    fireEvent.click(add.getByRole("button", { name: "Add the tab" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add the tab" }));
 
     expect(await screen.findByTestId("tabs-notice")).toHaveTextContent("goes live when the set is published");
     expect(calls.some((call) => call.key === "POST /api/v1/metadata/tabs")).toBe(false);
