@@ -1,13 +1,15 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi, json, refusal } from "@/test/fakeApi";
+import { setUrl } from "@/test/navigation";
 import { NotificationTextPanel } from "./NotificationTextPanel";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/setup/notification-text" }));
+vi.mock("next/navigation", async () => (await import("@/test/navigation")).navigationMock);
 
 beforeEach(() => {
   document.cookie = "XSRF-TOKEN=test-token; path=/";
   window.sessionStorage.clear();
+  act(() => setUrl("/setup/notification-text"));
 });
 
 afterEach(() => {
@@ -15,6 +17,7 @@ afterEach(() => {
   document.cookie = "XSRF-TOKEN=; path=/; max-age=0";
 });
 
+const SUMMARY = "Something happens that a member should know.";
 const LIST = "GET /api/v1/metadata/notification-templates";
 const CHECK = "POST /api/v1/metadata/notification-templates/check";
 const CREATE = "POST /api/v1/metadata/notification-templates";
@@ -43,13 +46,33 @@ function view(templates = [template()]) {
   return { data: { templates, titleMax: 50, bodyMax: 300 } };
 }
 
+/** Opens the kind from the list, by its name in the first column, and returns its page. */
+async function openKind() {
+  fireEvent.click(await screen.findByRole("button", { name: SUMMARY }));
+  return screen.findByTestId("template-SOME_KIND");
+}
+
 describe("the text of notices", () => {
+  it("lists every kind with its category and whether the platform's text or the organization's is in use", async () => {
+    fakeApi({ [LIST]: () => json(view([template(), template({ kind: "OTHER", summary: "Another thing.", custom: true })])) });
+
+    render(<NotificationTextPanel />);
+
+    const rows = await screen.findAllByTestId("template-row");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("Platform text");
+    expect(rows[0]).toHaveTextContent("SOME_CATEGORY");
+    expect(rows[1]).toHaveTextContent("Your text");
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search notification text" }), { target: { value: "another" } });
+    expect(screen.getAllByTestId("template-row")).toHaveLength(1);
+  });
+
   it("draws every kind the API lists with the text in use, the placeholders and the limits", async () => {
     fakeApi({ [LIST]: () => json(view()) });
 
     render(<NotificationTextPanel />);
 
-    const card = await screen.findByTestId("template-SOME_KIND");
+    const card = await openKind();
     expect(card).toHaveTextContent("Something happens that a member should know.");
     expect(card).toHaveTextContent("Platform text");
     expect(within(card).getByLabelText("Title")).toHaveValue("The platform title");
@@ -63,7 +86,7 @@ describe("the text of notices", () => {
     fakeApi({ [LIST]: () => json(view()) });
 
     render(<NotificationTextPanel />);
-    const card = await screen.findByTestId("template-SOME_KIND");
+    const card = await openKind();
     fireEvent.click(within(card).getByRole("button", { name: "{place}" }));
 
     expect(within(card).getByLabelText("Text")).toHaveValue("The platform body about {thing}.{place}");
@@ -80,7 +103,7 @@ describe("the text of notices", () => {
     });
 
     render(<NotificationTextPanel />);
-    const card = await screen.findByTestId("template-SOME_KIND");
+    const card = await openKind();
     fireEvent.click(within(card).getByRole("button", { name: "Check" }));
     expect(await screen.findByTestId("problems-SOME_KIND")).toHaveTextContent("body: {x} is not available here.");
 
@@ -109,7 +132,7 @@ describe("the text of notices", () => {
     });
 
     render(<NotificationTextPanel />);
-    let card = await screen.findByTestId("template-SOME_KIND");
+    let card = await openKind();
     fireEvent.change(within(card).getByLabelText("Title"), { target: { value: "Mine" } });
     fireEvent.change(within(card).getByLabelText("Text"), { target: { value: "Mine {thing}" } });
     fireEvent.click(within(card).getByRole("button", { name: "Save" }));
@@ -131,7 +154,7 @@ describe("the text of notices", () => {
     });
 
     render(<NotificationTextPanel />);
-    const card = await screen.findByTestId("template-SOME_KIND");
+    const card = await openKind();
     fireEvent.click(within(card).getByRole("button", { name: /Go back to the platform/ }));
 
     await waitFor(() => expect(calls.some((one) => one.key === RESET)).toBe(true));
@@ -145,7 +168,7 @@ describe("the text of notices", () => {
     });
 
     render(<NotificationTextPanel />);
-    const card = await screen.findByTestId("template-SOME_KIND");
+    const card = await openKind();
     fireEvent.click(within(card).getByRole("button", { name: "Save" }));
 
     expect(await screen.findByTestId("notification-text-notice")).toHaveTextContent("change set");
@@ -161,7 +184,7 @@ describe("the text of notices", () => {
     });
 
     render(<NotificationTextPanel />);
-    const card = await screen.findByTestId("template-SOME_KIND");
+    const card = await openKind();
     fireEvent.click(within(card).getByRole("button", { name: "Save" }));
 
     expect(await screen.findByTestId("notification-text-problem")).toHaveTextContent("at most 300 characters");

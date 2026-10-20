@@ -9,7 +9,8 @@ export interface Crumb {
 }
 
 /**
- * The frame every builder shares: where the person is (breadcrumb), what they are building, and Save and Cancel. It
+ * The frame every builder shares, in the look of the Home screens (ADR-0168): a title band with where the person is
+ * (breadcrumb), what they are building, and Save and Cancel; the builder itself sits below it, unchanged. It
  * holds no draft. It only knows whether there is something unsaved: leaving then asks first (a closed tab is warned by
  * the browser), so a long layout is not lost to a stray click.
  */
@@ -52,47 +53,55 @@ export function BuilderShell({
 
   return (
     <div className="stack builder-frame" data-testid={testId}>
-      <nav aria-label="Where you are" className="breadcrumb">
-        {crumbs.map((crumb, index) => (
-          <span key={crumb.label}>
-            {crumb.href ? <Link href={crumb.href}>{crumb.label}</Link> : <span aria-current="page">{crumb.label}</span>}
-            {index < crumbs.length - 1 ? <span aria-hidden="true"> / </span> : null}
-          </span>
-        ))}
-      </nav>
-      <div className="builder-head">
-        <h2>{title}</h2>
-        {dirty ? (
-          <span className="badge" data-testid="unsaved">
-            Unsaved changes
-          </span>
-        ) : null}
-        <div className="builder-actions">
-          {actions}
-          {leaving ? (
-            <span className="inline-confirm" role="group" aria-label="Discard the changes?">
-              Discard your changes?
-              <Link className="button button-danger" href={backHref}>
-                Yes, discard
-              </Link>
-              <button type="button" className="link-button" onClick={() => setLeaving(false)}>
-                Keep editing
-              </button>
+      <header className="page-head page-head-bar">
+        <nav aria-label="Where you are" className="breadcrumb">
+          {crumbs.map((crumb, index) => (
+            <span key={crumb.label}>
+              {crumb.href ? (
+                <Link className="breadcrumb-link" href={crumb.href}>
+                  {crumb.label}
+                </Link>
+              ) : (
+                <span aria-current="page">{crumb.label}</span>
+              )}
+              {index < crumbs.length - 1 ? <span aria-hidden="true"> / </span> : null}
             </span>
-          ) : dirty ? (
-            <button type="button" className="button button-secondary" onClick={() => setLeaving(true)}>
-              Cancel
+          ))}
+        </nav>
+        <div className="page-head-row">
+          <h1>{title}</h1>
+          {dirty ? (
+            <span className="badge" data-testid="unsaved">
+              Unsaved changes
+            </span>
+          ) : null}
+          <div className="page-head-tools">
+            {actions}
+            {leaving ? (
+              <span className="inline-confirm" role="group" aria-label="Discard the changes?">
+                Discard your changes?
+                <Link className="button button-danger" href={backHref}>
+                  Yes, discard
+                </Link>
+                <button type="button" className="link-button" onClick={() => setLeaving(false)}>
+                  Keep editing
+                </button>
+              </span>
+            ) : dirty ? (
+              <button type="button" className="button button-secondary" onClick={() => setLeaving(true)}>
+                Cancel
+              </button>
+            ) : (
+              <Link className="button button-secondary" href={backHref}>
+                Back
+              </Link>
+            )}
+            <button type="button" className="button" disabled={busy} onClick={onSave}>
+              {saveLabel}
             </button>
-          ) : (
-            <Link className="button button-secondary" href={backHref}>
-              Back
-            </Link>
-          )}
-          <button type="button" className="button" disabled={busy} onClick={onSave}>
-            {saveLabel}
-          </button>
+          </div>
         </div>
-      </div>
+      </header>
       {children}
     </div>
   );

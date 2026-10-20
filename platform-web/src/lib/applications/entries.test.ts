@@ -11,7 +11,6 @@ import {
   type MyApplication,
   type NavigationEntry,
 } from "./entries";
-import { setupHref } from "./setupLink";
 
 const OBJECT: NavigationEntry = {
   type: "OBJECT",
@@ -125,17 +124,5 @@ describe("what an application opens on", () => {
       "link",
       "heading",
     ]);
-  });
-});
-
-describe("the way to Setup", () => {
-  it("opens the access pages for a member who manages access, else the object pages for one who views objects", () => {
-    expect(setupHref(["access.manage", "metadata.view"])).toBe("/setup/profiles");
-    expect(setupHref(["metadata.view"])).toBe("/setup/objects");
-  });
-
-  it("is not offered to a member with neither ability", () => {
-    expect(setupHref([])).toBeNull();
-    expect(setupHref(["members.view"])).toBeNull();
   });
 });

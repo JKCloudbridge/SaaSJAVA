@@ -2,64 +2,146 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
 import { AppIcon } from "@/components/ui/AppIcon";
 import { Icon } from "@/components/ui/Icon";
+import { usePlatformAddress } from "@/lib/account/usePlatformAddress";
 import { useApplications } from "@/lib/applications/ApplicationsProvider";
-import { entryHref, entrySlug, findApplication, type MyApplication, type NavigationEntry } from "@/lib/applications/entries";
-import { setupHref } from "@/lib/applications/setupLink";
+import {
+  entryHref,
+  entrySlug,
+  findApplication,
+  type MyApplication,
+  type NavigationEntry,
+} from "@/lib/applications/entries";
+import { areaOf, canSetUp, settingsLanding, settingsTabs, type Area } from "@/lib/shell/areas";
 import { useSession } from "@/lib/session/SessionProvider";
 import { AppLauncher } from "./AppLauncher";
 
-/** The application and the page the address names, from `/apps/<application>/<entry>`; empty elsewhere. */
-function addressOf(pathname: string): { application?: string; entry?: string } {
-  const parts = pathname.split("/").filter(Boolean);
-  if (parts[0] !== "apps" || !parts[1]) {
-    return {};
-  }
-  try {
-    return { application: decodeURIComponent(parts[1]), entry: parts[2] ? decodeURIComponent(parts[2]) : undefined };
-  } catch {
-    return {};
-  }
-}
-
 /**
- * The row under the header that holds the member's place in the applications (Sprint 18, ADR-0128): the launcher, the
- * name of the application that is open, its pages as a row of links, and the way to Setup. It is drawn from the API's list
- * of applications and nothing else; a member with no applications still gets the launcher, which says so. It appears only
- * for a signed-in member on an organization's address, and leaves the platform's own pages to the navigation beside the
- * content.
+ * The strip under the header (Sprint 18, ADR-0128; reshaped in UA1, ADR-0167). Its content follows where the person is:
+ *
+ * <ul>
+ *   <li>In settings (the Home pages and the object pages): the launcher and two tabs, Home and Object settings. A tab
+ *       the person has no ability for is not drawn. No gear: they are already in settings.</li>
+ *   <li>In an application: the launcher, the application's name, its pages as tabs and the gear back to settings.</li>
+ *   <li>On every other page (the approvals inbox, notifications, a record screen outside an application, switching
+ *       organization): the launcher, the name of the area and the gear.</li>
+ *   <li>The gear is drawn only for a person with at least one ability the setup pages are for.</li>
+ * </ul>
+ *
+ * It is drawn from the API's list of applications and the abilities the API lists, and decides nothing. It appears only
+ * for a signed-in member on an organization's address, and on the platform's console (where it names the area).
  */
 export function ControlBar() {
+  const pathname = usePathname() ?? "";
+  const area = areaOf(pathname);
+  return area.kind === "console" ? <ConsoleStrip /> : <OrganizationStrip area={area} />;
+}
+
+/** The console's strip: the name of the area. No launcher (the platform has no applications) and no setup tabs. */
+function ConsoleStrip() {
+  const { state } = useSession();
+  const platform = usePlatformAddress();
+  if (state.status !== "signedIn" || platform.isPlatformHost !== true || state.user.platformRoles.length === 0) {
+    return null;
+  }
+  return (
+    <div className="control-bar" data-testid="control-bar">
+      <div className="control-app" data-testid="control-app">
+        <span className="control-app-name">Platform console</span>
+      </div>
+      <span className="control-spacer" />
+    </div>
+  );
+}
+
+function OrganizationStrip({ area }: { area: Area }) {
   const { enabled, state } = useApplications();
   const { state: session } = useSession();
-  const pathname = usePathname();
   if (!enabled) {
     return null;
   }
-  const address = addressOf(pathname);
-  const application = address.application ? findApplication(state.applications, address.application) : undefined;
-  const setup = session.status === "signedIn" ? setupHref(session.user.abilities) : null;
+  const abilities = session.status === "signedIn" ? session.user.abilities : [];
+  const setUp = canSetUp(abilities);
+  const application =
+    area.kind === "application" ? findApplication(state.applications, area.application) : undefined;
+  const inSettings = area.kind === "home" || area.kind === "objects";
+  const gear = !inSettings && setUp ? settingsLanding(abilities) : null;
   return (
     <div className="control-bar" data-testid="control-bar">
-      <AppLauncher current={application?.apiName} setupHref={setup} />
-      <div className="control-app" data-testid="control-app">
-        {application ? (
-          <>
-            <AppIcon iconKey={application.iconKey} label={application.label} />
-            <span className="control-app-name">{application.label}</span>
-          </>
-        ) : (
-          <span className="control-app-none">{address.application ? "Application" : "No application open"}</span>
-        )}
-      </div>
-      {application ? <PageTabs application={application} current={address.entry} /> : <span className="control-spacer" />}
-      {setup ? (
-        <Link href={setup} className="control-gear" aria-label="Setup" title="Setup">
+      <AppLauncher current={application?.apiName} canSetUp={setUp} />
+      {inSettings ? (
+        <SettingsTabs area={area} abilities={abilities} />
+      ) : (
+        <>
+          <div className="control-app" data-testid="control-app">
+            {application ? (
+              <>
+                <AppIcon iconKey={application.iconKey} label={application.label} />
+                <span className="control-app-name">{application.label}</span>
+              </>
+            ) : (
+              <AreaName area={area} />
+            )}
+          </div>
+          {application ? (
+            <PageTabs application={application} current={area.kind === "application" ? area.entry : undefined} />
+          ) : (
+            <span className="control-spacer" />
+          )}
+        </>
+      )}
+      {gear ? (
+        <Link href={gear} className="control-gear" aria-label="Setup" title="Setup">
           <Icon name="setup" className="control-gear-icon" />
         </Link>
       ) : null}
     </div>
+  );
+}
+
+/** What the strip calls the place when it is not an application that is open. */
+function AreaName({ area }: { area: Area }): ReactNode {
+  if (area.kind === "application") {
+    return <span className="control-app-none">Application</span>;
+  }
+  if (area.kind === "neutral" && area.name) {
+    return <span className="control-app-name">{area.name}</span>;
+  }
+  return <span className="control-app-none">No application open</span>;
+}
+
+/** The two tabs of settings. Each is drawn only when the abilities the API lists give the person a page behind it. */
+function SettingsTabs({ area, abilities }: { area: Area; abilities: readonly string[] }) {
+  const tabs = settingsTabs(abilities);
+  if (!tabs.home && !tabs.objects) {
+    // A person who typed a settings address without any setup ability: the pages answer in the API's words.
+    return <span className="control-spacer" />;
+  }
+  return (
+    <nav className="control-tabs" aria-label="Settings" data-testid="settings-tabs">
+      <ul>
+        {tabs.home ? (
+          <li>
+            <Link href={tabs.home} className="control-tab" aria-current={area.kind === "home" ? "page" : undefined}>
+              Home
+            </Link>
+          </li>
+        ) : null}
+        {tabs.objects ? (
+          <li>
+            <Link
+              href={tabs.objects}
+              className="control-tab"
+              aria-current={area.kind === "objects" ? "page" : undefined}
+            >
+              Object settings
+            </Link>
+          </li>
+        ) : null}
+      </ul>
+    </nav>
   );
 }
 

@@ -72,6 +72,17 @@ describe("WorkflowsPanel", () => {
     expect(push).toHaveBeenCalledWith("/setup/workflows/Task__c/new");
   });
 
+  it("filters the loaded workflows with the search box", async () => {
+    fakeApi(answers([WATCH, { ...WATCH, apiName: "Idle__c", label: "Idle", active: false }]));
+    render(<WorkflowsPanel />);
+    await screen.findAllByTestId("workflow-row");
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search workflows" }), { target: { value: "idle" } });
+    expect(screen.getAllByTestId("workflow-row")).toHaveLength(1);
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search workflows" }), { target: { value: "zzz" } });
+    expect(screen.getByText("Nothing matches “zzz”.")).toBeInTheDocument();
+  });
+
   it("switches a workflow off with the version it read, live", async () => {
     const calls = fakeApi({ ...answers(), [ACTIVATION]: () => json({ data: { ...WATCH, active: false } }) });
     render(<WorkflowsPanel />);

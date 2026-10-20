@@ -1,8 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { COMMON_TEXT } from "@/components/account/messages";
+import { ListPage } from "@/components/ui/lists/ListPage";
+import { Tag, type TagTone } from "@/components/ui/lists/Tag";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
 import { failureText } from "./useAction";
@@ -14,10 +15,13 @@ type Loaded =
   | { kind: "ok"; items: Summary[]; nextCursor?: string }
   | { kind: "failed"; message: string };
 
+const STATUS_TONE: Record<string, TagTone> = { ACTIVE: "ok", TRIAL: "on", SUSPENDED: "error", DEACTIVATED: "quiet" };
+
 /**
- * The organizations of the platform, by short name, one page at a time, with a search. Shows what the API lists (state,
- * plan, trial) and nothing about members or business data: the API does not send it. A refusal is shown in the API's
- * own words.
+ * The organizations of the platform, by short name, one page at a time. The list is the API's: the search is the API's
+ * too (it looks through every organization, not only those on the page), so it is a filter bar and not the box of the other
+ * lists. A row opens the organization's page; New sets one up for a client. Shows what the API lists (state, plan, trial)
+ * and nothing about members or business data: the API does not send it. A refusal is shown in the API's own words.
  */
 export function OrganizationsPanel() {
   const [loaded, setLoaded] = useState<Loaded>({ kind: "loading" });
@@ -64,68 +68,68 @@ export function OrganizationsPanel() {
     setLoadingMore(false);
   }
 
-  return (
-    <section aria-labelledby="organizations-heading" className="stack">
-      <h2 id="organizations-heading">Organizations</h2>
-      <form className="form" onSubmit={submit} role="search" noValidate>
-        <div className="field">
-          <label htmlFor="organization-search">Search by name or short name</label>
-          <input
-            id="organization-search"
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </div>
+  const filter = (
+    <form className="filters" onSubmit={submit} role="search" noValidate>
+      <label>
+        Search by name or short name
+        <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} />
+      </label>
+      <div className="filters-actions">
         <button type="submit" className="button">
           Search
         </button>
-      </form>
-      {loaded.kind === "loading" ? <p aria-live="polite">Loading…</p> : null}
-      {loaded.kind === "failed" ? (
-        <p className="form-message" role="alert" data-testid="organizations-failed">
-          {loaded.message}
-        </p>
-      ) : null}
-      {loaded.kind === "ok" && loaded.items.length === 0 ? <p>No organizations found.</p> : null}
-      {loaded.kind === "ok" && loaded.items.length > 0 ? (
-        <table className="table" data-testid="organizations">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Short name</th>
-              <th>State</th>
-              <th>Plan</th>
-              <th>Trial</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loaded.items.map((organization) => (
-              <tr key={organization.id} data-testid="organization-row">
-                <td>
-                  <Link href={`/console/organizations/${organization.id}`}>{organization.displayName}</Link>
-                </td>
-                <td>{organization.slug}</td>
-                <td>{organization.status}</td>
-                <td>
-                  {organization.plan ?? "none"}
-                  {organization.subscriptionStatus ? ` (${organization.subscriptionStatus})` : ""}
-                </td>
-                <td>
-                  {organization.trialEndsAt
-                    ? `${organization.trialExpired ? "expired" : "ends"} ${new Date(organization.trialEndsAt).toLocaleDateString()}`
-                    : ""}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : null}
-      {loaded.kind === "ok" && loaded.nextCursor ? (
-        <button type="button" className="button" disabled={loadingMore} onClick={() => void more()}>
-          Show more
-        </button>
-      ) : null}
-    </section>
+      </div>
+    </form>
+  );
+
+  return (
+    <ListPage<Summary>
+      title="Organizations"
+      items={loaded.kind === "ok" ? loaded.items : undefined}
+      failure={loaded.kind === "failed" ? loaded.message : undefined}
+      rowKey={(row) => row.id}
+      primaryHeader="Name"
+      primary={(row) => row.displayName}
+      openHref={(row) => `/console/organizations/${row.id}`}
+      columns={[
+        { key: "slug", header: "Short name", kind: "muted", cell: (row) => row.slug },
+        {
+          key: "plan",
+          header: "Plan",
+          kind: "muted",
+          cell: (row) => `${row.plan ?? "none"}${row.subscriptionStatus ? ` (${row.subscriptionStatus})` : ""}`,
+        },
+        {
+          key: "trial",
+          header: "Trial",
+          kind: "muted",
+          cell: (row) =>
+            row.trialEndsAt
+              ? `${row.trialExpired ? "expired" : "ends"} ${new Date(row.trialEndsAt).toLocaleDateString()}`
+              : "",
+        },
+        {
+          key: "state",
+          header: "State",
+          kind: "tag",
+          cell: (row) => <Tag tone={STATUS_TONE[row.status] ?? "quiet"}>{row.status}</Tag>,
+        },
+      ]}
+      newHref="/console/organizations/new"
+      newLabel="Set up an organization"
+      above={filter}
+      below={
+        loaded.kind === "ok" && loaded.nextCursor ? (
+          <div>
+            <button type="button" className="button button-secondary" disabled={loadingMore} onClick={() => void more()}>
+              Show more
+            </button>
+          </div>
+        ) : null
+      }
+      emptyText="No organizations found."
+      testId="organizations"
+      rowTestId="organization-row"
+    />
   );
 }

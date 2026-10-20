@@ -5,19 +5,26 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { COMMON_TEXT } from "@/components/account/messages";
 import { ActionMessages, failureText, useAction } from "@/components/console/useAction";
+import { ListPage } from "@/components/ui/lists/ListPage";
+import { Tag } from "@/components/ui/lists/Tag";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
+import { useOffers } from "@/lib/session/SessionProvider";
 import { problemText } from "./objectText";
 import { addToSet, DRAFTED_TEXT, useWorkingSet } from "./workingSet";
 
 type ProcessView = components["schemas"]["ApprovalProcessView"];
 type ObjectSummary = components["schemas"]["ObjectSummaryView"];
 
+const hrefOf = (process: ProcessView) =>
+  `/setup/approvals/${encodeURIComponent(process.objectApiName)}/${encodeURIComponent(process.apiName)}`;
+
 /**
  * The approval processes of the organization: the list, with the way into the builder where a process is made and changed
- * and the way to the requests under each. Switching on or off and removing are done here, live or, when a change set is
- * chosen, as a draft. The page shows what the API answers and in its words; a process that cannot be switched on or removed
- * says why (the plan has no approvals, requests are waiting for a decision).
+ * (a row opens it) and the way to the requests under each. Switching on or off and removing are done here, live or, when a
+ * change set is chosen, as a draft. A new process starts on the object chosen in the title band. The page shows what the API
+ * answers and in its words; a process that cannot be switched on or removed says why (the plan has no approvals, requests
+ * are waiting for a decision).
  */
 export function ApprovalProcessesPanel() {
   const { id: workingSet } = useWorkingSet();
@@ -26,6 +33,7 @@ export function ApprovalProcessesPanel() {
   const [objects, setObjects] = useState<ObjectSummary[]>([]);
   const [failure, setFailure] = useState<string | undefined>();
   const [objectApiName, setObjectApiName] = useState("");
+  const offersManage = useOffers("approvals.manage");
 
   const reload = useCallback(async () => {
     try {
@@ -50,17 +58,6 @@ export function ApprovalProcessesPanel() {
   }, [reload]);
 
   const { busy, notice, problem, act } = useAction(reload);
-
-  if (failure) {
-    return (
-      <p className="form-message" role="alert" data-testid="approvals-failed">
-        {failure}
-      </p>
-    );
-  }
-  if (!processes) {
-    return <p aria-live="polite">Loading…</p>;
-  }
 
   function switchTo(process: ProcessView, active: boolean) {
     void act(async () => {
@@ -125,106 +122,99 @@ export function ApprovalProcessesPanel() {
 
   const labelOfObject = (name: string) => objects.find((one) => one.apiName === name)?.label ?? name;
 
+  const tools = (
+    <>
+      <Link className="button button-secondary" href="/approvals">
+        Approvals inbox
+      </Link>
+      {offersManage ? (
+        <form
+          className="form-actions"
+          aria-label="Start a new approval process"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (objectApiName) {
+              router.push(`/setup/approvals/${encodeURIComponent(objectApiName)}/new`);
+            }
+          }}
+        >
+          <label className="visually-hidden" htmlFor="new-approval-object">
+            Object
+          </label>
+          <select
+            id="new-approval-object"
+            value={objectApiName}
+            onChange={(event) => setObjectApiName(event.target.value)}
+          >
+            <option value="">Choose an object</option>
+            {objects.map((one) => (
+              <option key={one.apiName} value={one.apiName}>
+                {one.label}
+              </option>
+            ))}
+          </select>
+          <button type="submit" className="button" disabled={objectApiName === ""}>
+            New approval process
+          </button>
+        </form>
+      ) : null}
+    </>
+  );
+
   return (
-    <section aria-labelledby="approvals-heading" data-testid="approval-processes">
-      <div className="list-head">
-        <h2 id="approvals-heading">Approval processes</h2>
-        <Link className="button button-secondary" href="/approvals">
-          Approvals inbox
-        </Link>
-      </div>
-      <p className="hint">
-        An approval process decides a record in steps: when a record is submitted it is locked, each step asks the people the
-        process names, and when the request ends the record is unlocked and the process may set fields of it. A request that
-        is under way keeps the version of the process it started under.
-      </p>
-      <form
-        className="filters"
-        aria-label="Start a new approval process"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (objectApiName) {
-            router.push(`/setup/approvals/${encodeURIComponent(objectApiName)}/new`);
-          }
-        }}
-      >
-        <label htmlFor="new-approval-object">Object</label>
-        <select id="new-approval-object" value={objectApiName} onChange={(event) => setObjectApiName(event.target.value)}>
-          <option value="">Choose an object</option>
-          {objects.map((one) => (
-            <option key={one.apiName} value={one.apiName}>
-              {one.label}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="button" disabled={objectApiName === ""}>
-          New approval process
-        </button>
-      </form>
-      <ActionMessages notice={notice} problem={problem} testId="approval-processes" />
-      {processes.length === 0 ? (
-        <p>No approval processes yet.</p>
-      ) : (
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Process</th>
-              <th>Object</th>
-              <th>Records</th>
-              <th>Steps</th>
-              <th>State</th>
-              <th>
-                <span className="visually-hidden">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {processes.map((process) => {
-              const href = `/setup/approvals/${encodeURIComponent(process.objectApiName)}/${encodeURIComponent(process.apiName)}`;
-              return (
-                <tr key={`${process.objectApiName}.${process.apiName}`} data-testid="approval-process-row">
-                  <td>
-                    <Link className="table-row-link" href={href}>
-                      {process.label}
-                    </Link>
-                    <div className="hint">
-                      <code>{process.apiName}</code>
-                    </div>
-                  </td>
-                  <td>{labelOfObject(process.objectApiName)}</td>
-                  <td>{process.entryCriteria ? "Those that meet the criteria" : "Any record"}</td>
-                  <td>{process.steps.map((step) => step.label).join(" → ")}</td>
-                  <td>
-                    <span className="badge">{process.active ? "On" : "Off"}</span>
-                  </td>
-                  <td>
-                    <Link className="link-button" href={href}>
-                      Build
-                    </Link>{" "}
-                    <Link
-                      className="link-button"
-                      href={`/approvals?object=${encodeURIComponent(process.objectApiName)}&process=${encodeURIComponent(process.apiName)}`}
-                    >
-                      Requests
-                    </Link>{" "}
-                    <button
-                      type="button"
-                      className="link-button"
-                      disabled={busy}
-                      onClick={() => switchTo(process, !process.active)}
-                    >
-                      {process.active ? "Switch off" : "Switch on"}
-                    </button>{" "}
-                    <button type="button" className="link-button" disabled={busy} onClick={() => remove(process)}>
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
-    </section>
+    <ListPage<ProcessView>
+      title="Approval processes"
+      intro="An approval process decides a record in steps: when a record is submitted it is locked, each step asks the people the process names, and when the request ends the record is unlocked and the process may set fields of it. A request that is under way keeps the version of the process it started under."
+      items={processes}
+      failure={failure}
+      rowKey={(row) => `${row.objectApiName}.${row.apiName}`}
+      primaryHeader="Process"
+      primary={(row) => row.label}
+      primaryExtra={(row) => <code>{row.apiName}</code>}
+      openHref={hrefOf}
+      columns={[
+        { key: "object", header: "Object", kind: "muted", cell: (row) => labelOfObject(row.objectApiName) },
+        {
+          key: "criteria",
+          header: "Entry criteria",
+          kind: "muted",
+          cell: (row) => (row.entryCriteria ? "Those that meet the criteria" : "Any record"),
+        },
+        { key: "steps", header: "Steps", kind: "muted", cell: (row) => row.steps.map((step) => step.label).join(" → ") },
+        {
+          key: "state",
+          header: "Status",
+          kind: "tag",
+          cell: (row) => <Tag tone={row.active ? "ok" : "quiet"}>{row.active ? "On" : "Off"}</Tag>,
+        },
+        {
+          key: "row-actions",
+          header: "Row actions",
+          kind: "actions",
+          cell: (row) => (
+            <>
+              <Link
+                className="link-button"
+                href={`/approvals?object=${encodeURIComponent(row.objectApiName)}&process=${encodeURIComponent(row.apiName)}`}
+              >
+                Requests
+              </Link>{" "}
+              <button type="button" className="link-button" disabled={busy} onClick={() => switchTo(row, !row.active)}>
+                {row.active ? "Switch off" : "Switch on"}
+              </button>{" "}
+              <button type="button" className="link-button" disabled={busy} onClick={() => remove(row)}>
+                Remove
+              </button>
+            </>
+          ),
+        },
+      ]}
+      searchText={(row) => `${row.label} ${row.apiName} ${labelOfObject(row.objectApiName)}`}
+      tools={tools}
+      notices={<ActionMessages notice={notice} problem={problem} testId="approval-processes" />}
+      emptyText="No approval processes yet."
+      testId="approvals"
+      rowTestId="approval-process-row"
+    />
   );
 }

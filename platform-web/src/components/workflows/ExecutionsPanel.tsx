@@ -5,6 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { COMMON_TEXT } from "@/components/account/messages";
 import { ActionMessages, failureText, useAction } from "@/components/console/useAction";
+import { DetailSection } from "@/components/ui/lists/DetailPage";
+import { PageFrame } from "@/components/ui/lists/PageFrame";
+import { Tag } from "@/components/ui/lists/Tag";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
 import { useSession } from "@/lib/session/SessionProvider";
@@ -121,13 +124,19 @@ export function ExecutionsPanel() {
 
   if (failure) {
     return (
-      <p className="form-message" role="alert" data-testid="runs-failed">
-        {failure}
-      </p>
+      <PageFrame title="Workflow runs">
+        <p className="form-message" role="alert" data-testid="runs-failed">
+          {failure}
+        </p>
+      </PageFrame>
     );
   }
   if (!rows) {
-    return <p aria-live="polite">Loading…</p>;
+    return (
+      <PageFrame title="Workflow runs">
+        <p aria-live="polite">Loading…</p>
+      </PageFrame>
+    );
   }
 
   async function loadMore() {
@@ -183,24 +192,21 @@ export function ExecutionsPanel() {
   const allPicked = replayable.length > 0 && replayable.every((row) => picked.includes(row.id));
 
   return (
-    <section aria-labelledby="runs-heading" data-testid="runs">
-      <div className="list-head">
-        <h2 id="runs-heading">Workflow runs</h2>
+    <PageFrame
+      title="Workflow runs"
+      testId="runs"
+      intro="Every run of a workflow, newest first: what started it, what became of it and why. A run that needs a person is kept here, longer than the others, until it is replayed."
+      tools={
         <Link className="button button-secondary" href="/setup/workflows">
           Workflows
         </Link>
-      </div>
-      <p className="hint">
-        Every run of a workflow, newest first: what started it, what became of it and why. A run that needs a person is kept
-        here, longer than the others, until it is replayed.
-      </p>
-      <ActionMessages notice={notice} problem={problem} testId="runs" />
+      }
+      notices={<ActionMessages notice={notice} problem={problem} testId="runs" />}
+    >
 
       {summary && summary.total > 0 ? (
-        <section aria-labelledby="dead-heading" className="card" data-testid="dead-letters">
-          <h3 id="dead-heading">
-            {summary.total} {summary.total === 1 ? "run needs" : "runs need"} a person
-          </h3>
+        <div data-testid="dead-letters">
+          <DetailSection title={`${summary.total} ${summary.total === 1 ? "run needs" : "runs need"} a person`}>
           <table className="table">
             <thead>
               <tr>
@@ -231,12 +237,13 @@ export function ExecutionsPanel() {
               ))}
             </tbody>
           </table>
-        </section>
+          </DetailSection>
+        </div>
       ) : null}
 
       {parked.length > 0 ? (
-        <section aria-labelledby="parked-heading" className="card" data-testid="parked-events">
-          <h3 id="parked-heading">Events the platform gave up on</h3>
+        <div data-testid="parked-events">
+          <DetailSection title="Events the platform gave up on">
           <p className="hint">
             These changes were saved, but the part of the platform that starts workflows kept failing on them. Putting one back
             lets it try again; nothing is done twice.
@@ -255,7 +262,8 @@ export function ExecutionsPanel() {
               </li>
             ))}
           </ul>
-        </section>
+          </DetailSection>
+        </div>
       ) : null}
 
       <form
@@ -358,8 +366,8 @@ export function ExecutionsPanel() {
       ) : null}
 
       {results ? (
-        <section aria-labelledby="results-heading" className="card" data-testid="replay-results">
-          <h3 id="results-heading">Result of the replay</h3>
+        <div data-testid="replay-results">
+          <DetailSection title="Result of the replay">
           <ul>
             {results.map((result) => (
               <li key={result.execution} data-testid="replay-result">
@@ -368,7 +376,8 @@ export function ExecutionsPanel() {
               </li>
             ))}
           </ul>
-        </section>
+          </DetailSection>
+        </div>
       ) : null}
 
       {rows.length === 0 ? (
@@ -426,7 +435,7 @@ export function ExecutionsPanel() {
                   </Link>
                 </td>
                 <td>
-                  <span className="badge">{statusText(row.status)}</span>
+                  <Tag>{statusText(row.status)}</Tag>
                   {row.reason ? <div className="hint">{reasonText(row.reason)}</div> : null}
                   {row.status === "QUEUED" && row.reason ? (
                     <div className="hint">Due {new Date(row.runAt).toLocaleString()}</div>
@@ -452,6 +461,6 @@ export function ExecutionsPanel() {
           </button>
         </p>
       ) : null}
-    </section>
+    </PageFrame>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ActionMessages, useAction } from "@/components/console/useAction";
+import { DetailSection } from "@/components/ui/lists/DetailPage";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
 
@@ -57,75 +58,76 @@ export function SupportAccessPanel() {
   }
 
   return (
-    <section aria-labelledby="support-access-heading" className="stack">
-      <h2 id="support-access-heading">Support access</h2>
-      <p>
-        Platform support staff can only look at this organization after you approve a request, for a limited time. You can
-        end it at any time.
-      </p>
-      <ActionMessages notice={notice} problem={problem} testId="support" />
-      {loaded.kind === "loading" ? <p aria-live="polite">Loading…</p> : null}
-      {loaded.kind === "ok" && loaded.items.length === 0 ? <p>No requests.</p> : null}
-      {loaded.kind === "ok" && loaded.items.length > 0 ? (
-        <table className="table" data-testid="support-requests">
-          <thead>
-            <tr>
-              <th>Who</th>
-              <th>Why</th>
-              <th>Asked for</th>
-              <th>State</th>
-              <th>
-                <span className="visually-hidden">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {loaded.items.map((grant) => (
-              <tr key={grant.id} data-testid="support-request-row">
-                <td>{grant.requester}</td>
-                <td>{grant.reason}</td>
-                <td>{grant.requestedMinutes} minutes</td>
-                <td>
-                  {grant.active ? "ACTIVE" : grant.status}
-                  {grant.accessExpiresAt ? ` until ${new Date(grant.accessExpiresAt).toLocaleString()}` : ""}
-                </td>
-                <td>
-                  {grant.status === "REQUESTED" ? (
-                    <>
-                      <button
-                        type="button"
-                        className="link-button"
-                        disabled={busy}
-                        onClick={() => void decide(grant.id, "approve")}
-                      >
-                        Approve
-                      </button>{" "}
-                      <button
-                        type="button"
-                        className="link-button"
-                        disabled={busy}
-                        onClick={() => void decide(grant.id, "deny")}
-                      >
-                        Deny
-                      </button>
-                    </>
-                  ) : null}
-                  {grant.active ? (
-                    <button
-                      type="button"
-                      className="link-button"
-                      disabled={busy}
-                      onClick={() => void decide(grant.id, "revoke")}
-                    >
-                      End now
-                    </button>
-                  ) : null}
-                </td>
+    <DetailSection title="Support access">
+      <div className="stack">
+        <p>
+          Platform support staff can only look at this organization after you approve a request, for a limited time. You can
+          end it at any time.
+        </p>
+        <ActionMessages notice={notice} problem={problem} testId="support" />
+        {loaded.kind === "loading" ? <p aria-live="polite">Loading…</p> : null}
+        {loaded.kind === "ok" && loaded.items.length === 0 ? <p>No requests.</p> : null}
+        {loaded.kind === "ok" && loaded.items.length > 0 ? (
+          <table className="table" data-testid="support-requests">
+            <thead>
+              <tr>
+                <th>Who</th>
+                <th>Why</th>
+                <th>Asked for</th>
+                <th>State</th>
+                <th>
+                  <span className="visually-hidden">Actions</span>
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : null}
-    </section>
+            </thead>
+            <tbody>
+              {loaded.items.map((grant) => (
+                <tr key={grant.id} data-testid="support-request-row">
+                  <td>{grant.requester}</td>
+                  <td>{grant.reason}</td>
+                  <td>{grant.requestedMinutes} minutes</td>
+                  <td>
+                    {grant.active ? "ACTIVE" : grant.status}
+                    {grant.accessExpiresAt ? ` until ${new Date(grant.accessExpiresAt).toLocaleString()}` : ""}
+                  </td>
+                  <td>
+                    {grant.status === "REQUESTED" ? (
+                      <>
+                        <button
+                          type="button"
+                          className="link-button"
+                          disabled={busy}
+                          onClick={() => void decide(grant.id, "approve")}
+                        >
+                          Approve
+                        </button>{" "}
+                        <button
+                          type="button"
+                          className="link-button"
+                          disabled={busy}
+                          onClick={() => void decide(grant.id, "deny")}
+                        >
+                          Deny
+                        </button>
+                      </>
+                    ) : null}
+                    {grant.active ? (
+                      <button
+                        type="button"
+                        className="link-button"
+                        disabled={busy}
+                        onClick={() => void decide(grant.id, "revoke")}
+                      >
+                        End now
+                      </button>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
+      </div>
+    </DetailSection>
   );
 }

@@ -1,19 +1,16 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { AccessPoliciesPanel } from "@/components/setup/AccessPoliciesPanel";
-import { SetupFrame } from "@/components/setup/SetupFrame";
 
 export const metadata: Metadata = {
   title: "Access policies",
 };
 
-/** The access policies of the organization this address belongs to. */
+/** The access policies of the organization this address belongs to (a list; a row opens in the same pane). */
 export default function AccessPoliciesPage() {
   return (
-    <>
-      <h1>Access policies</h1>
-      <SetupFrame>
-        <AccessPoliciesPanel />
-      </SetupFrame>
-    </>
+    <Suspense fallback={null}>
+      <AccessPoliciesPanel />
+    </Suspense>
   );
 }

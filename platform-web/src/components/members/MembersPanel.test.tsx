@@ -1,7 +1,11 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setUrl } from "@/test/navigation";
 import { MembersPanel } from "./MembersPanel";
+
+vi.mock("@/lib/navigation", () => ({ navigate: vi.fn() }));
+vi.mock("next/navigation", async () => (await import("@/test/navigation")).navigationMock);
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -113,9 +117,21 @@ function fakeApi(overrides: Record<string, Handler> = {}) {
   return calls;
 }
 
+
+const USER_A = "22222222-2222-4222-8222-222222222222";
+const ADMIN_A = "11111111-1111-4111-8111-111111111111";
+const USER_B = "33333333-3333-4333-8333-333333333333";
+
+/** Opens the member's page from the list, by the name in the first column. */
+async function openMember(name: string) {
+  fireEvent.click(await screen.findByRole("button", { name }));
+  return screen.findByTestId("member-detail");
+}
+
 describe("MembersPanel", () => {
   beforeEach(() => {
     document.cookie = "XSRF-TOKEN=test-token; path=/";
+    act(() => setUrl("/members"));
   });
 
   afterEach(() => {
@@ -124,20 +140,33 @@ describe("MembersPanel", () => {
     document.cookie = "XSRF-TOKEN=; path=/; max-age=0";
   });
 
-  it("lists the members with profile, role and access policies, and the invitations, as the API reports them", async () => {
+  it("lists the members with profile, licence and status tags, and the invitations below, as the API reports them", async () => {
     fakeApi();
     render(<MembersPanel />);
 
     const rows = await screen.findAllByTestId("member-row");
     expect(rows).toHaveLength(3);
     expect(rows[0]).toHaveTextContent("Admin A (you)");
-    expect(within(rows[0] as HTMLElement).getByTestId("member-profile")).toHaveTextContent("Organization administrator");
-    expect(within(rows[1] as HTMLElement).getByTestId("member-profile")).toHaveTextContent("Member, role-a, policy-a");
-    expect(within(rows[1] as HTMLElement).getByTestId("member-profile")).toHaveTextContent("Waiting for a licence");
+    expect(rows[0]).toHaveTextContent("admin-a@example.test");
+    expect(rows[0]).toHaveTextContent("Organization administrator");
+    expect(rows[0]).toHaveTextContent("Active");
+    expect(rows[1]).toHaveTextContent("Member");
+    // The mark for a member whose profile has no licence yet stays on the list.
+    expect(rows[1]).toHaveTextContent("Waiting for a licence");
     expect(rows[2]).toHaveTextContent("Deactivated");
     const invitations = screen.getByTestId("invitations");
     expect(within(invitations).getByText("invited-a@example.test")).toBeInTheDocument();
     expect(invitations).toHaveTextContent("saved, not sent");
+  });
+
+  it("filters the members by name, address, profile or role with the search box", async () => {
+    fakeApi();
+    render(<MembersPanel />);
+    await screen.findAllByTestId("member-row");
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search members" }), { target: { value: "role-a" } });
+    expect(screen.getAllByTestId("member-row")).toHaveLength(1);
+    expect(screen.getByText("Showing 1 of 3.")).toBeInTheDocument();
   });
 
   it("shows the API's refusal instead of the lists when the caller may not see members", async () => {
@@ -151,7 +180,7 @@ describe("MembersPanel", () => {
     expect(screen.queryByTestId("member-row")).toBeNull();
   });
 
-  it("creates a member: name, address, profile and role, sent now, and clears the form", async () => {
+  it("creates a member: name, address, profile and role, sent now, and returns to the list with the notice", async () => {
     const calls = fakeApi({
       "POST /api/v1/invitations": () =>
         json({ data: { message: "If this address can be invited, an e-mail with the invitation is on its way." } }, 202),
@@ -159,18 +188,18 @@ describe("MembersPanel", () => {
     render(<MembersPanel />);
     await screen.findAllByTestId("member-row");
 
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "New A" } });
+    fireEvent.click(screen.getByRole("button", { name: "New member" }));
+    fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "New A" } });
     fireEvent.change(screen.getByLabelText("E-mail address"), { target: { value: "new-a@example.test" } });
     fireEvent.change(screen.getByLabelText("Profile"), { target: { value: ADMIN_PROFILE } });
     fireEvent.change(screen.getByLabelText("Role"), { target: { value: ROLE } });
-    fireEvent.submit(screen.getByLabelText("E-mail address").closest("form")!);
+    fireEvent.click(screen.getByRole("button", { name: "Create the member" }));
 
     expect(await screen.findByTestId("members-notice")).toHaveTextContent("on its way");
     expect(calls.find((call) => call.key === "POST /api/v1/invitations")?.body).toBe(
       JSON.stringify({ email: "new-a@example.test", displayName: "New A", profileId: ADMIN_PROFILE, roleId: ROLE, active: true }),
     );
-    expect(screen.getByLabelText("E-mail address")).toHaveValue("");
-    expect(screen.getByLabelText("Name")).toHaveValue("");
+    expect(await screen.findByTestId("members")).toBeInTheDocument();
   });
 
   it("saves the member without sending when Active is switched off", async () => {
@@ -180,9 +209,10 @@ describe("MembersPanel", () => {
     render(<MembersPanel />);
     await screen.findAllByTestId("member-row");
 
-    fireEvent.change(screen.getByLabelText("E-mail address"), { target: { value: "later-a@example.test" } });
+    fireEvent.click(screen.getByRole("button", { name: "New member" }));
+    fireEvent.change(await screen.findByLabelText("E-mail address"), { target: { value: "later-a@example.test" } });
     fireEvent.click(screen.getByLabelText(/Active: send the link now/));
-    fireEvent.submit(screen.getByLabelText("E-mail address").closest("form")!);
+    fireEvent.click(screen.getByRole("button", { name: "Create the member" }));
 
     await waitFor(() => expect(calls.some((call) => call.key === "POST /api/v1/invitations")).toBe(true));
     expect(JSON.parse(calls.find((call) => call.key === "POST /api/v1/invitations")!.body)).toMatchObject({
@@ -191,30 +221,40 @@ describe("MembersPanel", () => {
     });
   });
 
-  it("deactivates and reactivates members through the API and reloads", async () => {
+  it("keeps the form and the API's words when a member cannot be created", async () => {
+    fakeApi({
+      "POST /api/v1/invitations": () => json({ error: { code: "VALIDATION_ERROR", message: "Check the address." } }, 400),
+    });
+    render(<MembersPanel />);
+    await screen.findAllByTestId("member-row");
+
+    fireEvent.click(screen.getByRole("button", { name: "New member" }));
+    fireEvent.change(await screen.findByLabelText("E-mail address"), { target: { value: "bad" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create the member" }));
+
+    expect(await screen.findByTestId("members-problem")).toHaveTextContent("Check the address.");
+    expect(screen.getByLabelText("E-mail address")).toHaveValue("bad");
+  });
+
+  it("deactivates and reactivates members from their page through the API and reloads", async () => {
     const calls = fakeApi();
     render(<MembersPanel />);
-    const rows = await screen.findAllByTestId("member-row");
 
-    fireEvent.click(within(rows[1] as HTMLElement).getByRole("button", { name: "Deactivate" }));
-    await waitFor(() =>
-      expect(calls.map((call) => call.key)).toContain(
-        "POST /api/v1/members/22222222-2222-4222-8222-222222222222/deactivate",
-      ),
-    );
+    const first = await openMember("User A");
+    fireEvent.click(within(first).getByRole("button", { name: "Deactivate" }));
+    await waitFor(() => expect(calls.map((call) => call.key)).toContain(`POST /api/v1/members/${USER_A}/deactivate`));
     expect(await screen.findByTestId("members-notice")).toHaveTextContent("deactivated");
-    fireEvent.click(within((await screen.findAllByTestId("member-row"))[2] as HTMLElement).getByRole("button", { name: "Reactivate" }));
-    await waitFor(() =>
-      expect(calls.map((call) => call.key)).toContain(
-        "POST /api/v1/members/33333333-3333-4333-8333-333333333333/reactivate",
-      ),
-    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Members" }));
+    const second = await openMember("User B");
+    fireEvent.click(within(second).getByRole("button", { name: "Reactivate" }));
+    await waitFor(() => expect(calls.map((call) => call.key)).toContain(`POST /api/v1/members/${USER_B}/reactivate`));
     expect(calls.filter((call) => call.key === "GET /api/v1/members").length).toBeGreaterThanOrEqual(3);
   });
 
   it("shows the API's words when the last member who can manage access cannot be removed", async () => {
     fakeApi({
-      "POST /api/v1/members/11111111-1111-4111-8111-111111111111/deactivate": () =>
+      [`POST /api/v1/members/${ADMIN_A}/deactivate`]: () =>
         json(
           {
             error: {
@@ -227,9 +267,9 @@ describe("MembersPanel", () => {
         ),
     });
     render(<MembersPanel />);
-    const rows = await screen.findAllByTestId("member-row");
 
-    fireEvent.click(within(rows[0] as HTMLElement).getByRole("button", { name: "Deactivate" }));
+    const page = await openMember("Admin A (you)");
+    fireEvent.click(within(page).getByRole("button", { name: "Deactivate" }));
 
     expect(await screen.findByTestId("members-problem")).toHaveTextContent("manage access");
   });
@@ -237,21 +277,21 @@ describe("MembersPanel", () => {
   it("gives an unlicensed member the licence their profile needs, without a body", async () => {
     const calls = fakeApi();
     render(<MembersPanel />);
-    const rows = await screen.findAllByTestId("member-row");
 
-    fireEvent.click(within(rows[1] as HTMLElement).getByRole("button", { name: "Give a licence" }));
+    const page = await openMember("User A");
+    expect(within(page).getByTestId("member-profile")).toHaveTextContent("Member, role-a, policy-a");
+    expect(page).toHaveTextContent("Waiting for a licence");
+    fireEvent.click(within(page).getByRole("button", { name: "Give a licence" }));
 
-    await waitFor(() =>
-      expect(calls.find((call) => call.key === "PUT /api/v1/members/22222222-2222-4222-8222-222222222222/licence")?.body).toBe(""),
-    );
+    await waitFor(() => expect(calls.find((call) => call.key === `PUT /api/v1/members/${USER_A}/licence`)?.body).toBe(""));
   });
 
-  it("opens the access of a member and loads it from the API", async () => {
+  it("opens the access of a member on their page and loads it from the API", async () => {
     const calls = fakeApi({
-      "GET /api/v1/members/22222222-2222-4222-8222-222222222222/access": () =>
+      [`GET /api/v1/members/${USER_A}/access`]: () =>
         json({
           data: {
-            membershipId: "22222222-2222-4222-8222-222222222222",
+            membershipId: USER_A,
             profileId: MEMBER_PROFILE,
             profileName: "Member",
             profileLicenceType: "user",
@@ -267,16 +307,32 @@ describe("MembersPanel", () => {
       "GET /api/v1/access-policies": () => json({ data: [] }),
     });
     render(<MembersPanel />);
-    const rows = await screen.findAllByTestId("member-row");
 
-    fireEvent.click(within(rows[1] as HTMLElement).getByRole("button", { name: "Access" }));
+    await openMember("User A");
 
     expect(await screen.findByTestId("member-abilities")).toHaveTextContent("See members");
     expect(screen.getByTestId("member-unlicensed")).toHaveTextContent("does not hold the user licence");
     expect(screen.getByTestId("member-grants")).toHaveTextContent("covers for a colleague");
     expect(screen.getByTestId("member-groups")).toHaveTextContent("group-a (through another group)");
     expect(screen.getByTestId("member-data")).toHaveTextContent("object-a: read, update");
-    expect(calls.map((call) => call.key)).toContain("GET /api/v1/members/22222222-2222-4222-8222-222222222222/access");
+    expect(calls.map((call) => call.key)).toContain(`GET /api/v1/members/${USER_A}/access`);
+  });
+
+  it("does not offer the access of a member who was deactivated", async () => {
+    fakeApi();
+    render(<MembersPanel />);
+
+    await openMember("User B");
+
+    expect(screen.queryByTestId("member-access")).toBeNull();
+  });
+
+  it("says plainly that an open member no longer exists", async () => {
+    fakeApi();
+    act(() => setUrl("/members?open=99999999-9999-4999-8999-999999999999"));
+    render(<MembersPanel />);
+
+    expect(await screen.findByText("This member does not exist any more.")).toBeInTheDocument();
   });
 
   it("withdraws, sends and sends again an invitation", async () => {
@@ -296,6 +352,16 @@ describe("MembersPanel", () => {
     await waitFor(() =>
       expect(calls.map((call) => call.key)).toContain("POST /api/v1/invitations/44444444-4444-4444-8444-444444444444/revoke"),
     );
+  });
+
+  it("keeps leaving the organization as a section below the list", async () => {
+    const calls = fakeApi();
+    render(<MembersPanel />);
+    await screen.findAllByTestId("member-row");
+
+    expect(screen.getByRole("group", { name: "Leave this organization" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Leave the organization" }));
+    await waitFor(() => expect(calls.map((call) => call.key)).toContain("POST /api/v1/organization/leave"));
   });
 
   it("loads the lists once per mount, also under React strict mode", async () => {

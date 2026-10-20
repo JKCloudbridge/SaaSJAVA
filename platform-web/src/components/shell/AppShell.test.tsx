@@ -51,9 +51,17 @@ describe("AppShell", () => {
     renderShell(<p>page content</p>);
 
     expect(screen.getByRole("banner")).toHaveTextContent("Platform");
-    expect(screen.getByRole("navigation", { name: "Main" })).toBeInTheDocument();
     expect(screen.getByRole("main")).toHaveTextContent("page content");
-    // The header and the navigation ask the API in the background: let them finish before the test ends.
+    // There is no permanent list of links beside the content any more (UA1): the strip, rail and header carry them.
+    expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
+    // The header and the strip ask the API in the background: let them finish before the test ends.
+    await screen.findByText("Not signed in");
+  });
+
+  it("leads the brand to the start page, which sends each person where they land", async () => {
+    renderShell("content");
+
+    expect(screen.getByRole("link", { name: /Platform/ })).toHaveAttribute("href", "/");
     await screen.findByText("Not signed in");
   });
 

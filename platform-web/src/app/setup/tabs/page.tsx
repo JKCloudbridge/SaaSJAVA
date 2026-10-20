@@ -1,19 +1,16 @@
 import type { Metadata } from "next";
-import { SetupFrame } from "@/components/setup/SetupFrame";
+import { Suspense } from "react";
 import { TabsPanel } from "@/components/setup/TabsPanel";
 
 export const metadata: Metadata = {
   title: "Tabs",
 };
 
-/** The tabs of the organization: one per object, and the custom tabs that show a custom page. */
+/** The tabs and custom pages of the organization (a list; a custom tab opens in the same pane). */
 export default function TabsPage() {
   return (
-    <>
-      <h1>Tabs</h1>
-      <SetupFrame>
-        <TabsPanel />
-      </SetupFrame>
-    </>
+    <Suspense fallback={null}>
+      <TabsPanel />
+    </Suspense>
   );
 }

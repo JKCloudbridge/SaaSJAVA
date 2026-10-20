@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { COMMON_TEXT } from "@/components/account/messages";
 import { ActionMessages, failureText, useAction } from "@/components/console/useAction";
+import { DataAccessEditor } from "@/components/setup/DataAccessEditor";
+import { DetailSection } from "@/components/ui/lists/DetailPage";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
-import { DataAccessEditor } from "@/components/setup/DataAccessEditor";
 
 type Access = components["schemas"]["MemberAccessView"];
 type Profile = components["schemas"]["ProfileView"];
@@ -23,17 +24,15 @@ interface Choices {
 
 /**
  * Everything that decides what one member may do: their profile, role, access policies, individual grants and the resulting
- * abilities, with the actions of someone who manages access. Opened from the members list. The page shows what the API
- * answers and the API's own words for every refusal (no licence free, the last member who can manage access, ...); it never
- * decides who may do what.
+ * abilities, with the actions of someone who manages access. It is the body of a member's page (the sections below the
+ * member's own details). The page shows what the API answers and the API's own words for every refusal (no licence free, the
+ * last member who can manage access, ...); it never decides who may do what.
  */
 export function MemberAccessPanel({
   membershipId,
-  name,
   onChanged,
 }: {
   membershipId: string;
-  name: string;
   onChanged: () => Promise<void>;
 }) {
   const [choices, setChoices] = useState<Choices | undefined>();
@@ -170,64 +169,80 @@ export function MemberAccessPanel({
   const heldPolicies = new Set(access.policies.map((policy) => policy.id));
 
   return (
-    <div className="stack" data-testid="member-access">
-      <h3>Access of {name}</h3>
+    <div data-testid="member-access">
       <ActionMessages notice={notice} problem={problem} testId="member-access" />
 
-      <p data-testid="member-abilities">
-        <strong>What they may do now:</strong>{" "}
-        {access.abilities.length === 0 ? "nothing yet" : access.abilities.map(nameOf).join(", ")}
-      </p>
-      {access.profileId && !access.licenceHeld ? (
-        <p className="hint" data-testid="member-unlicensed">
-          This member does not hold the {access.profileLicenceType} licence their profile needs, so the profile gives no
-          abilities until one is free.
+      <DetailSection title="What they may do now">
+        <p className="dl-value" data-testid="member-abilities">
+          {access.abilities.length === 0 ? "nothing yet" : access.abilities.map(nameOf).join(", ")}
         </p>
-      ) : null}
+        {access.profileId && !access.licenceHeld ? (
+          <p className="hint" data-testid="member-unlicensed">
+            This member does not hold the {access.profileLicenceType} licence their profile needs, so the profile gives no
+            abilities until one is free.
+          </p>
+        ) : null}
+      </DetailSection>
 
-      <form className="form" onSubmit={setProfile}>
-        <div className="field">
-          <label htmlFor={`profile-${membershipId}`}>Profile</label>
-          <select id={`profile-${membershipId}`} value={profileId} onChange={(event) => setProfileId(event.target.value)}>
-            <option value="">Choose a profile</option>
-            {choices.profiles.map((profile) => (
-              <option key={profile.id} value={profile.id}>
-                {profile.name} ({profile.licenceType})
-              </option>
-            ))}
-          </select>
+      <DetailSection title="Profile and role">
+        <div className="detail-grid">
+          <form className="form" onSubmit={setProfile}>
+            <div className="field">
+              <label htmlFor={`profile-${membershipId}`}>Profile</label>
+              <select
+                id={`profile-${membershipId}`}
+                value={profileId}
+                onChange={(event) => setProfileId(event.target.value)}
+              >
+                <option value="">Choose a profile</option>
+                {choices.profiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.name} ({profile.licenceType})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <button type="submit" className="button" disabled={busy || !profileId || profileId === access.profileId}>
+                Give this profile
+              </button>
+            </div>
+          </form>
+
+          <form className="form" onSubmit={setRole}>
+            <div className="field">
+              <label htmlFor={`role-${membershipId}`}>Role</label>
+              <select id={`role-${membershipId}`} value={roleId} onChange={(event) => setRoleId(event.target.value)}>
+                <option value="">No role</option>
+                {choices.roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <button type="submit" className="button" disabled={busy || roleId === (access.roleId ?? "")}>
+                Save the role
+              </button>
+            </div>
+          </form>
         </div>
-        <button type="submit" className="button" disabled={busy || !profileId || profileId === access.profileId}>
-          Give this profile
-        </button>
-      </form>
+      </DetailSection>
 
-      <form className="form" onSubmit={setRole}>
-        <div className="field">
-          <label htmlFor={`role-${membershipId}`}>Role</label>
-          <select id={`role-${membershipId}`} value={roleId} onChange={(event) => setRoleId(event.target.value)}>
-            <option value="">No role</option>
-            {choices.roles.map((role) => (
-              <option key={role.id} value={role.id}>
-                {role.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <button type="submit" className="button" disabled={busy || roleId === (access.roleId ?? "")}>
-          Save the role
-        </button>
-      </form>
-
-      <section aria-label="Access policies of this member">
-        <h4>Access policies</h4>
-        {access.policies.length === 0 ? <p>None.</p> : null}
+      <DetailSection title="Access policies">
+        {access.policies.length === 0 ? <p className="dl-value muted">None.</p> : null}
         <ul data-testid="member-policies">
           {access.policies.map((policy) => (
             <li key={policy.id}>
               {policy.name}
               {policy.licenceType ? ` (uses a ${policy.licenceType} licence)` : ""}{" "}
-              <button type="button" className="link-button" disabled={busy} onClick={() => void unassignPolicy(policy.id)}>
+              <button
+                type="button"
+                className="link-button"
+                disabled={busy}
+                onClick={() => void unassignPolicy(policy.id)}
+              >
                 Take away
               </button>
             </li>
@@ -247,15 +262,16 @@ export function MemberAccessPanel({
                 ))}
             </select>
           </div>
-          <button type="submit" className="button" disabled={busy || !policyId}>
-            Give the access policy
-          </button>
+          <div>
+            <button type="submit" className="button" disabled={busy || !policyId}>
+              Give the access policy
+            </button>
+          </div>
         </form>
-      </section>
+      </DetailSection>
 
-      <section aria-label="Abilities given to this member directly">
-        <h4>Abilities given directly</h4>
-        {access.grants.length === 0 ? <p>None.</p> : null}
+      <DetailSection title="Abilities given directly">
+        {access.grants.length === 0 ? <p className="dl-value muted">None.</p> : null}
         <ul data-testid="member-grants">
           {access.grants.map((given) => (
             <li key={given.ability}>
@@ -270,7 +286,11 @@ export function MemberAccessPanel({
         <form className="form" onSubmit={grant}>
           <div className="field">
             <label htmlFor={`grant-${membershipId}`}>Give one ability</label>
-            <select id={`grant-${membershipId}`} value={grantAbility} onChange={(event) => setGrantAbility(event.target.value)}>
+            <select
+              id={`grant-${membershipId}`}
+              value={grantAbility}
+              onChange={(event) => setGrantAbility(event.target.value)}
+            >
               <option value="">Choose an ability</option>
               {choices.abilities.map((ability) => (
                 <option key={ability.key} value={ability.key}>
@@ -288,15 +308,16 @@ export function MemberAccessPanel({
               onChange={(event) => setGrantReason(event.target.value)}
             />
           </div>
-          <button type="submit" className="button" disabled={busy || !grantAbility}>
-            Give the ability
-          </button>
+          <div>
+            <button type="submit" className="button" disabled={busy || !grantAbility}>
+              Give the ability
+            </button>
+          </div>
         </form>
-      </section>
+      </DetailSection>
 
-      <section aria-label="Groups of this member">
-        <h4>Groups</h4>
-        {access.groups.length === 0 ? <p>None.</p> : null}
+      <DetailSection title="Groups">
+        {access.groups.length === 0 ? <p className="dl-value muted">None.</p> : null}
         <ul data-testid="member-groups">
           {access.groups.map((group) => (
             <li key={group.id}>
@@ -306,31 +327,36 @@ export function MemberAccessPanel({
           ))}
         </ul>
         <p className="hint">People are put into groups on the Groups page of the setup.</p>
-      </section>
+      </DetailSection>
 
-      <section aria-label="What this member may do with data" data-testid="member-data">
-        <h4>What this member may do with data</h4>
-        {access.data.everything ? <p>Every permission on every object and field.</p> : null}
-        {!access.data.everything && access.data.objects.length === 0 && access.data.fields.length === 0 ? <p>Nothing.</p> : null}
-        <ul>
-          {access.data.objects.map((entry) => (
-            <li key={entry.key}>
-              {entry.key}: {entry.actions.join(", ")}
-            </li>
-          ))}
-          {access.data.fields.map((entry) => (
-            <li key={entry.key}>
-              {entry.key}: {entry.actions.join(", ")}
-            </li>
-          ))}
-        </ul>
-      </section>
+      <DetailSection title="What this member may do with data">
+        <div data-testid="member-data">
+          {access.data.everything ? <p>Every permission on every object and field.</p> : null}
+          {!access.data.everything && access.data.objects.length === 0 && access.data.fields.length === 0 ? (
+            <p className="dl-value muted">Nothing.</p>
+          ) : null}
+          <ul>
+            {access.data.objects.map((entry) => (
+              <li key={entry.key}>
+                {entry.key}: {entry.actions.join(", ")}
+              </li>
+            ))}
+            {access.data.fields.map((entry) => (
+              <li key={entry.key}>
+                {entry.key}: {entry.actions.join(", ")}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </DetailSection>
 
-      <DataAccessEditor
-        key={membershipId}
-        target={{ kind: "member", id: membershipId }}
-        title="Permissions given to this member directly"
-      />
+      <DetailSection title="Permissions given directly">
+        <DataAccessEditor
+          key={membershipId}
+          target={{ kind: "member", id: membershipId }}
+          title="Permissions given to this member directly"
+        />
+      </DetailSection>
     </div>
   );
 }

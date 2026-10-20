@@ -5,19 +5,26 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { COMMON_TEXT } from "@/components/account/messages";
 import { ActionMessages, failureText, useAction } from "@/components/console/useAction";
+import { ListPage } from "@/components/ui/lists/ListPage";
+import { Tag } from "@/components/ui/lists/Tag";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
 import { triggerText, type Catalogue } from "@/lib/builder/workflowModel";
+import { useOffers } from "@/lib/session/SessionProvider";
 import { problemText } from "./objectText";
 import { addToSet, DRAFTED_TEXT, useWorkingSet } from "./workingSet";
 
 type WorkflowView = components["schemas"]["WorkflowView"];
 type ObjectSummary = components["schemas"]["ObjectSummaryView"];
 
+const hrefOf = (workflow: WorkflowView) =>
+  `/setup/workflows/${encodeURIComponent(workflow.objectApiName)}/${encodeURIComponent(workflow.apiName)}`;
+
 /**
- * The workflows of the organization: the list, with the way into the builder where a workflow is made and changed and the
- * way to the runs of each. Switching on or off and removing are done here, live or, when a change set is chosen, as a draft.
- * The page shows what the API answers and in its words; a workflow that cannot be switched on says why.
+ * The workflows of the organization: the list, with the way into the builder where a workflow is made and changed (a row
+ * opens it) and the way to the runs of each. Switching on or off and removing are done here, live or, when a change set is
+ * chosen, as a draft. A new workflow starts on the object chosen in the title band. The page shows what the API answers and
+ * in its words; a workflow that cannot be switched on says why.
  */
 export function WorkflowsPanel() {
   const { id: workingSet } = useWorkingSet();
@@ -27,6 +34,7 @@ export function WorkflowsPanel() {
   const [catalogue, setCatalogue] = useState<Catalogue | undefined>();
   const [failure, setFailure] = useState<string | undefined>();
   const [objectApiName, setObjectApiName] = useState("");
+  const offersManage = useOffers("workflows.manage");
 
   const reload = useCallback(async () => {
     try {
@@ -53,17 +61,6 @@ export function WorkflowsPanel() {
   }, [reload]);
 
   const { busy, notice, problem, act } = useAction(reload);
-
-  if (failure) {
-    return (
-      <p className="form-message" role="alert" data-testid="workflows-failed">
-        {failure}
-      </p>
-    );
-  }
-  if (!workflows) {
-    return <p aria-live="polite">Loading…</p>;
-  }
 
   function switchTo(workflow: WorkflowView, active: boolean) {
     void act(async () => {
@@ -124,109 +121,99 @@ export function WorkflowsPanel() {
 
   const labelOfObject = (name: string) => objects.find((one) => one.apiName === name)?.label ?? name;
 
-  return (
-    <section aria-labelledby="workflows-heading" data-testid="workflows">
-      <div className="list-head">
-        <h2 id="workflows-heading">Workflows</h2>
-        <Link className="button button-secondary" href="/workflows/executions">
-          Workflow runs
-        </Link>
-      </div>
-      <p className="hint">
-        A workflow reacts to something that happens to a record, or to a time: if its condition holds, it runs its actions
-        in order, after the change is saved. A run that cannot finish is kept in the list of runs for a person to replay.
-      </p>
-      <form
-        className="filters"
-        aria-label="Start a new workflow"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (objectApiName) {
-            router.push(`/setup/workflows/${encodeURIComponent(objectApiName)}/new`);
-          }
-        }}
-      >
-        <label htmlFor="new-workflow-object">Object</label>
-        <select
-          id="new-workflow-object"
-          value={objectApiName}
-          onChange={(event) => setObjectApiName(event.target.value)}
+  const tools = (
+    <>
+      <Link className="button button-secondary" href="/workflows/executions">
+        Workflow runs
+      </Link>
+      {offersManage ? (
+        <form
+          className="form-actions"
+          aria-label="Start a new workflow"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (objectApiName) {
+              router.push(`/setup/workflows/${encodeURIComponent(objectApiName)}/new`);
+            }
+          }}
         >
-          <option value="">Choose an object</option>
-          {objects.map((one) => (
-            <option key={one.apiName} value={one.apiName}>
-              {one.label}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="button" disabled={objectApiName === ""}>
-          New workflow
-        </button>
-      </form>
-      <ActionMessages notice={notice} problem={problem} testId="workflows" />
-      {workflows.length === 0 ? (
-        <p>No workflows yet.</p>
-      ) : (
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Workflow</th>
-              <th>Object</th>
-              <th>Starts when</th>
-              <th>Actions</th>
-              <th>State</th>
-              <th>
-                <span className="visually-hidden">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {workflows.map((workflow) => {
-              const href = `/setup/workflows/${encodeURIComponent(workflow.objectApiName)}/${encodeURIComponent(workflow.apiName)}`;
-              return (
-                <tr key={`${workflow.objectApiName}.${workflow.apiName}`} data-testid="workflow-row">
-                  <td>
-                    <Link className="table-row-link" href={href}>
-                      {workflow.label}
-                    </Link>
-                    <div className="hint">
-                      <code>{workflow.apiName}</code>
-                    </div>
-                  </td>
-                  <td>{labelOfObject(workflow.objectApiName)}</td>
-                  <td>{catalogue ? triggerText(workflow.trigger, catalogue) : workflow.trigger.kind}</td>
-                  <td>{workflow.actions.length}</td>
-                  <td>
-                    <span className="badge">{workflow.active ? "On" : "Off"}</span>
-                  </td>
-                  <td>
-                    <Link className="link-button" href={href}>
-                      Build
-                    </Link>{" "}
-                    <Link
-                      className="link-button"
-                      href={`/workflows/executions?workflow=${encodeURIComponent(workflow.apiName)}`}
-                    >
-                      Runs
-                    </Link>{" "}
-                    <button
-                      type="button"
-                      className="link-button"
-                      disabled={busy}
-                      onClick={() => switchTo(workflow, !workflow.active)}
-                    >
-                      {workflow.active ? "Switch off" : "Switch on"}
-                    </button>{" "}
-                    <button type="button" className="link-button" disabled={busy} onClick={() => remove(workflow)}>
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
-    </section>
+          <label className="visually-hidden" htmlFor="new-workflow-object">
+            Object
+          </label>
+          <select
+            id="new-workflow-object"
+            value={objectApiName}
+            onChange={(event) => setObjectApiName(event.target.value)}
+          >
+            <option value="">Choose an object</option>
+            {objects.map((one) => (
+              <option key={one.apiName} value={one.apiName}>
+                {one.label}
+              </option>
+            ))}
+          </select>
+          <button type="submit" className="button" disabled={objectApiName === ""}>
+            New workflow
+          </button>
+        </form>
+      ) : null}
+    </>
+  );
+
+  return (
+    <ListPage<WorkflowView>
+      title="Workflows"
+      intro="A workflow reacts to something that happens to a record, or to a time: if its condition holds, it runs its actions in order, after the change is saved. A run that cannot finish is kept in the list of runs for a person to replay."
+      items={workflows}
+      failure={failure}
+      rowKey={(row) => `${row.objectApiName}.${row.apiName}`}
+      primaryHeader="Workflow"
+      primary={(row) => row.label}
+      primaryExtra={(row) => <code>{row.apiName}</code>}
+      openHref={hrefOf}
+      columns={[
+        { key: "object", header: "Object", kind: "muted", cell: (row) => labelOfObject(row.objectApiName) },
+        {
+          key: "trigger",
+          header: "Starts when",
+          kind: "muted",
+          cell: (row) => (catalogue ? triggerText(row.trigger, catalogue) : row.trigger.kind),
+        },
+        { key: "actions-count", header: "Actions", kind: "muted", cell: (row) => row.actions.length },
+        {
+          key: "state",
+          header: "Status",
+          kind: "tag",
+          cell: (row) => <Tag tone={row.active ? "ok" : "quiet"}>{row.active ? "On" : "Off"}</Tag>,
+        },
+        {
+          key: "row-actions",
+          header: "Row actions",
+          kind: "actions",
+          cell: (row) => (
+            <>
+              <Link
+                className="link-button"
+                href={`/workflows/executions?workflow=${encodeURIComponent(row.apiName)}`}
+              >
+                Runs
+              </Link>{" "}
+              <button type="button" className="link-button" disabled={busy} onClick={() => switchTo(row, !row.active)}>
+                {row.active ? "Switch off" : "Switch on"}
+              </button>{" "}
+              <button type="button" className="link-button" disabled={busy} onClick={() => remove(row)}>
+                Remove
+              </button>
+            </>
+          ),
+        },
+      ]}
+      searchText={(row) => `${row.label} ${row.apiName} ${labelOfObject(row.objectApiName)}`}
+      tools={tools}
+      notices={<ActionMessages notice={notice} problem={problem} testId="workflows" />}
+      emptyText="No workflows yet."
+      testId="workflows"
+      rowTestId="workflow-row"
+    />
   );
 }

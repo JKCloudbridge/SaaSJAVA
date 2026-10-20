@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { useApplications } from "@/lib/applications/ApplicationsProvider";
 import { entryHref, findApplication, firstPage } from "@/lib/applications/entries";
 import { useSession } from "@/lib/session/SessionProvider";
-import { setupHref } from "@/lib/applications/setupLink";
+import { canSetUp } from "@/lib/shell/areas";
 
 /**
  * The address of an application without a page (Sprint 18, ADR-0128): it opens the application on its first page, so
@@ -53,7 +53,7 @@ export function ApplicationHome() {
       </div>
     );
   }
-  const setup = session.status === "signedIn" ? setupHref(session.user.abilities) : null;
+  const setup = session.status === "signedIn" && canSetUp(session.user.abilities);
   return (
     <>
       <h1 className="entry-title">{application.label}</h1>

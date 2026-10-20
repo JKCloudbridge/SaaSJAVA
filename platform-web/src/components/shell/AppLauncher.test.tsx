@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { useApplications } from "@/lib/applications/ApplicationsProvider";
 import { json, refusal } from "@/test/fakeApi";
 import { FIELD, SALES, shellApi, ShellProviders } from "@/test/shellApi";
-import { AppLauncher } from "./AppLauncher";
+import { AppLauncher, launcherColumns } from "./AppLauncher";
+
+const THIRD = { ...SALES, apiName: "Third__c", label: "Third" };
+const FOURTH = { ...SALES, apiName: "Fourth__c", label: "Fourth" };
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/apps/Field__c/c-Inspections__c" }));
 
@@ -16,10 +19,10 @@ function Status() {
   return <span data-testid="list-status">{useApplications().state.status}</span>;
 }
 
-function renderLauncher(props: { current?: string; setupHref?: string | null } = {}) {
+function renderLauncher(props: { current?: string; canSetUp?: boolean } = {}) {
   return render(
     <ShellProviders>
-      <AppLauncher current={props.current} setupHref={props.setupHref ?? null} />
+      <AppLauncher current={props.current} canSetUp={props.canSetUp ?? false} />
       <Status />
       <p>outside</p>
     </ShellProviders>,
@@ -81,7 +84,7 @@ describe("the application launcher", () => {
 
   it("says so when there is nothing to open, and offers the way to set applications up only to who may", async () => {
     shellApi({ applications: [] });
-    const { unmount } = renderLauncher({ setupHref: null });
+    const { unmount } = renderLauncher({ canSetUp: false });
     await open();
 
     expect(await screen.findByText("No applications are set up for you yet.")).toBeInTheDocument();
@@ -89,7 +92,7 @@ describe("the application launcher", () => {
     unmount();
 
     shellApi({ applications: [] });
-    renderLauncher({ setupHref: "/setup/profiles" });
+    renderLauncher({ canSetUp: true });
     await open();
     expect(await screen.findByRole("link", { name: /Manage applications/ })).toHaveAttribute(
       "href",
@@ -144,7 +147,7 @@ describe("the application launcher", () => {
   });
 
   it("moves between applications with the arrow keys", async () => {
-    shellApi({ applications: [FIELD, SALES, { ...SALES, apiName: "Third__c", label: "Third" }, { ...SALES, apiName: "Fourth__c", label: "Fourth" }] });
+    shellApi({ applications: [FIELD, SALES, THIRD, FOURTH] });
     renderLauncher();
     await listLoaded();
     await open();
@@ -162,5 +165,63 @@ describe("the application launcher", () => {
     expect(screen.getByRole("link", { name: /Fourth/ })).toHaveFocus();
     press("Home");
     expect(first).toHaveFocus();
+  });
+
+  it("offers the tile to start a new application only to a member who may set things up", async () => {
+    shellApi({ applications: [SALES] });
+    const { unmount } = renderLauncher({ canSetUp: false });
+    await open();
+    await screen.findByRole("link", { name: /Sales/ });
+    expect(screen.queryByRole("link", { name: /New application/ })).toBeNull();
+    unmount();
+
+    shellApi({ applications: [SALES] });
+    renderLauncher({ canSetUp: true });
+    await open();
+    expect(await screen.findByRole("link", { name: /New application/ })).toHaveAttribute(
+      "href",
+      "/setup/applications/new",
+    );
+  });
+});
+
+describe("the size of the application grid", () => {
+  it("grows with the number of tiles: two columns for a few, more as the list gets longer", () => {
+    expect([1, 2, 4].map(launcherColumns)).toEqual([2, 2, 2]);
+    expect([5, 7, 9].map(launcherColumns)).toEqual([3, 3, 3]);
+    expect([10, 14, 40].map(launcherColumns)).toEqual([4, 4, 4]);
+  });
+
+  it("gives the panel the columns its list needs, counting the tile for a new application", async () => {
+    shellApi({ applications: [FIELD, SALES, THIRD] });
+    const { unmount } = renderLauncher({ canSetUp: false });
+    await open();
+    expect((await screen.findByRole("dialog")).style.getPropertyValue("--launcher-columns")).toBe("2");
+    unmount();
+
+    // Three applications and the tile for a new one is four tiles: still two columns. A fourth application makes five.
+    shellApi({ applications: [FIELD, SALES, THIRD, FOURTH] });
+    renderLauncher({ canSetUp: true });
+    await open();
+    await screen.findByRole("link", { name: /Fourth/ });
+    expect(screen.getByRole("dialog").style.getPropertyValue("--launcher-columns")).toBe("3");
+  });
+
+  it("moves between tiles by the number of columns the grid has when the list is long", async () => {
+    const many = Array.from({ length: 5 }, (_, index) => ({
+      ...SALES,
+      apiName: `App${index}__c`,
+      label: `App ${index}`,
+    }));
+    shellApi({ applications: many });
+    renderLauncher();
+    await listLoaded();
+    await open();
+    const first = await screen.findByRole("link", { name: /App 0/ });
+    await waitFor(() => expect(first).toHaveFocus());
+
+    // Five tiles are three columns wide: one row down from the first is the fourth.
+    press("ArrowDown");
+    expect(screen.getByRole("link", { name: /App 3/ })).toHaveFocus();
   });
 });

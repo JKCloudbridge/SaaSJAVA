@@ -1,19 +1,16 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { RolesPanel } from "@/components/setup/RolesPanel";
-import { SetupFrame } from "@/components/setup/SetupFrame";
 
 export const metadata: Metadata = {
   title: "Roles",
 };
 
-/** The role hierarchy of the organization this address belongs to. */
+/** The role hierarchy of the organization this address belongs to (a list; a row opens in the same pane). */
 export default function RolesPage() {
   return (
-    <>
-      <h1>Roles</h1>
-      <SetupFrame>
-        <RolesPanel />
-      </SetupFrame>
-    </>
+    <Suspense fallback={null}>
+      <RolesPanel />
+    </Suspense>
   );
 }

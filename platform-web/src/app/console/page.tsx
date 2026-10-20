@@ -9,11 +9,8 @@ export const metadata: Metadata = {
 /** The platform console: the organizations of the platform. Platform address only. */
 export default function ConsolePage() {
   return (
-    <>
-      <h1>Platform console</h1>
-      <ConsoleFrame>
-        <OrganizationsPanel />
-      </ConsoleFrame>
-    </>
+    <ConsoleFrame>
+      <OrganizationsPanel />
+    </ConsoleFrame>
   );
 }

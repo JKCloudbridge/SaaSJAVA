@@ -68,7 +68,13 @@ export function useAction(onDone: () => Promise<void>) {
     [busy, onDone],
   );
 
-  return { busy, notice, problem, act };
+  /** Forgets the last notice and refusal: a screen calls it when the person moves to another page of the same list. */
+  const clear = useCallback(() => {
+    setNotice(undefined);
+    setProblem(undefined);
+  }, []);
+
+  return { busy, notice, problem, act, clear };
 }
 
 /** A notice and a problem line, in the same words and roles on every page. */

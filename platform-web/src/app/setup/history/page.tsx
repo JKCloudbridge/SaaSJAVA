@@ -1,19 +1,16 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { ReleasesPanel } from "@/components/setup/ReleasesPanel";
-import { SetupFrame } from "@/components/setup/SetupFrame";
 
 export const metadata: Metadata = {
   title: "History of changes",
 };
 
-/** The history of published changes to objects and fields, and the rollback of the latest one. */
+/** The history of published changes to objects and fields, and the rollback of the latest one (a list; a row opens in the same pane). */
 export default function HistoryPage() {
   return (
-    <>
-      <h1>History of changes</h1>
-      <SetupFrame>
-        <ReleasesPanel />
-      </SetupFrame>
-    </>
+    <Suspense fallback={null}>
+      <ReleasesPanel />
+    </Suspense>
   );
 }

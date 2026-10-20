@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ActionMessages, useAction } from "@/components/console/useAction";
+import { ActionMessages } from "@/components/console/useAction";
+import { DetailPage, DetailSection, MissingDetail } from "@/components/ui/lists/DetailPage";
+import { ListPage } from "@/components/ui/lists/ListPage";
+import { Tag } from "@/components/ui/lists/Tag";
+import { useListScreen } from "@/components/ui/lists/useListScreen";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
 import { problemText } from "./objectText";
@@ -50,18 +54,8 @@ export function NotificationTextPanel() {
   useEffect(() => {
     void Promise.resolve().then(load);
   }, [load]);
-  const { busy, notice, problem, act } = useAction(load);
-
-  if (failure) {
-    return (
-      <p className="form-message" role="alert" data-testid="notification-text-failed">
-        {failure}
-      </p>
-    );
-  }
-  if (!view) {
-    return <p aria-live="polite">Loading…</p>;
-  }
+  const screen = useListScreen(load);
+  const { busy, notice, problem, act } = screen;
 
   const draftOf = (template: Template): Draft => drafts[template.kind] ?? { title: template.title, body: template.body };
   const edit = (template: Template, change: Partial<Draft>) => {
@@ -123,25 +117,57 @@ export function NotificationTextPanel() {
     });
   }
 
-  return (
-    <section aria-labelledby="notification-text-heading" className="stack" data-testid="notification-text">
-      <h2 id="notification-text-heading">Notification text</h2>
-      <p className="hint">
-        The sentences the platform sends to members, in the application and by mail. A placeholder stands for a label of your
-        organization (never for anything in a record), and a text holds no link: the platform adds its own. Notices already
-        made show the new words the next time they are read.
-      </p>
-      <ActionMessages notice={notice} problem={problem} testId="notification-text" />
-      {view.templates.map((template) => {
-        const draft = draftOf(template);
-        const checked = checks[template.kind];
-        const places = checked ? Object.entries(checked.problems) : [];
-        return (
-          <article key={template.kind} className="card stack" data-testid={`template-${template.kind}`}>
-            <div className="list-head">
-              <h3>{template.summary}</h3>
-              <span className="badge">{template.custom ? "Your text" : "Platform text"}</span>
-            </div>
+
+  const messages = <ActionMessages notice={notice} problem={problem} testId="notification-text" />;
+  const template = view?.templates.find((candidate) => candidate.kind === screen.openId);
+
+  if (screen.openId && view && !template) {
+    return (
+      <MissingDetail listLabel="Notification text" onBack={() => screen.back()} what="This kind of notice does not exist." />
+    );
+  }
+
+  if (view && template) {
+    const draft = draftOf(template);
+    const checked = checks[template.kind];
+    const places = checked ? Object.entries(checked.problems) : [];
+    return (
+      <DetailPage
+        listLabel="Notification text"
+        onBack={() => screen.back()}
+        title={template.summary}
+        notices={messages}
+        testId={`template-${template.kind}`}
+        actions={
+          <>
+            {template.custom ? (
+              <button type="button" className="button button-secondary" disabled={busy} onClick={() => reset(template)}>
+                Go back to the platform&apos;s text
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => edit(template, { title: template.defaultTitle, body: template.defaultBody })}
+              >
+                Start from the platform&apos;s text
+              </button>
+            )}
+            <button type="button" className="button button-secondary" disabled={busy} onClick={() => void check(template)}>
+              Check
+            </button>
+            <button type="button" className="button" disabled={busy} onClick={() => save(template)}>
+              Save
+            </button>
+          </>
+        }
+      >
+        <DetailSection title="The words">
+          <div className="stack">
+            <p className="hint">
+              <Tag tone={template.custom ? "on" : "quiet"}>{template.custom ? "Your text" : "Platform text"}</Tag> Kind:{" "}
+              <code>{template.kind}</code>, category {template.category}.
+            </p>
             <div className="field">
               <label htmlFor={`title-${template.kind}`}>Title</label>
               <input
@@ -161,22 +187,30 @@ export function NotificationTextPanel() {
                 onChange={(event) => edit(template, { body: event.target.value })}
               />
             </div>
-            <div className="filters-actions" role="group" aria-label="Placeholders">
-              {template.placeholders.map((one) => (
-                <button
-                  key={one.name}
-                  type="button"
-                  className="link-button"
-                  title={one.help}
-                  onClick={() => edit(template, { body: `${draft.body}{${one.name}}` })}
-                >
-                  {`{${one.name}}`}
-                </button>
-              ))}
-            </div>
+          </div>
+        </DetailSection>
+        <DetailSection title="Placeholders">
+          <div className="filters-actions" role="group" aria-label="Placeholders">
+            {template.placeholders.map((one) => (
+              <button
+                key={one.name}
+                type="button"
+                className="link-button"
+                title={one.help}
+                onClick={() => edit(template, { body: `${draft.body}{${one.name}}` })}
+              >
+                {`{${one.name}}`}
+              </button>
+            ))}
+          </div>
+        </DetailSection>
+        {places.length > 0 || checked ? (
+          <DetailSection title="Check">
             {places.length > 0 ? (
               <ul className="form-message" role="alert" data-testid={`problems-${template.kind}`}>
-                {places.flatMap(([place, texts]) => texts.map((text) => <li key={`${place}-${text}`}>{`${place}: ${text}`}</li>))}
+                {places.flatMap(([place, texts]) =>
+                  texts.map((text) => <li key={`${place}-${text}`}>{`${place}: ${text}`}</li>),
+                )}
               </ul>
             ) : null}
             {checked && places.length === 0 ? (
@@ -188,30 +222,37 @@ export function NotificationTextPanel() {
                 <p>{checked.previewBody}</p>
               </div>
             ) : null}
-            <div className="filters-actions" role="group" aria-label="Actions">
-              <button type="button" className="button button-secondary" disabled={busy} onClick={() => void check(template)}>
-                Check
-              </button>
-              <button type="button" className="button" disabled={busy} onClick={() => save(template)}>
-                Save
-              </button>
-              {template.custom ? (
-                <button type="button" className="button button-secondary" disabled={busy} onClick={() => reset(template)}>
-                  Go back to the platform&apos;s text
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="link-button"
-                  onClick={() => edit(template, { title: template.defaultTitle, body: template.defaultBody })}
-                >
-                  Start from the platform&apos;s text
-                </button>
-              )}
-            </div>
-          </article>
-        );
-      })}
-    </section>
+          </DetailSection>
+        ) : null}
+      </DetailPage>
+    );
+  }
+
+  return (
+    <ListPage<Template>
+      title="Notification text"
+      intro="The sentences the platform sends to members, in the application and by mail. A placeholder stands for a label of your organization (never for anything in a record), and a text holds no link: the platform adds its own. Notices already made show the new words the next time they are read."
+      items={view?.templates}
+      failure={failure}
+      rowKey={(row) => row.kind}
+      primaryHeader="Kind"
+      primary={(row) => row.summary}
+      primaryExtra={(row) => row.kind}
+      onOpen={(row) => screen.open(row.kind)}
+      columns={[
+        { key: "category", header: "Category", kind: "muted", cell: (row) => row.category },
+        {
+          key: "status",
+          header: "Status",
+          kind: "tag",
+          cell: (row) => <Tag tone={row.custom ? "on" : "quiet"}>{row.custom ? "Your text" : "Platform text"}</Tag>,
+        },
+      ]}
+      searchText={(row) => `${row.summary} ${row.kind} ${row.category}`}
+      notices={messages}
+      emptyText="There are no kinds of notice."
+      testId="notification-text"
+      rowTestId="template-row"
+    />
   );
 }

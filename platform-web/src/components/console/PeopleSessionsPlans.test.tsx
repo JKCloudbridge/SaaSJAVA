@@ -1,12 +1,16 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi, json, refusal } from "@/test/fakeApi";
+import { setUrl } from "@/test/navigation";
 import { PeoplePanel } from "./PeoplePanel";
 import { PlansPanel } from "./PlansPanel";
 import { SessionsPanel } from "./SessionsPanel";
 
+vi.mock("next/navigation", async () => (await import("@/test/navigation")).navigationMock);
+
 beforeEach(() => {
   document.cookie = "XSRF-TOKEN=test-token; path=/";
+  act(() => setUrl("/console/people"));
 });
 
 afterEach(() => {
@@ -30,8 +34,10 @@ describe("PeoplePanel", () => {
     render(<PeoplePanel />);
     const rows = await screen.findAllByTestId("person-row");
     expect(rows).toHaveLength(2);
+    expect(rows[1]).toHaveTextContent("PLATFORM_SUPPORT");
 
-    fireEvent.change(screen.getByLabelText("E-mail address"), { target: { value: "billing-a@example.test" } });
+    fireEvent.click(screen.getByRole("button", { name: "Give a platform role" }));
+    fireEvent.change(await screen.findByLabelText("E-mail address"), { target: { value: "billing-a@example.test" } });
     fireEvent.change(screen.getByLabelText("Role"), { target: { value: "PLATFORM_BILLING" } });
     fireEvent.submit(screen.getByRole("form", { name: "Give a platform role" }));
 
@@ -39,7 +45,9 @@ describe("PeoplePanel", () => {
     expect(calls.find((call) => call.key === "POST /api/v1/platform/people")?.body).toBe(
       JSON.stringify({ email: "billing-a@example.test", role: "PLATFORM_BILLING" }),
     );
-    fireEvent.click(within(rows[1] as HTMLElement).getByRole("button", { name: "Take away" }));
+    // Back on the list, the person opens as a page and the role is taken away there.
+    fireEvent.click(await screen.findByRole("button", { name: "Support A" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Take away" }));
     await waitFor(() =>
       expect(calls.map((call) => call.key)).toContain(
         "DELETE /api/v1/platform/people/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
@@ -54,9 +62,10 @@ describe("PeoplePanel", () => {
         refusal("CONFLICT", "The last platform administrator cannot be removed. Grant the role to another person first.", 409),
     });
     render(<PeoplePanel />);
-    const rows = await screen.findAllByTestId("person-row");
+    await screen.findAllByTestId("person-row");
 
-    fireEvent.click(within(rows[0] as HTMLElement).getByRole("button", { name: "Take away" }));
+    fireEvent.click(screen.getByRole("button", { name: "Platform A" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Take away" }));
 
     expect(await screen.findByTestId("people-problem")).toHaveTextContent("last platform administrator");
   });
@@ -139,7 +148,8 @@ describe("PlansPanel", () => {
     expect(row).toHaveTextContent("30 days");
     expect(row).toHaveTextContent("user: 5, admin: 2");
 
-    fireEvent.change(screen.getByLabelText(/^Key/, { selector: "#plan-key" }), { target: { value: "plan-b" } });
+    fireEvent.click(screen.getByRole("button", { name: "New plan" }));
+    fireEvent.change(await screen.findByLabelText(/^Key/, { selector: "#plan-key" }), { target: { value: "plan-b" } });
     fireEvent.change(screen.getByLabelText("Name", { selector: "#plan-name" }), { target: { value: "Plan B" } });
     fireEvent.change(screen.getByLabelText("User licences"), { target: { value: "10" } });
     fireEvent.click(screen.getByLabelText("Workflows"));
@@ -158,12 +168,33 @@ describe("PlansPanel", () => {
     });
     render(<PlansPanel />);
     await screen.findByTestId("plan-row");
-    fireEvent.change(screen.getByLabelText(/^Key/, { selector: "#plan-key" }), { target: { value: "plan-b" } });
+    fireEvent.click(screen.getByRole("button", { name: "New plan" }));
+    fireEvent.change(await screen.findByLabelText(/^Key/, { selector: "#plan-key" }), { target: { value: "plan-b" } });
     fireEvent.change(screen.getByLabelText("Name", { selector: "#plan-name" }), { target: { value: "Plan B" } });
 
     fireEvent.submit(screen.getByRole("form", { name: "Create or replace a plan" }));
 
     expect(await screen.findByTestId("plans-problem")).toHaveTextContent("not allowed");
+  });
+
+  it("opens a plan as a page and replaces it with its key kept", async () => {
+    const calls = fakeApi({
+      ...catalogue(),
+      "PUT /api/v1/platform/plans/trial": () => json({ data: { key: "trial", name: "Trial 2", licences: {}, features: [] } }),
+    });
+    render(<PlansPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "Trial" }));
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Trial" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
+    expect(screen.getByLabelText(/^Key/, { selector: "#plan-key" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Name", { selector: "#plan-name" }), { target: { value: "Trial 2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save the plan" }));
+
+    expect(await screen.findByTestId("plans-notice")).toHaveTextContent("The plan was saved.");
+    expect(calls.find((call) => call.key === "PUT /api/v1/platform/plans/trial")?.body).toBe(
+      JSON.stringify({ name: "Trial 2", trialDays: 30, licences: { user: 5, admin: 2 }, features: ["approvals"] }),
+    );
   });
 
   it("adds a licence type and a feature", async () => {
