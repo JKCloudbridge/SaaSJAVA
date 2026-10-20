@@ -153,6 +153,8 @@ export function FieldForm({
   onCreate,
   onUpdate,
   onCancel,
+  formId,
+  hideActions = false,
 }: {
   types: FieldTypeView[];
   objects: ObjectSummary[];
@@ -163,6 +165,10 @@ export function FieldForm({
   onCreate: (request: CreateFieldRequest) => void;
   onUpdate: (request: UpdateFieldRequest) => void;
   onCancel: () => void;
+  /** The id of the form, so a button in the title band can submit it (`<button form=...>`, UA2). */
+  formId?: string;
+  /** The page puts Save and Cancel in its title band; the form then draws none of its own. */
+  hideActions?: boolean;
 }) {
   const [draft, setDraft] = useState<Draft>(() => (editing ? draftOf(editing) : emptyDraft(types[0]?.type ?? "TEXT")));
   const spec = types.find((candidate) => candidate.type === draft.type);
@@ -200,7 +206,13 @@ export function FieldForm({
   const activeValues = draft.values.filter((row) => row.active && row.value !== "");
 
   return (
-    <form className="form" onSubmit={submit} noValidate aria-label={editing ? "Change the field" : "Add a field"}>
+    <form
+      id={formId}
+      className="form"
+      onSubmit={submit}
+      noValidate
+      aria-label={editing ? "Change the field" : "Add a field"}
+    >
       {editing ? (
         <p>
           <code>{editing.apiName}</code> · {spec.label}. The name and the type of a field never change.
@@ -448,14 +460,18 @@ export function FieldForm({
         </div>
       ) : null}
 
-      <button type="submit" className="button" disabled={busy}>
-        {editing ? "Save the field" : "Add the field"}
-      </button>{" "}
-      {editing ? (
-        <button type="button" className="link-button" onClick={onCancel}>
-          Cancel
-        </button>
-      ) : null}
+      {hideActions ? null : (
+        <>
+          <button type="submit" className="button" disabled={busy}>
+            {editing ? "Save the field" : "Add the field"}
+          </button>{" "}
+          {editing ? (
+            <button type="button" className="link-button" onClick={onCancel}>
+              Cancel
+            </button>
+          ) : null}
+        </>
+      )}
     </form>
   );
 }

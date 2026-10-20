@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type MouseEvent, type ReactNode } from "react";
 import { Icon } from "@/components/ui/Icon";
+import { Breadcrumb, type Crumb } from "./Breadcrumb";
 import { PageFrame } from "./PageFrame";
 
 /**
@@ -20,6 +21,8 @@ const endAligned = (kind: ListColumn<unknown>["kind"]) => kind === "tag" || kind
 
 export interface ListPageProps<T> {
   title: string;
+  /** The trail above the title when the list is a tab of a larger page (UA3); the last step is the list itself. */
+  crumbs?: readonly Crumb[];
   intro?: ReactNode;
   /** The rows the screen has loaded; undefined while they are still on the way. */
   items: readonly T[] | undefined;
@@ -110,7 +113,13 @@ export function ListPage<T>(props: ListPageProps<T>) {
   }
 
   return (
-    <PageFrame title={props.title} intro={props.intro} tools={tools} notices={props.notices}>
+    <PageFrame
+      title={props.title}
+      intro={props.intro}
+      breadcrumb={props.crumbs ? <Breadcrumb crumbs={props.crumbs} /> : undefined}
+      tools={tools}
+      notices={props.notices}
+    >
       {failure ? (
         <p className="form-message" role="alert" data-testid={`${props.testId}-failed`}>
           {failure}

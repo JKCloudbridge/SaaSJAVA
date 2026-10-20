@@ -8,6 +8,9 @@ import {
   isCurrent,
   landingFor,
   linksOf,
+  objectRail,
+  objectSectionHref,
+  sectionOf,
   settingsLanding,
   settingsTabs,
   type RailEntry,
@@ -223,5 +226,67 @@ describe("the areas of the shell", () => {
   it("does not take the approvals inbox for the setup page of approval processes", () => {
     expect(areaOf("/approvals")).toEqual({ kind: "neutral", name: "Approvals" });
     expect(areaOf("/setup/approvals")).toEqual({ kind: "home" });
+  });
+});
+
+describe("the rail of one object", () => {
+  it("lists Fields, Relationships, Record types, Validation rules, a group Pages, Sharing and Details, in that order", () => {
+    const rail = objectRail("Employee__c");
+
+    expect(labels(rail)).toEqual([
+      "Fields",
+      "Relationships",
+      "Record types",
+      "Validation rules",
+      "Pages",
+      "Sharing",
+      "Details",
+    ]);
+    const pages = rail.find((entry) => entry.kind === "group");
+    expect(pages?.kind === "group" ? labels(pages.items) : []).toEqual(["Page layouts", "Record pages", "Custom buttons"]);
+  });
+
+  it("addresses every tab by the section in the query and encodes the object's name", () => {
+    expect(objectSectionHref("Employee__c", "record-types")).toBe("/setup/objects/Employee__c?section=record-types");
+    expect(objectSectionHref("A b", "fields")).toBe("/setup/objects/A%20b?section=fields");
+    const links = linksOf(objectRail("Employee__c")).filter((entry) => !entry.unavailable);
+    expect(links.map((entry) => entry.href)).toContain("/setup/objects/Employee__c?section=sharing");
+  });
+
+  it("marks the tab the query names, the fields when it names none or something unknown", () => {
+    const links = linksOf(objectRail("Employee__c"));
+    const current = (pathname: string, search: string) =>
+      links.filter((entry) => isCurrent(entry, pathname, search)).map((entry) => entry.label);
+
+    expect(current("/setup/objects/Employee__c", "section=sharing")).toEqual(["Sharing"]);
+    expect(current("/setup/objects/Employee__c", "")).toEqual(["Fields"]);
+    expect(current("/setup/objects/Employee__c", "section=nonsense")).toEqual(["Fields"]);
+    expect(current("/setup/objects/Employee__c", "section=layouts&view=assignments")).toEqual(["Page layouts"]);
+    expect(current("/setup/objects/Employee__c", "section=fields&field=code__c")).toEqual(["Fields"]);
+    expect(current("/setup/objects/Other__c", "section=sharing")).toEqual([]);
+  });
+
+  it("keeps the tab current inside the two builders of the object", () => {
+    const links = linksOf(objectRail("Employee__c"));
+    const current = (pathname: string) => links.filter((entry) => isCurrent(entry, pathname)).map((entry) => entry.label);
+
+    expect(current("/setup/objects/Employee__c/layouts/Details__c")).toEqual(["Page layouts"]);
+    expect(current("/setup/objects/Employee__c/layouts/new")).toEqual(["Page layouts"]);
+    expect(current("/setup/objects/Employee__c/record-pages/Overview__c")).toEqual(["Record pages"]);
+  });
+
+  it("never marks Custom buttons, which has nothing behind it yet", () => {
+    const soon = linksOf(objectRail("Employee__c")).find((entry) => entry.label === "Custom buttons");
+
+    expect(soon?.unavailable).toBe(true);
+    expect(soon?.soon).toBe(true);
+    expect(isCurrent(soon!, "/setup/objects/Employee__c", "section=layouts")).toBe(false);
+  });
+
+  it("falls back to the fields for a section it does not know", () => {
+    expect(sectionOf("record-pages")).toBe("record-pages");
+    expect(sectionOf("nonsense")).toBe("fields");
+    expect(sectionOf(null)).toBe("fields");
+    expect(sectionOf(undefined)).toBe("fields");
   });
 });

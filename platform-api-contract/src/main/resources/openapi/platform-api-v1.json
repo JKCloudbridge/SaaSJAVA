@@ -4678,6 +4678,44 @@
         "tags" : [ "Metadata" ]
       }
     },
+    "/api/v1/metadata/objects/{objectApiName}/authorship" : {
+      "get" : {
+        "description" : "For the organization's own fields, record types, page layouts, record pages and validation rules, and the object itself when it is the organization's own: the display name of an active member or Platform, and when. A person who is no longer a member has no name. The platform's standard definitions have no entry. NOT_FOUND for an object the organization does not have, FORBIDDEN without the ability metadata.view.",
+        "operationId" : "getObjectAuthorship",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListAuthorshipView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Who made and who last changed each definition of an object",
+        "tags" : [ "Metadata" ]
+      }
+    },
     "/api/v1/metadata/objects/{objectApiName}/fields" : {
       "post" : {
         "description" : "To a custom object, or to a standard object that allows it. The name is turned into the permanent API name with the ending __c. VALIDATION_ERROR lists every problem with the type, its settings and its constraints. Audited.",
@@ -12634,6 +12672,18 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListAuthorshipView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AuthorshipView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListCatalogueItem" : {
         "type" : "object",
         "properties" : {
@@ -14296,6 +14346,32 @@
           }
         },
         "required" : [ "attributes", "id", "occurredAt", "outcome", "source", "type" ]
+      },
+      "AuthorshipView" : {
+        "type" : "object",
+        "properties" : {
+          "apiName" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "createdBy" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedBy" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "apiName", "createdAt", "kind", "updatedAt" ]
       },
       "AutomationHealthItemView" : {
         "type" : "object",

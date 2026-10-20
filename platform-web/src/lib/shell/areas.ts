@@ -17,8 +17,13 @@ export interface RailLink {
   ability?: string;
   /** A marker for something a later release builds: drawn with a "Soon" badge, still a page that says so. */
   soon?: boolean;
-  /** When the page is the current one, if "the address is this or below it" is not the right test. */
-  matches?: (pathname: string) => boolean;
+  /** Drawn as a name with its "Soon" badge and no link at all: there is no page behind it yet (Custom buttons). */
+  unavailable?: boolean;
+  /**
+   * When the page is the current one, if "the address is this or below it" is not the right test. The second argument is
+   * the query of the address (`section=fields`, without the question mark) for rails whose entries differ only by it.
+   */
+  matches?: (pathname: string, search: string) => boolean;
 }
 
 /** A main item that opens and closes a list of links. A group holds links, never another group (one level). */
@@ -32,9 +37,12 @@ export interface RailGroup {
 export type RailEntry = RailLink | RailGroup;
 
 /** Whether the address is the link's page or a page below it. */
-export function isCurrent(link: RailLink, pathname: string): boolean {
+export function isCurrent(link: RailLink, pathname: string, search = ""): boolean {
+  if (link.unavailable) {
+    return false;
+  }
   if (link.matches) {
-    return link.matches(pathname);
+    return link.matches(pathname, search);
   }
   return pathname === link.href || pathname.startsWith(`${link.href}/`);
 }
@@ -93,6 +101,69 @@ const HOME_ENTRIES: readonly RailEntry[] = [
   },
   link("/audit", "Audit trail", "audit.view"),
 ];
+
+/** The tabs of one object, in the order of its rail (UA3, ADR-0170). The group "Pages" holds three of them. */
+export const OBJECT_SECTION_IDS = [
+  "fields",
+  "relationships",
+  "record-types",
+  "rules",
+  "layouts",
+  "record-pages",
+  "sharing",
+  "details",
+] as const;
+
+export type ObjectSection = (typeof OBJECT_SECTION_IDS)[number];
+
+/** The tab an address names; anything unknown is the fields. */
+export function sectionOf(value: string | null | undefined): ObjectSection {
+  return OBJECT_SECTION_IDS.find((id) => id === value) ?? "fields";
+}
+
+/** The address of one tab of an object. */
+export function objectSectionHref(objectApiName: string, section: ObjectSection): string {
+  return `${OBJECT_SETTINGS_HREF}/${encodeURIComponent(objectApiName)}?section=${section}`;
+}
+
+/**
+ * The rail of one object: Fields, Relationships, Record types, Validation rules, the group Pages (Page layouts, Record
+ * pages, Custom buttons), Sharing and Details. An entry is current by the tab the address names; the two builders of the
+ * object (`/layouts/<name>`, `/record-pages/<name>`) keep their tab current. Whether a person may open a tab is not
+ * decided here: the page shows the API's words when it refuses.
+ */
+export function objectRail(objectApiName: string): RailEntry[] {
+  const base = `${OBJECT_SETTINGS_HREF}/${encodeURIComponent(objectApiName)}`;
+  const tab = (section: ObjectSection, label: string, below?: string): RailLink => ({
+    kind: "link",
+    href: objectSectionHref(objectApiName, section),
+    label,
+    matches: (pathname, search) => {
+      if (below && pathname.startsWith(`${base}/${below}/`)) {
+        return true;
+      }
+      return pathname === base && sectionOf(new URLSearchParams(search).get("section")) === section;
+    },
+  });
+  return [
+    tab("fields", "Fields"),
+    tab("relationships", "Relationships"),
+    tab("record-types", "Record types"),
+    tab("rules", "Validation rules"),
+    {
+      kind: "group",
+      key: "pages",
+      label: "Pages",
+      items: [
+        tab("layouts", "Page layouts", "layouts"),
+        tab("record-pages", "Record pages", "record-pages"),
+        { kind: "link", href: `${base}#custom-buttons`, label: "Custom buttons", soon: true, unavailable: true },
+      ],
+    },
+    tab("sharing", "Sharing"),
+    tab("details", "Details"),
+  ];
+}
 
 /** The rail of the platform console. The platform role is the gate (the console frame checks it): no ability. */
 const CONSOLE_ENTRIES: readonly RailEntry[] = [

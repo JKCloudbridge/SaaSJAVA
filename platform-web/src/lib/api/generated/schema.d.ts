@@ -2004,6 +2004,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/metadata/objects/{objectApiName}/authorship": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who made and who last changed each definition of an object
+         * @description For the organization's own fields, record types, page layouts, record pages and validation rules, and the object itself when it is the organization's own: the display name of an active member or Platform, and when. A person who is no longer a member has no name. The platform's standard definitions have no entry. NOT_FOUND for an object the organization does not have, FORBIDDEN without the ability metadata.view.
+         */
+        get: operations["getObjectAuthorship"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/metadata/objects/{objectApiName}/fields": {
         parameters: {
             query?: never;
@@ -4769,6 +4789,9 @@ export interface components {
         ApiResponseListApprovalProcessView: {
             data: components["schemas"]["ApprovalProcessView"][];
         };
+        ApiResponseListAuthorshipView: {
+            data: components["schemas"]["AuthorshipView"][];
+        };
         ApiResponseListCatalogueItem: {
             data: components["schemas"]["CatalogueItem"][];
         };
@@ -5285,6 +5308,16 @@ export interface components {
             recordId?: string;
             source: string;
             type: string;
+        };
+        AuthorshipView: {
+            apiName: string;
+            /** Format: date-time */
+            createdAt: string;
+            createdBy?: string;
+            kind: string;
+            /** Format: date-time */
+            updatedAt: string;
+            updatedBy?: string;
         };
         AutomationHealthItemView: {
             /** Format: int64 */
@@ -11083,6 +11116,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getObjectAuthorship: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListAuthorshipView"];
+                };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {

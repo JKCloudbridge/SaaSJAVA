@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { COMMON_TEXT } from "@/components/account/messages";
-import { ActionMessages, failureText, useAction } from "@/components/console/useAction";
+import { ActionMessages, failureText } from "@/components/console/useAction";
+import { DetailGrid, DetailItem, DetailPage, DetailSection, MissingDetail } from "@/components/ui/lists/DetailPage";
+import { ListPage } from "@/components/ui/lists/ListPage";
+import { Tag } from "@/components/ui/lists/Tag";
+import { useListScreen } from "@/components/ui/lists/useListScreen";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
 import {
@@ -13,6 +17,8 @@ import {
   emptyCriteria,
   type CriteriaDraft,
 } from "@/lib/builder/sharingCriteria";
+import { useOffers } from "@/lib/session/SessionProvider";
+import { detailParents, listCrumbs, tabTitle, type ObjectTabProps } from "./objectTab";
 import { problemText } from "./objectText";
 
 type ObjectView = components["schemas"]["ObjectView"];
@@ -51,6 +57,8 @@ const PRINCIPAL_TEXT: Record<string, string> = {
 
 const LEVEL_TEXT: Record<string, string> = { READ: "Read only", READ_WRITE: "Read and write" };
 
+const ROUTE = { openParam: "rule", keep: ["section"] } as const;
+
 interface RuleDraft {
   name: string;
   kind: "OWNER" | "GROUP" | "CRITERIA";
@@ -82,21 +90,37 @@ interface Loaded {
   groups: GroupView[];
 }
 
+function draftOf(rule: SharingRuleView): RuleDraft {
+  return {
+    name: rule.name,
+    kind: rule.kind as RuleDraft["kind"],
+    sourceType: rule.sourceType ?? "ROLE",
+    sourceId: rule.sourceId ?? "",
+    targetType: rule.targetType,
+    targetId: rule.targetId,
+    accessLevel: rule.accessLevel,
+    active: rule.active ?? true,
+    criteria: criteriaFrom(rule.criterion),
+  };
+}
+
 /**
- * Who reaches the records of one object (Sprint 17): the organization-wide default, whether the role hierarchy gives
- * access, and the sharing rules (by owner, by group, by condition) that give more. A change takes effect at once for
- * everyone and is not a draft: sharing is not part of the metadata that change sets carry, so this screen ignores the
- * chosen change set and says so. The page shows what the API answers; whether the person may manage sharing, and what a
- * rule is allowed to say, is the API's to decide.
+ * The Sharing tab of an object (UA3, ADR-0170, Sprint 17): who reaches the records. The sharing rules (by owner, by group,
+ * by condition) are a list; a row opens the rule's page and New opens the form. The organization-wide default and whether
+ * the role hierarchy gives access are a section of their own above the list. A change takes effect at once for everyone and
+ * is not a draft: sharing is not part of the metadata that change sets carry, so this screen ignores the chosen change set
+ * and says so. The page shows what the API answers; whether the person may manage sharing, and what a rule is allowed to
+ * say, is the API's to decide.
  */
-export function SharingPanel({ object }: { object: ObjectView }) {
+export function SharingPanel({ object }: ObjectTabProps) {
   const objectApiName = object.apiName;
+  const offersManage = useOffers("sharing.manage");
   const [loaded, setLoaded] = useState<Loaded | undefined>();
   const [failure, setFailure] = useState<string | undefined>();
   const [defaults, setDefaults] = useState({ defaultAccess: "PUBLIC_READ_WRITE", grantViaHierarchy: true });
   const [draft, setDraft] = useState<RuleDraft>(EMPTY_RULE);
-  const [editing, setEditing] = useState<SharingRuleView | undefined>();
-  const [opening, setOpening] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   const reload = useCallback(async () => {
     try {
@@ -134,25 +158,26 @@ export function SharingPanel({ object }: { object: ObjectView }) {
     }
   }, [reload, managed]);
 
-  const { busy, notice, problem, act } = useAction(reload);
+  const screen = useListScreen(reload, ROUTE);
+  const { busy, notice, problem, act } = screen;
+  const messages = <ActionMessages notice={notice} problem={problem} testId="sharing" />;
+  const crumbs = listCrumbs(object, "Sharing");
+  const parents = detailParents(object);
 
-  if (object.managedBy) {
+  if (managed) {
     return (
-      <section aria-labelledby="sharing-heading">
-        <h3 id="sharing-heading">Sharing</h3>
-        <p className="hint">The records of this object belong to the platform, so their sharing is the platform&apos;s.</p>
-      </section>
+      <ListPage<SharingRuleView>
+        title={tabTitle(object, "Sharing")}
+        crumbs={crumbs}
+        items={[]}
+        rowKey={(row) => row.id}
+        primaryHeader="Rule"
+        primary={(row) => row.name}
+        columns={[]}
+        emptyText="The records of this object belong to the platform, so their sharing is the platform's."
+        testId="sharing"
+      />
     );
-  }
-  if (failure) {
-    return (
-      <p className="form-message" role="alert" data-testid="sharing-failed">
-        {failure}
-      </p>
-    );
-  }
-  if (!loaded) {
-    return <p aria-live="polite">Loading…</p>;
   }
 
   const fields = object.fields.filter(
@@ -160,10 +185,18 @@ export function SharingPanel({ object }: { object: ObjectView }) {
   );
   const labelOf = (name: string) => object.fields.find((field) => field.apiName === name)?.label ?? name;
   const typeOf = (name: string) => object.fields.find((field) => field.apiName === name)?.type;
-  const roleName = (id: string | undefined) => loaded.roles.find((one) => one.id === id)?.name ?? "A role that was removed";
-  const groupName = (id: string | undefined) => loaded.groups.find((one) => one.id === id)?.name ?? "A group that was removed";
+  const roleName = (id: string | undefined) => loaded?.roles.find((one) => one.id === id)?.name ?? "A role that was removed";
+  const groupName = (id: string | undefined) =>
+    loaded?.groups.find((one) => one.id === id)?.name ?? "A group that was removed";
   const principalName = (type: string | undefined, id: string | undefined) =>
     type === "GROUP" ? groupName(id) : `${roleName(id)}${type === "ROLE_AND_SUBORDINATES" ? " and below" : ""}`;
+
+  function sourceOf(rule: SharingRuleView): string {
+    if (rule.kind === "CRITERIA") {
+      return `Records where ${describeCriteria(rule.criterion, labelOf)}`;
+    }
+    return `Records owned by ${principalName(rule.sourceType, rule.sourceId)}`;
+  }
 
   function saveDefaults(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -182,31 +215,8 @@ export function SharingPanel({ object }: { object: ObjectView }) {
     });
   }
 
-  function reset() {
-    setDraft(EMPTY_RULE);
-    setEditing(undefined);
-    setOpening(false);
-  }
-
-  function startEdit(rule: SharingRuleView) {
-    setEditing(rule);
-    setOpening(true);
-    setDraft({
-      name: rule.name,
-      kind: rule.kind as RuleDraft["kind"],
-      sourceType: rule.sourceType ?? "ROLE",
-      sourceId: rule.sourceId ?? "",
-      targetType: rule.targetType,
-      targetId: rule.targetId,
-      accessLevel: rule.accessLevel,
-      active: rule.active ?? true,
-      criteria: criteriaFrom(rule.criterion),
-    });
-  }
-
-  function saveRule(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const body = {
+  function bodyOf() {
+    return {
       name: draft.name,
       kind: draft.kind,
       object: objectApiName,
@@ -218,25 +228,15 @@ export function SharingPanel({ object }: { object: ObjectView }) {
       accessLevel: draft.accessLevel,
       active: draft.active,
     };
+  }
+
+  function create(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const body = bodyOf();
     void act(async () => {
-      if (editing) {
-        const result = await api.PUT("/api/v1/sharing/rules/{ruleId}", {
-          params: { path: { ruleId: editing.id } },
-          body: { ...body, version: editing.version },
-        });
-        if (result.response.ok) {
-          reset();
-        }
-        return {
-          error: result.error,
-          response: result.response,
-          text: "The rule was saved. It applies at the next question of every member.",
-          problem: problemText(result.error, result.response),
-        };
-      }
       const result = await api.POST("/api/v1/sharing/rules", { body });
       if (result.response.ok) {
-        reset();
+        screen.back(true);
       }
       return {
         error: result.error,
@@ -247,9 +247,33 @@ export function SharingPanel({ object }: { object: ObjectView }) {
     });
   }
 
-  function removeRule(rule: SharingRuleView) {
+  const save = (rule: SharingRuleView) => (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const body = bodyOf();
     void act(async () => {
+      const result = await api.PUT("/api/v1/sharing/rules/{ruleId}", {
+        params: { path: { ruleId: rule.id } },
+        body: { ...body, version: rule.version },
+      });
+      if (result.response.ok) {
+        setEditing(false);
+      }
+      return {
+        error: result.error,
+        response: result.response,
+        text: "The rule was saved. It applies at the next question of every member.",
+        problem: problemText(result.error, result.response),
+      };
+    });
+  };
+
+  const remove = (rule: SharingRuleView) => {
+    setConfirmRemove(false);
+    return act(async () => {
       const result = await api.DELETE("/api/v1/sharing/rules/{ruleId}", { params: { path: { ruleId: rule.id } } });
+      if (result.response.ok && screen.openId === rule.id) {
+        screen.back(true);
+      }
       return {
         error: result.error,
         response: result.response,
@@ -257,29 +281,148 @@ export function SharingPanel({ object }: { object: ObjectView }) {
         problem: problemText(result.error, result.response),
       };
     });
+  };
+
+  const form = (isEditing: boolean, kind?: string) =>
+    loaded ? (
+      <RuleFields
+        draft={draft}
+        onDraft={setDraft}
+        loaded={loaded}
+        fields={fields}
+        labelOf={labelOf}
+        editing={isEditing}
+        editingKind={kind}
+      />
+    ) : null;
+
+  if (screen.creating && loaded) {
+    return (
+      <DetailPage
+        listLabel="Sharing"
+        parents={parents}
+        onBack={() => screen.back()}
+        title="New sharing rule"
+        notices={messages}
+        actions={
+          <>
+            <button type="button" className="button button-secondary" onClick={() => screen.back()}>
+              Cancel
+            </button>
+            <button type="submit" form="sharing-rule-form" className="button" disabled={busy}>
+              Add the rule
+            </button>
+          </>
+        }
+        testId="sharing-rule-new"
+      >
+        <form id="sharing-rule-form" onSubmit={create} noValidate aria-label="New sharing rule">
+          <DetailSection title="Detail" stack>
+            {form(false)}
+          </DetailSection>
+        </form>
+      </DetailPage>
+    );
   }
 
-  function sourceOf(rule: SharingRuleView): string {
-    if (rule.kind === "CRITERIA") {
-      return `Records where ${describeCriteria(rule.criterion, labelOf)}`;
-    }
-    return `Records owned by ${principalName(rule.sourceType, rule.sourceId)}`;
+  const rule = loaded?.rules.find((candidate) => candidate.id === screen.openId);
+  if (screen.openId && loaded && !rule) {
+    return <MissingDetail listLabel="Sharing" onBack={() => screen.back()} what="This sharing rule does not exist any more." />;
+  }
+
+  if (rule && loaded) {
+    const actions = editing ? (
+      <>
+        <button type="button" className="button button-secondary" onClick={() => setEditing(false)}>
+          Cancel
+        </button>
+        <button type="submit" form="sharing-rule-form" className="button" disabled={busy}>
+          Save the rule
+        </button>
+      </>
+    ) : offersManage ? (
+      <>
+        <button
+          type="button"
+          className="button button-danger"
+          disabled={busy}
+          onClick={() => setConfirmRemove((value) => !value)}
+        >
+          Remove
+        </button>
+        <button
+          type="button"
+          className="button"
+          disabled={busy}
+          onClick={() => {
+            setDraft(draftOf(rule));
+            setEditing(true);
+          }}
+        >
+          Edit
+        </button>
+      </>
+    ) : null;
+    return (
+      <DetailPage
+        listLabel="Sharing"
+        parents={parents}
+        onBack={() => {
+          setEditing(false);
+          setConfirmRemove(false);
+          screen.back();
+        }}
+        title={rule.name}
+        actions={actions}
+        notices={messages}
+        testId="sharing-rule-detail"
+      >
+        {confirmRemove ? (
+          <p role="alertdialog" aria-label="Remove the sharing rule" data-testid="sharing-rule-remove-confirm">
+            Remove this sharing rule? The members it gave access to lose it at their next question.{" "}
+            <button type="button" className="button button-danger" disabled={busy} onClick={() => void remove(rule)}>
+              Yes, remove the rule
+            </button>{" "}
+            <button type="button" className="link-button" onClick={() => setConfirmRemove(false)}>
+              Cancel
+            </button>
+          </p>
+        ) : null}
+        {editing ? (
+          <form id="sharing-rule-form" onSubmit={save(rule)} noValidate aria-label="Change the sharing rule">
+            <DetailSection title="Edit sharing rule" stack>
+              {form(true, rule.kind)}
+            </DetailSection>
+          </form>
+        ) : (
+          <DetailSection title="Detail">
+            <DetailGrid>
+              <DetailItem label="Name">{rule.name}</DetailItem>
+              <DetailItem label="Type">{KIND_TEXT[rule.kind] ?? rule.kind}</DetailItem>
+              <DetailItem label="Records" wide>
+                {sourceOf(rule)}
+              </DetailItem>
+              <DetailItem label="Shared with">{principalName(rule.targetType, rule.targetId)}</DetailItem>
+              <DetailItem label="Access">{LEVEL_TEXT[rule.accessLevel] ?? rule.accessLevel}</DetailItem>
+              <DetailItem label="Status">
+                <Tag tone={rule.active === false ? "quiet" : "ok"}>{rule.active === false ? "Off" : "On"}</Tag>
+              </DetailItem>
+            </DetailGrid>
+          </DetailSection>
+        )}
+      </DetailPage>
+    );
   }
 
   const setting = DEFAULT_TEXT[defaults.defaultAccess];
-  const formName = editing ? "Change the sharing rule" : "New sharing rule";
 
-  return (
-    <section aria-labelledby="sharing-heading" className="stack" data-testid="sharing">
-      <h3 id="sharing-heading">Sharing</h3>
+  const above = loaded ? (
+    <>
       <p className="hint" data-testid="sharing-live-note">
         Sharing takes effect at once for every member. It is not part of a change set: the change set chosen above does not
         hold these changes.
       </p>
-      <ActionMessages notice={notice} problem={problem} testId="sharing" />
-
-      <div className="detail-section">
-        <h4>Who reaches the records</h4>
+      <DetailSection title="Who reaches the records">
         <form className="form" onSubmit={saveDefaults} aria-label="Default access" noValidate>
           <div className="field">
             <label htmlFor="sharing-default">Default access of the organization</label>
@@ -318,228 +461,216 @@ export function SharingPanel({ object }: { object: ObjectView }) {
             </button>
           </div>
         </form>
-      </div>
+      </DetailSection>
+    </>
+  ) : null;
 
-      <div className="detail-section">
-        <div className="list-head">
-          <h4>Sharing rules</h4>
-          <button
-            type="button"
-            className="button"
-            onClick={() => {
-              setEditing(undefined);
+  return (
+    <ListPage<SharingRuleView>
+      title={tabTitle(object, "Sharing")}
+      crumbs={crumbs}
+      items={loaded?.rules}
+      failure={failure}
+      above={above}
+      rowKey={(row) => row.id}
+      primaryHeader="Rule"
+      primary={(row) => row.name}
+      primaryExtra={(row) => (row.active === false ? <Tag>Off</Tag> : null)}
+      columns={[
+        { key: "records", header: "Records", kind: "muted", cell: (row) => sourceOf(row) },
+        { key: "with", header: "Shared with", kind: "muted", cell: (row) => principalName(row.targetType, row.targetId) },
+        { key: "access", header: "Access", kind: "muted", cell: (row) => LEVEL_TEXT[row.accessLevel] ?? row.accessLevel },
+        { key: "type", header: "Type", kind: "tag", cell: (row) => <Tag>{KIND_TEXT[row.kind] ?? row.kind}</Tag> },
+      ]}
+      onOpen={(row) => {
+        setEditing(false);
+        setConfirmRemove(false);
+        screen.open(row.id);
+      }}
+      searchText={(row) => `${row.name} ${KIND_TEXT[row.kind] ?? row.kind} ${sourceOf(row)}`}
+      searchLabel="Search sharing rules"
+      onNew={
+        offersManage
+          ? () => {
               setDraft(EMPTY_RULE);
-              setOpening(true);
-            }}
-          >
-            New sharing rule
-          </button>
-        </div>
-        {loaded.rules.length === 0 ? (
-          <p>No sharing rules yet. A rule gives some members read or write access to records they would not reach otherwise.</p>
-        ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Rule</th>
-                <th>Type</th>
-                <th>Records</th>
-                <th>Shared with</th>
-                <th>Access</th>
-                <th>
-                  <span className="visually-hidden">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {loaded.rules.map((rule) => (
-                <tr key={rule.id} data-testid="sharing-rule-row">
-                  <td>
-                    {rule.name}
-                    {rule.active === false ? <span className="badge"> Off</span> : null}
-                  </td>
-                  <td>{KIND_TEXT[rule.kind] ?? rule.kind}</td>
-                  <td>{sourceOf(rule)}</td>
-                  <td>{principalName(rule.targetType, rule.targetId)}</td>
-                  <td>{LEVEL_TEXT[rule.accessLevel] ?? rule.accessLevel}</td>
-                  <td>
-                    <button type="button" className="link-button" disabled={busy} onClick={() => startEdit(rule)}>
-                      Change
-                    </button>{" "}
-                    <button type="button" className="link-button" disabled={busy} onClick={() => removeRule(rule)}>
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+              setEditing(false);
+              screen.create();
+            }
+          : undefined
+      }
+      newLabel="New"
+      notices={messages}
+      emptyText="No sharing rules yet. A rule gives some members read or write access to records they would not reach otherwise."
+      testId="sharing"
+      rowTestId="sharing-rule-row"
+    />
+  );
+}
+
+/** The fields of a sharing rule as a form: which records, who gets access, how much. */
+function RuleFields({
+  draft,
+  onDraft,
+  loaded,
+  fields,
+  labelOf,
+  editing,
+  editingKind,
+}: {
+  draft: RuleDraft;
+  onDraft: (next: RuleDraft) => void;
+  loaded: Loaded;
+  fields: ObjectView["fields"];
+  labelOf: (name: string) => string;
+  editing: boolean;
+  editingKind?: string;
+}) {
+  return (
+    <>
+      <div className="field">
+        <label htmlFor="rule-name">Name</label>
+        <input
+          id="rule-name"
+          value={draft.name}
+          maxLength={80}
+          onChange={(event) => onDraft({ ...draft, name: event.target.value })}
+        />
       </div>
+      {editing ? (
+        <p>{editingKind ? KIND_TEXT[editingKind] : null}. The type of a rule never changes.</p>
+      ) : (
+        <div className="field">
+          <label htmlFor="rule-kind">Which records</label>
+          <select
+            id="rule-kind"
+            value={draft.kind}
+            onChange={(event) => onDraft({ ...draft, kind: event.target.value as RuleDraft["kind"], sourceId: "" })}
+          >
+            <option value="OWNER">Records owned by the members of a role</option>
+            <option value="GROUP">Records owned by the members of a public group</option>
+            <option value="CRITERIA">Records that meet a condition</option>
+          </select>
+        </div>
+      )}
 
-      {opening ? (
-        <div className="card">
-          <h4>{formName}</h4>
-          <form className="form" onSubmit={saveRule} noValidate aria-label={formName}>
-            <div className="field">
-              <label htmlFor="rule-name">Name</label>
-              <input
-                id="rule-name"
-                value={draft.name}
-                maxLength={80}
-                onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-              />
-            </div>
-            {editing ? (
-              <p>{KIND_TEXT[editing.kind]}. The type of a rule never changes.</p>
-            ) : (
-              <div className="field">
-                <label htmlFor="rule-kind">Which records</label>
-                <select
-                  id="rule-kind"
-                  value={draft.kind}
-                  onChange={(event) => setDraft({ ...draft, kind: event.target.value as RuleDraft["kind"], sourceId: "" })}
-                >
-                  <option value="OWNER">Records owned by the members of a role</option>
-                  <option value="GROUP">Records owned by the members of a public group</option>
-                  <option value="CRITERIA">Records that meet a condition</option>
-                </select>
-              </div>
-            )}
-
-            {draft.kind === "OWNER" ? (
-              <>
-                <div className="field">
-                  <label htmlFor="rule-source-type">Owned by</label>
-                  <select
-                    id="rule-source-type"
-                    value={draft.sourceType}
-                    onChange={(event) => setDraft({ ...draft, sourceType: event.target.value })}
-                  >
-                    <option value="ROLE">The members of a role</option>
-                    <option value="ROLE_AND_SUBORDINATES">The members of a role and the roles below it</option>
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor="rule-source">Role</label>
-                  <select
-                    id="rule-source"
-                    value={draft.sourceId}
-                    onChange={(event) => setDraft({ ...draft, sourceId: event.target.value })}
-                  >
-                    <option value="">Choose a role</option>
-                    {loaded.roles.map((one) => (
-                      <option key={one.id} value={one.id}>
-                        {one.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </>
-            ) : null}
-            {draft.kind === "GROUP" ? (
-              <div className="field">
-                <label htmlFor="rule-source">Public group</label>
-                <select
-                  id="rule-source"
-                  value={draft.sourceId}
-                  onChange={(event) => setDraft({ ...draft, sourceId: event.target.value })}
-                >
-                  <option value="">Choose a public group</option>
-                  {loaded.groups.map((one) => (
-                    <option key={one.id} value={one.id}>
-                      {one.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
-            {draft.kind === "CRITERIA" ? (
-              <fieldset className="field">
-                <legend>The condition (on fields marked as indexed)</legend>
-                {draft.criteria.kind === "kept" ? (
-                  <p>
-                    {describeCriteria(draft.criteria.node, labelOf)}.{" "}
-                    <button
-                      type="button"
-                      className="link-button"
-                      onClick={() => setDraft({ ...draft, criteria: emptyCriteria() })}
-                    >
-                      Start a new condition
-                    </button>
-                  </p>
-                ) : (
-                  <CriteriaRows
-                    criteria={draft.criteria}
-                    fields={fields.map((field) => ({ apiName: field.apiName, label: field.label, type: field.type }))}
-                    onChange={(criteria) => setDraft({ ...draft, criteria })}
-                  />
-                )}
-              </fieldset>
-            ) : null}
-
-            <div className="field">
-              <label htmlFor="rule-target-type">Shared with</label>
-              <select
-                id="rule-target-type"
-                value={draft.targetType}
-                onChange={(event) => setDraft({ ...draft, targetType: event.target.value, targetId: "" })}
-              >
-                {Object.entries(PRINCIPAL_TEXT).map(([value, text]) => (
-                  <option key={value} value={value}>
-                    {text[0]?.toUpperCase()}
-                    {text.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="rule-target">{draft.targetType === "GROUP" ? "Public group" : "Role"} that gets access</label>
-              <select
-                id="rule-target"
-                value={draft.targetId}
-                onChange={(event) => setDraft({ ...draft, targetId: event.target.value })}
-              >
-                <option value="">Choose one</option>
-                {(draft.targetType === "GROUP" ? loaded.groups : loaded.roles).map((one) => (
-                  <option key={one.id} value={one.id}>
-                    {one.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="rule-level">Access</label>
-              <select
-                id="rule-level"
-                value={draft.accessLevel}
-                onChange={(event) => setDraft({ ...draft, accessLevel: event.target.value })}
-              >
-                <option value="READ">Read only</option>
-                <option value="READ_WRITE">Read and write</option>
-              </select>
-              <p className="hint">A rule never gives the right to delete a record.</p>
-            </div>
-            <label>
-              <input
-                type="checkbox"
-                checked={draft.active}
-                onChange={(event) => setDraft({ ...draft, active: event.target.checked })}
-              />{" "}
-              The rule is on
-            </label>
-            <div className="form-actions">
-              <button type="submit" className="button" disabled={busy}>
-                {editing ? "Save the rule" : "Add the rule"}
-              </button>
-              <button type="button" className="link-button" onClick={reset}>
-                Cancel
-              </button>
-            </div>
-          </form>
+      {draft.kind === "OWNER" ? (
+        <>
+          <div className="field">
+            <label htmlFor="rule-source-type">Owned by</label>
+            <select
+              id="rule-source-type"
+              value={draft.sourceType}
+              onChange={(event) => onDraft({ ...draft, sourceType: event.target.value })}
+            >
+              <option value="ROLE">The members of a role</option>
+              <option value="ROLE_AND_SUBORDINATES">The members of a role and the roles below it</option>
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="rule-source">Role</label>
+            <select
+              id="rule-source"
+              value={draft.sourceId}
+              onChange={(event) => onDraft({ ...draft, sourceId: event.target.value })}
+            >
+              <option value="">Choose a role</option>
+              {loaded.roles.map((one) => (
+                <option key={one.id} value={one.id}>
+                  {one.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </>
+      ) : null}
+      {draft.kind === "GROUP" ? (
+        <div className="field">
+          <label htmlFor="rule-source">Public group</label>
+          <select
+            id="rule-source"
+            value={draft.sourceId}
+            onChange={(event) => onDraft({ ...draft, sourceId: event.target.value })}
+          >
+            <option value="">Choose a public group</option>
+            {loaded.groups.map((one) => (
+              <option key={one.id} value={one.id}>
+                {one.name}
+              </option>
+            ))}
+          </select>
         </div>
       ) : null}
-    </section>
+      {draft.kind === "CRITERIA" ? (
+        <fieldset className="field">
+          <legend>The condition (on fields marked as indexed)</legend>
+          {draft.criteria.kind === "kept" ? (
+            <p>
+              {describeCriteria(draft.criteria.node, labelOf)}.{" "}
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => onDraft({ ...draft, criteria: emptyCriteria() })}
+              >
+                Start a new condition
+              </button>
+            </p>
+          ) : (
+            <CriteriaRows
+              criteria={draft.criteria}
+              fields={fields.map((field) => ({ apiName: field.apiName, label: field.label, type: field.type }))}
+              onChange={(criteria) => onDraft({ ...draft, criteria })}
+            />
+          )}
+        </fieldset>
+      ) : null}
+
+      <div className="field">
+        <label htmlFor="rule-target-type">Shared with</label>
+        <select
+          id="rule-target-type"
+          value={draft.targetType}
+          onChange={(event) => onDraft({ ...draft, targetType: event.target.value, targetId: "" })}
+        >
+          {Object.entries(PRINCIPAL_TEXT).map(([value, text]) => (
+            <option key={value} value={value}>
+              {text[0]?.toUpperCase()}
+              {text.slice(1)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="field">
+        <label htmlFor="rule-target">{draft.targetType === "GROUP" ? "Public group" : "Role"} that gets access</label>
+        <select
+          id="rule-target"
+          value={draft.targetId}
+          onChange={(event) => onDraft({ ...draft, targetId: event.target.value })}
+        >
+          <option value="">Choose one</option>
+          {(draft.targetType === "GROUP" ? loaded.groups : loaded.roles).map((one) => (
+            <option key={one.id} value={one.id}>
+              {one.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="field">
+        <label htmlFor="rule-level">Access</label>
+        <select
+          id="rule-level"
+          value={draft.accessLevel}
+          onChange={(event) => onDraft({ ...draft, accessLevel: event.target.value })}
+        >
+          <option value="READ">Read only</option>
+          <option value="READ_WRITE">Read and write</option>
+        </select>
+        <p className="hint">A rule never gives the right to delete a record.</p>
+      </div>
+      <label>
+        <input type="checkbox" checked={draft.active} onChange={(event) => onDraft({ ...draft, active: event.target.checked })} />{" "}
+        The rule is on
+      </label>
+    </>
   );
 }
 

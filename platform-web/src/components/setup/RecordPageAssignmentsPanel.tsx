@@ -204,8 +204,8 @@ export function RecordPageAssignmentsPanel({ object, refreshToken }: { object: O
   const formName = editing ? "Change the choice" : "Choose a record page";
 
   return (
-    <section aria-labelledby="record-page-assignments-heading" data-testid="record-page-assignments">
-      <h3 id="record-page-assignments-heading">Which record page is used</h3>
+    <div className="stack" data-testid="record-page-assignments">
+      <h2 className="detail-section-title">Which record page is used</h2>
       <p className="hint">
         The page a person gets is chosen in this order: the choice for their profile and the record type, the choice for the
         record type, the choice for their profile, the default page of the object.
@@ -363,6 +363,6 @@ export function RecordPageAssignmentsPanel({ object, refreshToken }: { object: O
           </p>
         ) : null}
       </form>
-    </section>
+    </div>
   );
 }

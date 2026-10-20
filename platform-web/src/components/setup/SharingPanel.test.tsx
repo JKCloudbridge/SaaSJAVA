@@ -2,11 +2,25 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi, json, refusal } from "@/test/fakeApi";
+import { currentUrl, setUrl } from "@/test/navigation";
+import { tabProps } from "@/test/objectTab";
 import { SharingPanel } from "./SharingPanel";
+
+vi.mock("next/navigation", async () => (await import("@/test/navigation")).navigationMock);
+vi.mock("next/link", () => ({
+  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
+
+const SECTION = "/setup/objects/Deal__c?section=sharing";
 
 beforeEach(() => {
   document.cookie = "XSRF-TOKEN=test-token; path=/";
   window.sessionStorage.clear();
+  setUrl(SECTION);
 });
 
 afterEach(() => {
@@ -63,17 +77,21 @@ function form(name: string) {
   return within(screen.getByRole("form", { name }));
 }
 
+const panel = (object: unknown = DEAL) => <SharingPanel {...tabProps(object)} />;
+
+async function openRule(name: string) {
+  fireEvent.click(await screen.findByRole("button", { name }));
+  return screen.findByTestId("sharing-rule-detail");
+}
+
 describe("SharingPanel", () => {
   it("says that sharing is live and not part of a change set, and that an object nobody set up is open to every reader, under React strict mode", async () => {
     fakeApi(answers(UNSET, []));
 
-    render(
-      <StrictMode>
-        <SharingPanel object={DEAL} />
-      </StrictMode>,
-    );
+    render(<StrictMode>{panel()}</StrictMode>);
 
     expect(await screen.findByTestId("sharing-live-note")).toHaveTextContent("not part of a change set");
+    expect(screen.getByRole("heading", { name: "Deal — Sharing" })).toBeInTheDocument();
     expect(screen.getByText(/Nobody has set this object up yet/)).toBeInTheDocument();
     expect(form("Default access").getByLabelText("Default access of the organization")).toHaveValue("PUBLIC_READ_WRITE");
     expect(screen.getByText(/No sharing rules yet/)).toBeInTheDocument();
@@ -83,7 +101,7 @@ describe("SharingPanel", () => {
     const calls = fakeApi(
       answers(SET_UP, [], { "PUT /api/v1/sharing/objects/Deal__c": () => json({ data: SET_UP }) }),
     );
-    render(<SharingPanel object={DEAL} />);
+    render(panel());
     await screen.findByRole("form", { name: "Default access" });
     const defaults = form("Default access");
 
@@ -99,7 +117,7 @@ describe("SharingPanel", () => {
 
   it("sends no version for an object nobody has set up", async () => {
     const calls = fakeApi(answers(UNSET, [], { "PUT /api/v1/sharing/objects/Deal__c": () => json({ data: SET_UP }) }));
-    render(<SharingPanel object={DEAL} />);
+    render(panel());
     await screen.findByText(/Nobody has set this object up yet/);
     const defaults = form("Default access");
 
@@ -113,7 +131,7 @@ describe("SharingPanel", () => {
 
   it("lists the rules in words: who owns the records, who gets them, at which level", async () => {
     fakeApi(answers(SET_UP, [OWNER_RULE, CRITERIA_RULE]));
-    render(<SharingPanel object={DEAL} />);
+    render(panel());
 
     const rows = await screen.findAllByTestId("sharing-rule-row");
     expect(rows[0]).toHaveTextContent("Managers see team deals");
@@ -127,20 +145,34 @@ describe("SharingPanel", () => {
     expect(rows[1]).toHaveTextContent("Off");
   });
 
-  it("adds a rule by owner", async () => {
+  it("opens a rule's page with the rule in words", async () => {
+    fakeApi(answers(SET_UP, [OWNER_RULE]));
+    render(panel());
+
+    const page = await openRule("Managers see team deals");
+
+    expect(currentUrl()).toBe(`${SECTION}&rule=${OWNER_RULE.id}`);
+    expect(page).toHaveTextContent("Records owned by Managers and below");
+    expect(page).toHaveTextContent("Analysts");
+    expect(page).toHaveTextContent("Read only");
+    expect(page).toHaveTextContent("On");
+  });
+
+  it("adds a rule by owner, from the form behind New", async () => {
     const calls = fakeApi(answers(SET_UP, [], { "POST /api/v1/sharing/rules": () => json({ data: OWNER_RULE }, 201) }));
-    render(<SharingPanel object={DEAL} />);
+    render(panel());
     await screen.findByText(/No sharing rules yet/);
 
-    fireEvent.click(screen.getByRole("button", { name: "New sharing rule" }));
+    fireEvent.click(screen.getByRole("button", { name: "New" }));
     const add = form("New sharing rule");
     fireEvent.change(add.getByLabelText("Name"), { target: { value: "Managers see team deals" } });
     fireEvent.change(add.getByLabelText("Owned by"), { target: { value: "ROLE_AND_SUBORDINATES" } });
     fireEvent.change(add.getByLabelText("Role"), { target: { value: ROLE } });
     fireEvent.change(add.getByLabelText("Role that gets access"), { target: { value: OTHER_ROLE } });
-    fireEvent.click(add.getByRole("button", { name: "Add the rule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add the rule" }));
 
     expect(await screen.findByTestId("sharing-notice")).toHaveTextContent("The rule was added.");
+    expect(currentUrl()).toBe(SECTION);
     const sent = JSON.parse(calls.find((call) => call.key === "POST /api/v1/sharing/rules")?.body ?? "{}");
     expect(sent).toEqual({
       name: "Managers see team deals", kind: "OWNER", object: "Deal__c", sourceType: "ROLE_AND_SUBORDINATES",
@@ -150,10 +182,10 @@ describe("SharingPanel", () => {
 
   it("adds a rule by condition on indexed fields only, with a checkbox compared as true or false", async () => {
     const calls = fakeApi(answers(SET_UP, [], { "POST /api/v1/sharing/rules": () => json({ data: CRITERIA_RULE }, 201) }));
-    render(<SharingPanel object={DEAL} />);
+    render(panel());
     await screen.findByText(/No sharing rules yet/);
 
-    fireEvent.click(screen.getByRole("button", { name: "New sharing rule" }));
+    fireEvent.click(screen.getByRole("button", { name: "New" }));
     const add = form("New sharing rule");
     fireEvent.change(add.getByLabelText("Name"), { target: { value: "Open deals" } });
     fireEvent.change(add.getByLabelText("Which records"), { target: { value: "CRITERIA" } });
@@ -170,7 +202,7 @@ describe("SharingPanel", () => {
     fireEvent.change(add.getByLabelText("Public group that gets access"), { target: { value: GROUP } });
     fireEvent.change(add.getByLabelText("Access"), { target: { value: "READ_WRITE" } });
     fireEvent.click(add.getByLabelText("The rule is on"));
-    fireEvent.click(add.getByRole("button", { name: "Add the rule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add the rule" }));
 
     await screen.findByTestId("sharing-notice");
     const sent = JSON.parse(calls.find((call) => call.key === "POST /api/v1/sharing/rules")?.body ?? "{}");
@@ -191,14 +223,14 @@ describe("SharingPanel", () => {
     const calls = fakeApi(
       answers(SET_UP, [OWNER_RULE], { [`PUT /api/v1/sharing/rules/${OWNER_RULE.id}`]: () => json({ data: OWNER_RULE }) }),
     );
-    render(<SharingPanel object={DEAL} />);
-    const row = await screen.findByTestId("sharing-rule-row");
+    render(panel());
+    const page = await openRule("Managers see team deals");
 
-    fireEvent.click(within(row).getByRole("button", { name: "Change" }));
+    fireEvent.click(within(page).getByRole("button", { name: "Edit" }));
     const change = form("Change the sharing rule");
     expect(change.queryByLabelText("Which records")).toBeNull();
     fireEvent.change(change.getByLabelText("Access"), { target: { value: "READ_WRITE" } });
-    fireEvent.click(change.getByRole("button", { name: "Save the rule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save the rule" }));
 
     expect(await screen.findByTestId("sharing-notice")).toHaveTextContent("The rule was saved.");
     const sent = JSON.parse(calls.find((call) => call.key === `PUT /api/v1/sharing/rules/${OWNER_RULE.id}`)?.body ?? "{}");
@@ -213,31 +245,36 @@ describe("SharingPanel", () => {
       criterion: { op: "OR", items: [{ op: "AND", items: [{ field: "stage__c", op: "EQ", values: ["A"] }] }] },
     };
     const calls = fakeApi(answers(SET_UP, [nested], { [`PUT /api/v1/sharing/rules/${nested.id}`]: () => json({ data: nested }) }));
-    render(<SharingPanel object={DEAL} />);
-    fireEvent.click(within(await screen.findByTestId("sharing-rule-row")).getByRole("button", { name: "Change" }));
+    render(panel());
+    const page = await openRule("Open deals");
+    fireEvent.click(within(page).getByRole("button", { name: "Edit" }));
     const change = form("Change the sharing rule");
 
     expect(change.getByRole("button", { name: "Start a new condition" })).toBeInTheDocument();
-    fireEvent.click(change.getByRole("button", { name: "Save the rule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save the rule" }));
 
     await screen.findByTestId("sharing-notice");
     const sent = JSON.parse(calls.find((call) => call.key === `PUT /api/v1/sharing/rules/${nested.id}`)?.body ?? "{}");
     expect(sent.criterion).toEqual(nested.criterion);
   });
 
-  it("removes a rule", async () => {
+  it("removes a rule only after a second click, then goes back to the list", async () => {
     const calls = fakeApi(
       answers(SET_UP, [OWNER_RULE], { [`DELETE /api/v1/sharing/rules/${OWNER_RULE.id}`]: () => new Response(null, { status: 204 }) }),
     );
-    render(<SharingPanel object={DEAL} />);
+    render(panel());
+    const page = await openRule("Managers see team deals");
 
-    fireEvent.click(within(await screen.findByTestId("sharing-rule-row")).getByRole("button", { name: "Remove" }));
+    fireEvent.click(within(page).getByRole("button", { name: "Remove" }));
+    expect(calls.some((call) => call.key.startsWith("DELETE"))).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Yes, remove the rule" }));
 
     expect(await screen.findByTestId("sharing-notice")).toHaveTextContent("The rule was removed.");
+    expect(currentUrl()).toBe(SECTION);
     expect(calls.some((call) => call.key === `DELETE /api/v1/sharing/rules/${OWNER_RULE.id}`)).toBe(true);
   });
 
-  it("shows the words of the API with the place when a rule is refused", async () => {
+  it("shows the words of the API with the place when a rule is refused, and stays on the form", async () => {
     fakeApi(
       answers(SET_UP, [], {
         "POST /api/v1/sharing/rules": () =>
@@ -253,12 +290,13 @@ describe("SharingPanel", () => {
           ),
       }),
     );
-    render(<SharingPanel object={DEAL} />);
+    render(panel());
     await screen.findByText(/No sharing rules yet/);
-    fireEvent.click(screen.getByRole("button", { name: "New sharing rule" }));
-    fireEvent.click(form("New sharing rule").getByRole("button", { name: "Add the rule" }));
+    fireEvent.click(screen.getByRole("button", { name: "New" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add the rule" }));
 
     expect(await screen.findByTestId("sharing-problem")).toHaveTextContent("Is not a field that is marked as indexed.");
+    expect(screen.getByRole("form", { name: "New sharing rule" })).toBeInTheDocument();
   });
 
   it("shows the API's words for a person who may not manage sharing", async () => {
@@ -268,14 +306,14 @@ describe("SharingPanel", () => {
       "GET /api/v1/roles": () => json({ data: [] }),
       "GET /api/v1/groups": () => json({ data: [] }),
     });
-    render(<SharingPanel object={DEAL} />);
+    render(panel());
 
     expect(await screen.findByTestId("sharing-failed")).toHaveTextContent("You are not allowed to do this.");
   });
 
   it("says that the sharing of a platform object is the platform's", () => {
     fakeApi({});
-    render(<SharingPanel object={{ ...DEAL, managedBy: "identity" }} />);
+    render(panel({ ...DEAL, managedBy: "identity" }));
 
     expect(screen.getByText(/sharing is the platform/)).toBeInTheDocument();
   });

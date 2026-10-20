@@ -109,19 +109,20 @@ management:
       export:
         # Metrics are pulled from the management port; the push exporter that comes with the tracing starter is off.
         enabled: false
-    tracing:
-      export:
-        # Whether spans are shipped to the trace collector (PLATFORM_TRACE_EXPORT=true). Independent of the
-        # propagation switch below, so a deployment without a collector still correlates logs by trace ID.
-        enabled: ${PLATFORM_TRACE_EXPORT:false}
   tracing:
     sampling:
       probability: ${PLATFORM_TRACE_SAMPLING:0.1}
     export:
       # Keep this on. In Spring Boot 4.1 it also switches on W3C trace context propagation: with it off the
       # application neither continues an incoming trace nor passes one on, and the browser to API to database
-      # correlation silently breaks.
+      # correlation silently breaks. This is propagation only, never shipping: see the key below for that
+      # (`management.otlp.tracing.export.enabled` looks like the obvious name but was renamed in Boot 4.0 and is
+      # silently ignored now; a build that sets the old key ships every span, everywhere, regardless of its value).
       enabled: true
+      otlp:
+        # Whether spans are shipped to the trace collector (PLATFORM_TRACE_EXPORT=true). Defaults to true in Boot
+        # itself, so a deployment without a collector would otherwise flood its logs with failed export attempts.
+        enabled: ${PLATFORM_TRACE_EXPORT:false}
   opentelemetry:
     tracing:
       export:

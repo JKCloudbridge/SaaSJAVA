@@ -1,31 +1,57 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { COMMON_TEXT } from "@/components/account/messages";
 import { ActionMessages, failureText, useAction } from "@/components/console/useAction";
+import { DetailPage } from "@/components/ui/lists/DetailPage";
+import { ListPage } from "@/components/ui/lists/ListPage";
+import { Tag } from "@/components/ui/lists/Tag";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
 import { allComponents, componentDraftOf } from "@/lib/builder/recordPageDraft";
+import { useOffers } from "@/lib/session/SessionProvider";
+import { objectSectionHref } from "@/lib/shell/areas";
+import { detailParents, listCrumbs, tabTitle, type ObjectTabProps } from "./objectTab";
 import { problemText } from "./objectText";
+import { RecordPageAssignmentsPanel } from "./RecordPageAssignmentsPanel";
 import { RecordPagePreview } from "./RecordPagePreview";
 import { addToSet, DRAFTED_TEXT, useWorkingSet } from "./workingSet";
 
-type ObjectView = components["schemas"]["ObjectView"];
 type FieldView = components["schemas"]["FieldView"];
 type LayoutView = components["schemas"]["LayoutView"];
 type RecordPageView = components["schemas"]["RecordPageView"];
+type RecordPageAssignmentView = components["schemas"]["RecordPageAssignmentView"];
+
+/** Who a record page is chosen for, in words: everyone, a profile, a record type or a profile with a record type. */
+function assignedTo(assignment: RecordPageAssignmentView): string {
+  const profile =
+    assignment.profileId == null ? undefined : (assignment.profileName ?? "A profile that was deleted (ignored)");
+  if (profile && assignment.recordType) {
+    return `${profile}, ${assignment.recordType}`;
+  }
+  if (profile) {
+    return profile;
+  }
+  return assignment.recordType ? `Record type ${assignment.recordType}` : "Everyone (the default)";
+}
 
 /**
- * The record pages of one object: the list, a preview of each, and the way into the builder where a page is made and
- * changed (its tabs are arranged by drag and drop). Removing is done here, live (one step in the history) or, when a
- * change set is chosen, as a draft. The page shows what the API answers: that the layout and the fields exist, and that
- * a related list follows a relationship, is the API's to decide.
+ * The Record pages tab of an object (UA3, ADR-0170, ADR-0072): the pages as a list (record page, who it is assigned to,
+ * status); a row opens the builder, where a page is made and changed (its tabs are arranged by drag and drop), and New
+ * starts a new one at the builder's address. “Record page assignments” opens which page each profile and record type
+ * gets. Removing is done here, live (one step in the history) or, when a change set is chosen, as a draft. The page shows
+ * what the API answers: that the layout and the fields exist, and that a related list follows a relationship, is the
+ * API's to decide.
  */
-export function RecordPagesPanel({ object, onChanged }: { object: ObjectView; onChanged: () => void }) {
+export function RecordPagesPanel({ object, reload: reloadObject, refreshToken }: ObjectTabProps) {
   const objectApiName = object.apiName;
   const { id: workingSet } = useWorkingSet();
+  const offersManage = useOffers("metadata.manage");
+  const showAssignments = useSearchParams()?.get("view") === "assignments";
   const [pages, setPages] = useState<RecordPageView[] | undefined>();
+  const [assignments, setAssignments] = useState<RecordPageAssignmentView[]>([]);
   const [layouts, setLayouts] = useState<LayoutView[]>([]);
   const [others, setOthers] = useState<Record<string, FieldView[]>>({});
   const [failure, setFailure] = useState<string | undefined>();
@@ -45,12 +71,13 @@ export function RecordPagesPanel({ object, onChanged }: { object: ObjectView; on
     }
   }, []);
 
-  const reload = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
       const path = { objectApiName };
-      const [list, layoutList] = await Promise.all([
+      const [list, layoutList, assigned] = await Promise.all([
         api.GET("/api/v1/metadata/objects/{objectApiName}/record-pages", { params: { path } }),
         api.GET("/api/v1/metadata/objects/{objectApiName}/layouts", { params: { path } }),
+        api.GET("/api/v1/metadata/objects/{objectApiName}/record-page-assignments", { params: { path } }),
       ]);
       if (!list.data || !layoutList.data) {
         const first = list.data ? layoutList : list;
@@ -60,6 +87,8 @@ export function RecordPagesPanel({ object, onChanged }: { object: ObjectView; on
       setFailure(undefined);
       setPages(list.data.data);
       setLayouts(layoutList.data.data);
+      // Who a page is chosen for is a convenience of the list: without it the column says nothing, the list still works.
+      setAssignments(assigned.data?.data ?? []);
     } catch {
       setFailure(COMMON_TEXT.network);
     }
@@ -68,37 +97,20 @@ export function RecordPagesPanel({ object, onChanged }: { object: ObjectView; on
   const managed = object.managedBy != null;
   useEffect(() => {
     if (!managed) {
-      void Promise.resolve().then(reload);
+      void Promise.resolve().then(load);
     }
-  }, [reload, managed]);
+  }, [load, managed, refreshToken]);
 
   const done = useCallback(async () => {
-    await reload();
-    onChanged();
-  }, [reload, onChanged]);
-  const { busy, notice, problem, act } = useAction(done);
-
-  if (object.managedBy) {
-    return (
-      <section aria-labelledby="record-pages-heading">
-        <h3 id="record-pages-heading">Record pages</h3>
-        <p className="hint">The records of this object belong to the platform, so it has no record pages.</p>
-      </section>
-    );
-  }
-  if (failure) {
-    return (
-      <p className="form-message" role="alert" data-testid="record-pages-failed">
-        {failure}
-      </p>
-    );
-  }
-  if (!pages) {
-    return <p aria-live="polite">Loading…</p>;
-  }
+    await load();
+    await reloadObject();
+  }, [load, reloadObject]);
+  const { busy, notice, problem, act, clear } = useAction(done);
 
   const base = `/setup/objects/${encodeURIComponent(objectApiName)}/record-pages`;
+  const section = objectSectionHref(objectApiName, "record-pages");
   const fieldsOf = (name: string) => (name === objectApiName ? object.fields : (others[name] ?? []));
+  const messages = <ActionMessages notice={notice} problem={problem} testId="record-pages" />;
 
   function remove(page: RecordPageView) {
     void act(async () => {
@@ -116,78 +128,112 @@ export function RecordPagesPanel({ object, onChanged }: { object: ObjectView; on
     });
   }
 
+  if (showAssignments && !managed) {
+    return (
+      <DetailPage
+        listLabel="Record pages"
+        parents={detailParents(object)}
+        backHref={section}
+        title="Record page assignments"
+        testId="record-page-assignments-page"
+      >
+        <RecordPageAssignmentsPanel object={object} refreshToken={refreshToken} />
+      </DetailPage>
+    );
+  }
+
+  if (managed) {
+    return (
+      <ListPage<RecordPageView>
+        title={tabTitle(object, "Record pages")}
+        crumbs={listCrumbs(object, "Record pages")}
+        items={[]}
+        rowKey={(row) => row.apiName}
+        primaryHeader="Record page"
+        primary={(row) => row.label}
+        columns={[]}
+        emptyText="The records of this object belong to the platform, so it has no record pages."
+        testId="record-pages"
+      />
+    );
+  }
+
+  const assignedOf = (page: RecordPageView) => assignments.filter((one) => one.recordPage === page.apiName);
+
   return (
-    <section aria-labelledby="record-pages-heading" data-testid="record-pages">
-      <div className="list-head">
-        <h3 id="record-pages-heading">Record pages</h3>
-        <Link className="button" href={`${base}/new`}>
-          New record page
+    <ListPage<RecordPageView>
+      title={tabTitle(object, "Record pages")}
+      crumbs={listCrumbs(object, "Record pages")}
+      intro="A record page puts the details of a layout together with a header, related lists, tabs and actions. When a part is shown can depend on a field or on an ability of the person."
+      items={pages}
+      failure={failure}
+      rowKey={(row) => row.apiName}
+      primaryHeader="Record page"
+      primary={(row) => row.label}
+      primaryExtra={(row) => (row.description ? <span className="hint"> {row.description}</span> : null)}
+      columns={[
+        {
+          key: "assigned",
+          header: "Assigned to",
+          kind: "muted",
+          cell: (row) => {
+            const list = assignedOf(row);
+            return list.length === 0 ? "—" : list.map(assignedTo).join("; ");
+          },
+        },
+        { key: "layout", header: "Layout", kind: "muted", cell: (row) => <code>{row.definition.layout}</code> },
+        {
+          key: "actions",
+          header: "Actions",
+          kind: "actions",
+          cell: (row) => (
+            <>
+              <button
+                type="button"
+                className="link-button"
+                aria-expanded={previewing === row.apiName}
+                onClick={() => {
+                  const open = previewing === row.apiName;
+                  setPreviewing(open ? undefined : row.apiName);
+                  if (!open) {
+                    allComponents(row.definition.components.map((component, at) => componentDraftOf(component, at)))
+                      .filter((component) => component.object)
+                      .forEach((component) => void ensure(component.object));
+                  }
+                }}
+              >
+                Preview
+              </button>{" "}
+              {offersManage ? (
+                <button type="button" className="link-button" disabled={busy} onClick={() => remove(row)}>
+                  Remove
+                </button>
+              ) : null}
+            </>
+          ),
+        },
+        {
+          key: "status",
+          header: "Status",
+          kind: "tag",
+          cell: (row) => (
+            <Tag tone={assignedOf(row).length > 0 ? "ok" : "quiet"}>
+              {assignedOf(row).length > 0 ? "In use" : "Not assigned"}
+            </Tag>
+          ),
+        },
+      ]}
+      openHref={(row) => `${base}/${encodeURIComponent(row.apiName)}`}
+      searchText={(row) => `${row.label} ${row.apiName} ${row.definition.layout}`}
+      searchLabel="Search record pages"
+      newHref={offersManage ? `${base}/new` : undefined}
+      tools={
+        <Link className="button button-secondary" href={`${section}&view=assignments`} onClick={clear}>
+          Record page assignments
         </Link>
-      </div>
-      <p className="hint">
-        A record page puts the details of a layout together with a header, related lists, tabs and actions. When a part is
-        shown can depend on a field or on an ability of the person.
-      </p>
-      <ActionMessages notice={notice} problem={problem} testId="record-pages" />
-      {pages.length === 0 ? (
-        <p>No record pages yet.</p>
-      ) : (
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Record page</th>
-              <th>API name</th>
-              <th>Layout</th>
-              <th>
-                <span className="visually-hidden">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {pages.map((page) => (
-              <tr key={page.apiName} data-testid="record-page-row">
-                <td>
-                  <Link className="table-row-link" href={`${base}/${encodeURIComponent(page.apiName)}`}>
-                    {page.label}
-                  </Link>
-                  {page.description ? <div className="hint">{page.description}</div> : null}
-                </td>
-                <td>
-                  <code>{page.apiName}</code>
-                </td>
-                <td>
-                  <code>{page.definition.layout}</code>
-                </td>
-                <td>
-                  <button
-                    type="button"
-                    className="link-button"
-                    aria-expanded={previewing === page.apiName}
-                    onClick={() => {
-                      const open = previewing === page.apiName;
-                      setPreviewing(open ? undefined : page.apiName);
-                      if (!open) {
-                        allComponents(page.definition.components.map((component, at) => componentDraftOf(component, at)))
-                          .filter((component) => component.object)
-                          .forEach((component) => void ensure(component.object));
-                      }
-                    }}
-                  >
-                    Preview
-                  </button>{" "}
-                  <Link className="link-button" href={`${base}/${encodeURIComponent(page.apiName)}`}>
-                    Build
-                  </Link>{" "}
-                  <button type="button" className="link-button" disabled={busy} onClick={() => remove(page)}>
-                    Remove
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      {pages
+      }
+      notices={messages}
+      below={(pages ?? [])
         .filter((page) => page.apiName === previewing)
         .map((page) => (
           <RecordPagePreview
@@ -199,6 +245,9 @@ export function RecordPagesPanel({ object, onChanged }: { object: ObjectView; on
             fieldsOf={fieldsOf}
           />
         ))}
-    </section>
+      emptyText="No record pages yet."
+      testId="record-pages"
+      rowTestId="record-page-row"
+    />
   );
 }
