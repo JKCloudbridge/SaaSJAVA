@@ -1,0 +1,218 @@
+[
+  {
+    "size": "20 KB (typical)",
+    "table": "tv_pglz",
+    "docs": 40,
+    "avgBytesAsSerialised": 19714,
+    "avgJsonbTextBytes": 21561,
+    "avgStoredBytes": 5415,
+    "insert": {
+      "n": 40,
+      "p50": 5.74,
+      "p95": 6.83,
+      "max": 18.15
+    },
+    "readOne": {
+      "n": 120,
+      "p50": 4.14,
+      "p95": 5.3,
+      "max": 6.39
+    },
+    "listVersionsNoGrid": {
+      "n": 3,
+      "p50": 3.14,
+      "p95": 4.52,
+      "max": 4.52
+    },
+    "otherTenantCheckMs": 3.55
+  },
+  {
+    "size": "20 KB (typical)",
+    "table": "tv_lz4",
+    "docs": 40,
+    "avgBytesAsSerialised": 19714,
+    "avgJsonbTextBytes": 21561,
+    "avgStoredBytes": 6948,
+    "insert": {
+      "n": 40,
+      "p50": 4.91,
+      "p95": 6.07,
+      "max": 8.95
+    },
+    "readOne": {
+      "n": 120,
+      "p50": 3.35,
+      "p95": 4.45,
+      "max": 5.25
+    },
+    "listVersionsNoGrid": {
+      "n": 3,
+      "p50": 3.25,
+      "p95": 3.35,
+      "max": 3.35
+    },
+    "otherTenantCheckMs": 3.51
+  },
+  {
+    "size": "100 KB",
+    "table": "tv_pglz",
+    "docs": 40,
+    "avgBytesAsSerialised": 99478,
+    "avgJsonbTextBytes": 108282,
+    "avgStoredBytes": 22085,
+    "insert": {
+      "n": 40,
+      "p50": 6.94,
+      "p95": 8.29,
+      "max": 10.88
+    },
+    "readOne": {
+      "n": 120,
+      "p50": 4.94,
+      "p95": 6.8,
+      "max": 17.51
+    },
+    "listVersionsNoGrid": {
+      "n": 3,
+      "p50": 2.63,
+      "p95": 2.64,
+      "max": 2.64
+    },
+    "otherTenantCheckMs": 2.17
+  },
+  {
+    "size": "100 KB",
+    "table": "tv_lz4",
+    "docs": 40,
+    "avgBytesAsSerialised": 99478,
+    "avgJsonbTextBytes": 108282,
+    "avgStoredBytes": 31879,
+    "insert": {
+      "n": 40,
+      "p50": 5.84,
+      "p95": 9.62,
+      "max": 14.99
+    },
+    "readOne": {
+      "n": 120,
+      "p50": 4.81,
+      "p95": 6.17,
+      "max": 7.4
+    },
+    "listVersionsNoGrid": {
+      "n": 3,
+      "p50": 3.99,
+      "p95": 4.01,
+      "max": 4.01
+    },
+    "otherTenantCheckMs": 3.4
+  },
+  {
+    "size": "500 KB",
+    "table": "tv_pglz",
+    "docs": 15,
+    "avgBytesAsSerialised": 498846,
+    "avgJsonbTextBytes": 541227,
+    "avgStoredBytes": 96095,
+    "insert": {
+      "n": 15,
+      "p50": 23.61,
+      "p95": 25.12,
+      "max": 25.12
+    },
+    "readOne": {
+      "n": 45,
+      "p50": 14.07,
+      "p95": 17.88,
+      "max": 26.65
+    },
+    "listVersionsNoGrid": {
+      "n": 3,
+      "p50": 3.53,
+      "p95": 4.42,
+      "max": 4.42
+    },
+    "otherTenantCheckMs": 3.92
+  },
+  {
+    "size": "500 KB",
+    "table": "tv_lz4",
+    "docs": 15,
+    "avgBytesAsSerialised": 498846,
+    "avgJsonbTextBytes": 541227,
+    "avgStoredBytes": 156347,
+    "insert": {
+      "n": 15,
+      "p50": 17.14,
+      "p95": 23.4,
+      "max": 23.4
+    },
+    "readOne": {
+      "n": 45,
+      "p50": 13.8,
+      "p95": 17.54,
+      "max": 29.02
+    },
+    "listVersionsNoGrid": {
+      "n": 3,
+      "p50": 4.42,
+      "p95": 4.48,
+      "max": 4.48
+    },
+    "otherTenantCheckMs": 4.13
+  },
+  {
+    "size": "1 MB (the cap)",
+    "table": "tv_pglz",
+    "docs": 15,
+    "avgBytesAsSerialised": 988824,
+    "avgJsonbTextBytes": 1071629,
+    "avgStoredBytes": 180939,
+    "insert": {
+      "n": 15,
+      "p50": 41.74,
+      "p95": 58.79,
+      "max": 58.79
+    },
+    "readOne": {
+      "n": 45,
+      "p50": 23.27,
+      "p95": 30.99,
+      "max": 41.46
+    },
+    "listVersionsNoGrid": {
+      "n": 3,
+      "p50": 3.45,
+      "p95": 4.4,
+      "max": 4.4
+    },
+    "otherTenantCheckMs": 3
+  },
+  {
+    "size": "1 MB (the cap)",
+    "table": "tv_lz4",
+    "docs": 15,
+    "avgBytesAsSerialised": 988824,
+    "avgJsonbTextBytes": 1071629,
+    "avgStoredBytes": 307456,
+    "insert": {
+      "n": 15,
+      "p50": 30.55,
+      "p95": 45.08,
+      "max": 45.08
+    },
+    "readOne": {
+      "n": 45,
+      "p50": 22.49,
+      "p95": 34.03,
+      "max": 37.09
+    },
+    "listVersionsNoGrid": {
+      "n": 3,
+      "p50": 3.88,
+      "p95": 5.59,
+      "max": 5.59
+    },
+    "otherTenantCheckMs": 3.5
+  }
+]
