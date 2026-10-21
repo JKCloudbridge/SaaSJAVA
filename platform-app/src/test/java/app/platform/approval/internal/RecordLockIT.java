@@ -134,6 +134,25 @@ class RecordLockIT extends ApprovalSupport {
     }
 
     @Test
+    void aLockedRecordCanStillBeSharedWithARoleAndTheShareCanBeTakenBack() {
+        Setup setup = setup();
+        Locked locked = locked(setup);
+        Response created = setup.admin().postJson("/api/v1/roles", "{\"name\":\"role-a\",\"description\":\"\"}");
+        String role = JsonPath.read(created.body(), "$.data.id");
+        String shares = RECORDS + "/" + locked.record() + "/shares";
+
+        Response alone = setup.submitter().browser().request("PUT", shares, "{\"granteeType\":\"ROLE\","
+                + "\"granteeId\":\"" + role + "\",\"accessLevel\":\"READ\"}");
+        Response below = setup.submitter().browser().request("PUT", shares, "{\"granteeType\":"
+                + "\"ROLE_AND_SUBORDINATES\",\"granteeId\":\"" + role + "\",\"accessLevel\":\"READ\"}");
+        Response taken = setup.submitter().browser().request("DELETE", shares + "/" + role, null);
+
+        assertThat(alone.status()).as("who may see it is not what is approved: " + alone.body()).isEqualTo(200);
+        assertThat(below.status()).as(below.body()).isEqualTo(200);
+        assertThat(taken.status()).isEqualTo(204);
+    }
+
+    @Test
     void theOwnerOfALockedRecordCannotBeChangedButItCanStillBeShared() {
         Setup setup = setup();
         Locked locked = locked(setup);

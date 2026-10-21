@@ -11,10 +11,11 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 /**
- * The explicit shares of single records (Sprint 17, ADR-0117): one row per record and grantee. Every statement is a
- * constant with parameters; the organization is a parameter taken from the tenant context in addition to the forced
- * row level security of the table. A share is read by the statements of a list (see {@code JsonbQuerySql}) as a
- * set of record identifiers; this class is for managing them.
+ * The explicit shares of single records (Sprint 17, ADR-0117): one row per record and grantee (a user, a public
+ * group, a role alone or a role with the roles below it). Every statement is a constant with parameters; the
+ * organization is a parameter taken from the tenant context in addition to the forced row level security of the
+ * table. A share is read by the statements of a list (see {@code JsonbQuerySql}) as a set of record identifiers; this
+ * class is for managing them.
  */
 @Repository
 class ShareStore {
@@ -28,12 +29,14 @@ class ShareStore {
             + "updated_by";
 
     // The second share of a record with the same grantee changes the level of the first (one row per record and
-    // grantee); the row guard asks for the version to rise by exactly one.
+    // grantee), and for a role also the kind (alone, or with the roles below); the row guard asks for the version to
+    // rise by exactly one and allows no other change of the kind.
     private static final String UPSERT = "insert into record_share (tenant_id, object_api_name, record_id, "
             + "grantee_type, grantee_id, access_level, created_by, updated_by) values (:tenant, :object, :record, "
             + ":type, :grantee, :level, :actor, :actor) on conflict (tenant_id, record_id, grantee_id) "
             + "where deleted_at is null do update set access_level = excluded.access_level, "
-            + "version = record_share.version + 1, updated_by = excluded.updated_by returning " + COLUMNS;
+            + "grantee_type = excluded.grantee_type, version = record_share.version + 1, "
+            + "updated_by = excluded.updated_by returning " + COLUMNS;
 
     private final JdbcClient jdbc;
     private final TenantContexts contexts;
@@ -73,6 +76,16 @@ class ShareStore {
         return jdbc.sql("delete from record_share where tenant_id = :tenant and record_id = :record "
                         + "and grantee_id = :grantee")
                 .param("tenant", tenant()).param("record", recordId).param("grantee", granteeId).update() > 0;
+    }
+
+    /**
+     * Ends every share addressed to a removed role or group, on every record of the organization; the number ended.
+     * The identifiers of users, groups and roles never collide, and the kinds make the intent explicit.
+     */
+    int deleteGrantee(UUID granteeId, List<String> types) {
+        return jdbc.sql("delete from record_share where tenant_id = :tenant and grantee_id = :grantee "
+                        + "and grantee_type in (:types)")
+                .param("tenant", tenant()).param("grantee", granteeId).param("types", types).update();
     }
 
     private UUID tenant() {

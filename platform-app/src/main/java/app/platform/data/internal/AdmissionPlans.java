@@ -5,11 +5,13 @@ import app.platform.data.QueryPlan;
 import app.platform.data.QueryPlan.Group;
 import app.platform.data.QueryPlan.NoRecords;
 import app.platform.data.QueryPlan.OwnedByAny;
+import app.platform.data.QueryPlan.ShareGrantee;
 import app.platform.data.QueryPlan.SharedWithAny;
 import app.platform.data.RecordQuery;
 import app.platform.metadata.FieldDefinition;
 import app.platform.metadata.ObjectDefinition;
 import app.platform.security.Admission;
+import app.platform.security.Grantee;
 import app.platform.security.ObjectAccess;
 import app.platformapi.ApiException;
 import java.util.ArrayList;
@@ -66,7 +68,8 @@ class AdmissionPlans {
             case Admission.Everything everything -> null;
             case Admission.Nothing nothing -> new NoRecords();
             case Admission.OwnedBy owned -> new OwnedByAny(sorted(owned.owners()));
-            case Admission.SharedWith shared -> new SharedWithAny(sorted(shared.grantees()), shared.atLeast().value());
+            case Admission.SharedWith shared ->
+                    new SharedWithAny(grantees(shared.grantees()), shared.atLeast().value());
             case Admission.Meets meets -> criterion(object, meets);
             case Admission.AnyOf anyOf -> anyOf(object, anyOf);
         };
@@ -102,6 +105,11 @@ class AdmissionPlans {
     static ObjectAccess readableEverything(ObjectDefinition object) {
         Set<String> fields = object.fields().stream().map(FieldDefinition::apiName).collect(Collectors.toSet());
         return new ObjectAccess(object.apiName(), Set.of(), fields, Set.of());
+    }
+
+    private static List<ShareGrantee> grantees(Set<Grantee> grantees) {
+        return new TreeSet<>(grantees).stream().map(grantee -> new ShareGrantee(grantee.kind().name(), grantee.id()))
+                .toList();
     }
 
     private static List<UUID> sorted(Set<UUID> ids) {

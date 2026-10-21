@@ -1,6 +1,7 @@
 package app.platform.security.internal;
 
 import app.platform.security.Admission;
+import app.platform.security.Grantee;
 import app.platform.security.RecordAccess;
 import app.platform.security.ShareLevel;
 import app.platformapi.QueryFilterNode;
@@ -66,18 +67,22 @@ final class RecordAccessResolver {
      * @param defaultAccess the organization-wide default of the object
      * @param hierarchy whether the object grants access using the hierarchy
      * @param user the member's user (the owner of their records)
-     * @param grantees the user and every public group the member is in: whom a share is addressed to
+     * @param groups every public group the member is in, directly or through nested groups
+     * @param role the member's own role, or null when they have none
+     * @param roleChain the member's own role and every role above it (empty without a role): a share to "a role and
+     *        the roles below it" reaches the member when its role is one of these
      * @param subordinates the users below the member in the role tree
      * @param rules the active rules that reach the member
      * @param maxOwners the bound on one set of owners
      */
     record Facts(String object, boolean canRead, boolean viewAll, boolean modifyAll, SharingDefault defaultAccess,
-            boolean hierarchy, UUID user, Set<UUID> grantees, Set<UUID> subordinates, List<Rule> rules,
-            int maxOwners) {
+            boolean hierarchy, UUID user, Set<UUID> groups, UUID role, Set<UUID> roleChain, Set<UUID> subordinates,
+            List<Rule> rules, int maxOwners) {
 
         /** Copies what is given. */
         Facts {
-            grantees = Set.copyOf(grantees);
+            groups = Set.copyOf(groups);
+            roleChain = Set.copyOf(roleChain);
             subordinates = Set.copyOf(subordinates);
             rules = List.copyOf(rules);
         }
@@ -138,13 +143,29 @@ final class RecordAccessResolver {
         if (!owners.isEmpty()) {
             parts.add(new Admission.OwnedBy(owners));
         }
-        parts.add(new Admission.SharedWith(facts.grantees(), shareLevel));
+        parts.add(new Admission.SharedWith(granteesOf(facts), shareLevel));
         for (Rule rule : facts.rules()) {
             if (rule.criterion() != null && rule.level().covers(ruleLevel)) {
                 parts.add(new Admission.Meets(rule.id(), rule.criterion()));
             }
         }
         return parts;
+    }
+
+    /**
+     * Whom the member is, for a share: their user, each of their groups, their own role as a role alone, and each role
+     * of their chain as "a role and the roles below it" (ADR-0178). A member with no role matches no role share. The
+     * statement compares these pairs with the kind and identifier of each stored share.
+     */
+    static Set<Grantee> granteesOf(Facts facts) {
+        Set<Grantee> grantees = new TreeSet<>();
+        grantees.add(Grantee.user(facts.user()));
+        facts.groups().forEach(group -> grantees.add(Grantee.group(group)));
+        if (facts.role() != null) {
+            grantees.add(Grantee.role(facts.role()));
+        }
+        facts.roleChain().forEach(role -> grantees.add(Grantee.roleAndSubordinates(role)));
+        return grantees;
     }
 
     /** A set of owners after the bound, and whether it was cut. */

@@ -7,6 +7,7 @@ import app.platform.data.QueryPlan.Compare;
 import app.platform.data.QueryPlan.Group;
 import app.platform.data.QueryPlan.NoRecords;
 import app.platform.data.QueryPlan.OwnedByAny;
+import app.platform.data.QueryPlan.ShareGrantee;
 import app.platform.data.QueryPlan.SharedWithAny;
 import app.platform.data.QueryPlan.SystemColumn;
 import app.platform.data.QueryPlan.ValueKind;
@@ -48,13 +49,31 @@ class JsonbQuerySqlRecordSecurityTest {
 
     @Test
     void aShareIsAConditionOnTheIdentifiersOfTheSharedRecordsReadOnceForTheStatement() {
-        JsonbQuerySql.Condition condition = JsonbQuerySql.condition(new SharedWithAny(List.of(ONE), 2));
+        JsonbQuerySql.Condition condition = JsonbQuerySql.condition(
+                new SharedWithAny(List.of(new ShareGrantee("USER", ONE)), 2));
 
         assertThat(condition.sql()).startsWith("id = any(array(select s.record_id from record_share s where")
                 .contains("s.tenant_id = :tenant").contains("s.object_api_name = :object")
-                .contains("s.deleted_at is null").contains("s.access_level >= :p1");
-        assertThat(condition.params()).containsEntry("p0", ONE.toString()).containsEntry("p1", 2);
-        assertThat(condition.sql()).doesNotContain(ONE.toString());
+                .contains("s.deleted_at is null").contains("s.access_level >= :p3")
+                .contains("s.grantee_type = :p0 and s.grantee_id = any(cast(string_to_array(:p1, ',') as uuid[]))");
+        assertThat(condition.params()).containsEntry("p0", "USER").containsEntry("p1", ONE.toString())
+                .containsEntry("p2", ONE.toString()).containsEntry("p3", 2);
+        assertThat(condition.sql()).doesNotContain(ONE.toString()).doesNotContain("USER");
+    }
+
+    @Test
+    void aShareMatchesOnTheKindAndTheIdentifierTogetherWithOneBranchForEachKind() {
+        JsonbQuerySql.Condition condition = JsonbQuerySql.condition(new SharedWithAny(List.of(
+                new ShareGrantee("GROUP", ONE), new ShareGrantee("ROLE", TWO),
+                new ShareGrantee("ROLE_AND_SUBORDINATES", ONE), new ShareGrantee("ROLE_AND_SUBORDINATES", TWO)), 1));
+
+        assertThat(condition.params().values()).contains("GROUP", "ROLE", "ROLE_AND_SUBORDINATES");
+        assertThat(condition.params()).containsEntry("p1", ONE.toString())
+                .containsEntry("p3", TWO.toString()).containsEntry("p5", ONE + "," + TWO);
+        assertThat(condition.sql()).contains("s.grantee_type = :p0 and").contains("s.grantee_type = :p2 and")
+                .contains("s.grantee_type = :p4 and").contains(" or (s.grantee_type = :p2");
+        // The identifier alone is a coarse first test for the index; the branches repeat it and never give way to it.
+        assertThat(condition.sql()).contains("s.grantee_id = any(cast(string_to_array(:p6, ',') as uuid[])) and (");
     }
 
     @Test
@@ -66,20 +85,21 @@ class JsonbQuerySqlRecordSecurityTest {
     @Test
     void anOrOfOwnersAndSharesBecomesAnOrOfTheTwoConditions() {
         QueryPlan.Node node = new Group(false, List.of(new OwnedByAny(List.of(ONE)),
-                new SharedWithAny(List.of(TWO), 1)));
+                new SharedWithAny(List.of(new ShareGrantee("USER", TWO)), 1)));
 
         JsonbQuerySql.Condition condition = JsonbQuerySql.condition(node);
 
         assertThat(condition.sql()).startsWith("(owner_id = any(").contains(") or id = any(array(select")
                 .endsWith("))");
-        assertThat(condition.params()).hasSize(3);
+        assertThat(condition.params()).hasSize(5);
     }
 
     @Test
     void everyPlaceholderHasAParameterAndEveryParameterAPlaceholderExceptWhatTheStorageSupplies() {
         QueryPlan.Node node = new Group(true, List.of(
                 new QueryPlan.Test(new QueryPlan.Column(SystemColumn.OWNER), Compare.EQ, List.of(ONE.toString())),
-                new Group(false, List.of(new OwnedByAny(List.of(ONE, TWO)), new SharedWithAny(List.of(ONE), 1),
+                new Group(false, List.of(new OwnedByAny(List.of(ONE, TWO)),
+                        new SharedWithAny(List.of(new ShareGrantee("USER", ONE)), 1),
                         new NoRecords()))));
 
         JsonbQuerySql.Condition condition = JsonbQuerySql.condition(node);

@@ -1,6 +1,8 @@
 package app.platform.security.internal;
 
 import app.platform.security.Ability;
+import app.platform.security.Grantee;
+import app.platform.security.GranteeRemovals;
 import app.platform.sharedkernel.ActorId;
 import app.platformapi.AccessPolicyRef;
 import app.platformapi.AddGroupMemberRequest;
@@ -43,13 +45,16 @@ class GroupService {
     private final AccessStore access;
     private final AccessAudit audit;
     private final SharingStore sharing;
+    private final List<GranteeRemovals> removals;
 
-    GroupService(AccessGate gate, GroupStore store, AccessStore access, AccessAudit audit, SharingStore sharing) {
+    GroupService(AccessGate gate, GroupStore store, AccessStore access, AccessAudit audit, SharingStore sharing,
+            List<GranteeRemovals> removals) {
         this.gate = gate;
         this.store = store;
         this.access = access;
         this.audit = audit;
         this.sharing = sharing;
+        this.removals = removals;
     }
 
     List<GroupView> list() {
@@ -106,7 +111,10 @@ class GroupService {
             }
             int ended = store.endLinksOfGroup(id, actor);
             store.deleteGroup(id, actor);
-            audit.groupDeleted(caller.userId(), id, group.name(), ended);
+            // Shares of records to this group could never match anybody now; ending them keeps the lists clean.
+            int sharesEnded = removals.stream()
+                    .mapToInt(removal -> removal.removed(Grantee.Kind.GROUP, id, actor)).sum();
+            audit.groupDeleted(caller.userId(), id, group.name(), ended, sharesEnded);
             return null;
         });
     }

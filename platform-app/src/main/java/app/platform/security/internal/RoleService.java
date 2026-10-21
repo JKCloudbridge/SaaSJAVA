@@ -1,6 +1,8 @@
 package app.platform.security.internal;
 
 import app.platform.security.Ability;
+import app.platform.security.Grantee;
+import app.platform.security.GranteeRemovals;
 import app.platform.sharedkernel.ActorId;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
@@ -30,12 +32,15 @@ class RoleService {
     private final AccessStore store;
     private final AccessAudit audit;
     private final SharingStore sharing;
+    private final List<GranteeRemovals> removals;
 
-    RoleService(AccessGate gate, AccessStore store, AccessAudit audit, SharingStore sharing) {
+    RoleService(AccessGate gate, AccessStore store, AccessAudit audit, SharingStore sharing,
+            List<GranteeRemovals> removals) {
         this.gate = gate;
         this.store = store;
         this.audit = audit;
         this.sharing = sharing;
+        this.removals = removals;
     }
 
     List<RoleView> list() {
@@ -94,8 +99,12 @@ class RoleService {
                 throw new ApiException(ErrorCode.CONFLICT,
                         "A sharing rule uses this role. Change or remove the rule first.");
             }
-            store.deleteRole(id, new ActorId(caller.userId()));
-            audit.roleDeleted(caller.userId(), id, role.name());
+            ActorId actor = new ActorId(caller.userId());
+            store.deleteRole(id, actor);
+            // Shares of records to this role could never match anybody now; ending them keeps the lists clean.
+            int sharesEnded = removals.stream()
+                    .mapToInt(removal -> removal.removed(Grantee.Kind.ROLE, id, actor)).sum();
+            audit.roleDeleted(caller.userId(), id, role.name(), sharesEnded);
             return null;
         });
     }

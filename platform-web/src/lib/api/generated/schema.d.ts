@@ -3384,6 +3384,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/objects/{objectApiName}/records/{id}/share-targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The roles or public groups a record can be shared with
+         * @description For whoever may share the record (the right to change it): the names and identifiers of the live roles (kind ROLE) or public groups (kind GROUP) of the organization whose name contains the search text, at most 25, by name. It says nothing about the people in them. VALIDATION_ERROR for another kind or a search text over 80 characters. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. NOT_FOUND also for a record the caller cannot reach; FORBIDDEN for a caller who can read the record but not change it.
+         */
+        get: operations["listRecordShareTargets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/objects/{objectApiName}/records/{id}/shares": {
         parameters: {
             query?: never;
@@ -3397,8 +3417,8 @@ export interface paths {
          */
         get: operations["listRecordShares"];
         /**
-         * Share a record with a user or a public group
-         * @description Sharing again with the same user or group changes the level. READ lets them read the record, READ_WRITE lets them read and change it; a share never gives the right to delete. Visible at the next question on every instance. Needs the right to change the record. VALIDATION_ERROR for the owner, for someone who is not a member, for a group that does not exist; CONFLICT at the most shares a record can have. Audited by identifiers, never by values. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         * Share a record with a user, a public group or a role
+         * @description ROLE reaches the members whose own role it is; ROLE_AND_SUBORDINATES reaches the members of that role and of every role below it. Sharing again with the same user, group or role changes the level (and for a role the kind). READ lets them read the record, READ_WRITE lets them read and change it; a share never gives the right to delete. Visible at the next question on every instance, and allowed while an approval has the record locked. Needs the right to change the record. VALIDATION_ERROR for the owner, for someone who is not a member, for a group or role that does not exist; CONFLICT at the most shares a record can have. Audited by kind and level, never by a name or a value. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
          */
         put: operations["shareRecord"];
         post?: never;
@@ -3420,7 +3440,7 @@ export interface paths {
         post?: never;
         /**
          * Take a share back
-         * @description NOT_FOUND when the record is not shared with that user or group. Needs the right to change the record. Audited. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
+         * @description NOT_FOUND when the record is not shared with that user, group or role (the identifier is the grantee's, whatever its kind). Needs the right to change the record. Audited. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike.
          */
         delete: operations["unshareRecord"];
         options?: never;
@@ -4925,6 +4945,9 @@ export interface components {
         };
         ApiResponseListSessionInfo: {
             data: components["schemas"]["SessionInfo"][];
+        };
+        ApiResponseListShareTargetView: {
+            data: components["schemas"]["ShareTargetView"][];
         };
         ApiResponseListSharingRuleView: {
             data: components["schemas"]["SharingRuleView"][];
@@ -6722,6 +6745,7 @@ export interface components {
             accessLevel: string;
             /** Format: uuid */
             granteeId: string;
+            granteeLabel?: string;
             granteeType: string;
             /** Format: uuid */
             id: string;
@@ -6927,6 +6951,11 @@ export interface components {
             /** Format: uuid */
             granteeId: string;
             granteeType: string;
+        };
+        ShareTargetView: {
+            /** Format: uuid */
+            id: string;
+            label: string;
         };
         SharingRuleView: {
             accessLevel: string;
@@ -14356,6 +14385,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseRecordView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listRecordShareTargets: {
+        parameters: {
+            query: {
+                kind: string;
+                search?: string;
+            };
+            header?: never;
+            path: {
+                objectApiName: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListShareTargetView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

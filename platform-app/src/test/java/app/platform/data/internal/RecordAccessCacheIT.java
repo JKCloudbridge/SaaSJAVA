@@ -8,7 +8,9 @@ import app.platform.tenant.TenantContext;
 import app.platform.tenant.TenantContexts;
 import app.platform.testsupport.PlatformIntegrationTest;
 import app.platform.testsupport.TestApplication;
+import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestHttp.Response;
+import app.platform.testsupport.TestOrganizations;
 import app.platform.testsupport.TestOrganizations.Organization;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
@@ -109,5 +111,58 @@ class RecordAccessCacheIT extends RecordSecuritySupport {
 
         assertThat(removed.status()).as(removed.body()).isEqualTo(204);
         assertThat(without).isNotEqualTo(with);
+    }
+
+    @Test
+    void aMemberPlacedInARoleOrARoleMovedShowsAtTheNextQuestionOnEveryInstance() {
+        Items items = items();
+        Person member = worker(items.organization(), items.admin());
+        share(items.admin(), "PRIVATE", false);
+        RecordAccess nobody = agreed(items.organization(), member);
+        String top = role(items.admin(), "role-top", null);
+        String middle = role(items.admin(), "role-middle", top);
+        String leaf = role(items.admin(), "role-leaf", middle);
+
+        putInRole(items.admin(), member, leaf);
+        RecordAccess inLeaf = agreed(items.organization(), member);
+        Response moved = items.admin().request("PUT", ROLES + "/" + leaf,
+                "{\"name\":\"role-leaf\",\"parentId\":\"" + top + "\"}");
+        RecordAccess afterMove = agreed(items.organization(), member);
+        putInRole(items.admin(), member, null);
+        RecordAccess leftTheRole = agreed(items.organization(), member);
+
+        assertThat(inLeaf).as("the role and its chain are part of what the member is for a share")
+                .isNotEqualTo(nobody);
+        assertThat(moved.status()).as(moved.body()).isEqualTo(200);
+        assertThat(afterMove).as("the chain of the role changed with its place in the tree").isNotEqualTo(inLeaf);
+        assertThat(leftTheRole).isEqualTo(nobody);
+    }
+
+    @Test
+    void aShareToARoleAndTakingItBackIsSeenAtTheNextQuestionByEveryInstance() {
+        Items items = items();
+        Person owner = worker(items.organization(), items.admin());
+        Person reader = worker(items.organization(), items.admin());
+        share(items.admin(), "PRIVATE", false);
+        String role = role(items.admin(), "role-a", null);
+        putInRole(items.admin(), reader, role);
+        String record = newItem(owner.browser(), "record-1");
+        String host = items.organization().host();
+        TestBrowser onA = reader.browser();
+        TestBrowser onB = TestOrganizations.signedIn(instanceB.port(), host, reader.member().person());
+        TestBrowser onC = TestOrganizations.signedIn(instanceC.port(), host, reader.member().person());
+        assertThat(new boolean[] {reads(onA, record), reads(onB, record), reads(onC, record)})
+                .as("before the share").containsExactly(false, false, false);
+
+        Response shared = owner.browser().request("PUT", ITEM_RECORDS + "/" + record + "/shares",
+                "{\"granteeType\":\"ROLE\",\"granteeId\":\"" + role + "\",\"accessLevel\":\"READ\"}");
+        boolean[] afterShare = {reads(onA, record), reads(onB, record), reads(onC, record)};
+        Response taken = owner.browser().request("DELETE", ITEM_RECORDS + "/" + record + "/shares/" + role, null);
+        boolean[] afterTaking = {reads(onA, record), reads(onB, record), reads(onC, record)};
+
+        assertThat(shared.status()).as(shared.body()).isEqualTo(200);
+        assertThat(afterShare).as("instance A, B and C").containsExactly(true, true, true);
+        assertThat(taken.status()).isEqualTo(204);
+        assertThat(afterTaking).containsExactly(false, false, false);
     }
 }

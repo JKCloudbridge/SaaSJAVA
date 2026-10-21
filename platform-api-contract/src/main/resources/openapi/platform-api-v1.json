@@ -9007,6 +9007,66 @@
         "tags" : [ "Records" ]
       }
     },
+    "/api/v1/objects/{objectApiName}/records/{id}/share-targets" : {
+      "get" : {
+        "description" : "For whoever may share the record (the right to change it): the names and identifiers of the live roles (kind ROLE) or public groups (kind GROUP) of the organization whose name contains the search text, at most 25, by name. It says nothing about the people in them. VALIDATION_ERROR for another kind or a search text over 80 characters. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. NOT_FOUND also for a record the caller cannot reach; FORBIDDEN for a caller who can read the record but not change it.",
+        "operationId" : "listRecordShareTargets",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "kind",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "search",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListShareTargetView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The roles or public groups a record can be shared with",
+        "tags" : [ "Records" ]
+      }
+    },
     "/api/v1/objects/{objectApiName}/records/{id}/shares" : {
       "get" : {
         "description" : "For whoever may change the record. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. NOT_FOUND also for a record the caller cannot reach; FORBIDDEN for a caller who can read the record but not change it.",
@@ -9053,7 +9113,7 @@
         "tags" : [ "Records" ]
       },
       "put" : {
-        "description" : "Sharing again with the same user or group changes the level. READ lets them read the record, READ_WRITE lets them read and change it; a share never gives the right to delete. Visible at the next question on every instance. Needs the right to change the record. VALIDATION_ERROR for the owner, for someone who is not a member, for a group that does not exist; CONFLICT at the most shares a record can have. Audited by identifiers, never by values. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "description" : "ROLE reaches the members whose own role it is; ROLE_AND_SUBORDINATES reaches the members of that role and of every role below it. Sharing again with the same user, group or role changes the level (and for a role the kind). READ lets them read the record, READ_WRITE lets them read and change it; a share never gives the right to delete. Visible at the next question on every instance, and allowed while an approval has the record locked. Needs the right to change the record. VALIDATION_ERROR for the owner, for someone who is not a member, for a group or role that does not exist; CONFLICT at the most shares a record can have. Audited by kind and level, never by a name or a value. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
         "operationId" : "shareRecord",
         "parameters" : [ {
           "in" : "path",
@@ -9103,13 +9163,13 @@
             "description" : "Error. The code says what went wrong; the message is safe to show."
           }
         },
-        "summary" : "Share a record with a user or a public group",
+        "summary" : "Share a record with a user, a public group or a role",
         "tags" : [ "Records" ]
       }
     },
     "/api/v1/objects/{objectApiName}/records/{id}/shares/{granteeId}" : {
       "delete" : {
-        "description" : "NOT_FOUND when the record is not shared with that user or group. Needs the right to change the record. Audited. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
+        "description" : "NOT_FOUND when the record is not shared with that user, group or role (the identifier is the grantee's, whatever its kind). Needs the right to change the record. Audited. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. ",
         "operationId" : "unshareRecord",
         "parameters" : [ {
           "in" : "path",
@@ -13189,6 +13249,18 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/SessionInfo"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListShareTargetView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ShareTargetView"
             }
           }
         },
@@ -18945,6 +19017,9 @@
             "type" : "string",
             "format" : "uuid"
           },
+          "granteeLabel" : {
+            "type" : "string"
+          },
           "granteeType" : {
             "type" : "string"
           },
@@ -19592,11 +19667,24 @@
           },
           "granteeType" : {
             "type" : "string",
-            "maxLength" : 10,
+            "maxLength" : 30,
             "minLength" : 0
           }
         },
         "required" : [ "accessLevel", "granteeId", "granteeType" ]
+      },
+      "ShareTargetView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "label" ]
       },
       "SharingRuleView" : {
         "type" : "object",

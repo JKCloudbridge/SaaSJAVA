@@ -11,7 +11,6 @@ import app.platform.security.ShareLevel;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -96,19 +95,20 @@ class DefaultRecordSecurity implements RecordSecurity {
 
         if (modifyAll || defaultAccess == SharingDefault.PUBLIC_READ_WRITE) {
             return RecordAccessResolver.resolve(new RecordAccessResolver.Facts(object, true, viewAll, modifyAll,
-                    defaultAccess, hierarchy, user, Set.of(user), Set.of(), List.of(),
+                    defaultAccess, hierarchy, user, Set.of(), null, Set.of(), Set.of(), List.of(),
                     properties.records().maxOwners()));
         }
         Set<UUID> memberGroups = groups.groupsOf(membershipId);
-        Set<UUID> grantees = new LinkedHashSet<>(memberGroups);
-        grantees.add(user);
         UUID role = viewer.get().roleId();
+        // The member's role and the roles above it: asked once, for the shares to "a role and the roles below it" and
+        // for the sharing rules aimed at a role and its subordinates.
+        Set<UUID> roleChain = role == null ? Set.of() : store.rolesAboveOrSelf(role);
         // The hierarchy only widens what is read; when every record is read anyway there is nobody to look up.
         boolean readsAll = viewAll || defaultAccess != SharingDefault.PRIVATE;
         Set<UUID> subordinates = hierarchy && role != null && !readsAll ? store.usersBelow(role) : Set.of();
-        List<RecordAccessResolver.Rule> rules = rulesReaching(object, role, memberGroups);
+        List<RecordAccessResolver.Rule> rules = rulesReaching(object, role, roleChain, memberGroups);
         RecordAccess access = RecordAccessResolver.resolve(new RecordAccessResolver.Facts(object, true, viewAll,
-                false, defaultAccess, hierarchy, user, grantees, subordinates, rules,
+                false, defaultAccess, hierarchy, user, memberGroups, role, roleChain, subordinates, rules,
                 properties.records().maxOwners()));
         if (access.truncated()) {
             truncated.increment();
@@ -119,12 +119,12 @@ class DefaultRecordSecurity implements RecordSecurity {
     }
 
     /** The active rules of the object that reach a member with this role and these groups, with their people. */
-    private List<RecordAccessResolver.Rule> rulesReaching(String object, UUID role, Set<UUID> memberGroups) {
+    private List<RecordAccessResolver.Rule> rulesReaching(String object, UUID role, Set<UUID> rolesAbove,
+            Set<UUID> memberGroups) {
         List<SharingStore.RuleRow> candidates = store.activeRules(object);
         if (candidates.isEmpty()) {
             return List.of();
         }
-        Set<UUID> rolesAbove = role == null ? Set.of() : store.rolesAboveOrSelf(role);
         List<RecordAccessResolver.Rule> reaching = new ArrayList<>();
         for (SharingStore.RuleRow rule : candidates) {
             if (!reaches(rule, role, rolesAbove, memberGroups)) {

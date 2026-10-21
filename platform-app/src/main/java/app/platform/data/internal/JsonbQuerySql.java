@@ -96,14 +96,36 @@ final class JsonbQuerySql {
                     .collect(Collectors.joining(group.all() ? " and " : " or ", "(", ")"));
             case Test test -> test(test);
             case OwnedByAny owned -> "owner_id = any(" + identifiers(owned.owners()) + ")";
-            // The identifiers of the shared records are read once per statement and compared with the index on
-            // the identifier, so this condition can be combined with the owner condition as two index scans.
-            case SharedWithAny shared -> "id = any(array(select s.record_id from record_share s "
-                    + "where s.tenant_id = :tenant and s.object_api_name = :object and s.deleted_at is null "
-                    + "and s.grantee_id = any(" + identifiers(shared.grantees()) + ") and s.access_level >= :"
-                    + bindValue(shared.level()) + "))";
+            case SharedWithAny shared -> shared(shared);
             case NoRecords none -> "false";
         };
+    }
+
+    /**
+     * The identifiers of the shared records are read once per statement and compared with the index on the identifier,
+     * so this condition can be combined with the owner condition as two index scans. A share matches on its kind and
+     * its identifier together (ADR-0185): one branch for each kind the member has, each with its identifiers. The
+     * first test on the identifier alone repeats the branches in a form the index on the identifier can serve; the
+     * identifiers of users, groups and roles never collide, so it removes no row the branches would keep.
+     */
+    private String shared(SharedWithAny shared) {
+        Map<String, List<UUID>> byType = new LinkedHashMap<>();
+        for (QueryPlan.ShareGrantee grantee : shared.grantees()) {
+            byType.computeIfAbsent(grantee.type(), type -> new ArrayList<>()).add(grantee.id());
+        }
+        List<UUID> everyone = shared.grantees().stream().map(QueryPlan.ShareGrantee::id).distinct().toList();
+        StringBuilder branches = new StringBuilder();
+        byType.forEach((type, ids) -> {
+            if (branches.length() > 0) {
+                branches.append(" or ");
+            }
+            branches.append("(s.grantee_type = :").append(bindValue(type)).append(" and s.grantee_id = any(")
+                    .append(identifiers(ids)).append("))");
+        });
+        return "id = any(array(select s.record_id from record_share s "
+                + "where s.tenant_id = :tenant and s.object_api_name = :object and s.deleted_at is null "
+                + "and s.grantee_id = any(" + identifiers(everyone) + ") and (" + branches + ") "
+                + "and s.access_level >= :" + bindValue(shared.level()) + "))";
     }
 
     private String test(Test test) {
