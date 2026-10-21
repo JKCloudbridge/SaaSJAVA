@@ -1,0 +1,36 @@
+{
+  "name": "sheet-grid-spike",
+  "private": true,
+  "version": "0.0.0",
+  "description": "FA0: grid candidates, canonical grid JSON and PostgreSQL measurements. Throwaway; not part of the platform build.",
+  "type": "module",
+  "scripts": {
+    "tokens": "node scripts/copy-tokens.mjs",
+    "prebuild": "node scripts/copy-tokens.mjs",
+    "predev": "node scripts/copy-tokens.mjs",
+    "dev": "next dev -p 3100",
+    "build": "next build",
+    "probe": "node probe.mjs",
+    "spike": "node run-spike.mjs",
+    "phone": "node phone-check.mjs",
+    "ssr": "node ssr-check.mjs",
+    "corpus": "node schema/run-corpus.mjs",
+    "test": "node --test lib/gridOps.test.mjs adapters/adapters.test.mjs",
+    "pg": "node pg/measure.mjs"
+  },
+  "dependencies": {
+    "@fortune-sheet/react": "1.0.4",
+    "@tanstack/react-virtual": "3.14.21",
+    "@univerjs/preset-sheets-core": "1.1.0",
+    "@univerjs/presets": "1.1.0",
+    "jspreadsheet-ce": "5.0.4",
+    "next": "16.3.8",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "ajv": "8.17.1",
+    "pg": "8.13.1",
+    "playwright-core": "1.55.0"
+  }
+}

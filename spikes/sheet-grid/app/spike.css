@@ -1,0 +1,25 @@
+/* Spike styles use only the platform tokens (tokens.css is a copy of platform-web/src/styles/tokens.css). */
+body { margin: 0; background: var(--color-background); color: var(--color-text); font-family: var(--font-sans); font-size: var(--font-size-md); line-height: var(--line-height); }
+.spike-page { padding: 1rem; max-width: 100rem; margin: 0 auto; }
+.spike-page h1 { font-size: var(--font-size-lg); margin: 0 0 0.5rem; }
+.spike-modes { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+.spike-modes button, .og-toolbar button { height: var(--size-control); padding: 0 0.75rem; border: var(--border-width) solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); cursor: pointer; font: inherit; }
+.spike-modes button[aria-pressed="true"] { background: var(--color-accent); color: var(--color-accent-contrast); border-color: var(--color-accent); }
+.og-toolbar { display: flex; gap: 0.375rem; margin-bottom: 0.5rem; }
+.og-toolbar button:disabled { opacity: 0.5; cursor: default; }
+.og-scroll { position: relative; height: 28rem; overflow: auto; border: var(--border-width) solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--color-surface); outline: none; }
+.og-scroll:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 1px; }
+.og-labels { position: sticky; top: 0; z-index: 3; background: var(--color-surface-sunken); border-bottom: var(--border-width) solid var(--color-border-strong); }
+.og-label { position: absolute; top: 0; box-sizing: border-box; padding: 0.25rem 0.5rem; font-weight: 600; font-size: var(--font-size-sm); border-right: var(--border-width) solid var(--color-border); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.og-row { position: absolute; left: 0; }
+.og-cell { position: absolute; top: 0; box-sizing: border-box; padding: 0.125rem 0.5rem; border-right: var(--border-width) solid var(--color-border); border-bottom: var(--border-width) solid var(--color-border); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--font-size-sm); background: var(--color-surface); user-select: none; }
+.og-cell.og-fixed { background: var(--color-surface-sunken); color: var(--color-text); }
+.og-cell.og-header { background: var(--color-accent-soft); }
+.og-cell.og-merged { z-index: 1; }
+.og-cell.og-bold { font-weight: 700; }
+.og-cell.og-italic { font-style: italic; }
+.og-cell.og-selected { background: var(--color-accent-soft); }
+.og-cell.og-active { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; z-index: 2; }
+.og-input { width: 100%; height: 100%; box-sizing: border-box; border: 0; padding: 0; margin: 0; font: inherit; background: var(--color-surface); color: var(--color-text); outline: none; }
+.og-message { min-height: 1.5rem; margin: 0.375rem 0 0; font-size: var(--font-size-sm); color: var(--color-text-muted); }
+.og-error { color: var(--color-danger); }

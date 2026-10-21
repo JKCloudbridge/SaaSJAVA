@@ -1,0 +1,61 @@
+{
+  "typical 20 KB": {
+    "versions": 50,
+    "listWithoutGrid": {
+      "n": 20,
+      "p50": 3.81,
+      "p95": 4.67,
+      "max": 4.67
+    },
+    "listWithGrid": {
+      "n": 20,
+      "p50": 12.72,
+      "p95": 36.63,
+      "max": 36.63
+    },
+    "newestVersionGrid": {
+      "n": 20,
+      "p50": 4.25,
+      "p95": 6.18,
+      "max": 6.18
+    },
+    "storedBytesFor50": 272134,
+    "rawJsonBytesFor50": 1080772
+  },
+  "100 KB": {
+    "versions": 50,
+    "listWithoutGrid": {
+      "n": 20,
+      "p50": 3.98,
+      "p95": 5.23,
+      "max": 5.23
+    },
+    "listWithGrid": {
+      "n": 20,
+      "p50": 42.33,
+      "p95": 53.63,
+      "max": 53.63
+    },
+    "newestVersionGrid": {
+      "n": 20,
+      "p50": 6.23,
+      "p95": 15.43,
+      "max": 15.43
+    },
+    "storedBytesFor50": 1108668,
+    "rawJsonBytesFor50": 5439891
+  },
+  "draftSaves": {
+    "saves": 100,
+    "docBytes": 100000,
+    "update": {
+      "n": 100,
+      "p50": 8.05,
+      "p95": 9.04,
+      "max": 10.39
+    },
+    "tableMbBefore": 6.91,
+    "afterSavesMb": 9.28,
+    "afterVacuumMb": 9.3
+  }
+}

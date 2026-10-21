@@ -1,0 +1,1048 @@
+{
+  "measured": [
+    {
+      "candidate": "own",
+      "size": "S 20x8",
+      "readyMs": 535,
+      "wallMs": 551,
+      "cells": 170,
+      "canvases": 0,
+      "heapMb": 3,
+      "domNodes": 298,
+      "typing": {
+        "n": 26,
+        "p50": 8,
+        "p95": 16.8,
+        "max": 18.7
+      },
+      "scroll": {
+        "frames": 125,
+        "gapP50": 16.7,
+        "gapP95": 16.9,
+        "gapMax": 17.7,
+        "over50ms": 0,
+        "longTasks": 0,
+        "longTaskMs": 0
+      },
+      "heapAfterScrollMb": 4,
+      "cellsAfterScroll": 170,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "own",
+      "size": "M 60x15",
+      "readyMs": 357,
+      "wallMs": 378,
+      "cells": 314,
+      "canvases": 0,
+      "heapMb": 3.1,
+      "domNodes": 469,
+      "typing": {
+        "n": 26,
+        "p50": 9,
+        "p95": 17.2,
+        "max": 17.2
+      },
+      "scroll": {
+        "frames": 122,
+        "gapP50": 16.7,
+        "gapP95": 16.9,
+        "gapMax": 17.1,
+        "over50ms": 0,
+        "longTasks": 0,
+        "longTaskMs": 0
+      },
+      "heapAfterScrollMb": 4.2,
+      "cellsAfterScroll": 325,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "own",
+      "size": "L 150x30",
+      "readyMs": 350,
+      "wallMs": 369,
+      "cells": 313,
+      "canvases": 0,
+      "heapMb": 3.1,
+      "domNodes": 467,
+      "typing": {
+        "n": 26,
+        "p50": 9.3,
+        "p95": 18.5,
+        "max": 18.5
+      },
+      "scroll": {
+        "frames": 122,
+        "gapP50": 16.7,
+        "gapP95": 16.8,
+        "gapMax": 33.3,
+        "over50ms": 0,
+        "longTasks": 0,
+        "longTaskMs": 0
+      },
+      "heapAfterScrollMb": 4.3,
+      "cellsAfterScroll": 350,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "own",
+      "size": "X 500x100",
+      "readyMs": 366,
+      "wallMs": 392,
+      "cells": 313,
+      "canvases": 0,
+      "heapMb": 3.5,
+      "domNodes": 468,
+      "typing": {
+        "n": 26,
+        "p50": 11.6,
+        "p95": 17.9,
+        "max": 18.1
+      },
+      "scroll": {
+        "frames": 126,
+        "gapP50": 16.6,
+        "gapP95": 16.9,
+        "gapMax": 433.2,
+        "over50ms": 1,
+        "longTasks": 1,
+        "longTaskMs": 434
+      },
+      "heapAfterScrollMb": 4.8,
+      "cellsAfterScroll": 512,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "own",
+      "size": "XX 1000x200",
+      "readyMs": 354,
+      "wallMs": 365,
+      "cells": 313,
+      "canvases": 0,
+      "heapMb": 4.6,
+      "domNodes": 469,
+      "typing": {
+        "n": 26,
+        "p50": 11.3,
+        "p95": 19,
+        "max": 19.8
+      },
+      "scroll": {
+        "frames": 122,
+        "gapP50": 16.7,
+        "gapP95": 16.8,
+        "gapMax": 33.4,
+        "over50ms": 0,
+        "longTasks": 0,
+        "longTaskMs": 0
+      },
+      "heapAfterScrollMb": 5.9,
+      "cellsAfterScroll": 512,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "fortune",
+      "size": "S 20x8",
+      "readyMs": 994,
+      "wallMs": 1011,
+      "cells": null,
+      "canvases": 1,
+      "heapMb": 7.1,
+      "domNodes": 797,
+      "typing": {
+        "n": 26,
+        "p50": 9.7,
+        "p95": 16.3,
+        "max": 17.9
+      },
+      "scroll": {
+        "frames": 174,
+        "gapP50": 16.7,
+        "gapP95": 16.8,
+        "gapMax": 149.9,
+        "over50ms": 1,
+        "longTasks": 0,
+        "longTaskMs": 0
+      },
+      "heapAfterScrollMb": 7.9,
+      "cellsAfterScroll": null,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "fortune",
+      "size": "M 60x15",
+      "readyMs": 748,
+      "wallMs": 766,
+      "cells": null,
+      "canvases": 1,
+      "heapMb": 7.1,
+      "domNodes": 797,
+      "typing": {
+        "n": 26,
+        "p50": 8.2,
+        "p95": 16.9,
+        "max": 22.8
+      },
+      "scroll": {
+        "frames": 169,
+        "gapP50": 16.7,
+        "gapP95": 16.9,
+        "gapMax": 17.1,
+        "over50ms": 0,
+        "longTasks": 0,
+        "longTaskMs": 0
+      },
+      "heapAfterScrollMb": 8,
+      "cellsAfterScroll": null,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "fortune",
+      "size": "L 150x30",
+      "readyMs": 909,
+      "wallMs": 927,
+      "cells": null,
+      "canvases": 1,
+      "heapMb": 7.2,
+      "domNodes": 797,
+      "typing": {
+        "n": 26,
+        "p50": 4.8,
+        "p95": 17.4,
+        "max": 20.5
+      },
+      "scroll": {
+        "frames": 169,
+        "gapP50": 16.7,
+        "gapP95": 16.8,
+        "gapMax": 17.4,
+        "over50ms": 0,
+        "longTasks": 0,
+        "longTaskMs": 0
+      },
+      "heapAfterScrollMb": 8.1,
+      "cellsAfterScroll": null,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "fortune",
+      "size": "X 500x100",
+      "readyMs": 755,
+      "wallMs": 774,
+      "cells": null,
+      "canvases": 1,
+      "heapMb": 8,
+      "domNodes": 797,
+      "typing": {
+        "n": 26,
+        "p50": 5.1,
+        "p95": 17.5,
+        "max": 30
+      },
+      "scroll": {
+        "frames": 176,
+        "gapP50": 16.7,
+        "gapP95": 16.8,
+        "gapMax": 16.9,
+        "over50ms": 0,
+        "longTasks": 0,
+        "longTaskMs": 0
+      },
+      "heapAfterScrollMb": 8.9,
+      "cellsAfterScroll": null,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "fortune",
+      "size": "XX 1000x200",
+      "readyMs": 1000,
+      "wallMs": 1021,
+      "cells": null,
+      "canvases": 1,
+      "heapMb": 10.2,
+      "domNodes": 797,
+      "typing": {
+        "n": 26,
+        "p50": 7.1,
+        "p95": 16.4,
+        "max": 17.2
+      },
+      "scroll": {
+        "frames": 173,
+        "gapP50": 16.7,
+        "gapP95": 16.8,
+        "gapMax": 633.2,
+        "over50ms": 1,
+        "longTasks": 0,
+        "longTaskMs": 0
+      },
+      "heapAfterScrollMb": 11.1,
+      "cellsAfterScroll": null,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "univer",
+      "size": "S 20x8",
+      "readyMs": 1628,
+      "wallMs": 1658,
+      "cells": null,
+      "canvases": 2,
+      "heapMb": 21.1,
+      "domNodes": 673,
+      "typing": {
+        "n": 26,
+        "p50": 26.1,
+        "p95": 62.9,
+        "max": 101.4
+      },
+      "scroll": {
+        "frames": 176,
+        "gapP50": 16.7,
+        "gapP95": 16.8,
+        "gapMax": 17.1,
+        "over50ms": 0,
+        "longTasks": 0,
+        "longTaskMs": 0
+      },
+      "heapAfterScrollMb": 27.6,
+      "cellsAfterScroll": null,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "univer",
+      "size": "M 60x15",
+      "readyMs": 1607,
+      "wallMs": 1651,
+      "cells": null,
+      "canvases": 2,
+      "heapMb": 21.1,
+      "domNodes": 673,
+      "typing": {
+        "n": 26,
+        "p50": 21.3,
+        "p95": 30.6,
+        "max": 84.7
+      },
+      "scroll": {
+        "frames": 177,
+        "gapP50": 16.7,
+        "gapP95": 16.8,
+        "gapMax": 16.9,
+        "over50ms": 0,
+        "longTasks": 0,
+        "longTaskMs": 0
+      },
+      "heapAfterScrollMb": 27.8,
+      "cellsAfterScroll": null,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "univer",
+      "size": "L 150x30",
+      "readyMs": 1722,
+      "wallMs": 1756,
+      "cells": null,
+      "canvases": 2,
+      "heapMb": 21.2,
+      "domNodes": 673,
+      "typing": {
+        "n": 26,
+        "p50": 18.5,
+        "p95": 25.1,
+        "max": 67.8
+      },
+      "scroll": {
+        "frames": 176,
+        "gapP50": 16.7,
+        "gapP95": 16.8,
+        "gapMax": 16.9,
+        "over50ms": 0,
+        "longTasks": 0,
+        "longTaskMs": 0
+      },
+      "heapAfterScrollMb": 28.4,
+      "cellsAfterScroll": null,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "univer",
+      "size": "X 500x100",
+      "readyMs": 1603,
+      "wallMs": 1628,
+      "cells": null,
+      "canvases": 2,
+      "heapMb": 21.9,
+      "domNodes": 673,
+      "typing": {
+        "n": 26,
+        "p50": 24.5,
+        "p95": 54.8,
+        "max": 115.3
+      },
+      "scroll": {
+        "frames": 177,
+        "gapP50": 16.7,
+        "gapP95": 16.9,
+        "gapMax": 17.7,
+        "over50ms": 0,
+        "longTasks": 0,
+        "longTaskMs": 0
+      },
+      "heapAfterScrollMb": 29.2,
+      "cellsAfterScroll": null,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "univer",
+      "size": "XX 1000x200",
+      "readyMs": 1630,
+      "wallMs": 1668,
+      "cells": null,
+      "canvases": 2,
+      "heapMb": 24,
+      "domNodes": 673,
+      "typing": {
+        "n": 26,
+        "p50": 18,
+        "p95": 31.3,
+        "max": 138.4
+      },
+      "scroll": {
+        "frames": 174,
+        "gapP50": 16.7,
+        "gapP95": 16.9,
+        "gapMax": 17.1,
+        "over50ms": 0,
+        "longTasks": 0,
+        "longTaskMs": 0
+      },
+      "heapAfterScrollMb": 31.3,
+      "cellsAfterScroll": null,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "jspreadsheet",
+      "size": "S 20x8",
+      "readyMs": 388,
+      "wallMs": 413,
+      "cells": null,
+      "canvases": 1,
+      "heapMb": 3.3,
+      "domNodes": 836,
+      "typing": {
+        "n": 26,
+        "p50": 9.1,
+        "p95": 17.2,
+        "max": 20.3
+      },
+      "scroll": {
+        "frames": 171,
+        "gapP50": 16.7,
+        "gapP95": 16.9,
+        "gapMax": 17.1,
+        "over50ms": 0,
+        "longTasks": 0,
+        "longTaskMs": 0
+      },
+      "heapAfterScrollMb": 4.1,
+      "cellsAfterScroll": null,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "jspreadsheet",
+      "size": "M 60x15",
+      "readyMs": 468,
+      "wallMs": 496,
+      "cells": null,
+      "canvases": 1,
+      "heapMb": 3.4,
+      "domNodes": 1890,
+      "typing": {
+        "n": 26,
+        "p50": 11.8,
+        "p95": 20.1,
+        "max": 21.5
+      },
+      "scroll": {
+        "frames": 175,
+        "gapP50": 16.7,
+        "gapP95": 17.2,
+        "gapMax": 19.5,
+        "over50ms": 0,
+        "longTasks": 0,
+        "longTaskMs": 0
+      },
+      "heapAfterScrollMb": 4.3,
+      "cellsAfterScroll": null,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "jspreadsheet",
+      "size": "L 150x30",
+      "readyMs": 528,
+      "wallMs": 552,
+      "cells": null,
+      "canvases": 1,
+      "heapMb": 3.8,
+      "domNodes": 6204,
+      "typing": {
+        "n": 26,
+        "p50": 15.1,
+        "p95": 24,
+        "max": 25.6
+      },
+      "scroll": {
+        "frames": 175,
+        "gapP50": 16.7,
+        "gapP95": 16.9,
+        "gapMax": 33.2,
+        "over50ms": 0,
+        "longTasks": 0,
+        "longTaskMs": 0
+      },
+      "heapAfterScrollMb": 4.6,
+      "cellsAfterScroll": null,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "jspreadsheet",
+      "size": "X 500x100",
+      "readyMs": 771,
+      "wallMs": 799,
+      "cells": null,
+      "canvases": 1,
+      "heapMb": 6.4,
+      "domNodes": 55689,
+      "typing": {
+        "n": 26,
+        "p50": 22.5,
+        "p95": 34.1,
+        "max": 34.3
+      },
+      "scroll": {
+        "frames": 178,
+        "gapP50": 16.7,
+        "gapP95": 49.8,
+        "gapMax": 66.7,
+        "over50ms": 6,
+        "longTasks": 0,
+        "longTaskMs": 0
+      },
+      "heapAfterScrollMb": 7.4,
+      "cellsAfterScroll": null,
+      "cspViolations": 0
+    },
+    {
+      "candidate": "jspreadsheet",
+      "size": "XX 1000x200",
+      "readyMs": 1529,
+      "wallMs": 1556,
+      "cells": null,
+      "canvases": 1,
+      "heapMb": 15.4,
+      "domNodes": 215726,
+      "typing": {
+        "n": 26,
+        "p50": 35.8,
+        "p95": 41.9,
+        "max": 46.2
+      },
+      "scroll": {
+        "frames": 183,
+        "gapP50": 16.7,
+        "gapP95": 18.4,
+        "gapMax": 133.3,
+        "over50ms": 9,
+        "longTasks": 18,
+        "longTaskMs": 1240
+      },
+      "heapAfterScrollMb": 16.2,
+      "cellsAfterScroll": null,
+      "cspViolations": 0
+    }
+  ],
+  "network": {
+    "own": {
+      "jsKb": 521,
+      "jsGzipKb": 156,
+      "cssKb": 5,
+      "requests": 11,
+      "foreign": [],
+      "dynamic": [],
+      "sockets": 0,
+      "logs": []
+    },
+    "fortune": {
+      "jsKb": 3172,
+      "jsGzipKb": 716,
+      "cssKb": 52,
+      "requests": 12,
+      "foreign": [],
+      "dynamic": [],
+      "sockets": 0,
+      "logs": []
+    },
+    "univer": {
+      "jsKb": 7469,
+      "jsGzipKb": 1936,
+      "cssKb": 122,
+      "requests": 18,
+      "foreign": [],
+      "dynamic": [],
+      "sockets": 0,
+      "logs": []
+    },
+    "jspreadsheet": {
+      "jsKb": 941,
+      "jsGzipKb": 265,
+      "cssKb": 70,
+      "requests": 12,
+      "foreign": [],
+      "dynamic": [],
+      "sockets": 0,
+      "logs": []
+    }
+  },
+  "scenario": {
+    "own": [
+      {
+        "id": "adapter: the stored document is read back unchanged",
+        "ok": true
+      },
+      {
+        "id": "typing: click a cell, type text, Enter",
+        "ok": true,
+        "note": "{\"value\":\"Hello\",\"kind\":\"fixed\"}"
+      },
+      {
+        "id": "bold: keyboard shortcut, then the toolbar",
+        "ok": true,
+        "note": "shortcut works; toolbar works"
+      },
+      {
+        "id": "italic: keyboard shortcut, then the toolbar",
+        "ok": true,
+        "note": "shortcut works; toolbar works"
+      },
+      {
+        "id": "keyboard: arrows move, then typing lands in the right cell",
+        "ok": true,
+        "note": "Z landed at row 16 column 4, wanted row 16 column 4"
+      },
+      {
+        "id": "merge: select 2x2 and merge (toolbar buttons)",
+        "ok": true,
+        "note": "merged"
+      },
+      {
+        "id": "unmerge",
+        "ok": true
+      },
+      {
+        "id": "paste: a block copied from a spreadsheet application (2 x 2)",
+        "ok": true,
+        "note": "Pass|12.5|Fail|7"
+      },
+      {
+        "id": "undo: Ctrl+Z takes the whole paste back in one step",
+        "ok": true,
+        "note": "0 of 4 pasted values left"
+      }
+    ],
+    "fortune": [
+      {
+        "id": "adapter: the stored document is read back unchanged",
+        "ok": true
+      },
+      {
+        "id": "typing: click a cell, type text, Enter",
+        "ok": true,
+        "note": "{\"value\":\"Hello\",\"kind\":\"fixed\"}"
+      },
+      {
+        "id": "bold: keyboard shortcut, then the toolbar",
+        "ok": true,
+        "note": "shortcut works; toolbar works"
+      },
+      {
+        "id": "italic: keyboard shortcut, then the toolbar",
+        "ok": true,
+        "note": "shortcut does nothing; toolbar works"
+      },
+      {
+        "id": "keyboard: arrows move, then typing lands in the right cell",
+        "ok": true,
+        "note": "Z landed at row 16 column 4, wanted row 16 column 4"
+      },
+      {
+        "id": "merge: select 2x2 and merge (toolbar button; unmerge by library call)",
+        "ok": true,
+        "note": "merged"
+      },
+      {
+        "id": "unmerge",
+        "ok": true
+      },
+      {
+        "id": "paste: a block copied from a spreadsheet application (2 x 2)",
+        "ok": true,
+        "note": "Pass|12.5|Fail|7"
+      },
+      {
+        "id": "undo: Ctrl+Z takes the whole paste back in one step",
+        "ok": true,
+        "note": "0 of 4 pasted values left"
+      }
+    ],
+    "univer": [
+      {
+        "id": "adapter: the stored document is read back unchanged",
+        "ok": true
+      },
+      {
+        "id": "typing: click a cell, type text, Enter",
+        "ok": true,
+        "note": "{\"value\":\"Hello\",\"kind\":\"fixed\"}"
+      },
+      {
+        "id": "bold: keyboard shortcut, then the toolbar",
+        "ok": true,
+        "note": "shortcut works; toolbar works"
+      },
+      {
+        "id": "italic: keyboard shortcut, then the toolbar",
+        "ok": true,
+        "note": "shortcut works; toolbar works"
+      },
+      {
+        "id": "keyboard: arrows move, then typing lands in the right cell",
+        "ok": true,
+        "note": "Z landed at row 16 column 4, wanted row 16 column 4"
+      },
+      {
+        "id": "merge: select 2x2 and merge (toolbar button; unmerge by library call)",
+        "ok": true,
+        "note": "merged"
+      },
+      {
+        "id": "unmerge",
+        "ok": true
+      },
+      {
+        "id": "paste: a block copied from a spreadsheet application (2 x 2)",
+        "ok": true,
+        "note": "Pass|12.5|Fail|7"
+      },
+      {
+        "id": "undo: Ctrl+Z takes the whole paste back in one step",
+        "ok": true,
+        "note": "0 of 4 pasted values left"
+      }
+    ],
+    "jspreadsheet": [
+      {
+        "id": "adapter: the stored document is read back unchanged",
+        "ok": true
+      },
+      {
+        "id": "typing: click a cell, type text, Enter",
+        "ok": true,
+        "note": "{\"value\":\"Hello\",\"kind\":\"fixed\"}"
+      },
+      {
+        "id": "bold: keyboard shortcut, then the toolbar",
+        "ok": true,
+        "note": "shortcut does nothing; toolbar works"
+      },
+      {
+        "id": "italic: keyboard shortcut, then the toolbar",
+        "ok": false,
+        "note": "shortcut does nothing; toolbar none (the toolbar has no italic button)"
+      },
+      {
+        "id": "keyboard: arrows move, then typing lands in the right cell",
+        "ok": true,
+        "note": "Z landed at row 16 column 4, wanted row 16 column 4"
+      },
+      {
+        "id": "merge: select 2x2 and merge (toolbar button; unmerge by library call)",
+        "ok": true,
+        "note": "merged; the library opened a native confirm dialog"
+      },
+      {
+        "id": "unmerge",
+        "ok": true
+      },
+      {
+        "id": "paste: a block copied from a spreadsheet application (2 x 2)",
+        "ok": true,
+        "note": "Pass|12.5|Fail|7"
+      },
+      {
+        "id": "undo: Ctrl+Z takes the whole paste back in one step",
+        "ok": true,
+        "note": "0 of 4 pasted values left"
+      }
+    ]
+  },
+  "fill": [
+    {
+      "id": "a fixed cell cannot be typed into",
+      "ok": true,
+      "note": "This cell is fixed text and cannot be typed into."
+    },
+    {
+      "id": "a number column refuses letters and accepts digits",
+      "ok": true,
+      "note": "refused=true"
+    },
+    {
+      "id": "a list column refuses a value that is not in the list",
+      "ok": true,
+      "note": "the editor is a SELECT"
+    },
+    {
+      "id": "a yes or no column toggles with Enter",
+      "ok": true
+    },
+    {
+      "id": "pasting into fixed and input cells together fills only the input cells",
+      "ok": true,
+      "note": "Pass|3.5|Fail|undefined ; Pasted 3 cells, 3 skipped. A number column holds digits, with an optional sign and decimals."
+    }
+  ],
+  "dark": {
+    "own": {
+      "light": 0.99,
+      "dark": 0.11,
+      "ok": true,
+      "note": "mean brightness light 0.99, dark 0.11"
+    },
+    "fortune": {
+      "light": 0.99,
+      "dark": 0.99,
+      "ok": false,
+      "note": "mean brightness light 0.99, dark 0.99"
+    },
+    "univer": {
+      "light": 0.96,
+      "dark": 0.8,
+      "ok": false,
+      "note": "mean brightness light 0.96, dark 0.8"
+    },
+    "jspreadsheet": {
+      "light": 0.99,
+      "dark": 0.99,
+      "ok": false,
+      "note": "mean brightness light 0.99, dark 0.99"
+    }
+  },
+  "a11y": {
+    "own": {
+      "counts": {
+        "grid": 1,
+        "row": 23,
+        "gridcell": 170,
+        "columnheader": 8,
+        "cell": 0,
+        "textbox": 0,
+        "button": 0,
+        "toolbar": 1
+      },
+      "cellsInAccessibilityTree": 178,
+      "focusAfterTwoTabs": "button outline=auto 1px",
+      "ok": true
+    },
+    "fortune": {
+      "counts": {
+        "grid": 0,
+        "row": 0,
+        "gridcell": 0,
+        "columnheader": 0,
+        "cell": 0,
+        "textbox": 0,
+        "button": 38,
+        "toolbar": 1
+      },
+      "cellsInAccessibilityTree": 6,
+      "focusAfterTwoTabs": "div outline=none 3px",
+      "ok": false
+    },
+    "univer": {
+      "counts": {
+        "grid": 0,
+        "row": 0,
+        "gridcell": 0,
+        "columnheader": 0,
+        "cell": 0,
+        "textbox": 0,
+        "button": 13,
+        "toolbar": 1
+      },
+      "cellsInAccessibilityTree": 1,
+      "focusAfterTwoTabs": "div outline=none 3px",
+      "ok": false
+    },
+    "jspreadsheet": {
+      "counts": {
+        "grid": 0,
+        "row": 33,
+        "gridcell": 0,
+        "columnheader": 0,
+        "cell": 377,
+        "textbox": 0,
+        "button": 8,
+        "toolbar": 0
+      },
+      "cellsInAccessibilityTree": 201,
+      "focusAfterTwoTabs": "body outline=none 3px",
+      "ok": true
+    }
+  },
+  "csp": {
+    "own": {
+      "relaxed": {
+        "started": true,
+        "violations": 0,
+        "directives": [],
+        "evalNeeded": false,
+        "hasScrollArea": true
+      },
+      "strict": {
+        "started": true,
+        "violations": 0,
+        "directives": [],
+        "evalNeeded": false,
+        "hasScrollArea": true
+      }
+    },
+    "fortune": {
+      "relaxed": {
+        "started": true,
+        "violations": 0,
+        "directives": [],
+        "evalNeeded": false,
+        "hasScrollArea": true
+      },
+      "strict": {
+        "started": true,
+        "violations": 1,
+        "directives": [
+          "style-src-attr"
+        ],
+        "evalNeeded": false,
+        "hasScrollArea": false
+      }
+    },
+    "univer": {
+      "relaxed": {
+        "started": true,
+        "violations": 0,
+        "directives": [],
+        "evalNeeded": false,
+        "hasScrollArea": true
+      },
+      "strict": {
+        "started": true,
+        "violations": 5,
+        "directives": [
+          "style-src-attr",
+          "style-src-elem"
+        ],
+        "evalNeeded": false,
+        "hasScrollArea": true
+      }
+    },
+    "jspreadsheet": {
+      "relaxed": {
+        "started": true,
+        "violations": 0,
+        "directives": [],
+        "evalNeeded": false,
+        "hasScrollArea": true
+      },
+      "strict": {
+        "started": true,
+        "violations": 21,
+        "directives": [
+          "style-src-attr"
+        ],
+        "evalNeeded": false,
+        "hasScrollArea": true
+      }
+    }
+  },
+  "baseline": {
+    "readyMs": 511,
+    "heap": {
+      "heapMb": 2.4,
+      "domNodes": 35
+    },
+    "jsKb": 468,
+    "jsGzipKb": 139
+  },
+  "chrome": "155.0.8059.85",
+  "when": "2026-10-21T09:36:10.687Z",
+  "fillLib": {
+    "fortune": [
+      {
+        "id": "a fixed cell cannot be typed into (library hook)",
+        "ok": true
+      },
+      {
+        "id": "an input cell can be typed into",
+        "ok": true
+      },
+      {
+        "id": "pasting across fixed and input cells changes only the input cells",
+        "ok": false,
+        "note": "fixed cell now \"a\", input cell now \"Pass\""
+      },
+      {
+        "id": "a number column refuses letters",
+        "ok": false,
+        "note": "the cell holds \"abc\""
+      }
+    ],
+    "univer": [
+      {
+        "id": "a fixed cell cannot be typed into (library hook)",
+        "ok": true
+      },
+      {
+        "id": "an input cell can be typed into",
+        "ok": true
+      },
+      {
+        "id": "pasting across fixed and input cells changes only the input cells",
+        "ok": false,
+        "note": "fixed cell now \"a\", input cell now \"Pass\""
+      },
+      {
+        "id": "a number column refuses letters",
+        "ok": false,
+        "note": "the cell holds \"abc\""
+      }
+    ],
+    "jspreadsheet": [
+      {
+        "id": "a fixed cell cannot be typed into (library hook)",
+        "ok": true
+      },
+      {
+        "id": "an input cell can be typed into",
+        "ok": true
+      },
+      {
+        "id": "pasting across fixed and input cells changes only the input cells",
+        "ok": true,
+        "note": "fixed cell now \"Row 3 Gauge Exit\", input cell now \"Pass\""
+      },
+      {
+        "id": "a number column refuses letters",
+        "ok": false,
+        "note": "the cell holds \"abc\""
+      }
+    ]
+  }
+}
