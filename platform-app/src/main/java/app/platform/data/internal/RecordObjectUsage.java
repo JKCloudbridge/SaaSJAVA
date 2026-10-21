@@ -7,6 +7,8 @@ import app.platform.metadata.ObjectUsage;
 import app.platform.metadata.SlotClass;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.stereotype.Component;
@@ -44,6 +46,20 @@ class RecordObjectUsage implements ObjectUsage {
     @Override
     public boolean hasValues(String objectApiName, String fieldApiName) {
         return storage.hasValues(objectApiName, fieldApiName);
+    }
+
+    @Override
+    public long recordsOutsidePairs(String objectApiName, String dependentField, String controllingField,
+            Map<String, List<String>> allowed) {
+        if (!storage.hasValues(objectApiName, dependentField)) {
+            return 0;
+        }
+        try {
+            return storage.recordsOutsidePairs(objectApiName, dependentField, controllingField, allowed);
+        } catch (QueryTimeoutException tooSlow) {
+            throw new ApiException(ErrorCode.CONFLICT, "The records could not be checked in the time allowed. Try "
+                    + "again when the organization is less busy.");
+        }
     }
 
     /**

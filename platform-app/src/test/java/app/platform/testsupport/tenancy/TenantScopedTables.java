@@ -705,6 +705,38 @@ public final class TenantScopedTables {
                         tenant, instance, step, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
             });
 
+    /**
+     * The organization's own values of a platform picklist (FA2A). One live row per organization, object and field, so
+     * each call retires the live probe row and adds a new one.
+     */
+    public static final TenantScopedTable ORGANIZATION_FIELD_VALUES = new TenantScopedTable(
+            "organization_field_values", (connection, tenant) -> {
+                TenantFixtures.update(connection,
+                        "update organization_field_values set deleted_at = now(), deleted_by = ?, "
+                                + "version = version + 1, updated_by = ? where tenant_id = ? "
+                                + "and object_api_name = 'Probe' "
+                                + "and field_api_name = 'probe' and deleted_at is null",
+                        ActorId.SYSTEM.value(), ActorId.SYSTEM.value(), tenant);
+                TenantFixtures.update(connection,
+                        "insert into organization_field_values (tenant_id, object_api_name, field_api_name, "
+                                + "created_by, updated_by) values (?, 'Probe', 'probe', ?, ?)",
+                        tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** The counters of number series (FA2A). One live row per scope, so each call retires the live one first. */
+    public static final TenantScopedTable NUMBER_SERIES_COUNTER = new TenantScopedTable("number_series_counter",
+            (connection, tenant) -> {
+                TenantFixtures.update(connection,
+                        "update number_series_counter set deleted_at = now(), deleted_by = ?, version = version + 1, "
+                                + "updated_by = ? where tenant_id = ? and series_key = 'probe' and scope_key = 'P' "
+                                + "and deleted_at is null",
+                        ActorId.SYSTEM.value(), ActorId.SYSTEM.value(), tenant);
+                TenantFixtures.update(connection,
+                        "insert into number_series_counter (tenant_id, series_key, scope_key, next_value, created_by, "
+                                + "updated_by) values (?, 'probe', 'P', 2, ?, ?)",
+                        tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
@@ -719,7 +751,8 @@ public final class TenantScopedTables {
             RECORD_PAGE_ASSIGNMENT, WORKFLOW, WORKFLOW_VERSION, WORKFLOW_EXECUTION, WORKFLOW_STEP,
             WORKFLOW_SCHEDULE, APPROVAL_PROCESS, APPROVAL_PROCESS_VERSION, APPROVAL_INSTANCE,
             APPROVAL_STEP_INSTANCE, APPROVAL_ASSIGNMENT, APPROVAL_HISTORY, APPROVAL_DELEGATION, NOTIFICATION,
-            NOTIFICATION_PREFERENCE, NOTIFICATION_TEMPLATE, APPROVAL_STEP_TIMER, APPROVAL_REMINDER);
+            NOTIFICATION_PREFERENCE, NOTIFICATION_TEMPLATE, APPROVAL_STEP_TIMER, APPROVAL_REMINDER,
+            ORGANIZATION_FIELD_VALUES, NUMBER_SERIES_COUNTER);
 
     private TenantScopedTables() {
     }

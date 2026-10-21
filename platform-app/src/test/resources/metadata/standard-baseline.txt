@@ -65,6 +65,9 @@ Contact.mailingCountry TEXT
 InspectionTemplate managedBy=none requiresFeature=inspection retainRecords
 InspectionTemplate.name TEXT
 InspectionTemplate.retired BOOLEAN
+InspectionTemplate.category PICKLIST codeValues organizationValues
+InspectionTemplate.subCategory PICKLIST codeValues organizationValues dependsOn=category
+InspectionTemplate.number TEXT platformWritten
 LicenceType managedBy=licensing
 LicenceType.key TEXT
 LicenceType.name TEXT

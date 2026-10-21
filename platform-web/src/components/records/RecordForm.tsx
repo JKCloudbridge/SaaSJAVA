@@ -19,6 +19,8 @@ import { useLookupLabels } from "@/lib/records/hooks";
 import { stringifyBody } from "@/lib/records/json";
 import type { FieldInput, FormField, ObjectForm, Problems, RecordView } from "@/lib/records/types";
 import { ConflictPanel, type Choice } from "./ConflictPanel";
+import { offeredField, staleDependents, type AddedValue } from "@/lib/records/dependency";
+import { AddValue } from "./AddValue";
 import { FieldEditor, FieldReadValue } from "./FieldRegistry";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -88,6 +90,8 @@ export function RecordForm({
     template && !record ? cloneableInputs(form, template) : {},
   );
   const [chosen, setChosen] = useState<Record<string, string>>({});
+  // Values a member added from this form, by picklist (the server has them; the form need not reload to offer them).
+  const [added, setAdded] = useState<Record<string, AddedValue[]>>({});
   const [visited, setVisited] = useState<ReadonlySet<string>>(new Set());
   const [problems, setProblems] = useState<Problems>({});
   const [calculated, setCalculated] = useState<Record<string, unknown>>({});
@@ -209,7 +213,16 @@ export function RecordForm({
   }, [changed.length]);
 
   function edit(field: FormField, input: FieldInput, label?: string) {
-    setEdits((current) => ({ ...current, [field.apiName]: input }));
+    // A dependent picklist whose chosen value stops going with the new choice is emptied, so no pair is left that the
+    // server would refuse (it decides again on every save).
+    const stale = staleDependents(form.fields, field.apiName, input, inputOf, added);
+    setEdits((current) => {
+      const next = { ...current, [field.apiName]: input };
+      for (const name of stale) {
+        next[name] = "";
+      }
+      return next;
+    });
     if (label !== undefined && typeof input === "string" && input !== "") {
       setChosen((current) => ({ ...current, [`${field.apiName}|${input}`]: label }));
     }
@@ -460,17 +473,41 @@ export function RecordForm({
                 const span = wide(field) || section.columns === 1 ? " span-2" : "";
                 if (field.editable) {
                   const input = inputOf(name);
+                  const controllingName = field.dependency?.controllingField;
+                  const controllingInput = controllingName ? inputOf(controllingName) : undefined;
+                  const held = typeof initial[name] === "string" ? (initial[name] as string) : "";
+                  const offered = offeredField(field, controllingInput, held, added[name] ?? []);
+                  const controllingField = controllingName ? byName.get(controllingName) : undefined;
                   return (
                     <div key={name} className={`record-field${span}`}>
                       <FieldEditor
                         objectApiName={objectApiName}
-                        field={field}
+                        field={offered}
                         input={input}
                         problems={problemsFor(field)}
                         lookupLabel={typeof input === "string" ? labelOf(field, input) : undefined}
                         onChange={(next, label) => edit(field, next, label)}
                         onBlur={() => setVisited((current) => new Set(current).add(name))}
                       />
+                      {field.canAddValues ? (
+                        <AddValue
+                          objectApiName={objectApiName}
+                          field={field}
+                          controlling={
+                            controllingField
+                              ? {
+                                  label: controllingField.label,
+                                  values: (controllingField.values ?? []).filter((one) => one.active),
+                                }
+                              : undefined
+                          }
+                          chosen={typeof controllingInput === "string" ? controllingInput : ""}
+                          onAdded={(one) => {
+                            setAdded((current) => ({ ...current, [name]: [...(current[name] ?? []), one] }));
+                            edit(field, one.value, undefined);
+                          }}
+                        />
+                      ) : null}
                     </div>
                   );
                 }

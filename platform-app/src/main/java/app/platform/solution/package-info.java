@@ -9,7 +9,9 @@
  * checks the bundles at start, answers the shared-kernel contract {@code ShippedApplications} that the member's menu
  * merges (the application is computed for each request and written to no table of the organization), keeps the shipped
  * access policies of an organization in step (rows marked as shipped, made in the organization's own context the first
- * time they are needed), and supplies the words the console shows before a feature is taken away. The objects of a
+ * time they are needed), declares the number series of a solution through the shared-kernel contract
+ * {@code NumberSeriesDeclarations} (FA2A), and supplies the words the console shows before a feature is taken away. The
+ * objects of a
  * bundle are platform definitions read by the metadata module; this module checks that every one is named by a bundle.
  *
  * <p>Other modules may use only the types in this package (its public API). Everything in sub-packages is

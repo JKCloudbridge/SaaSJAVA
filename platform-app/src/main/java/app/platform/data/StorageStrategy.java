@@ -332,6 +332,20 @@ public interface StorageStrategy {
      */
     int liveCountUpTo(String objectApiName, int cap);
 
+    // ---- dependent picklists (FA2A, ADR-0177) ----
+
+    /**
+     * How many live records of the object hold a value in the dependent field that the rule does not allow for the
+     * value
+     * they hold in the controlling field (a record without a controlling value holds none that is allowed). A full scan
+     * of the object: only a change that makes a field dependent, or changes its pairs, asks it, to tell the
+     * administrator how many records the change leaves with an old pair.
+     *
+     * @param allowed for each value of the controlling field, the values of the dependent field that go with it
+     */
+    long recordsOutsidePairs(String objectApiName, String dependentField, String controllingField,
+            Map<String, List<String>> allowed);
+
     // ---- uniqueness (Sprint 16A, ADR-0111) ----
 
     /**

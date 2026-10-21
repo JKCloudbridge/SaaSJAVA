@@ -225,7 +225,7 @@ class BeforeSave {
 
     private static boolean writable(FieldDefinition field) {
         return field.kind() != app.platform.metadata.DefinitionKind.SYSTEM && !field.type().calculated()
-                && !field.retired();
+                && !field.retired() && !field.platformWritten();
     }
 
     private boolean overrun(long startedNanos) {

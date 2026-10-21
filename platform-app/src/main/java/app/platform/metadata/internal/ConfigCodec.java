@@ -4,6 +4,7 @@ import app.platform.metadata.DeleteBehaviour;
 import app.platform.metadata.FieldConfiguration;
 import app.platform.metadata.FieldConfiguration.AutoNumberConfiguration;
 import app.platform.metadata.FieldConfiguration.DecimalConfiguration;
+import app.platform.metadata.FieldConfiguration.Dependency;
 import app.platform.metadata.FieldConfiguration.FormulaConfiguration;
 import app.platform.metadata.FieldConfiguration.NoConfiguration;
 import app.platform.metadata.FieldConfiguration.NumberConfiguration;
@@ -17,6 +18,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -57,6 +59,9 @@ final class ConfigCodec {
                     values.add(one);
                 }
                 out.put("values", values);
+                if (picklist.dependency() != null) {
+                    out.put("dependency", dependency(picklist.dependency()));
+                }
             }
             case ReferenceConfiguration reference -> {
                 out.put("targetObject", reference.targetObject());
@@ -91,7 +96,8 @@ final class ConfigCodec {
             case DECIMAL, CURRENCY, PERCENT -> new DecimalConfiguration(integer(in, "precision", 18),
                     integer(in, "scale", 2));
             case BOOLEAN, DATE, DATETIME, TIME -> new NoConfiguration();
-            case PICKLIST, MULTI_PICKLIST -> new PicklistConfiguration(picklist(in));
+            case PICKLIST -> new PicklistConfiguration(picklist(in), dependency(in));
+            case MULTI_PICKLIST -> new PicklistConfiguration(picklist(in));
             case LOOKUP, MASTER_DETAIL -> reference(type, in);
             case FORMULA -> new FormulaConfiguration(text(in, "expression", ""),
                     FieldType.fromCode(text(in, "resultType", "TEXT")).orElse(FieldType.TEXT),
@@ -124,6 +130,34 @@ final class ConfigCodec {
             }
         }
         return values;
+    }
+
+    /** The rule as stored: the keys sorted, so that the same rule always gives the same text. */
+    private static Map<String, Object> dependency(Dependency dependency) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("controllingField", dependency.controllingField());
+        Map<String, List<String>> allowed = new LinkedHashMap<>();
+        new TreeMap<>(dependency.allowed()).forEach((key, values) -> allowed.put(key, values));
+        out.put("allowed", allowed);
+        return out;
+    }
+
+    private static Dependency dependency(Map<String, Object> in) {
+        if (!(in.get("dependency") instanceof Map<?, ?> stored)
+                || !(stored.get("controllingField") instanceof String field)) {
+            return null;
+        }
+        Map<String, List<String>> allowed = new LinkedHashMap<>();
+        if (stored.get("allowed") instanceof Map<?, ?> rows) {
+            rows.forEach((key, list) -> {
+                List<String> values = new ArrayList<>();
+                if (list instanceof List<?> items) {
+                    items.forEach(item -> values.add(String.valueOf(item)));
+                }
+                allowed.put(String.valueOf(key), values);
+            });
+        }
+        return new Dependency(field, allowed);
     }
 
     private static int integer(Map<String, Object> in, String key, int fallback) {

@@ -2,7 +2,9 @@
 
 import { useState, type FormEvent } from "react";
 import type { components } from "@/lib/api/generated/schema";
+import { pairsOf, ruleOf, type Pairs } from "@/lib/setup/pairs";
 import { ExpressionCheck } from "./ExpressionCheck";
+import { PairsEditor } from "./PairsEditor";
 import type { FieldTypeView, FieldView } from "./objectText";
 
 type CreateFieldRequest = components["schemas"]["CreateFieldRequest"];
@@ -40,6 +42,10 @@ interface Draft {
   reparentable: boolean;
   listLabel: string;
   values: ValueRow[];
+  /** The picklist this one depends on, or empty (FA2A). */
+  controllingField: string;
+  /** Which values go with which value of the controlling picklist. */
+  pairs: Pairs;
 }
 
 const NUMBER_SETTINGS: Array<{ key: "maxLength" | "digits" | "precision" | "scale" | "startAt" | "width"; label: string }> = [
@@ -74,6 +80,8 @@ function emptyDraft(type: string): Draft {
     reparentable: false,
     listLabel: "",
     values: [],
+    controllingField: "",
+    pairs: {},
   };
 }
 
@@ -101,11 +109,13 @@ function draftOf(field: FieldView): Draft {
     reparentable: s.reparentable ?? false,
     listLabel: s.listLabel ?? "",
     values: (s.values ?? []).map((value) => ({ ...value, existing: true })),
+    controllingField: s.dependency?.controllingField ?? "",
+    pairs: pairsOf(s.dependency),
   };
 }
 
 /** The settings the type takes, from what is typed; empty boxes are left out so the API applies its defaults. */
-function settingsOf(spec: FieldTypeView, draft: Draft): FieldSettings {
+function settingsOf(spec: FieldTypeView, draft: Draft, controllingValues: readonly string[]): FieldSettings {
   const settings: FieldSettings = {};
   for (const { key } of NUMBER_SETTINGS) {
     if (spec.settings.includes(key) && draft[key] !== "") {
@@ -114,6 +124,14 @@ function settingsOf(spec: FieldTypeView, draft: Draft): FieldSettings {
   }
   if (spec.settings.includes("values")) {
     settings.values = draft.values.map(({ value, label, active }) => ({ value, label, active }));
+  }
+  if (spec.settings.includes("dependency") && draft.controllingField !== "") {
+    settings.dependency = ruleOf(
+      draft.controllingField,
+      controllingValues,
+      draft.values.map((row) => row.value).filter((value) => value !== ""),
+      draft.pairs,
+    );
   }
   if (spec.settings.includes("targetObject")) {
     settings.targetObject = draft.targetObject;
@@ -155,6 +173,8 @@ export function FieldForm({
   onCancel,
   formId,
   hideActions = false,
+  siblings = [],
+  ownsList = false,
 }: {
   types: FieldTypeView[];
   objects: ObjectSummary[];
@@ -169,12 +189,29 @@ export function FieldForm({
   formId?: string;
   /** The page puts Save and Cancel in its title band; the form then draws none of its own. */
   hideActions?: boolean;
+  /** The other fields of the object, so a picklist can be made to depend on another one (FA2A). */
+  siblings?: FieldView[];
+  /**
+   * The field is the platform's and the organization owns its list of values and its pairs: only those can be changed,
+   * and the rest is shown (FA2A, ADR-0182).
+   */
+  ownsList?: boolean;
 }) {
   const [draft, setDraft] = useState<Draft>(() => (editing ? draftOf(editing) : emptyDraft(types[0]?.type ?? "TEXT")));
   const spec = types.find((candidate) => candidate.type === draft.type);
   if (!spec) {
     return null;
   }
+
+  // The picklists this one may depend on: the object's other single-value picklists (the API checks the rest).
+  const controllers = siblings
+    .filter((other) => other.type === "PICKLIST" && other.apiName !== draft.name && !other.retired)
+    .map((other) => ({
+      apiName: other.apiName,
+      label: other.label,
+      values: (other.settings.values ?? []).map((value) => ({ value: value.value, label: value.label })),
+    }));
+  const controller = controllers.find((candidate) => candidate.apiName === draft.controllingField);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((current) => ({ ...current, [key]: value }));
   const setRow = (index: number, change: Partial<ValueRow>) =>
@@ -194,10 +231,14 @@ export function FieldForm({
       required: spec.allowsRequired ? draft.required : false,
       unique: spec.allowsUnique ? draft.unique : false,
       defaultValue: spec.allowsDefault && draft.defaultValue !== "" ? draft.defaultValue : undefined,
-      settings: settingsOf(spec, draft),
+      settings: settingsOf(spec, draft, controller?.values.map((value) => value.value) ?? []),
     };
     if (editing) {
-      onUpdate({ ...common, version: editing.version });
+      // The platform's own flags travel back as they are: only the list and the pairs of such a field change.
+      const kept = ownsList
+        ? { indexed: editing.indexed, externalId: editing.externalId, searchable: editing.searchable }
+        : {};
+      onUpdate({ ...common, ...kept, version: editing.version });
     } else {
       onCreate({ ...common, name: draft.name, type: draft.type });
     }
@@ -253,6 +294,7 @@ export function FieldForm({
           value={draft.label}
           maxLength={80}
           onChange={(event) => set("label", event.target.value)}
+          disabled={ownsList}
           required
         />
       </div>
@@ -263,6 +305,7 @@ export function FieldForm({
           value={draft.description}
           maxLength={500}
           onChange={(event) => set("description", event.target.value)}
+          disabled={ownsList}
         />
       </div>
 
@@ -385,7 +428,7 @@ export function FieldForm({
               <input
                 aria-label={`Value ${index + 1}`}
                 value={row.value}
-                maxLength={80}
+                maxLength={editing?.codeValues ? 10 : 80}
                 disabled={row.existing}
                 onChange={(event) => setRow(index, { value: event.target.value })}
               />{" "}
@@ -422,21 +465,37 @@ export function FieldForm({
             Add a value
           </button>
           <p className="hint">A value that exists can be switched off, never removed.</p>
+          {editing?.codeValues ? (
+            <p className="hint">
+              A value is a short code of up to 10 letters, digits, hyphens or underscores; the label can say more.
+            </p>
+          ) : null}
         </fieldset>
       ) : null}
+      {spec.settings.includes("dependency") && (controllers.length > 0 || draft.controllingField !== "") ? (
+        <PairsEditor
+          controllers={controllers}
+          controllingField={draft.controllingField}
+          onControllingField={(apiName) => setDraft((current) => ({ ...current, controllingField: apiName, pairs: {} }))}
+          ownValues={draft.values.map((row) => ({ value: row.value, label: row.label }))}
+          pairs={draft.pairs}
+          onPairs={(pairs) => set("pairs", pairs)}
+          locked={ownsList}
+        />
+      ) : null}
 
-      {spec.allowsRequired ? (
+      {spec.allowsRequired && !ownsList ? (
         <label>
           <input type="checkbox" checked={draft.required} onChange={(event) => set("required", event.target.checked)} /> Required
         </label>
       ) : null}
-      {spec.allowsUnique ? (
+      {spec.allowsUnique && !ownsList ? (
         <label>
           <input type="checkbox" checked={draft.unique} onChange={(event) => set("unique", event.target.checked)} /> Unique
           {spec.settings.includes("targetObject") ? " (makes the link one-to-one)" : ""}
         </label>
       ) : null}
-      {spec.allowsDefault ? (
+      {spec.allowsDefault && !ownsList ? (
         <div className="field">
           <label htmlFor="field-default">Default value</label>
           {draft.type === "BOOLEAN" ? (

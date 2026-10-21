@@ -23,6 +23,8 @@ public final class BackgroundWriteException extends RuntimeException {
         REQUIRED_MISSING("required_missing", false),
         /** A linked record does not exist. */
         LINK_TARGET_GONE("link_target_gone", false),
+        /** A value does not go with the value of the field its picklist depends on (FA2A, ADR-0177). */
+        PAIR_NOT_ALLOWED("pair_not_allowed", false),
         /** The value or combination is already in use. */
         UNIQUE_CLASH("unique_clash", false),
         /** A validation rule rejected the record. */

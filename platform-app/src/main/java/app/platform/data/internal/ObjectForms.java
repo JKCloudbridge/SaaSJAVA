@@ -15,9 +15,11 @@ import app.platform.metadata.Metadata;
 import app.platform.metadata.ObjectDefinition;
 import app.platform.metadata.PageLayout;
 import app.platform.metadata.RecordType;
+import app.platform.security.Ability;
 import app.platform.security.MemberAccess;
 import app.platform.security.ObjectAccess;
 import app.platform.security.ObjectAction;
+import app.platform.security.Permissions;
 import app.platformapi.ApiException;
 import app.platformapi.FormActionsView;
 import app.platformapi.FormFieldView;
@@ -25,6 +27,7 @@ import app.platformapi.FormLayoutView;
 import app.platformapi.FormRecordTypeView;
 import app.platformapi.FormSectionView;
 import app.platformapi.ObjectFormView;
+import app.platformapi.PicklistDependency;
 import app.platformapi.PicklistOption;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -92,8 +95,11 @@ class ObjectForms {
     private final Metadata metadata;
     private final MemberAccess members;
     private final Records records;
+    private final Permissions permissions;
 
-    ObjectForms(RecordGate gate, FieldSecurity security, Metadata metadata, MemberAccess members, Records records) {
+    ObjectForms(RecordGate gate, FieldSecurity security, Metadata metadata, MemberAccess members, Records records,
+            Permissions permissions) {
+        this.permissions = permissions;
         this.gate = gate;
         this.security = security;
         this.metadata = metadata;
@@ -141,11 +147,13 @@ class ObjectForms {
         blocks.forEach(block -> block.fields().forEach(placed -> behaviours.putIfAbsent(placed.field(),
                 placed.behaviour())));
 
+        boolean mayAddValues = permissions.has(passed.membershipId(), Ability.FIELD_VALUES_ADD);
         List<FormFieldView> fields = new ArrayList<>();
         for (FieldDefinition field : object.fields()) {
             if (access.readableFields().contains(field.apiName()) && !field.retired() && shown(field)
                     && RecordTypeCheck.offers(selected, field)) {
-                fields.add(describe(field, access, behaviours.get(field.apiName()), selected));
+                fields.add(describe(object, field, access, behaviours.get(field.apiName()), selected,
+                        mayAddValues));
             }
         }
 
@@ -209,10 +217,12 @@ class ObjectForms {
         return field.kind() != DefinitionKind.SYSTEM || SHOWN_SYSTEM.contains(field.apiName());
     }
 
-    private FormFieldView describe(FieldDefinition field, ObjectAccess access, String behaviour, RecordType selected) {
+    private FormFieldView describe(ObjectDefinition object, FieldDefinition field, ObjectAccess access,
+            String behaviour, RecordType selected, boolean mayAddValues) {
         boolean calculated = field.type().calculated();
         boolean editable = access.editableFields().contains(field.apiName()) && field.kind() != DefinitionKind.SYSTEM
-                && !calculated && !READ_ONLY.equals(behaviour) && !HIDDEN.equals(behaviour);
+                && !calculated && !field.platformWritten() && !READ_ONLY.equals(behaviour)
+                && !HIDDEN.equals(behaviour);
         boolean required = (field.required() || REQUIRED.equals(behaviour)) && !calculated;
 
         Integer maxLength = null;
@@ -251,10 +261,30 @@ class ObjectForms {
             }
         }
         QueryAnalyzer.Querying querying = QueryAnalyzer.queryingOf(field);
+        boolean canAdd = mayAddValues && field.organizationValues() && editable
+                && (access.can(ObjectAction.CREATE) || access.can(ObjectAction.UPDATE));
         return new FormFieldView(field.apiName(), field.label(), field.description(), field.kind().name(),
                 field.type().name(), required, field.unique(), editable, calculated, field.defaultValue(), maxLength,
                 digits, precision, scale, values, target, targetLabel, targetOpenable, resultType, prefix, width,
-                field.searchable(), field.externalId(), querying.sortable(), querying.operators());
+                field.searchable(), field.externalId(), querying.sortable(), querying.operators(),
+                dependencyOf(object, field, access, selected), canAdd, field.codeValues() ? Boolean.TRUE : null);
+    }
+
+    /**
+     * The rule of a dependent picklist for the screen, or null: left out when the field depends on nothing and when the
+     * member cannot see the controlling field (it is absent for them, or the record type does not offer it), so the
+     * answer says nothing about a field they cannot read. The server enforces the rule on every write whatever this
+     * says.
+     */
+    private static PicklistDependency dependencyOf(ObjectDefinition object, FieldDefinition field,
+            ObjectAccess access, RecordType selected) {
+        if (!(field.configuration() instanceof PicklistConfiguration picklist) || picklist.dependency() == null) {
+            return null;
+        }
+        String controlling = picklist.dependency().controllingField();
+        boolean visible = access.readableFields().contains(controlling) && object.field(controlling)
+                .filter(other -> !other.retired() && RecordTypeCheck.offers(selected, other)).isPresent();
+        return visible ? new PicklistDependency(controlling, picklist.dependency().allowed()) : null;
     }
 
     /** The choices of a picklist: the ones the record type allows (all of them when it does not restrict). */

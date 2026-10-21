@@ -1,6 +1,6 @@
 # ADR-0177: Dependent picklists
 
-- **Status:** Proposed
+- **Status:** Accepted (the product owner, 2026-10-21; built in FA2A; section 3 is carried out by [ADR-0182](0182-the-organizations-own-list-of-a-platform-picklist.md), which also corrects the statement below that no table is needed)
 - **Date:** 2026-10-21
 - **Sprint:** FA0 (Functional track, spike; no product code)
 - **Related:** [ADR-0058](0058-object-and-field-definitions.md) (field model), [ADR-0064](0064-record-types.md) (record types restrict picklist values), [ADR-0063](0063-relationships.md), [ADR-0091](0091-the-write-pipeline-and-its-order.md), [ADR-0129](0129-record-screens-the-members-description-names-and-validation.md), [ADR-0176](0176-number-series-and-the-first-approvers-number.md)
@@ -51,5 +51,5 @@ The platform ships a small starting list (so the cluster works the day it is swi
 ## Consequences
 
 - FA2 builds: the model and `FieldRules`, the dependency edge, the `dependent` stage and its entry in `WritePipelineStagesIT`, the descriptor and control, the dependency editor, `organizationValues`, the loader and baseline changes. **Tests:** property tests over random matrices (the stage accepts exactly the pairs of the matrix, intersected with a record type); a bulk of 200 records with a mixture of pairs; an import with bad pairs; the old-pair-is-not-blocked rule; a change set that makes a field dependent and rolls back; the dependency graph (loop, removal of the controlling field); an isolation test is not needed (no new table).
-- No new migration and no new endpoint: the matrix travels with the field's configuration (the OpenAPI document gains the configuration's new part and the generated client is regenerated).
+- No new migration and no new endpoint **for a field an organization makes**: the matrix travels with the field's configuration (the OpenAPI document gains the configuration's new part and the generated client is regenerated). *Correction (FA2A):* section 3 (`organizationValues`) needs one small table, because a platform field has no row to hold the organization's list: V061, [ADR-0182](0182-the-organizations-own-list-of-a-platform-picklist.md). The cross-field rules (the controlling field exists and qualifies, no chain, every key and value exists) are the dependency graph's question, asked of the result of a whole change set, not `FieldRules`'s; `FieldRules` checks what the one field can tell (shape, limits, that every listed value belongs to the picklist).
 - Depth one and single-value picklists only; multi-picklists, a checkbox as the controlling field and chains are not in the first release.

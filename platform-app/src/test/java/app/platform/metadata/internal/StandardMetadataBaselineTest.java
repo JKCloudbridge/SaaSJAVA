@@ -89,12 +89,20 @@ class StandardMetadataBaselineTest {
         FieldConfiguration configuration = field.configuration();
         String more = switch (configuration) {
             case ReferenceConfiguration reference -> " target=" + reference.targetObject();
+            // The organization owns the list of such a picklist once it starts to change it (ADR-0182): what is
+            // released
+            // is that it is theirs, and which field it depends on, not the platform's starting list, which a release
+            // may
+            // replace as data only.
+            case PicklistConfiguration picklist when field.organizationValues() -> " organizationValues"
+                    + (picklist.dependency() == null ? "" : " dependsOn=" + picklist.dependency().controllingField());
             case PicklistConfiguration picklist -> " values=" + picklist.values().stream().map(PicklistValue::value)
                     .collect(Collectors.joining(","));
             case AutoNumberConfiguration auto -> " prefix=" + auto.prefix() + " width=" + auto.width();
             default -> "";
         };
-        return field.type() + (field.indexed() ? " indexed" : "") + more;
+        return field.type() + (field.indexed() ? " indexed" : "") + (field.codeValues() ? " codeValues" : "")
+                + (field.platformWritten() ? " platformWritten" : "") + more;
     }
 
     /** Whether the current detail keeps everything the released one promised. */

@@ -37,6 +37,12 @@ import java.util.List;
  * @param externalId whether this field holds the identifier the record has in another system
  * @param sortable whether a list can be ordered by this field
  * @param filterOperators the comparisons a filter on this field accepts, empty when it cannot be filtered
+ * @param dependency for a dependent picklist: which values go with which value of the controlling field. Left out when
+ *        the picklist depends on nothing, and also when the member may not read the controlling field (the server still
+ *        enforces the rule on every write). Presentation only (FA2A, ADR-0177)
+ * @param canAddValues whether this member may add a value to the picklist from the form (the organization owns its
+ *        list, the member holds the right to add to it and may edit the field); false otherwise
+ * @param codeValues whether a value added must be a short code (letters, digits, hyphen, underscore; at most 10)
  */
 public record FormFieldView(@NotNull String apiName, @NotNull String label, @NotNull String description,
         @NotNull String kind, @NotNull String type, @NotNull Boolean required, @NotNull Boolean unique,
@@ -44,7 +50,8 @@ public record FormFieldView(@NotNull String apiName, @NotNull String label, @Not
         Integer digits, Integer precision, Integer scale, List<PicklistOption> values, String targetObject,
         String targetLabel, @NotNull Boolean targetOpenable, String resultType, String prefix, Integer width,
         @NotNull Boolean searchable,
-        @NotNull Boolean externalId, @NotNull Boolean sortable, @NotNull List<String> filterOperators) {
+        @NotNull Boolean externalId, @NotNull Boolean sortable, @NotNull List<String> filterOperators,
+        PicklistDependency dependency, Boolean canAddValues, Boolean codeValues) {
 
     /** Copies the lists. */
     public FormFieldView {

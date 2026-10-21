@@ -142,6 +142,7 @@ class DefaultBackgroundWrites implements BackgroundWrites {
             case "before save" -> Reason.AUTOMATION_FAILED;
             case "required" -> Reason.REQUIRED_MISSING;
             case "relationship" -> Reason.LINK_TARGET_GONE;
+            case "dependent" -> Reason.PAIR_NOT_ALLOWED;
             case "unique" -> Reason.UNIQUE_CLASH;
             case "rule" -> Reason.REJECTED_BY_RULE;
             case "formula" -> Reason.FORMULA_FAILED;

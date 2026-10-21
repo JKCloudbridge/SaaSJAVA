@@ -181,9 +181,15 @@ final class WorkflowActionChecks {
         return FieldRules.literalProblem(field.type(), field.configuration(), text);
     }
 
-    /** A field a person can type into: not a system field, not worked out by the platform, not retired. */
+    /**
+     * A field a definition may set: not a system field, not worked out by the platform, not retired, and not one only
+     * the
+     * platform writes (ADR-0183): a workflow, an approval outcome or a before-save automation is written by an
+     * administrator of the organization, who must not be able to set a number through it.
+     */
     static boolean settable(FieldDefinition field) {
-        return field.kind() != DefinitionKind.SYSTEM && !field.type().calculated() && !field.retired();
+        return field.kind() != DefinitionKind.SYSTEM && !field.type().calculated() && !field.retired()
+                && !field.platformWritten();
     }
 
     // ---- SEND_EMAIL ----

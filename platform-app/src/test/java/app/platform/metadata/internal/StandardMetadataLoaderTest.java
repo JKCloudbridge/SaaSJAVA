@@ -162,7 +162,79 @@ class StandardMetadataLoaderTest {
                 Arguments.of("an object another part owns that is hidden by a feature", head
                         + "managedBy: identity\nrequiresFeature: some-feature\nfields: []\n", "cannot be hidden"),
                 Arguments.of("an object another part owns that keeps its records", head
-                        + "managedBy: identity\nretainRecords: true\nfields: []\n", "cannot be hidden"));
+                        + "managedBy: identity\nretainRecords: true\nfields: []\n", "cannot be hidden"),
+                Arguments.of("an own list on a field that is not a picklist", head
+                        + "fields:\n  - { apiName: a, label: A, type: TEXT, organizationValues: true }\n",
+                        "belong to a single-value picklist"),
+                Arguments.of("an own list on an object another part owns", head
+                        + "managedBy: identity\nfields:\n  - { apiName: a, label: A, type: PICKLIST, "
+                        + "organizationValues: true, settings: { values: [ { value: X, label: X } ] } }\n",
+                        "another part of the platform owns"),
+                Arguments.of("short codes that are not short codes", head
+                        + "fields:\n  - { apiName: a, label: A, type: PICKLIST, codeValues: true, settings: "
+                        + "{ values: [ { value: 'Not a code', label: X } ] } }\n", "is a code of 1 to 10"),
+                Arguments.of("a field only the platform writes that is not text", head
+                        + "fields:\n  - { apiName: a, label: A, type: NUMBER, platformWritten: true }\n",
+                        "is a text field"),
+                Arguments.of("a field only the platform writes that is required", head
+                        + "fields:\n  - { apiName: a, label: A, type: TEXT, required: true, platformWritten: true }\n",
+                        "is not required"),
+                Arguments.of("a field only the platform writes that has a default", head
+                        + "fields:\n  - { apiName: a, label: A, type: TEXT, default: x, platformWritten: true }\n",
+                        "has no default"),
+                Arguments.of("a dependency on a field the object does not have", head
+                        + "fields:\n  - { apiName: a, label: A, type: PICKLIST, settings: { values: "
+                        + "[ { value: X, label: X } ], dependency: { controllingField: ghost, allowed: "
+                        + "{ K: [X] } } } }\n", "is not a field of the object"),
+                Arguments.of("a dependency that lists a value the picklist lacks", head
+                        + "fields:\n  - { apiName: k, label: K, type: PICKLIST, settings: { values: "
+                        + "[ { value: K, label: K } ] } }\n  - { apiName: a, label: A, type: PICKLIST, settings: "
+                        + "{ values: [ { value: X, label: X } ], dependency: { controllingField: k, allowed: "
+                        + "{ K: [Y] } } } }\n", "does not have"),
+                Arguments.of("a dependency with an unknown key", head
+                        + "fields:\n  - { apiName: k, label: K, type: PICKLIST, settings: { values: "
+                        + "[ { value: K, label: K } ] } }\n  - { apiName: a, label: A, type: PICKLIST, settings: "
+                        + "{ values: [ { value: X, label: X } ], dependency: { controllingField: k, allowed: "
+                        + "{ Z: [X] } } } }\n", "does not have"),
+                Arguments.of("a dependency written with a key the file does not know", head
+                        + "fields:\n  - { apiName: a, label: A, type: PICKLIST, settings: { values: "
+                        + "[ { value: X, label: X } ], dependency: { controllingField: k, others: 1 } } }\n",
+                        "unknown key"),
+                Arguments.of("a dependent list the organization does not own on a controlling list it does", head
+                        + "fields:\n  - { apiName: k, label: K, type: PICKLIST, organizationValues: true, settings: "
+                        + "{ values: [ { value: K, label: K } ] } }\n  - { apiName: a, label: A, type: PICKLIST, "
+                        + "settings: { values: [ { value: X, label: X } ], dependency: { controllingField: k, "
+                        + "allowed: { K: [X] } } } }\n", "must too"),
+                Arguments.of("a field that depends on a dependent field", head
+                        + "fields:\n  - { apiName: k, label: K, type: PICKLIST, settings: { values: "
+                        + "[ { value: K, label: K } ] } }\n  - { apiName: m, label: M, type: PICKLIST, settings: "
+                        + "{ values: [ { value: M, label: M } ], dependency: { controllingField: k, allowed: "
+                        + "{ K: [M] } } } }\n  - { apiName: a, label: A, type: PICKLIST, settings: "
+                        + "{ values: [ { value: X, label: X } ], dependency: { controllingField: m, allowed: "
+                        + "{ M: [X] } } } }\n", "depends on another field itself"));
+    }
+
+    @Test
+    void aSoundDependentPicklistWithOwnLists(@TempDir Path dir) throws IOException {
+        Files.writeString(dir.resolve("_system-fields.yml"), SYSTEM_FIELDS);
+        Files.writeString(dir.resolve("Thing.yml"), "apiName: Thing\nlabel: Thing\npluralLabel: Things\nfields:\n"
+                + "  - { apiName: kind, label: Kind, type: PICKLIST, organizationValues: true, codeValues: true, "
+                + "settings: { values: [ { value: WI, label: Work }, { value: IMS, label: Integrated } ] } }\n"
+                + "  - { apiName: area, label: Area, type: PICKLIST, organizationValues: true, codeValues: true, "
+                + "settings: { values: [ { value: PRD, label: Production } ], dependency: { controllingField: kind, "
+                + "allowed: { WI: [PRD], IMS: [] } } } }\n"
+                + "  - { apiName: number, label: Number, type: TEXT, unique: true, platformWritten: true }\n");
+
+        ObjectDefinition thing = StandardMetadataLoader.load("file:" + dir.toUri().getPath() + "*.yml").objects()
+                .get(0);
+
+        FieldDefinition area = thing.field("area").orElseThrow();
+        assertThat(area.organizationValues()).isTrue();
+        assertThat(area.codeValues()).isTrue();
+        assertThat(((FieldConfiguration.PicklistConfiguration) area.configuration()).dependency().allowed())
+                .containsEntry("WI", List.of("PRD")).containsEntry("IMS", List.of());
+        assertThat(thing.field("number").orElseThrow().platformWritten()).isTrue();
+        assertThat(thing.field("kind").orElseThrow().platformWritten()).isFalse();
     }
 
     @Test
@@ -175,7 +247,7 @@ class StandardMetadataLoaderTest {
         assertThat(shipped.extensible()).isFalse();
         assertThat(shipped.managedBy()).isNull();
         assertThat(shipped.fields().stream().skip(standard.systemFields().size()).map(FieldDefinition::apiName))
-                .containsExactly("name", "retired");
+                .containsExactly("name", "retired", "category", "subCategory", "number");
     }
 
     @Test

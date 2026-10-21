@@ -191,6 +191,7 @@ class SolutionBoundaryTest {
     void onlyTheSolutionModuleAnswersTheContractsOfShippedSolutions() {
         classes().that().implement("app.platform.sharedkernel.solution.ShippedApplications")
                 .or().implement("app.platform.sharedkernel.solution.FeatureNotes")
+                .or().implement("app.platform.sharedkernel.solution.NumberSeriesDeclarations")
                 .should().resideInAPackage("app.platform.solution..").allowEmptyShould(true).check(platform);
     }
 

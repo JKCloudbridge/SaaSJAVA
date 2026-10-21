@@ -49,6 +49,8 @@ import org.springframework.stereotype.Component;
  * ({@link BeforeSave}, Sprint 25, ADR-0160), so that everything below judges what they set;</li>
  * <li><b>required</b>: a required field and a master-detail have a value after the write;</li>
  * <li><b>relationship</b>: a linked record exists, is live and is of the target object, in this organization;</li>
+ * <li><b>dependent</b>: a picklist that depends on another has a value the other's value allows, judged only when the
+ * write touches the pair ({@link DependentValues}, ADR-0177);</li>
  * <li><b>unique</b>: no other live record holds the value of a unique field, or links the same two parents of a
  * junction (ADR-0111; the database refuses what slips past, with the same answer);</li>
  * <li><b>rules</b>: every validation rule is judged ({@link Calculations});</li>
@@ -67,7 +69,7 @@ class WritePipeline {
     /** The stages in the order they run and answer. Tests hold the pipeline to this list. */
     static final List<String> STAGES = List.of("shape", "record type", "field permission", "type", "before save",
             "required",
-            "relationship", "unique", "rule", "formula");
+            "relationship", "dependent", "unique", "rule", "formula");
 
     private static final String MISSING_LINK = "The linked record does not exist.";
     // The words say that the value is in use, never whose record holds it: it may be one the member cannot see, and the
@@ -110,11 +112,13 @@ class WritePipeline {
     private final Map<String, ReferenceDirectory> directories;
     private final RecordVisibility visibility;
     private final BeforeSave beforeSave;
+    private final DependentValues dependentValues;
 
     WritePipeline(RecordValues shape, RecordTypeCheck recordTypes, FieldSecurity security,
             Calculations calculations, AutoNumbers autoNumbers, StorageStrategy storage, Metadata metadata,
             RecordSlots slots, RecordLinks recordLinks, List<ReferenceDirectory> directories,
-            RecordVisibility visibility, BeforeSave beforeSave) {
+            RecordVisibility visibility, BeforeSave beforeSave, DependentValues dependentValues) {
+        this.dependentValues = dependentValues;
         this.beforeSave = beforeSave;
         this.visibility = visibility;
         this.shape = shape;
@@ -176,7 +180,8 @@ class WritePipeline {
         Findings permission = new Findings();
         List<String> named = new ArrayList<>(checked.set().keySet());
         named.addAll(checked.clear());
-        List<String> allowed = security.checkWrite(object, access, named, permission);
+        // The platform's own writes (no member, ADR-0139) may set a field only the platform writes (ADR-0183).
+        List<String> allowed = security.checkWrite(object, access, named, permission, passed.byPlatform());
         recordTypes.checkOffered(type, object, allowed.stream().filter(checked.set()::containsKey).toList(),
                 permission);
         throwIfAny("field permission", permission, refused);
@@ -246,6 +251,11 @@ class WritePipeline {
             links.add(RecordLinks.masterDetails(object).get(1).apiName(), PAIR_TAKEN);
         }
         throwIfAny("relationship", links, refused);
+
+        // 6b. dependent: a picklist that depends on another judges its pair when the write touches either (ADR-0177)
+        Findings pairs = new Findings();
+        dependentValues.check(object, access, merged, typed, cleared, held, pairs);
+        throwIfAny("dependent", pairs, refused);
 
         // 7. unique (the database refuses a duplicate that slips past this, and the answer is the same)
         Findings unique = new Findings();

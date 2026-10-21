@@ -25,12 +25,26 @@ import jakarta.validation.constraints.NotNull;
  * @param version the version to send back when changing it
  * @param problem for a formula that does not pass the expression language (it was saved before formulas were
  *        checked): what is wrong and where; it is not calculated and cannot be saved until fixed. Null otherwise
+ * @param organizationValues whether the organization owns the list of values and the pairs of this platform-defined
+ *        picklist and changes them with a field update (the rest of the field stays the platform's); left out means no
+ * @param codeValues whether every value must be a short code (letters, digits, hyphen, underscore; at most 10), so it
+ *        can be a part of a number; left out means no
+ * @param platformWritten whether only the platform writes the field, nobody through the API, a bulk change or an
+ *        import; left out means no
  */
 public record FieldView(@NotNull String apiName, @NotNull String label, @NotNull String description,
         @NotNull String kind, @NotNull String type, @NotNull Boolean required, @NotNull Boolean unique,
         Boolean indexed, Boolean externalId, Boolean searchable, String defaultValue,
         @NotNull FieldSettings settings, @NotNull Boolean retired, @NotNull Boolean editable, @NotNull Long version,
-        String problem) {
+        String problem, Boolean organizationValues, Boolean codeValues, Boolean platformWritten) {
+
+    /** A field without the three flags of the Functional track. */
+    public FieldView(String apiName, String label, String description, String kind, String type, Boolean required,
+            Boolean unique, Boolean indexed, Boolean externalId, Boolean searchable, String defaultValue,
+            FieldSettings settings, Boolean retired, Boolean editable, Long version, String problem) {
+        this(apiName, label, description, kind, type, required, unique, indexed, externalId, searchable,
+                defaultValue, settings, retired, editable, version, problem, null, null, null);
+    }
 
     @Override
     public String toString() {

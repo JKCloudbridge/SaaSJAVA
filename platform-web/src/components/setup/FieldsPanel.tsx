@@ -96,6 +96,7 @@ export function FieldsPanel({ object, types, objects, reload, authorship }: Obje
             hideActions
             types={types}
             objects={objects}
+            siblings={object.fields}
             busy={busy}
             check={check}
             onCancel={() => screen.back()}
@@ -138,6 +139,8 @@ export function FieldsPanel({ object, types, objects, reload, authorship }: Obje
       field.indexed ? "Indexed" : "",
       field.searchable ? "Searchable" : "",
       field.externalId ? "External identifier" : "",
+      field.organizationValues ? "Values are yours" : "",
+      field.platformWritten ? "Written by the platform" : "",
     ].filter(Boolean);
     const rows = settingRows(field);
 
@@ -183,6 +186,11 @@ export function FieldsPanel({ object, types, objects, reload, authorship }: Obje
           Edit
         </button>
       </>
+    ) : field.organizationValues && offersManage ? (
+      // The platform owns the field; the organization owns its list of values and its pairs (FA2A, ADR-0182).
+      <button type="button" className="button" disabled={busy} onClick={() => setEditing(true)}>
+        Edit the values
+      </button>
     ) : null;
 
     return (
@@ -219,6 +227,8 @@ export function FieldsPanel({ object, types, objects, reload, authorship }: Obje
               types={types}
               objects={objects}
               editing={field}
+              siblings={object.fields}
+              ownsList={!field.editable}
               busy={busy}
               check={check}
               onCancel={() => setEditing(false)}
@@ -295,7 +305,7 @@ export function FieldsPanel({ object, types, objects, reload, authorship }: Obje
                 </p>
               ) : null}
             </DetailSection>
-            {rows.length > 0 || field.settings.values || field.settings.expression ? (
+            {rows.length > 0 || field.settings.values || field.settings.expression || field.settings.dependency ? (
               <DetailSection title={`${typeLabel(field.type)} settings`}>
                 <DetailGrid>
                   {rows.map((row) => (
@@ -306,6 +316,13 @@ export function FieldsPanel({ object, types, objects, reload, authorship }: Obje
                   {field.settings.expression ? (
                     <DetailItem label="Formula" wide tone="mono">
                       {field.settings.expression}
+                    </DetailItem>
+                  ) : null}
+                  {field.settings.dependency ? (
+                    <DetailItem label="Depends on">
+                      {object.fields.find((other) => other.apiName === field.settings.dependency?.controllingField)
+                        ?.label ?? field.settings.dependency.controllingField}
+                      {` (${Object.values(field.settings.dependency.allowed).reduce((total, row) => total + row.length, 0)} pairs)`}
                     </DetailItem>
                   ) : null}
                   {field.settings.values ? (

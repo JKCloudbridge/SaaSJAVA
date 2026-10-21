@@ -9,6 +9,8 @@ import app.platform.metadata.ObjectDefinition;
 import app.platform.metadata.ObjectUsage;
 import app.platform.security.DataPermissionCleanup;
 import app.platform.sharedkernel.ActorId;
+import app.platformapi.AddFieldValueRequest;
+import app.platformapi.AddedFieldValueView;
 import app.platformapi.ApiException;
 import app.platformapi.CreateFieldRequest;
 import app.platformapi.CreateObjectRequest;
@@ -49,10 +51,15 @@ class MetadataService {
     private final MetadataProperties properties;
     private final RecordTypeStore recordTypeStore;
     private final ExpressionSupport support;
+    private final OrganizationValues organizationValues;
+    private final PicklistDependencyLimits dependencyLimits;
 
     MetadataService(MetadataStore store, MetadataCatalogue catalogue, MetadataVersions versions, ConfigCodec codec,
             MetadataAudit audit, DataPermissionCleanup cleanup, ObjectProvider<ObjectUsage> usage,
-            MetadataProperties properties, RecordTypeStore recordTypeStore, ExpressionSupport support) {
+            MetadataProperties properties, RecordTypeStore recordTypeStore, ExpressionSupport support,
+            OrganizationValues organizationValues, PicklistDependencyLimits dependencyLimits) {
+        this.organizationValues = organizationValues;
+        this.dependencyLimits = dependencyLimits;
         this.support = support;
         this.recordTypeStore = recordTypeStore;
         this.store = store;
@@ -213,7 +220,12 @@ class MetadataService {
         ObjectDefinition definition = definition(objectApiName);
         FieldDefinition field = definition.field(fieldApiName).orElseThrow(MetadataService::missingField);
         if (field.kind() != DefinitionKind.CUSTOM) {
-            throw new ProtectedDefinition(caller.userId(), "field.update", objectApiName + "." + fieldApiName);
+            if (!field.organizationValues()) {
+                throw new ProtectedDefinition(caller.userId(), "field.update", objectApiName + "." + fieldApiName);
+            }
+            // The platform owns this field; the organization owns its list of values and pairs (ADR-0182).
+            organizationValues.update(caller, field, request, context(definition, 0));
+            return fieldView(definition(objectApiName), fieldApiName);
         }
         MetadataStore.FieldRow row = store.field(objectApiName, fieldApiName)
                 .orElseThrow(MetadataService::missingField);
@@ -316,7 +328,18 @@ class MetadataService {
 
     private FieldRules.Context context(ObjectDefinition owner, int otherMasterDetails) {
         return new FieldRules.Context(name -> catalogue.object(name).isPresent(), owner.apiName(), owner.isCustom(),
-                otherMasterDetails, properties.limits().maxPicklistValues(), support.engine());
+                otherMasterDetails, properties.limits().maxPicklistValues(), support.engine(),
+                dependencyLimits.controllingValues(), dependencyLimits.pairs());
+    }
+
+    /**
+     * A member adds a value to a picklist the organization owns the list of (ADR-0182). The ability to add values is
+     * checked by the caller of this method; whether the member may edit the field is checked inside.
+     */
+    AddedFieldValueView addFieldValue(Caller caller, String objectApiName, String fieldApiName,
+            AddFieldValueRequest request) {
+        ObjectDefinition definition = definition(objectApiName);
+        return organizationValues.add(caller, objectApiName, fieldApiName, request, context(definition, 0));
     }
 
     private static void requireCustomObject(Caller caller, String action, ObjectDefinition definition) {
@@ -370,7 +393,8 @@ class MetadataService {
                 field.type().name(), field.required(), field.unique(), field.indexed(), field.externalId(),
                 field.searchable(), field.defaultValue(), settings,
                 field.retired(), field.kind() == DefinitionKind.CUSTOM, field.version(),
-                storedProblem(field, formulas));
+                storedProblem(field, formulas), field.organizationValues() ? Boolean.TRUE : null,
+                field.codeValues() ? Boolean.TRUE : null, field.platformWritten() ? Boolean.TRUE : null);
     }
 
     /** An object can have only so many searchable fields (the search table keeps the word list of each). */

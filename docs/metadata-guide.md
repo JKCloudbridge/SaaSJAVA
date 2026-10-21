@@ -736,3 +736,36 @@ A shipped object is a platform definition like a standard one, but its file live
 ### 25.2 What an administrator sees
 
 Nothing of it in the object manager's list while the plan lacks the feature. With the feature: the object appears like a standard one (not editable, not removable), the shipped application appears in the application launcher for members who hold one of the shipped access policies, and the policies appear in the access-policy list marked "Comes with the platform" (they can be given to members and groups and nothing else).
+
+## 26. Dependent picklists, a list the organization owns and number series (Functional track FA2A)
+
+Decisions: [ADR-0177](adr/0177-dependent-picklists.md), [ADR-0182](adr/0182-the-organizations-own-list-of-a-platform-picklist.md), [ADR-0183](adr/0183-a-field-only-the-platform-writes.md), [ADR-0184](adr/0184-number-series-declaration-formats-and-counters.md), [ADR-0176](adr/0176-number-series-and-the-first-approvers-number.md).
+
+### 26.1 A picklist that depends on another (for administrators)
+
+A single-value picklist can depend on another single-value picklist of the same object (for example Sub-category on Category). In the object manager open the field, **Edit**, and under **Depends on** choose the other picklist; a grid appears with the values of the other picklist down the side and the values of this one across the top. Tick, for each value of the other picklist, the values that go with it. A row with nothing ticked means nothing goes with that value. At twelve or more values a filter appears above the grid. The rules, which the server checks and states in its own words:
+
+- one level only: the other picklist must not depend on a third, and a picklist cannot depend on itself; a multi-select picklist cannot depend on anything;
+- at most 200 values of the other picklist and 5,000 pairs per field (`platform.metadata.limits.max-dependency-controlling-values` and `max-dependency-pairs`);
+- the other picklist cannot be removed, retired or changed to another type while a field depends on it (the dependency graph, in any order of the changes of a change set);
+- on a record, a value is accepted only when the record has a value in the other picklist and the pair is listed; the record type's own subset still applies, so both must allow the value. The refusal says "This value does not go with the chosen value of <field>." and names no value.
+
+**Records that already hold an old pair are never blocked by an edit of something else**, and sending the same pair back changes nothing. Only a write that changes the dependent value or the other picklist's value is judged. Making an existing field dependent over existing records is allowed: the check of the change set says "N records hold a pair in <object>.<field> that is no longer allowed" (a count, never a value), and the records stay as they are until someone changes one of the two fields. Everything works in a change set, with preview, publish and rollback, because it is the ordinary change of a field.
+
+### 26.2 A picklist whose list the organization owns
+
+A platform object can have picklists flagged `organizationValues` (the shipped object of the Audit maintenance solution has two). The platform owns the field (name, type, the other picklist it depends on); **the organization's administrator owns the list of values and the pairs**: in the object manager the field's page has **Edit the values**. Only the values, their labels, whether each is offered, and the pairs can be changed; the form shows the rest and the server refuses anything else. A value is never removed, only switched off; a rollback that would remove a value you added is refused, as for every picklist. Another organization never sees your list. A platform release can replace the *starting* list for organizations that never changed theirs.
+A field flagged `codeValues` takes only short codes as values (1 to 10 letters, digits, hyphens or underscores): the label says more.
+
+**Adding one value while filling in a record.** A member who holds the ability **Add values to picklists** (`field-values.add`, which the Organization administrator profile has) and may edit the field sees **Add a value** beside it. They give a code, optionally what people read, and (for a dependent picklist) tick which values of the other picklist it goes with. It takes effect at once, is audited by counts and cannot rename, switch off or remove a value. To let the authors of templates do this, give their profile (or an individual grant) that ability.
+
+### 26.3 A field only the platform writes
+
+A field flagged `platformWritten` (a text field, not required, no default) cannot be set by anyone through the API, a bulk change or an import, not even by the administrator; the form shows it as read only. Only the platform's own write sets it (a later sprint's engine), and a workflow, an approval outcome or a before-save automation cannot be made to set it.
+
+### 26.4 Number series (for contributors)
+
+A solution declares its series in `solutions/<key>/numbering.yml`: a `key`, the `object`, the `field` that holds the number, and either one `format` or a `selector` (a short-code picklist) with a `format` for each of its values. The format language is closed: fixed text from `[A-Za-z0-9/_-]` (10 characters in all), `{field:<apiName>}` (a short-code picklist or text field of the record whose value is `[A-Za-z0-9_-]{1,10}`), exactly one `{seq:N}` (the counter, 1 to 9 digits, never cut) and at most four parts in braces. Example: `WI/{field:subCategory}/{seq:2}` gives `WI/PRD/03`. The counter is one per **scope** (the selector's value and the values of the fields the format reads): `WI/PRD` and `WI/QLT` count apart, a scope that was never numbered starts at 1, every organization has its own counters, and a number is never issued twice (a rolled-back number was never issued). A mistake in the file stops the application from starting with a message that names the series and the part.
+The code takes a number with `NumberSeries.next(seriesKey, values)` inside a transaction and writes it with `BackgroundWrites`; nothing takes a number through an endpoint or a screen in this release. `prefix(...)` gives the fixed part only ("WI/PRD/"), for a preview.
+
+**Change the starting list or the pairs of a shipped picklist.** Edit its `settings.values` and `settings.dependency` in the object file. It is data: the baseline records only that the list is the organization's and which field it depends on. Organizations that never changed their list get the new one.

@@ -43,6 +43,7 @@ private path would drift from the first the first time a stage is added.
    | `record_type_rejected` | record type | no |
    | `required_missing` | required | no |
    | `link_target_gone` | relationship | no |
+   | `pair_not_allowed` | dependent (a picklist whose values depend on another picklist, FA2A, ADR-0177) | no |
    | `unique_clash` | unique (and the database's backstop) | no |
    | `rejected_by_rule` | a validation rule rejected | no |
    | `formula_failed` | a formula could not be evaluated | no |
