@@ -22,10 +22,10 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
  * Reads the solution files and checks their shape completely (ADR-0181), so that a mistake stops the application from
  * starting instead of being found by an organization. One file per solution, {@code solutions/<key>/solution.yml}.
  *
- * <p>Every message names the solution (its folder, an identifier) and the part ({@code accessPolicies[2]}); none repeats
- * a label, a note or a description, so a mistake in a text never copies the text into a log. An unknown key, a text that
- * is not plain, a repeated key, an entry that names nothing and a right that does not exist are all refused. What can
- * only be checked against the rest of the platform (the objects and the feature exist) is
+ * <p>Every message names the solution (its folder, an identifier) and the part ({@code accessPolicies[2]}); none
+ * repeats a label, a note or a description, so a mistake in a text never copies the text into a log. An unknown
+ * key, a text that is not plain, a repeated key, an entry that names nothing and a right that does not exist are
+ * all refused. What can only be checked against the rest of the platform (the objects and the feature exist) is
  * {@link SolutionValidator}'s.
  */
 final class SolutionLoader {

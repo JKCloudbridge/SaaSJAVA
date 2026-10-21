@@ -84,8 +84,9 @@ class RecordGate {
         if (!decisions.can(context.membershipId(), object.apiName(), ObjectAction.READ).allowed()) {
             throw ApiException.notFound(NO_OBJECT);
         }
-        // A kept object is not a permission question: the answer is the same for an administrator and for everyone else,
-        // asked after the member may read the object (so it tells nothing to a member who may not) and before the
+        // A kept object is not a permission question: the answer is the same for an administrator and for everyone
+        // else, asked after the member may read the object (so it tells nothing to a member who may not) and before
+        // the
         // right to delete (ADR-0181). Every way of removing, restoring over or purging a record asks for DELETE here.
         if (action == ObjectAction.DELETE && object.retainRecords()) {
             throw new ApiException(ErrorCode.CONFLICT, KEPT);

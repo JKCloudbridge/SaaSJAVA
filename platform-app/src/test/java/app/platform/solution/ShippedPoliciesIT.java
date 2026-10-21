@@ -197,7 +197,8 @@ class ShippedPoliciesIT extends SolutionSupport {
         assertThat(applicationsOf(admin)).contains(APPLICATION);
 
         Response list = admin.get(POLICIES);
-        assertThat(JsonPath.<List<String>>read(list.body(), "$.data[?(@.managed==false)].name")).containsExactly("Author");
+        assertThat(JsonPath.<List<String>>read(list.body(), "$.data[?(@.managed==false)].name"))
+                .containsExactly("Author");
         assertThat(JsonPath.<List<String>>read(list.body(), "$.data[?(@.managed==false)].id")).containsExactly(ownId);
         assertThat(JsonPath.<List<String>>read(list.body(), "$.data[?(@.managed==true)].name"))
                 .containsExactlyInAnyOrder("Author (platform)", "Approver", "Reader", "Filler");
@@ -299,7 +300,8 @@ class ShippedPoliciesIT extends SolutionSupport {
         assertThat(JsonPath.<List<String>>read(admin.get(POLICIES + "/" + readerId + "/data-access").body(),
                 "$.data.objects[0].actions")).containsExactlyInAnyOrder("read", "update");
 
-        // The next request of the organization finds the policy differs from what this release declares and puts it back.
+        // The next request of the organization finds the policy differs from what this release declares and puts
+        // it back.
         assertThat(applicationsOf(admin)).contains(APPLICATION);
         assertThat(JsonPath.<List<String>>read(admin.get(POLICIES + "/" + readerId + "/data-access").body(),
                 "$.data.objects[0].actions")).containsExactly("read");
@@ -307,7 +309,8 @@ class ShippedPoliciesIT extends SolutionSupport {
 
     @Test
     void theFingerprintChangesWithAnythingTheDeclarationSays() {
-        Declaration base = new Declaration("inspection.reader", "Reader", "d", Map.of(OBJECT, Set.of(ObjectAction.READ)));
+        Declaration base = new Declaration("inspection.reader", "Reader", "d",
+                Map.of(OBJECT, Set.of(ObjectAction.READ)));
 
         assertThat(base.fingerprint()).isEqualTo(new Declaration("inspection.reader", "Reader", "d",
                 Map.of(OBJECT, Set.of(ObjectAction.READ))).fingerprint());

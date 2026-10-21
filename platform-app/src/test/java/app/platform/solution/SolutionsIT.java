@@ -20,7 +20,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * The shipped application as organizations meet it (Functional track FA1, ADR-0175, ADR-0179, ADR-0181): it exists for an
+ * The shipped application as organizations meet it (Functional track FA1, ADR-0175, ADR-0179, ADR-0181): it exists
+ * for an
  * organization only while its plan has the feature, asked on every request and never stored; an organization without it
  * sees nothing and gets "not found" where the object would be; losing the feature hides everything and deletes nothing;
  * no row of the organization is written for the application; and a change of plan moves no cache the answers sit in.
@@ -102,11 +103,14 @@ class SolutionsIT extends SolutionSupport {
 
         assertThat(mine.status()).as(mine.body()).isEqualTo(200);
         String application = "$.data[?(@.apiName=='" + APPLICATION + "')]";
-        assertThat(JsonPath.<List<String>>read(mine.body(), application + ".label")).containsExactly("Audit maintenance");
+        assertThat(JsonPath.<List<String>>read(mine.body(), application + ".label"))
+                .containsExactly("Audit maintenance");
         assertThat(JsonPath.<List<String>>read(mine.body(), application + ".iconKey")).containsExactly("clipboard");
         assertThat(JsonPath.<List<Object>>read(mine.body(), application + ".items[*]")).hasSize(1);
-        assertThat(JsonPath.<List<String>>read(mine.body(), application + ".items[0].type")).containsExactly("PLATFORM");
-        assertThat(JsonPath.<List<String>>read(mine.body(), application + ".items[0].label")).containsExactly("Templates");
+        assertThat(JsonPath.<List<String>>read(mine.body(), application + ".items[0].type"))
+                .containsExactly("PLATFORM");
+        assertThat(JsonPath.<List<String>>read(mine.body(), application + ".items[0].label"))
+                .containsExactly("Templates");
         assertThat(JsonPath.<List<String>>read(mine.body(), application + ".items[0].pageKey"))
                 .containsExactly("templates");
         Response records = admin.get(RECORDS);
@@ -185,6 +189,9 @@ class SolutionsIT extends SolutionSupport {
     void losingTheFeatureHidesEverythingAndKeepsTheDataAndThePolicies() {
         Organization organization = organizationWithFeature();
         TestBrowser admin = adminOf(organization);
+        // The shipped policies are made lazily, at the first menu request (ADR-0181 section 5); a record create
+        // alone never makes them.
+        assertThat(applicationsOf(admin)).contains(APPLICATION);
         String name = newName();
         Response created = admin.postJson(RECORDS, "{\"fields\":{\"name\":\"" + name + "\"}}");
         assertThat(created.status()).as(created.body()).isEqualTo(201);
@@ -254,6 +261,9 @@ class SolutionsIT extends SolutionSupport {
         TestBrowser other = adminOf(theirs);
         String id = JsonPath.read(admin.postJson(RECORDS, "{\"fields\":{\"name\":\"" + newName() + "\"}}").body(),
                 "$.data.id");
+        // The shipped policies are made lazily, at the first menu request (ADR-0181 section 5).
+        assertThat(applicationsOf(admin)).contains(APPLICATION);
+        assertThat(applicationsOf(other)).contains(APPLICATION);
 
         assertThat(other.get(RECORDS + "/" + id).status()).isEqualTo(404);
         assertThat(JsonPath.<List<Object>>read(other.get(RECORDS).body(), "$.data")).isEmpty();

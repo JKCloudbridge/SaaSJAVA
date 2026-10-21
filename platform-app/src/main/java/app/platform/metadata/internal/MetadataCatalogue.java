@@ -104,8 +104,8 @@ class MetadataCatalogue implements Metadata {
 
     /**
      * The objects the organization has: those of the snapshot, less the shipped objects whose plan feature the
-     * organization lacks. The feature is asked now, once per feature, and is not part of the snapshot, which is keyed by
-     * the metadata version that a change of plan does not move (ADR-0175, ADR-0181).
+     * organization lacks. The feature is asked now, once per feature, and is not part of the snapshot, which is
+     * keyed by the metadata version that a change of plan does not move (ADR-0175, ADR-0181).
      */
     @Override
     public List<ObjectDefinition> objects() {

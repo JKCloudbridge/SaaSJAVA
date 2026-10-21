@@ -4,8 +4,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * The shipped solutions of this release, loaded and checked once at start and then only read (ADR-0181). There is no way
- * to change them while the application runs, which is what keeps an organization from editing or removing any part.
+ * The shipped solutions of this release, loaded and checked once at start and then only read (ADR-0181). There is
+ * no way to change them while the application runs, which is what keeps an organization from editing or removing
+ * any part.
  */
 final class Solutions {
 
