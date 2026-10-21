@@ -6,22 +6,35 @@ import { Icon } from "@/components/ui/Icon";
 import { isCurrent, type RailEntry, type RailLink } from "@/lib/shell/areas";
 
 /** The key of the group that holds the page the address names, or null when the page stands alone or is in none. */
-function groupOfCurrent(entries: readonly RailEntry[], pathname: string): string | null {
+function groupOfCurrent(entries: readonly RailEntry[], pathname: string, search: string): string | null {
   const group = entries.find(
-    (entry) => entry.kind === "group" && entry.items.some((item) => isCurrent(item, pathname)),
+    (entry) => entry.kind === "group" && entry.items.some((item) => isCurrent(item, pathname, search)),
   );
   return group?.kind === "group" ? group.key : null;
 }
 
 /** The label of the page the address names, for the button of the narrow-screen menu. */
-function currentLabel(entries: readonly RailEntry[], pathname: string): string | null {
+function currentLabel(entries: readonly RailEntry[], pathname: string, search: string): string | null {
   const links: RailLink[] = entries.flatMap((entry) => (entry.kind === "group" ? entry.items : [entry]));
-  return links.find((item) => isCurrent(item, pathname))?.label ?? null;
+  return links.find((item) => isCurrent(item, pathname, search))?.label ?? null;
 }
 
-function RailItem({ item, pathname }: { item: RailLink; pathname: string }) {
+function RailItem({ item, pathname, search }: { item: RailLink; pathname: string; search: string }) {
+  if (item.unavailable) {
+    // Nothing is built behind it yet: a name with its badge, not a link and not a button.
+    return (
+      <span className="side-rail-link side-rail-soon" aria-disabled="true" data-testid="rail-unavailable">
+        {item.label}
+        <span className="badge">Soon</span>
+      </span>
+    );
+  }
   return (
-    <Link href={item.href} className="side-rail-link" aria-current={isCurrent(item, pathname) ? "page" : undefined}>
+    <Link
+      href={item.href}
+      className="side-rail-link"
+      aria-current={isCurrent(item, pathname, search) ? "page" : undefined}
+    >
       {item.label}
       {item.soon ? <span className="badge">Soon</span> : null}
     </Link>
@@ -42,33 +55,37 @@ function RailItem({ item, pathname }: { item: RailLink; pathname: string }) {
  * @param label the name of the rail, shown above it and used as the name of the navigation
  * @param entries the links and groups, in order
  * @param pathname the address of the page, to mark the current page
+ * @param search the query of the address (`section=fields`), for a rail whose entries differ only by it
  */
 export function SideRail({
   label,
   entries,
   pathname,
+  search = "",
 }: {
   label: string;
   entries: readonly RailEntry[];
   pathname: string;
+  search?: string;
 }) {
   const base = useId();
-  const arrival = groupOfCurrent(entries, pathname);
+  const arrival = groupOfCurrent(entries, pathname, search);
   const [open, setOpen] = useState<string | null>(arrival);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [seen, setSeen] = useState(pathname);
-  if (seen !== pathname) {
+  const place = `${pathname}?${search}`;
+  const [seen, setSeen] = useState(place);
+  if (seen !== place) {
     // A new page: the group that holds it opens (and the others close); a page that stands alone leaves the groups
     // as they are. The narrow-screen menu closes. Adjusting state while rendering is how React derives it from the
     // address.
-    setSeen(pathname);
+    setSeen(place);
     setMenuOpen(false);
     if (arrival !== null) {
       setOpen(arrival);
     }
   }
   const listId = `${base}-list`;
-  const here = currentLabel(entries, pathname);
+  const here = currentLabel(entries, pathname, search);
   return (
     <nav className="side-rail" aria-label={label} data-testid="side-rail">
       <p className="side-rail-label">{label}</p>
@@ -90,14 +107,14 @@ export function SideRail({
           {entries.map((entry) =>
             entry.kind === "link" ? (
               <li key={entry.href}>
-                <RailItem item={entry} pathname={pathname} />
+                <RailItem item={entry} pathname={pathname} search={search} />
               </li>
             ) : (
               <li key={entry.key} className="side-rail-group" data-open={open === entry.key}>
                 <button
                   type="button"
                   className="side-rail-group-button"
-                  data-current={entry.items.some((item) => isCurrent(item, pathname)) ? "true" : undefined}
+                  data-current={entry.items.some((item) => isCurrent(item, pathname, search)) ? "true" : undefined}
                   aria-expanded={open === entry.key}
                   aria-controls={`${base}-${entry.key}`}
                   onClick={() => setOpen((current) => (current === entry.key ? null : entry.key))}
@@ -114,7 +131,7 @@ export function SideRail({
                   <ul>
                     {entry.items.map((item) => (
                       <li key={item.href}>
-                        <RailItem item={item} pathname={pathname} />
+                        <RailItem item={item} pathname={pathname} search={search} />
                       </li>
                     ))}
                   </ul>

@@ -33,6 +33,7 @@ import {
   type LayoutDraft,
 } from "@/lib/builder/layoutModel";
 import { BEHAVIOUR_TEXT, LayoutPreview } from "./LayoutPreview";
+import { usePublishOpenObject } from "@/lib/shell/objectContext";
 import { problemText } from "./objectText";
 import { addToSet, DRAFTED_TEXT, useWorkingSet } from "./workingSet";
 
@@ -68,6 +69,7 @@ export function LayoutBuilder() {
   const router = useRouter();
   const { id: workingSet } = useWorkingSet();
   const [object, setObject] = useState<ObjectView | undefined>();
+  usePublishOpenObject(objectApiName, object?.label);
   const [layout, setLayout] = useState<LayoutView | undefined>();
   const [failure, setFailure] = useState<string | undefined>();
   const [identity, setIdentity] = useState<Identity>({ name: "", label: "", description: "" });
@@ -251,8 +253,8 @@ export function LayoutBuilder() {
     <BuilderShell
       testId="layout-builder"
       crumbs={[
-        { label: "Objects", href: "/setup/objects" },
-        { label: object.label, href: `/setup/objects/${encodeURIComponent(objectApiName)}` },
+        { label: "Object settings", href: "/setup/objects" },
+        { label: object.label, href: `/setup/objects/${encodeURIComponent(objectApiName)}?section=fields` },
         { label: "Page layouts", href: listHref },
         { label: creating ? "New page layout" : (identity.label || layoutApiName) },
       ]}

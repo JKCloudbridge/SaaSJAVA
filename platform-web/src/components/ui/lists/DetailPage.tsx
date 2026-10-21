@@ -1,12 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useId, type ReactNode } from "react";
+import { Breadcrumb, type Crumb } from "./Breadcrumb";
 import { PageFrame } from "./PageFrame";
 
 export interface DetailPageProps {
   /** The list this page belongs to (its name in the breadcrumb) and the way back: a callback or an address. */
   listLabel: string;
+  /** Steps before the list in the trail (the object a tab belongs to): "Object settings / Account / Fields / Label". */
+  parents?: readonly Crumb[];
   onBack?: () => void;
   backHref?: string;
   title: string;
@@ -23,21 +25,10 @@ export interface DetailPageProps {
  * right, then sections. A new item opens the same page as a form. Never a page of stacked panels.
  */
 export function DetailPage(props: DetailPageProps) {
-  const breadcrumb = (
-    <nav className="breadcrumb" aria-label="Breadcrumb">
-      {props.backHref ? (
-        <Link className="breadcrumb-link" href={props.backHref}>
-          {props.listLabel}
-        </Link>
-      ) : (
-        <button type="button" className="breadcrumb-link" onClick={props.onBack}>
-          {props.listLabel}
-        </button>
-      )}
-      <span aria-hidden="true">/</span>
-      <span aria-current="page">{props.title}</span>
-    </nav>
-  );
+  const list: Crumb = props.backHref
+    ? { label: props.listLabel, href: props.backHref }
+    : { label: props.listLabel, onClick: props.onBack };
+  const breadcrumb = <Breadcrumb crumbs={[...(props.parents ?? []), list, { label: props.title }]} />;
   return (
     <PageFrame
       title={props.title}

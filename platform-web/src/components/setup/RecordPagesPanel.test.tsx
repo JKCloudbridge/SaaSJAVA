@@ -2,11 +2,25 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi, json } from "@/test/fakeApi";
+import { setUrl } from "@/test/navigation";
+import { tabProps } from "@/test/objectTab";
 import { RecordPagesPanel } from "./RecordPagesPanel";
+
+vi.mock("next/navigation", async () => (await import("@/test/navigation")).navigationMock);
+vi.mock("next/link", () => ({
+  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
+
+const SECTION = "/setup/objects/Deal__c?section=record-pages";
 
 beforeEach(() => {
   document.cookie = "XSRF-TOKEN=test-token; path=/";
   window.sessionStorage.clear();
+  setUrl(SECTION);
 });
 
 afterEach(() => {
@@ -55,28 +69,35 @@ const PAGE = {
     actions: [{ action: "EDIT" }],
   },
 };
+const EVERYONE = { key: "~", recordPage: "Overview__c", version: 1 };
+const FOR_SALES = { key: "p~", profileId: "p1", profileName: "Sales", recordPage: "Overview__c", version: 1 };
 
-function answers(pages: unknown[]) {
+function answers(pages: unknown[], assignments: unknown[] = []) {
   return {
     [`GET ${BASE}/record-pages`]: () => json({ data: pages }),
     [`GET ${BASE}/layouts`]: () => json({ data: [LAYOUT] }),
+    [`GET ${BASE}/record-page-assignments`]: () => json({ data: assignments }),
     "GET /api/v1/metadata/objects/Contact__c": () => json({ data: CONTACT }),
   };
 }
 
 describe("RecordPagesPanel", () => {
-  it("lists the pages and previews the structure with the rules in words, under React strict mode", async () => {
-    fakeApi(answers([PAGE]));
+  it("lists the pages with who they are assigned to and their status, and previews the structure with the rules in words, under React strict mode", async () => {
+    fakeApi(answers([PAGE, { ...PAGE, apiName: "Spare__c", label: "Spare" }], [EVERYONE, FOR_SALES]));
 
     render(
       <StrictMode>
-        <RecordPagesPanel object={DEAL} onChanged={vi.fn()} />
+        <RecordPagesPanel {...tabProps(DEAL)} />
       </StrictMode>,
     );
 
-    const row = await screen.findByTestId("record-page-row");
-    expect(row).toHaveTextContent("Overview");
-    fireEvent.click(within(row).getByRole("button", { name: "Preview" }));
+    const rows = await screen.findAllByTestId("record-page-row");
+    expect(screen.getByRole("heading", { name: "Deal — Record pages" })).toBeInTheDocument();
+    expect(rows[0]).toHaveTextContent("Overview");
+    expect(rows[0]).toHaveTextContent("Everyone (the default); Sales");
+    expect(rows[0]).toHaveTextContent("In use");
+    expect(rows[1]).toHaveTextContent("Not assigned");
+    fireEvent.click(within(rows[0] as HTMLElement).getByRole("button", { name: "Preview" }));
 
     const preview = await screen.findByTestId("record-page-preview");
     const parts = within(preview).getAllByTestId("preview-component");
@@ -87,23 +108,50 @@ describe("RecordPagesPanel", () => {
     expect(within(preview).getByTestId("preview-actions")).toHaveTextContent("EDIT");
   });
 
-  it("opens the builder for a new page and for an existing one", async () => {
+  it("opens the builder for a new page and for an existing one, at the addresses they always had", async () => {
     fakeApi(answers([PAGE]));
-    render(<RecordPagesPanel object={DEAL} onChanged={vi.fn()} />);
+    render(<RecordPagesPanel {...tabProps(DEAL)} />);
     const row = await screen.findByTestId("record-page-row");
 
-    expect(screen.getByRole("link", { name: "New record page" })).toHaveAttribute(
-      "href",
-      "/setup/objects/Deal__c/record-pages/new",
-    );
+    expect(screen.getByRole("link", { name: "New" })).toHaveAttribute("href", "/setup/objects/Deal__c/record-pages/new");
     expect(within(row).getByRole("link", { name: "Overview" })).toHaveAttribute(
       "href",
       "/setup/objects/Deal__c/record-pages/Overview__c",
     );
-    expect(within(row).getByRole("link", { name: "Build" })).toHaveAttribute(
+  });
+
+  it("still lists the pages when who they are assigned to cannot be read", async () => {
+    fakeApi({
+      ...answers([PAGE]),
+      [`GET ${BASE}/record-page-assignments`]: () =>
+        json({ error: { code: "FORBIDDEN", message: "You are not allowed to perform this action." } }, 403),
+    });
+    render(<RecordPagesPanel {...tabProps(DEAL)} />);
+
+    const row = await screen.findByTestId("record-page-row");
+
+    expect(row).toHaveTextContent("Overview");
+    expect(row).toHaveTextContent("Not assigned");
+  });
+
+  it("opens the record page assignments behind a button, with the way back to the list", async () => {
+    fakeApi({
+      ...answers([PAGE]),
+      [`GET ${BASE}/record-types`]: () => json({ data: [] }),
+      "GET /api/v1/profiles": () => json({ data: [] }),
+    });
+    render(<RecordPagesPanel {...tabProps(DEAL)} />);
+    await screen.findByTestId("record-page-row");
+
+    expect(screen.getByRole("link", { name: "Record page assignments" })).toHaveAttribute(
       "href",
-      "/setup/objects/Deal__c/record-pages/Overview__c",
+      `${SECTION}&view=assignments`,
     );
+    setUrl(`${SECTION}&view=assignments`);
+
+    const page = await screen.findByTestId("record-page-assignments-page");
+    expect(await within(page).findByTestId("record-page-assignments")).toBeInTheDocument();
+    expect(within(page).getByRole("link", { name: "Record pages" })).toHaveAttribute("href", SECTION);
   });
 
   it("removes a page live", async () => {
@@ -111,7 +159,7 @@ describe("RecordPagesPanel", () => {
       ...answers([PAGE]),
       [`DELETE ${BASE}/record-pages/Overview__c`]: () => new Response(null, { status: 204 }),
     });
-    render(<RecordPagesPanel object={DEAL} onChanged={vi.fn()} />);
+    render(<RecordPagesPanel {...tabProps(DEAL)} />);
     const row = await screen.findByTestId("record-page-row");
 
     fireEvent.click(within(row).getByRole("button", { name: "Remove" }));
@@ -126,7 +174,7 @@ describe("RecordPagesPanel", () => {
       ...answers([PAGE]),
       "POST /api/v1/metadata/change-sets/set-1/changes": () => json({ data: {} }, 201),
     });
-    render(<RecordPagesPanel object={DEAL} onChanged={vi.fn()} />);
+    render(<RecordPagesPanel {...tabProps(DEAL)} />);
     const row = await screen.findByTestId("record-page-row");
 
     fireEvent.click(within(row).getByRole("button", { name: "Remove" }));
@@ -138,7 +186,7 @@ describe("RecordPagesPanel", () => {
 
   it("says that a platform object has no record pages", () => {
     fakeApi({});
-    render(<RecordPagesPanel object={{ ...DEAL, managedBy: "identity" }} onChanged={vi.fn()} />);
+    render(<RecordPagesPanel {...tabProps({ ...DEAL, managedBy: "identity" })} />);
 
     expect(screen.getByText(/belong to the platform, so it has no record pages/)).toBeInTheDocument();
   });

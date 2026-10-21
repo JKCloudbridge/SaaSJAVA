@@ -126,7 +126,7 @@ describe("InvitationAcceptance", () => {
     expect(calls.filter((call) => call.key.endsWith("/preview"))).toHaveLength(1);
   });
 
-  it("sends the chosen name and password for a person without an account and offers the organization's sign-in", async () => {
+  it("sends the chosen name and password for a person without an account and offers the platform's sign-in", async () => {
     const calls = fakeApi({});
     open();
     await screen.findByTestId("invitation-new");
@@ -137,10 +137,9 @@ describe("InvitationAcceptance", () => {
     fireEvent.submit(screen.getByLabelText("Repeat the password").closest("form")!);
 
     expect(await screen.findByTestId("invitation-done")).toHaveTextContent("You joined Organization A");
-    expect(screen.getByRole("link", { name: /Sign in to Organization A/ })).toHaveAttribute(
-      "href",
-      `${window.location.protocol}//org-a.localhost:3000/sign-in`,
-    );
+    // One sign-in on the platform's address: the person then enters the organization through the home page (UA4).
+    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/sign-in");
+    expect(screen.getByTestId("invitation-done")).toHaveTextContent("to open Organization A");
     expect(calls[1]).toEqual({
       key: "POST /api/v1/auth/invitations/accept-new",
       body: JSON.stringify({ token: TOKEN, displayName: "Person A", password: "a long passphrase here" }),

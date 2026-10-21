@@ -200,8 +200,8 @@ export function LayoutAssignmentsPanel({ object, refreshToken }: { object: Objec
   }
 
   return (
-    <section aria-labelledby="layout-assignments-heading" data-testid="layout-assignments">
-      <h3 id="layout-assignments-heading">Which layout is used</h3>
+    <div className="stack" data-testid="layout-assignments">
+      <h2 className="detail-section-title">Which layout is used</h2>
       <p className="hint">
         The layout of a person is chosen in this order: the choice for their profile and the record type, the layout of the
         record type, the choice for their profile, the default layout of the object.
@@ -358,6 +358,6 @@ export function LayoutAssignmentsPanel({ object, refreshToken }: { object: Objec
           </p>
         ) : null}
       </form>
-    </section>
+    </div>
   );
 }

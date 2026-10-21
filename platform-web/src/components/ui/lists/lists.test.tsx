@@ -1,10 +1,11 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setUrl } from "@/test/navigation";
+import { currentUrl, setUrl } from "@/test/navigation";
+import { Breadcrumb } from "./Breadcrumb";
 import { DetailGrid, DetailItem, DetailPage, DetailSection } from "./DetailPage";
 import { ListPage } from "./ListPage";
 import { Tag } from "./Tag";
-import { useListRoute } from "./useListRoute";
+import { useListRoute, type ListRouteOptions } from "./useListRoute";
 
 vi.mock("next/navigation", async () => (await import("@/test/navigation")).navigationMock);
 
@@ -172,5 +173,111 @@ describe("useListRoute", () => {
     act(() => setUrl("/setup/things?open=7"));
     render(<Probe />);
     expect(screen.getByTestId("state")).toHaveTextContent("7");
+  });
+});
+
+describe("useListRoute for a tab of a larger page", () => {
+  function Probe({ options }: { options: ListRouteOptions }) {
+    const route = useListRoute(options);
+    return (
+      <>
+        <p data-testid="state">{route.creating ? "new" : (route.openId ?? "list")}</p>
+        <button type="button" onClick={() => route.open("code__c")}>
+          open
+        </button>
+        <button type="button" onClick={route.create}>
+          create
+        </button>
+        <button type="button" onClick={() => route.close()}>
+          close
+        </button>
+      </>
+    );
+  }
+
+  beforeEach(() => {
+    act(() => setUrl("/setup/objects/Employee__c?section=fields"));
+  });
+
+  it("names the open row after what it is and keeps the tab in the address", () => {
+    render(<Probe options={{ openParam: "field", keep: ["section"] }} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "open" }));
+    expect(screen.getByTestId("state")).toHaveTextContent("code__c");
+    expect(currentUrl()).toBe("/setup/objects/Employee__c?section=fields&field=code__c");
+
+    fireEvent.click(screen.getByRole("button", { name: "close" }));
+    expect(currentUrl()).toBe("/setup/objects/Employee__c?section=fields");
+
+    fireEvent.click(screen.getByRole("button", { name: "create" }));
+    expect(currentUrl()).toBe("/setup/objects/Employee__c?section=fields&new=1");
+  });
+
+  it("does not read the row of another tab", () => {
+    act(() => setUrl("/setup/objects/Employee__c?section=record-types&recordType=Renewal__c"));
+    render(<Probe options={{ openParam: "field", keep: ["section"] }} />);
+
+    expect(screen.getByTestId("state")).toHaveTextContent("list");
+  });
+
+  it("drops what it was not asked to keep", () => {
+    act(() => setUrl("/setup/objects/Employee__c?section=fields&view=assignments"));
+    render(<Probe options={{ keep: ["section"] }} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "open" }));
+
+    expect(currentUrl()).toBe("/setup/objects/Employee__c?section=fields&open=code__c");
+  });
+});
+
+describe("the breadcrumb", () => {
+  it("links every step but the last, which is the page itself", () => {
+    const onClick = vi.fn();
+    render(
+      <Breadcrumb
+        crumbs={[
+          { label: "Object settings", href: "/setup/objects" },
+          { label: "Account", onClick },
+          { label: "Fields" },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Object settings" })).toHaveAttribute("href", "/setup/objects");
+    fireEvent.click(screen.getByRole("button", { name: "Account" }));
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Fields")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("is drawn above the title of a list that is a tab", () => {
+    render(
+      list({
+        title: "Account — Fields",
+        crumbs: [{ label: "Object settings", href: "/setup/objects" }, { label: "Fields" }],
+      }),
+    );
+
+    const trail = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(within(trail).getByRole("link", { name: "Object settings" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Account — Fields" })).toBeInTheDocument();
+  });
+
+  it("is drawn with the steps before the list on a detail page", () => {
+    render(
+      <DetailPage
+        listLabel="Fields"
+        parents={[
+          { label: "Object settings", href: "/setup/objects" },
+          { label: "Account", href: "/setup/objects/Account" },
+        ]}
+        onBack={vi.fn()}
+        title="Name"
+      />,
+    );
+
+    const trail = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(trail).toHaveTextContent("Object settings/Account/Fields/Name");
+    expect(within(trail).getByRole("link", { name: "Account" })).toHaveAttribute("href", "/setup/objects/Account");
+    expect(within(trail).getByRole("button", { name: "Fields" })).toBeInTheDocument();
   });
 });

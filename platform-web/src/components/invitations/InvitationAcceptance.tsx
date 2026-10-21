@@ -164,9 +164,8 @@ export function InvitationAcceptance() {
         <p role="status">You joined {step.accepted.displayName}.</p>
         {step.newAccount ? (
           <p>
-            <a href={`${window.location.protocol}//${step.accepted.host}/sign-in`}>
-              Sign in to {step.accepted.displayName}
-            </a>
+            <Link href="/sign-in">Sign in</Link> with your email address and the password you just chose to open{" "}
+            {step.accepted.displayName}.
           </p>
         ) : (
           <p>

@@ -3,6 +3,7 @@ package app.platform.metadata.internal;
 import app.platform.security.Ability;
 import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
+import app.platformapi.AuthorshipView;
 import app.platformapi.CreateFieldRequest;
 import app.platformapi.CreateObjectRequest;
 import app.platformapi.FieldTypeView;
@@ -46,14 +47,16 @@ class MetadataController {
     private final MetadataLifecycle lifecycle;
     private final ChangeCodec codec;
     private final Relationships relationships;
+    private final Authorship authorship;
 
     MetadataController(MetadataService service, MetadataAdministration administration, MetadataLifecycle lifecycle,
-            ChangeCodec codec, Relationships relationships) {
+            ChangeCodec codec, Relationships relationships, Authorship authorship) {
         this.service = service;
         this.administration = administration;
         this.lifecycle = lifecycle;
         this.codec = codec;
         this.relationships = relationships;
+        this.authorship = authorship;
     }
 
     @GetMapping(ApiPaths.METADATA_FIELD_TYPES)
@@ -136,6 +139,20 @@ class MetadataController {
     ApiResponse<ObjectRelationshipsView> relationships(@PathVariable String objectApiName) {
         return ApiResponse.of(administration.run("metadata.view", Ability.METADATA_VIEW,
                 caller -> relationships.of(objectApiName)));
+    }
+
+    @GetMapping(ApiPaths.METADATA_OBJECTS + "/{objectApiName}/authorship")
+    @Operation(
+            operationId = "getObjectAuthorship",
+            summary = "Who made and who last changed each definition of an object",
+            description = "For the organization's own fields, record types, page layouts, record pages and validation "
+                    + "rules, and the object itself when it is the organization's own: the display name of an active "
+                    + "member or Platform, and when. A person who is no longer a member has no name. The platform's "
+                    + "standard definitions have no entry. NOT_FOUND for an object the organization does not have, "
+                    + "FORBIDDEN without the ability metadata.view.")
+    ApiResponse<List<AuthorshipView>> authorship(@PathVariable String objectApiName) {
+        return ApiResponse.of(administration.run("metadata.view", Ability.METADATA_VIEW,
+                caller -> authorship.of(objectApiName)));
     }
 
     @PostMapping(ApiPaths.METADATA_OBJECTS + "/{objectApiName}/fields")

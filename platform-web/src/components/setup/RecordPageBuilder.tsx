@@ -43,6 +43,7 @@ import {
   type RecordPageDraft,
   type TabDraft,
 } from "@/lib/builder/recordPageDraft";
+import { usePublishOpenObject } from "@/lib/shell/objectContext";
 import { problemText } from "./objectText";
 import { ComponentEditor, RuleEditor, type Knowledge } from "./RecordPageEditors";
 import { RecordPagePreview } from "./RecordPagePreview";
@@ -132,6 +133,7 @@ export function RecordPageBuilder() {
   const { id: workingSet } = useWorkingSet();
 
   const [object, setObject] = useState<ObjectView | undefined>();
+  usePublishOpenObject(objectApiName, object?.label);
   const [page, setPage] = useState<RecordPageView | undefined>();
   const [layouts, setLayouts] = useState<LayoutView[]>([]);
   const [objects, setObjects] = useState<ObjectSummary[]>([]);
@@ -490,8 +492,8 @@ export function RecordPageBuilder() {
     <BuilderShell
       testId="record-page-builder"
       crumbs={[
-        { label: "Objects", href: "/setup/objects" },
-        { label: object.label, href: `/setup/objects/${encodeURIComponent(objectApiName)}` },
+        { label: "Object settings", href: "/setup/objects" },
+        { label: object.label, href: `/setup/objects/${encodeURIComponent(objectApiName)}?section=fields` },
         { label: "Record pages", href: listHref },
         { label: creating ? "New record page" : (draft.label || pageApiName) },
       ]}

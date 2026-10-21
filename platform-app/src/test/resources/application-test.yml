@@ -9,6 +9,11 @@ management:
   tracing:
     sampling:
       probability: 1.0
+    export:
+      # Unconditionally off: a test run must never depend on, or be slowed by, a collector that is not there,
+      # whatever PLATFORM_TRACE_EXPORT happens to be set to in the shell that started it.
+      otlp:
+        enabled: false
 
 logging:
   structured:

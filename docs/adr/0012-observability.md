@@ -33,6 +33,15 @@ way to learn about unexpected errors, without logging personal data and without 
      propagation ever breaks.
    - The platform does not trust the caller's sampling decision as a security measure; an edge sampling policy is
      decided with the deployment (Sprint 33) and reviewed in Sprint 36.
+   - **Incident (2026-10-20):** the exporter's own switch was itself misnamed. `application.yml` set
+     `management.otlp.tracing.export.enabled`, a key Spring Boot 4.0 deprecated and silently ignores; the one it
+     actually reads is `management.tracing.export.otlp.enabled`. With the real switch left at its own default
+     (`true`), every run — local and CI alike — shipped 100%-sampled spans (the `test` profile samples everything)
+     to a collector that was never there, over the whole life of the failsafe fork; by the time `OutboxPollingIT`
+     and `WorkerCrashIT` ran, the accumulated failed-export churn had degraded the JVM enough to fail four
+     otherwise-correct tests on timing. Fixed by moving the switch to the key Boot actually binds, in
+     `application.yml`, `application-local.yml` and `application-test.yml` (which now also forces it off
+     unconditionally, so a stray `PLATFORM_TRACE_EXPORT` in a developer's shell can never reach a test run).
 4. **Database correlation.** At the start of every transaction the connection's `application_name` is set, for that
    transaction only, to `t=<trace id> r=<request id>` (a transaction listener; the setting reverts at commit, so pooled
    connections cannot carry one request's identifiers into the next, which a 120-request concurrency test proves). With the

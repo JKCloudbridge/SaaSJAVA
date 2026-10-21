@@ -11,6 +11,8 @@ import app.platform.testsupport.TestOrganizations;
 import app.platform.testsupport.TestOrganizations.Member;
 import app.platform.testsupport.TestOrganizations.Organization;
 import app.platform.testsupport.TestPlatform;
+import app.platform.testsupport.TestUsers;
+import app.platform.testsupport.TestUsers.TestUser;
 import com.jayway.jsonpath.JsonPath;
 import java.util.Arrays;
 import java.util.List;
@@ -58,7 +60,12 @@ abstract class LifecycleSupport {
 
     /** A member who holds the abilities through a profile of their own. */
     protected Member memberWith(Organization organization, TestBrowser admin, String... abilities) {
-        Member person = TestOrganizations.join(users, organization.tenant(), false);
+        return memberWith(organization, admin, TestUsers.create(users), abilities);
+    }
+
+    /** The given person, made a member who holds the abilities through a profile of their own. */
+    protected Member memberWith(Organization organization, TestBrowser admin, TestUser who, String... abilities) {
+        Member person = new Member(who, TestOrganizations.join(organization.tenant(), who, false));
         List<String> quoted = Arrays.stream(abilities).map(ability -> "\"" + ability + "\"").toList();
         Response profile = admin.postJson(PROFILES, "{\"name\":\"profile-" + UUID.randomUUID() + "\","
                 + "\"description\":\"\",\"licenceType\":\"user\",\"abilities\":[" + String.join(",", quoted) + "]}");

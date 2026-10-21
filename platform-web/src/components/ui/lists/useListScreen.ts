@@ -1,15 +1,15 @@
 "use client";
 
 import { useAction } from "@/components/console/useAction";
-import { useListRoute } from "./useListRoute";
+import { useListRoute, type ListRouteOptions } from "./useListRoute";
 
 /**
  * What a list-and-detail screen needs in one place: which row is open (kept in the address), and the one-call-at-a-time
  * action runner with its notice and refusal. Moving to another page of the list forgets the last notice, so a message about
  * one row is never left standing over another.
  */
-export function useListScreen(reload: () => Promise<void>) {
-  const route = useListRoute();
+export function useListScreen(reload: () => Promise<void>, options?: ListRouteOptions) {
+  const route = useListRoute(options);
   const action = useAction(reload);
   const { clear } = action;
 

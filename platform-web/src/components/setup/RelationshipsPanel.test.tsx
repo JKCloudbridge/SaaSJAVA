@@ -1,14 +1,24 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeApi, json, refusal } from "@/test/fakeApi";
+import { tabProps } from "@/test/objectTab";
 import { RelationshipsPanel } from "./RelationshipsPanel";
+
+vi.mock("next/link", () => ({
+  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
 const PATH = "GET /api/v1/metadata/objects/Department__c/relationships";
+const DEPARTMENT = { apiName: "Department__c", label: "Department", kind: "CUSTOM", editable: true, extensible: true, fields: [] };
 
 const CHILD = {
   type: "ONE_TO_MANY", fieldType: "LOOKUP", childObject: "Employee__c", field: "department__c", fieldLabel: "Department",
@@ -27,40 +37,72 @@ const MANY = {
 };
 
 describe("RelationshipsPanel", () => {
-  it("shows the parents, the lists on this object and the many-to-many ones, with what happens on removal", async () => {
+  it("lists the parents, the lists on this object and the many-to-many ones, with what happens on removal", async () => {
     fakeApi({ [PATH]: () => json({ data: { parents: [PARENT], children: [CHILD], manyToMany: [MANY] } }) });
 
     render(
       <StrictMode>
-        <RelationshipsPanel objectApiName="Department__c" />
+        <RelationshipsPanel {...tabProps(DEPARTMENT)} />
       </StrictMode>,
     );
 
-    const parents = await screen.findByTestId("relationship-parents");
-    expect(parents).toHaveTextContent("Company__c through company__c");
-    expect(parents).toHaveTextContent("may move to another master");
-    expect(parents).toHaveTextContent("the record is removed too");
-    const children = screen.getByTestId("relationship-children");
-    expect(children).toHaveTextContent("Staff");
-    expect(children).toHaveTextContent("one to many");
-    expect(children).toHaveTextContent("the removal is refused");
-    expect(children).toHaveTextContent("required");
-    expect(screen.getByTestId("relationship-many")).toHaveTextContent("Course__c through Enrolment__c");
+    const rows = await screen.findAllByTestId("relationship-row");
+
+    expect(screen.getByRole("heading", { name: "Department — Relationships" })).toBeInTheDocument();
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveTextContent("Company");
+    expect(rows[0]).toHaveTextContent("Points to");
+    expect(rows[0]).toHaveTextContent("company__c");
+    expect(rows[0]).toHaveTextContent("Many to one");
+    expect(rows[0]).toHaveTextContent("may move to another master");
+    expect(rows[0]).toHaveTextContent("the record is removed too");
+    expect(within(rows[0] as HTMLElement).getByRole("link", { name: "Company__c" })).toHaveAttribute(
+      "href",
+      "/setup/objects/Company__c",
+    );
+    expect(rows[1]).toHaveTextContent("Staff");
+    expect(rows[1]).toHaveTextContent("Listed here");
+    expect(rows[1]).toHaveTextContent("One to many");
+    expect(rows[1]).toHaveTextContent("the removal is refused");
+    expect(rows[1]).toHaveTextContent("required");
+    expect(rows[2]).toHaveTextContent("Many to many");
+    expect(rows[2]).toHaveTextContent("Course__c");
+    expect(rows[2]).toHaveTextContent("Enrolment__c");
+  });
+
+  it("searches the relationships", async () => {
+    fakeApi({ [PATH]: () => json({ data: { parents: [PARENT], children: [CHILD], manyToMany: [MANY] } }) });
+    render(<RelationshipsPanel {...tabProps(DEPARTMENT)} />);
+    await screen.findAllByTestId("relationship-row");
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search relationships" }), { target: { value: "staff" } });
+
+    expect(screen.getAllByTestId("relationship-row")).toHaveLength(1);
   });
 
   it("says so when an object has no relationships", async () => {
     fakeApi({ [PATH]: () => json({ data: { parents: [], children: [], manyToMany: [] } }) });
 
-    render(<RelationshipsPanel objectApiName="Department__c" />);
+    render(<RelationshipsPanel {...tabProps(DEPARTMENT)} />);
 
     expect(await screen.findByText(/has no relationships yet/)).toBeInTheDocument();
   });
 
-  it("shows nothing when the API does not answer with a list, for example for a person who may not look", async () => {
+  it("asks again when the object was read again", async () => {
+    const calls = fakeApi({ [PATH]: () => json({ data: { parents: [], children: [], manyToMany: [] } }) });
+    const { rerender } = render(<RelationshipsPanel {...tabProps(DEPARTMENT)} />);
+    await screen.findByText(/has no relationships yet/);
+
+    rerender(<RelationshipsPanel {...tabProps(DEPARTMENT, { refreshToken: 1 })} />);
+
+    await vi.waitFor(() => expect(calls.filter((call) => call.key === PATH)).toHaveLength(2));
+  });
+
+  it("shows the API's words when it does not answer with a list, for example for a person who may not look", async () => {
     fakeApi({ [PATH]: () => refusal("FORBIDDEN", "You are not allowed to perform this action.", 403) });
 
-    render(<RelationshipsPanel objectApiName="Department__c" />);
+    render(<RelationshipsPanel {...tabProps(DEPARTMENT)} />);
 
-    await vi.waitFor(() => expect(screen.queryByTestId("relationships")).toBeNull());
+    expect(await screen.findByTestId("relationships-failed")).toHaveTextContent("You are not allowed to perform this action.");
   });
 });

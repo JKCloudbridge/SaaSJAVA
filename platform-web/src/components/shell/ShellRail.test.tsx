@@ -2,10 +2,15 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { json } from "@/test/fakeApi";
 import { shellApi, ShellProviders } from "@/test/shellApi";
+import { publishOpenObject } from "@/lib/shell/objectContext";
 import { ShellRail } from "./ShellRail";
 
 let pathname = "/members";
-vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
+let search = "";
+vi.mock("next/navigation", () => ({
+  usePathname: () => pathname,
+  useSearchParams: () => new URLSearchParams(search),
+}));
 vi.mock("next/link", () => ({
   default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
     <a href={href} {...rest}>
@@ -16,10 +21,12 @@ vi.mock("next/link", () => ({
 
 beforeEach(() => {
   pathname = "/members";
+  search = "";
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  publishOpenObject(undefined);
 });
 
 function renderRail() {
@@ -87,8 +94,8 @@ describe("the rail beside the content", () => {
     expect(screen.queryByRole("navigation", { name: "Home" })).toBeNull();
   });
 
-  it("is not drawn on pages that belong to no rail: the approvals inbox, object pages, an application", async () => {
-    for (const address of ["/approvals", "/notifications", "/setup/objects", "/apps/Field__c/o-Deal__c", "/"]) {
+  it("is not drawn on pages that belong to no rail: the approvals inbox, the notifications, an application", async () => {
+    for (const address of ["/approvals", "/notifications", "/apps/Field__c/o-Deal__c", "/"]) {
       pathname = address;
       shellApi({ abilities: ALL });
       const { unmount } = renderRail();
@@ -97,6 +104,72 @@ describe("the rail beside the content", () => {
       expect(screen.queryByRole("navigation"), address).toBeNull();
       unmount();
     }
+  });
+
+  it("offers the rail of one object under Object settings, named after the object, with the tab the address names marked", async () => {
+    pathname = "/setup/objects/Employee__c";
+    search = "section=rules";
+    publishOpenObject({ apiName: "Employee__c", label: "Employee" });
+    shellApi({ abilities: ALL });
+    renderRail();
+
+    const rail = await screen.findByRole("navigation", { name: "Employee" });
+
+    expect(within(rail).getByRole("link", { name: "Validation rules" })).toHaveAttribute("aria-current", "page");
+    expect(within(rail).getByRole("link", { name: "Fields" })).toHaveAttribute(
+      "href",
+      "/setup/objects/Employee__c?section=fields",
+    );
+    expect(within(rail).getByRole("link", { name: "Fields" })).not.toHaveAttribute("aria-current");
+    expect(within(rail).getByRole("button", { name: "Pages" })).toHaveAttribute("aria-expanded", "false");
+    expect(within(rail).getByRole("link", { name: "Sharing" })).toBeInTheDocument();
+    expect(within(rail).getByRole("link", { name: "Details" })).toBeInTheDocument();
+  });
+
+  it("names the rail after the API name until the page has told the shell the object's name", async () => {
+    pathname = "/setup/objects/Employee__c";
+    shellApi({ abilities: ALL });
+    renderRail();
+
+    expect(await screen.findByRole("navigation", { name: "Employee__c" })).toBeInTheDocument();
+  });
+
+  it("opens the group Pages on the layouts and keeps the tab current inside the builders of an object", async () => {
+    pathname = "/setup/objects/Employee__c/layouts/Details__c";
+    publishOpenObject({ apiName: "Employee__c", label: "Employee" });
+    shellApi({ abilities: ALL });
+    renderRail();
+
+    const rail = await screen.findByRole("navigation", { name: "Employee" });
+
+    expect(within(rail).getByRole("button", { name: "Pages" })).toHaveAttribute("aria-expanded", "true");
+    expect(within(rail).getByRole("link", { name: "Page layouts" })).toHaveAttribute("aria-current", "page");
+    expect(within(rail).getByRole("link", { name: "Record pages" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("draws Custom buttons as a name with Soon and no link", async () => {
+    pathname = "/setup/objects/Employee__c";
+    search = "section=layouts";
+    shellApi({ abilities: ALL });
+    renderRail();
+    const rail = await screen.findByRole("navigation", { name: "Employee__c" });
+
+    const soon = within(rail).getByTestId("rail-unavailable");
+
+    expect(soon).toHaveTextContent("Custom buttons");
+    expect(soon).toHaveTextContent("Soon");
+    expect(within(rail).queryByRole("link", { name: /Custom buttons/ })).toBeNull();
+  });
+
+  it("has no rail on the list of objects itself", async () => {
+    pathname = "/setup/objects";
+    shellApi({ abilities: ALL });
+    renderRail();
+
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(screen.queryByRole("navigation")).toBeNull();
   });
 
   it("offers the console rail on the platform's address to a person with a platform role", async () => {

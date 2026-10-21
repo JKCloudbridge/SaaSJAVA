@@ -17,9 +17,14 @@ public final class TestUsers {
 
     /** An active user with a unique address and a strong random password. */
     public static TestUser create(Users users) {
+        return create(users, "Test User");
+    }
+
+    /** An active user with the given display name, for a test that must tell two people apart. */
+    public static TestUser create(Users users, String displayName) {
         String email = "user-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12) + "@example.test";
         String password = "Pw-" + UUID.randomUUID() + "-" + UUID.randomUUID();
-        User user = users.createActive(email, "Test User", password.toCharArray(), ActorId.SYSTEM);
+        User user = users.createActive(email, displayName, password.toCharArray(), ActorId.SYSTEM);
         return new TestUser(user, email, password);
     }
 }

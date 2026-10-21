@@ -45,6 +45,7 @@ class LifecycleAccessIT extends LifecycleSupport {
                 new Call("POST", RELEASES + "/latest/rollback-check", "{}"),
                 new Call("POST", RELEASES + "/latest/rollback", "{}"),
                 new Call("GET", OBJECTS + "/Gadget__c/relationships", null),
+                new Call("GET", OBJECTS + "/Gadget__c/authorship", null),
                 new Call("GET", OBJECTS + "/Gadget__c/record-types", null),
                 new Call("POST", OBJECTS + "/Gadget__c/record-types", RT),
                 new Call("GET", OBJECTS + "/Gadget__c/record-types/Odd__c", null),

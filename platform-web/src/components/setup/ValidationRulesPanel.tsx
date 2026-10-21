@@ -2,10 +2,17 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { COMMON_TEXT } from "@/components/account/messages";
-import { ActionMessages, failureText, useAction } from "@/components/console/useAction";
+import { ActionMessages, failureText } from "@/components/console/useAction";
+import { DetailGrid, DetailItem, DetailPage, DetailSection, MissingDetail } from "@/components/ui/lists/DetailPage";
+import { ListPage } from "@/components/ui/lists/ListPage";
+import { Tag } from "@/components/ui/lists/Tag";
+import { useListScreen } from "@/components/ui/lists/useListScreen";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
+import { useOffers } from "@/lib/session/SessionProvider";
+import { Author } from "./authorship";
 import { ExpressionCheck } from "./ExpressionCheck";
+import { detailParents, listCrumbs, tabTitle, type ObjectTabProps } from "./objectTab";
 import { problemText } from "./objectText";
 import { addToSet, DRAFTED_TEXT, useWorkingSet } from "./workingSet";
 
@@ -24,6 +31,8 @@ interface Draft {
 
 const EMPTY: Draft = { name: "", label: "", description: "", expression: "", errorMessage: "", errorField: "", active: true };
 
+const ROUTE = { openParam: "rule", keep: ["section"] } as const;
+
 function draftOf(rule: RuleView): Draft {
   return {
     name: rule.apiName,
@@ -37,21 +46,24 @@ function draftOf(rule: RuleView): Draft {
 }
 
 /**
- * The validation rules of one object. A rule is a condition in the expression language that, when it is true, rejects the
- * save, and the message the person who is rejected reads. Rules are made, changed, switched on and off and removed here
- * either live (one step in the history) or, when a change set is chosen, as drafts that go live with the set. The page
- * shows what the API answers: whether the condition is valid, which fields exist and what depends on what is the API's to
- * decide, and it names the place that is wrong. The test box asks the real engine; nothing is evaluated in the browser.
+ * The Validation rules tab of an object (UA3, ADR-0170, ADR-0078): a rule is a condition in the expression language that,
+ * when it is true, rejects the save, and the message the person who is rejected reads. A list (rule, API name, status); a
+ * row opens the rule's page; New opens the form with the test box. Changes go live (one step in the history) or, when a
+ * change set is chosen, into it. The page shows what the API answers: whether the condition is valid, which fields exist
+ * and what depends on what is the API's to decide, and it names the place that is wrong. The test box asks the real
+ * engine; nothing is evaluated in the browser.
  */
-export function ValidationRulesPanel({ object, onChanged }: { object: ObjectView; onChanged: () => void }) {
+export function ValidationRulesPanel({ object, reload: reloadObject, authorship }: ObjectTabProps) {
   const objectApiName = object.apiName;
   const { id: workingSet } = useWorkingSet();
+  const offersManage = useOffers("metadata.manage");
   const [rules, setRules] = useState<RuleView[] | undefined>();
   const [failure, setFailure] = useState<string | undefined>();
   const [draft, setDraft] = useState<Draft>(EMPTY);
-  const [editing, setEditing] = useState<RuleView | undefined>();
+  const [editing, setEditing] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
-  const reload = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
       const { data, error, response } = await api.GET("/api/v1/metadata/objects/{objectApiName}/validation-rules", {
         params: { path: { objectApiName } },
@@ -70,42 +82,24 @@ export function ValidationRulesPanel({ object, onChanged }: { object: ObjectView
   const managed = object.managedBy != null;
   useEffect(() => {
     if (!managed) {
-      void Promise.resolve().then(reload);
+      void Promise.resolve().then(load);
     }
-  }, [reload, managed]);
+  }, [load, managed]);
 
   const done = useCallback(async () => {
-    await reload();
-    onChanged();
-  }, [reload, onChanged]);
-  const { busy, notice, problem, act } = useAction(done);
+    await load();
+    await reloadObject();
+  }, [load, reloadObject]);
+  const screen = useListScreen(done, ROUTE);
+  const { busy, notice, problem, act } = screen;
 
-  if (object.managedBy) {
-    return (
-      <section aria-labelledby="rules-heading">
-        <h3 id="rules-heading">Validation rules</h3>
-        <p className="hint">The records of this object belong to the platform, so it has no validation rules.</p>
-      </section>
-    );
-  }
-  if (failure) {
-    return (
-      <p className="form-message" role="alert" data-testid="rules-failed">
-        {failure}
-      </p>
-    );
-  }
-  if (!rules) {
-    return <p aria-live="polite">Loading…</p>;
-  }
-
+  const messages = <ActionMessages notice={notice} problem={problem} testId="rules" />;
+  const crumbs = listCrumbs(object, "Validation rules");
+  const parents = detailParents(object);
   // A message is shown on a field a person fills in, never on one of the platform's system fields.
   const fields = object.fields.filter((field) => !field.retired && field.kind !== "SYSTEM");
-
-  function reset() {
-    setDraft(EMPTY);
-    setEditing(undefined);
-  }
+  const fieldLabel = (apiName?: string) =>
+    apiName ? (object.fields.find((field) => field.apiName === apiName)?.label ?? apiName) : "The record as a whole";
 
   function update(rule: RuleView, change: Partial<Draft>) {
     const next = { ...draftOf(rule), ...change };
@@ -134,8 +128,8 @@ export function ValidationRulesPanel({ object, onChanged }: { object: ObjectView
             params: { path: { objectApiName, ruleApiName: rule.apiName } },
             body,
           });
-      if (result.response.ok && editing?.apiName === rule.apiName) {
-        reset();
+      if (result.response.ok && screen.openId === rule.apiName) {
+        setEditing(false);
       }
       return {
         error: result.error,
@@ -146,12 +140,13 @@ export function ValidationRulesPanel({ object, onChanged }: { object: ObjectView
     });
   }
 
-  function save(event: FormEvent<HTMLFormElement>) {
+  const save = (rule: RuleView) => (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (editing) {
-      send(editing, draft, "The validation rule was saved.");
-      return;
-    }
+    send(rule, draft, "The validation rule was saved.");
+  };
+
+  function create(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     void act(async () => {
       const request = {
         name: draft.name,
@@ -169,7 +164,7 @@ export function ValidationRulesPanel({ object, onChanged }: { object: ObjectView
             body: request,
           });
       if (result.response.ok) {
-        reset();
+        screen.back(true);
       }
       return {
         error: result.error,
@@ -180,17 +175,17 @@ export function ValidationRulesPanel({ object, onChanged }: { object: ObjectView
     });
   }
 
-  function remove(rule: RuleView) {
-    void act(async () => {
+  const remove = (rule: RuleView) => {
+    setConfirmRemove(false);
+    return act(async () => {
       const result = workingSet
-        ? await addToSet(workingSet, {
-            kind: "DELETE_VALIDATION_RULE",
-            objectApiName,
-            itemApiName: rule.apiName,
-          })
+        ? await addToSet(workingSet, { kind: "DELETE_VALIDATION_RULE", objectApiName, itemApiName: rule.apiName })
         : await api.DELETE("/api/v1/metadata/objects/{objectApiName}/validation-rules/{ruleApiName}", {
             params: { path: { objectApiName, ruleApiName: rule.apiName } },
           });
+      if (result.response.ok && screen.openId === rule.apiName) {
+        screen.back(true);
+      }
       return {
         error: result.error,
         response: result.response,
@@ -198,187 +193,332 @@ export function ValidationRulesPanel({ object, onChanged }: { object: ObjectView
         problem: problemText(result.error, result.response),
       };
     });
+  };
+
+  const form = (isEditing: boolean) => (
+    <RuleFields draft={draft} onDraft={setDraft} object={object} fields={fields} editing={isEditing} />
+  );
+
+  if (object.managedBy) {
+    return (
+      <ListPage<RuleView>
+        title={tabTitle(object, "Validation rules")}
+        crumbs={crumbs}
+        items={[]}
+        rowKey={(row) => row.apiName}
+        primaryHeader="Rule"
+        primary={(row) => row.label}
+        columns={[]}
+        emptyText="The records of this object belong to the platform, so it has no validation rules."
+        testId="rules"
+      />
+    );
   }
 
-  const formName = editing ? "Change the validation rule" : "Add a validation rule";
-
-  return (
-    <section aria-labelledby="rules-heading" data-testid="rules">
-      <h3 id="rules-heading">Validation rules</h3>
-      <p className="hint">
-        A validation rule is a condition. When it is true for a record, the save is rejected and the person reads the message
-        of the rule. A condition with no value does not reject.
-      </p>
-      <ActionMessages notice={notice} problem={problem} testId="rules" />
-      {rules.length === 0 ? (
-        <p>No validation rules yet.</p>
-      ) : (
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Rule</th>
-              <th>API name</th>
-              <th>Active</th>
-              <th>
-                <span className="visually-hidden">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rules.map((rule) => (
-              <tr key={rule.apiName} data-testid="rule-row">
-                <td>
-                  {rule.label}
-                  {rule.description ? <div className="hint">{rule.description}</div> : null}
-                  <div className="hint">
-                    Rejects when <code>{rule.expression}</code>
-                  </div>
-                  <div className="hint">
-                    Message: {rule.errorMessage}
-                    {rule.errorField ? ` (shown on ${rule.errorField})` : ""}
-                  </div>
-                </td>
-                <td>
-                  <code>{rule.apiName}</code>
-                </td>
-                <td>{rule.active ? "Yes" : "No"}</td>
-                <td>
-                  <button
-                    type="button"
-                    className="link-button"
-                    disabled={busy}
-                    onClick={() => send(rule, { active: !rule.active }, rule.active ? "The rule was switched off." : "The rule was switched on.")}
-                  >
-                    {rule.active ? "Switch off" : "Switch on"}
-                  </button>{" "}
-                  <button
-                    type="button"
-                    className="link-button"
-                    disabled={busy}
-                    onClick={() => {
-                      setEditing(rule);
-                      setDraft(draftOf(rule));
-                    }}
-                  >
-                    Change
-                  </button>{" "}
-                  <button type="button" className="link-button" disabled={busy} onClick={() => remove(rule)}>
-                    Remove
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      <h4>{formName}</h4>
-      <form className="form" onSubmit={save} noValidate aria-label={formName}>
-        {editing ? (
-          <p>
-            <code>{editing.apiName}</code>. The name of a validation rule never changes.
-          </p>
-        ) : (
-          <div className="field">
-            <label htmlFor="rule-name">Name</label>
-            <input
-              id="rule-name"
-              value={draft.name}
-              maxLength={40}
-              onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-              required
-              aria-describedby="rule-name-hint"
-            />
-            <p className="hint" id="rule-name-hint">
-              The permanent name, starting with a capital letter, for example CloseDateRequired. The platform adds the ending
-              __c.
-            </p>
-          </div>
-        )}
-        <div className="field">
-          <label htmlFor="rule-label">Label</label>
-          <input
-            id="rule-label"
-            value={draft.label}
-            maxLength={80}
-            onChange={(event) => setDraft({ ...draft, label: event.target.value })}
-            required
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="rule-description">Description</label>
-          <input
-            id="rule-description"
-            value={draft.description}
-            maxLength={500}
-            onChange={(event) => setDraft({ ...draft, description: event.target.value })}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="rule-expression">Condition</label>
-          <textarea
-            id="rule-expression"
-            value={draft.expression}
-            maxLength={4000}
-            onChange={(event) => setDraft({ ...draft, expression: event.target.value })}
-            aria-describedby="rule-expression-hint"
-          />
-          <p className="hint" id="rule-expression-hint">
-            The save is rejected when this is true, for example: status__c = &apos;Closed&apos; AND ISBLANK(closeDate__c)
-          </p>
-        </div>
-        <ExpressionCheck
-          objectApiName={objectApiName}
-          expression={draft.expression}
-          purpose="VALIDATION_RULE"
-          ruleMessage={draft.errorMessage}
-          fields={object.fields}
-          testId="rule-check"
-        />
-        <div className="field">
-          <label htmlFor="rule-message">Message</label>
-          <input
-            id="rule-message"
-            value={draft.errorMessage}
-            maxLength={255}
-            onChange={(event) => setDraft({ ...draft, errorMessage: event.target.value })}
-            required
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="rule-error-field">Show the message on</label>
-          <select
-            id="rule-error-field"
-            value={draft.errorField}
-            onChange={(event) => setDraft({ ...draft, errorField: event.target.value })}
-          >
-            <option value="">The record as a whole</option>
-            {fields.map((field) => (
-              <option key={field.apiName} value={field.apiName}>
-                {field.label} ({field.apiName})
-              </option>
-            ))}
-          </select>
-        </div>
-        <label>
-          <input
-            type="checkbox"
-            checked={draft.active}
-            onChange={(event) => setDraft({ ...draft, active: event.target.checked })}
-          />{" "}
-          Active
-        </label>
-        <div>
-          <button type="submit" className="button" disabled={busy}>
-            {editing ? "Save the validation rule" : "Add the validation rule"}
-          </button>{" "}
-          {editing ? (
-            <button type="button" className="link-button" onClick={reset}>
+  if (screen.creating && rules) {
+    return (
+      <DetailPage
+        listLabel="Validation rules"
+        parents={parents}
+        onBack={() => screen.back()}
+        title="New validation rule"
+        notices={messages}
+        actions={
+          <>
+            <button type="button" className="button button-secondary" onClick={() => screen.back()}>
               Cancel
             </button>
-          ) : null}
+            <button type="submit" form="rule-form" className="button" disabled={busy}>
+              Add the validation rule
+            </button>
+          </>
+        }
+        testId="rule-new"
+      >
+        <form id="rule-form" onSubmit={create} noValidate aria-label="Add a validation rule">
+          <DetailSection title="Detail" stack>
+            {form(false)}
+          </DetailSection>
+        </form>
+      </DetailPage>
+    );
+  }
+
+  const rule = rules?.find((candidate) => candidate.apiName === screen.openId);
+  if (screen.openId && rules && !rule) {
+    return (
+      <MissingDetail
+        listLabel="Validation rules"
+        onBack={() => screen.back()}
+        what="This validation rule does not exist any more."
+      />
+    );
+  }
+
+  if (rule) {
+    const actions = editing ? (
+      <>
+        <button type="button" className="button button-secondary" onClick={() => setEditing(false)}>
+          Cancel
+        </button>
+        <button type="submit" form="rule-form" className="button" disabled={busy}>
+          Save the validation rule
+        </button>
+      </>
+    ) : offersManage ? (
+      <>
+        <button
+          type="button"
+          className="button button-secondary"
+          disabled={busy}
+          onClick={() =>
+            send(rule, { active: !rule.active }, rule.active ? "The rule was switched off." : "The rule was switched on.")
+          }
+        >
+          {rule.active ? "Switch off" : "Switch on"}
+        </button>
+        <button
+          type="button"
+          className="button button-danger"
+          disabled={busy}
+          onClick={() => setConfirmRemove((value) => !value)}
+        >
+          Remove
+        </button>
+        <button
+          type="button"
+          className="button"
+          disabled={busy}
+          onClick={() => {
+            setDraft(draftOf(rule));
+            setEditing(true);
+          }}
+        >
+          Edit
+        </button>
+      </>
+    ) : null;
+    return (
+      <DetailPage
+        listLabel="Validation rules"
+        parents={parents}
+        onBack={() => {
+          setEditing(false);
+          setConfirmRemove(false);
+          screen.back();
+        }}
+        title={rule.label}
+        actions={actions}
+        notices={messages}
+        testId="rule-detail"
+      >
+        {confirmRemove ? (
+          <p role="alertdialog" aria-label="Remove the validation rule" data-testid="rule-remove-confirm">
+            Remove this validation rule?{" "}
+            <button type="button" className="button button-danger" disabled={busy} onClick={() => void remove(rule)}>
+              Yes, remove the rule
+            </button>{" "}
+            <button type="button" className="link-button" onClick={() => setConfirmRemove(false)}>
+              Cancel
+            </button>
+          </p>
+        ) : null}
+        {editing ? (
+          <form id="rule-form" onSubmit={save(rule)} noValidate aria-label="Change the validation rule">
+            <DetailSection title="Edit validation rule" stack>
+              {form(true)}
+            </DetailSection>
+          </form>
+        ) : (
+          <>
+            <DetailSection title="Detail">
+              <DetailGrid>
+                <DetailItem label="Label">{rule.label}</DetailItem>
+                <DetailItem label="API name" tone="mono">
+                  {rule.apiName}
+                </DetailItem>
+                <DetailItem label="Description" wide tone={rule.description ? undefined : "muted"}>
+                  {rule.description || "—"}
+                </DetailItem>
+                <DetailItem label="Status">
+                  <Tag tone={rule.active ? "ok" : "quiet"}>{rule.active ? "Active" : "Not active"}</Tag>
+                </DetailItem>
+                <DetailItem label="Object name">{object.label}</DetailItem>
+                <DetailItem label="Created by">
+                  <Author authorship={authorship} kind="VALIDATION_RULE" apiName={rule.apiName} which="created" />
+                </DetailItem>
+                <DetailItem label="Modified by">
+                  <Author authorship={authorship} kind="VALIDATION_RULE" apiName={rule.apiName} which="updated" />
+                </DetailItem>
+              </DetailGrid>
+            </DetailSection>
+            <DetailSection title="Rejects when">
+              <DetailGrid>
+                <DetailItem label="Condition" wide tone="mono">
+                  {rule.expression}
+                </DetailItem>
+                <DetailItem label="Message" wide>
+                  {rule.errorMessage}
+                </DetailItem>
+                <DetailItem label="Shown on">{fieldLabel(rule.errorField)}</DetailItem>
+              </DetailGrid>
+            </DetailSection>
+          </>
+        )}
+      </DetailPage>
+    );
+  }
+
+  return (
+    <ListPage<RuleView>
+      title={tabTitle(object, "Validation rules")}
+      crumbs={crumbs}
+      intro="A validation rule is a condition. When it is true for a record, the save is rejected and the person reads the message of the rule. A condition with no value does not reject."
+      items={rules}
+      failure={failure}
+      rowKey={(row) => row.apiName}
+      primaryHeader="Rule"
+      primary={(row) => row.label}
+      primaryExtra={(row) => (row.description ? <span className="hint"> {row.description}</span> : null)}
+      columns={[
+        { key: "api", header: "API name", kind: "muted", cell: (row) => <code>{row.apiName}</code> },
+        {
+          key: "status",
+          header: "Status",
+          kind: "tag",
+          cell: (row) => <Tag tone={row.active ? "ok" : "quiet"}>{row.active ? "Active" : "Not active"}</Tag>,
+        },
+      ]}
+      onOpen={(row) => {
+        setEditing(false);
+        setConfirmRemove(false);
+        screen.open(row.apiName);
+      }}
+      searchText={(row) => `${row.label} ${row.apiName}`}
+      searchLabel="Search validation rules"
+      onNew={
+        offersManage
+          ? () => {
+              setDraft(EMPTY);
+              setEditing(false);
+              screen.create();
+            }
+          : undefined
+      }
+      notices={messages}
+      emptyText="No validation rules yet."
+      testId="rules"
+      rowTestId="rule-row"
+    />
+  );
+}
+
+/** The fields of a validation rule as a form, with the test box beside the condition. */
+function RuleFields({
+  draft,
+  onDraft,
+  object,
+  fields,
+  editing,
+}: {
+  draft: Draft;
+  onDraft: (next: Draft) => void;
+  object: ObjectView;
+  fields: ObjectView["fields"];
+  editing: boolean;
+}) {
+  return (
+    <>
+      {editing ? (
+        <p>
+          <code>{draft.name}</code>. The name of a validation rule never changes.
+        </p>
+      ) : (
+        <div className="field">
+          <label htmlFor="rule-name">Name</label>
+          <input
+            id="rule-name"
+            value={draft.name}
+            maxLength={40}
+            onChange={(event) => onDraft({ ...draft, name: event.target.value })}
+            required
+            aria-describedby="rule-name-hint"
+          />
+          <p className="hint" id="rule-name-hint">
+            The permanent API name, starting with a capital letter, for example CloseDateRequired. The platform adds the ending
+            __c.
+          </p>
         </div>
-      </form>
-    </section>
+      )}
+      <div className="field">
+        <label htmlFor="rule-label">Label</label>
+        <input
+          id="rule-label"
+          value={draft.label}
+          maxLength={80}
+          onChange={(event) => onDraft({ ...draft, label: event.target.value })}
+          required
+        />
+      </div>
+      <div className="field">
+        <label htmlFor="rule-description">Description</label>
+        <input
+          id="rule-description"
+          value={draft.description}
+          maxLength={500}
+          onChange={(event) => onDraft({ ...draft, description: event.target.value })}
+        />
+      </div>
+      <div className="field">
+        <label htmlFor="rule-expression">Condition</label>
+        <textarea
+          id="rule-expression"
+          value={draft.expression}
+          maxLength={4000}
+          onChange={(event) => onDraft({ ...draft, expression: event.target.value })}
+          aria-describedby="rule-expression-hint"
+        />
+        <p className="hint" id="rule-expression-hint">
+          The save is rejected when this is true, for example: status__c = &apos;Closed&apos; AND ISBLANK(closeDate__c)
+        </p>
+      </div>
+      <ExpressionCheck
+        objectApiName={object.apiName}
+        expression={draft.expression}
+        purpose="VALIDATION_RULE"
+        ruleMessage={draft.errorMessage}
+        fields={object.fields}
+        testId="rule-check"
+      />
+      <div className="field">
+        <label htmlFor="rule-message">Message</label>
+        <input
+          id="rule-message"
+          value={draft.errorMessage}
+          maxLength={255}
+          onChange={(event) => onDraft({ ...draft, errorMessage: event.target.value })}
+          required
+        />
+      </div>
+      <div className="field">
+        <label htmlFor="rule-error-field">Show the message on</label>
+        <select
+          id="rule-error-field"
+          value={draft.errorField}
+          onChange={(event) => onDraft({ ...draft, errorField: event.target.value })}
+        >
+          <option value="">The record as a whole</option>
+          {fields.map((field) => (
+            <option key={field.apiName} value={field.apiName}>
+              {field.label} ({field.apiName})
+            </option>
+          ))}
+        </select>
+      </div>
+      <label>
+        <input type="checkbox" checked={draft.active} onChange={(event) => onDraft({ ...draft, active: event.target.checked })} />{" "}
+        Active
+      </label>
+    </>
   );
 }
