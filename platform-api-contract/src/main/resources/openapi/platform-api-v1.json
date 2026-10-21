@@ -12070,6 +12070,9 @@
             "type" : "string",
             "format" : "uuid"
           },
+          "managed" : {
+            "type" : "boolean"
+          },
           "members" : {
             "type" : "integer",
             "format" : "int32"
@@ -12081,7 +12084,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "abilities", "description", "id", "name" ]
+        "required" : [ "abilities", "description", "id", "managed", "name" ]
       },
       "AddCatalogueItemRequest" : {
         "type" : "object",
@@ -14579,6 +14582,9 @@
           },
           "name" : {
             "type" : "string"
+          },
+          "removalNote" : {
+            "type" : "string"
           }
         },
         "required" : [ "key", "name" ]
@@ -15843,9 +15849,12 @@
           },
           "label" : {
             "type" : "string"
+          },
+          "retained" : {
+            "type" : "boolean"
           }
         },
-        "required" : [ "fields", "key", "label" ]
+        "required" : [ "fields", "key", "label", "retained" ]
       },
       "DeadLetterGroup" : {
         "type" : "object",
@@ -15905,6 +15914,9 @@
           },
           "override" : {
             "type" : "boolean"
+          },
+          "removalNote" : {
+            "type" : "string"
           }
         },
         "required" : [ "key", "name" ]
@@ -17245,6 +17257,9 @@
             "type" : "string"
           },
           "pageApiName" : {
+            "type" : "string"
+          },
+          "pageKey" : {
             "type" : "string"
           },
           "path" : {

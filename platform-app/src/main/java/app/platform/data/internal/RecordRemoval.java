@@ -58,6 +58,7 @@ class RecordRemoval {
 
     static final String NOT_READY = "The links of this kind of record are still being prepared. Try again in a few "
             + "minutes.";
+    static final String KEPT_DETAILS = "Records that belong to this one are kept, so it cannot be removed.";
     static final String NOT_ALLOWED = "You may not remove the records that belong to this one.";
     static final String MASTER_GONE = "The record this one belongs to is in the recycle bin or gone, so this record "
             + "cannot come back by itself. Restore the record it belongs to instead.";
@@ -179,6 +180,10 @@ class RecordRemoval {
                     case REFUSE -> throw new ApiException(ErrorCode.CONFLICT, REFERRED_TO);
                     case CLEAR -> toClear.add(new Pointer(row.sourceObject(), row.sourceRecord(), row.field()));
                     case CASCADE -> {
+                        if (metadata.object(row.sourceObject()).map(ObjectDefinition::retainRecords).orElse(false)) {
+                            // The records that belong to this one are kept, so this one cannot go with them (ADR-0181).
+                            throw new ApiException(ErrorCode.CONFLICT, KEPT_DETAILS);
+                        }
                         if (!decisions.can(passed.membershipId(), row.sourceObject(), ObjectAction.DELETE)
                                 .allowed()) {
                             throw new ApiException(ErrorCode.FORBIDDEN, NOT_ALLOWED);

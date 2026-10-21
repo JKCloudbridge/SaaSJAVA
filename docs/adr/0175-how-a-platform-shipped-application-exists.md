@@ -1,6 +1,6 @@
 # ADR-0175: How a platform-shipped application exists
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-10-21, with the FA1 go-ahead)
 - **Date:** 2026-10-21
 - **Sprint:** FA0 (Functional track, spike; no product code)
 - **Related:** [ADR-0073](0073-applications-navigation-and-the-members-menu.md) (applications and the member's menu), [ADR-0128](0128-tabs-and-security-aware-navigation.md), [ADR-0059](0059-standard-metadata-in-definition-files.md) (standard objects as files), [ADR-0045](0045-system-profiles-seeding-backfill-and-licence-consequences.md) (system profiles ensured per organization), [ADR-0152](0152-entitlement-abilities-visibility-and-telling-the-approver.md), [ADR-0179](0179-packaging-the-whole-organization-by-plan-feature.md)

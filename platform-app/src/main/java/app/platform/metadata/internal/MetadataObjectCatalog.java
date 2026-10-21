@@ -3,6 +3,8 @@ package app.platform.metadata.internal;
 import app.platform.security.ObjectCatalog;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /**
@@ -20,13 +22,22 @@ class MetadataObjectCatalog implements ObjectCatalog {
         this.catalogue = catalogue;
     }
 
+    /**
+     * The objects permissions can name. An object the organization lacks the plan feature for is not among them, asked
+     * now and not kept (ADR-0181): a permission decision, a menu and the access-policy editor all treat it as unknown.
+     */
     @Override
     public List<ObjectInfo> objects() {
-        return catalogue.snapshot().catalogue();
+        MetadataSnapshot snapshot = catalogue.snapshot();
+        Set<String> offered = catalogue.objects().stream().map(object -> object.apiName()).collect(Collectors.toSet());
+        if (offered.size() == snapshot.objects().size()) {
+            return snapshot.catalogue();
+        }
+        return snapshot.catalogue().stream().filter(info -> offered.contains(info.key())).toList();
     }
 
     @Override
     public Optional<ObjectInfo> object(String key) {
-        return catalogue.snapshot().catalogueObject(key);
+        return catalogue.entitled(key) ? catalogue.snapshot().catalogueObject(key) : Optional.empty();
     }
 }

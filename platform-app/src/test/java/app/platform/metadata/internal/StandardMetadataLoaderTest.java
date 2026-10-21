@@ -36,8 +36,8 @@ class StandardMetadataLoaderTest {
         StandardMetadata standard = StandardMetadataLoader.load();
 
         assertThat(standard.objects()).extracting(ObjectDefinition::apiName).containsExactlyInAnyOrder(
-                "Account", "AccessPolicy", "AccessPolicyAssignment", "Case", "Contact", "LicenceType",
-                "Opportunity", "Profile", "RecordType", "Role", "User").doesNotHaveDuplicates();
+                "Account", "AccessPolicy", "AccessPolicyAssignment", "Case", "Contact", "InspectionTemplate",
+                "LicenceType", "Opportunity", "Profile", "RecordType", "Role", "User").doesNotHaveDuplicates();
         assertThat(standard.objects()).allSatisfy(object -> {
             assertThat(object.kind()).isEqualTo(DefinitionKind.STANDARD);
             assertThat(object.fields().subList(0, standard.systemFields().size()))
@@ -154,7 +154,50 @@ class StandardMetadataLoaderTest {
                 Arguments.of("an owner that is not known", head + "managedBy: nobody\nfields: []\n", "managedBy"),
                 Arguments.of("a label that is empty", "apiName: Thing\nlabel: ' '\npluralLabel: Ts\n", "is empty"),
                 Arguments.of("a flag written as text", head + "extensible: maybe\nfields: []\n",
-                        "must be true or false"));
+                        "must be true or false"),
+                Arguments.of("a plan feature that is not a key", head + "requiresFeature: Not A Key\nfields: []\n",
+                        "plan feature key"),
+                Arguments.of("a kept flag written as text", head + "retainRecords: soon\nfields: []\n",
+                        "must be true or false"),
+                Arguments.of("an object another part owns that is hidden by a feature", head
+                        + "managedBy: identity\nrequiresFeature: some-feature\nfields: []\n", "cannot be hidden"),
+                Arguments.of("an object another part owns that keeps its records", head
+                        + "managedBy: identity\nretainRecords: true\nfields: []\n", "cannot be hidden"));
+    }
+
+    @Test
+    void theShippedObjectNeedsItsFeatureAndKeepsItsRecords() {
+        StandardMetadata standard = StandardMetadataLoader.load();
+
+        ObjectDefinition shipped = standard.object("InspectionTemplate").orElseThrow();
+        assertThat(shipped.requiresFeature()).isEqualTo("inspection");
+        assertThat(shipped.retainRecords()).isTrue();
+        assertThat(shipped.extensible()).isFalse();
+        assertThat(shipped.managedBy()).isNull();
+        assertThat(shipped.fields().stream().skip(standard.systemFields().size()).map(FieldDefinition::apiName))
+                .containsExactly("name", "retired");
+    }
+
+    @Test
+    void everyOtherStandardObjectNeedsNoFeatureAndMayBeDeleted() {
+        StandardMetadata standard = StandardMetadataLoader.load();
+
+        assertThat(standard.objects().stream().filter(object -> !object.apiName().equals("InspectionTemplate")))
+                .allSatisfy(object -> {
+                    assertThat(object.requiresFeature()).isNull();
+                    assertThat(object.retainRecords()).isFalse();
+                });
+    }
+
+    @Test
+    void anObjectNameInTwoFoldersStopsTheLoading(@TempDir Path one, @TempDir Path two) throws IOException {
+        Files.writeString(one.resolve("_system-fields.yml"), SYSTEM_FIELDS);
+        Files.writeString(one.resolve("Thing.yml"), "apiName: Thing\nlabel: T\npluralLabel: Ts\n");
+        Files.writeString(two.resolve("Thing.yml"), "apiName: Thing\nlabel: T\npluralLabel: Ts\n");
+
+        assertThatThrownBy(() -> StandardMetadataLoader.load("file:" + one.toUri().getPath() + "*.yml",
+                "file:" + two.toUri().getPath() + "*.yml")).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("defined twice");
     }
 
     @Test

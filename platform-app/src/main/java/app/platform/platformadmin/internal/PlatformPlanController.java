@@ -45,8 +45,10 @@ class PlatformPlanController {
     private final PlatformCaller caller;
     private final Plans plans;
     private final PlatformAudit audit;
+    private final FeatureNoteDirectory notes;
 
-    PlatformPlanController(PlatformCaller caller, Plans plans, PlatformAudit audit) {
+    PlatformPlanController(PlatformCaller caller, Plans plans, PlatformAudit audit, FeatureNoteDirectory notes) {
+        this.notes = notes;
         this.caller = caller;
         this.plans = plans;
         this.audit = audit;
@@ -113,7 +115,7 @@ class PlatformPlanController {
             summary = "The feature keys",
             description = "For platform administrators, billing and support.")
     ApiResponse<List<CatalogueItem>> features(Principal principal) {
-        return ApiResponse.of(plans.features().stream().map(PlatformPlanController::item).toList());
+        return ApiResponse.of(plans.features().stream().map(this::item).toList());
     }
 
     @PlatformFunction({PLATFORM_ADMIN, PLATFORM_BILLING})
@@ -140,7 +142,7 @@ class PlatformPlanController {
         return new LicenceTypeItem(type.key(), type.name(), type.kind());
     }
 
-    private static CatalogueItem item(FeatureView feature) {
-        return new CatalogueItem(feature.key(), feature.name());
+    private CatalogueItem item(FeatureView feature) {
+        return new CatalogueItem(feature.key(), feature.name(), notes.removalNote(feature.key()).orElse(null));
     }
 }

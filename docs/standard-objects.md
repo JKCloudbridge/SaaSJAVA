@@ -122,6 +122,19 @@ A person the business deals with, usually at an account.
 | `mailingPostalCode` | Mailing postal code | TEXT |  |  | up to 20 characters |
 | `mailingCountry` | Mailing country | TEXT |  |  | up to 80 characters |
 
+## InspectionTemplate
+
+A template of the Audit maintenance application. Its records are kept for good.
+
+- Label: Template / Templates
+- Records managed by: the organization (ordinary data)
+- Own fields: no
+
+| API name | Label | Type | Required | Unique | Details |
+|----------|-------|------|----------|--------|---------|
+| `name` | Template name | TEXT | yes |  | up to 120 characters |
+| `retired` | Retired | BOOLEAN |  |  |  |
+
 ## LicenceType
 
 A kind of licence the platform sells, for example the licence of an administrator or of a user.

@@ -66,7 +66,7 @@ class Authorship {
     }
 
     List<AuthorshipView> of(String objectApiName) {
-        ObjectDefinition object = catalogue.snapshot().object(objectApiName)
+        ObjectDefinition object = catalogue.object(objectApiName)
                 .orElseThrow(() -> ApiException.notFound("This object does not exist."));
         List<Row> rows = jdbc.sql(SQL).param("object", object.apiName()).query((rs, n) -> new Row(
                 rs.getString("kind"), rs.getString("api_name"), rs.getObject("created_by", UUID.class),

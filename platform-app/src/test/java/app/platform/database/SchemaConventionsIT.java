@@ -358,7 +358,7 @@ class SchemaConventionsIT {
                 "user_credential", "login_session", "oauth2_authorization", "audit_record", "account_token",
                 "mail_queue", "organization_handoff", "platform_role_assignment", "licence_type", "feature", "plan",
                 "plan_licence", "plan_feature", "subscription", "entitlement_override", "embedded_token",
-                "subscription_notice");
+                "subscription_notice", "retained_object");
         assertThat(SchemaConventions.SYSTEM_SCOPE_TABLES)
                 .containsExactlyInAnyOrder("outbox_event", "processed_event", "membership", "workflow_execution",
                         "workflow_schedule", "approval_step_timer");

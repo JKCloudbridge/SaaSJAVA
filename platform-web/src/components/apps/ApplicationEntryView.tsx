@@ -7,6 +7,7 @@ import { useApplications } from "@/lib/applications/ApplicationsProvider";
 import { describeKind, findApplication, findEntry, type NavigationEntry } from "@/lib/applications/entries";
 import { entryBase, recordHref } from "@/lib/records/paths";
 import { ObjectListPage } from "@/components/records/ObjectListPage";
+import { platformPageElement } from "@/solutions";
 import { CustomPageFrame } from "./CustomPageFrame";
 
 /** What the address names, decoded: the application and the entry inside it. */
@@ -65,20 +66,56 @@ export function ApplicationEntryView() {
     if (state.status === "idle" || state.status === "loading" || lookedAgain !== key) {
       return <PageLoading />;
     }
-    return (
-      <div className="empty-state" role="status" data-testid="entry-unavailable">
-        <p>
-          <strong>This page is not available.</strong>
-        </p>
-        <p>It may have been removed, or it may not be part of your applications.</p>
-        <Link href="/">Back to the start</Link>
-      </div>
-    );
+    return <NotAvailable />;
   }
-  return <EntryBody applicationLabel={application.label} entry={entry} base={entryBase(address.application, address.entry)} />;
+  return (
+    <EntryBody
+      applicationApiName={application.apiName}
+      applicationLabel={application.label}
+      entry={entry}
+      base={entryBase(address.application, address.entry)}
+    />
+  );
 }
 
-function EntryBody({ applicationLabel, entry, base }: { applicationLabel: string; entry: NavigationEntry; base: string }) {
+/** The plain page for an address that names nothing the member has. The same words whatever the reason. */
+function NotAvailable() {
+  return (
+    <div className="empty-state" role="status" data-testid="entry-unavailable">
+      <p>
+        <strong>This page is not available.</strong>
+      </p>
+      <p>It may have been removed, or it may not be part of your applications.</p>
+      <Link href="/">Back to the start</Link>
+    </div>
+  );
+}
+
+function EntryBody({
+  applicationApiName,
+  applicationLabel,
+  entry,
+  base,
+}: {
+  applicationApiName: string;
+  applicationLabel: string;
+  entry: NavigationEntry;
+  base: string;
+}) {
+  if (entry.type === "PLATFORM") {
+    // A page the platform ships with the application (Functional track FA1). Which pages exist is code, kept with the
+    // solution; whether the member may have the entry at all was the API's answer when it listed it.
+    const page = platformPageElement(applicationApiName, entry.pageKey);
+    if (!page) {
+      return <NotAvailable />;
+    }
+    return (
+      <>
+        <h1 className="entry-title">{entry.label}</h1>
+        {page}
+      </>
+    );
+  }
   if (entry.type === "OBJECT" && entry.objectApiName) {
     // The list of the object (Sprint 19): drawn from what the API says this member may see; the records open inside
     // this application, so the control bar stays where it is.

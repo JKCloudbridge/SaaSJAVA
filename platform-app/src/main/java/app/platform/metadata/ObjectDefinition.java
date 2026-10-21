@@ -18,13 +18,31 @@ import java.util.Optional;
  * @param extensible whether the organization may add its own fields
  * @param version the version, for concurrent changes (0 for objects the platform defines)
  * @param fields the fields: system fields first, then standard, then custom, each group in a stable order
+ * @param requiresFeature the plan feature an organization needs for the object to exist for it, or null (Functional
+ *        track FA1, ADR-0175). Asked when the object is looked up, never kept in the snapshot, so an organization
+ *        without the feature gets "not found" exactly as for an unknown object.
+ * @param retainRecords whether every record of the object is kept: it cannot be deleted, restored over or purged,
+ *        by anyone, and no delete right can be given on it (ADR-0174 section 7, ADR-0181)
  */
 public record ObjectDefinition(String apiName, String label, String pluralLabel, String description,
-        DefinitionKind kind, String managedBy, boolean extensible, long version, List<FieldDefinition> fields) {
+        DefinitionKind kind, String managedBy, boolean extensible, long version, List<FieldDefinition> fields,
+        String requiresFeature, boolean retainRecords) {
 
     /** Copies what is given. */
     public ObjectDefinition {
         fields = List.copyOf(fields);
+    }
+
+    /** An object that needs no plan feature and whose records may be deleted (every object before Sprint FA1). */
+    public ObjectDefinition(String apiName, String label, String pluralLabel, String description,
+            DefinitionKind kind, String managedBy, boolean extensible, long version, List<FieldDefinition> fields) {
+        this(apiName, label, pluralLabel, description, kind, managedBy, extensible, version, fields, null, false);
+    }
+
+    /** The same object with other fields (the organization's own fields added to a standard object). */
+    public ObjectDefinition withFields(List<FieldDefinition> other) {
+        return new ObjectDefinition(apiName, label, pluralLabel, description, kind, managedBy, extensible, version,
+                other, requiresFeature, retainRecords);
     }
 
     /** The field with the API name, if the object has it. */

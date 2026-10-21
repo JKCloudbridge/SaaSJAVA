@@ -42,10 +42,15 @@ class AccessStore {
 
     /** An access policy with the number of members who hold it. */
     record PolicyRow(UUID id, String name, String description, List<String> abilities, UUID requiredLicenceTypeId,
-            int members, int groups) {
+            int members, int groups, String managedBy, String managedKey, String managedHash) {
 
         PolicyRow {
             abilities = List.copyOf(abilities);
+        }
+
+        /** Whether the platform ships the policy: it is assigned, never changed or removed (ADR-0181). */
+        boolean managed() {
+            return managedBy != null;
         }
     }
 
@@ -80,7 +85,7 @@ class AccessStore {
             + "(select count(*) from member_access ma where ma.profile_id = p.id and ma.deleted_at is null) as members";
 
     private static final String POLICY_COLUMNS = "a.id, a.name, a.description, a.abilities, "
-            + "a.required_licence_type_id, "
+            + "a.required_licence_type_id, a.managed_by, a.managed_key, a.managed_hash, "
             + "(select count(*) from member_access_policy mp where mp.access_policy_id = a.id "
             + "and mp.deleted_at is null) as members, "
             + "(select count(*) from public_group_access_policy gp where gp.access_policy_id = a.id "
@@ -222,6 +227,42 @@ class AccessStore {
                 .param("abilities", abilities.toArray(String[]::new))
                 .param("type", requiredLicenceTypeId, java.sql.Types.OTHER).param("actor", actor.value())
                 .param("id", id).update();
+    }
+
+    /**
+     * Says that this transaction is the platform keeping its shipped policies up to date: the database then lets it
+     * insert and change rows marked as shipped (V059), and nobody else. Lasts until the transaction ends.
+     */
+    void allowShippedPolicyWrites() {
+        jdbc.sql("select set_config('platform.shipped_policy_write', 'on', true)").query().singleRow();
+    }
+
+    UUID insertShippedPolicy(String name, String description, String owner, String key, String hash, ActorId actor) {
+        return jdbc.sql("insert into access_policy (name, description, abilities, managed_by, managed_key, "
+                        + "managed_hash, created_by, updated_by) values (:name, :description, '{}', :owner, :key, "
+                        + ":hash, :actor, :actor) returning id")
+                .param("name", name).param("description", description).param("owner", owner).param("key", key)
+                .param("hash", hash).param("actor", actor.value()).query(UUID.class).single();
+    }
+
+    void updateShippedPolicy(UUID id, String name, String description, String hash, ActorId actor) {
+        jdbc.sql("update access_policy set name = :name, description = :description, managed_hash = :hash, "
+                        + "version = version + 1, updated_by = :actor where id = :id and deleted_at is null")
+                .param("name", name).param("description", description).param("hash", hash)
+                .param("actor", actor.value()).param("id", id).update();
+    }
+
+    /** The shipped policies of one owner, by key. Cheap: one indexed read. */
+    List<PolicyRow> shippedPolicies(String owner) {
+        return jdbc.sql("select " + POLICY_COLUMNS + " from access_policy a where a.managed_by = :owner "
+                        + "and a.deleted_at is null order by a.managed_key")
+                .param("owner", owner).query(AccessStore::policy).list();
+    }
+
+    /** Whether a policy of the organization has the name (matched without regard to case). */
+    boolean policyNameTaken(String name) {
+        return jdbc.sql("select exists (select 1 from access_policy where lower(name) = lower(:name) "
+                        + "and deleted_at is null)").param("name", name).query(Boolean.class).single();
     }
 
     void deletePolicy(UUID id, ActorId actor) {
@@ -377,7 +418,8 @@ class AccessStore {
     private static PolicyRow policy(ResultSet rs, int row) throws SQLException {
         return new PolicyRow(rs.getObject("id", UUID.class), rs.getString("name"), rs.getString("description"),
                 strings(rs, "abilities"), rs.getObject("required_licence_type_id", UUID.class), rs.getInt("members"),
-                rs.getInt("groups"));
+                rs.getInt("groups"), rs.getString("managed_by"), rs.getString("managed_key"),
+                rs.getString("managed_hash"));
     }
 
     private static RoleRow role(ResultSet rs, int row) throws SQLException {

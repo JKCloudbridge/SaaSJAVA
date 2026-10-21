@@ -4603,6 +4603,7 @@ export interface components {
             groups?: number;
             /** Format: uuid */
             id: string;
+            managed: boolean;
             /** Format: int32 */
             members?: number;
             name: string;
@@ -5388,6 +5389,7 @@ export interface components {
         CatalogueItem: {
             key: string;
             name: string;
+            removalNote?: string;
         };
         CatalogueLimits: {
             /** Format: int32 */
@@ -5751,6 +5753,7 @@ export interface components {
             fields: components["schemas"]["DataField"][];
             key: string;
             label: string;
+            retained: boolean;
         };
         DeadLetterGroup: {
             /** Format: int64 */
@@ -5773,6 +5776,7 @@ export interface components {
             key: string;
             name: string;
             override?: boolean;
+            removalNote?: string;
         };
         /**
          * @description Stable machine-readable error code. Branch on this, never on the message.
@@ -6244,6 +6248,7 @@ export interface components {
             label: string;
             objectApiName?: string;
             pageApiName?: string;
+            pageKey?: string;
             path?: string;
             tabApiName?: string;
             type: string;

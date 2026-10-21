@@ -63,10 +63,13 @@ class OrganizationAdminService {
     private final OrganizationScope scope;
     private final PlatformAudit audit;
     private final Clock clock;
+    private final FeatureNoteDirectory notes;
 
     OrganizationAdminService(Tenants tenants, Subscriptions subscriptions, Entitlements entitlements,
             Licences licences, Plans plans, Invitations invitations, MemberAccess access,
-            SessionAdministration sessions, OrganizationScope scope, PlatformAudit audit, Clock clock) {
+            SessionAdministration sessions, OrganizationScope scope, PlatformAudit audit, Clock clock,
+            FeatureNoteDirectory notes) {
+        this.notes = notes;
         this.tenants = tenants;
         this.subscriptions = subscriptions;
         this.entitlements = entitlements;
@@ -110,7 +113,7 @@ class OrganizationAdminService {
                 pools.stream().map(pool -> new LicencePoolView(pool.licenceType(), pool.name(), pool.quantity(),
                         pool.assigned(), pool.available())).toList(),
                 features.stream().map(f -> new EntitlementInfo(f.key(), f.name(), f.inPlan(), f.override(),
-                        f.enabled())).toList(),
+                        f.enabled(), notes.removalNote(f.key()).orElse(null))).toList(),
                 first.map(f -> new FirstAdministratorInfo(f.id(), f.status(), f.expiresAt(), f.sentCount()))
                         .orElse(null));
     }

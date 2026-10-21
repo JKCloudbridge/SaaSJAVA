@@ -720,3 +720,19 @@ which the administrator profile holds. Platform staff see the same counts for al
 **Not possible in this release.** A digest, push messages, text messages, a field of the record in a notice, a link in your own text, naming a person or
 a group as the recipient of a workflow notice, a second escalation level, before-save automation that changes other records, and a weighted share of the
 queue by plan ([ADR-0166](adr/0166-what-sprint-25-leaves-out-and-why.md)).
+
+## 25. Shipped objects, plan features and kept records (Functional track FA1)
+
+Decisions in [ADR-0181](adr/0181-the-solution-framework.md). Two attributes on an object file say how it behaves; both are written in the object's YAML file and both are part of the baseline (dropping one from a released object fails the build).
+
+- **`requiresFeature: <feature key>`** - an organization whose plan does not have the feature does not have the object at all. The object manager, the data catalogue, the permission decisions, the record endpoints, the form, search and the recycle bin all answer "not found", with the same words as for a name that was never defined. The feature is asked when the object is looked up, never stored, so a change of plan shows at once. Data is never deleted by losing the feature.
+- **`retainRecords: true`** - every record of the object is kept. Nobody can delete one, restore over one or purge one (the answer is `The records of this object are kept.`), no profile, access policy or member can be given the delete right on it (and the screens draw no control for it), the recycle-bin job skips it, and the database refuses a delete and a soft delete even for its owner. What a kept record can still do: be changed (including a `retired` field), be shared, have files, be read.
+- An object that has either attribute cannot be `managedBy` another module (its records must be in the generic store).
+
+### 25.1 Where a shipped object lives
+
+A shipped object is a platform definition like a standard one, but its file lives with the solution that needs it: `platform-app/src/main/resources/solutions/<key>/objects/<Object>.yml` (the metadata module reads that folder by pattern). The solution's own file `solutions/<key>/solution.yml` names the objects it brings and must say the same feature. Everything else in this guide (field rules, never delete or rename a released definition, `retired: true`, the three commands of section 4) applies unchanged. A shipped object is `extensible: false`: an organization cannot add fields of its own to it, but it can still build approval processes, workflows, layouts and record types on it.
+
+### 25.2 What an administrator sees
+
+Nothing of it in the object manager's list while the plan lacks the feature. With the feature: the object appears like a standard one (not editable, not removable), the shipped application appears in the application launcher for members who hold one of the shipped access policies, and the policies appear in the access-policy list marked "Comes with the platform" (they can be given to members and groups and nothing else).

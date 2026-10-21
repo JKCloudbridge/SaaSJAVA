@@ -56,8 +56,13 @@ class DefaultDecisions implements Decisions {
             return Decision.deny(Reason.OBJECT_NOT_ALLOWED);
         }
         return work.run(() -> {
-            if (catalogue.object(object).isEmpty()) {
+            Optional<ObjectCatalog.ObjectInfo> info = catalogue.object(object);
+            if (info.isEmpty()) {
                 return Decision.deny(Reason.UNKNOWN_OBJECT);
+            }
+            if (action == ObjectAction.DELETE && info.get().retainRecords()) {
+                // The records of this object are kept: nobody may delete one, whatever they hold (ADR-0181).
+                return Decision.deny(Reason.OBJECT_NOT_ALLOWED);
             }
             if (!permissions.data(membershipId).allows(object, action)) {
                 return Decision.deny(Reason.OBJECT_NOT_ALLOWED);
@@ -151,7 +156,7 @@ class DefaultDecisions implements Decisions {
     private static ObjectAccess accessOf(DataAccess data, ObjectCatalog.ObjectInfo info) {
         Set<ObjectAction> actions = EnumSet.noneOf(ObjectAction.class);
         for (ObjectAction action : ObjectAction.values()) {
-            if (data.allows(info.key(), action)) {
+            if (data.allows(info.key(), action) && !(action == ObjectAction.DELETE && info.retainRecords())) {
                 actions.add(action);
             }
         }

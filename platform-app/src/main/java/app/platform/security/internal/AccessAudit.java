@@ -57,6 +57,12 @@ class AccessAudit {
         write(AuditRecord.of("access.profile.system_created", AuditOutcome.SUCCESS).forUser(actorOrNull));
     }
 
+    /** The platform made or updated the access policies it ships with a solution; counts only (ADR-0181). */
+    void shippedPoliciesEnsured(int made, int updated) {
+        write(AuditRecord.of("access.policy.shipped_ensured", AuditOutcome.SUCCESS).forUser(null)
+                .with("made", Integer.toString(made)).with("updated", Integer.toString(updated)));
+    }
+
     void policyCreated(UUID actor, UUID policy, String name, String licenceType, List<String> abilities) {
         write(AuditRecord.of("access.policy.created", AuditOutcome.SUCCESS).forUser(actor)
                 .with("policy", policy.toString()).with("name", name)

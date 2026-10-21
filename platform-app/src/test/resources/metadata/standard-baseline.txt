@@ -62,6 +62,9 @@ Contact.mailingCity TEXT
 Contact.mailingState TEXT
 Contact.mailingPostalCode TEXT
 Contact.mailingCountry TEXT
+InspectionTemplate managedBy=none requiresFeature=inspection retainRecords
+InspectionTemplate.name TEXT
+InspectionTemplate.retired BOOLEAN
 LicenceType managedBy=licensing
 LicenceType.key TEXT
 LicenceType.name TEXT

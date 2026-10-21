@@ -69,9 +69,19 @@ async function write(target: DataAccessTarget, body: { objects: Entry[]; fields:
  * and which fields of them it may read and edit. The page lists what the catalogue says exists and what the API says is
  * allowed; it never decides anything: the actions an action implies are shown as ticked only to explain the answer, and
  * every request is decided again by the server, in its own words when it refuses. Objects arrive with the object manager;
- * until then the catalogue is empty and the page says so.
+ * until then the catalogue is empty and the page says so. An object whose records are kept (the catalogue says
+ * `retained`) is drawn with no control for the delete right, because no one can be given it.
  */
-export function DataAccessEditor({ target, title }: { target: DataAccessTarget; title: string }) {
+export function DataAccessEditor({
+  target,
+  title,
+  readOnly = false,
+}: {
+  target: DataAccessTarget;
+  title: string;
+  /** True for the permissions of a policy the platform ships: shown, never offered for change (the API refuses too). */
+  readOnly?: boolean;
+}) {
   const [loaded, setLoaded] = useState<Loaded | undefined>();
   const [failure, setFailure] = useState<string | undefined>();
   const [objects, setObjects] = useState<Ticks>({});
@@ -168,6 +178,11 @@ export function DataAccessEditor({ target, title }: { target: DataAccessTarget; 
         others; editing a field includes reading it. A field also needs the permission on its object. View-all and
         modify-all only start to matter when record-level security arrives.
       </p>
+      {readOnly ? (
+        <p className="hint" data-testid="data-access-shipped">
+          These permissions come with the platform and cannot be changed.
+        </p>
+      ) : null}
       <ActionMessages notice={notice} problem={problem} testId="data-access" />
       {catalogue.objects.map((object) => {
         const ticked = objects[object.key] ?? [];
@@ -175,7 +190,9 @@ export function DataAccessEditor({ target, title }: { target: DataAccessTarget; 
           <fieldset key={object.key} data-testid="data-access-object">
             <legend>{object.label}</legend>
             <div>
-              {catalogue.objectActions.map((action) => {
+              {catalogue.objectActions
+                .filter((action) => !(object.retained && action.key === "delete"))
+                .map((action) => {
                 const implied = impliedBy(catalogue.objectActions, ticked, action.key);
                 return (
                   <label key={action.key}>
@@ -183,13 +200,18 @@ export function DataAccessEditor({ target, title }: { target: DataAccessTarget; 
                       type="checkbox"
                       aria-label={`${object.label}: ${action.title}`}
                       checked={ticked.includes(action.key) || implied}
-                      disabled={busy || implied}
+                      disabled={busy || implied || readOnly}
                       onChange={(event) => toggle(setObjects, object.key, action.key, event.target.checked)}
                     />{" "}
                     {action.title}{" "}
                   </label>
                 );
               })}
+              {object.retained ? (
+                <span className="hint" data-testid="data-access-kept">
+                  The records of this object are kept, so nobody can delete them.
+                </span>
+              ) : null}
             </div>
             {object.fields.length === 0 ? null : (
               <table className="table">
@@ -216,7 +238,7 @@ export function DataAccessEditor({ target, title }: { target: DataAccessTarget; 
                                 type="checkbox"
                                 aria-label={`${object.label} / ${field.label}: ${action.title}`}
                                 checked={fieldTicked.includes(action.key) || implied}
-                                disabled={busy || implied}
+                                disabled={busy || implied || readOnly}
                                 onChange={(event) => toggle(setFields, fieldKey, action.key, event.target.checked)}
                               />
                             </td>
@@ -231,9 +253,11 @@ export function DataAccessEditor({ target, title }: { target: DataAccessTarget; 
           </fieldset>
         );
       })}
-      <button type="button" className="button" disabled={busy} onClick={() => void save()}>
-        Save the permissions
-      </button>
+      {readOnly ? null : (
+        <button type="button" className="button" disabled={busy} onClick={() => void save()}>
+          Save the permissions
+        </button>
+      )}
     </section>
   );
 }

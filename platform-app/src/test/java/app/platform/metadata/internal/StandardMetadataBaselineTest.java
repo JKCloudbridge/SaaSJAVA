@@ -72,7 +72,11 @@ class StandardMetadataBaselineTest {
             lines.put("system." + field.apiName(), detail(field));
         }
         for (ObjectDefinition object : standard.objects()) {
-            lines.put(object.apiName(), "managedBy=" + (object.managedBy() == null ? "none" : object.managedBy()));
+            // The plan feature a shipped object needs and the promise to keep its records are part of what was released
+            // (ADR-0181): dropping either would hide the object from nobody, or open a kept object to deletion.
+            lines.put(object.apiName(), "managedBy=" + (object.managedBy() == null ? "none" : object.managedBy())
+                    + (object.requiresFeature() == null ? "" : " requiresFeature=" + object.requiresFeature())
+                    + (object.retainRecords() ? " retainRecords" : ""));
             int skip = standard.systemFields().size();
             for (FieldDefinition field : object.fields().subList(skip, object.fields().size())) {
                 lines.put(object.apiName() + "." + field.apiName(), detail(field));

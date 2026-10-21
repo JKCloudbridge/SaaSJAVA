@@ -1,6 +1,6 @@
 # ADR-0179: Packaging: the whole organization, by plan feature only
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-10-21, with the FA1 go-ahead)
 - **Date:** 2026-10-21
 - **Sprint:** FA0 (Functional track, spike; no product code)
 - **Related:** [ADR-0046](0046-licence-kinds-and-the-licence-rule-of-access-policies.md), [ADR-0152](0152-entitlement-abilities-visibility-and-telling-the-approver.md), [ADR-0175](0175-how-a-platform-shipped-application-exists.md), [ADR-0174](0174-template-versions-and-approval-together.md)

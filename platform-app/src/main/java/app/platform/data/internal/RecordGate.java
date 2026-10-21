@@ -33,6 +33,9 @@ class RecordGate {
 
     private static final String NO_OBJECT = "This object does not exist.";
 
+    /** The answer to every way of removing a record of an object whose records are kept (ADR-0181). Fixed words. */
+    static final String KEPT = "The records of this object are kept.";
+
     /**
      * What a call may go on with.
      *
@@ -70,7 +73,8 @@ class RecordGate {
      * Lets a call through or refuses it.
      *
      * @throws ApiException {@code NOT_FOUND} (the platform host, an unknown object, an object a platform module owns,
-     *        an object the member may not read), {@code FORBIDDEN} (a member who may read but not do the action)
+     *        an object the member may not read), {@code CONFLICT} (a removal of a record of an object whose records are
+     *        kept), {@code FORBIDDEN} (a member who may read but not do the action)
      */
     Passed pass(String objectApiName, ObjectAction action) {
         TenantContext context = contexts.current().filter(current -> current.membershipId() != null)
@@ -79,6 +83,12 @@ class RecordGate {
                 .orElseThrow(() -> ApiException.notFound(NO_OBJECT));
         if (!decisions.can(context.membershipId(), object.apiName(), ObjectAction.READ).allowed()) {
             throw ApiException.notFound(NO_OBJECT);
+        }
+        // A kept object is not a permission question: the answer is the same for an administrator and for everyone else,
+        // asked after the member may read the object (so it tells nothing to a member who may not) and before the
+        // right to delete (ADR-0181). Every way of removing, restoring over or purging a record asks for DELETE here.
+        if (action == ObjectAction.DELETE && object.retainRecords()) {
+            throw new ApiException(ErrorCode.CONFLICT, KEPT);
         }
         if (action != ObjectAction.READ && !decisions.can(context.membershipId(), object.apiName(), action).allowed()) {
             throw new ApiException(ErrorCode.FORBIDDEN);

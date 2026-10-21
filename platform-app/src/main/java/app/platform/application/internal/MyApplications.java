@@ -16,11 +16,15 @@ import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiException;
 import app.platformapi.MyApplicationView;
 import app.platformapi.NavigationEntryView;
+import app.platform.sharedkernel.solution.ShippedApplicationView;
+import app.platform.sharedkernel.solution.ShippedApplications;
+import app.platform.sharedkernel.solution.ShippedEntryView;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,9 +52,11 @@ class MyApplications {
     private final Decisions decisions;
     private final ObjectStore objects;
     private final TenantContexts contexts;
+    private final ObjectProvider<ShippedApplications> shipped;
 
     MyApplications(Metadata metadata, MemberAccess access, Decisions decisions, ObjectStore objects,
-            TenantContexts contexts) {
+            TenantContexts contexts, ObjectProvider<ShippedApplications> shipped) {
+        this.shipped = shipped;
         this.metadata = metadata;
         this.access = access;
         this.decisions = decisions;
@@ -81,7 +87,54 @@ class MyApplications {
                         application.iconKey().isEmpty() ? null : application.iconKey(), entries));
             }
         }
+        shipped(context, readable).forEach(visible::add);
         return visible;
+    }
+
+    /**
+     * The applications the platform ships (ADR-0175, ADR-0181), after the organization's own. Each is computed for this
+     * request by the module that owns the solution, which has already asked whether the organization has its plan
+     * feature; its entries are judged here by the member's read permission, with the rule the organization's own
+     * entries are judged by, so there is one rule. An application whose entries all fall away is left out, as one of
+     * the organization's is. An organization application of the same name wins, though the names cannot clash (the
+     * organization's end in {@code __c}).
+     */
+    private List<MyApplicationView> shipped(TenantContext context, Map<String, ObjectAccess> readable) {
+        List<MyApplicationView> shown = new ArrayList<>();
+        for (ShippedApplications source : shipped.orderedStream().toList()) {
+            for (ShippedApplicationView application : source.forMember(context.membershipId())) {
+                List<NavigationEntryView> entries = shippedEntries(application, readable);
+                boolean leadsAnywhere = entries.stream().anyMatch(entry -> !"HEADING".equals(entry.type()));
+                if (leadsAnywhere) {
+                    shown.add(new MyApplicationView(application.apiName(), application.label(), application.iconKey(),
+                            entries));
+                }
+            }
+        }
+        return shown;
+    }
+
+    private List<NavigationEntryView> shippedEntries(ShippedApplicationView application,
+            Map<String, ObjectAccess> readable) {
+        List<NavigationEntryView> entries = new ArrayList<>();
+        for (ShippedEntryView entry : application.entries()) {
+            switch (entry.kind()) {
+                case OBJECT -> metadata.object(entry.objectApiName())
+                        .filter(object -> mayRead(readable, object.apiName()))
+                        .ifPresent(object -> entries.add(new NavigationEntryView("OBJECT",
+                                entry.label().isEmpty() ? object.pluralLabel() : entry.label(), object.apiName(), null,
+                                null)));
+                case PLATFORM -> {
+                    if (entry.readsObject() == null || mayRead(readable, entry.readsObject())) {
+                        entries.add(new NavigationEntryView("PLATFORM", entry.label(), null, null, null, null, null,
+                                null, Boolean.TRUE, entry.pageKey()));
+                    }
+                }
+                case HEADING -> entries.add(new NavigationEntryView("HEADING", entry.label(), null, null, null));
+                default -> throw new IllegalStateException("an entry kind this release does not know");
+            }
+        }
+        return withoutEmptyHeadings(entries);
     }
 
     /**

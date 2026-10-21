@@ -169,6 +169,7 @@ class JsonbRecordStorage implements StorageStrategy {
     // same forced row level security and a real login role the statement with the clause deleted nothing.
     private static final String PURGE_OLD = "delete from object_record where tenant_id = :tenant and id in ("
             + "select id from object_record where tenant_id = :tenant and deleted_at is not null "
+            + "and object_api_name not in (select object_api_name from retained_object where deleted_at is null) "
             + "and deleted_at < now() - make_interval(secs => :seconds) order by deleted_at limit :limit) "
             + "returning object_api_name, id";
 

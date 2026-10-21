@@ -202,7 +202,7 @@ export function AccessPoliciesPanel() {
                 Save the access policy
               </button>
             </>
-          ) : (
+          ) : policy.managed ? null : (
             <>
               <button type="button" className="button button-danger" disabled={busy} onClick={() => void remove(policy)}>
                 Remove
@@ -230,6 +230,13 @@ export function AccessPoliciesPanel() {
               ) : (
                 <>
                   <DetailItem label="Name">{policy.name}</DetailItem>
+                  {policy.managed ? (
+                    <DetailItem label="Comes with" wide>
+                      <span data-testid="policy-shipped">
+                        The platform. You can give it to members and groups; it cannot be changed or removed.
+                      </span>
+                    </DetailItem>
+                  ) : null}
                   <DetailItem label="Licence">
                     <span data-testid="policy-licence">
                       {policy.requiredLicenceType ?? "none needed"}
@@ -267,6 +274,7 @@ export function AccessPoliciesPanel() {
             key={policy.id}
             target={{ kind: "policy", id: policy.id }}
             title={`Permissions on data: ${policy.name}`}
+            readOnly={policy.managed}
           />
         </DetailSection>
       </DetailPage>
@@ -292,6 +300,12 @@ export function AccessPoliciesPanel() {
           kind: "tag",
           cell: (row) =>
             row.requiredLicenceType ? <Tag tone="on">Needs a {row.requiredLicenceType} licence</Tag> : <Tag>No licence</Tag>,
+        },
+        {
+          key: "shipped",
+          header: "Kind",
+          kind: "tag",
+          cell: (row) => (row.managed ? <Tag tone="quiet">Comes with the platform</Tag> : <Tag>Your own</Tag>),
         },
       ]}
       onOpen={(row) => {

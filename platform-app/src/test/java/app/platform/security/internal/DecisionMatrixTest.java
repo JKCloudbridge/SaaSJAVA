@@ -87,6 +87,10 @@ class DecisionMatrixTest {
     }
 
     private static DefaultDecisions decisionsFor(DataAccess dataOfMember) {
+        return decisionsFor(dataOfMember, CATALOGUE);
+    }
+
+    private static DefaultDecisions decisionsFor(DataAccess dataOfMember, ObjectCatalog catalogue) {
         TransactionTemplate direct = new TransactionTemplate() {
             @Override
             public <T> T execute(TransactionCallback<T> action) {
@@ -102,7 +106,7 @@ class DecisionMatrixTest {
                 return RecordAccess.everything(object);
             }
         };
-        return new DefaultDecisions(new FixedPermissions(Map.of(MEMBER, dataOfMember)), CATALOGUE, work, everything,
+        return new DefaultDecisions(new FixedPermissions(Map.of(MEMBER, dataOfMember)), catalogue, work, everything,
                 new StaticListableBeanFactory().getBeanProvider(RecordMatcher.class));
     }
 
@@ -247,6 +251,28 @@ class DecisionMatrixTest {
     }
 
     // ---- matrix 3: what must never be told apart ----
+
+    @Test
+    void theDeleteRightIsNeverGivenOnAnObjectWhoseRecordsAreKeptWhateverTheMemberHolds() {
+        ObjectCatalog kept = new FixedObjectCatalog(List.of(new ObjectCatalog.ObjectInfo(OBJECT, "Object A",
+                List.of(new ObjectCatalog.FieldInfo(FIELD, "Field A")), true)));
+
+        for (DataAccess held : List.of(DataAccess.fullAccess(), objects(EnumSet.of(ObjectAction.DELETE)),
+                objects(EnumSet.of(ObjectAction.MODIFY_ALL)))) {
+            DefaultDecisions decisions = decisionsFor(held, kept);
+
+            assertThat(decisions.can(MEMBER, OBJECT, ObjectAction.DELETE).allowed()).as("can, " + held).isFalse();
+            assertThat(decisions.accessTo(MEMBER, OBJECT).can(ObjectAction.DELETE)).as("accessTo, " + held).isFalse();
+            assertThat(decisions.accessToAll(MEMBER).get(OBJECT).can(ObjectAction.DELETE)).as("accessToAll, " + held)
+                    .isFalse();
+            assertThat(decisions.can(MEMBER, OBJECT, ObjectAction.READ).allowed()).as("read stays, " + held).isTrue();
+        }
+        DefaultDecisions modifyAll = decisionsFor(objects(EnumSet.of(ObjectAction.MODIFY_ALL)), kept);
+        assertThat(modifyAll.can(MEMBER, OBJECT, ObjectAction.UPDATE).allowed()).as("the other rights stay").isTrue();
+        assertThat(modifyAll.can(MEMBER, OBJECT, ObjectAction.CREATE).allowed()).isTrue();
+        assertThat(decisionsFor(objects(EnumSet.of(ObjectAction.DELETE))).can(MEMBER, OBJECT, ObjectAction.DELETE)
+                .allowed()).as("an object that is not kept still allows it").isTrue();
+    }
 
     @Test
     void aMemberWhoDoesNotExistOrHoldsNothingGetsTheSameNoAsEveryoneElseWhoMayNotKnow() {
