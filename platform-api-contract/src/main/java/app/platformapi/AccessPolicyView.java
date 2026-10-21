@@ -14,12 +14,22 @@ import java.util.UUID;
  * @param requiredLicenceType the key of the licence type that assigning it uses, or absent when it needs none
  * @param members how many members it is assigned to
  * @param groups how many groups it is given to (a policy that needs a licence cannot be given to a group)
+ * @param managed true for a policy that comes with the platform (Functional track FA1): it can be given to members and
+ *        groups and nothing else; it cannot be changed or removed, and the screen offers neither
  */
 public record AccessPolicyView(@NotNull UUID id, @NotNull String name, @NotNull String description,
-        @NotNull List<String> abilities, String requiredLicenceType, int members, int groups) {
+        @NotNull List<String> abilities, String requiredLicenceType, int members, int groups,
+        @NotNull Boolean managed) {
 
     public AccessPolicyView {
         abilities = abilities == null ? List.of() : List.copyOf(abilities);
+        managed = managed != null && managed;
+    }
+
+    /** A policy an administrator made. */
+    public AccessPolicyView(UUID id, String name, String description, List<String> abilities,
+            String requiredLicenceType, int members, int groups) {
+        this(id, name, description, abilities, requiredLicenceType, members, groups, Boolean.FALSE);
     }
 
     @Override

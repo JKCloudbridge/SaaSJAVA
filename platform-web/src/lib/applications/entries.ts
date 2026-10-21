@@ -27,6 +27,9 @@ export function entrySlug(entry: NavigationEntry): string | null {
       return entry.objectApiName && entry.pageApiName ? `p-${entry.objectApiName}.${entry.pageApiName}` : null;
     case "CUSTOM":
       return entry.tabApiName ? `c-${entry.tabApiName}` : null;
+    case "PLATFORM":
+      // A page the platform ships with the application (Functional track FA1): named by its page key.
+      return entry.pageKey ? `s-${entry.pageKey}` : null;
     default:
       return null;
   }
@@ -74,6 +77,8 @@ export function describeKind(entry: NavigationEntry): string {
       return "record page";
     case "CUSTOM":
       return "custom page";
+    case "PLATFORM":
+      return "page";
     case "LINK":
       return "link";
     default:

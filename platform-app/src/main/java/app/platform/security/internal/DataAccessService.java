@@ -22,6 +22,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -39,6 +40,9 @@ import org.springframework.stereotype.Service;
 class DataAccessService {
 
     private static final Set<Ability> MANAGERS = Set.of(Ability.ACCESS_MANAGE);
+
+    /** The answer to a delete right asked for on an object whose records are kept (ADR-0181). Fixed words. */
+    static final String RETAINED = "The records of an object that is kept cannot be given the delete right.";
 
     private final AccessGate gate;
     private final AccessStore access;
@@ -64,7 +68,8 @@ class DataAccessService {
         return gate.run("data.catalogue", MANAGERS, caller -> new DataCatalogue(
                 catalogue.objects().stream().map(object -> new DataCatalogue.DataObject(object.key(), object.label(),
                         object.fields().stream()
-                                .map(field -> new DataCatalogue.DataField(field.key(), field.label())).toList()))
+                                .map(field -> new DataCatalogue.DataField(field.key(), field.label())).toList(),
+                        object.retainRecords()))
                         .toList(),
                 Arrays.stream(ObjectAction.values()).map(action -> new DataCatalogue.DataAction(action.key(),
                         action.title(), action.implied().stream().map(ObjectAction::key).sorted().toList())).toList(),
@@ -107,8 +112,11 @@ class DataAccessService {
         return gate.run("data.policy.replace", MANAGERS, caller -> {
             DataAccess wanted = parse(request);
             access.lockAccessChanges();
-            access.policyForUpdate(policyId)
+            AccessStore.PolicyRow policy = access.policyForUpdate(policyId)
                     .orElseThrow(() -> ApiException.notFound("This access policy does not exist."));
+            if (policy.managed()) {
+                throw new ApiException(ErrorCode.CONFLICT, AccessPolicyService.SHIPPED);
+            }
             return replace("policy", DataAccessStore.Holder.POLICY, policyId, wanted, caller);
         });
     }
@@ -169,13 +177,17 @@ class DataAccessService {
     private DataAccess parse(SaveDataAccessRequest request) {
         Map<String, Set<ObjectAction>> objects = new HashMap<>();
         for (PermissionEntry entry : request.objects()) {
-            if (catalogue.object(entry.key()).isEmpty()) {
-                throw ApiException.validation("objects", "Contains an object that does not exist.");
-            }
+            ObjectCatalog.ObjectInfo info = catalogue.object(entry.key())
+                    .orElseThrow(() -> ApiException.validation("objects", "Contains an object that does not exist."));
             Set<ObjectAction> actions = EnumSet.noneOf(ObjectAction.class);
             for (String key : entry.actions()) {
                 actions.add(ObjectAction.fromKey(key).orElseThrow(
                         () -> ApiException.validation("objects", "Contains an action the platform does not know.")));
+            }
+            if (info.retainRecords() && actions.contains(ObjectAction.DELETE)) {
+                // Whatever the person holds, no record of this object is ever deleted, so the right is not given at
+                // all (ADR-0181). Fixed words; the object is not named, the caller can read the catalogue.
+                throw ApiException.validation("objects", RETAINED);
             }
             objects.computeIfAbsent(entry.key(), key -> EnumSet.noneOf(ObjectAction.class)).addAll(actions);
         }
@@ -204,8 +216,17 @@ class DataAccessService {
         }
         Map<String, Set<ObjectAction>> objects = new HashMap<>();
         data.objects().forEach((key, actions) -> {
-            if (catalogue.object(key).isPresent()) {
-                objects.put(key, actions);
+            Optional<ObjectCatalog.ObjectInfo> info = catalogue.object(key);
+            if (info.isPresent()) {
+                // An object whose records are kept shows no delete right, even one that modify-all implies: the
+                // decision API gives none either (ADR-0181).
+                if (info.get().retainRecords() && actions.contains(ObjectAction.DELETE)) {
+                    Set<ObjectAction> without = EnumSet.copyOf(actions);
+                    without.remove(ObjectAction.DELETE);
+                    objects.put(key, without);
+                } else {
+                    objects.put(key, actions);
+                }
             }
         });
         Map<String, Set<FieldAction>> fields = new HashMap<>();

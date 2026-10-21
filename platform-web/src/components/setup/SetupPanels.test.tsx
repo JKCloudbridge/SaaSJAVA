@@ -292,6 +292,25 @@ describe("AccessPoliciesPanel", () => {
     expect(screen.getByLabelText("Name")).toHaveValue("policy-a");
   });
 
+  it("shows a policy the platform ships as such and offers neither Change nor Remove", async () => {
+    const shipped = { ...POLICY, name: "Reader", requiredLicenceType: undefined, abilities: [], managed: true };
+    fakeApi({
+      "GET /api/v1/access-policies": () => json({ data: [shipped] }),
+      "GET /api/v1/abilities": () => json(ABILITIES),
+      "GET /api/v1/licence-types": () => json(TYPES),
+      "GET /api/v1/licences": () => json(POOLS),
+      [`GET /api/v1/access-policies/${POLICY.id}/data-access`]: () => refusal("FORBIDDEN", "Not for this test.", 403),
+    });
+    render(<AccessPoliciesPanel />);
+
+    expect(await screen.findByTestId("policy-row")).toHaveTextContent("Comes with the platform");
+    fireEvent.click(screen.getByRole("button", { name: "Reader" }));
+
+    expect(await screen.findByTestId("policy-shipped")).toHaveTextContent("cannot be changed or removed");
+    expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Change" })).toBeNull();
+  });
+
   it("removes a policy from its page and shows the notice on the list", async () => {
     fakeApi({
       "GET /api/v1/access-policies": () => json({ data: [POLICY] }),

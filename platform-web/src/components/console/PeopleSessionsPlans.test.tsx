@@ -197,6 +197,28 @@ describe("PlansPanel", () => {
     );
   });
 
+  it("shows the platform's words before a feature that has a note is taken from a plan", async () => {
+    fakeApi({
+      ...catalogue(),
+      "GET /api/v1/platform/features": () =>
+        json({
+          data: [
+            { key: "approvals", name: "Approvals", removalNote: "Nothing is deleted; it all comes back with the feature." },
+            { key: "workflows", name: "Workflows" },
+          ],
+        }),
+    });
+    render(<PlansPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "Trial" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Change" }));
+
+    expect(screen.queryByTestId("removal-note-approvals")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Approvals"));
+
+    expect(await screen.findByTestId("removal-note-approvals")).toHaveTextContent("Nothing is deleted");
+    expect(screen.queryByTestId("removal-note-workflows")).toBeNull();
+  });
+
   it("adds a licence type and a feature", async () => {
     const calls = fakeApi({
       ...catalogue(),

@@ -33,6 +33,12 @@ const CUSTOM: NavigationEntry = {
   assetId: "11111111-2222-3333-4444-555555555555",
   available: true,
 };
+const PLATFORM: NavigationEntry = {
+  type: "PLATFORM",
+  label: "Templates",
+  pageKey: "templates",
+  available: true,
+};
 const LINK: NavigationEntry = { type: "LINK", label: "Members", path: "/members", available: true };
 const HEADING: NavigationEntry = { type: "HEADING", label: "Work", available: true };
 
@@ -49,6 +55,13 @@ describe("addresses of an application and its pages", () => {
     expect(entrySlug(OBJECT)).toBe("o-Deal__c");
     expect(entrySlug(PAGE)).toBe("p-Deal__c.Overview__c");
     expect(entrySlug(CUSTOM)).toBe("c-Inspections__c");
+  });
+
+  it("names a page the platform ships by its page key, and has no page for an entry without one", () => {
+    expect(entrySlug(PLATFORM)).toBe("s-templates");
+    expect(entrySlug({ ...PLATFORM, pageKey: undefined })).toBeNull();
+    expect(entryHref({ apiName: "inspection" }, PLATFORM)).toBe("/apps/inspection/s-templates");
+    expect(describeKind(PLATFORM)).toBe("page");
   });
 
   it("gives a heading and a link no page of their own", () => {

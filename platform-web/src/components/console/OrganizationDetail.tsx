@@ -208,7 +208,16 @@ export function OrganizationDetail() {
           <tbody>
             {organization.entitlements.map((feature) => (
               <tr key={feature.key}>
-                <td>{feature.name}</td>
+                <td>
+                  {feature.name}
+                  {/* What taking the feature away does, in the platform's words (from the API), shown before it is. */}
+                  {feature.removalNote ? (
+                    <span className="hint" data-testid={`removal-note-${feature.key}`}>
+                      {" "}
+                      If it is switched off or taken from the plan: {feature.removalNote}
+                    </span>
+                  ) : null}
+                </td>
                 <td>{feature.inPlan ? "yes" : "no"}</td>
                 <td>{feature.override === undefined ? "none" : feature.override ? "on" : "off"}</td>
                 <td>{feature.enabled ? "enabled" : "not enabled"}</td>

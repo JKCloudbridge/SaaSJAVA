@@ -25,6 +25,10 @@ class AccessPolicyService {
 
     private static final Set<Ability> MANAGERS = Set.of(Ability.ACCESS_MANAGE);
 
+    /** The answer to a change or removal of a policy the platform ships (ADR-0181). Fixed words. */
+    static final String SHIPPED = "This access policy comes with the platform and cannot be changed or removed. "
+            + "You can give it to members and groups.";
+
     private final AccessGate gate;
     private final AccessStore store;
     private final Licences licences;
@@ -71,6 +75,9 @@ class AccessPolicyService {
             store.lockAccessChanges();
             AccessStore.PolicyRow policy = store.policyForUpdate(id)
                     .orElseThrow(() -> ApiException.notFound("This access policy does not exist."));
+            if (policy.managed()) {
+                throw new ApiException(ErrorCode.CONFLICT, SHIPPED);
+            }
             if ((policy.members() > 0 || policy.groups() > 0)
                     && !java.util.Objects.equals(policy.requiredLicenceTypeId(), typeId)) {
                 throw new ApiException(ErrorCode.CONFLICT,
@@ -96,6 +103,9 @@ class AccessPolicyService {
             store.lockAccessChanges();
             AccessStore.PolicyRow policy = store.policyForUpdate(id)
                     .orElseThrow(() -> ApiException.notFound("This access policy does not exist."));
+            if (policy.managed()) {
+                throw new ApiException(ErrorCode.CONFLICT, SHIPPED);
+            }
             if (policy.members() > 0) {
                 throw new ApiException(ErrorCode.CONFLICT,
                         "Members still hold this access policy. Take it from them first.");
@@ -115,7 +125,7 @@ class AccessPolicyService {
         return new AccessPolicyView(policy.id(), policy.name(), policy.description(),
                 Ability.keysOf(Ability.knownAmong(policy.abilities())),
                 policy.requiredLicenceTypeId() == null ? null : typeKeys.get(policy.requiredLicenceTypeId()),
-                policy.members(), policy.groups());
+                policy.members(), policy.groups(), policy.managed());
     }
 
     /** The licence type a policy needs; empty text means none. */

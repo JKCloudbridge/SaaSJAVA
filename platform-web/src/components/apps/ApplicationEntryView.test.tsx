@@ -67,6 +67,40 @@ describe("a page of an application", () => {
     });
   });
 
+  it("draws the page a shipped application registered for the key, under the entry's title", async () => {
+    params = { application: "inspection", entry: "s-templates" };
+    shellApi({
+      applications: [
+        {
+          apiName: "inspection",
+          label: "Audit maintenance",
+          items: [{ type: "PLATFORM", label: "Templates", pageKey: "templates", available: true }],
+        },
+      ],
+    });
+    renderEntry();
+
+    expect(await screen.findByTestId("solution-page-placeholder")).toHaveTextContent("nothing here yet");
+    expect(screen.getByRole("heading", { level: 1, name: "Templates" })).toBeInTheDocument();
+  });
+
+  it("says a shipped page is not available when this release has no page for its key", async () => {
+    params = { application: "inspection", entry: "s-elsewhere" };
+    shellApi({
+      applications: [
+        {
+          apiName: "inspection",
+          label: "Audit maintenance",
+          items: [{ type: "PLATFORM", label: "Elsewhere", pageKey: "elsewhere", available: true }],
+        },
+      ],
+    });
+    renderEntry();
+
+    expect(await screen.findByTestId("entry-unavailable")).toHaveTextContent("This page is not available.");
+    expect(screen.queryByTestId("solution-page-placeholder")).toBeNull();
+  });
+
   it("waits for the list before saying anything", () => {
     shellApi();
     renderEntry();

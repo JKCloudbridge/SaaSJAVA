@@ -41,8 +41,8 @@ class Relationships {
     }
 
     ObjectRelationshipsView of(String objectApiName) {
-        MetadataSnapshot snapshot = catalogue.snapshot();
-        ObjectDefinition self = snapshot.object(objectApiName)
+        // The objects the organization has: an object whose plan feature it lacks is not there (ADR-0181).
+        ObjectDefinition self = catalogue.object(objectApiName)
                 .orElseThrow(() -> ApiException.notFound("This object does not exist."));
         List<RelationshipView> parents = new ArrayList<>();
         List<RelationshipView> children = new ArrayList<>();
@@ -52,7 +52,7 @@ class Relationships {
             parents.add(view(field.unique() ? "ONE_TO_ONE" : "MANY_TO_ONE", self, field, reference,
                     reference.targetObject(), null));
         }
-        for (ObjectDefinition other : snapshot.objects()) {
+        for (ObjectDefinition other : catalogue.objects()) {
             List<FieldDefinition> fields = relationshipFields(other);
             for (FieldDefinition field : fields) {
                 ReferenceConfiguration reference = (ReferenceConfiguration) field.configuration();

@@ -164,6 +164,13 @@ export function PlansPanel() {
                 onChange={(event) => setChosen({ ...chosen, [feature.key]: event.target.checked })}
               />{" "}
               {feature.name}
+              {/* The platform's own words, from the API, shown when a feature the plan has is being taken away. */}
+              {existing?.features.includes(feature.key) && !(chosen[feature.key] ?? false) && feature.removalNote ? (
+                <span className="hint" role="status" data-testid={`removal-note-${feature.key}`}>
+                  {" "}
+                  {feature.removalNote}
+                </span>
+              ) : null}
             </label>
           ))}
         </div>

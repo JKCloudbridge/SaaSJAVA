@@ -54,11 +54,15 @@ final class SchemaConventions {
      * <p>Sprint 18 added {@code embedded_token} (the short-lived access token of a custom page's script, ADR-0127). It
      * hangs on a sign-in grant in {@code oauth2_authorization}, is checked before the request has any other context and
      * names the organization in {@code bound_tenant_id}, exactly like the grant itself.
+     *
+     * <p>Functional track FA1 added {@code retained_object} (ADR-0181): the platform's own list of the objects whose
+     * records are never deleted. It is the same for every organization, written from the definition files at start and
+     * insert-only; the triggers on {@code object_record} read it.
      */
     static final Set<String> PLATFORM_TABLES = Set.of("tenant", "platform_user", "user_credential", "login_session",
             "oauth2_authorization", "audit_record", "account_token", "mail_queue", "organization_handoff",
             "platform_role_assignment", "licence_type", "feature", "plan", "plan_licence", "plan_feature",
-            "subscription", "entitlement_override", "embedded_token", "subscription_notice");
+            "subscription", "entitlement_override", "embedded_token", "subscription_notice", "retained_object");
 
     /** Tables whose policies may admit a system scope next to the tenant, and the scopes they may name. */
     static final Set<String> SYSTEM_SCOPE_TABLES = Set.of("outbox_event", "processed_event", "membership",

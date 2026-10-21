@@ -37,7 +37,17 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 final class StandardMetadataLoader {
 
     static final String LOCATION = "classpath:metadata/standard/*.yml";
+    /**
+     * The objects a shipped solution brings (Functional track FA1, ADR-0181). They are platform definitions in the same
+     * format as the standard objects, kept next to the solution that needs them; this module reads them by the pattern
+     * and knows nothing of what any solution is, so a solution's words never enter the metadata module. The module
+     * that loads the solutions checks that every such file belongs to one of them.
+     */
+    static final String SHIPPED_LOCATION = "classpath:solutions/*/objects/*.yml";
     static final String SYSTEM_FIELDS_FILE = "_system-fields.yml";
+
+    /** What a plan feature key looks like (the same shape the {@code feature} table checks). */
+    private static final Pattern FEATURE_KEY = Pattern.compile("[a-z][a-z0-9-]{0,39}");
 
     /** The parts of the platform that may own the records of a standard object. */
     static final Set<String> OWNERS = Set.of("identity", "security", "licensing", "metadata");
@@ -51,7 +61,7 @@ final class StandardMetadataLoader {
     private static final ExpressionEngine SYNTAX = new ExpressionEngine(Limits.standard());
 
     private static final Set<String> OBJECT_KEYS = Set.of("apiName", "label", "pluralLabel", "description",
-            "managedBy", "extensible", "fields");
+            "managedBy", "extensible", "requiresFeature", "retainRecords", "fields");
     private static final Set<String> FILE_KEYS = Set.of("fields");
     private static final Set<String> FIELD_KEYS = Set.of("apiName", "label", "description", "type", "required",
             "unique", "indexed", "default", "settings", "retired");
@@ -65,24 +75,29 @@ final class StandardMetadataLoader {
 
     /** Reads and checks every file; throws {@link IllegalStateException} naming the first mistake. */
     static StandardMetadata load() {
-        return load(LOCATION);
+        return load(LOCATION, SHIPPED_LOCATION);
     }
 
-    /** The same for the files a pattern finds (the tests point it at deliberately broken files). */
-    static StandardMetadata load(String location) {
+    /**
+     * The same for the files the patterns find (the tests point it at deliberately broken files). The system fields
+     * file is looked for in all of them; an object file name used twice is refused.
+     */
+    static StandardMetadata load(String... locations) {
         try {
-            Resource[] files = new PathMatchingResourcePatternResolver().getResources(location);
             Resource systemFile = null;
             Map<String, Resource> objectFiles = new TreeMap<>();
-            for (Resource file : files) {
-                String name = file.getFilename();
-                if (name == null) {
-                    continue;
-                }
-                if (name.equals(SYSTEM_FIELDS_FILE)) {
-                    systemFile = file;
-                } else {
-                    objectFiles.put(name, file);
+            for (String location : locations) {
+                for (Resource file : new PathMatchingResourcePatternResolver().getResources(location)) {
+                    String name = file.getFilename();
+                    if (name == null) {
+                        continue;
+                    }
+                    if (name.equals(SYSTEM_FIELDS_FILE)) {
+                        systemFile = file;
+                    } else if (objectFiles.put(name, file) != null) {
+                        throw new IllegalStateException(name + " is defined twice (two folders hold an object of the "
+                                + "same name)");
+                    }
                 }
             }
             if (systemFile == null) {
@@ -150,6 +165,17 @@ final class StandardMetadataLoader {
                 throw new IllegalStateException(where + ": 'managedBy' is one of " + OWNERS + " or left out");
             }
             boolean extensible = node.flag("extensible", true);
+            String requiresFeature = node.optionalText("requiresFeature");
+            if (requiresFeature != null && !FEATURE_KEY.matcher(requiresFeature).matches()) {
+                throw new IllegalStateException(where + ": 'requiresFeature' is a plan feature key (lower case "
+                        + "letters, digits and hyphens)");
+            }
+            boolean retainRecords = node.flag("retainRecords", false);
+            if (managedBy != null && (requiresFeature != null || retainRecords)) {
+                throw new IllegalStateException(where + ": an object another part of the platform owns cannot "
+                        + "be hidden by a plan feature or keep its records (its records are not served by the "
+                        + "record store)");
+            }
             List<FieldDefinition> own = fields(node, apiName, DefinitionKind.STANDARD);
             Set<String> used = new HashSet<>();
             List<FieldDefinition> all = new ArrayList<>();
@@ -168,7 +194,7 @@ final class StandardMetadataLoader {
                 throw new IllegalStateException(where + ": more than " + MAX_FIELDS + " fields");
             }
             return new ObjectDefinition(apiName, label, plural, description, DefinitionKind.STANDARD, managedBy,
-                    extensible, 0, all);
+                    extensible, 0, all, requiresFeature, retainRecords);
         }
 
         private List<FieldDefinition> fields(YamlNode parent, String objectApiName, DefinitionKind kind) {

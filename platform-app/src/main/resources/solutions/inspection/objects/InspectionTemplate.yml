@@ -1,0 +1,30 @@
+# Shipped object: InspectionTemplate, the header of a template of the Audit maintenance application (ADR-0175, ADR-0180,
+# ADR-0181). It is a platform definition like the standard objects: the loader, the baseline test and the rule "never
+# delete or rename a released definition, set retired: true" (docs/metadata-guide.md) apply to it.
+#
+# FA1 declares only what proves the framework: the name, and the flag that retires a template. Nothing else is declared
+# here on purpose; the next sprints of the track add to this file (additively) what they need: the number and the
+# classification (FA2A), the lifecycle (FA4), the people (FA4).
+#
+# requiresFeature: an organization without the plan feature does not have this object at all.
+# retainRecords:   no record of this object is ever deleted, restored over or purged, by anyone (ADR-0174 section 7).
+# extensible:      an organization cannot add fields of its own to a shipped object.
+apiName: InspectionTemplate
+label: Template
+pluralLabel: Templates
+description: A template of the Audit maintenance application. Its records are kept for good.
+extensible: false
+requiresFeature: inspection
+retainRecords: true
+fields:
+  - apiName: name
+    label: Template name
+    description: The name people read.
+    type: TEXT
+    required: true
+    settings: { maxLength: 120 }
+
+  - apiName: retired
+    label: Retired
+    description: Whether the template is no longer used. A retired template is kept and can still be read.
+    type: BOOLEAN

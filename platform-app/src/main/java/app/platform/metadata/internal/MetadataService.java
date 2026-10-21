@@ -68,7 +68,7 @@ class MetadataService {
     // ---- reading ----
 
     List<ObjectSummaryView> objects() {
-        return catalogue.snapshot().objects().stream().map(MetadataService::summary).toList();
+        return catalogue.objects().stream().map(MetadataService::summary).toList();
     }
 
     ObjectView object(String apiName) {

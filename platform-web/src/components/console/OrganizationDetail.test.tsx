@@ -76,6 +76,26 @@ describe("OrganizationDetail", () => {
     expect(screen.getByTestId("support-grants")).toHaveTextContent("Support A");
   });
 
+  it("shows the platform's words next to a feature that has a note, from the API", async () => {
+    fakeApi({
+      [`GET /api/v1/platform/organizations/${ID}`]: () =>
+        json({
+          data: {
+            ...DETAIL,
+            entitlements: [
+              ...DETAIL.entitlements,
+              { key: "inspection", name: "Audit maintenance", inPlan: true, enabled: true, removalNote: "Nothing is deleted." },
+            ],
+          },
+        }),
+      "GET /api/v1/platform/plans": () => json(PLANS),
+    });
+    render(<OrganizationDetail />);
+
+    expect(await screen.findByTestId("removal-note-inspection")).toHaveTextContent("Nothing is deleted.");
+    expect(screen.queryByTestId("removal-note-approvals")).toBeNull();
+  });
+
   it("shows the API's refusal for an organization it will not show", async () => {
     fakeApi({
       [`GET /api/v1/platform/organizations/${ID}`]: () => refusal("FORBIDDEN", "You are not allowed to perform this action.", 403),

@@ -16,12 +16,22 @@ import java.util.Optional;
  */
 public interface ObjectCatalog {
 
-    /** One object. */
-    record ObjectInfo(String key, String label, List<FieldInfo> fields) {
+    /**
+     * One object.
+     *
+     * @param retainRecords whether every record of the object is kept (ADR-0181): the decision API then never allows
+     *        deleting one, whatever a member holds, and no delete right can be given on the object
+     */
+    record ObjectInfo(String key, String label, List<FieldInfo> fields, boolean retainRecords) {
 
         /** Copies what is given. */
         public ObjectInfo {
             fields = List.copyOf(fields);
+        }
+
+        /** An object whose records may be deleted. */
+        public ObjectInfo(String key, String label, List<FieldInfo> fields) {
+            this(key, label, fields, false);
         }
 
         /** The field with the key (the bare key, without the object), if it exists. */

@@ -132,4 +132,37 @@ describe("DataAccessEditor", () => {
     expect(await screen.findByTestId("data-access-failed")).toHaveTextContent("not allowed");
     await waitFor(() => expect(calls.filter((call) => call.key === "GET /api/v1/data-catalogue").length).toBeLessThanOrEqual(2));
   });
+
+  it("offers no delete right on an object whose records are kept, and says why", async () => {
+    const kept = {
+      data: { ...CATALOGUE.data, objects: [{ ...CATALOGUE.data.objects[0], retained: true }] },
+    };
+    fakeApi({
+      "GET /api/v1/data-catalogue": () => json(kept),
+      [`GET /api/v1/profiles/${PROFILE}/data-access`]: () => json(MATRIX),
+    });
+    render(<DataAccessEditor target={{ kind: "profile", id: PROFILE }} title="Permissions" />);
+
+    await screen.findByLabelText("Object A: Update");
+
+    expect(screen.queryByLabelText("Object A: Delete")).toBeNull();
+    expect(screen.getByLabelText("Object A: Create")).toBeInTheDocument();
+    expect(screen.getByTestId("data-access-kept")).toHaveTextContent("kept");
+  });
+
+  it("shows the permissions of a policy the platform ships and offers no way to change them", async () => {
+    fakeApi({
+      "GET /api/v1/data-catalogue": () => json(CATALOGUE),
+      [`GET /api/v1/access-policies/${PROFILE}/data-access`]: () => json(MATRIX),
+    });
+    render(<DataAccessEditor target={{ kind: "policy", id: PROFILE }} title="Permissions" readOnly />);
+
+    const update = await screen.findByLabelText("Object A: Update");
+
+    expect(update).toBeChecked();
+    expect(update).toBeDisabled();
+    expect(screen.getByLabelText("Object A / Field A: Edit")).toBeDisabled();
+    expect(screen.getByTestId("data-access-shipped")).toHaveTextContent("cannot be changed");
+    expect(screen.queryByRole("button", { name: "Save the permissions" })).toBeNull();
+  });
 });

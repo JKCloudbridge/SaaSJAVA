@@ -1,5 +1,6 @@
 package app.platform.metadata.internal;
 
+import app.platform.licensing.Entitlements;
 import app.platform.metadata.ApplicationDefinition;
 import app.platform.metadata.ApprovalProcessDefinition;
 import app.platform.metadata.CustomPage;
@@ -69,6 +70,7 @@ class MetadataCatalogue implements Metadata {
     private final WorkflowCodec workflowCodec;
     private final ApprovalProcessStore approvalStore;
     private final ApprovalProcessCodec approvalCodec;
+    private final Entitlements entitlements;
 
     MetadataCatalogue(StandardMetadata standard, MetadataStore store, MetadataVersions versions,
             MetadataCache cache, TenantContexts contexts, ConfigCodec codec, TransactionTemplate transaction,
@@ -76,7 +78,9 @@ class MetadataCatalogue implements Metadata {
             AssignmentStore assignmentStore, DefinitionCodec definitionCodec,
             ValidationRuleStore validationRuleStore, RecordTypeAssignmentStore typeAssignmentStore,
             RecordPageAssignmentStore recordPageAssignmentStore, WorkflowStore workflowStore,
-            WorkflowCodec workflowCodec, ApprovalProcessStore approvalStore, ApprovalProcessCodec approvalCodec) {
+            WorkflowCodec workflowCodec, ApprovalProcessStore approvalStore, ApprovalProcessCodec approvalCodec,
+            Entitlements entitlements) {
+        this.entitlements = entitlements;
         this.approvalStore = approvalStore;
         this.approvalCodec = approvalCodec;
         this.workflowStore = workflowStore;
@@ -98,14 +102,39 @@ class MetadataCatalogue implements Metadata {
         this.transaction = transaction;
     }
 
+    /**
+     * The objects the organization has: those of the snapshot, less the shipped objects whose plan feature the
+     * organization lacks. The feature is asked now, once per feature, and is not part of the snapshot, which is keyed by
+     * the metadata version that a change of plan does not move (ADR-0175, ADR-0181).
+     */
     @Override
     public List<ObjectDefinition> objects() {
-        return snapshot().objects();
+        List<ObjectDefinition> all = snapshot().objects();
+        if (all.stream().noneMatch(object -> object.requiresFeature() != null)) {
+            return all;
+        }
+        Map<String, Boolean> asked = new HashMap<>();
+        return all.stream().filter(object -> entitled(object, asked)).toList();
     }
 
+    /** The object, unless it needs a plan feature the organization lacks: then it is as if it did not exist. */
     @Override
     public Optional<ObjectDefinition> object(String apiName) {
-        return snapshot().object(apiName);
+        return snapshot().object(apiName).filter(object -> entitled(object, null));
+    }
+
+    private boolean entitled(ObjectDefinition object, Map<String, Boolean> asked) {
+        String feature = object.requiresFeature();
+        if (feature == null) {
+            return true;
+        }
+        return asked == null ? entitlements.enabled(feature)
+                : asked.computeIfAbsent(feature, entitlements::enabled);
+    }
+
+    /** Whether the organization has the object (it exists and the plan feature it needs, if any, is on). */
+    boolean entitled(String objectApiName) {
+        return object(objectApiName).isPresent();
     }
 
     @Override
@@ -220,9 +249,7 @@ class MetadataCatalogue implements Metadata {
         for (ObjectDefinition object : standard.objects()) {
             List<FieldDefinition> fields = new ArrayList<>(object.fields());
             fields.addAll(custom.getOrDefault(object.apiName(), List.of()));
-            objects.add(new ObjectDefinition(object.apiName(), object.label(), object.pluralLabel(),
-                    object.description(), object.kind(), object.managedBy(), object.extensible(), object.version(),
-                    fields));
+            objects.add(object.withFields(fields));
         }
         List<MetadataStore.ObjectRow> rows = new ArrayList<>(store.objects());
         rows.sort(Comparator.comparing(row -> row.apiName().toLowerCase(Locale.ROOT)));

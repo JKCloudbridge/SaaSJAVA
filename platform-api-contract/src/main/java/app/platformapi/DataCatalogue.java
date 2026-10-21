@@ -32,11 +32,20 @@ public record DataCatalogue(@NotNull List<DataObject> objects, @NotNull List<Dat
      * @param key the object key
      * @param label the name for people
      * @param fields the fields of the object
+     * @param retained true when every record of the object is kept (Functional track FA1): the delete right cannot be
+     *        given on it, and the screen offers no control for it
      */
-    public record DataObject(@NotNull String key, @NotNull String label, @NotNull List<DataField> fields) {
+    public record DataObject(@NotNull String key, @NotNull String label, @NotNull List<DataField> fields,
+            @NotNull Boolean retained) {
 
         public DataObject {
             fields = fields == null ? List.of() : List.copyOf(fields);
+            retained = retained != null && retained;
+        }
+
+        /** An object whose records may be deleted. */
+        public DataObject(String key, String label, List<DataField> fields) {
+            this(key, label, fields, Boolean.FALSE);
         }
 
         @Override

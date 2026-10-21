@@ -138,7 +138,7 @@ class ExpressionService {
      */
     List<FormulaReportItemView> formulaReport() {
         List<FormulaReportItemView> report = new ArrayList<>();
-        for (ObjectDefinition object : catalogue.snapshot().objects()) {
+        for (ObjectDefinition object : catalogue.objects()) {
             FormulaAnalysis analysis = FormulaAnalysis.of(object, support.engine(), support.maxFormulaDepth());
             for (FormulaAnalysis.Entry entry : analysis.entries().values()) {
                 if (!entry.verified() && !entry.valid()) {

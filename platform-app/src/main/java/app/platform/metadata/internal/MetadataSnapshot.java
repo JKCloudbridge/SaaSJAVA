@@ -442,6 +442,7 @@ final class MetadataSnapshot {
     private static ObjectCatalog.ObjectInfo infoOf(ObjectDefinition object) {
         return new ObjectCatalog.ObjectInfo(object.apiName(), object.label(),
                 object.fields().stream().filter(field -> !field.retired())
-                        .map(field -> new ObjectCatalog.FieldInfo(field.apiName(), field.label())).toList());
+                        .map(field -> new ObjectCatalog.FieldInfo(field.apiName(), field.label())).toList(),
+                object.retainRecords());
     }
 }

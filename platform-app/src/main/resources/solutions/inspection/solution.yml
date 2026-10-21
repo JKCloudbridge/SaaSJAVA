@@ -1,0 +1,48 @@
+# The Audit maintenance solution (Functional track, ADR-0175, ADR-0179, ADR-0180, ADR-0181).
+#
+# A shipped solution is read-only data inside the platform: an organization sees it only while its plan has the feature
+# and can neither change nor remove any part of it. The application below is computed for every request and written to
+# no table of the organization. The access policies are made as rows in each organization that has the feature, marked as
+# shipped (so an administrator can assign them but not change them), the way the system profiles are made.
+#
+# The rights of the policies are named but hold only what the framework needs (the read right on the first object); the
+# real rights are filled in when the roles of the business are settled (FA4).
+key: inspection
+feature: inspection
+label: Audit maintenance
+removalNote: >-
+  Taking this feature away hides the Audit maintenance application and its objects from the organization at once.
+  Nothing is deleted: the records, approvals in flight and access policies stay, and everything comes back when the
+  feature is given again.
+application:
+  apiName: inspection
+  label: Audit maintenance
+  iconKey: clipboard
+  entries:
+    - type: PLATFORM
+      label: Templates
+      pageKey: templates
+      readsObject: InspectionTemplate
+objects:
+  - InspectionTemplate
+accessPolicies:
+  - key: author
+    name: Author
+    description: Writes templates. Comes with the Audit maintenance application and cannot be changed.
+    objects:
+      InspectionTemplate: [read]
+  - key: approver
+    name: Approver
+    description: Approves templates. Comes with the Audit maintenance application and cannot be changed.
+    objects:
+      InspectionTemplate: [read]
+  - key: reader
+    name: Reader
+    description: Reads published templates. Comes with the Audit maintenance application and cannot be changed.
+    objects:
+      InspectionTemplate: [read]
+  - key: filler
+    name: Filler
+    description: Fills in published templates. Comes with the Audit maintenance application and cannot be changed.
+    objects:
+      InspectionTemplate: [read]
