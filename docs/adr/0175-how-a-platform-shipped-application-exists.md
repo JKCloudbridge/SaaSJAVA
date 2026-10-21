@@ -14,7 +14,7 @@ Two ways: **computed** (the shipped application is merged into `GET /api/v1/appl
 ## Decision
 
 **Computed.** A new module `solution` loads read-only bundles shipped inside the application (`resources/solutions/<key>/solution.yml`: key, label, the plan feature, the application and its entries, the shipped objects) and answers the shared-kernel contract **`ShippedApplications`**
-(`for(member) -> List<MyApplicationView>`); `MyApplications` merges the answer through an `ObjectProvider<ShippedApplications>` (the inversion of `RecordLocks`: `application` gets no edge to `solution`, `solution` depends on `licensing`, `metadata` and `security`).
+(`for(member) -> List<ShippedApplicationView>`, a small **neutral view type defined in the shared kernel**, because the API type `MyApplicationView` lives in `platform-api-contract`, which the shared kernel does not depend on; `MyApplications` maps the neutral type to the API type); `MyApplications` merges the answer through an `ObjectProvider<ShippedApplications>` (the inversion of `RecordLocks`: `application` gets no edge to `solution`, `solution` depends on `licensing`, `metadata` and `security`).
 The gate is one question, `Entitlements.enabled(feature)`, asked per request, never stored. Its entries are `OBJECT` entries (judged exactly like an organization's, by the member's read permission) and a new entry type **`PLATFORM`** naming a page key that the web registry knows
 (`platform-web/src/solutions/<key>/registry.ts`, rendered by the existing `/apps/[application]/[entry]` route). **No tenant row is written for the application, its tabs or its pages.**
 
