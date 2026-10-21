@@ -13,8 +13,9 @@ import org.springframework.stereotype.Service;
  * The shipped applications of the organization of the current tenant context (ADR-0175, ADR-0181). The application is
  * <em>computed</em>: a solution is listed only while {@link Entitlements#enabled} says the organization has its plan
  * feature, asked at the moment of the call and never stored, so taking the feature away hides the application on the
- * next request and nothing needs cleaning. No row of the organization is written for the application, its entries or its
- * pages. Which entries the member may open is the menu's to judge, with the rule it uses for every application.
+ * next request and nothing needs cleaning. No row of the organization is written for the application, its entries
+ * or its pages. Which entries the member may open is the menu's to judge, with the rule it uses for every
+ * application.
  *
  * <p>On the way it makes sure the solution's access policies exist ({@link ShippedPolicyKeeper}).
  */

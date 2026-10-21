@@ -18,11 +18,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;
 
 /**
- * The leak test of the shipped-solution flows (Functional track FA1, ADR-0181): the application is listed, the policies
- * are made, assigned and refused, the feature is lost and regained, and records of the kept object are made, changed and
- * refused deletion, with the application and the security framework logging at debug level. What a person typed (the name
- * of a template, the words of a refused change of a shipped policy) is never logged, never written to the audit trail, and
- * never echoed by a refusal. The audit trail does show that the policies were made, by counts.
+ * The leak test of the shipped-solution flows (Functional track FA1, ADR-0181): the application is listed, the
+ * policies are made, assigned and refused, the feature is lost and regained, and records of the kept object are
+ * made, changed and refused deletion, with the application and the security framework logging at debug level. What
+ * a person typed (the name of a template, the words of a refused change of a shipped policy) is never logged,
+ * never written to the audit trail, and never echoed by a refusal. The audit trail does show that the policies
+ * were made, by counts.
  */
 @PlatformIntegrationTest
 @TestPropertySource(properties = {

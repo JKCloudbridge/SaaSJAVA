@@ -49,8 +49,10 @@ class SolutionValidatorTest {
 
     private static SolutionBundle good() {
         return bundle("demo", "demo-feature", "demo", List.of("Widget"),
-                List.of(new SolutionBundle.Entry(ShippedEntryView.Kind.PLATFORM, "Overview", "", "overview", "Widget")),
-                List.of(new SolutionBundle.Policy("reader", "Reader", "d", Map.of("Widget", Set.of(ObjectAction.READ)))));
+                List.of(new SolutionBundle.Entry(ShippedEntryView.Kind.PLATFORM, "Overview", "", "overview",
+                        "Widget")),
+                List.of(new SolutionBundle.Policy("reader", "Reader", "d",
+                        Map.of("Widget", Set.of(ObjectAction.READ)))));
     }
 
     private static final PlatformObjects WIDGET = platform(object("Widget", "demo-feature", true));
@@ -110,8 +112,10 @@ class SolutionValidatorTest {
         SolutionBundle reads = bundle("demo", "demo-feature", "demo", List.of("Widget"),
                 List.of(new SolutionBundle.Entry(ShippedEntryView.Kind.PLATFORM, "O", "", "overview", "Gadget")),
                 List.of());
-        SolutionBundle right = bundle("demo", "demo-feature", "demo", List.of("Widget"), good().application().entries(),
-                List.of(new SolutionBundle.Policy("reader", "Reader", "d", Map.of("Gadget", Set.of(ObjectAction.READ)))));
+        SolutionBundle right = bundle("demo", "demo-feature", "demo", List.of("Widget"),
+                good().application().entries(),
+                List.of(new SolutionBundle.Policy("reader", "Reader", "d",
+                        Map.of("Gadget", Set.of(ObjectAction.READ)))));
 
         assertThatThrownBy(() -> SolutionValidator.validate(List.of(entry), WIDGET, null))
                 .hasMessageContaining("entries[0] names an object the solution does not bring");
@@ -132,7 +136,8 @@ class SolutionValidatorTest {
 
     @Test
     void theDeleteRightOnAnObjectWhoseRecordsAreKeptIsRefused() {
-        SolutionBundle deleting = bundle("demo", "demo-feature", "demo", List.of("Widget"), good().application().entries(),
+        SolutionBundle deleting = bundle("demo", "demo-feature", "demo", List.of("Widget"),
+                good().application().entries(),
                 List.of(new SolutionBundle.Policy("reader", "Reader", "d",
                         Map.of("Widget", Set.of(ObjectAction.READ, ObjectAction.DELETE)))));
 
@@ -155,13 +160,14 @@ class SolutionValidatorTest {
                 .hasMessageContaining("feature of another solution");
         assertThatThrownBy(() -> SolutionValidator.validate(sameApplication, WIDGET, null))
                 .hasMessageContaining("application name is used by another solution");
-        assertThatThrownBy(() -> SolutionValidator.validate(sameObject, platform(object("Widget", "demo-feature", true)),
-                null)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> SolutionValidator.validate(sameObject,
+                platform(object("Widget", "demo-feature", true)), null)).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
     void anApplicationNameThatEndsLikeAnOrganizationsOwnIsRefused() {
-        SolutionBundle clash = bundle("demo", "demo-feature", "demo__c", List.of("Widget"), good().application().entries(),
+        SolutionBundle clash = bundle("demo", "demo-feature", "demo__c", List.of("Widget"),
+                good().application().entries(),
                 List.of());
 
         assertThatThrownBy(() -> SolutionValidator.validate(List.of(clash), WIDGET, null))

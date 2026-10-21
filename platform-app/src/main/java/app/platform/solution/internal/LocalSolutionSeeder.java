@@ -16,8 +16,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * Developer convenience: switches the plan feature of every shipped solution on for the local organization {@code
- * tenant-a}, so that its application can be seen on a developer machine without first using the console. {@code tenant-b}
- * is left without, which is how the difference between an organization with the feature and one without is looked at.
+ * tenant-a}, so that its application can be seen on a developer machine without first using the console. {@code
+ * tenant-b} is left without, which is how the difference between an organization with the feature and one without
+ * is looked at.
  * Only the {@code local} profile runs it, and only for a feature that has no switch for the organization yet, so a
  * developer who switched it off in the console keeps it off.
  */

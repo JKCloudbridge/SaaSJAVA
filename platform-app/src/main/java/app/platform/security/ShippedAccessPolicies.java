@@ -11,10 +11,11 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
- * The access policies the platform ships with a solution (Functional track FA1, ADR-0175, ADR-0181). They are rows of the
- * organization, made the way the system profiles are, because a policy is assigned to people and referenced by member
- * rows: it is the organization's data, where an application is only a view. They are marked as shipped, so an
- * administrator can give them to members and groups and can neither change nor remove them; the database enforces it.
+ * The access policies the platform ships with a solution (Functional track FA1, ADR-0175, ADR-0181). They are rows
+ * of the organization, made the way the system profiles are, because a policy is assigned to people and referenced
+ * by member rows: it is the organization's data, where an application is only a view. They are marked as shipped,
+ * so an administrator can give them to members and groups and can neither change nor remove them; the database
+ * enforces it.
  *
  * <p>Every method works for the organization of the thread's tenant context and never opens another one. Making the
  * policies is idempotent: a policy that exists is found by its key, whatever its name became in the meantime, and is
@@ -41,7 +42,10 @@ public interface ShippedAccessPolicies {
             objects = Map.copyOf(copy);
         }
 
-        /** A fingerprint of everything the declaration says, so a change of any of it is noticed with one comparison. */
+        /**
+         * A fingerprint of everything the declaration says, so a change of any of it is noticed with one
+         * comparison.
+         */
         public String fingerprint() {
             StringBuilder text = new StringBuilder(key).append('\n').append(name).append('\n').append(description);
             new TreeMap<>(objects).forEach((object, actions) -> {

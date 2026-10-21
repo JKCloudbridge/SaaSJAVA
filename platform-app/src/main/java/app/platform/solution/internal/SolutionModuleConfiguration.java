@@ -15,9 +15,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
 
 /**
- * Wiring of the solution module: the bundles are read and checked once, when the application starts, so that a mistake in
- * a file stops it from starting instead of being found by an organization (ADR-0181). What can be checked without the
- * database is checked when the bean is made; that the feature exists is checked right after, by {@link FeatureCheck}.
+ * Wiring of the solution module: the bundles are read and checked once, when the application starts, so that a
+ * mistake in a file stops it from starting instead of being found by an organization (ADR-0181). What can be
+ * checked without the database is checked when the bean is made; that the feature exists is checked right after,
+ * by {@link FeatureCheck}.
  */
 @Configuration
 class SolutionModuleConfiguration {

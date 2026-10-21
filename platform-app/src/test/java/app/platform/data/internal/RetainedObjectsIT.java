@@ -28,8 +28,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * The retained-object rule (Functional track FA1, ADR-0174 section 7, ADR-0181): the records of an object that declares
- * {@code retainRecords} are kept. Four layers, each tried on its own: the decision API and the access-policy editor never
+ * The retained-object rule (Functional track FA1, ADR-0174 section 7, ADR-0181): the records of an object that
+ * declares {@code retainRecords} are kept. Four layers, each tried on its own: the decision API and the
+ * access-policy editor never
  * give the delete right; the record store answers every way of removing, restoring over or purging with fixed words;
  * the recycle-bin retention job leaves them alone; and the database itself refuses a physical delete and a soft delete,
  * to the application role and to the owner, so that no future code path, bug or administrator can remove one.
@@ -87,7 +88,8 @@ class RetainedObjectsIT extends SolutionSupport {
         TestBrowser admin = adminOf(organization);
         String id = create(admin, newName());
 
-        assertKept(admin.postJson(RECORDS + "/bulk", "{\"operation\":\"DELETE\",\"records\":[{\"id\":\"" + id + "\"}]}"));
+        assertKept(admin.postJson(RECORDS + "/bulk",
+                "{\"operation\":\"DELETE\",\"records\":[{\"id\":\"" + id + "\"}]}"));
         assertKept(admin.postJson(BIN + "/" + id + "/restore", "{}"));
         assertKept(admin.request("DELETE", BIN + "/" + id, null));
         assertKept(admin.get(BIN));
@@ -196,7 +198,8 @@ class RetainedObjectsIT extends SolutionSupport {
 
         Response catalogue = admin.get("/api/v1/data-catalogue");
 
-        assertThat(JsonPath.<List<Boolean>>read(catalogue.body(), "$.data.objects[?(@.key=='" + OBJECT + "')].retained"))
+        assertThat(JsonPath.<List<Boolean>>read(catalogue.body(),
+                "$.data.objects[?(@.key=='" + OBJECT + "')].retained"))
                 .containsExactly(true);
         assertThat(JsonPath.<List<Boolean>>read(catalogue.body(), "$.data.objects[?(@.key=='ObjectA__c')].retained"))
                 .containsExactly(false);
@@ -321,7 +324,8 @@ class RetainedObjectsIT extends SolutionSupport {
     }
 
     private static void stageBinned(UUID kept, UUID ordinary) throws SQLException {
-        try (Connection connection = TestDatabase.ownerConnection(); Statement statement = connection.createStatement()) {
+        try (Connection connection = TestDatabase.ownerConnection();
+                Statement statement = connection.createStatement()) {
             statement.execute("alter table object_record disable trigger user");
             try {
                 statement.executeUpdate("update object_record set deleted_at = now() - interval '400 days', "
@@ -341,7 +345,8 @@ class RetainedObjectsIT extends SolutionSupport {
     }
 
     private static void ownerRuns(String sql) throws SQLException {
-        try (Connection connection = TestDatabase.ownerConnection(); Statement statement = connection.createStatement()) {
+        try (Connection connection = TestDatabase.ownerConnection();
+                Statement statement = connection.createStatement()) {
             statement.executeUpdate(sql);
         }
     }
