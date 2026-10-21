@@ -334,7 +334,7 @@ class MetadataApiIT {
                 "NUMBER", "DECIMAL", "CURRENCY", "PERCENT", "BOOLEAN", "DATE", "DATETIME", "TIME", "EMAIL", "PHONE",
                 "URL", "PICKLIST", "MULTI_PICKLIST", "LOOKUP", "MASTER_DETAIL", "FORMULA", "AUTO_NUMBER");
         assertThat(JsonPath.<List<String>>read(types.body(), "$.data[?(@.type=='PICKLIST')].settings[*]"))
-                .containsExactly("values");
+                .containsExactly("values", "dependency");
         assertThat(JsonPath.<List<Boolean>>read(types.body(), "$.data[?(@.type=='FORMULA')].calculated"))
                 .containsExactly(true);
     }

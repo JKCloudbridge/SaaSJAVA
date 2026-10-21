@@ -3,16 +3,20 @@ package app.platform.metadata.internal;
 import app.platform.expression.ExpressionEngine;
 import app.platform.expression.Limits;
 import app.platform.metadata.DefinitionKind;
+import app.platform.metadata.FieldConfiguration.Dependency;
+import app.platform.metadata.FieldConfiguration.PicklistConfiguration;
 import app.platform.metadata.FieldDefinition;
 import app.platform.metadata.FieldType;
 import app.platform.metadata.ObjectDefinition;
 import app.platformapi.ApiException;
 import app.platformapi.FieldSettings;
+import app.platformapi.PicklistDependency;
 import app.platformapi.PicklistOption;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -64,11 +68,13 @@ final class StandardMetadataLoader {
             "managedBy", "extensible", "requiresFeature", "retainRecords", "fields");
     private static final Set<String> FILE_KEYS = Set.of("fields");
     private static final Set<String> FIELD_KEYS = Set.of("apiName", "label", "description", "type", "required",
-            "unique", "indexed", "default", "settings", "retired");
+            "unique", "indexed", "default", "settings", "retired", "organizationValues", "codeValues",
+            "platformWritten");
     private static final Set<String> SETTING_KEYS = Set.of("maxLength", "digits", "precision", "scale", "values",
             "targetObject", "expression", "resultType", "prefix", "startAt", "width", "onDelete", "reparentable",
-            "listLabel");
+            "listLabel", "dependency");
     private static final Set<String> VALUE_KEYS = Set.of("value", "label", "active");
+    private static final Set<String> DEPENDENCY_KEYS = Set.of("controllingField", "allowed");
 
     private StandardMetadataLoader() {
     }
@@ -177,6 +183,11 @@ final class StandardMetadataLoader {
                         + "record store)");
             }
             List<FieldDefinition> own = fields(node, apiName, DefinitionKind.STANDARD);
+            if (managedBy != null && own.stream().anyMatch(field -> field.organizationValues()
+                    || field.platformWritten())) {
+                throw new IllegalStateException(where + ": an object another part of the platform owns cannot have "
+                        + "a field the organization owns the values of or only the platform writes");
+            }
             Set<String> used = new HashSet<>();
             List<FieldDefinition> all = new ArrayList<>();
             for (FieldDefinition field : system) {
@@ -193,8 +204,39 @@ final class StandardMetadataLoader {
             if (all.size() > MAX_FIELDS) {
                 throw new IllegalStateException(where + ": more than " + MAX_FIELDS + " fields");
             }
-            return new ObjectDefinition(apiName, label, plural, description, DefinitionKind.STANDARD, managedBy,
-                    extensible, 0, all, requiresFeature, retainRecords);
+            ObjectDefinition made = new ObjectDefinition(apiName, label, plural, description, DefinitionKind.STANDARD,
+                    managedBy, extensible, 0, all, requiresFeature, retainRecords);
+            checkDependencies(where, made);
+            return made;
+        }
+
+        /**
+         * A dependent picklist is judged by the rules the dependency graph applies to an organization's (ADR-0177), now
+         * that the whole object is known; and a platform picklist whose controlling field is a list the organization
+         * owns must be one too, or the organization could add a value to the controlling field and never pair it.
+         */
+        private static void checkDependencies(String where, ObjectDefinition object) {
+            for (FieldDefinition field : object.fields()) {
+                List<PicklistDependencies.Problem> problems = PicklistDependencies.problems(object, field);
+                if (!problems.isEmpty()) {
+                    throw new IllegalStateException(where + " (" + field.apiName() + "): "
+                            + problems.get(0).message());
+                }
+                Dependency dependency = PicklistDependencies.dependencyOf(field);
+                if (dependency == null) {
+                    continue;
+                }
+                FieldDefinition controlling = object.field(dependency.controllingField()).orElse(null);
+                if (controlling == null) {
+                    throw new IllegalStateException(where + " (" + field.apiName() + "): the field it depends on, '"
+                            + dependency.controllingField() + "', is not a field of the object");
+                }
+                if (controlling.organizationValues() && !field.organizationValues()) {
+                    throw new IllegalStateException(where + " (" + field.apiName() + "): the list of '"
+                            + controlling.apiName() + "' belongs to the organization, so the list of this dependent "
+                            + "picklist must too ('organizationValues: true')");
+                }
+            }
         }
 
         private List<FieldDefinition> fields(YamlNode parent, String objectApiName, DefinitionKind kind) {
@@ -234,9 +276,35 @@ final class StandardMetadataLoader {
             } catch (ApiException e) {
                 throw new IllegalStateException(where + ": " + e.fields());
             }
+            boolean organizationValues = node.flag("organizationValues", false);
+            boolean codeValues = node.flag("codeValues", false);
+            boolean platformWritten = node.flag("platformWritten", false);
+            checkFlags(where, kind, type, checked, organizationValues, codeValues, platformWritten);
             return new FieldDefinition(objectApiName, apiName, label, description, kind, type, checked.required(),
                     checked.unique(), checked.defaultValue(), checked.configuration(), node.flag("retired", false), 0,
-                    indexed);
+                    indexed, false, false, organizationValues, codeValues, platformWritten);
+        }
+
+        /** What the three attributes of the Functional track need of the field that carries them (ADR-0182, 0183). */
+        private static void checkFlags(String where, DefinitionKind kind, FieldType type, FieldRules.Checked checked,
+                boolean organizationValues, boolean codeValues, boolean platformWritten) {
+            if ((organizationValues || codeValues) && type != FieldType.PICKLIST) {
+                throw new IllegalStateException(where + ": 'organizationValues' and 'codeValues' belong to a "
+                        + "single-value picklist");
+            }
+            if ((organizationValues || codeValues || platformWritten) && kind == DefinitionKind.SYSTEM) {
+                throw new IllegalStateException(where + ": a system field has none of 'organizationValues', "
+                        + "'codeValues' and 'platformWritten'");
+            }
+            if (codeValues && !FieldRules.codeProblems(((PicklistConfiguration) checked.configuration()).values())
+                    .isEmpty()) {
+                throw new IllegalStateException(where + ": every value of a picklist with 'codeValues' is a code of "
+                        + "1 to 10 letters, digits, hyphens or underscores");
+            }
+            if (platformWritten && (type != FieldType.TEXT || checked.required() || checked.defaultValue() != null)) {
+                throw new IllegalStateException(where + ": a field only the platform writes is a text field, is not "
+                        + "required and has no default (a member could never fill it in)");
+            }
         }
 
         private FieldSettings settings(YamlNode field) {
@@ -258,7 +326,30 @@ final class StandardMetadataLoader {
                     node.optionalText("resultType"), node.optionalText("prefix"), node.optionalLong("startAt"),
                     node.optionalInteger("width"), node.optionalText("onDelete"),
                     node.has("reparentable") ? node.flag("reparentable", false) : null,
-                    node.optionalText("listLabel"));
+                    node.optionalText("listLabel"), dependency(node));
+        }
+
+        /** The rule of a dependent picklist as the file writes it: the controlling field and the table of pairs. */
+        private PicklistDependency dependency(YamlNode settings) {
+            YamlNode node = settings.node("dependency", DEPENDENCY_KEYS);
+            if (node == null) {
+                return null;
+            }
+            Map<String, List<String>> allowed = new LinkedHashMap<>();
+            Map<?, ?> table = node.table("allowed");
+            if (table != null) {
+                for (Map.Entry<?, ?> row : table.entrySet()) {
+                    List<String> listed = new ArrayList<>();
+                    if (row.getValue() instanceof List<?> items) {
+                        items.forEach(item -> listed.add(String.valueOf(item)));
+                    } else if (row.getValue() != null) {
+                        throw new IllegalStateException(node.where() + ": the values for '" + row.getKey()
+                                + "' are a list");
+                    }
+                    allowed.put(String.valueOf(row.getKey()), listed);
+                }
+            }
+            return new PicklistDependency(node.text("controllingField"), allowed);
         }
 
         private static String limited(YamlNode node, String key, int max) {

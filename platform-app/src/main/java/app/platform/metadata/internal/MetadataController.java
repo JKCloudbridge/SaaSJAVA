@@ -1,6 +1,8 @@
 package app.platform.metadata.internal;
 
 import app.platform.security.Ability;
+import app.platformapi.AddFieldValueRequest;
+import app.platformapi.AddedFieldValueView;
 import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
 import app.platformapi.AuthorshipView;
@@ -181,6 +183,24 @@ class MetadataController {
             @Valid @RequestBody UpdateFieldRequest body) {
         return ApiResponse.of(administration.runAll("metadata.field.update", LIVE, caller -> lifecycle.applyNow(
                 caller, codec.now(Change.Kind.UPDATE_FIELD, objectApiName, fieldApiName, body), FieldView.class)));
+    }
+
+    @PostMapping(ApiPaths.METADATA_OBJECTS + "/{objectApiName}/fields/{fieldApiName}/values")
+    @Operation(
+            operationId = "addFieldValue",
+            summary = "Add a value to a picklist the organization owns the list of",
+            description = "From the form where a record is written: adds one value, and for a dependent picklist the "
+                    + "values of the other field it goes with. It only adds; a value that exists is never renamed, "
+                    + "switched off or removed this way, and adding what is there already changes nothing. Needs the "
+                    + "ability to add values to picklists, and the member must be allowed to edit the field. "
+                    + "NOT_FOUND for a field that is not such a picklist or one the member cannot read, FORBIDDEN "
+                    + "without the ability or the right to edit the field, VALIDATION_ERROR for a value the rules "
+                    + "refuse. Audited by counts.")
+    ResponseEntity<ApiResponse<AddedFieldValueView>> addFieldValue(@PathVariable String objectApiName,
+            @PathVariable String fieldApiName, @Valid @RequestBody AddFieldValueRequest body) {
+        AddedFieldValueView added = administration.run("metadata.fieldvalues.add", Ability.FIELD_VALUES_ADD,
+                caller -> service.addFieldValue(caller, objectApiName, fieldApiName, body));
+        return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "no-store").body(ApiResponse.of(added));
     }
 
     @DeleteMapping(ApiPaths.METADATA_OBJECTS + "/{objectApiName}/fields/{fieldApiName}")

@@ -2088,6 +2088,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/metadata/objects/{objectApiName}/fields/{fieldApiName}/values": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a value to a picklist the organization owns the list of
+         * @description From the form where a record is written: adds one value, and for a dependent picklist the values of the other field it goes with. It only adds; a value that exists is never renamed, switched off or removed this way, and adding what is there already changes nothing. Needs the ability to add values to picklists, and the member must be allowed to edit the field. NOT_FOUND for a field that is not such a picklist or one the member cannot read, FORBIDDEN without the ability or the right to edit the field, VALIDATION_ERROR for a value the rules refuse. Audited by counts.
+         */
+        post: operations["addFieldValue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/metadata/objects/{objectApiName}/layout-assignments": {
         parameters: {
             query?: never;
@@ -4613,6 +4633,11 @@ export interface components {
             key: string;
             name: string;
         };
+        AddFieldValueRequest: {
+            controllingValues?: string[];
+            label?: string;
+            value: string;
+        };
         AddGroupMemberRequest: {
             /** Format: uuid */
             groupId?: string;
@@ -4623,6 +4648,12 @@ export interface components {
             key: string;
             kind?: string;
             name: string;
+        };
+        AddedFieldValueView: {
+            added: boolean;
+            controllingValues: string[];
+            label: string;
+            value: string;
         };
         ApiError: {
             code: components["schemas"]["ErrorCode"];
@@ -4672,6 +4703,9 @@ export interface components {
         };
         ApiResponseAccessPolicyView: {
             data: components["schemas"]["AccessPolicyView"];
+        };
+        ApiResponseAddedFieldValueView: {
+            data: components["schemas"]["AddedFieldValueView"];
         };
         ApiResponseApplicationView: {
             data: components["schemas"]["ApplicationView"];
@@ -5464,6 +5498,7 @@ export interface components {
         };
         ChangeSetReportView: {
             items: components["schemas"]["ReleaseItemView"][];
+            notes: string[];
             objects: components["schemas"]["ObjectView"][];
             problems: components["schemas"]["ProblemView"][];
             valid: boolean;
@@ -5821,6 +5856,7 @@ export interface components {
             state: string;
         };
         FieldSettings: {
+            dependency?: components["schemas"]["PicklistDependency"];
             /** Format: int32 */
             digits?: number;
             expression?: string;
@@ -5864,6 +5900,7 @@ export interface components {
         };
         FieldView: {
             apiName: string;
+            codeValues?: boolean;
             defaultValue?: string;
             description: string;
             editable: boolean;
@@ -5871,6 +5908,8 @@ export interface components {
             indexed?: boolean;
             kind: string;
             label: string;
+            organizationValues?: boolean;
+            platformWritten?: boolean;
             problem?: string;
             required: boolean;
             retired: boolean;
@@ -5904,7 +5943,10 @@ export interface components {
         FormFieldView: {
             apiName: string;
             calculated: boolean;
+            canAddValues?: boolean;
+            codeValues?: boolean;
             defaultValue?: string;
+            dependency?: components["schemas"]["PicklistDependency"];
             description: string;
             /** Format: int32 */
             digits?: number;
@@ -6442,6 +6484,12 @@ export interface components {
         PermissionEntry: {
             actions: string[];
             key: string;
+        };
+        PicklistDependency: {
+            allowed: {
+                [key: string]: string[];
+            };
+            controllingField: string;
         };
         PicklistOption: {
             active: boolean;
@@ -11288,6 +11336,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseExpressionTestView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    addFieldValue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+                fieldApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddFieldValueRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseAddedFieldValueView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

@@ -60,6 +60,7 @@ export const REASON_TEXT: Record<string, string> = {
   record_type_rejected: "The record type of the record does not allow it.",
   required_missing: "A required field would have no value.",
   link_target_gone: "A linked record does not exist.",
+  pair_not_allowed: "A value does not go with the chosen value of the field its list depends on.",
   unique_clash: "A value that must be unique is already in use.",
   rejected_by_rule: "A validation rule rejected the record.",
   formula_failed: "A formula could not be worked out.",

@@ -7,6 +7,7 @@ import app.platform.metadata.DeleteBehaviour;
 import app.platform.metadata.FieldConfiguration;
 import app.platform.metadata.FieldConfiguration.AutoNumberConfiguration;
 import app.platform.metadata.FieldConfiguration.DecimalConfiguration;
+import app.platform.metadata.FieldConfiguration.Dependency;
 import app.platform.metadata.FieldConfiguration.FormulaConfiguration;
 import app.platform.metadata.FieldConfiguration.NoConfiguration;
 import app.platform.metadata.FieldConfiguration.NumberConfiguration;
@@ -18,6 +19,7 @@ import app.platform.metadata.PicklistValue;
 import app.platform.metadata.SlotClass;
 import app.platformapi.ApiException;
 import app.platformapi.FieldSettings;
+import app.platformapi.PicklistDependency;
 import app.platformapi.PicklistOption;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -59,6 +61,11 @@ final class FieldRules {
     static final int FORMULA_MAX = 4000;
     static final int MASTER_DETAIL_PER_OBJECT = 2;
     static final int PICKLIST_VALUE_MAX = 80;
+    /** The most controlling values and pairs of a dependent picklist, unless the settings say otherwise (ADR-0177). */
+    static final int DEPENDENCY_CONTROLLING_MAX = 200;
+    static final int DEPENDENCY_PAIRS_MAX = 5000;
+    /** What a value looks like where it is a part of a number: a short code (ADR-0182, ADR-0184). */
+    static final Pattern CODE = Pattern.compile("[A-Za-z0-9_-]{1,10}");
 
     /** The types a formula can yield. */
     static final Set<FieldType> FORMULA_RESULTS = Set.of(FieldType.TEXT, FieldType.NUMBER, FieldType.DECIMAL,
@@ -85,7 +92,15 @@ final class FieldRules {
      * @param engine the expression engine that reads the text of a formula (ADR-0077)
      */
     record Context(Predicate<String> targetExists, String ownerApiName, boolean masterDetailAllowed,
-            int otherMasterDetails, int maxPicklistValues, ExpressionEngine engine) {
+            int otherMasterDetails, int maxPicklistValues, ExpressionEngine engine, int maxDependencyControlling,
+            int maxDependencyPairs) {
+
+        /** The context with the platform's own limits for a dependent picklist (200 values, 5,000 pairs). */
+        Context(Predicate<String> targetExists, String ownerApiName, boolean masterDetailAllowed,
+                int otherMasterDetails, int maxPicklistValues, ExpressionEngine engine) {
+            this(targetExists, ownerApiName, masterDetailAllowed, otherMasterDetails, maxPicklistValues, engine,
+                    DEPENDENCY_CONTROLLING_MAX, DEPENDENCY_PAIRS_MAX);
+        }
     }
 
     /**
@@ -248,6 +263,7 @@ final class FieldRules {
         given.put("onDelete", settings.onDelete());
         given.put("reparentable", settings.reparentable());
         given.put("listLabel", settings.listLabel());
+        given.put("dependency", settings.dependency());
         given.forEach((name, value) -> {
             if (value != null && !type.settings().contains(name)) {
                 add(problems, "settings." + name, "This setting is not used by a field of this type.");
@@ -271,7 +287,7 @@ final class FieldRules {
             case CURRENCY -> decimal(problems, s, 18, 2, 6);
             case PERCENT -> decimal(problems, s, 8, 2, 6);
             case BOOLEAN, DATE, DATETIME, TIME -> new NoConfiguration();
-            case PICKLIST, MULTI_PICKLIST -> picklist(problems, s, context);
+            case PICKLIST, MULTI_PICKLIST -> picklist(problems, type, s, context);
             case LOOKUP, MASTER_DETAIL -> reference(problems, type, s, context, required);
             case FORMULA -> formula(problems, s, context.engine());
             case AUTO_NUMBER -> autoNumber(problems, s);
@@ -288,7 +304,7 @@ final class FieldRules {
         return new DecimalConfiguration(precision, scale);
     }
 
-    private static FieldConfiguration picklist(Map<String, List<String>> problems, FieldSettings s,
+    private static FieldConfiguration picklist(Map<String, List<String>> problems, FieldType type, FieldSettings s,
             Context context) {
         List<PicklistOption> options = s.values() == null ? List.of() : s.values();
         if (options.isEmpty()) {
@@ -319,7 +335,73 @@ final class FieldRules {
             }
             values.add(new PicklistValue(value, label, option.active() == null || option.active()));
         }
-        return new PicklistConfiguration(values);
+        Dependency dependency = type == FieldType.PICKLIST ? dependency(problems, s.dependency(), values, context)
+                : null;
+        return new PicklistConfiguration(values, dependency);
+    }
+
+    /**
+     * What can be told about a dependent picklist from the field alone (ADR-0177): the shape of the rule, its limits
+     * and that every value it lists is a value of this field. Whether the controlling field exists, is a single-value
+     * picklist and is not dependent itself, and whether every key is a value of it, is the dependency graph's question
+     * ({@link PicklistDependencies}): it is asked of the result of a whole change set, so the order of its changes does
+     * not matter. A message names the setting, never a value.
+     */
+    private static Dependency dependency(Map<String, List<String>> problems, PicklistDependency given,
+            List<PicklistValue> values, Context context) {
+        if (given == null) {
+            return null;
+        }
+        String controlling = given.controllingField() == null ? "" : given.controllingField().strip();
+        if (controlling.isEmpty() || controlling.length() > 60 || hasControl(controlling)) {
+            add(problems, "settings.dependency", "Choose the field this one depends on.");
+            return null;
+        }
+        Set<String> own = new HashSet<>();
+        values.forEach(value -> own.add(value.value()));
+        if (given.allowed().size() > context.maxDependencyControlling()) {
+            add(problems, "settings.dependency", "A picklist can depend on at most "
+                    + context.maxDependencyControlling() + " values of the other field.");
+            return null;
+        }
+        Map<String, List<String>> allowed = new LinkedHashMap<>();
+        int pairs = 0;
+        for (Map.Entry<String, List<String>> row : given.allowed().entrySet()) {
+            String key = row.getKey() == null ? "" : row.getKey().strip();
+            if (key.isEmpty() || key.length() > PICKLIST_VALUE_MAX || hasControl(key)) {
+                add(problems, "settings.dependency", "A value of the other field is 1 to 80 characters.");
+                continue;
+            }
+            List<String> listed = new ArrayList<>();
+            for (String value : row.getValue() == null ? List.<String>of() : row.getValue()) {
+                String text = value == null ? "" : value.strip();
+                if (!own.contains(text)) {
+                    add(problems, "settings.dependency", "A pair names a value that this picklist does not have.");
+                } else if (listed.contains(text)) {
+                    add(problems, "settings.dependency", "A value is listed twice for one value of the other field.");
+                } else {
+                    listed.add(text);
+                }
+            }
+            pairs += listed.size();
+            allowed.put(key, listed);
+        }
+        if (pairs > context.maxDependencyPairs()) {
+            add(problems, "settings.dependency", "A picklist can list at most " + context.maxDependencyPairs()
+                    + " pairs.");
+        }
+        return new Dependency(controlling, allowed);
+    }
+
+    /**
+     * Whether every value of a list that is a part of a number is a short code (ADR-0182): the problems, each at
+     * {@code settings.values}, none naming a value.
+     */
+    static List<String> codeProblems(List<PicklistValue> values) {
+        return values.stream().anyMatch(value -> !CODE.matcher(value.value()).matches())
+                ? List.of("A value is a code of 1 to 10 letters, digits, hyphens or underscores: the label can say "
+                        + "more.")
+                : List.of();
     }
 
     private static FieldConfiguration reference(Map<String, List<String>> problems, FieldType type, FieldSettings s,
@@ -603,9 +685,11 @@ final class FieldRules {
             case DecimalConfiguration decimal -> new FieldSettings(null, null, decimal.precision(), decimal.scale(),
                     null, null, null, null, null, null, null);
             case NoConfiguration none -> FieldSettings.none();
-            case PicklistConfiguration picklist -> new FieldSettings(null, null, null, null,
+            case PicklistConfiguration picklist -> FieldSettings.picklist(
                     picklist.values().stream().map(v -> new PicklistOption(v.value(), v.label(), v.active()))
-                            .toList(), null, null, null, null, null, null);
+                            .toList(),
+                    picklist.dependency() == null ? null : new PicklistDependency(
+                            picklist.dependency().controllingField(), picklist.dependency().allowed()));
             case ReferenceConfiguration reference -> FieldSettings.reference(reference.targetObject(),
                     reference.onDelete().name(), reference.reparentable(), reference.listLabel());
             case FormulaConfiguration formula -> new FieldSettings(null, null, null, null, null, null,

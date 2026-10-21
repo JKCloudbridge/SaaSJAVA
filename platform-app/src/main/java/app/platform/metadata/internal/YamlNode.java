@@ -122,6 +122,21 @@ final class YamlNode {
         return nodes;
     }
 
+    /**
+     * A nested mapping whose keys are data (a table of values), as it was read, or null when absent. The keys and the
+     * values are the caller's to check; this only says it is a mapping.
+     */
+    Map<?, ?> table(String key) {
+        Object value = values.get(key);
+        if (value == null) {
+            return null;
+        }
+        if (!(value instanceof Map<?, ?> map)) {
+            throw new IllegalStateException(where + ": '" + key + "' must be a mapping");
+        }
+        return map;
+    }
+
     /** One nested mapping limited to the allowed keys, or null when absent. */
     YamlNode node(String key, Set<String> allowedKeys) {
         Object value = values.get(key);

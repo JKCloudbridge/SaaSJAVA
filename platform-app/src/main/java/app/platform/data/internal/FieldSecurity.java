@@ -53,12 +53,24 @@ class FieldSecurity {
      */
     List<String> checkWrite(ObjectDefinition object, ObjectAccess access, Collection<String> named,
             Findings findings) {
+        return checkWrite(object, access, named, findings, false);
+    }
+
+    /**
+     * As {@link #checkWrite(ObjectDefinition, ObjectAccess, Collection, Findings)}; {@code platform} says that the
+     * platform itself writes (a workflow, an approval outcome, the engine that numbers a record, ADR-0139): only then
+     * may a field that only the platform writes (ADR-0183) be set. A person never may, whatever they hold: the field
+     * answers like a calculated one, in the same words.
+     */
+    List<String> checkWrite(ObjectDefinition object, ObjectAccess access, Collection<String> named,
+            Findings findings, boolean platform) {
         List<String> passed = new ArrayList<>();
         for (String key : named) {
             FieldDefinition field = object.field(key).orElse(null);
             if (field == null || !access.editableFields().contains(key)) {
                 findings.add(key, field != null && access.readableFields().contains(key) ? NOT_EDITABLE : NOT_A_FIELD);
-            } else if (field.kind() == DefinitionKind.SYSTEM || field.type().calculated() || field.retired()) {
+            } else if (field.kind() == DefinitionKind.SYSTEM || field.type().calculated() || field.retired()
+                    || field.platformWritten() && !platform) {
                 findings.add(key, NOT_WRITABLE);
             } else {
                 passed.add(key);

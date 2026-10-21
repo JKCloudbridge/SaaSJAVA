@@ -24,4 +24,17 @@ public interface ObjectUsage {
      * @throws app.platformapi.ApiException {@code CONFLICT} when the records could not be checked in the time allowed
      */
     long duplicates(String objectApiName, String fieldApiName);
+
+    /**
+     * How many live records of the object hold, in the dependent field, a value its rule does not allow for the value
+     * they hold in the controlling field (FA2A, ADR-0177). A change that makes a field dependent is allowed over such
+     * records; the answer is a note for the person who makes it. Reads the whole object; zero when there are no
+     * records.
+     *
+     * @param allowed for each value of the controlling field, the values of the dependent field that go with it
+     */
+    default long recordsOutsidePairs(String objectApiName, String dependentField, String controllingField,
+            java.util.Map<String, java.util.List<String>> allowed) {
+        return 0;
+    }
 }

@@ -1,6 +1,9 @@
 package app.platform.metadata.internal;
 
 import app.platform.identity.OrganizationAdministration.Caller;
+import app.platform.metadata.FieldConfiguration.Dependency;
+import app.platform.metadata.FieldDefinition;
+import app.platform.metadata.ObjectDefinition;
 import app.platform.metadata.ObjectUsage;
 import app.platformapi.ApiException;
 import app.platformapi.ChangeRequest;
@@ -71,7 +74,7 @@ class MetadataLifecycle {
 
     /** What applying a list of changes found and did. */
     private record Outcome(List<Problem> problems, List<ReleaseItemView> items, List<Change> undo,
-            Set<String> touched) {
+            Set<String> touched, List<String> notes) {
     }
 
     private final LifecycleStore store;
@@ -280,10 +283,45 @@ class MetadataLifecycle {
                         List.of()));
             }
         }
+        List<String> notes = List.of();
         if (problems.isEmpty()) {
             problems.addAll(dependencyProblems(before));
+            if (problems.isEmpty()) {
+                notes = pairNotes(before, catalogue.snapshot());
+            }
         }
-        return new Outcome(problems, items, undoOf(undos), touched);
+        return new Outcome(problems, items, undoOf(undos), touched, notes);
+    }
+
+    /**
+     * What a change that makes a picklist dependent, or changes its pairs, leaves behind: records that hold a pair the
+     * rule no longer allows (FA2A, ADR-0177). The change is allowed all the same; the records stay as they are until
+     * someone changes one of the two fields. The note counts the records and names the field, never a value.
+     */
+    private List<String> pairNotes(MetadataSnapshot before, MetadataSnapshot after) {
+        ObjectUsage records = usage.getIfAvailable();
+        if (records == null) {
+            return List.of();
+        }
+        List<String> notes = new ArrayList<>();
+        for (ObjectDefinition object : after.objects()) {
+            for (FieldDefinition field : object.fields()) {
+                Dependency now = PicklistDependencies.dependencyOf(field);
+                Dependency was = before.object(object.apiName()).flatMap(found -> found.field(field.apiName()))
+                        .map(PicklistDependencies::dependencyOf).orElse(null);
+                if (now == null || now.equals(was)) {
+                    continue;
+                }
+                long outside = records.recordsOutsidePairs(object.apiName(), field.apiName(),
+                        now.controllingField(), now.allowed());
+                if (outside > 0) {
+                    notes.add(outside + " records hold a pair in " + object.apiName() + "." + field.apiName()
+                            + " that is no longer allowed. They stay as they are until someone changes one of the "
+                            + "two fields.");
+                }
+            }
+        }
+        return notes;
     }
 
     /**
@@ -378,7 +416,7 @@ class MetadataLifecycle {
             }
         }
         return new ChangeSetReportView(outcome.problems().isEmpty(),
-                outcome.problems().stream().map(Problem::view).toList(), outcome.items(), objects);
+                outcome.problems().stream().map(Problem::view).toList(), outcome.items(), objects, outcome.notes());
     }
 
     // ---- releases ----

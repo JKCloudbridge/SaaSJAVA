@@ -1,0 +1,31 @@
+# The numbers of the Audit maintenance solution (Functional track FA2A, ADR-0176, ADR-0184).
+#
+# A series names the object whose records are numbered, the field that holds the number (a unique text field only the
+# platform writes) and the format to write it in. The format language is closed: fixed text, {field:name} for the stored
+# value of a text field or a short-code picklist of the record, and exactly one {seq:N} for the counter, padded with zeros
+# to N digits and never cut. There is no clock, no arithmetic and no code.
+#
+# The counter runs for each scope: the category followed by the values of the fields the format reads (WI/PRD is one
+# counter, WI/QLT another). A sub-category added later has no counter yet and starts at 1; one chosen from the list goes
+# on from the last number. Every organization has its own counters.
+#
+# A category with no format here gets no number from the series yet: its last part is typed (a part code or a year),
+# which the template page brings later (Control Plan, Process Flow Chart, FMEA, Business Plan).
+series:
+  - key: document
+    object: InspectionTemplate
+    field: number
+    selector: category
+    formats:
+      IMS: "IMS/{seq:2}"
+      QSP: "QSP-{seq:2}"
+      CORPQSP: "CORP-QSP-{seq:2}"
+      ESSP: "ESSP-{seq:2}"
+      WI: "WI/{field:subCategory}/{seq:2}"
+      SOP: "SOP/{field:subCategory}/{seq:2}"
+      F: "F/{field:subCategory}/{seq:2}"
+      FEHS: "F/EHS/{field:subCategory}/{seq:2}"
+      CSF: "CSF/{field:subCategory}/{seq:2}"
+      PPT: "PPT/{field:subCategory}/{seq:2}"
+      L: "L/{field:subCategory}/{seq:2}"
+      LEHS: "L/EHS/{field:subCategory}/{seq:2}"

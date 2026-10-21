@@ -146,7 +146,17 @@ public enum Ability {
      */
     AUTOMATION_VIEW("automation.view", "View the health of automation",
             "See how many workflow executions wait or failed, how many events and mails are stuck, and how many "
-                    + "approvals are overdue or have nobody to decide them.");
+                    + "approvals are overdue or have nobody to decide them."),
+
+    /**
+     * Add a value to a picklist the organization owns, from the form where a record is written (FA2A, ADR-0182). It
+     * only
+     * adds: a value is never removed or renamed this way, and setting the list up stays with the ability to manage
+     * objects and fields. The member must also be allowed to edit the field.
+     */
+    FIELD_VALUES_ADD("field-values.add", "Add values to picklists",
+            "Add a new value, and the pair it belongs to, to a picklist whose list the organization owns, while "
+                    + "filling in a record. It never removes or renames a value.");
 
     private final String key;
     private final String title;

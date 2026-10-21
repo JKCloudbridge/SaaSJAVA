@@ -21,6 +21,7 @@ class BackgroundWriteReasonsTest {
         assertThat(DefaultBackgroundWrites.reasonOf("type")).isEqualTo(Reason.INVALID_VALUE);
         assertThat(DefaultBackgroundWrites.reasonOf("required")).isEqualTo(Reason.REQUIRED_MISSING);
         assertThat(DefaultBackgroundWrites.reasonOf("relationship")).isEqualTo(Reason.LINK_TARGET_GONE);
+        assertThat(DefaultBackgroundWrites.reasonOf("dependent")).isEqualTo(Reason.PAIR_NOT_ALLOWED);
         assertThat(DefaultBackgroundWrites.reasonOf("unique")).isEqualTo(Reason.UNIQUE_CLASH);
         assertThat(DefaultBackgroundWrites.reasonOf("rule")).isEqualTo(Reason.REJECTED_BY_RULE);
         assertThat(DefaultBackgroundWrites.reasonOf("formula")).isEqualTo(Reason.FORMULA_FAILED);

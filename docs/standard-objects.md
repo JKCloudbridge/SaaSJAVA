@@ -134,6 +134,9 @@ A template of the Audit maintenance application. Its records are kept for good.
 |----------|-------|------|----------|--------|---------|
 | `name` | Template name | TEXT | yes |  | up to 120 characters |
 | `retired` | Retired | BOOLEAN |  |  |  |
+| `category` | Category | PICKLIST |  |  | the organization owns the list; starting values: IMS, QSP, CORPQSP, ESSP, CP, WI, PFC, FMEA, SOP, BP, F, FEHS, CSF, PPT, L, LEHS; values are short codes |
+| `subCategory` | Sub-category | PICKLIST |  |  | the organization owns the list; starting values: PRD, QLT, MNT, STR, CORP, CUSA, CUSB; depends on `category`; values are short codes |
+| `number` | Number | TEXT |  | yes | up to 40 characters; written by the platform only |
 
 ## LicenceType
 

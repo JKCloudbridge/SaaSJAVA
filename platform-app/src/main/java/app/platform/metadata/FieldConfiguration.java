@@ -1,6 +1,9 @@
 package app.platform.metadata;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The settings that belong to one field type (ADR-0060). One field type has exactly one configuration shape, and the
@@ -25,12 +28,52 @@ public sealed interface FieldConfiguration {
     record NoConfiguration() implements FieldConfiguration {
     }
 
-    /** The choices of a picklist or multi-picklist, in the order they are offered. */
-    record PicklistConfiguration(List<PicklistValue> values) implements FieldConfiguration {
+    /**
+     * The choices of a picklist or multi-picklist, in the order they are offered, and, for a single-value picklist, the
+     * dependency on another picklist of the same object (FA2A, ADR-0177).
+     *
+     * @param dependency which values go with which value of the controlling field, or null when the picklist depends
+     *        on nothing
+     */
+    record PicklistConfiguration(List<PicklistValue> values, Dependency dependency) implements FieldConfiguration {
 
         /** Copies what is given. */
         public PicklistConfiguration {
             values = List.copyOf(values);
+        }
+
+        /** A picklist that depends on no other field. */
+        public PicklistConfiguration(List<PicklistValue> values) {
+            this(values, null);
+        }
+    }
+
+    /**
+     * A dependent picklist's rule: the values it allows for each value of the controlling field, by stored value. A
+     * controlling value with an empty list allows nothing. Depth one: the controlling field is a single-value picklist
+     * of the same object and depends on nothing itself.
+     *
+     * @param controllingField the API name of the controlling field
+     * @param allowed for each stored value of the controlling field, the stored values of this field that go with it
+     */
+    record Dependency(String controllingField, Map<String, List<String>> allowed) {
+
+        /** Copies what is given, keeping the order. */
+        public Dependency {
+            Map<String, List<String>> copy = new LinkedHashMap<>();
+            allowed.forEach((key, list) -> copy.put(key, List.copyOf(list)));
+            allowed = Collections.unmodifiableMap(copy);
+        }
+
+        /** How many pairs (controlling value, dependent value) the rule lists. */
+        public int pairs() {
+            return allowed.values().stream().mapToInt(List::size).sum();
+        }
+
+        /** Prints the field only: the values are text the organization chose (ADR-0012). */
+        @Override
+        public String toString() {
+            return "Dependency[" + controllingField + "]";
         }
     }
 

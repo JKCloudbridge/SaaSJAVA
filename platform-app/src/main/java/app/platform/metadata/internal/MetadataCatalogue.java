@@ -71,6 +71,7 @@ class MetadataCatalogue implements Metadata {
     private final ApprovalProcessStore approvalStore;
     private final ApprovalProcessCodec approvalCodec;
     private final Entitlements entitlements;
+    private final OrganizationValuesStore valuesStore;
 
     MetadataCatalogue(StandardMetadata standard, MetadataStore store, MetadataVersions versions,
             MetadataCache cache, TenantContexts contexts, ConfigCodec codec, TransactionTemplate transaction,
@@ -79,7 +80,8 @@ class MetadataCatalogue implements Metadata {
             ValidationRuleStore validationRuleStore, RecordTypeAssignmentStore typeAssignmentStore,
             RecordPageAssignmentStore recordPageAssignmentStore, WorkflowStore workflowStore,
             WorkflowCodec workflowCodec, ApprovalProcessStore approvalStore, ApprovalProcessCodec approvalCodec,
-            Entitlements entitlements) {
+            Entitlements entitlements, OrganizationValuesStore valuesStore) {
+        this.valuesStore = valuesStore;
         this.entitlements = entitlements;
         this.approvalStore = approvalStore;
         this.approvalCodec = approvalCodec;
@@ -240,14 +242,31 @@ class MetadataCatalogue implements Metadata {
         return transaction.execute(status -> cache.get(tenant, versions.read(), this::build));
     }
 
+    /**
+     * The field as the platform's definition file gives it, before the organization's own list of values is merged in
+     * (FA2A, ADR-0182): the starting list a reset goes back to.
+     */
+    Optional<FieldDefinition> platformDefinition(String objectApiName, String fieldApiName) {
+        return standard.objects().stream().filter(object -> object.apiName().equals(objectApiName)).findFirst()
+                .flatMap(object -> object.field(fieldApiName));
+    }
+
     private MetadataSnapshot build() {
         Map<String, List<FieldDefinition>> custom = new HashMap<>();
         for (MetadataStore.FieldRow row : store.fields()) {
             custom.computeIfAbsent(row.objectApiName(), name -> new ArrayList<>()).add(customField(row));
         }
+        Map<String, OrganizationValuesStore.Row> values = new HashMap<>();
+        for (OrganizationValuesStore.Row row : valuesStore.all()) {
+            values.put(row.objectApiName() + "." + row.fieldApiName(), row);
+        }
         List<ObjectDefinition> objects = new ArrayList<>();
         for (ObjectDefinition object : standard.objects()) {
-            List<FieldDefinition> fields = new ArrayList<>(object.fields());
+            List<FieldDefinition> fields = new ArrayList<>();
+            for (FieldDefinition field : object.fields()) {
+                fields.add(field.organizationValues() ? ownValues(field, values.get(object.apiName() + "."
+                        + field.apiName())) : field);
+            }
             fields.addAll(custom.getOrDefault(object.apiName(), List.of()));
             objects.add(object.withFields(fields));
         }
@@ -330,6 +349,22 @@ class MetadataCatalogue implements Metadata {
         }
         return new MetadataSnapshot.Definitions(layouts, pages, assignments, applications, rules,
                 typeAssignments, tabs, customPages, recordPageAssignments, workflows, approvals);
+    }
+
+    /**
+     * A platform-defined picklist with the organization's own list merged in. The version is one more than the row's,
+     * so
+     * that a field the organization has never changed (no row) is version 0 and the first change gives version 1; a
+     * reset keeps its row, so the version only ever goes up.
+     */
+    private FieldDefinition ownValues(FieldDefinition field, OrganizationValuesStore.Row row) {
+        if (row == null) {
+            return field;
+        }
+        if (OrganizationValuesStore.PLATFORM_LIST.equals(row.config())) {
+            return field.withValues(field.configuration(), row.version() + 1);
+        }
+        return field.withValues(codec.read(field.type(), row.config()), row.version() + 1);
     }
 
     private FieldDefinition customField(MetadataStore.FieldRow row) {

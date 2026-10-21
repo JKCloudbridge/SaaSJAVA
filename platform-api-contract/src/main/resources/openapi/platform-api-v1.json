@@ -4910,6 +4910,61 @@
         "tags" : [ "Metadata" ]
       }
     },
+    "/api/v1/metadata/objects/{objectApiName}/fields/{fieldApiName}/values" : {
+      "post" : {
+        "description" : "From the form where a record is written: adds one value, and for a dependent picklist the values of the other field it goes with. It only adds; a value that exists is never renamed, switched off or removed this way, and adding what is there already changes nothing. Needs the ability to add values to picklists, and the member must be allowed to edit the field. NOT_FOUND for a field that is not such a picklist or one the member cannot read, FORBIDDEN without the ability or the right to edit the field, VALIDATION_ERROR for a value the rules refuse. Audited by counts.",
+        "operationId" : "addFieldValue",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "fieldApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AddFieldValueRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAddedFieldValueView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Add a value to a picklist the organization owns the list of",
+        "tags" : [ "Metadata" ]
+      }
+    },
     "/api/v1/metadata/objects/{objectApiName}/layout-assignments" : {
       "get" : {
         "description" : "The default layout of the object and the layouts chosen for profiles, with or without a record type. A profile that no longer exists has no name here and is ignored when a layout is chosen. NOT_FOUND for an object the organization does not have.",
@@ -12102,6 +12157,32 @@
         },
         "required" : [ "key", "name" ]
       },
+      "AddFieldValueRequest" : {
+        "type" : "object",
+        "properties" : {
+          "controllingValues" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 80,
+              "minLength" : 0
+            },
+            "maxItems" : 200,
+            "minItems" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "value" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "value" ]
+      },
       "AddGroupMemberRequest" : {
         "type" : "object",
         "properties" : {
@@ -12135,6 +12216,27 @@
           }
         },
         "required" : [ "key", "name" ]
+      },
+      "AddedFieldValueView" : {
+        "type" : "object",
+        "properties" : {
+          "added" : {
+            "type" : "boolean"
+          },
+          "controllingValues" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "added", "controllingValues", "label", "value" ]
       },
       "ApiError" : {
         "type" : "object",
@@ -12302,6 +12404,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/AccessPolicyView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseAddedFieldValueView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/AddedFieldValueView"
           }
         },
         "required" : [ "data" ]
@@ -14813,6 +14924,12 @@
               "$ref" : "#/components/schemas/ReleaseItemView"
             }
           },
+          "notes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
           "objects" : {
             "type" : "array",
             "items" : {
@@ -14829,7 +14946,7 @@
             "type" : "boolean"
           }
         },
-        "required" : [ "items", "objects", "problems", "valid" ]
+        "required" : [ "items", "notes", "objects", "problems", "valid" ]
       },
       "ChangeSetView" : {
         "type" : "object",
@@ -16034,6 +16151,9 @@
       "FieldSettings" : {
         "type" : "object",
         "properties" : {
+          "dependency" : {
+            "$ref" : "#/components/schemas/PicklistDependency"
+          },
           "digits" : {
             "type" : "integer",
             "format" : "int32"
@@ -16166,6 +16286,9 @@
           "apiName" : {
             "type" : "string"
           },
+          "codeValues" : {
+            "type" : "boolean"
+          },
           "defaultValue" : {
             "type" : "string"
           },
@@ -16186,6 +16309,12 @@
           },
           "label" : {
             "type" : "string"
+          },
+          "organizationValues" : {
+            "type" : "boolean"
+          },
+          "platformWritten" : {
+            "type" : "boolean"
           },
           "problem" : {
             "type" : "string"
@@ -16282,8 +16411,17 @@
           "calculated" : {
             "type" : "boolean"
           },
+          "canAddValues" : {
+            "type" : "boolean"
+          },
+          "codeValues" : {
+            "type" : "boolean"
+          },
           "defaultValue" : {
             "type" : "string"
+          },
+          "dependency" : {
+            "$ref" : "#/components/schemas/PicklistDependency"
           },
           "description" : {
             "type" : "string"
@@ -18028,6 +18166,26 @@
           }
         },
         "required" : [ "actions", "key" ]
+      },
+      "PicklistDependency" : {
+        "type" : "object",
+        "properties" : {
+          "allowed" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            }
+          },
+          "controllingField" : {
+            "type" : "string",
+            "maxLength" : 60,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "allowed", "controllingField" ]
       },
       "PicklistOption" : {
         "type" : "object",

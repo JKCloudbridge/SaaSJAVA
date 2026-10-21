@@ -576,7 +576,8 @@ final class ChangeCodec {
                 keep(takes, "expression", s.expression()), keep(takes, "resultType", s.resultType()),
                 keep(takes, "prefix", s.prefix()), keep(takes, "startAt", s.startAt()),
                 keep(takes, "width", s.width()), keep(takes, "onDelete", s.onDelete()),
-                keep(takes, "reparentable", s.reparentable()), keep(takes, "listLabel", s.listLabel()));
+                keep(takes, "reparentable", s.reparentable()), keep(takes, "listLabel", s.listLabel()),
+                keep(takes, "dependency", s.dependency()));
     }
 
     private static <T> T keep(List<String> takes, String setting, T value) {

@@ -270,6 +270,14 @@ class JsonbRecordStorage implements StorageStrategy {
     private static final String LIVE_COUNT = "select count(*) from (select 1 from object_record "
             + "where tenant_id = :tenant and object_api_name = :object and deleted_at is null limit :cap) live";
 
+    // The pairs a dependent picklist allows travel as one JSON array of {c, d}; the field names are parameters, never
+    // text of the statement. A record without a value in the dependent field holds no pair (ADR-0177).
+    private static final String PAIRS_NOT_ALLOWED = "select count(*) from object_record r "
+            + "where r.tenant_id = :tenant and r.object_api_name = :object and r.deleted_at is null "
+            + "and r.payload ->> :dependent is not null "
+            + "and not exists (select 1 from jsonb_to_recordset(cast(:pairs as jsonb)) as p(c text, d text) "
+            + "where p.c = r.payload ->> :controlling and p.d = r.payload ->> :dependent)";
+
     private static Map<SlotColumn, String> statements(Function<SlotColumn, String> builder) {
         Map<SlotColumn, String> built = new EnumMap<>(SlotColumn.class);
         for (SlotColumn slot : SlotColumn.values()) {
@@ -671,6 +679,19 @@ class JsonbRecordStorage implements StorageStrategy {
             bound = bound.param(slot.column(), slots.columns().get(slot.column()));
         }
         return bound;
+    }
+
+    // ---- dependent picklists (FA2A, ADR-0177) ----
+
+    @Override
+    public long recordsOutsidePairs(String objectApiName, String dependentField, String controllingField,
+            Map<String, List<String>> allowed) {
+        List<Map<String, String>> pairs = new ArrayList<>();
+        allowed.forEach((controlling, values) -> values.forEach(value -> pairs.add(Map.of("c", controlling, "d",
+                value))));
+        return jdbc.sql(PAIRS_NOT_ALLOWED).param("tenant", tenant()).param("object", objectApiName)
+                .param("dependent", dependentField).param("controlling", controllingField)
+                .param("pairs", json.write(pairs)).query(Long.class).single();
     }
 
     // ---- uniqueness (ADR-0111) ----

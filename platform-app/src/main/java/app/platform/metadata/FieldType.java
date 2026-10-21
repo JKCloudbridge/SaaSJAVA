@@ -53,7 +53,8 @@ public enum FieldType {
     URL("URL", "A web address.", List.of(), true, true, true, false),
 
     /** One choice out of a list. */
-    PICKLIST("Picklist", "One choice out of a list of values.", List.of("values"), true, false, true, false),
+    PICKLIST("Picklist", "One choice out of a list of values.", List.of("values", "dependency"), true, false, true,
+            false),
 
     /** Several choices out of a list. */
     MULTI_PICKLIST("Multi-select picklist", "Several choices out of a list of values.", List.of("values"), true,

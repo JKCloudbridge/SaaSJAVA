@@ -2,9 +2,21 @@
 # ADR-0181). It is a platform definition like the standard objects: the loader, the baseline test and the rule "never
 # delete or rename a released definition, set retired: true" (docs/metadata-guide.md) apply to it.
 #
-# FA1 declares only what proves the framework: the name, and the flag that retires a template. Nothing else is declared
-# here on purpose; the next sprints of the track add to this file (additively) what they need: the number and the
-# classification (FA2A), the lifecycle (FA4), the people (FA4).
+# FA1 declared only what proves the framework: the name, and the flag that retires a template. FA2A adds, additively,
+# the classification (category and sub-category, two picklists whose lists the organization owns, the second depending
+# on the first) and the number (a unique text field only the platform writes; the series that fills it is declared in
+# numbering.yml next to solution.yml). The next sprints add what they need: the lifecycle (FA4), the people (FA4).
+#
+# organizationValues: the platform ships the starting list below; the organization's administrator owns the list and
+#                     the pairs from then on, and a member who may add values can add one from the form (ADR-0182).
+# codeValues:         every value is a short code (letters, digits, hyphen, underscore; at most 10), because it is a part
+#                     of a number; the label says more (ADR-0182, ADR-0184).
+# platformWritten:    nobody writes this field through the API, a bulk change or an import; the platform's engine does
+#                     (ADR-0183).
+#
+# The starting list is the categories of the numbering scheme of the first customer (one code each, the label says what
+# it is). The sub-categories are placeholders - generic process abbreviations and customers - that every organization
+# replaces with its own; a sub-category goes with the categories that list it.
 #
 # requiresFeature: an organization without the plan feature does not have this object at all.
 # retainRecords:   no record of this object is ever deleted, restored over or purged, by anyone (ADR-0174 section 7).
@@ -28,3 +40,71 @@ fields:
     label: Retired
     description: Whether the template is no longer used. A retired template is kept and can still be read.
     type: BOOLEAN
+
+  - apiName: category
+    label: Category
+    description: The kind of document. It decides how the number is written and which sub-categories go with it.
+    type: PICKLIST
+    organizationValues: true
+    codeValues: true
+    settings:
+      values:
+        - { value: IMS, label: "IMS - Integrated Management System" }
+        - { value: QSP, label: "QSP - Quality System Procedure" }
+        - { value: CORPQSP, label: "CORP-QSP - Corporate Quality System Procedure" }
+        - { value: ESSP, label: "ESSP - Environment Safety System Procedure" }
+        - { value: CP, label: "CP - Control Plan" }
+        - { value: WI, label: "WI - Work Instruction" }
+        - { value: PFC, label: "PFC - Process Flow Chart" }
+        - { value: FMEA, label: "FMEA - Failure Mode Effect Analysis" }
+        - { value: SOP, label: "SOP - Standard Operating Procedure" }
+        - { value: BP, label: "BP - Business Plan" }
+        - { value: F, label: "F - Format" }
+        - { value: FEHS, label: "F/EHS - Format, Environment health safety" }
+        - { value: CSF, label: "CSF - Customer format" }
+        - { value: PPT, label: "PPT - Process" }
+        - { value: L, label: "L - List" }
+        - { value: LEHS, label: "L/EHS - List, Environment health safety" }
+
+  - apiName: subCategory
+    label: Sub-category
+    description: The process or the customer the document is for. Only the sub-categories that go with the category can be chosen.
+    type: PICKLIST
+    organizationValues: true
+    codeValues: true
+    settings:
+      values:
+        - { value: PRD, label: "PRD - Production" }
+        - { value: QLT, label: "QLT - Quality" }
+        - { value: MNT, label: "MNT - Maintenance" }
+        - { value: STR, label: "STR - Stores" }
+        - { value: CORP, label: "CORP - Corporate" }
+        - { value: CUSA, label: "CUSA - Customer A" }
+        - { value: CUSB, label: "CUSB - Customer B" }
+      dependency:
+        controllingField: category
+        allowed:
+          IMS: []
+          QSP: []
+          CORPQSP: []
+          ESSP: []
+          BP: []
+          CP: [PRD, QLT, MNT, STR]
+          WI: [PRD, QLT, MNT, STR]
+          PFC: [PRD, QLT, MNT, STR]
+          FMEA: [PRD, QLT, MNT, STR]
+          SOP: [PRD, QLT, MNT, STR]
+          F: [PRD, QLT, MNT, STR]
+          FEHS: [PRD, QLT, MNT, STR]
+          PPT: [PRD, QLT, MNT, STR]
+          L: [PRD, QLT, MNT, STR]
+          LEHS: [PRD, QLT, MNT, STR]
+          CSF: [CORP, CUSA, CUSB]
+
+  - apiName: number
+    label: Number
+    description: The document number. The platform gives it when the template is approved; nobody types it.
+    type: TEXT
+    unique: true
+    platformWritten: true
+    settings: { maxLength: 40 }

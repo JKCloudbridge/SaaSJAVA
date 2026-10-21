@@ -81,8 +81,10 @@ class StandardObjectsDocTest {
             case TextConfiguration t -> "up to " + t.maxLength() + " characters";
             case DecimalConfiguration d -> d.precision() + " digits, " + d.scale() + " after the point";
             case ReferenceConfiguration r -> "points to `" + r.targetObject() + "`";
-            case PicklistConfiguration p -> "values: " + p.values().stream().map(PicklistValue::value)
-                    .collect(Collectors.joining(", "));
+            case PicklistConfiguration p -> (field.organizationValues() ? "the organization owns the list; starting "
+                    : "") + "values: " + p.values().stream().map(PicklistValue::value)
+                            .collect(Collectors.joining(", "))
+                    + (p.dependency() == null ? "" : "; depends on `" + p.dependency().controllingField() + "`");
             case AutoNumberConfiguration a -> "`" + a.prefix() + "` + number, " + a.width() + " digits, from "
                     + a.startAt();
             default -> "";
@@ -90,6 +92,8 @@ class StandardObjectsDocTest {
         String retired = field.retired() ? "RETIRED. " : "";
         String defaultText = field.defaultValue() == null ? "" : (text.isEmpty() ? "" : "; ") + "default `"
                 + field.defaultValue() + "`";
-        return retired + text + defaultText;
+        String kinds = (field.codeValues() ? "; values are short codes" : "")
+                + (field.platformWritten() ? "; written by the platform only" : "");
+        return retired + text + defaultText + kinds;
     }
 }

@@ -23,16 +23,32 @@ import java.util.List;
  *        or {@code REFUSE} when the lookup is required) or {@code REFUSE}
  * @param reparentable whether a detail may be moved to another master, for a master-detail (default no)
  * @param listLabel the label of the list of these records on the parent object, for a lookup or master-detail
+ * @param dependency for a single-value picklist: the values it allows for each value of another picklist of the same
+ *        object; left out means it depends on nothing (FA2A)
  */
 public record FieldSettings(Integer maxLength, Integer digits, Integer precision, Integer scale,
         @Valid @Size(max = 1000) List<PicklistOption> values, @Size(max = 60) String targetObject,
         @Size(max = 4000) String expression, @Size(max = 20) String resultType, @Size(max = 10) String prefix,
         Long startAt, Integer width, @Size(max = 10) String onDelete, Boolean reparentable,
-        @Size(max = 80) String listLabel) {
+        @Size(max = 80) String listLabel, @Valid PicklistDependency dependency) {
 
     /** Copies the values (a list that was not given stays absent, which is not the same as an empty one). */
     public FieldSettings {
         values = values == null ? null : List.copyOf(values);
+    }
+
+    /** The settings of a field that has no dependency (every field before FA2A). */
+    public FieldSettings(Integer maxLength, Integer digits, Integer precision, Integer scale,
+            List<PicklistOption> values, String targetObject, String expression, String resultType, String prefix,
+            Long startAt, Integer width, String onDelete, Boolean reparentable, String listLabel) {
+        this(maxLength, digits, precision, scale, values, targetObject, expression, resultType, prefix, startAt,
+                width, onDelete, reparentable, listLabel, null);
+    }
+
+    /** The settings of a picklist: its values and, if it depends on another picklist, the rule. */
+    public static FieldSettings picklist(List<PicklistOption> values, PicklistDependency dependency) {
+        return new FieldSettings(null, null, null, null, values, null, null, null, null, null, null, null, null,
+                null, dependency);
     }
 
     /** The settings of a type that has no relationship behaviour (everything but a lookup or master-detail). */

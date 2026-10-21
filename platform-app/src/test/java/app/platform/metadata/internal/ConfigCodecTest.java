@@ -6,6 +6,7 @@ import app.platform.metadata.DeleteBehaviour;
 import app.platform.metadata.FieldConfiguration;
 import app.platform.metadata.FieldConfiguration.AutoNumberConfiguration;
 import app.platform.metadata.FieldConfiguration.DecimalConfiguration;
+import app.platform.metadata.FieldConfiguration.Dependency;
 import app.platform.metadata.FieldConfiguration.FormulaConfiguration;
 import app.platform.metadata.FieldConfiguration.NoConfiguration;
 import app.platform.metadata.FieldConfiguration.NumberConfiguration;
@@ -15,6 +16,7 @@ import app.platform.metadata.FieldConfiguration.TextConfiguration;
 import app.platform.metadata.FieldType;
 import app.platform.metadata.PicklistValue;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -43,6 +45,9 @@ class ConfigCodecTest {
                 Arguments.of(FieldType.BOOLEAN, new NoConfiguration()),
                 Arguments.of(FieldType.PICKLIST, new PicklistConfiguration(List.of(
                         new PicklistValue("Red", "Red colour", true), new PicklistValue("Old", "Old", false)))),
+                Arguments.of(FieldType.PICKLIST, new PicklistConfiguration(List.of(
+                        new PicklistValue("PRD", "Production", true), new PicklistValue("QLT", "Quality", false)),
+                        new Dependency("category", Map.of("WI", List.of("PRD", "QLT"), "IMS", List.of())))),
                 Arguments.of(FieldType.MULTI_PICKLIST, new PicklistConfiguration(List.of(
                         new PicklistValue("A", "A \"quoted\" label", true)))),
                 Arguments.of(FieldType.LOOKUP, new ReferenceConfiguration("Account")),
@@ -91,6 +96,37 @@ class ConfigCodecTest {
     void aKeyThatALaterReleaseAddedIsIgnored() {
         assertThat(codec.read(FieldType.NUMBER, "{\"digits\": 7, \"somethingNew\": true}"))
                 .isEqualTo(new NumberConfiguration(7));
+    }
+
+    @Test
+    void aPicklistStoredBeforeDependenciesExistedDependsOnNothing() {
+        PicklistConfiguration read = (PicklistConfiguration) codec.read(FieldType.PICKLIST,
+                "{\"values\":[{\"value\":\"A\",\"label\":\"A\",\"active\":true}]}");
+
+        assertThat(read.dependency()).isNull();
+    }
+
+    @Test
+    void theSameRuleIsAlwaysStoredAsTheSameTextWhateverTheOrderOfItsKeys() {
+        List<PicklistValue> values = List.of(new PicklistValue("PRD", "Production", true));
+        java.util.Map<String, List<String>> forward = new java.util.LinkedHashMap<>();
+        forward.put("WI", List.of("PRD"));
+        forward.put("IMS", List.of());
+        java.util.Map<String, List<String>> backward = new java.util.LinkedHashMap<>();
+        backward.put("IMS", List.of());
+        backward.put("WI", List.of("PRD"));
+
+        assertThat(codec.write(new PicklistConfiguration(values, new Dependency("category", forward))))
+                .isEqualTo(codec.write(new PicklistConfiguration(values, new Dependency("category", backward))));
+    }
+
+    @Test
+    void aMultiPicklistNeverReadsADependency() {
+        String stored = "{\"values\":[{\"value\":\"A\",\"label\":\"A\",\"active\":true}],"
+                + "\"dependency\":{\"controllingField\":\"x\",\"allowed\":{}}}";
+
+        assertThat(((PicklistConfiguration) codec.read(FieldType.MULTI_PICKLIST, stored)).dependency()).isNull();
+        assertThat(((PicklistConfiguration) codec.read(FieldType.PICKLIST, stored)).dependency()).isNotNull();
     }
 
     @Test

@@ -236,6 +236,23 @@ class MetadataAudit {
                 .with("permission_lines_ended", Integer.toString(permissionLinesEnded)));
     }
 
+    // ---- the organization's own list of a platform picklist (FA2A, ADR-0182): counts only, never a value or label
+    // ----
+
+    /** An administrator changed the list or the pairs of a platform picklist (or went back to the platform's list). */
+    void fieldValuesChanged(UUID actor, String object, String field, int values, int pairs, boolean reset) {
+        write(AuditRecord.of("metadata.fieldvalues.changed", AuditOutcome.SUCCESS).forUser(actor)
+                .onObject(object + "." + field, null).with("values", Integer.toString(values))
+                .with("pairs", Integer.toString(pairs)).with("reset", Boolean.toString(reset)));
+    }
+
+    /** A member added a value (and the pairs it goes with) from the form. */
+    void fieldValueAdded(UUID actor, String object, String field, boolean newValue, int pairsAdded) {
+        write(AuditRecord.of("metadata.fieldvalues.added", AuditOutcome.SUCCESS).forUser(actor)
+                .onObject(object + "." + field, null).with("new_value", Boolean.toString(newValue))
+                .with("pairs_added", Integer.toString(pairsAdded)));
+    }
+
     // ---- notification text (Sprint 25, ADR-0155): the kind only, never the title or the body ----
 
     void notificationTemplateWritten(UUID actor, String kind, boolean created) {

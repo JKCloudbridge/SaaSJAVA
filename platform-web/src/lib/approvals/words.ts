@@ -21,6 +21,7 @@ const REASONS: Record<string, string> = {
   field_not_writable: "A field cannot be set.",
   record_type_rejected: "The record type refused the change.",
   link_target_gone: "A linked record does not exist.",
+  pair_not_allowed: "A value does not go with the chosen value of the other field.",
   formula_failed: "A formula could not be worked out.",
   concurrent_modification: "The record was changed at the same moment.",
   outcome_update_failed: "The update could not be made.",
