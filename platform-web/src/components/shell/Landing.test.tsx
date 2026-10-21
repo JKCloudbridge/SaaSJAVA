@@ -1,7 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { json, refusal } from "@/test/fakeApi";
+import * as navigation from "@/lib/navigation";
+import { json, refusal, type Call } from "@/test/fakeApi";
 import { FIELD, SALES, shellApi, ShellProviders } from "@/test/shellApi";
 import { Landing } from "./Landing";
 
@@ -17,15 +18,17 @@ vi.mock("next/link", () => ({
     </a>
   ),
 }));
-// The status card asks the platform API for its own status; the landing does not depend on it.
-vi.mock("@/components/PlatformStatusCard", () => ({ PlatformStatusCard: () => <p>status card</p> }));
+let navigate: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   replace.mockReset();
+  navigate = vi.spyOn(navigation, "navigate").mockImplementation(() => {});
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  window.history.replaceState({}, "", "/");
 });
 
 function renderLanding(strict = false) {
@@ -115,49 +118,235 @@ describe("where a member lands", () => {
   });
 });
 
-describe("the start page of everybody else", () => {
-  it("welcomes a person on the platform's address, with the console for a platform role", async () => {
-    shellApi({
-      platformHost: true,
-      more: {
-        "GET /api/v1/auth/me": () =>
-          json({
-            data: {
-              id: "p-1",
-              email: "platform-a@example.test",
-              displayName: "Platform A",
-              platformRoles: ["PLATFORM_ADMIN"],
-              abilities: [],
-            },
-          }),
-      },
+const ORG_A = { slug: "org-a", displayName: "Organization A", host: "org-a.localhost:3000" };
+const ORG_B = { slug: "org-b", displayName: "Organization B", host: "org-b.localhost:3000" };
+const PROOF = "proof-01234567890123456789";
+
+function person(platformRoles: string[] = []) {
+  return () =>
+    json({
+      data: { id: "p-1", email: "user-a@example.test", displayName: "User A", platformRoles, abilities: [] },
     });
+}
+
+/** The platform's address with a signed-in person who belongs to the given organizations. */
+function platformApi(options: {
+  organizations?: unknown[] | (() => Response);
+  platformRoles?: string[];
+  switchAnswer?: () => Response;
+}) {
+  const organizations = options.organizations ?? [];
+  return shellApi({
+    platformHost: true,
+    more: {
+      "GET /api/v1/auth/me": person(options.platformRoles),
+      "GET /api/v1/organizations": () =>
+        typeof organizations === "function" ? organizations() : json({ data: organizations }),
+      "POST /api/v1/auth/switch": options.switchAnswer ?? (() => json({ data: { host: ORG_A.host, token: PROOF } })),
+    },
+  });
+}
+
+function afterSigningIn() {
+  window.history.replaceState({}, "", "/?signedIn=1");
+}
+
+function handoffRequests(calls: Call[]) {
+  return calls.filter((call) => call.key === "POST /api/v1/auth/switch");
+}
+
+describe("the platform's address, right after signing in", () => {
+  it("opens the only organization through the one-time handoff, never showing the welcome page", async () => {
+    const calls = platformApi({ organizations: [ORG_A] });
+    afterSigningIn();
+    renderLanding();
+
+    expect(await screen.findByText("Opening your organization…")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith(`${window.location.protocol}//${ORG_A.host}/switch#token=${PROOF}`),
+    );
+    expect(handoffRequests(calls)).toHaveLength(1);
+    expect(handoffRequests(calls)[0]?.body).toBe(JSON.stringify({ slug: "org-a" }));
+    expect(screen.queryByRole("heading", { name: /Welcome/ })).toBeNull();
+    expect(window.location.search).toBe("");
+  });
+
+  it("asks for the handoff once under StrictMode, because the proof is single use", async () => {
+    const calls = platformApi({ organizations: [ORG_A] });
+    afterSigningIn();
+    renderLanding(true);
+
+    await waitFor(() => expect(navigate).toHaveBeenCalled());
+    expect(handoffRequests(calls)).toHaveLength(1);
+  });
+
+  it("lists several organizations to choose from and enters the one that is pressed", async () => {
+    const calls = platformApi({
+      organizations: [ORG_A, ORG_B],
+      switchAnswer: () => json({ data: { host: ORG_B.host, token: PROOF } }),
+    });
+    afterSigningIn();
+    renderLanding();
+
+    expect(await screen.findByRole("heading", { name: "Choose your organization" })).toBeInTheDocument();
+    expect(handoffRequests(calls)).toHaveLength(0);
+    screen.getByRole("button", { name: "Organization B" }).click();
+
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith(`${window.location.protocol}//${ORG_B.host}/switch#token=${PROOF}`),
+    );
+    expect(handoffRequests(calls)[0]?.body).toBe(JSON.stringify({ slug: "org-b" }));
+  });
+
+  it("says plainly that a person with no organization is not a member of one yet", async () => {
+    platformApi({ organizations: [] });
+    afterSigningIn();
+    renderLanding();
+
+    expect(await screen.findByTestId("no-organization")).toHaveTextContent(
+      "You are not a member of an organization yet.",
+    );
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("sends a person with a platform role to the console, even when they belong to organizations", async () => {
+    const calls = platformApi({ organizations: [ORG_A], platformRoles: ["PLATFORM_ADMIN"] });
+    afterSigningIn();
+    renderLanding();
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/console"));
+    expect(navigate).not.toHaveBeenCalled();
+    expect(calls.some((call) => call.key === "GET /api/v1/organizations")).toBe(false);
+  });
+
+  it("shows the API's words when the handoff is refused, keeps the list, and does not try again by itself", async () => {
+    const calls = platformApi({
+      organizations: [ORG_A],
+      switchAnswer: () => refusal("NOT_FOUND", "That organization is not available.", 404),
+    });
+    afterSigningIn();
+    renderLanding();
+
+    expect(await screen.findByTestId("enter-failed")).toHaveTextContent("That organization is not available.");
+    expect(screen.getByRole("heading", { name: "Choose your organization" })).toBeInTheDocument();
+    expect(navigate).not.toHaveBeenCalled();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(handoffRequests(calls)).toHaveLength(1);
+  });
+
+  it("says so, and offers to try again, when the list of organizations could not be had", async () => {
+    let healthy = false;
+    platformApi({
+      organizations: () =>
+        healthy ? json({ data: [ORG_A, ORG_B] }) : refusal("SERVICE_UNAVAILABLE", "Try again later.", 503),
+    });
+    afterSigningIn();
+    renderLanding();
+
+    expect(await screen.findByTestId("organizations-failed")).toHaveTextContent("Try again later.");
+    expect(navigate).not.toHaveBeenCalled();
+
+    healthy = true;
+    screen.getByRole("button", { name: "Try again" }).click();
+    expect(await screen.findByRole("heading", { name: "Choose your organization" })).toBeInTheDocument();
+  });
+});
+
+describe("the platform's address on a deliberate visit", () => {
+  it("does not bounce a person with one organization back in: the list is shown instead", async () => {
+    const calls = platformApi({ organizations: [ORG_A] });
+    renderLanding();
+
+    expect(await screen.findByRole("heading", { name: "Choose your organization" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Organization A" })).toBeInTheDocument();
+    expect(handoffRequests(calls)).toHaveLength(0);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("does not send a person with a platform role to the console, and offers the link", async () => {
+    platformApi({ organizations: [ORG_A, ORG_B], platformRoles: ["PLATFORM_SUPPORT"] });
     renderLanding();
 
     expect(await screen.findByRole("link", { name: "Platform console" })).toHaveAttribute("href", "/console");
-    expect(screen.getByRole("link", { name: "Create an organization" })).toHaveAttribute("href", "/organizations/new");
-    expect(screen.getByRole("heading", { name: "Welcome" })).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("offers no console to a person on the platform's address without a platform role", async () => {
-    shellApi({ platformHost: true });
+  it("offers no console to a person without a platform role", async () => {
+    platformApi({ organizations: [ORG_A, ORG_B] });
     renderLanding();
 
-    expect(await screen.findByRole("link", { name: "Create an organization" })).toBeInTheDocument();
+    await screen.findByRole("heading", { name: "Choose your organization" });
     expect(screen.queryByRole("link", { name: "Platform console" })).toBeNull();
   });
 
-  it("welcomes nobody-signed-in without sending them anywhere", async () => {
+  it("offers no 'Create an organization' on the page: it is in the person's menu", async () => {
+    platformApi({ organizations: [] });
+    renderLanding();
+
+    await screen.findByTestId("no-organization");
+    expect(screen.queryByRole("link", { name: "Create an organization" })).toBeNull();
+  });
+});
+
+describe("the start page of a visitor who is not signed in", () => {
+  function signedOutApi() {
     shellApi({
+      platformHost: true,
       more: {
         "GET /api/v1/auth/me": () => refusal("UNAUTHENTICATED", "Authentication is required.", 401),
         "POST /api/v1/auth/refresh": () => refusal("UNAUTHENTICATED", "Authentication is required.", 401),
       },
     });
+  }
+
+  it("shows the sign-in form right here, with no extra click to a sign-in page", async () => {
+    signedOutApi();
     renderLanding();
 
-    expect(await screen.findByRole("heading", { name: "Welcome" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Welcome to Platform" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Email address")).toBeInTheDocument();
+    expect(screen.getByLabelText("Password")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Create an account" })).toHaveAttribute(
+      "href",
+      expect.stringContaining("/sign-up"),
+    );
+    expect(screen.queryByText(/web frontend/)).toBeNull();
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("enters nothing when the marker is present but the session is gone", async () => {
+    signedOutApi();
+    afterSigningIn();
+    renderLanding();
+
+    expect(await screen.findByRole("heading", { name: "Welcome to Platform" })).toBeInTheDocument();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("");
+  });
+});
+
+describe("when the platform cannot be reached", () => {
+  it("says so and offers to try again, instead of a welcome page with no way in", async () => {
+    shellApi({
+      platformHost: true,
+      more: { "GET /api/v1/auth/me": () => refusal("INTERNAL_ERROR", "Something went wrong.", 500) },
+    });
+    renderLanding();
+
+    expect(await screen.findByTestId("platform-unreachable")).toHaveTextContent("The platform could not be reached.");
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
+  });
+});
+
+describe("a member of an organization who arrives with the marker", () => {
+  it("lands as usual, and the marker is taken out of the address", async () => {
+    shellApi({ applications: [FIELD] });
+    afterSigningIn();
+    renderLanding();
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/apps/Field__c"));
+    expect(window.location.search).toBe("");
   });
 });

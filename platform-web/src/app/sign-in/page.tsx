@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SignInForm } from "@/components/auth/SignInForm";
 import { safeReturnPath } from "@/lib/session/returnPath";
+import { returnPathAfterSignIn } from "@/lib/session/signedInMarker";
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -16,7 +17,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Searc
     <>
       <h1>Sign in</h1>
       <div className="card">
-        <SignInForm returnTo={safeReturnPath(query.continue)} problem={problem} />
+        <SignInForm returnTo={returnPathAfterSignIn(safeReturnPath(query.continue))} problem={problem} />
       </div>
     </>
   );
