@@ -18,7 +18,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * The files of the number series a solution declares (FA2A, ADR-0176, ADR-0184): the real one is sound, and every kind
  * of mistake in a file stops the application from starting with a message that names the solution and the part and
- *never repeats a text. /
+ * never repeats a text. */
 class NumberingLoaderTest {
 
     private static final String GOOD = """

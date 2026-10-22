@@ -54,7 +54,7 @@ public interface BackgroundWrites {
         /**
          * An act of a shipped solution's own module that sets a field only the platform writes, for instance retiring
          * what it keeps (FA4, ADR-0188). It passes no lock: a record locked by a pending approval refuses it like a
-         *workflow. /
+         * workflow. */
         SOLUTION
     }
 

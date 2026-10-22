@@ -109,7 +109,7 @@ class SheetVersions {
      *
      * @throws ApiException {@code NOT_FOUND}, {@code FORBIDDEN}, {@code VALIDATION_ERROR} (the shape, or a version to
      *         copy that does not exist), {@code CONFLICT} (a draft already exists, with its number; the most versions
-     *a sheet may have) /
+     * a sheet may have) */
     SheetVersionSummaryView create(String ownerObject, UUID ownerId, NewSheetVersionRequest request) {
         SheetOwners.Reach reach = owners.reachForChange(ownerObject, ownerId);
         store.lock(reach.object(), reach.id());

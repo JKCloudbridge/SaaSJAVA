@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
  * <em>names</em> of the fields that were named in the change. Never a value, never a label, never anything a person
  * typed into a record: a record is typed text, an audit value is a short key (ADR-0054), and an event may be read in a
  * dead-letter review (ADR-0016). A field-by-field history with old and new values is a separate, opt-in feature of a
- *later sprint. /
+ * later sprint. */
 @Component
 class RecordChanges {
 

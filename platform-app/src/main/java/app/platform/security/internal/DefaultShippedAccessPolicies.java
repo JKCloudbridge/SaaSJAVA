@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
  * the pattern of {@link SystemProfiles}: lock the organization's access changes first (so two requests are decided one
  * after the other), look, make what is missing, and write one audit record that counts. The database lets this
  * transaction write rows marked as shipped because it says so ({@link AccessStore#allowShippedPolicyWrites}); nobody
- *else can. /
+ * else can. */
 @Service
 class DefaultShippedAccessPolicies implements ShippedAccessPolicies {
 

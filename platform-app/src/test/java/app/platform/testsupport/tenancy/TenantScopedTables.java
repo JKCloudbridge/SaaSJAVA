@@ -64,7 +64,7 @@ public final class TenantScopedTables {
 
     /**
      * The licences held by members (Sprint 6). A probe row needs a licence type, a pool, a user and a membership, which
-     *it creates. /
+     * it creates. */
     public static final TenantScopedTable LICENCE_ASSIGNMENT = new TenantScopedTable("licence_assignment",
             (connection, tenant) -> {
                 UUID user = UUID.randomUUID();
@@ -209,7 +209,7 @@ public final class TenantScopedTables {
     /**
      * The security version of an organization (Sprint 9). There is one live row per organization and other probe rows
      * may have created it already, so each call retires the live one and adds a new one: every call adds one row, as
-     *the harness expects. /
+     * the harness expects. */
     public static final TenantScopedTable SECURITY_VERSION = new TenantScopedTable("security_version",
             (connection, tenant) -> {
                 TenantFixtures.update(connection,

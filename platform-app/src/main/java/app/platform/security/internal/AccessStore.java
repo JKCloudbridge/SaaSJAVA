@@ -105,7 +105,7 @@ class AccessStore {
     /**
      * Takes the lock that serializes every change of who may do what in the current organization (the same one the
      * database guard of the last access manager takes, ADR-0044). Taken first, so the order of locks is always the
-     *same. /
+     * same. */
     void lockAccessChanges() {
         jdbc.sql("select pg_advisory_xact_lock(hashtextextended('access-managers:' "
                         + "|| platform_current_tenant()::text, 0))")

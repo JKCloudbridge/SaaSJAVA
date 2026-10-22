@@ -14,7 +14,7 @@ import org.springframework.test.context.TestPropertySource;
  * creator drafts and submits, approvers approve step by step and the first approval gives the number, an approver
  * publishes it to a department, the people of that department read it and nobody else does, a second review leaves the
  * version in use alone, and a rejected, withdrawn or cancelled review leaves the number and the version in use as they
- *were. /
+ * were. */
 @PlatformIntegrationTest
 @TestPropertySource(properties = {"platform.outbox.enabled=true", "platform.workflow.enabled=false"})
 class TemplateLifecycleIT extends TemplateSupport {

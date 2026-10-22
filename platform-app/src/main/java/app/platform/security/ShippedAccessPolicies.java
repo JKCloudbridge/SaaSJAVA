@@ -65,7 +65,7 @@ public interface ShippedAccessPolicies {
 
         /**
          * A fingerprint of everything the declaration says, so a change of any of it is noticed with one
-         *comparison. /
+         * comparison. */
         public String fingerprint() {
             StringBuilder text = new StringBuilder(key).append('\n').append(name).append('\n').append(description);
             new TreeMap<>(objects).forEach((object, actions) -> {

@@ -19,7 +19,7 @@ import org.springframework.test.context.TestPropertySource;
  * approver, a reader the template is published to, a member who has no policy of the solution, the administrator, a
  * person of another organization, a platform administrator, someone who is not signed in, and someone who forges the
  * organization. A template has no permission of its own: it follows the record, so what one person sees another does
- *not. /
+ * not. */
 @PlatformIntegrationTest
 @TestPropertySource(properties = {"platform.outbox.enabled=true", "platform.workflow.enabled=false"})
 class TemplateAccessIT extends TemplateSupport {

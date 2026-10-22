@@ -15,7 +15,7 @@ import org.springframework.test.context.TestPropertySource;
  * hierarchy adding nothing, whatever an administrator or a stray row says. A member who may only read templates sees
  * none that were not published to them, a manager above the author in the hierarchy sees none of their drafts, the
  * sharing setup shows the object as fixed and refuses a change, and other objects keep the default an administrator
- *chooses. /
+ * chooses. */
 @PlatformIntegrationTest
 @TestPropertySource(properties = {"platform.outbox.enabled=true", "platform.workflow.enabled=false"})
 class SharingDefaultIT extends TemplateSupport {

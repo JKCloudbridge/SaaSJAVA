@@ -21,3 +21,5 @@ Options (environment): `BASE_URL` (default `http://tenant-a.localhost:3000`), `A
 It prints one line per check, `ok` or `FAIL`, and exits with 1 when any failed. It makes one template named "Browser check" in `tenant-a` each run; nothing is ever deleted (the template object keeps its records), so run it on a developer machine only.
 
 **Status:** written in FA3 and checked for syntax only; it was **not run** in the sprint (it needs the services, the backend and a production build). Run it once and fix what it finds before relying on it.
+
+**FA4 addition:** the script now has a section 9 (the master list with its filters, and the publish dialog: Location, then Department). Like the rest it is written and checked for syntax only; it was **not run**.

@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
  * The seams of the template lifecycle (FA4, ADR-0188, ADR-0189): who may share a record from Java, who may move a
  * version of a sheet, who may answer "does this person hold an open task", who may write a record as the platform, and
  * that nothing depends on the cluster's module. Each rule is also held to a class that breaks it, so it is known to
- *fail when it should. /
+ * fail when it should. */
 @Tag("architecture")
 class InspectionArchitectureTest {
 

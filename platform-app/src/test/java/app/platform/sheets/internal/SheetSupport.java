@@ -55,7 +55,7 @@ abstract class SheetSupport extends SolutionSupport {
     /**
      * Gives the member access to the record by an explicit share. The records of the owner object are private to their
      * owner and to those who may view every record (FA4, ADR-0189), so a member who is not the owner reaches a record
-     *only through a share. /
+     * only through a share. */
     protected static void share(TestBrowser admin, String owner, Member member, String level) {
         Response shared = admin.request("PUT", RECORDS + "/" + owner + "/shares", "{\"granteeType\":\"USER\","
                 + "\"granteeId\":\"" + member.person().user().id() + "\",\"accessLevel\":\"" + level + "\"}");

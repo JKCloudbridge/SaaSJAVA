@@ -38,7 +38,7 @@ import org.springframework.stereotype.Component;
  *
  * <p>The refusal words are fixed; they never repeat what an author typed. Nothing a template holds (name, number,
  * category, codes) is written to a log, an audit record or a metric: the engine and the sheets module audit by
- *identifiers and counts. /
+ * identifiers and counts. */
 @Component
 class TemplateApprovalHooks implements ApprovalHooks {
 

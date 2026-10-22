@@ -24,7 +24,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * for an organization only while its plan has the feature, asked on every request and never stored; an organization
  * without it sees nothing and gets "not found" where the object would be; losing the feature hides everything and
  * deletes nothing; no row of the organization is written for the application; and a change of plan moves no cache the
- *answers sit in. /
+ * answers sit in. */
 @PlatformIntegrationTest
 class SolutionsIT extends SolutionSupport {
 

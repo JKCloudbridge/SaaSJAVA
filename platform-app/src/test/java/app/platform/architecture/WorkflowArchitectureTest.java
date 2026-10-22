@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 /**
  * What keeps workflows from becoming a second path to the platform (Sprint 22, ADR-0133 to ADR-0137; Sprint 23,
  * ADR-0138 to ADR-0144). The module graph itself is verified by the module tests; these are the rules that graph cannot
- *say. /
+ * say. */
 @Tag("architecture")
 class WorkflowArchitectureTest {
 

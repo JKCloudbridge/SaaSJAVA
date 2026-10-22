@@ -70,6 +70,6 @@ public interface NumberSeries {
      * @param values the values of the record by field API name, in their stored shape
      * @return the number, written in the format of the record's selector
      * @throws NumberSeriesException when the series is unknown, the record has no format, or a part is missing or not a
-     *code /
+     * code */
     String next(String seriesKey, Map<String, Object> values);
 }

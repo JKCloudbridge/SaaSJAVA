@@ -20,7 +20,7 @@
  * reach a log, an audit record, an event or an error message: they carry identifiers and counts.
  *
  * <p>This module has no public API: it is a leaf. Allowed outgoing dependencies are declared below and verified by the
- *architecture tests. /
+ * architecture tests. */
 @ApplicationModule(
         displayName = "Audit maintenance",
         allowedDependencies = {
