@@ -29,7 +29,9 @@ public final class ApprovalStartException extends RuntimeException {
         /** The process is switched off. */
         PROCESS_INACTIVE("process_inactive"),
         /** The object has no process with this name. */
-        PROCESS_MISSING("process_missing");
+        PROCESS_MISSING("process_missing"),
+        /** A hook of the object refused the submit on purpose (FA4A, ADR-0187); its own reason is in the audit. */
+        HOOK_REFUSED("hook_refused");
 
         private final String key;
 

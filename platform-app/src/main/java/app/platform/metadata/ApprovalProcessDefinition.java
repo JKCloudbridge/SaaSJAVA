@@ -193,12 +193,20 @@ public record ApprovalProcessDefinition(UUID id, UUID versionId, String objectAp
      * @param label the label people read
      * @param completion how many of the people asked must approve
      * @param approvers who is asked
+     * @param skipWhenNobody whether the step is skipped when nobody can be asked to decide it, after the fallback
+     *        approver was tried (FA4A, ADR-0187); false for a process made before the flag existed
      */
-    public record Step(String name, String label, Completion completion, List<Approver> approvers) {
+    public record Step(String name, String label, Completion completion, List<Approver> approvers,
+            boolean skipWhenNobody) {
 
         /** Copies the list. */
         public Step {
             approvers = List.copyOf(approvers);
+        }
+
+        /** A step that is never skipped (the shape before FA4A). */
+        public Step(String name, String label, Completion completion, List<Approver> approvers) {
+            this(name, label, completion, approvers, false);
         }
 
         @Override

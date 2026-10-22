@@ -1,6 +1,7 @@
 package app.platform.data.internal;
 
 import app.platform.data.BackgroundWriteException;
+import app.platform.data.BackgroundWrites;
 import app.platform.data.StorageStrategy;
 import app.platform.metadata.Metadata;
 import app.platform.security.Ability;
@@ -37,7 +38,8 @@ import org.springframework.stereotype.Component;
  * <p><strong>Who may still write.</strong> A member who holds {@code approvals.override-lock} (audited, in the history
  * of
  * the request); nobody else, the submitter included. The platform's own writes are refused with the stable reason
- * {@code record_locked}, which is permanent: a replay after the approval ended is the answer.
+ * {@code record_locked}, which is permanent: a replay after the approval ended is the answer. The one exception is the
+ * write of an approval hook for the very request that holds the lock (FA4A, ADR-0187).
  */
 @Component
 class RecordLockGuard {
@@ -88,11 +90,33 @@ class RecordLockGuard {
      * @throws BackgroundWriteException {@code RECORD_LOCKED} when the record is being approved
      */
     void requireOpenForPlatform(String objectApiName, UUID recordId) {
+        requireOpenForPlatform(objectApiName, recordId, null);
+    }
+
+    /**
+     * The platform's own write to one record, made by this source.
+     *
+     * <p>One source passes the lock: the write of an approval hook ({@code APPROVAL_HOOK}) <strong>for the request that
+     * holds the lock</strong>. It is "the lock's owner may write" (ADR-0148, ADR-0187), asked of the lock itself,
+     * not an exemption for a kind of caller or for a permission: a hook of request A cannot write the record of
+     * request B, and once the request has ended the same source is refused like any other. Workflows and the outcome
+     * updates of approvals are unchanged.
+     *
+     * @throws BackgroundWriteException {@code RECORD_LOCKED} when the record is being approved and the source is not
+     *         the owner of the lock
+     */
+    void requireOpenForPlatform(String objectApiName, UUID recordId, BackgroundWrites.Source source) {
         if (!mayHaveLocks(objectApiName)) {
             return;
         }
         storage.lockRows(objectApiName, List.of(recordId));
-        if (locks.getObject().locked(objectApiName, recordId)) {
+        RecordLocks recordLocks = locks.getObject();
+        if (!recordLocks.locked(objectApiName, recordId)) {
+            return;
+        }
+        boolean owner = source != null && source.kind() == BackgroundWrites.Kind.APPROVAL_HOOK
+                && source.execution() != null && recordLocks.ownedBy(objectApiName, recordId, source.execution());
+        if (!owner) {
             throw new BackgroundWriteException(BackgroundWriteException.Reason.RECORD_LOCKED);
         }
     }

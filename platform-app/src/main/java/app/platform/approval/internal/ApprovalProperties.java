@@ -10,10 +10,27 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param inbox how big a page of tasks or requests is
  * @param mail whether a task is announced by mail
  * @param timer the reminders and escalations of steps that wait (Sprint 25, ADR-0159)
+ * @param hooks the hooks of business modules (FA4A, ADR-0187)
  */
 @ConfigurationProperties("platform.approval")
 record ApprovalProperties(@DefaultValue Limits limits, @DefaultValue Inbox inbox, @DefaultValue Mail mail,
-        @DefaultValue Timer timer) {
+        @DefaultValue Timer timer, @DefaultValue Hooks hooks) {
+
+    /**
+     * The hooks of business modules (FA4A, ADR-0187).
+     *
+     * @param slowCall how long one call of a hook may take before it is counted and logged as slow (default 500
+     *        milliseconds); a call is never interrupted, because the hook holds the lock of the record and an
+     *        interrupted write could leave half a change
+     */
+    record Hooks(@DefaultValue("500ms") java.time.Duration slowCall) {
+
+        Hooks {
+            if (slowCall.compareTo(java.time.Duration.ofMillis(10)) < 0) {
+                throw new IllegalArgumentException("platform.approval.hooks.* is out of range");
+            }
+        }
+    }
 
     /**
      * The bounds.

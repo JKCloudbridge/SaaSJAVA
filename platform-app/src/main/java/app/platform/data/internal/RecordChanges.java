@@ -249,7 +249,7 @@ class RecordChanges {
         }
         if (source != null) {
             // Names and identifiers only (ADR-0139): which workflow, which run, never a value.
-            boolean approval = source.kind() == BackgroundWrites.Kind.APPROVAL;
+            boolean approval = source.kind() != BackgroundWrites.Kind.WORKFLOW;
             record = record.from(AuditSource.SYSTEM).with("actor", "platform")
                     .with(approval ? "approval" : "workflow", source.name())
                     .with(approval ? "request" : "execution", source.execution().toString());

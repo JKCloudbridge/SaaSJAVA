@@ -112,6 +112,58 @@ class ApprovalArchitectureTest {
     }
 
     @Test
+    void insideApprovalOnlyTheEngineAndTheHookWriterTakeThePlatformsDoorToTheRecords() {
+        // FA4A, ADR-0187: the engine writes the outcome updates, the hook writer writes for a hook, the call site hands
+        // the writer over, and the public interface names the chain. Nothing else in the module may name the door.
+        noClasses().that().resideInAPackage("app.platform.approval..")
+                .and().haveSimpleNameNotStartingWith("ApprovalEngine")
+                .and().haveSimpleNameNotStartingWith("RequestHookWriter")
+                .and().haveSimpleNameNotStartingWith("ApprovalHookCalls")
+                .and().doNotHaveFullyQualifiedName("app.platform.approval.Approvals")
+                .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.data.BackgroundWrites")
+                .because("the platform door skips the permission stages, so its callers are a short list")
+                .allowEmptyShould(true)
+                .check(platform);
+    }
+
+    @Test
+    void onlyTheApprovalModuleMakesTheSourceThatPassesTheLockOfARequest() {
+        noClasses().that().resideOutsideOfPackages("app.platform.approval..", "app.platform.data..")
+                .should().callMethod(app.platform.data.BackgroundWrites.Source.class, "approvalHook", String.class,
+                        java.util.UUID.class, app.platform.data.BackgroundWrites.Chain.class)
+                .because("the lock lets the owner's write through; anyone able to make that source could write")
+                .allowEmptyShould(true)
+                .check(platform);
+    }
+
+    @Test
+    void aHookIsImplementedByABusinessModuleNeverByApprovalOrData() {
+        // The inversion of RecordLocks: approval calls the contract and data does not know it exists (ADR-0187).
+        noClasses().that().resideInAnyPackage("app.platform.approval..", "app.platform.data..")
+                .should().implement("app.platform.sharedkernel.approval.ApprovalHooks")
+                .allowEmptyShould(true)
+                .check(platform);
+        noClasses().that().resideInAPackage("app.platform.data..")
+                .should().dependOnClassesThat()
+                .haveFullyQualifiedName("app.platform.sharedkernel.approval.ApprovalHooks")
+                .because("the record store asks the lock, not the hooks")
+                .allowEmptyShould(true)
+                .check(platform);
+    }
+
+    @Test
+    void onlyTheHookRegistryAndTheCallSiteNameTheHookContractInsideApproval() {
+        noClasses().that().resideInAPackage("app.platform.approval..")
+                .and().haveSimpleNameNotStartingWith("ApprovalHookRegistry")
+                .and().haveSimpleNameNotStartingWith("ApprovalHookCalls")
+                .and().haveSimpleNameNotStartingWith("ApprovalEngine")
+                .should().dependOnClassesThat()
+                .haveFullyQualifiedName("app.platform.sharedkernel.approval.ApprovalHooks")
+                .allowEmptyShould(true)
+                .check(platform);
+    }
+
+    @Test
     void theApproverDirectoryIsAskedByTheApprovalModuleOnly() {
         noClasses().that().resideOutsideOfPackages("app.platform.approval..", "app.platform.security..")
                 .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.security.ApproverDirectory")

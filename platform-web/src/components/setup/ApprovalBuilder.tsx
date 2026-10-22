@@ -489,7 +489,8 @@ export function ApprovalBuilder() {
         <p className="hint">
           At most {kinds.limits.maxSteps} steps in a process and {kinds.limits.maxApproversPerStep} rules in a step. A person
           who loses their licence, or leaves, is not asked; if nobody can decide the first step the record cannot be
-          submitted, and for a later step an administrator assigns someone.
+          submitted, and for a later step an administrator assigns someone. A step marked to be skipped when nobody can
+          decide it is passed over instead.
         </p>
       </section>
 
@@ -695,7 +696,9 @@ export function ApprovalBuilder() {
             {resolution.steps.map((one) => (
               <li key={one.name}>
                 <strong>{one.label}</strong>:{" "}
-                {one.nobody
+                {one.skipped
+                  ? "nobody can be asked, so this step would be skipped."
+                  : one.nobody
                   ? "nobody can be asked."
                   : one.people.map((person) => person.name ?? person.userId).join(", ")}
                 {one.usesFallback ? " (the fallback approver)" : ""}

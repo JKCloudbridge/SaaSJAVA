@@ -5369,6 +5369,7 @@ export interface components {
             completion: string;
             label: string;
             name: string;
+            skipWhenNobody?: boolean;
         };
         ApprovalStepView: {
             /** Format: date-time */
@@ -6930,6 +6931,7 @@ export interface components {
             name: string;
             nobody: boolean;
             people: components["schemas"]["ApprovalPersonView"][];
+            skipped: boolean;
             usesFallback: boolean;
         };
         RoleView: {

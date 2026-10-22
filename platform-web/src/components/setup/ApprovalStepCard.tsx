@@ -122,6 +122,23 @@ export function ApprovalStepCard({
         </select>
       </div>
 
+      <div className="field">
+        <label htmlFor={`${prefix}-skip`}>
+          <input
+            id={`${prefix}-skip`}
+            type="checkbox"
+            checked={step.skipWhenNobody}
+            onChange={(event) => onChange((steps) => changeStep(steps, index, { skipWhenNobody: event.target.checked }))}
+          />{" "}
+          Skip this step when nobody can decide it
+        </label>
+        <p className="hint" id={`${prefix}-skip-hint`}>
+          If the rules name nobody who can decide, the fallback approver is asked first. Only when nobody is left is the
+          step skipped, and the history says so. A step that is not skipped makes a first step refuse the submit and a
+          later step wait for an administrator.
+        </p>
+      </div>
+
       <fieldset className="field" data-testid="approvers">
         <legend>Who is asked</legend>
         {step.approvers.length === 0 ? (

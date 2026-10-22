@@ -203,3 +203,38 @@ describe("the time a step may wait", () => {
     expect(snapshotOf({ ...draft, escalateAfterHours: "48" })).not.toBe(snapshotOf(draft));
   });
 });
+
+describe("the step that is skipped when nobody can decide it", () => {
+  it("is off for a new step and for a process saved before the flag existed", () => {
+    expect(newStep([], CATALOGUE).skipWhenNobody).toBe(false);
+    // The fixture has no such key at all: an old process.
+    const draft = draftFromView(PROCESS, CATALOGUE);
+
+    expect(draft.steps.map((step) => step.skipWhenNobody)).toEqual([false, false]);
+    expect(definitionOf(draft, CATALOGUE).steps.map((step) => step.skipWhenNobody)).toEqual([false, false]);
+  });
+
+  it("is read from the process, changed on one step only, and sent back", () => {
+    const view = {
+      ...PROCESS,
+      steps: [PROCESS.steps[0]!, { ...PROCESS.steps[1]!, skipWhenNobody: true }],
+    };
+    const draft = draftFromView(view, CATALOGUE);
+
+    expect(draft.steps.map((step) => step.skipWhenNobody)).toEqual([false, true]);
+    const changed = changeStep(draft.steps, 0, { skipWhenNobody: true });
+    expect(changed.map((step) => step.skipWhenNobody)).toEqual([true, true]);
+    expect(definitionOf({ ...draft, steps: changed }, CATALOGUE).steps.map((step) => step.skipWhenNobody)).toEqual([
+      true,
+      true,
+    ]);
+  });
+
+  it("makes the draft unsaved when the flag changes", () => {
+    const draft = draftFromView(PROCESS, CATALOGUE);
+
+    expect(snapshotOf({ ...draft, steps: changeStep(draft.steps, 1, { skipWhenNobody: true }) })).not.toBe(
+      snapshotOf(draft),
+    );
+  });
+});

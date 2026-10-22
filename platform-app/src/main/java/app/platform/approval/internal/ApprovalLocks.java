@@ -35,6 +35,11 @@ class ApprovalLocks implements RecordLocks, ApprovalUsage {
     }
 
     @Override
+    public boolean ownedBy(String objectApiName, UUID recordId, UUID requestId) {
+        return store.ownedBy(objectApiName, recordId, requestId);
+    }
+
+    @Override
     public void overridden(String objectApiName, UUID recordId, UUID userId) {
         store.pendingFor(objectApiName, recordId).ifPresent(instance -> {
             store.insertHistory(instance.id(), instance.currentStep(), "LOCK_OVERRIDDEN", userId, null, null, null,

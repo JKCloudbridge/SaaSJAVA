@@ -14596,6 +14596,9 @@
             "type" : "string",
             "maxLength" : 60,
             "minLength" : 0
+          },
+          "skipWhenNobody" : {
+            "type" : "boolean"
           }
         },
         "required" : [ "approvers", "completion", "label", "name" ]
@@ -19588,11 +19591,14 @@
               "$ref" : "#/components/schemas/ApprovalPersonView"
             }
           },
+          "skipped" : {
+            "type" : "boolean"
+          },
           "usesFallback" : {
             "type" : "boolean"
           }
         },
-        "required" : [ "label", "left", "name", "nobody", "people", "usesFallback" ]
+        "required" : [ "label", "left", "name", "nobody", "people", "skipped", "usesFallback" ]
       },
       "RoleView" : {
         "type" : "object",

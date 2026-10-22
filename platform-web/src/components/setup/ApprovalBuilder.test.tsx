@@ -159,6 +159,37 @@ describe("ApprovalBuilder", () => {
     expect(sent.outcomes.approved).toEqual([{ field: "status__c", value: "Approved" }]);
   });
 
+  it("offers a checkbox to skip a step when nobody can decide it, explains it, and sends it with the step", async () => {
+    const calls = fakeApi(answers({ "PUT /api/v1/metadata/approvals/Expense__c/Large__c": () => json({ data: PROCESS }) }));
+    render(<ApprovalBuilder />);
+    await loaded();
+
+    const finance = within(stepCards()[1]!);
+    const box = finance.getByLabelText(/Skip this step when nobody can decide it/);
+    expect(box).not.toBeChecked();
+    expect(finance.getByText(/fallback approver is asked first/)).toBeInTheDocument();
+    fireEvent.click(box);
+    expect(box).toBeChecked();
+    expect(screen.getByTestId("unsaved")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save the process" }));
+
+    expect(await screen.findByTestId("approval-builder-notice")).toBeInTheDocument();
+    const sent = JSON.parse(
+      calls.find((call) => call.key === "PUT /api/v1/metadata/approvals/Expense__c/Large__c")?.body ?? "{}",
+    );
+    expect(sent.steps.map((step: { skipWhenNobody: boolean }) => step.skipWhenNobody)).toEqual([false, true]);
+  });
+
+  it("shows a checked box for a step the process says may be skipped", async () => {
+    const view = { ...PROCESS, steps: [PROCESS.steps[0]!, { ...PROCESS.steps[1]!, skipWhenNobody: true }] };
+    fakeApi(answers({ "GET /api/v1/metadata/approvals/Expense__c/Large__c": () => json({ data: view }) }));
+    render(<ApprovalBuilder />);
+    await loaded();
+
+    expect(within(stepCards()[0]!).getByLabelText(/Skip this step/)).not.toBeChecked();
+    expect(within(stepCards()[1]!).getByLabelText(/Skip this step/)).toBeChecked();
+  });
+
   it("makes a new process with the name typed and goes to it", async () => {
     state.process = "new";
     const calls = fakeApi(

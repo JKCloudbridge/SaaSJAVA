@@ -13,8 +13,11 @@ import java.util.UUID;
  * <p>It changes no owner, share or version on its own account: an update bumps the version as every update does, a
  * created record gets the owner it is given, and no share is made. A record in the recycle bin is read-only.
  *
- * <p>Reachable only from the {@code workflow} module (an architecture test): no controller, import or bulk path uses
- * it. Must be called inside the transaction of the step and the organization's own tenant context.
+ * <p>Reachable only from the {@code workflow} and {@code approval} modules, and inside {@code approval} only from the
+ * engine and its hook writer (an architecture test): no controller, import, bulk path or business module uses it. A
+ * hook of a business module writes through the narrow {@code ApprovalHookWriter} the engine hands it, never through
+ * this interface (ADR-0187). Must be called inside the transaction of the step and the organization's own tenant
+ * context.
  *
  * <p>A refusal is a {@link BackgroundWriteException} with a stable reason; it never carries a value, a rule's message
  * or a field name that is not shaped like one (ADR-0089, ADR-0091).
@@ -37,12 +40,17 @@ public interface BackgroundWrites {
         }
     }
 
-    /** The two callers that may write as the platform (ADR-0139, ADR-0149). */
+    /** The callers that may write as the platform (ADR-0139, ADR-0149, ADR-0187). */
     enum Kind {
         /** A workflow action. */
         WORKFLOW,
         /** The outcome update of an approval. */
-        APPROVAL
+        APPROVAL,
+        /**
+         * The write of an approval hook for the request that holds the lock of the record (FA4A, ADR-0187). It is the
+         * only kind the lock lets through, and only for the pending request that owns it.
+         */
+        APPROVAL_HOOK
     }
 
     /**
@@ -64,6 +72,14 @@ public interface BackgroundWrites {
         /** The outcome update of an approval request. */
         public static Source approval(String process, UUID request, Chain chain) {
             return new Source(Kind.APPROVAL, process, request, chain);
+        }
+
+        /**
+         * The write of a hook, for the request that holds the lock of the record: the lock is passed only when
+         * {@code request} is the pending request of the record (ADR-0187).
+         */
+        public static Source approvalHook(String process, UUID request, Chain chain) {
+            return new Source(Kind.APPROVAL_HOOK, process, request, chain);
         }
 
         /** The API name of the workflow, or of the approval process. */

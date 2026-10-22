@@ -143,7 +143,7 @@ class ApprovalProcessRules {
             }
             List<ApprovalApproverSpec> approvers = approvers(problems, place, step.approvers());
             if (label != null && approvers != null) {
-                kept.add(new ApprovalStepSpec(name, label, completion, approvers));
+                kept.add(new ApprovalStepSpec(name, label, completion, approvers, step.skipWhenNobody()));
             }
         }
         return problems.any() ? null : List.copyOf(kept);

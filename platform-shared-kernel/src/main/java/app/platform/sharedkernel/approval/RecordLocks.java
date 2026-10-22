@@ -32,6 +32,14 @@ public interface RecordLocks {
     Set<UUID> lockedAmong(String objectApiName, Collection<UUID> recordIds);
 
     /**
+     * Whether the record is locked by exactly this request: the request is {@code PENDING} and is the request of the
+     * record. The only write the lock lets through is the one of its owner (FA4A, ADR-0187): a hook of the engine
+     * writing for the request that holds the lock. It is false for a request that ended, for another request, for a
+     * record that is not locked and for a request of another record.
+     */
+    boolean ownedBy(String objectApiName, UUID recordId, UUID requestId);
+
+    /**
      * A member who holds the override ability is about to change a locked record: the approval module records it in the
      * history of the request and in the audit trail (the member and the record, never a value). Called in the
      * transaction

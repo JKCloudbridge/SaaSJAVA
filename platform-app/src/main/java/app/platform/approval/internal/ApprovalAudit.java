@@ -97,6 +97,28 @@ class ApprovalAudit {
         meters.counter("platform.approval.lock.overrides").increment();
     }
 
+    // ---- steps skipped and hooks (FA4A, ADR-0187) ----
+
+    /** A step nobody could be asked to decide was skipped, because the process said it may be. */
+    void stepSkipped(ApprovalStore.InstanceRow instance, int step) {
+        record("step.skipped", null, instance, Map.of("step", Integer.toString(step), "reason", "nobody"));
+        meters.counter("platform.approval.steps.skipped").increment();
+    }
+
+    /**
+     * A hook refused a submit or an approval on purpose. The stable key only: the words are fixed text of the hook's
+     * author and the request may not exist (a refused submit), so the record names the object, the record and the
+     * identifier the request would have had.
+     */
+    void hookRefused(String call, UUID actor, String object, UUID recordId, UUID request, String process,
+            String reason) {
+        TenantContext context = contexts.current().orElse(null);
+        audit.record(AuditRecord.of("approval.hook.refused", AuditOutcome.DENIED).forUser(actor)
+                .inTenant(context == null ? null : context.tenantId()).onObject(object, recordId.toString())
+                .with("call", call).with("process", process).with("request", request.toString())
+                .with("reason", reason));
+    }
+
     // ---- the timer (Sprint 25, ADR-0159): kinds, numbers and stable reasons, as ever ----
 
     /** The timer did something to a step: {@code reminded}, {@code escalated} or {@code overdue}. */
