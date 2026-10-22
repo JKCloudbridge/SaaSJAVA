@@ -777,3 +777,33 @@ A solution declares its series in `solutions/<key>/numbering.yml`: a `key`, the 
 The code takes a number with `NumberSeries.next(seriesKey, values)` inside a transaction and writes it with `BackgroundWrites`; nothing takes a number through an endpoint or a screen in this release. `prefix(...)` gives the fixed part only ("WI/PRD/"), for a preview.
 
 **Change the starting list or the pairs of a shipped picklist.** Edit its `settings.values` and `settings.dependency` in the object file. It is data: the baseline records only that the list is the organization's and which field it depends on. Organizations that never changed their list get the new one.
+
+## 27. Sheets, versions and the template page (Functional track FA3)
+
+Decisions: [ADR-0186](adr/0186-the-sheets-module-versions-the-owner-seam-and-the-request-size.md), [ADR-0172](adr/0172-the-grid-component-and-the-adapter.md), [ADR-0173](adr/0173-the-canonical-grid-json-and-its-limits.md), [ADR-0174](adr/0174-template-versions-and-approval-together.md). For the administrator of an organization that has the Audit maintenance feature, and for the contributor who adds another sheet owner.
+
+### 27.1 What a sheet is (for administrators)
+
+A **sheet** is a spreadsheet-like grid that belongs to one record: in this release, one **template**. It has named **columns** of five kinds (text, number, date, one value of a list, yes or no), **header rows** (a title over several columns), and either **rows the sheet names** or **rows the filler adds**. A cell is either **fixed text** (a label, an instruction, a limit) or a **cell the filler types into**; a header cell is always fixed. Fixed text can be bold, italic and one of four sizes (small, normal, large, title), never a size in pixels. Cells can be merged. A sheet is up to **1,000,000 bytes**, **500 rows by 100 columns** (the limits are settings, see 27.5), and what a sheet does not say is not stored, so a large empty sheet is small.
+
+Creating a template creates **no table** and no object: the sheet is kept as numbered **versions** of the template.
+
+### 27.2 Building and saving (Audit maintenance, Templates)
+
+1. Open **Templates**, choose **New template**, fill in the header and save; open the template. A person who may only read sees the list and the template, not New.
+2. The template has no version yet: choose **how the rows come about** (the sheet names them, or the filler adds them) and **Start the first version**. That choice is made once. It can be changed only while the first version is the only one and is still a draft.
+3. Build the sheet in the **Form view** (the columns: label, what the column holds, the value a new row starts with, whether the filler must fill it, the values of a list; the header rows; the rows) or in the **Grid view** (type to write fixed text, Enter to edit, Delete to clear, Ctrl+B and Ctrl+I for bold and italic, the size menu, **Merge** and **Unmerge**, **Fixed text** and **Input cell**, **Undo** and **Redo**, paste a block copied from a spreadsheet application). A cell with no text is a cell the filler types into. Only fixed text can carry a style; to style an empty cell, type its text first.
+4. **Save.** The save carries the version of the draft that was read: if someone else saved first, nothing is changed and the page offers to reload (your unsaved changes are lost). A refusal names the place that is wrong ("Column 2, default") in the server's words.
+5. On a phone the grid is for reading; use the Form view to build.
+
+### 27.3 Versions (what exists in this release)
+
+Every save changes the **draft**. There is at most one draft at a time; **New version** is offered from any version when there is no draft, and copies it. Numbers are automatic and never reused. Nothing is ever deleted: older versions stay and can be opened (read-only) from the list, tagged **Draft**, **In review**, **Approved**, **Active** (the version in use), **Replaced**, **Rejected**, **Withdrawn** or **Retired**. A person who may only read the template sees the versions that are or were in use. **In this release only drafts are made and changed: submitting for approval, approving, publishing and retiring arrive in the next sprints**, and the database already refuses every other change.
+
+### 27.4 For contributors: another owner of a sheet
+
+Name the object in `sheetOwners` in the `solution.yml` of the solution that brings it (it must be one of its `objects`); the page passes `{object, id}` to `SheetWorkspace`. Nothing else in `sheets` or in `components/sheets` changes, and no cluster word may enter them (`SolutionBoundaryTest`). Who may read or change the sheet is the owner record's own answer (read, update): never write a second rule. To change the **format** of the grid: change `platform-api-contract/src/main/resources/schemas/sheet-grid.json`, the validator and its corpus (`src/test/resources/sheets/hostile-grids.txt`), regenerate the OpenAPI document and the client, and decide whether it needs a new `formatVersion` (a new reader plus a migration of stored versions, never an in-place change).
+
+### 27.5 Settings
+
+`platform.sheets.limits.max-bytes` (1,000,000), `max-rows` (500), `max-columns` (100), `max-header-rows` (10), `max-cell-chars` (1,000), `max-label-chars` (200), `max-picklist-values` (100), `max-merges` (2,000), `max-depth` (12), `max-versions-per-owner` (1,000); `platform.sheets.small-body-bytes` (4,096). The database refuses a grid above 5,000,000 bytes whatever `max-bytes` says. The proxy in front of the application should set a request size limit too (the application bounds a body with no announced length, the proxy bounds the connection).

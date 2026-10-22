@@ -200,6 +200,12 @@ public final class ApiPaths {
      */
     public static final String OBJECTS = V1 + "/objects";
 
+    /**
+     * The versions of a sheet: {@code /sheets/{ownerObject}/{ownerId}/versions} (Functional track FA3, ADR-0186). A
+     * sheet belongs to one record of one object; the address names that record, never the organization.
+     */
+    public static final String SHEETS = V1 + "/sheets";
+
     /** The applications the signed-in member may use, with their navigation (Sprint 12). */
     public static final String MY_APPLICATIONS = V1 + "/applications";
 

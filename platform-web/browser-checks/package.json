@@ -1,0 +1,13 @@
+{
+  "name": "platform-web-browser-checks",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Kept browser checks of the platform web application. Not part of the build and not part of CI: they need the services, the backend, a production build and a Chromium-based browser.",
+  "type": "module",
+  "scripts": {
+    "sheet-grid": "node sheet-grid.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.55.0"
+  }
+}

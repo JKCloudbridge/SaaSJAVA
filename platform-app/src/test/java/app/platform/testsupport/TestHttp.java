@@ -65,6 +65,16 @@ public final class TestHttp {
     }
 
     /**
+     * Sends a request whose body is bytes sent <em>without an announced length</em> (chunked), for the tests that must
+     * show a server bounds what it reads even when the client does not say how much is coming.
+     */
+    public Response requestChunked(String method, String path, byte[] body, String... headers) {
+        HttpRequest.BodyPublisher publisher = HttpRequest.BodyPublishers.fromPublisher(
+                HttpRequest.BodyPublishers.ofByteArray(body));
+        return send(HttpRequest.newBuilder(URI.create(baseUrl + path)).method(method, publisher), headers);
+    }
+
+    /**
      * Sends a request whose body and answer are bytes (a file), for the tests of files and imports.
      *
      * @param body the bytes, or null for none

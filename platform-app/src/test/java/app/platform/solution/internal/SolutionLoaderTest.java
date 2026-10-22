@@ -68,6 +68,7 @@ class SolutionLoaderTest {
         assertThat(bundle.application().entries()).hasSize(1);
         assertThat(bundle.application().entries().get(0).kind()).isEqualTo(ShippedEntryView.Kind.PLATFORM);
         assertThat(bundle.objects()).containsExactly("InspectionTemplate");
+        assertThat(bundle.sheetOwners()).containsExactly("InspectionTemplate");
         assertThat(bundle.policies()).extracting(SolutionBundle.Policy::name)
                 .containsExactly("Author", "Approver", "Reader", "Filler");
         assertThat(bundle.policies()).allSatisfy(policy -> assertThat(policy.objects())
@@ -166,5 +167,37 @@ class SolutionLoaderTest {
     @Test
     void noFilesIsNotAMistake(@TempDir Path dir) {
         assertThat(load(dir)).isEmpty();
+    }
+
+    @Test
+    void aSolutionMayNameTheObjectsWhoseRecordsOwnASheet(@TempDir Path dir) throws IOException {
+        write(dir, "demo", GOOD.replace("objects: [Widget]\n", "objects: [Widget]\nsheetOwners: [Widget]\n"));
+
+        assertThat(load(dir).get(0).sheetOwners()).containsExactly("Widget");
+    }
+
+    @Test
+    void aSolutionThatNamesNoSheetOwnerHasNone(@TempDir Path dir) throws IOException {
+        write(dir, "demo", GOOD);
+
+        assertThat(load(dir).get(0).sheetOwners()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @MethodSource("sheetOwnerMistakes")
+    void aMistakeInTheSheetOwnersStopsTheLoading(String what, String owners, String message, @TempDir Path dir)
+            throws IOException {
+        write(dir, "demo", GOOD.replace("objects: [Widget]\n", "objects: [Widget]\n" + owners + "\n"));
+
+        assertThatThrownBy(() -> load(dir)).as(what).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("solution 'demo'").hasMessageContaining(message);
+    }
+
+    static Stream<Arguments> sheetOwnerMistakes() {
+        return Stream.of(
+                Arguments.of("not a list", "sheetOwners: Widget", "is a list"),
+                Arguments.of("a name that is not shaped like an API name", "sheetOwners: [widget]", "lists API names"),
+                Arguments.of("a number", "sheetOwners: [12]", "lists API names"),
+                Arguments.of("an owner twice", "sheetOwners: [Widget, Widget]", "is listed twice"));
     }
 }

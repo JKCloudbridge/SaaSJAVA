@@ -109,12 +109,8 @@ function EntryBody({
     if (!page) {
       return <NotAvailable />;
     }
-    return (
-      <>
-        <h1 className="entry-title">{entry.label}</h1>
-        {page}
-      </>
-    );
+    // The page draws its own title band (the pages of FA3 are lists and details in the frame of every Home screen).
+    return page;
   }
   if (entry.type === "OBJECT" && entry.objectApiName) {
     // The list of the object (Sprint 19): drawn from what the API says this member may see; the records open inside

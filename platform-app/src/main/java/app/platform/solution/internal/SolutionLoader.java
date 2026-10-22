@@ -41,7 +41,7 @@ final class SolutionLoader {
     private static final Pattern PLAIN_TEXT = Pattern.compile("[\\p{L}\\p{N}][\\p{L}\\p{N} .,;:!?&'()/+-]{0,499}");
 
     private static final Set<String> BUNDLE_KEYS = Set.of("key", "feature", "label", "removalNote", "application",
-            "objects", "accessPolicies");
+            "objects", "sheetOwners", "accessPolicies");
     private static final Set<String> APPLICATION_KEYS = Set.of("apiName", "label", "iconKey", "entries");
     private static final Set<String> ENTRY_KEYS = Set.of("type", "label", "object", "pageKey", "readsObject");
     private static final Set<String> POLICY_KEYS = Set.of("key", "name", "description", "objects");
@@ -96,6 +96,18 @@ final class SolutionLoader {
             }
             objects.add(name);
         }
+        List<String> sheetOwners = new ArrayList<>();
+        for (Object item : node.list("sheetOwners")) {
+            String name = item instanceof String text ? text : "";
+            if (!OBJECT.matcher(name).matches()) {
+                throw new IllegalStateException(where + ": 'sheetOwners' lists API names (a capital letter, then "
+                        + "letters and digits)");
+            }
+            if (sheetOwners.contains(name)) {
+                throw new IllegalStateException(where + ": the sheet owner '" + name + "' is listed twice");
+            }
+            sheetOwners.add(name);
+        }
         List<SolutionBundle.Policy> policies = new ArrayList<>();
         Set<String> policyKeys = new LinkedHashSet<>();
         List<Node> policyNodes = node.children("accessPolicies", POLICY_KEYS);
@@ -110,7 +122,7 @@ final class SolutionLoader {
                     policy.pattern("description", PLAIN_TEXT, "plain text of at most 500 characters"),
                     rights(policy)));
         }
-        return new SolutionBundle(key, feature, label, note, application, objects, policies);
+        return new SolutionBundle(key, feature, label, note, application, objects, sheetOwners, policies);
     }
 
     private static SolutionBundle.Application application(Node node) {

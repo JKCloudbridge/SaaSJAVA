@@ -10,7 +10,8 @@
  * merges (the application is computed for each request and written to no table of the organization), keeps the shipped
  * access policies of an organization in step (rows marked as shipped, made in the organization's own context the first
  * time they are needed), declares the number series of a solution through the shared-kernel contract
- * {@code NumberSeriesDeclarations} (FA2A), and supplies the words the console shows before a feature is taken away. The
+ * {@code NumberSeriesDeclarations} (FA2A), declares the objects whose records may own a sheet through
+ * {@code SheetOwnerDeclarations} (FA3), and supplies the words the console shows before a feature is taken away. The
  * objects of a
  * bundle are platform definitions read by the metadata module; this module checks that every one is named by a bundle.
  *

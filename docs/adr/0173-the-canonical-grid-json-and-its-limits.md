@@ -1,6 +1,6 @@
 # ADR-0173: The canonical grid JSON and its limits
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-10-22, FA3: built as written; see [ADR-0186](0186-the-sheets-module-versions-the-owner-seam-and-the-request-size.md) for what the building added)
 - **Date:** 2026-10-21
 - **Sprint:** FA0 (Functional track, spike; no product code)
 - **Related:** [ADR-0070](0070-definitions-are-json-checked-by-a-schema.md) (definitions as validated JSON), [ADR-0083](0083-storage-benchmark-result-gate-g1.md), [ADR-0126](0126-visual-design-system-and-self-hosted-fonts.md), [ADR-0172](0172-the-grid-component-and-the-adapter.md), [ADR-0174](0174-template-versions-and-approval-together.md)
@@ -8,11 +8,13 @@
 
 ## Context
 
-A template is a spreadsheet: columns, optionally named rows, merged cells, bold and italic, cells that are fixed text and cells a
+A template is a spreadsheet: columns, optionally named rows, merged cells, bold, italic and font size, cells that are fixed text and cells a
 filler types into. The product owner decided (2026-10-21): up to **1 MB**, up to **500 rows by 100 columns**, stored sparsely, column
 types **text, number, date, picklist, yes/no**. `object_record` cannot hold this (flat values, 256 KB a record, no nested JSON), and the
 body must be pinned by approvals and by later fill-ins, so it gets its own table (one row per version, [ADR-0174](0174-template-versions-and-approval-together.md)).
-The format is **ours**: a grid library's format never reaches the database or the API ([ADR-0172](0172-the-grid-component-and-the-adapter.md)).
+The format is **ours**: a grid library's format never reaches the database or the API ([ADR-0172](0172-the-grid-component-and-the-adapter.md)). Font size (2026-10-22,
+asked after FA0) is a **closed** fourth style, the same discipline as the platform's own design tokens ([ADR-0126](0126-visual-design-system-and-self-hosted-fonts.md)):
+no pixel or point number is ever typed or stored, only one of four names.
 
 ## Decision
 
@@ -29,7 +31,7 @@ in FA3 it moves to `platform-api-contract/src/main/resources/schemas/` and is co
 | `columns[]` | `{id, label, type, required, default, picklist, width}`; `type` is one of the five; a `picklist` column carries `{values: [...]}`. |
 | `headerRows[]` | `{id, height}`: extra bands above the body under the column labels (the title over merged columns). Their cells are always fixed text. |
 | `rows[]` | `{id, label, height}`: the named body rows (dimension 2 only). |
-| `cells` | **Sparse**: `"rowId:columnId": {value, style{bold,italic}, kind}`. Only a cell that holds something or has a style is stored. |
+| `cells` | **Sparse**: `"rowId:columnId": {value, style{bold,italic,fontSize}, kind}`. Only a cell that holds something or has a style is stored. |
 | `merges[]` | `{from, to}`: two cell keys (top left, bottom right), inside one zone (header or body), never overlapping. |
 
 **Stable identifiers.** Rows and columns have identifiers (`[A-Za-z0-9_-]{1,40}`, generated, never typed and never reused inside one template), and everything that points at a
@@ -37,6 +39,12 @@ place (cells, merges, later change-request comments, fill-ins) uses them, never 
 
 **What a cell is.** The body zone is *input* by default; a stored cell with a value and no `kind` is *fixed* text (a label, an instruction, a limit); header cells are always fixed. So a
 2-D template of 50 rows by 10 columns stores only its row labels and fixed text. A merge keeps content on its top left cell only (what the libraries do as well; the adapter drops what a library copies onto covered cells).
+
+**Font size is one of four named sizes, never a number.** `style.fontSize` is `SMALL`, `NORMAL`, `LARGE` or `TITLE` (absent means `NORMAL`, the same convention as `bold` and `italic`
+absent meaning `false`); the renderer, not the document, decides the pixel size behind each name, so a later change of the design tokens changes every template's look at once and a
+template never freezes a pixel value. **Only a fixed cell may carry it**: a header-row cell (always fixed) or a body cell that has a value and no `kind` (the rule just above, "What a cell is"). An input cell — the body
+cell a filler will type into — carries no style at all; the filler enters a value, never a font. A `fontSize` on an input cell is refused by the validation stages (section 4 below),
+the same way any other misplaced style would be.
 
 ### 2. Column types and what a "picklist" refers to
 
@@ -72,11 +80,12 @@ then text (no markup, no control characters), then identifiers (unique across ro
 Every problem has a stable code, fixed words and a place made **only of identifiers that match the identifier pattern** (anything else is shown as "…"); a message **never repeats a typed value, a label or a key**
 (the grid is the organization's text: [ADR-0012](0012-observability.md)).
 
-The corpus (`schema/run-corpus.mjs`) runs 34 cases and all behave as expected: a cell of 10 MB (refused on size in 3 ms, before parsing); a cell of 1,001 characters; nesting 10,000 deep (refused before parsing); not JSON; an unknown part;
+The corpus (`schema/run-corpus.mjs`) ran 34 cases at FA0 and all behave as expected: a cell of 10 MB (refused on size in 3 ms, before parsing); a cell of 1,001 characters; nesting 10,000 deep (refused before parsing); not JSON; an unknown part;
 format version 2; a cell key that is not `row:column`; a `__proto__` key; an identifier of 41 characters; a number where text belongs; 600 rows; 101 columns; markup in a column label, a row label and a cell; a control character;
 a repeated identifier (two columns, and a row against a column); a cell on a row that does not exist; overlapping merges; a merge from header to body; a merge written backwards; a merge of one cell; a merge to a cell that does not exist;
 a preset that does not fit its column; an input cell in the header; a list column without values; a list with a value twice; a default that does not fit the type; a repeatable template that names rows. **None of the messages repeated the text** (the script
 fails the run if one does). The valid cases (the 8x20 scenario with two merged header cells, one dimension, 60x15, 500x100 at 5 percent fixed cells, "5 < 6" as plain text) are accepted; the 500x100 document validates in about 10 ms.
+**Font size (2026-10-22) adds two more cases for FA3 to carry into its own corpus:** a `fontSize` that is not one of the four names, and a `fontSize` set on an input cell (refused, by the rule above, whatever the name).
 
 **Known limit of the spike, carried into FA3:** `JSON.parse` collapses a repeated key; the Java reader must switch on strict duplicate detection (Jackson `STRICT_DUPLICATE_DETECTION`) and the corpus gets a case for a repeated cell key. Markup is *refused*, not escaped, so that every later reader (exports, mails, other front ends) can trust the stored text.
 
@@ -141,4 +150,5 @@ Beyond about **a few hundred GB**, in this order: (1) the shape (B or C); (2) **
 - One schema file, one validator class (`SheetGridValidator`), one limits class; the adapter of [ADR-0172](0172-the-grid-component-and-the-adapter.md) converts to and from the library; the browser validates for the person's convenience only and the server decides again.
 - A version row is written whole each time (no per-cell patch endpoint); that is acceptable at these sizes (above) and is revisited for fill-ins.
 - The schema's `kind` rule ("fixed if it has a value and no kind") is implicit; the Java model states it in one place and the form view shows it.
+- Font size is a fourth style alongside bold and italic, closed to four names (`SMALL`, `NORMAL`, `LARGE`, `TITLE`) and refused on an input cell; FA3's grid-view toolbar gets one more control beside Bold and Italic, and the form view (which does not deal with styling at all) is unaffected.
 - **Not decided here, asked of the product owner later:** whether a column may refer to a platform picklist copied in at save (a later release), and whether a merge may span the header and body (refused now).

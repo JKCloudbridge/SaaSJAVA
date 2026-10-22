@@ -737,6 +737,14 @@ public final class TenantScopedTables {
                         tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
             });
 
+    /** The versions of a sheet (FA3). Each probe row is the first version of a sheet of its own. */
+    public static final TenantScopedTable SHEET_VERSION = new TenantScopedTable("sheet_version",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into sheet_version (tenant_id, owner_object, owner_id, version_no, dimension, rows_mode, "
+                            + "grid, grid_hash, grid_bytes, created_by, updated_by) values (?, 'Probe', ?, 1, 2, "
+                            + "'FIXED', cast('{}' as jsonb), ?, 2, ?, ?)",
+                    tenant, UUID.randomUUID(), new byte[32], ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
@@ -752,7 +760,7 @@ public final class TenantScopedTables {
             WORKFLOW_SCHEDULE, APPROVAL_PROCESS, APPROVAL_PROCESS_VERSION, APPROVAL_INSTANCE,
             APPROVAL_STEP_INSTANCE, APPROVAL_ASSIGNMENT, APPROVAL_HISTORY, APPROVAL_DELEGATION, NOTIFICATION,
             NOTIFICATION_PREFERENCE, NOTIFICATION_TEMPLATE, APPROVAL_STEP_TIMER, APPROVAL_REMINDER,
-            ORGANIZATION_FIELD_VALUES, NUMBER_SERIES_COUNTER);
+            ORGANIZATION_FIELD_VALUES, NUMBER_SERIES_COUNTER, SHEET_VERSION);
 
     private TenantScopedTables() {
     }

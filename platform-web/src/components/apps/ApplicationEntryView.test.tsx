@@ -26,6 +26,12 @@ vi.mock("@/components/records/ObjectListPage", () => ({
   },
 }));
 
+// The page a shipped application registers draws its own title band and asks the API for its own data (its tests are
+// with it).
+vi.mock("@/solutions/inspection/TemplatesPage", () => ({
+  TemplatesPage: () => <h1>Templates page</h1>,
+}));
+
 const frames: { customPage: string; label: string; assetId?: string }[] = [];
 vi.mock("./CustomPageFrame", () => ({
   CustomPageFrame: (props: { customPage: string; label: string; assetId?: string }) => {
@@ -67,7 +73,7 @@ describe("a page of an application", () => {
     });
   });
 
-  it("draws the page a shipped application registered for the key, under the entry's title", async () => {
+  it("draws the page a shipped application registered for the key, which draws its own title", async () => {
     params = { application: "inspection", entry: "s-templates" };
     shellApi({
       applications: [
@@ -80,8 +86,8 @@ describe("a page of an application", () => {
     });
     renderEntry();
 
-    expect(await screen.findByTestId("solution-page-placeholder")).toHaveTextContent("nothing here yet");
-    expect(screen.getByRole("heading", { level: 1, name: "Templates" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Templates page" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
 
   it("says a shipped page is not available when this release has no page for its key", async () => {

@@ -4356,6 +4356,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sheets/{ownerObject}/{ownerId}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The versions of a sheet the caller may see
+         * @description Newest first, without their grids (a list never reads a grid). A caller who may only read the record sees the versions that are in use or were (ACTIVE, SUPERSEDED, RETIRED); a caller who may change it sees every version, drafts included. canChange says whether the screen may offer to start or save a draft; every request that follows is decided again. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record.
+         */
+        get: operations["listSheetVersions"];
+        put?: never;
+        /**
+         * Start a new draft version of a sheet
+         * @description The first version is blank and names the shape of the sheet (dimension, and optionally rowsMode); every later one is a copy of the version named by basedOn, or of the active version (the latest when none is active), and keeps the shape: another shape is VALIDATION_ERROR. Versions are numbered automatically and a number is never reused. There is at most one draft at a time: CONFLICT names the number of the existing one, and two requests that arrive together get one draft and one answer. CONFLICT also at the most versions a sheet may have. FORBIDDEN for a caller who may read the record but not update it. Audited by the number of the version and the shape, never by content. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record.
+         */
+        post: operations["createSheetVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sheets/{ownerObject}/{ownerId}/versions/{versionNo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One version of a sheet with its grid
+         * @description The only call that reads a grid. NOT_FOUND also for a version that does not exist and for a version the caller may not see (a caller who may only read the record sees ACTIVE, SUPERSEDED and RETIRED versions; a draft or a version in review answers like a version that does not exist). NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record.
+         */
+        get: operations["getSheetVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sheets/{ownerObject}/{ownerId}/versions/{versionNo}/grid": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save the grid of a draft version
+         * @description The body is the grid itself (the schema SheetGrid of this document), as JSON, and nothing else; the row version that was read goes in the version parameter. The size is checked before anything is parsed, from the length the client announces and again on the bytes read (so a body without a length is bounded too): PAYLOAD_TOO_LARGE above the limit of the organization. Then the grid is checked in a fixed order and the first stage with a problem answers alone, with every place of that stage under grid: VALIDATION_ERROR. A grid is stored in a canonical form, so the same grid always has the same hash. CONCURRENT_MODIFICATION (409) when the draft has changed since it was read, and nothing changes; CONFLICT for a version that is no longer a draft. FORBIDDEN for a caller who may read the record but not update it. Audited by the number, the size, the hash and counts, never by content. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record.
+         */
+        put: operations["saveSheetGrid"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/support-access": {
         parameters: {
             query?: never;
@@ -5068,6 +5132,15 @@ export interface components {
         };
         ApiResponseSharingRuleView: {
             data: components["schemas"]["SharingRuleView"];
+        };
+        ApiResponseSheetVersionSummaryView: {
+            data: components["schemas"]["SheetVersionSummaryView"];
+        };
+        ApiResponseSheetVersionView: {
+            data: components["schemas"]["SheetVersionView"];
+        };
+        ApiResponseSheetVersionsView: {
+            data: components["schemas"]["SheetVersionsView"];
         };
         ApiResponseSwitchTarget: {
             data: components["schemas"]["SwitchTarget"];
@@ -6329,6 +6402,13 @@ export interface components {
             /** @enum {string} */
             type: "OBJECT" | "RECORD_PAGE" | "LINK" | "HEADING" | "TAB";
         } & (unknown & unknown & unknown & unknown & unknown);
+        NewSheetVersionRequest: {
+            /** Format: int32 */
+            basedOn?: number;
+            /** Format: int32 */
+            dimension?: number;
+            rowsMode?: string;
+        };
         NotificationPlaceholderView: {
             help: string;
             name: string;
@@ -6974,6 +7054,129 @@ export interface components {
             targetType: string;
             /** Format: int64 */
             version?: number;
+        };
+        SheetCell: {
+            /**
+             * @description A header cell is always fixed. A body cell that holds a value and has no kind is fixed text; otherwise it is an input cell.
+             * @enum {string}
+             */
+            kind?: "fixed" | "input";
+            style?: components["schemas"]["SheetCellStyle"];
+            value?: string | boolean | null;
+        };
+        /** @description A cell: the identifier of its row, a colon, the identifier of its column. */
+        SheetCellRef: string;
+        /** @description Only a fixed cell may carry a style. The size is one of four names and never a number: the page decides what each name looks like. */
+        SheetCellStyle: {
+            bold?: boolean;
+            /** @enum {string} */
+            fontSize?: "SMALL" | "NORMAL" | "LARGE" | "TITLE";
+            italic?: boolean;
+        };
+        SheetColumn: {
+            /** @description The value a new row starts with. It must fit the column type. */
+            default?: string | boolean | null;
+            id: components["schemas"]["SheetId"];
+            label: string;
+            /** @description The list of a picklist column, kept inside the version so that it is frozen with it. */
+            picklist?: {
+                values: string[];
+            } | null;
+            required?: boolean;
+            /**
+             * @description What a filler may type: text, a number written as digits, a date written year-month-day, one value of a list, or yes or no.
+             * @enum {string}
+             */
+            type: "text" | "number" | "date" | "picklist" | "boolean";
+            width?: number;
+        };
+        /** @description The grid of one version: named columns of five types, header rows (a title over merged columns), optionally named body rows, merged cells, and the cells that hold fixed text or a style. Stored sparsely: a body cell that holds nothing is an input cell and is not stored. */
+        SheetGrid: {
+            /** @description Sparse: only a cell that holds something or has a style is stored. The key is the row identifier, a colon and the column identifier. */
+            cells: {
+                [key: string]: components["schemas"]["SheetCell"];
+            };
+            columns: components["schemas"]["SheetColumn"][];
+            /**
+             * @description 1: columns only, the filler adds the rows. 2: the sheet names the rows.
+             * @enum {integer}
+             */
+            dimension: 1 | 2;
+            /**
+             * @description The format of this document. A document of another number is refused.
+             * @constant
+             */
+            formatVersion: 1;
+            /** @description Bands above the body under the column labels. Their cells are always fixed text. */
+            headerRows?: components["schemas"]["SheetRowDefinition"][];
+            merges: components["schemas"]["SheetMerge"][];
+            /** @description The named body rows (dimension 2 only). */
+            rows: components["schemas"]["SheetRowDefinition"][];
+            /**
+             * @description Dimension 1 is REPEATABLE. Dimension 2 is FIXED or FIXED_AND_REPEATABLE.
+             * @enum {string}
+             */
+            rowsMode: "FIXED" | "REPEATABLE" | "FIXED_AND_REPEATABLE";
+        };
+        /** @description The stable identifier of a column, a row or a header row. Generated, never typed, never reused inside one sheet; everything that points at a place (cells, merges, later comments and fill-ins) uses it, never a position. */
+        SheetId: string;
+        SheetLimitsView: {
+            /** Format: int32 */
+            maxBytes: number;
+            /** Format: int32 */
+            maxCellChars: number;
+            /** Format: int32 */
+            maxColumns: number;
+            /** Format: int32 */
+            maxHeaderRows: number;
+            /** Format: int32 */
+            maxLabelChars: number;
+            /** Format: int32 */
+            maxMerges: number;
+            /** Format: int32 */
+            maxPicklistValues: number;
+            /** Format: int32 */
+            maxRows: number;
+        };
+        /** @description Two cells, top left and bottom right, inside one zone (header rows or body), never overlapping another merge. Only the top left cell keeps content. */
+        SheetMerge: {
+            from: components["schemas"]["SheetCellRef"];
+            to: components["schemas"]["SheetCellRef"];
+        };
+        SheetRowDefinition: {
+            height?: number;
+            id: components["schemas"]["SheetId"];
+            label?: string;
+        };
+        SheetVersionSummaryView: {
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            decidedAt?: string;
+            /** Format: int32 */
+            dimension: number;
+            /** Format: int64 */
+            gridBytes: number;
+            gridHash: string;
+            rowsMode: string;
+            status: string;
+            /** Format: date-time */
+            submittedAt?: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
+            /** Format: int32 */
+            versionNo: number;
+        };
+        SheetVersionView: {
+            grid: components["schemas"]["SheetGrid"];
+            version: components["schemas"]["SheetVersionSummaryView"];
+        };
+        SheetVersionsView: {
+            canChange: boolean;
+            limits: components["schemas"]["SheetLimitsView"];
+            versions: components["schemas"]["SheetVersionSummaryView"][];
         };
         SignInRequest: {
             email: string;
@@ -16401,6 +16604,146 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listSheetVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ownerObject: string;
+                ownerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseSheetVersionsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createSheetVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ownerObject: string;
+                ownerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["NewSheetVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseSheetVersionSummaryView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getSheetVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ownerObject: string;
+                ownerId: string;
+                versionNo: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseSheetVersionView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    saveSheetGrid: {
+        parameters: {
+            query: {
+                version: number;
+            };
+            header?: never;
+            path: {
+                ownerObject: string;
+                ownerId: string;
+                versionNo: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SheetGrid"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseSheetVersionSummaryView"];
+                };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {

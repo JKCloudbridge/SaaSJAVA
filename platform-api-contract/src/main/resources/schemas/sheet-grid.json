@@ -1,0 +1,238 @@
+{
+  "$comment": "The shape of the grid of a sheet version, format 1 (Functional track FA3, ADR-0173, ADR-0186). One source of truth: the application checks every saved grid against this schema (JSON Schema 2020-12), and the same schema is copied into components.schemas of the OpenAPI document, so the generated TypeScript client has the same types. References are written as #/components/schemas/<Name> for that reason. The schema states the SHAPE only. What a schema cannot say is checked after it by the validator, in a fixed order: the limits that are settings (platform.sheets.limits.*: rows, columns, merges, the length of a text), text without markup or control characters, identifiers that are unique, cells that point at a real row and column and fit their column, styles only on fixed cells, merges inside one zone that never overlap. Nothing an organization writes is ever run as code.",
+  "schemas": {
+    "SheetId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,40}$",
+      "description": "The stable identifier of a column, a row or a header row. Generated, never typed, never reused inside one sheet; everything that points at a place (cells, merges, later comments and fill-ins) uses it, never a position."
+    },
+    "SheetCellRef": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,40}:[A-Za-z0-9_-]{1,40}$",
+      "description": "A cell: the identifier of its row, a colon, the identifier of its column."
+    },
+    "SheetGrid": {
+      "type": "object",
+      "description": "The grid of one version: named columns of five types, header rows (a title over merged columns), optionally named body rows, merged cells, and the cells that hold fixed text or a style. Stored sparsely: a body cell that holds nothing is an input cell and is not stored.",
+      "additionalProperties": false,
+      "required": [
+        "formatVersion",
+        "dimension",
+        "rowsMode",
+        "columns",
+        "rows",
+        "cells",
+        "merges"
+      ],
+      "properties": {
+        "formatVersion": {
+          "const": 1,
+          "description": "The format of this document. A document of another number is refused."
+        },
+        "dimension": {
+          "type": "integer",
+          "enum": [
+            1,
+            2
+          ],
+          "description": "1: columns only, the filler adds the rows. 2: the sheet names the rows."
+        },
+        "rowsMode": {
+          "type": "string",
+          "enum": [
+            "FIXED",
+            "REPEATABLE",
+            "FIXED_AND_REPEATABLE"
+          ],
+          "description": "Dimension 1 is REPEATABLE. Dimension 2 is FIXED or FIXED_AND_REPEATABLE."
+        },
+        "columns": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/components/schemas/SheetColumn"
+          }
+        },
+        "headerRows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/SheetRowDefinition"
+          },
+          "description": "Bands above the body under the column labels. Their cells are always fixed text."
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/SheetRowDefinition"
+          },
+          "description": "The named body rows (dimension 2 only)."
+        },
+        "cells": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/components/schemas/SheetCellRef"
+          },
+          "additionalProperties": {
+            "$ref": "#/components/schemas/SheetCell"
+          },
+          "description": "Sparse: only a cell that holds something or has a style is stored. The key is the row identifier, a colon and the column identifier."
+        },
+        "merges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/SheetMerge"
+          }
+        }
+      }
+    },
+    "SheetColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/SheetId"
+        },
+        "label": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "text",
+            "number",
+            "date",
+            "picklist",
+            "boolean"
+          ],
+          "description": "What a filler may type: text, a number written as digits, a date written year-month-day, one value of a list, or yes or no."
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "default": {
+          "type": [
+            "string",
+            "boolean",
+            "null"
+          ],
+          "description": "The value a new row starts with. It must fit the column type."
+        },
+        "picklist": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "values"
+          ],
+          "properties": {
+            "values": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              }
+            }
+          },
+          "description": "The list of a picklist column, kept inside the version so that it is frozen with it."
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 40,
+          "maximum": 1000
+        }
+      }
+    },
+    "SheetRowDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/SheetId"
+        },
+        "label": {
+          "type": "string"
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 400
+        }
+      }
+    },
+    "SheetCell": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "type": [
+            "string",
+            "boolean",
+            "null"
+          ]
+        },
+        "style": {
+          "$ref": "#/components/schemas/SheetCellStyle"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "fixed",
+            "input"
+          ],
+          "description": "A header cell is always fixed. A body cell that holds a value and has no kind is fixed text; otherwise it is an input cell."
+        }
+      }
+    },
+    "SheetCellStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Only a fixed cell may carry a style. The size is one of four names and never a number: the page decides what each name looks like.",
+      "properties": {
+        "bold": {
+          "type": "boolean"
+        },
+        "italic": {
+          "type": "boolean"
+        },
+        "fontSize": {
+          "type": "string",
+          "enum": [
+            "SMALL",
+            "NORMAL",
+            "LARGE",
+            "TITLE"
+          ]
+        }
+      }
+    },
+    "SheetMerge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to"
+      ],
+      "properties": {
+        "from": {
+          "$ref": "#/components/schemas/SheetCellRef"
+        },
+        "to": {
+          "$ref": "#/components/schemas/SheetCellRef"
+        }
+      },
+      "description": "Two cells, top left and bottom right, inside one zone (header rows or body), never overlapping another merge. Only the top left cell keeps content."
+    }
+  }
+}

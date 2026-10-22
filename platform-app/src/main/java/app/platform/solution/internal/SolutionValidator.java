@@ -65,6 +65,12 @@ final class SolutionValidator {
                             + other + "'");
                 }
             }
+            for (String owner : bundle.sheetOwners()) {
+                if (!bundle.objects().contains(owner)) {
+                    throw new IllegalStateException(where + ": the sheet owner '" + owner + "' is an object the "
+                            + "solution does not bring");
+                }
+            }
             checkEntries(bundle, where);
             checkPolicies(bundle, platform, where);
         }

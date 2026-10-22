@@ -1,4 +1,3 @@
-import { render, screen } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -43,12 +42,3 @@ describe("the pages a shipped solution registers", () => {
   });
 });
 
-describe("the placeholder page", () => {
-  it("says there is nothing here yet and shows no data", () => {
-    render(<TemplatesPage />);
-
-    expect(screen.getByTestId("solution-page-placeholder")).toHaveTextContent("Templates: nothing here yet.");
-    expect(screen.queryByRole("table")).toBeNull();
-    expect(screen.queryByRole("link")).toBeNull();
-  });
-});
