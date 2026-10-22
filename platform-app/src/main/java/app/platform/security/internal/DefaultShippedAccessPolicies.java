@@ -1,5 +1,6 @@
 package app.platform.security.internal;
 
+import app.platform.security.Ability;
 import app.platform.security.ShippedAccessPolicies;
 import app.platform.sharedkernel.ActorId;
 import java.util.HashMap;
@@ -16,8 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
  * the pattern of {@link SystemProfiles}: lock the organization's access changes first (so two requests are decided one
  * after the other), look, make what is missing, and write one audit record that counts. The database lets this
  * transaction write rows marked as shipped because it says so ({@link AccessStore#allowShippedPolicyWrites}); nobody
- * else can.
- */
+ *else can. /
 @Service
 class DefaultShippedAccessPolicies implements ShippedAccessPolicies {
 
@@ -54,17 +54,19 @@ class DefaultShippedAccessPolicies implements ShippedAccessPolicies {
             AccessStore.PolicyRow existing = held.get(declaration.key());
             String fingerprint = declaration.fingerprint();
             if (existing == null) {
-                UUID id = store.insertShippedPolicy(freeName(declaration.name()), declaration.description(), owner,
-                        declaration.key(), fingerprint, ActorId.SYSTEM);
-                dataStore.replace(DataAccessStore.Holder.POLICY, id, declaration.objects(), Map.of(), ActorId.SYSTEM);
+                UUID id = store.insertShippedPolicy(freeName(declaration.name()), declaration.description(),
+                        abilitiesOf(declaration), owner, declaration.key(), fingerprint, ActorId.SYSTEM);
+                dataStore.replace(DataAccessStore.Holder.POLICY, id, declaration.objects(), declaration.fields(),
+                        ActorId.SYSTEM);
                 made++;
             } else if (!fingerprint.equals(existing.managedHash())) {
                 // A new name is taken only when it is free; otherwise the policy keeps the name it has.
                 String name = declaration.name().equalsIgnoreCase(existing.name())
                         || !store.policyNameTaken(declaration.name()) ? declaration.name() : existing.name();
-                store.updateShippedPolicy(existing.id(), name, declaration.description(), fingerprint, ActorId.SYSTEM);
-                dataStore.replace(DataAccessStore.Holder.POLICY, existing.id(), declaration.objects(), Map.of(),
-                        ActorId.SYSTEM);
+                store.updateShippedPolicy(existing.id(), name, declaration.description(), abilitiesOf(declaration),
+                        fingerprint, ActorId.SYSTEM);
+                dataStore.replace(DataAccessStore.Holder.POLICY, existing.id(), declaration.objects(),
+                        declaration.fields(), ActorId.SYSTEM);
                 updated++;
             }
         }
@@ -72,6 +74,14 @@ class DefaultShippedAccessPolicies implements ShippedAccessPolicies {
             audit.shippedPoliciesEnsured(made, updated);
         }
         return new Result(made, updated);
+    }
+
+    /** The abilities of the declaration, each checked against the catalogue: a key the platform does not know stops. */
+    private static List<String> abilitiesOf(Declaration declaration) {
+        if (declaration.abilities().stream().anyMatch(key -> Ability.fromKey(key).isEmpty())) {
+            throw new IllegalStateException("A shipped access policy names an ability the platform does not know");
+        }
+        return Ability.keysOf(Ability.knownAmong(declaration.abilities()));
     }
 
     /** The name, or the name with a suffix when an administrator's policy already has it (names are unique). */

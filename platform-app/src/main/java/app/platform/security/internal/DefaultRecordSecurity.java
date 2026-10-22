@@ -72,9 +72,11 @@ class DefaultRecordSecurity implements RecordSecurity {
     }
 
     private RecordAccess compute(UUID membershipId, String object) {
-        if (catalogue.object(object).isEmpty()) {
+        Optional<ObjectCatalog.ObjectInfo> info = catalogue.object(object);
+        if (info.isEmpty()) {
             return RecordAccess.nothing(object);
         }
+        boolean fixed = info.get().sharingFixed();
         DataAccess data = permissions.data(membershipId);
         boolean canRead = data.allows(object, ObjectAction.READ);
         if (!canRead) {
@@ -86,11 +88,13 @@ class DefaultRecordSecurity implements RecordSecurity {
         }
         boolean modifyAll = data.allows(object, ObjectAction.MODIFY_ALL);
         boolean viewAll = data.allows(object, ObjectAction.VIEW_ALL);
-        Optional<SharingStore.SettingRow> setting = store.setting(object);
+        // An object whose default the platform fixes (FA4, ADR-0189) is private with no hierarchy whatever a row says:
+        // the row is not even read, so one that got in some other way changes nothing.
+        Optional<SharingStore.SettingRow> setting = fixed ? Optional.empty() : store.setting(object);
         // A default this release does not know is treated as the strictest, never as the loosest.
-        SharingDefault defaultAccess = setting.map(row -> SharingDefault.ofKey(row.defaultAccess())
-                .orElse(SharingDefault.PRIVATE)).orElse(SharingDefault.PUBLIC_READ_WRITE);
-        boolean hierarchy = setting.map(SharingStore.SettingRow::grantViaHierarchy).orElse(true);
+        SharingDefault defaultAccess = fixed ? SharingDefault.PRIVATE : setting.map(row -> SharingDefault
+                .ofKey(row.defaultAccess()).orElse(SharingDefault.PRIVATE)).orElse(SharingDefault.PUBLIC_READ_WRITE);
+        boolean hierarchy = !fixed && setting.map(SharingStore.SettingRow::grantViaHierarchy).orElse(true);
         UUID user = viewer.get().userId();
 
         if (modifyAll || defaultAccess == SharingDefault.PUBLIC_READ_WRITE) {

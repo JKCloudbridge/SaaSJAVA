@@ -195,4 +195,64 @@ class SolutionValidatorTest {
         assertThatThrownBy(() -> SolutionValidator.validate(List.of(twins), WIDGET, null))
                 .hasMessageContaining("the name is used by another policy of the solution");
     }
+
+    // ---- the rights on fields (FA4, ADR-0189) ----
+
+    private static ObjectDefinition widgetWithFields() {
+        app.platform.metadata.FieldDefinition name = new app.platform.metadata.FieldDefinition("Widget", "name", "Name",
+                "", DefinitionKind.STANDARD, app.platform.metadata.FieldType.TEXT, false, false, null,
+                new app.platform.metadata.FieldConfiguration.TextConfiguration(80), false, 0);
+        app.platform.metadata.FieldDefinition gone = new app.platform.metadata.FieldDefinition("Widget", "old", "Old",
+                "", DefinitionKind.STANDARD, app.platform.metadata.FieldType.TEXT, false, false, null,
+                new app.platform.metadata.FieldConfiguration.TextConfiguration(80), true, 0);
+        app.platform.metadata.FieldDefinition system = new app.platform.metadata.FieldDefinition("Widget", "createdAt",
+                "Created", "", DefinitionKind.SYSTEM, app.platform.metadata.FieldType.DATETIME, false, false, null,
+                new app.platform.metadata.FieldConfiguration.NoConfiguration(), false, 0);
+        return new ObjectDefinition("Widget", "Widget", "Widgets", "", DefinitionKind.STANDARD, null, false, 0,
+                List.of(name, gone, system), "demo-feature", true);
+    }
+
+    private static SolutionBundle withFieldRights(String key) {
+        return bundle("demo", "demo-feature", "demo", List.of("Widget"),
+                List.of(new SolutionBundle.Entry(ShippedEntryView.Kind.PLATFORM, "Overview", "", "overview",
+                        "Widget")),
+                List.of(new SolutionBundle.Policy("reader", "Reader", "d", Map.of("Widget",
+                        Set.of(ObjectAction.READ)), Set.of(), Map.of(key,
+                                Set.of(app.platform.security.FieldAction.READ)))));
+    }
+
+    @Test
+    void aRightOnAFieldTheObjectHasPasses() {
+        assertThatCode(() -> SolutionValidator.validate(List.of(withFieldRights("Widget.name")),
+                platform(widgetWithFields()), null)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void aRightOnAFieldTheObjectDoesNotHaveIsRefusedAndNamesIt() {
+        assertThatThrownBy(() -> SolutionValidator.validate(List.of(withFieldRights("Widget.missing")),
+                platform(widgetWithFields()), null)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("accessPolicies 'reader'").hasMessageContaining("'Widget.missing'")
+                .hasMessageContaining("does not have");
+    }
+
+    @Test
+    void aRightOnAFieldNoLongerInUseIsRefusedButASystemFieldMayBeNamed() {
+        assertThatThrownBy(() -> SolutionValidator.validate(List.of(withFieldRights("Widget.old")),
+                platform(widgetWithFields()), null)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("no longer in use");
+        assertThatCode(() -> SolutionValidator.validate(List.of(withFieldRights("Widget.createdAt")),
+                platform(widgetWithFields()), null)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void aRightOnAFieldOfAnObjectThePolicyGivesNoRightOnIsRefused() {
+        SolutionBundle bundle = bundle("demo", "demo-feature", "demo", List.of("Widget"),
+                List.of(new SolutionBundle.Entry(ShippedEntryView.Kind.PLATFORM, "Overview", "", "overview",
+                        "Widget")),
+                List.of(new SolutionBundle.Policy("reader", "Reader", "d", Map.of(), Set.of(),
+                        Map.of("Widget.name", Set.of(app.platform.security.FieldAction.READ)))));
+
+        assertThatThrownBy(() -> SolutionValidator.validate(List.of(bundle), platform(widgetWithFields()), null))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("gives no right");
+    }
 }

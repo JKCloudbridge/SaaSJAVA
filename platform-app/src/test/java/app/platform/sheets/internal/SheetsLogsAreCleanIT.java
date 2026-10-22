@@ -73,7 +73,7 @@ class SheetsLogsAreCleanIT extends SheetSupport {
         Response markup = save(setting.admin(), owner, 2, 0, json(grid));
         Response keyed = save(setting.admin(), owner, 2, 0, "{\"" + refusedKey + "\":\"" + refusedMarkup + "\"");
         Response late = save(setting.admin(), owner, 1, 1, json(grid));
-        Response reader = save(as(setting.organization(), reader(setting)), owner, 2, 0, json(grid));
+        Response reader = save(as(setting.organization(), reader(setting, owner)), owner, 2, 0, json(grid));
         String trail = setting.admin().get("/api/v1/audit-events?limit=200").body();
 
         String log = Files.readString(Path.of(LOG_FILE));

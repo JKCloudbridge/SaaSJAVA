@@ -47,6 +47,7 @@ class SolutionBoundaryTest {
     private static final List<String> CLUSTER_PLACES = List.of(
             "platform-app/src/main/resources/solutions/inspection/",
             "platform-app/src/main/resources/db/migration/V058__add_inspection_feature.sql",
+            "platform-app/src/main/resources/db/migration/V066__create_inspection_publication.sql",
             "platform-web/src/solutions/",
             "platform-app/src/main/java/app/platform/inspection/");
 

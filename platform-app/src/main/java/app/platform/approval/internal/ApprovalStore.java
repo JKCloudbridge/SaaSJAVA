@@ -432,8 +432,7 @@ class ApprovalStore {
     /**
      * A page of one person's tasks. {@code tab} is {@code TO_APPROVE} (open, not delegated), {@code DELEGATED} (open,
      * delegated to the person) or {@code DECIDED} (approved, rejected or handed on); open tasks are oldest first,
-     * decided
-     * ones newest first.
+     * decided ones newest first.
      */
     List<AssignmentRow> tasks(UUID person, String tab, String objectApiName, String processApiName, Instant after,
             UUID afterId, int limit) {
@@ -498,6 +497,15 @@ class ApprovalStore {
                         + "where a.assignee_id = :person and a.status = 'OPEN' and a.deleted_at is null "
                         + "and i.deleted_at is null and i.status = 'PENDING'")
                 .param("person", person).query(Integer.class).single();
+    }
+
+    /** Whether the person has an open task in the request while it is pending. */
+    boolean holdsOpenTask(UUID requestId, UUID person) {
+        return jdbc.sql("select exists (select 1 from approval_assignment a join approval_instance i "
+                        + "on i.id = a.instance_id where i.id = :request and a.assignee_id = :person "
+                        + "and a.status = 'OPEN' and a.deleted_at is null and i.deleted_at is null "
+                        + "and i.status = 'PENDING')")
+                .param("request", requestId).param("person", person).query(Boolean.class).single();
     }
 
     /** Whether the person has ever been asked to decide, or submitted a request. */

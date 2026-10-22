@@ -72,9 +72,14 @@ class SheetRacesIT extends SheetSupport {
     }
 
     /** One signed-in browser for each request (a browser is not for two threads), alternating between the instances. */
-    private List<TestBrowser> browsers(Setting setting, int count) {
+    private List<TestBrowser> browsers(Setting setting, int count, String... owners) {
         List<TestBrowser> browsers = new ArrayList<>();
-        List<app.platform.testsupport.TestOrganizations.Member> people = authors(setting, count);
+        List<app.platform.testsupport.TestOrganizations.Member> people = authors(setting, count, owners[0]);
+        for (int extra = 1; extra < owners.length; extra++) {
+            for (app.platform.testsupport.TestOrganizations.Member person : people) {
+                share(setting.admin(), owners[extra], person, "READ_WRITE");
+            }
+        }
         for (int i = 0; i < count; i++) {
             int port = i % 2 == 0 ? this.port : instanceB.port();
             browsers.add(TestOrganizations.signedIn(port, setting.organization().host(), people.get(i).person()));
@@ -88,7 +93,7 @@ class SheetRacesIT extends SheetSupport {
         String owner = template(setting.admin());
         firstVersion(setting.admin(), owner, 2);
         walkTo(setting.organization(), owner, 1, "IN_REVIEW", "APPROVED", "ACTIVE");
-        List<TestBrowser> people = browsers(setting, REQUESTS);
+        List<TestBrowser> people = browsers(setting, REQUESTS, owner);
         List<Callable<Response>> calls = new ArrayList<>();
         for (int i = 0; i < REQUESTS; i++) {
             TestBrowser browser = people.get(i);
@@ -111,7 +116,7 @@ class SheetRacesIT extends SheetSupport {
     void manyRequestsForTheFirstVersionAtOnceMakeOneToo() throws Exception {
         Setting setting = setting();
         String owner = template(setting.admin());
-        List<TestBrowser> people = browsers(setting, REQUESTS);
+        List<TestBrowser> people = browsers(setting, REQUESTS, owner);
         List<Callable<Response>> calls = new ArrayList<>();
         for (int i = 0; i < REQUESTS; i++) {
             TestBrowser browser = people.get(i);
@@ -131,7 +136,7 @@ class SheetRacesIT extends SheetSupport {
         String owner = template(setting.admin());
         firstVersion(setting.admin(), owner, 2);
         String base = gridOf(read(setting.admin(), owner, 1));
-        List<TestBrowser> people = browsers(setting, REQUESTS);
+        List<TestBrowser> people = browsers(setting, REQUESTS, owner);
         List<Callable<Response>> calls = new ArrayList<>();
         for (int i = 0; i < REQUESTS; i++) {
             TestBrowser browser = people.get(i);
@@ -157,7 +162,7 @@ class SheetRacesIT extends SheetSupport {
         Setting setting = setting();
         String busy = template(setting.admin());
         String other = template(setting.admin());
-        List<TestBrowser> people = browsers(setting, REQUESTS);
+        List<TestBrowser> people = browsers(setting, REQUESTS, busy, other);
         List<Callable<Response>> calls = new ArrayList<>();
         for (int i = 0; i < REQUESTS; i++) {
             TestBrowser browser = people.get(i);

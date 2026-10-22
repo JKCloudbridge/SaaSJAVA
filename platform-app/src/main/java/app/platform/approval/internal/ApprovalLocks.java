@@ -1,5 +1,6 @@
 package app.platform.approval.internal;
 
+import app.platform.sharedkernel.approval.ApprovalTasks;
 import app.platform.sharedkernel.approval.ApprovalUsage;
 import app.platform.sharedkernel.approval.RecordLocks;
 import java.util.Collection;
@@ -14,7 +15,7 @@ import org.springframework.stereotype.Component;
  * record store asks after it has taken the record's row lock and must see what has committed.
  */
 @Component
-class ApprovalLocks implements RecordLocks, ApprovalUsage {
+class ApprovalLocks implements RecordLocks, ApprovalUsage, ApprovalTasks {
 
     private final ApprovalStore store;
     private final ApprovalAudit audit;
@@ -37,6 +38,11 @@ class ApprovalLocks implements RecordLocks, ApprovalUsage {
     @Override
     public boolean ownedBy(String objectApiName, UUID recordId, UUID requestId) {
         return store.ownedBy(objectApiName, recordId, requestId);
+    }
+
+    @Override
+    public boolean holdsOpenTask(UUID requestId, UUID userId) {
+        return requestId != null && userId != null && store.holdsOpenTask(requestId, userId);
     }
 
     @Override

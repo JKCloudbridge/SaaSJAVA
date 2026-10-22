@@ -1,5 +1,6 @@
 package app.platform.solution.internal;
 
+import app.platform.metadata.FieldDefinition;
 import app.platform.metadata.ObjectDefinition;
 import app.platform.metadata.PlatformObjects;
 import app.platform.security.ObjectAction;
@@ -118,6 +119,22 @@ final class SolutionValidator {
                 if (kept && right.getValue().contains(ObjectAction.DELETE)) {
                     throw new IllegalStateException(part + ": the delete right on '" + right.getKey() + "', whose "
                             + "records are kept");
+                }
+            }
+            for (String key : policy.fields().keySet()) {
+                int dot = key.indexOf('.');
+                String object = key.substring(0, dot);
+                String field = key.substring(dot + 1);
+                if (!policy.objects().containsKey(object)) {
+                    throw new IllegalStateException(part + ": a right on a field of '" + object + "', on which the "
+                            + "policy gives no right (a field right works only with the right on its object)");
+                }
+                FieldDefinition found = platform.named(object).flatMap(definition -> definition.field(field))
+                        .orElseThrow(() -> new IllegalStateException(part + ": a right names the field '" + key
+                                + "', which the object does not have"));
+                if (found.retired()) {
+                    throw new IllegalStateException(part + ": a right names the field '" + key + "', which is no "
+                            + "longer in use");
                 }
             }
         }

@@ -17,6 +17,8 @@ export interface ApprovalState {
   locked: boolean;
   /** The member may change a locked record anyway (the server's `canCancel` is the ability to override). */
   mayOverride: boolean;
+  /** The member holds an open task they may approve now (the server's `canApprove`; FA4 uses it to say what an approval gives). */
+  mayApprove: boolean;
 }
 
 /**
@@ -64,7 +66,11 @@ export function ApprovalPanel({
     }
     setFailure(undefined);
     setPanel(outcome.data.data);
-    onState({ locked: outcome.data.data.locked, mayOverride: outcome.data.data.actions.canCancel });
+    onState({
+      locked: outcome.data.data.locked,
+      mayOverride: outcome.data.data.actions.canCancel,
+      mayApprove: outcome.data.data.actions.canApprove,
+    });
     setProcess((chosen) => chosen || outcome.data.data.processes[0]?.apiName || "");
   }, [objectApiName, recordId, onState]);
 

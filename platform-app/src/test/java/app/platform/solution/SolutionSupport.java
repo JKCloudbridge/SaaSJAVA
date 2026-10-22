@@ -24,11 +24,10 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 
 /**
  * What the integration tests of the shipped solution share (Functional track FA1): an organization with its
- * administrator
- * on a plan that has no feature, short ways to give it the plan feature of the Audit maintenance solution and take it
- * away again (the platform administrator's switch for that organization), and members who hold one of the policies the
- * solution ships. The words of the solution are in these tests because they test the solution that ships; the generic
- * code under test has none of them.
+ * administrator on a plan that has no feature, short ways to give it the plan feature of the Audit maintenance
+ * solution and take it away again (the platform administrator's switch for that organization), and members who hold
+ * one of the policies the solution ships. The words of the solution are in these tests because they test the solution
+ * that ships; the generic code under test has none of them.
  */
 public abstract class SolutionSupport {
 
@@ -40,7 +39,8 @@ public abstract class SolutionSupport {
     protected static final String METADATA_OBJECTS = "/api/v1/metadata/objects";
     protected static final String RECORDS = "/api/v1/objects/" + OBJECT + "/records";
     protected static final String MEMBERS = "/api/v1/members";
-    protected static final List<String> SHIPPED_POLICIES = List.of("Author", "Approver", "Reader", "Filler");
+    protected static final List<String> SHIPPED_POLICIES = List.of("Author", "Approver", "Reader", "Filler",
+            "Department setup");
 
     @LocalServerPort
     protected int port;

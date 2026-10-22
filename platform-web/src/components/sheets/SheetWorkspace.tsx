@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { fromApi } from "@/lib/sheets/adapter";
 import {
   saveGrid,
@@ -24,6 +24,19 @@ export interface SheetWorkspaceProps {
   owner: SheetOwner;
   /** What the sheet is called for a screen reader (the name of the record it belongs to). */
   label: string;
+  /**
+   * Whether the screen believes the member may correct a version that is in review (the approver's edit, which the server
+   * audits, FA4). It only decides whether the grid is drawn editable; the server judges every save again.
+   */
+  correctInReview?: boolean;
+  /**
+   * A number the screen raises when something outside the sheet changed what the sheet may do (an approval was
+   * submitted, decided or ended, a version was published). The workspace reads the versions again, unless there are
+   * unsaved changes: those are never thrown away, the person is told instead.
+   */
+  refreshToken?: number;
+  /** The words for the start of a new version, which a person who works on the sheet may begin (FA4). */
+  startLabel?: string;
 }
 
 interface Notice {
@@ -40,7 +53,13 @@ interface Notice {
  *
  * It knows no business word: the record is a parameter.
  */
-export function SheetWorkspace({ owner: given, label }: SheetWorkspaceProps) {
+export function SheetWorkspace({
+  owner: given,
+  label,
+  correctInReview = false,
+  startLabel,
+  refreshToken,
+}: SheetWorkspaceProps) {
   const owner = useMemo<SheetOwner>(() => ({ object: given.object, id: given.id }), [given.object, given.id]);
   const { state, reload } = useVersions(owner);
   const [selected, setSelected] = useState<number | null>(null);
@@ -55,6 +74,27 @@ export function SheetWorkspace({ owner: given, label }: SheetWorkspaceProps) {
   const versions = state.status === "ready" ? state.view.versions : [];
   const current = selected ?? defaultVersion(versions)?.versionNo ?? 0;
   const version = useVersion(owner, current, refresh);
+
+  // Something outside the sheet changed what it may do (FA4): read the versions again, but never over unsaved changes.
+  const seenToken = useRef(refreshToken);
+  useEffect(() => {
+    if (refreshToken === seenToken.current) {
+      return;
+    }
+    seenToken.current = refreshToken;
+    // In a microtask, like the other screens that read again, so that no state is set while the effect runs.
+    void Promise.resolve().then(() => {
+      if (dirty) {
+        setNotice({
+          text: "Something changed on this template while you were editing. Save or discard your changes, then reload the page to see it.",
+          error: false,
+        });
+        return;
+      }
+      reload();
+      setRefresh((n) => n + 1);
+    });
+  }, [refreshToken, dirty, reload]);
 
   const open = (versionNo: number) => {
     if (versionNo === current) {
@@ -178,6 +218,13 @@ export function SheetWorkspace({ owner: given, label }: SheetWorkspaceProps) {
               Version {draft.versionNo} is a draft. Only one draft can exist at a time: continue with it, or save it first.
             </p>
           ) : null}
+          {canChange && !draft ? (
+            <div>
+              <button type="button" className="button button-secondary" onClick={() => void start({})} disabled={starting}>
+                {startLabel ?? (versions.some((entry) => entry.status === "ACTIVE") ? "Start a new version from the active one" : "Start a new version")}
+              </button>
+            </div>
+          ) : null}
         </>
       )}
 
@@ -200,6 +247,7 @@ export function SheetWorkspace({ owner: given, label }: SheetWorkspaceProps) {
           initial={fromApi(version.version.grid)}
           limits={limits}
           canChange={canChange}
+          correctInReview={correctInReview}
           onDirty={setDirty}
           onSaved={reload}
           onReload={() => setRefresh((n) => n + 1)}
@@ -216,6 +264,7 @@ function VersionEditor({
   initial,
   limits,
   canChange,
+  correctInReview,
   onDirty,
   onSaved,
   onReload,
@@ -226,6 +275,7 @@ function VersionEditor({
   initial: GridDoc;
   limits: SheetLimits;
   canChange: boolean;
+  correctInReview: boolean;
   onDirty(dirty: boolean): void;
   onSaved(): void;
   onReload(): void;
@@ -240,10 +290,16 @@ function VersionEditor({
   const tabs = useId();
 
   const draft = isDraft(summary.status);
-  const readOnly = !canChange || !draft;
+  // The approver's correction of a version in review (FA4): the one change a version that has left draft allows, and the
+  // server audits and counts each one. Only drawn editable when the screen believes the member may; the server decides.
+  const inReview = summary.status === "IN_REVIEW";
+  const correcting = inReview && canChange && correctInReview;
+  const readOnly = !canChange || !(draft || correcting);
   const tag = statusTag(summary.status);
-  const readOnlyReason = !draft
-    ? `Version ${summary.versionNo} is ${tag.text.toLowerCase()} and cannot be changed. Start a new version from it to make changes.`
+  const readOnlyReason = !(draft || correcting)
+    ? inReview
+      ? `Version ${summary.versionNo} is in review. Only the people who approve it can correct it; everyone else reads it.`
+      : `Version ${summary.versionNo} is ${tag.text.toLowerCase()} and cannot be changed. Start a new version from it to make changes.`
     : !canChange
       ? "You can read this sheet but not change it."
       : narrow
@@ -305,6 +361,9 @@ function VersionEditor({
       <div className="sheet-bar">
         <p className="sheet-bar-title">
           <strong>Version {summary.versionNo}</strong> · {tag.text} · {sizeWords(summary.gridBytes)}
+          {summary.reviewEdits > 0
+            ? ` · corrected ${summary.reviewEdits === 1 ? "once" : `${summary.reviewEdits} times`} while in review`
+            : ""}
         </p>
         {readOnly ? null : (
           <div className="sheet-bar-actions">
@@ -320,6 +379,12 @@ function VersionEditor({
       {readOnly && readOnlyReason ? (
         <p className="hint" role="note">
           {readOnlyReason}
+        </p>
+      ) : null}
+      {correcting ? (
+        <p className="hint" role="note" data-testid="review-edit-note">
+          This version is in review. You can correct it because you approve it. Every correction is recorded in the audit
+          trail, with its size and a fingerprint, never its content.
         </p>
       ) : null}
       {refused && refused.doc === editor.doc ? (

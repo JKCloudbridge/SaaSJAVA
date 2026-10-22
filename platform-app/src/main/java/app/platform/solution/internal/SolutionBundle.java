@@ -1,5 +1,6 @@
 package app.platform.solution.internal;
 
+import app.platform.security.FieldAction;
 import app.platform.security.ObjectAction;
 import app.platform.sharedkernel.solution.ShippedEntryView;
 import java.util.List;
@@ -72,11 +73,27 @@ record SolutionBundle(String key, String feature, String label, String removalNo
      * @param name the name people read
      * @param description what it is for
      * @param objects the rights it gives on objects
+     * @param abilities the keys of the abilities it gives (FA4, ADR-0189)
+     * @param fields the rights it gives on fields, by field key: the object, a dot, the field (FA4, ADR-0189)
      */
-    record Policy(String key, String name, String description, Map<String, Set<ObjectAction>> objects) {
+    record Policy(String key, String name, String description, Map<String, Set<ObjectAction>> objects,
+            Set<String> abilities, Map<String, Set<FieldAction>> fields) {
 
         Policy {
             objects = Map.copyOf(objects);
+            abilities = Set.copyOf(abilities);
+            fields = Map.copyOf(fields);
+        }
+
+        /** A policy that gives rights on objects and abilities and none on fields. */
+        Policy(String key, String name, String description, Map<String, Set<ObjectAction>> objects,
+                Set<String> abilities) {
+            this(key, name, description, objects, abilities, Map.of());
+        }
+
+        /** A policy that gives rights on objects and no ability and none on fields. */
+        Policy(String key, String name, String description, Map<String, Set<ObjectAction>> objects) {
+            this(key, name, description, objects, Set.of(), Map.of());
         }
 
         /** The identity the database keeps for the policy. */

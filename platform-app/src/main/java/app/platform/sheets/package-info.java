@@ -13,8 +13,10 @@
  * <p>The grid is text of the organization. It never reaches a log, an audit record, an event, a metric tag or an error
  * message: they carry identifiers, counts and sizes only.
  *
- * <p>FA3 creates and changes drafts only. The moves of a version out of draft (submit, approve, publish, retire) arrive
- * with the approval sprints; the database already refuses every move that is not part of the lifecycle.
+ * <p>FA3 created and changed drafts. FA4 adds the moves of a version out of draft (submit, the end of a review,
+ * publish, unpublish, retire) as {@link app.platform.sheets.SheetLifecycle}, called by the module that owns the thing
+ * a sheet belongs to, and the counted correction of an approver while a version is in review; the database refuses
+ * every move that is not part of the lifecycle whoever asks (ADR-0188, ADR-0189).
  *
  * <p>Other modules may use only the types in this package (its public API). Everything in sub-packages is internal.
  * Allowed outgoing dependencies are declared below and verified by the architecture tests.

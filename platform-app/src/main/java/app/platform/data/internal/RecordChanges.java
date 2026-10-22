@@ -24,8 +24,7 @@ import org.springframework.stereotype.Component;
  * <em>names</em> of the fields that were named in the change. Never a value, never a label, never anything a person
  * typed into a record: a record is typed text, an audit value is a short key (ADR-0054), and an event may be read in a
  * dead-letter review (ADR-0016). A field-by-field history with old and new values is a separate, opt-in feature of a
- * later sprint.
- */
+ *later sprint. /
 @Component
 class RecordChanges {
 
@@ -249,10 +248,11 @@ class RecordChanges {
         }
         if (source != null) {
             // Names and identifiers only (ADR-0139): which workflow, which run, never a value.
-            boolean approval = source.kind() != BackgroundWrites.Kind.WORKFLOW;
+            boolean workflow = source.kind() == BackgroundWrites.Kind.WORKFLOW;
+            boolean solution = source.kind() == BackgroundWrites.Kind.SOLUTION;
             record = record.from(AuditSource.SYSTEM).with("actor", "platform")
-                    .with(approval ? "approval" : "workflow", source.name())
-                    .with(approval ? "request" : "execution", source.execution().toString());
+                    .with(workflow ? "workflow" : solution ? "act" : "approval", source.name())
+                    .with(workflow ? "execution" : solution ? "subject" : "request", source.execution().toString());
         }
         audit.record(record);
         events.publish(new NewEvent("record." + kind, payload(object, id, version, fields, source)));

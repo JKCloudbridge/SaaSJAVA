@@ -50,6 +50,8 @@ The grid is the **whole body** of the save (a raw JSON body, the schema `SheetGr
 
 ### 8. What FA3 leaves, and how FA4 drives it
 
+> **Answered in FA4 ([ADR-0188](0188-the-template-lifecycle-the-cluster-module-publishing-and-the-master-list.md), [ADR-0189](0189-who-sees-a-template-the-fixed-private-default-abilities-and-field-rights-of-shipped-policies-the-approvers-edit-and-the-open-task-read.md)):** the moves are `SheetLifecycle` in `sheets`; `SheetOwners` asks the lock's ability for the correction in review and the open task for the read of a version in review; the draft beside a version in review stays as section 3 here says.
+
 No endpoint moves a version out of `DRAFT`: no submit, approve, publish, retire, no hook, no step flag, no number. The database already enforces the whole lifecycle, and `SheetVersionGuardIT` drives every move by direct statements; FA4 adds the service methods that make the moves (in `sheets`, with `SheetOwners` asking the lock and the review edit) and tests them through the same table. [ADR-0174](0174-template-versions-and-approval-together.md) contradicts itself on one point: section 2 row 2 says saving a draft is refused while the header is locked, section 3 says the author keeps working on the next draft while another version is in review. **Section 3 is followed**: a draft is in the version table, not in the header, so the header lock does not stop its save; the lock and the review edit concern the `IN_REVIEW` row and arrive with FA4.
 
 ## Consequences

@@ -94,6 +94,8 @@ class StandardObjectsDocTest {
                 + field.defaultValue() + "`";
         String kinds = (field.codeValues() ? "; values are short codes" : "")
                 + (field.platformWritten() ? "; written by the platform only" : "");
-        return retired + text + defaultText + kinds;
+        String before = retired + text + defaultText;
+        // A sentence that starts the cell has no semicolon in front of it.
+        return before.isEmpty() && kinds.startsWith("; ") ? kinds.substring(2) : before + kinds;
     }
 }

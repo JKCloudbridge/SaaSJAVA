@@ -31,8 +31,7 @@ import java.util.function.Function;
  * organization's own fields added, its custom objects, its record types, and since Sprint 12 its page layouts, record
  * pages, layout assignments and applications (ADR-0058, ADR-0061, ADR-0064, ADR-0069). Immutable,
  * so it can be shared between threads and kept by the cache. The answer in the shape the security module wants is
- * prepared with it.
- */
+ *prepared with it. /
 final class MetadataSnapshot {
 
     private final List<ObjectDefinition> objects;
@@ -443,6 +442,6 @@ final class MetadataSnapshot {
         return new ObjectCatalog.ObjectInfo(object.apiName(), object.label(),
                 object.fields().stream().filter(field -> !field.retired())
                         .map(field -> new ObjectCatalog.FieldInfo(field.apiName(), field.label())).toList(),
-                object.retainRecords());
+                object.retainRecords(), object.sharingDefault());
     }
 }

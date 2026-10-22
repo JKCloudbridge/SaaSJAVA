@@ -133,19 +133,21 @@ class RetainedObjectsIT extends SolutionSupport {
     }
 
     @Test
-    void aKeptRecordCanStillBeChangedAndRetired() {
+    void aKeptRecordCanStillBeChangedButNothingMarksItRetiredExceptTheRetireAct() {
         Organization organization = organizationWithFeature();
         TestBrowser admin = adminOf(organization);
         String id = create(admin, newName());
         Response read = admin.get(RECORDS + "/" + id);
         long version = ((Number) JsonPath.read(read.body(), "$.data.version")).longValue();
 
-        Response changed = admin.request("PATCH", RECORDS + "/" + id,
-                "{\"version\":" + version + ",\"fields\":{\"retired\":true}}");
+        Response renamed = admin.request("PATCH", RECORDS + "/" + id,
+                "{\"version\":" + version + ",\"fields\":{\"name\":\"renamed\"}}");
+        Response retiredByHand = admin.request("PATCH", RECORDS + "/" + id,
+                "{\"version\":" + (version + 1) + ",\"fields\":{\"retired\":true}}");
 
-        assertThat(changed.status()).as(changed.body()).isEqualTo(200);
-        assertThat(JsonPath.<Boolean>read(changed.body(), "$.data.fields.retired")).isTrue();
-        assertThat(admin.get(RECORDS + "/" + id).status()).as("a retired template is kept and readable").isEqualTo(200);
+        assertThat(renamed.status()).as(renamed.body()).isEqualTo(200);
+        assertThat(retiredByHand.status()).as("only the retire act marks a template retired (ADR-0188)").isEqualTo(400);
+        assertThat(admin.get(RECORDS + "/" + id).status()).as("a kept record stays readable").isEqualTo(200);
     }
 
     @Test

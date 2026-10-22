@@ -1,5 +1,6 @@
 package app.platform.sheets.internal;
 
+import app.platform.sharedkernel.approval.RecordLocks;
 import app.platform.sheets.SheetStatus;
 import app.platform.sheets.internal.SheetGrid.RowsMode;
 import app.platformapi.ApiException;
@@ -40,6 +41,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Transactional
 class SheetVersions {
 
+    private static final String NO_SHEET = "This sheet does not exist.";
     private static final String NO_VERSION = "This version does not exist.";
     private static final TypeReference<Map<String, Object>> GRID = new TypeReference<>() {
     };
@@ -49,25 +51,43 @@ class SheetVersions {
     private final SheetGridValidator validator;
     private final SheetChanges changes;
     private final SheetProperties properties;
+    private final RecordLocks locks;
     private final JsonMapper json = JsonMapper.builder().build();
 
     SheetVersions(SheetOwners owners, SheetVersionStore store, SheetGridValidator validator, SheetChanges changes,
-            SheetProperties properties) {
+            SheetProperties properties, RecordLocks locks) {
         this.owners = owners;
         this.store = store;
         this.validator = validator;
         this.changes = changes;
         this.properties = properties;
+        this.locks = locks;
     }
 
-    /** The versions this member sees, newest first, without their grids. */
+    /**
+     * The versions this member sees, newest first, without their grids. A person who may not read the record but is
+     * asked to approve a version of it sees that one version and nothing else (ADR-0189).
+     */
     @Transactional(readOnly = true)
     SheetVersionsView list(String ownerObject, UUID ownerId) {
-        SheetOwners.Reach reach = owners.reach(ownerObject, ownerId);
-        List<SheetVersionSummaryView> versions = store.list(reach.object(), reach.id(), reach.canChange()).stream()
-                .map(SheetVersions::summary).toList();
+        Optional<SheetOwners.Reach> reach = owners.reachIfReadable(ownerObject, ownerId);
+        List<SheetVersionStore.Row> rows;
+        boolean canChange;
+        if (reach.isPresent()) {
+            rows = store.list(ownerObject, ownerId, reach.get().canChange());
+            canChange = reach.get().canChange();
+        } else {
+            SheetOwners.Caller caller = owners.caller(ownerObject);
+            rows = store.list(ownerObject, ownerId, true).stream()
+                    .filter(row -> underReviewOf(caller, row)).toList();
+            if (rows.isEmpty()) {
+                throw ApiException.notFound(NO_SHEET);
+            }
+            canChange = false;
+        }
+        List<SheetVersionSummaryView> versions = rows.stream().map(SheetVersions::summary).toList();
         SheetProperties.Limits limits = properties.limits();
-        return new SheetVersionsView(versions, reach.canChange(), new SheetLimitsView(limits.maxBytes(),
+        return new SheetVersionsView(versions, canChange, new SheetLimitsView(limits.maxBytes(),
                 limits.maxRows(), limits.maxColumns(), limits.maxHeaderRows(), limits.maxCellChars(),
                 limits.maxLabelChars(), limits.maxPicklistValues(), limits.maxMerges()));
     }
@@ -75,9 +95,12 @@ class SheetVersions {
     /** One version with its grid. */
     @Transactional(readOnly = true)
     SheetVersionView get(String ownerObject, UUID ownerId, int versionNo) {
-        SheetOwners.Reach reach = owners.reach(ownerObject, ownerId);
-        SheetVersionStore.WithGrid found = store.findGrid(reach.object(), reach.id(), versionNo)
-                .filter(version -> visible(reach, version.row())).orElseThrow(() -> ApiException.notFound(NO_VERSION));
+        Optional<SheetOwners.Reach> reach = owners.reachIfReadable(ownerObject, ownerId);
+        SheetOwners.Caller caller = owners.caller(ownerObject);
+        SheetVersionStore.WithGrid found = store.findGrid(ownerObject, ownerId, versionNo)
+                .filter(version -> reach.map(r -> visible(r, version.row())).orElse(false)
+                        || underReviewOf(caller, version.row()))
+                .orElseThrow(() -> ApiException.notFound(NO_VERSION));
         return new SheetVersionView(summary(found.row()), json.readValue(found.grid(), GRID));
     }
 
@@ -86,8 +109,7 @@ class SheetVersions {
      *
      * @throws ApiException {@code NOT_FOUND}, {@code FORBIDDEN}, {@code VALIDATION_ERROR} (the shape, or a version to
      *         copy that does not exist), {@code CONFLICT} (a draft already exists, with its number; the most versions
-     *         a sheet may have)
-     */
+     *a sheet may have) /
     SheetVersionSummaryView create(String ownerObject, UUID ownerId, NewSheetVersionRequest request) {
         SheetOwners.Reach reach = owners.reachForChange(ownerObject, ownerId);
         store.lock(reach.object(), reach.id());
@@ -137,7 +159,16 @@ class SheetVersions {
         // is parsed for it.
         SheetVersionStore.Row current = store.find(reach.object(), reach.id(), versionNo)
                 .orElseThrow(() -> ApiException.notFound(NO_VERSION));
-        if (!SheetStatus.DRAFT.name().equals(current.status())) {
+        boolean inReview = SheetStatus.IN_REVIEW.name().equals(current.status());
+        if (inReview) {
+            // The product owner's rule (decision 13): while a version is being reviewed only an approver may change
+            // it, audited. The creator who submitted it may not.
+            if (!owners.mayCorrectInReview(reach)) {
+                changes.refused("save", "in_review");
+                throw new ApiException(ErrorCode.FORBIDDEN, "A version that is in review can be changed only by the "
+                        + "people who approve it.");
+            }
+        } else if (!SheetStatus.DRAFT.name().equals(current.status())) {
             changes.refused("save", "not_draft");
             throw notADraft();
         }
@@ -149,14 +180,23 @@ class SheetVersions {
         SheetGridValidator.Checked checked = result.checked();
         boolean sameShape = current.dimension() == checked.grid().dimension()
                 && current.rowsMode().equals(checked.grid().rowsMode().name());
-        if (!sameShape && versionNo != 1) {
+        if (!sameShape && (versionNo != 1 || inReview)) {
             changes.refused("save", "shape");
             throw ApiException.validation("grid.dimension", "The shape of a sheet is chosen with its first version "
                     + "and cannot change.");
         }
+        if (inReview && SheetGridWriter.hex(checked.hash()).equals(current.gridHash())
+                && version == current.version()) {
+            // Nothing to correct: the same grid is not a correction, and counting it would be a lie (the database
+            // counts a review edit only when the grid changes). The answer is the version as it is.
+            changes.refused("save", "unchanged");
+            return summary(current);
+        }
         SheetVersionStore.Row saved;
         try {
-            saved = store.updateGrid(reach.object(), reach.id(), versionNo, version, checked, reach.userId())
+            saved = (inReview
+                    ? store.updateGridInReview(reach.object(), reach.id(), versionNo, version, checked, reach.userId())
+                    : store.updateGrid(reach.object(), reach.id(), versionNo, version, checked, reach.userId()))
                     .orElse(null);
         } catch (DuplicateKeyException e) {
             changes.refused("save", "conflict");
@@ -166,12 +206,19 @@ class SheetVersions {
             // Changed since it was read, or left draft between the read above and the update.
             Optional<SheetVersionStore.Row> now = store.find(reach.object(), reach.id(), versionNo);
             changes.refused("save", "conflict");
-            if (now.isPresent() && !SheetStatus.DRAFT.name().equals(now.get().status())) {
+            if (now.isPresent() && !now.get().status().equals(current.status())) {
                 throw notADraft();
             }
             throw new ApiException(ErrorCode.CONCURRENT_MODIFICATION);
         }
-        changes.saved(reach.userId(), reach.object(), reach.id(), versionNo, saved.version(), checked);
+        if (inReview) {
+            // Into the history of the request and the audit trail, by the member and the record, never a value.
+            locks.overridden(reach.object(), reach.id(), reach.userId());
+            changes.reviewEdited(reach.userId(), reach.object(), reach.id(), versionNo, saved.version(),
+                    saved.reviewEdits(), checked);
+        } else {
+            changes.saved(reach.userId(), reach.object(), reach.id(), versionNo, saved.version(), checked);
+        }
         return summary(saved);
     }
 
@@ -219,6 +266,12 @@ class SheetVersions {
         return reach.canChange() || SheetStatus.valueOf(row.status()).readableByReaders();
     }
 
+    /** Whether the person is asked to decide the request that reviews this version, which is still in review. */
+    private boolean underReviewOf(SheetOwners.Caller caller, SheetVersionStore.Row row) {
+        return SheetStatus.IN_REVIEW.name().equals(row.status())
+                && owners.holdsOpenTask(row.approvalRequestId(), caller.userId());
+    }
+
     private static ApiException notADraft() {
         return new ApiException(ErrorCode.CONFLICT, "This version is no longer a draft and cannot be changed. "
                 + "Start a new version from it.");
@@ -236,6 +289,6 @@ class SheetVersions {
     private static SheetVersionSummaryView summary(SheetVersionStore.Row row) {
         return new SheetVersionSummaryView(row.versionNo(), row.status(), row.dimension(), row.rowsMode(),
                 row.gridBytes(), row.gridHash(), row.version(), row.createdAt(), row.updatedAt(), row.submittedAt(),
-                row.decidedAt());
+                row.decidedAt(), row.reviewEdits());
     }
 }

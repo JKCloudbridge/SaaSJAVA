@@ -150,13 +150,28 @@ public enum Ability {
 
     /**
      * Add a value to a picklist the organization owns, from the form where a record is written (FA2A, ADR-0182). It
-     * only
-     * adds: a value is never removed or renamed this way, and setting the list up stays with the ability to manage
+     * only adds: a value is never removed or renamed this way, and setting the list up stays with the ability to manage
      * objects and fields. The member must also be allowed to edit the field.
      */
     FIELD_VALUES_ADD("field-values.add", "Add values to picklists",
             "Add a new value, and the pair it belongs to, to a picklist whose list the organization owns, while "
-                    + "filling in a record. It never removes or renames a value.");
+                    + "filling in a record. It never removes or renames a value."),
+
+    /**
+     * Make an approved version of a record's sheet the one in use, and take it back from the people it was published to
+     * (FA4, ADR-0189). Separate from approving: a person can approve without publishing and the other way round.
+     */
+    SHEETS_PUBLISH("sheets.publish", "Publish and unpublish sheets",
+            "Make an approved version of a sheet the one in use, choose who it is published to, and take it back "
+                    + "from them. Approving a version does not need it."),
+
+    /**
+     * Retire a record that has a sheet, for good: its active version is retired and it is no longer used, but nothing
+     * is deleted and its number is never given again (FA4, ADR-0189).
+     */
+    SHEETS_RETIRE("sheets.retire", "Retire sheets",
+            "Retire a record that has a sheet. It stays stored and readable to those who had access, and its number "
+                    + "is never given to another record.");
 
     private final String key;
     private final String title;

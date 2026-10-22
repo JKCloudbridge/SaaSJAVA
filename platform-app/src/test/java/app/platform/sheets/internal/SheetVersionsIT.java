@@ -309,7 +309,7 @@ class SheetVersionsIT extends SheetSupport {
         Map<String, Object> grid = gridMap(read(setting.admin(), owner, 1));
         list(grid, "columns").get(0).put("label", "Too late");
         String before = read(setting.admin(), owner, 1).body();
-        walkTo(setting.organization(), owner, 1, "IN_REVIEW");
+        walkTo(setting.organization(), owner, 1, "IN_REVIEW", "REJECTED");
 
         Response late = save(setting.admin(), owner, 1, 1, json(grid));
 

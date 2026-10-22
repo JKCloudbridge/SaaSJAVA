@@ -65,16 +65,37 @@ class SolutionLoaderTest {
         assertThat(bundle.feature()).isEqualTo("inspection");
         assertThat(bundle.label()).isEqualTo("Audit maintenance");
         assertThat(bundle.application().apiName()).isEqualTo("inspection");
-        assertThat(bundle.application().entries()).hasSize(1);
-        assertThat(bundle.application().entries().get(0).kind()).isEqualTo(ShippedEntryView.Kind.PLATFORM);
-        assertThat(bundle.objects()).containsExactly("InspectionTemplate");
+        assertThat(bundle.application().entries()).extracting(SolutionBundle.Entry::kind)
+                .containsExactly(ShippedEntryView.Kind.PLATFORM, ShippedEntryView.Kind.OBJECT);
+        assertThat(bundle.objects()).containsExactly("InspectionTemplate", "DepartmentGroup");
         assertThat(bundle.sheetOwners()).containsExactly("InspectionTemplate");
         assertThat(bundle.policies()).extracting(SolutionBundle.Policy::name)
-                .containsExactly("Author", "Approver", "Reader", "Filler");
-        assertThat(bundle.policies()).allSatisfy(policy -> assertThat(policy.objects())
-                .containsOnlyKeys("InspectionTemplate").extractingByKey("InspectionTemplate")
-                .isEqualTo(java.util.Set.of(ObjectAction.READ)));
+                .containsExactly("Author", "Approver", "Reader", "Filler", "Department setup");
+        assertThat(policy(bundle, "author").objects().get("InspectionTemplate")).containsExactlyInAnyOrder(
+                ObjectAction.CREATE, ObjectAction.READ, ObjectAction.UPDATE);
+        assertThat(policy(bundle, "author").abilities()).isEmpty();
+        // Only an approver passes the lock of an approval, publishes and retires (ADR-0189).
+        assertThat(policy(bundle, "approver").abilities()).containsExactlyInAnyOrder("approvals.override-lock",
+                "sheets.publish", "sheets.retire");
+        assertThat(policy(bundle, "approver").objects().get("InspectionTemplate")).contains(ObjectAction.UPDATE,
+                ObjectAction.VIEW_ALL, ObjectAction.MODIFY_ALL).doesNotContain(ObjectAction.DELETE);
+        assertThat(policy(bundle, "reader").objects().get("InspectionTemplate")).containsExactly(ObjectAction.READ);
+        assertThat(policy(bundle, "filler").objects().get("InspectionTemplate")).containsExactly(ObjectAction.READ);
+        assertThat(policy(bundle, "reader").abilities()).isEmpty();
+        assertThat(policy(bundle, "departments").objects()).containsOnlyKeys("DepartmentGroup");
+        // A field is theirs to see only when the policy says so: an author edits what they write and reads the rest.
+        assertThat(policy(bundle, "author").fields()).containsEntry("InspectionTemplate.name",
+                java.util.Set.of(app.platform.security.FieldAction.EDIT)).containsEntry("InspectionTemplate.number",
+                java.util.Set.of(app.platform.security.FieldAction.READ));
+        assertThat(policy(bundle, "reader").fields().values()).allSatisfy(actions -> assertThat(actions)
+                .containsExactly(app.platform.security.FieldAction.READ));
+        assertThat(policy(bundle, "departments").fields()).containsEntry("DepartmentGroup.groupId",
+                java.util.Set.of(app.platform.security.FieldAction.EDIT));
         assertThat(bundle.removalNote()).contains("Nothing is deleted");
+    }
+
+    private static SolutionBundle.Policy policy(SolutionBundle bundle, String key) {
+        return bundle.policies().stream().filter(policy -> policy.key().equals(key)).findFirst().orElseThrow();
     }
 
     @Test
@@ -142,6 +163,24 @@ class SolutionLoaderTest {
                         "not one the platform knows"),
                 Arguments.of("rights that are not a list", GOOD.replace("Widget: [read]", "Widget: read"),
                         "are a list"),
+                Arguments.of("an ability the platform does not know", GOOD.replace("Widget: [read]",
+                        "Widget: [read]\n    abilities: [members.invite, teleport.anywhere]"),
+                        "an ability is not one the platform knows"),
+                Arguments.of("an ability listed twice", GOOD.replace("Widget: [read]",
+                        "Widget: [read]\n    abilities: [members.invite, members.invite]"), "listed twice"),
+                Arguments.of("abilities that are not a list", GOOD.replace("Widget: [read]",
+                        "Widget: [read]\n    abilities: members.invite"), "is a list of ability keys"),
+                Arguments.of("a field right of an action that does not exist", GOOD.replace("Widget: [read]",
+                        "Widget: [read]\n    fields:\n      Widget:\n        devour: [name]"),
+                        "'read' and 'edit' only"),
+                Arguments.of("a field listed twice", GOOD.replace("Widget: [read]",
+                        "Widget: [read]\n    fields:\n      Widget:\n        read: [name]\n        edit: [name]"),
+                        "listed twice under"),
+                Arguments.of("a field name that is not shaped like one", GOOD.replace("Widget: [read]",
+                        "Widget: [read]\n    fields:\n      Widget:\n        read: [Not-a-field]"),
+                        "not shaped like a field API name"),
+                Arguments.of("field rights that are not a mapping", GOOD.replace("Widget: [read]",
+                        "Widget: [read]\n    fields: name"), "maps an API name"),
                 Arguments.of("an empty list of rights", GOOD.replace("Widget: [read]", "Widget: []"), "are a list"),
                 Arguments.of("a syntax mistake", "key: demo\n  bad: [\n", "not valid YAML"));
     }

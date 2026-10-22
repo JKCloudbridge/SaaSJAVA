@@ -20,9 +20,8 @@ import org.springframework.stereotype.Repository;
  * column default and the policy take it from the transaction.
  *
  * <p>The database also enforces what must always hold (system profiles stay, a role hierarchy has no loop, an
- * assignment
- * points only at rows of the same organization, the last member who can manage access stays), so a bug here cannot
- * break those rules.
+ * assignment points only at rows of the same organization, the last member who can manage access stays), so a bug here
+ * cannot break those rules.
  */
 @Repository
 class AccessStore {
@@ -106,8 +105,7 @@ class AccessStore {
     /**
      * Takes the lock that serializes every change of who may do what in the current organization (the same one the
      * database guard of the last access manager takes, ADR-0044). Taken first, so the order of locks is always the
-     * same.
-     */
+     *same. /
     void lockAccessChanges() {
         jdbc.sql("select pg_advisory_xact_lock(hashtextextended('access-managers:' "
                         + "|| platform_current_tenant()::text, 0))")
@@ -237,18 +235,23 @@ class AccessStore {
         jdbc.sql("select set_config('platform.shipped_policy_write', 'on', true)").query().singleRow();
     }
 
-    UUID insertShippedPolicy(String name, String description, String owner, String key, String hash, ActorId actor) {
+    UUID insertShippedPolicy(String name, String description, List<String> abilities, String owner, String key,
+            String hash, ActorId actor) {
         return jdbc.sql("insert into access_policy (name, description, abilities, managed_by, managed_key, "
-                        + "managed_hash, created_by, updated_by) values (:name, :description, '{}', :owner, :key, "
-                        + ":hash, :actor, :actor) returning id")
-                .param("name", name).param("description", description).param("owner", owner).param("key", key)
+                        + "managed_hash, created_by, updated_by) values (:name, :description, "
+                        + "cast(:abilities as text[]), :owner, :key, :hash, :actor, :actor) returning id")
+                .param("name", name).param("description", description)
+                .param("abilities", abilities.toArray(String[]::new)).param("owner", owner).param("key", key)
                 .param("hash", hash).param("actor", actor.value()).query(UUID.class).single();
     }
 
-    void updateShippedPolicy(UUID id, String name, String description, String hash, ActorId actor) {
-        jdbc.sql("update access_policy set name = :name, description = :description, managed_hash = :hash, "
-                        + "version = version + 1, updated_by = :actor where id = :id and deleted_at is null")
-                .param("name", name).param("description", description).param("hash", hash)
+    void updateShippedPolicy(UUID id, String name, String description, List<String> abilities, String hash,
+            ActorId actor) {
+        jdbc.sql("update access_policy set name = :name, description = :description, "
+                        + "abilities = cast(:abilities as text[]), managed_hash = :hash, version = version + 1, "
+                        + "updated_by = :actor where id = :id and deleted_at is null")
+                .param("name", name).param("description", description)
+                .param("abilities", abilities.toArray(String[]::new)).param("hash", hash)
                 .param("actor", actor.value()).param("id", id).update();
     }
 

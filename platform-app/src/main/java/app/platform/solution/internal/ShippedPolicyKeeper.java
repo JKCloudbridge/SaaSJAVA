@@ -33,7 +33,8 @@ class ShippedPolicyKeeper {
     /** The declarations of the bundle in the shape the security module takes. */
     static List<ShippedAccessPolicies.Declaration> declarations(SolutionBundle bundle) {
         return bundle.policies().stream().map(policy -> new ShippedAccessPolicies.Declaration(
-                policy.managedKey(bundle.key()), policy.name(), policy.description(), policy.objects())).toList();
+                policy.managedKey(bundle.key()), policy.name(), policy.description(), policy.objects(),
+                policy.abilities(), policy.fields())).toList();
     }
 
     /** Makes the policies of the solution the organization lacks; never throws. */

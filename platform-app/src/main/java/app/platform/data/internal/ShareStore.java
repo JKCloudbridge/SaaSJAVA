@@ -38,6 +38,13 @@ class ShareStore {
             + "grantee_type = excluded.grantee_type, version = record_share.version + 1, "
             + "updated_by = excluded.updated_by returning " + COLUMNS;
 
+    // A share made for the platform's own act never changes one that exists: the row that is there stays as it is, so
+    // the level someone chose by hand is never lowered between the caller's check and its insert (FA4, ADR-0188).
+    private static final String INSERT_ABSENT = "insert into record_share (tenant_id, object_api_name, record_id, "
+            + "grantee_type, grantee_id, access_level, created_by, updated_by) values (:tenant, :object, :record, "
+            + ":type, :grantee, :level, :actor, :actor) on conflict (tenant_id, record_id, grantee_id) "
+            + "where deleted_at is null do nothing returning id";
+
     private final JdbcClient jdbc;
     private final TenantContexts contexts;
 
@@ -69,6 +76,13 @@ class ShareStore {
         return jdbc.sql(UPSERT).param("tenant", tenant()).param("object", object).param("record", recordId)
                 .param("type", granteeType).param("grantee", granteeId).param("level", level).param("actor", actor)
                 .query(ShareStore::map).single();
+    }
+
+    /** Makes the share unless the grantee has one; whether it was made. */
+    boolean insertAbsent(String object, UUID recordId, String granteeType, UUID granteeId, int level, UUID actor) {
+        return !jdbc.sql(INSERT_ABSENT).param("tenant", tenant()).param("object", object).param("record", recordId)
+                .param("type", granteeType).param("grantee", granteeId).param("level", level).param("actor", actor)
+                .query(UUID.class).list().isEmpty();
     }
 
     /** Takes the share back: the row is deleted (the audit trail keeps the history). */

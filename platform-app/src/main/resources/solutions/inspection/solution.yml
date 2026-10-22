@@ -5,8 +5,10 @@
 # no table of the organization. The access policies are made as rows in each organization that has the feature, marked as
 # shipped (so an administrator can assign them but not change them), the way the system profiles are made.
 #
-# The rights of the policies are named but hold only what the framework needs (the read right on the first object); the
-# real rights are filled in when the roles of the business are settled (FA4).
+# The rights of the policies (FA4, ADR-0189): the rights on the objects and the abilities that go with each job. Authoring
+# is the ordinary right to change a template; passing the lock of an approval, publishing and retiring are abilities
+# (a template is never given a delete right: its records are kept). Licence, access policy and plan feature stay three
+# mechanisms: these policies are not bound to a licence, and the plan feature decides whether any of this exists.
 key: inspection
 feature: inspection
 label: Audit maintenance
@@ -23,29 +25,61 @@ application:
       label: Templates
       pageKey: templates
       readsObject: InspectionTemplate
+    - type: OBJECT
+      object: DepartmentGroup
 objects:
   - InspectionTemplate
+  - DepartmentGroup
 # The records of these objects own a sheet: the grid of the template, kept in versions (FA3, ADR-0186).
 sheetOwners:
   - InspectionTemplate
 accessPolicies:
   - key: author
     name: Author
-    description: Writes templates. Comes with the Audit maintenance application and cannot be changed.
+    description: Writes templates and sends them for approval. Comes with the Audit maintenance application and cannot be changed.
     objects:
-      InspectionTemplate: [read]
+      InspectionTemplate: [create, read, update]
+    fields:
+      InspectionTemplate:
+        edit: [name, category, subCategory, partCode, planYear]
+        read: [number, retired, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: approver
     name: Approver
-    description: Approves templates. Comes with the Audit maintenance application and cannot be changed.
+    description: Sees every template, changes one that is in review, publishes and retires. Comes with the Audit maintenance application and cannot be changed.
     objects:
-      InspectionTemplate: [read]
+      InspectionTemplate: [read, update, view-all, modify-all]
+    abilities:
+      - approvals.override-lock
+      - sheets.publish
+      - sheets.retire
+    fields:
+      InspectionTemplate:
+        edit: [name, category, subCategory, partCode, planYear]
+        read: [number, retired, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: reader
     name: Reader
-    description: Reads published templates. Comes with the Audit maintenance application and cannot be changed.
+    description: Reads the templates published to them. Comes with the Audit maintenance application and cannot be changed.
     objects:
       InspectionTemplate: [read]
+    fields:
+      InspectionTemplate:
+        read: [name, number, category, subCategory, partCode, planYear, retired, createdAt, updatedAt, ownerId,
+                createdById, updatedById]
   - key: filler
     name: Filler
     description: Fills in published templates. Comes with the Audit maintenance application and cannot be changed.
     objects:
       InspectionTemplate: [read]
+    fields:
+      InspectionTemplate:
+        read: [name, number, category, subCategory, partCode, planYear, retired, createdAt, updatedAt, ownerId,
+                createdById, updatedById]
+  - key: departments
+    name: Department setup
+    description: Says which group of people belongs to which department of which location. Comes with the Audit maintenance application and cannot be changed.
+    objects:
+      DepartmentGroup: [create, read, update, delete]
+    fields:
+      DepartmentGroup:
+        edit: [name, location, department, groupId]
+        read: [createdAt, updatedAt, ownerId, createdById, updatedById]
