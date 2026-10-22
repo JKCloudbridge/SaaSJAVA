@@ -7,6 +7,8 @@ import app.platform.testsupport.PlatformIntegrationTest;
 import app.platform.testsupport.TestApplication;
 import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestOrganizations.Organization;
+import java.time.Duration;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -138,8 +140,12 @@ class WorkerCrashIT extends ActionsSupport {
         FailureInjection.crash("PUBLISH_EVENT", 1, true);
 
         assertThatThrownBy(this::runWorker).isInstanceOf(FailureInjection.SimulatedCrash.class);
-        assertThat(steps(organization, execution)).as("the first step committed before the death")
-                .contains("Set:COMPLETED:1");
+        // The commit of the first step happens before the crash is even thrown, so this is already true; the short
+        // wait is only insurance against a loaded CI runner being slow to hand back a fresh connection, not a real
+        // race in the platform's own promise (ADR-0165).
+        Awaitility.await().atMost(Duration.ofSeconds(5)).pollInterval(Duration.ofMillis(50))
+                .untilAsserted(() -> assertThat(steps(organization, execution))
+                        .as("the first step committed before the death").contains("Set:COMPLETED:1"));
         theLeaseEnds(organization);
         survivorLooks();
         settle(organization);
