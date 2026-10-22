@@ -66,7 +66,11 @@ class RecordVisibility {
         if (access.can(ObjectAction.MODIFY_ALL) || (action == RecordAction.READ && access.can(ObjectAction.VIEW_ALL))) {
             return Optional.empty();
         }
-        return plans.conditionOf(object, security.accessTo(membershipId, object.apiName()).forAction(action));
+        app.platform.security.Admission __debugAdmission = security.accessTo(membershipId, object.apiName())
+                .forAction(action);
+        System.err.println("DEBUG constraintFor object=" + object.apiName() + " action=" + action + " admission="
+                + __debugAdmission);
+        return plans.conditionOf(object, __debugAdmission);
     }
 
     /** How many times the seam was asked (tests). */

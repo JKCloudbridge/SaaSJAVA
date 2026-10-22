@@ -743,7 +743,9 @@ public final class TenantScopedTables {
                             + "'FIXED', cast('{}' as jsonb), ?, 2, ?, ?)",
                     tenant, UUID.randomUUID(), new byte[32], ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
 
-    /** The memory of publishing a template to a group (FA4). Each probe row is a publication of a template of its own. */
+    /**
+     * The memory of publishing a template to a group (FA4). Each probe row is a publication of a template of its own.
+     */
     public static final TenantScopedTable INSPECTION_PUBLICATION = new TenantScopedTable("inspection_publication",
             (connection, tenant) -> TenantFixtures.update(connection,
                     "insert into inspection_publication (tenant_id, template_id, version_no, location, department, "

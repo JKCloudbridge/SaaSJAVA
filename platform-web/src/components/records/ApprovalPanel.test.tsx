@@ -92,14 +92,14 @@ describe("ApprovalPanel", () => {
     expect(steps).toHaveTextContent("Manager");
     expect(steps).toHaveTextContent("User B");
     expect(steps).toHaveTextContent("Finance");
-    expect(onState).toHaveBeenCalledWith({ locked: true, mayOverride: false });
+    expect(onState).toHaveBeenCalledWith({ locked: true, mayApprove: false, mayOverride: false });
   });
 
   it("tells a member who may override the lock so, and tells the page", async () => {
     const { onState } = open(pending({ ...NO_ACTIONS, canCancel: true }));
 
     expect(await screen.findByTestId("approval-locked")).toHaveTextContent("who may override the lock");
-    expect(onState).toHaveBeenCalledWith({ locked: true, mayOverride: true });
+    expect(onState).toHaveBeenCalledWith({ locked: true, mayApprove: false, mayOverride: true });
     expect(screen.getByRole("button", { name: "End the request" })).toBeInTheDocument();
   });
 
