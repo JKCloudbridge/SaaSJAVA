@@ -85,7 +85,7 @@ export function AnnotatePanel({
 
   const placeOfTarget = (which: Target): Place | null => (which === "template" ? null : context.places[which]);
   const available = (which: Target): boolean => which === "template" || context.places[which] !== null;
-  const chosen: Target = available(target) ? target : "template";
+  const chosen: Target = available(target) ? target : available("column") ? "column" : "template";
   const chosenPlace = placeOfTarget(chosen);
   const chosenWords = chosenPlace ? context.describe(chosenPlace) : "The whole template";
 

@@ -135,7 +135,7 @@ describe("a request and its comments", () => {
     draw(ready(view([request({ title: "<b>bold?</b>", comments: [comment({ text: "one\ntwo <i>three</i>" })] })])));
 
     expect(screen.getByRole("heading", { name: "<b>bold?</b>" })).toBeInTheDocument();
-    const text = screen.getByText(/one/);
+    const text = screen.getByText(/three/);
     expect(text).toHaveClass("comment-text");
     expect(text.textContent).toBe("one\ntwo <i>three</i>");
     expect(document.querySelector("i")).toBeNull();
