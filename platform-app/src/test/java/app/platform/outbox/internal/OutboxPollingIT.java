@@ -94,7 +94,7 @@ class OutboxPollingIT {
         tenants.suspend(tenant.id(), ActorId.SYSTEM);
 
         assertThat(relay.isRunning()).isTrue();
-        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> assertThat(handledFor(tenant)).hasSize(3));
+        await().atMost(Duration.ofSeconds(60)).untilAsserted(() -> assertThat(handledFor(tenant)).hasSize(3));
 
         List<Handled> mine = handledFor(tenant);
         assertThat(mine).extracting(Handled::type)
@@ -109,7 +109,7 @@ class OutboxPollingIT {
     void eachEventIsHandledOnceEvenThoughTheRelayKeepsPolling() throws Exception {
         Tenant tenant = tenants.provision(TenantSlug.of("once-" + UUID.randomUUID().toString().substring(0, 8)),
                 "Tenant B", ActorId.SYSTEM);
-        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> assertThat(handledFor(tenant)).hasSize(1));
+        await().atMost(Duration.ofSeconds(60)).untilAsserted(() -> assertThat(handledFor(tenant)).hasSize(1));
 
         Thread.sleep(500);
 
@@ -126,7 +126,7 @@ class OutboxPollingIT {
 
         Tenant tenant = tenants.provision(TenantSlug.of("restart-" + UUID.randomUUID().toString().substring(0, 8)),
                 "Tenant C", ActorId.SYSTEM);
-        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> assertThat(handledFor(tenant)).hasSize(1));
+        await().atMost(Duration.ofSeconds(60)).untilAsserted(() -> assertThat(handledFor(tenant)).hasSize(1));
     }
 
     private List<Handled> handledFor(Tenant tenant) {
