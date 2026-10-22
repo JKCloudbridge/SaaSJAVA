@@ -84,7 +84,7 @@ class DefaultBackgroundWrites implements BackgroundWrites {
         ObjectDefinition object = object(objectApiName);
         // The lock of an approval (ADR-0148): the row lock first, then the lock, then the record as it is. The outcome
         // update of an approval ends the request first, in this same transaction, so it passes.
-        lockGuard.requireOpenForPlatform(object.apiName(), recordId);
+        lockGuard.requireOpenForPlatform(object.apiName(), recordId, source);
         DataRecord current = storage.find(object.apiName(), recordId);
         if (current == null) {
             throw new BackgroundWriteException(Reason.RECORD_GONE);

@@ -181,6 +181,12 @@ abstract class ApprovalSupport {
                 + "\",\"approvers\":[" + String.join(",", approvers) + "]}";
     }
 
+    /** A step that is skipped when nobody can decide it (FA4A, ADR-0187). */
+    protected static String skippableStep(String name, String completion, String... approvers) {
+        return "{\"name\":\"" + name + "\",\"label\":\"" + name + "\",\"completion\":\"" + completion
+                + "\",\"approvers\":[" + String.join(",", approvers) + "],\"skipWhenNobody\":true}";
+    }
+
     protected static String outcomes(String approved, String rejected, String recalled) {
         return "{\"approved\":[" + approved + "],\"rejected\":[" + rejected + "],\"recalled\":[" + recalled + "]}";
     }

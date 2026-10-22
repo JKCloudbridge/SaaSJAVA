@@ -73,7 +73,8 @@ class ApprovalProcessCodec {
                 .fromCode(spec.completion()).orElseThrow(() -> new IllegalStateException(
                         "A stored approval process has a completion rule this release does not know"));
         return new ApprovalProcessDefinition.Step(spec.name(), spec.label(), completion,
-                spec.approvers().stream().map(ApprovalProcessCodec::approver).toList());
+                spec.approvers().stream().map(ApprovalProcessCodec::approver).toList(),
+                Boolean.TRUE.equals(spec.skipWhenNobody()));
     }
 
     static ApprovalProcessDefinition.Approver approver(ApprovalApproverSpec spec) {

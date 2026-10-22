@@ -54,7 +54,12 @@ final class ApprovalMachine {
         /** A task was handed to another person. */
         TASK_REASSIGNED,
         /** A person was added to the active step. */
-        TASK_ADDED
+        TASK_ADDED,
+        /**
+         * A step nobody could be asked to decide was skipped because the process says it may be; the next step must be
+         * resolved (see {@link Done#next()}).
+         */
+        STEP_SKIPPED
     }
 
     /**
@@ -156,12 +161,41 @@ final class ApprovalMachine {
             throw new IllegalStateException("A step is activated only when the request is pending and none is active");
         }
         Step step = step(model, position);
-        boolean earlierDone = model.steps().stream().filter(other -> other.position() < position)
-                .allMatch(other -> other.status() == StepStatus.APPROVED);
-        if (step.status() != StepStatus.WAITING || !earlierDone) {
+        if (step.status() != StepStatus.WAITING || !earlierDecided(model, position)) {
             throw new IllegalStateException("Only the next waiting step can be activated");
         }
         return replace(model, new Step(position, step.completion(), StepStatus.ACTIVE, tasks), model.status());
+    }
+
+    /**
+     * A waiting step that nobody can be asked to decide is skipped, because its process says it may be (FA4A,
+     * ADR-0187). Only the next waiting step, with no step active, and only when every step before it was approved or
+     * skipped. A skipped step holds no task and is never active. When it is the last step the request is approved, as
+     * if the last approval had come, provided at least one step was approved; the first steps of a new request are
+     * skipped the same way (the engine never skips the last one when nothing was approved: it refuses the submit).
+     */
+    static Result skip(Model model, int position) {
+        if (model.status() != Status.PENDING || model.active().isPresent()) {
+            return new Refused("not_between_steps");
+        }
+        Step step = step(model, position);
+        if (step.status() != StepStatus.WAITING || !earlierDecided(model, position)) {
+            return new Refused("not_the_next_step");
+        }
+        Model after = replace(model, new Step(position, step.completion(), StepStatus.SKIPPED, List.of()),
+                Status.PENDING);
+        if (position < model.steps().size()) {
+            return new Done(after, Effect.STEP_SKIPPED, List.of(), position + 1);
+        }
+        if (after.steps().stream().noneMatch(other -> other.status() == StepStatus.APPROVED)) {
+            return new Refused("nothing_approved");
+        }
+        return new Done(new Model(Status.APPROVED, after.steps()), Effect.REQUEST_APPROVED, List.of(), 0);
+    }
+
+    private static boolean earlierDecided(Model model, int position) {
+        return model.steps().stream().filter(other -> other.position() < position)
+                .allMatch(other -> other.status() == StepStatus.APPROVED || other.status() == StepStatus.SKIPPED);
     }
 
     /** The person approves their open task of the active step. */
@@ -261,7 +295,13 @@ final class ApprovalMachine {
     static List<String> violations(Model model) {
         List<String> broken = new ArrayList<>();
         long active = model.steps().stream().filter(step -> step.status() == StepStatus.ACTIVE).count();
-        if (model.status() == Status.PENDING && active != 1) {
+        // Between two steps (a step was decided or skipped and the next is not resolved yet) none is active, but the
+        // next one waits and the one before it is decided. A request that has only just started is not between steps.
+        boolean between = model.steps().stream().filter(step -> step.status() == StepStatus.WAITING)
+                .findFirst().filter(next -> next.position() > 1).map(next -> model.steps().get(next.position() - 2))
+                .filter(before -> before.status() == StepStatus.APPROVED || before.status() == StepStatus.SKIPPED)
+                .isPresent();
+        if (model.status() == Status.PENDING && (active > 1 || active == 0 && !between)) {
             broken.add("a pending request has exactly one active step");
         }
         if (model.status() != Status.PENDING && active != 0) {
@@ -269,9 +309,13 @@ final class ApprovalMachine {
         }
         boolean approved = model.steps().stream().anyMatch(step -> step.status() == StepStatus.APPROVED);
         boolean rejected = model.steps().stream().anyMatch(step -> step.status() == StepStatus.REJECTED);
+        if (model.status() == Status.APPROVED && (!approved || model.steps().stream()
+                .anyMatch(step -> step.status() != StepStatus.APPROVED && step.status() != StepStatus.SKIPPED))) {
+            broken.add("an approved request has every step approved or skipped, and at least one approved");
+        }
         if (model.status() == Status.APPROVED && model.steps().stream()
-                .anyMatch(step -> step.status() != StepStatus.APPROVED)) {
-            broken.add("an approved request has every step approved");
+                .anyMatch(step -> step.status() == StepStatus.SKIPPED && !step.tasks().isEmpty())) {
+            broken.add("a step skipped because nobody could decide it holds no task");
         }
         if (model.status() == Status.REJECTED && !rejected) {
             broken.add("a rejected request has a rejected step");

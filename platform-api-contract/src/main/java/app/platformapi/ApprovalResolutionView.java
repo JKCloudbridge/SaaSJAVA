@@ -27,10 +27,13 @@ public record ApprovalResolutionView(@NotNull List<ResolvedStep> steps) {
      * @param usesFallback whether the fallback approver would be asked because the rules name nobody who can decide
      * @param nobody whether nobody at all would be asked (a request would be refused if this is the first step, and
      * would
-     *        wait for an administrator otherwise)
+     *        wait for an administrator otherwise), unless the step is skipped when nobody can decide it
+     * @param skipped whether the step would be skipped because nobody would be asked and the process says it may be
+     *        (FA4A, ADR-0187)
      */
     public record ResolvedStep(@NotNull String name, @NotNull String label, @NotNull List<ApprovalPersonView> people,
-            @NotNull Map<String, Integer> left, @NotNull Boolean usesFallback, @NotNull Boolean nobody) {
+            @NotNull Map<String, Integer> left, @NotNull Boolean usesFallback, @NotNull Boolean nobody,
+            @NotNull Boolean skipped) {
 
         /** Copies the list and the map. */
         public ResolvedStep {

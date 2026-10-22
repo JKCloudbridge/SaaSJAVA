@@ -1,6 +1,6 @@
 # ADR-0176: Number series, and how the first approver's number gets written
 
-- **Status:** Accepted (the product owner, 2026-10-21; sections 1 and 3 built in FA2A, [ADR-0184](0184-number-series-declaration-formats-and-counters.md) records what building them decided; section 2 is FA4A and FA4)
+- **Status:** Accepted (the product owner, 2026-10-21; sections 1 and 3 built in FA2A, [ADR-0184](0184-number-series-declaration-formats-and-counters.md) records what building them decided; section 2 is built in FA4A, [ADR-0187](0187-approval-hooks-the-lock-owners-write-and-the-step-that-is-skipped.md), except the cluster's own hook, which is FA4)
 - **Date:** 2026-10-21
 - **Sprint:** FA0 (Functional track, spike; no product code)
 - **Related:** [ADR-0096](0096-auto-number.md) (auto-number), [ADR-0111](0111-uniqueness-of-field-values.md) (uniqueness through a mask), [ADR-0148](0148-record-locking-while-an-approval-is-pending.md), [ADR-0139](0139-background-writes-the-one-reviewed-path.md), [ADR-0153](0153-what-sprint-24-leaves-out-and-why.md), [ADR-0174](0174-template-versions-and-approval-together.md), [ADR-0177](0177-dependent-picklists.md)
@@ -43,6 +43,8 @@ Gaps are allowed (a template rejected at the first step takes no number, but one
 **The preview** shows only the prefix ("PL/DD/…"), never the sequence: showing it would mean taking it, and with it the lock.
 
 ### 2. Who writes it, and when: the options compared (recommendation first)
+
+> **Built in FA4A ([ADR-0187](0187-approval-hooks-the-lock-owners-write-and-the-step-that-is-skipped.md)):** option (b), the contract, the calls and the write the lock lets through (the source `APPROVAL_HOOK`, accepted only for the pending request that owns the lock, through a narrow writer limited to the fields the hook declared). The cluster's implementation, which takes the number from the series, is FA4.
 
 | | What it is | Code | Tests | Verdict |
 |---|---|---|---|---|

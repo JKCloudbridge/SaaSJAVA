@@ -31,6 +31,10 @@ import app.platform.security.Decisions;
 import app.platform.security.ObjectAction;
 import app.platform.security.RecordRef;
 import app.platform.sharedkernel.ActorId;
+import app.platform.sharedkernel.Uuids;
+import app.platform.sharedkernel.approval.ApprovalHookRefusal;
+import app.platform.sharedkernel.approval.ApprovalHooks.SubmitContext;
+import app.platform.sharedkernel.approval.ApprovalOutcome;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
 import java.time.Clock;
@@ -86,6 +90,7 @@ class ApprovalEngine implements Approvals {
     private final ApprovalAudit audit;
     private final ApprovalNotifier notifier;
     private final ApprovalCaller callers;
+    private final ApprovalHookCalls hooks;
     private final ApprovalProperties properties;
     private final Clock clock;
     private final TransactionTemplate savepoint;
@@ -93,7 +98,8 @@ class ApprovalEngine implements Approvals {
     ApprovalEngine(ApprovalStore store, ApproverResolver resolver, MetadataResolver definitions, Metadata metadata,
             BackgroundRecords records, BackgroundWrites writes, RecordTitles titles, Decisions decisions,
             Entitlements entitlements, ApprovalAudit audit, ApprovalNotifier notifier, ApprovalCaller callers,
-            ApprovalProperties properties, Clock clock, PlatformTransactionManager transactions) {
+            ApprovalHookCalls hooks, ApprovalProperties properties, Clock clock,
+            PlatformTransactionManager transactions) {
         this.store = store;
         this.resolver = resolver;
         this.definitions = definitions;
@@ -106,6 +112,7 @@ class ApprovalEngine implements Approvals {
         this.audit = audit;
         this.notifier = notifier;
         this.callers = callers;
+        this.hooks = hooks;
         this.properties = properties;
         this.clock = clock;
         this.savepoint = new TransactionTemplate(transactions);
@@ -136,6 +143,9 @@ class ApprovalEngine implements Approvals {
             return begin(member.userId(), record, process, note, null);
         } catch (ApprovalStartException refused) {
             throw new ApiException(ErrorCode.CONFLICT, words(refused.reason()));
+        } catch (ApprovalHookRefusal refusal) {
+            // The hook's own fixed words; the stable key is in the audit (ADR-0187).
+            throw new ApiException(ErrorCode.CONFLICT, refusal.words());
         }
     }
 
@@ -170,8 +180,13 @@ class ApprovalEngine implements Approvals {
             throw new ApprovalStartException(Reason.ENTRY_CRITERIA_NOT_EVALUABLE);
         }
         BackgroundWrites.Chain kept = chain == null || chain.root() == null ? null : chain;
-        InstanceRow started = begin(null, record, process, null, kept);
-        return new Approvals.Started(started.id(), false);
+        try {
+            InstanceRow started = begin(null, record, process, null, kept);
+            return new Approvals.Started(started.id(), false);
+        } catch (ApprovalHookRefusal refusal) {
+            // A reason a workflow step reports as a permanent failure; the hook's own key is in the audit.
+            throw new ApprovalStartException(Reason.HOOK_REFUSED);
+        }
     }
 
     private void ensureCanSubmit(Member member, String objectApiName, UUID recordId) {
@@ -246,6 +261,7 @@ class ApprovalEngine implements Approvals {
             case RECORD_IN_BIN -> "This record is in the recycle bin.";
             case PROCESS_INACTIVE -> "This approval process is switched off.";
             case PROCESS_MISSING -> "This approval process does not exist.";
+            case HOOK_REFUSED -> "This record cannot be submitted for approval now.";
         };
     }
 
@@ -257,14 +273,32 @@ class ApprovalEngine implements Approvals {
         ApproverResolver.Context context = new ApproverResolver.Context(record, submitter,
                 definition.allowSelfApproval(), definition.fallback(), definition.objectApiName(),
                 definition.apiName());
-        Resolved first = resolver.resolve(definition.steps().get(0), context);
-        if (first.nobody()) {
+        // The first step that has somebody to decide it. A step before it may be skipped, but only when the process
+        // says so; a step that must be decided and has nobody refuses the submit, as it always did (ADR-0187).
+        // Resolving writes nothing, so a refusal here leaves nothing.
+        int firstActive = -1;
+        Resolved first = null;
+        for (int i = 0; i < definition.steps().size() && first == null; i++) {
+            ApprovalProcessDefinition.Step step = definition.steps().get(i);
+            Resolved resolved = resolver.resolve(step, context);
+            if (!resolved.nobody()) {
+                firstActive = i;
+                first = resolved;
+            } else if (!step.skipWhenNobody()) {
+                throw new ApprovalStartException(Reason.NO_APPROVER);
+            }
+        }
+        if (first == null) {
             throw new ApprovalStartException(Reason.NO_APPROVER);
         }
-        InstanceRow instance = store.insertInstance(definition.id(), definition.versionId(), definition.apiName(),
-                definition.label(), definition.definitionVersion(), definition.objectApiName(), record.id(),
-                record.version(), submitter, chain == null ? null : chain.root(),
-                chain == null ? 0 : chain.depth(), chain == null ? List.of() : chain.workflows(), actor);
+        UUID requestId = Uuids.v7();
+        hooks.submitted(new SubmitContext(requestId, definition.objectApiName(), record.id(), definition.apiName(),
+                definition.definitionVersion(), submitter));
+        InstanceRow instance = store.insertInstance(requestId, definition.id(), definition.versionId(),
+                definition.apiName(), definition.label(), definition.definitionVersion(),
+                definition.objectApiName(), record.id(), record.version(), submitter,
+                chain == null ? null : chain.root(), chain == null ? 0 : chain.depth(),
+                chain == null ? List.of() : chain.workflows(), actor);
         List<StepRow> steps = new ArrayList<>();
         for (int i = 0; i < definition.steps().size(); i++) {
             ApprovalProcessDefinition.Step step = definition.steps().get(i);
@@ -273,7 +307,10 @@ class ApprovalEngine implements Approvals {
         }
         store.insertHistory(instance.id(), null, "SUBMITTED", submitter, null, null, null, comment,
                 instance.processVersionNumber(), actor);
-        activate(instance, steps.get(0), first, definition, actor);
+        for (int i = 0; i < firstActive; i++) {
+            skip(instance, i + 1, actor);
+        }
+        activate(instance, steps.get(firstActive), first, definition, actor);
         audit.submitted(submitter, instance, submitter == null ? "platform" : "person");
         return store.instance(instance.id()).orElseThrow();
     }
@@ -368,6 +405,14 @@ class ApprovalEngine implements Approvals {
         }
         Done done = (Done) result;
         StepRow step = loaded.stepAt(loaded.activePosition());
+        if (approve) {
+            // After the person's standing, task and the machine's answer, before anything is written (ADR-0187).
+            try {
+                hooks.beforeApprove(instance, step, member.userId());
+            } catch (ApprovalHookRefusal refusal) {
+                throw new ApiException(ErrorCode.CONFLICT, refusal.words());
+            }
+        }
         persist(loaded, done.model(), member.userId());
         audit.decision(approve ? "approve" : "reject", member.userId(), instance, step.position(),
                 "DELEGATED".equals(task.via()));
@@ -394,20 +439,58 @@ class ApprovalEngine implements Approvals {
         return advance(instance, done.next(), member.userId());
     }
 
-    /** Resolves the people of the next step and makes it the active one. */
+    /**
+     * Resolves the people of the next step and makes it the active one. A step nobody can be asked to decide, and that
+     * the process lets be skipped, is skipped, and so is the next one in the same case; when the steps are used up the
+     * request is approved, through the same end as a last approval (ADR-0187).
+     */
     private InstanceRow advance(InstanceRow instance, int position, UUID actor) {
         PinnedApprovalProcess pinned = pinned(instance);
         ApprovalProcessDefinition definition = pinned.process().definition();
-        StepRow next = store.steps(instance.id()).stream().filter(step -> step.position() == position).findFirst()
-                .orElseThrow();
         DataRecord record = records.find(instance.objectApiName(), instance.recordId()).orElse(null);
         ApproverResolver.Context context = new ApproverResolver.Context(record, instance.submittedBy(),
                 definition.allowSelfApproval(), definition.fallback(), definition.objectApiName(),
                 definition.apiName());
-        Resolved resolved = resolver.resolve(definition.steps().get(position - 1), context);
-        InstanceRow current = store.instance(instance.id()).orElseThrow();
-        activate(current, next, resolved, definition, actor);
-        return store.instance(instance.id()).orElseThrow();
+        int at = position;
+        while (true) {
+            ApprovalProcessDefinition.Step spec = definition.steps().get(at - 1);
+            Resolved resolved = resolver.resolve(spec, context);
+            if (resolved.nobody() && spec.skipWhenNobody()) {
+                Done skipped = skip(instance, at, actor);
+                if (skipped.effect() == Effect.REQUEST_APPROVED) {
+                    store.insertHistory(instance.id(), null, "APPROVED", null, null, null, null, null,
+                            instance.processVersionNumber(), actor);
+                    return end(instance, "APPROVED", Outcome.APPROVED, actor);
+                }
+                at = skipped.next();
+                continue;
+            }
+            int target = at;
+            StepRow next = store.steps(instance.id()).stream().filter(step -> step.position() == target)
+                    .findFirst().orElseThrow();
+            InstanceRow current = store.instance(instance.id()).orElseThrow();
+            activate(current, next, resolved, definition, actor);
+            return store.instance(instance.id()).orElseThrow();
+        }
+    }
+
+    /**
+     * Skips a waiting step nobody can decide: the machine says what the request looks like after it, the step is
+     * written as skipped, and the history and the audit say so (a stable reason, no names). A skipped step has no
+     * task, no timer and no notice.
+     */
+    private Done skip(InstanceRow instance, int position, UUID actor) {
+        Loaded loaded = load(store.instance(instance.id()).orElseThrow(), store.assignmentsOf(instance.id()));
+        ApprovalMachine.Result result = ApprovalMachine.skip(loaded.model(), position);
+        if (result instanceof Refused) {
+            throw new ApiException(ErrorCode.CONCURRENT_MODIFICATION);
+        }
+        Done done = (Done) result;
+        persist(loaded, done.model(), actor);
+        store.insertHistory(instance.id(), position, "STEP_SKIPPED", null, null, null, "nobody", null,
+                instance.processVersionNumber(), actor);
+        audit.stepSkipped(instance, position);
+        return done;
     }
 
     // ---- the timer (Sprint 25, ADR-0159) ----
@@ -661,6 +744,9 @@ class ApprovalEngine implements Approvals {
         InstanceRow current = store.instance(instance.id()).orElseThrow();
         save(current, status, null, null, current.outcomeFailure(), true, actor);
         store.stopTimers(instance.id(), actor);
+        // Once, for every way a request ends, after the status is saved (the record is no longer locked) and before
+        // the outcome updates; a failure undoes the whole decision (ADR-0187).
+        hooks.ended(instance, ApprovalOutcome.valueOf(status), actor);
         String failure = outcome == null ? null
                 : applyOutcome(store.instance(instance.id()).orElseThrow(), pinned(instance).process().definition(),
                         outcome);

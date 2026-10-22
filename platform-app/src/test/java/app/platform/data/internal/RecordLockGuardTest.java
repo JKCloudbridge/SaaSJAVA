@@ -187,4 +187,62 @@ class RecordLockGuardTest {
                 .isInstanceOf(ApiException.class);
         verifyNoInteractions(permissions);
     }
+
+    // ---- the write of the lock's owner (FA4A, ADR-0187) ----
+
+    private static final UUID REQUEST = UUID.randomUUID();
+
+    private static app.platform.data.BackgroundWrites.Source hookOf(UUID request) {
+        return app.platform.data.BackgroundWrites.Source.approvalHook("Large__c", request, null);
+    }
+
+    @Test
+    void aHookWritesToTheRecordItsOwnPendingRequestLocks() {
+        hasAProcess();
+        when(locks.locked(OBJECT, RECORD)).thenReturn(true);
+        when(locks.ownedBy(OBJECT, RECORD, REQUEST)).thenReturn(true);
+
+        assertThatCode(() -> guard.requireOpenForPlatform(OBJECT, RECORD, hookOf(REQUEST)))
+                .doesNotThrowAnyException();
+
+        InOrder order = inOrder(storage, locks);
+        order.verify(storage).lockRows(OBJECT, List.of(RECORD));
+        order.verify(locks).locked(OBJECT, RECORD);
+    }
+
+    @Test
+    void aHookOfAnotherRequestOrOfARequestThatEndedCannotWriteALockedRecord() {
+        hasAProcess();
+        when(locks.locked(OBJECT, RECORD)).thenReturn(true);
+        when(locks.ownedBy(OBJECT, RECORD, REQUEST)).thenReturn(false);
+
+        assertThatThrownBy(() -> guard.requireOpenForPlatform(OBJECT, RECORD, hookOf(REQUEST)))
+                .isInstanceOf(BackgroundWriteException.class)
+                .extracting(thrown -> ((BackgroundWriteException) thrown).reason().key()).isEqualTo("record_locked");
+    }
+
+    @Test
+    void aWorkflowOrTheOutcomeOfAnApprovalNeverPassesTheLockEvenWithTheIdentifierOfTheOwner() {
+        hasAProcess();
+        when(locks.locked(OBJECT, RECORD)).thenReturn(true);
+        when(locks.ownedBy(OBJECT, RECORD, REQUEST)).thenReturn(true);
+
+        assertThatThrownBy(() -> guard.requireOpenForPlatform(OBJECT, RECORD,
+                new app.platform.data.BackgroundWrites.Source("Flow__c", REQUEST, null)))
+                .isInstanceOf(BackgroundWriteException.class);
+        assertThatThrownBy(() -> guard.requireOpenForPlatform(OBJECT, RECORD,
+                app.platform.data.BackgroundWrites.Source.approval("Large__c", REQUEST, null)))
+                .isInstanceOf(BackgroundWriteException.class);
+        verify(locks, never()).ownedBy(anyString(), any(), any());
+    }
+
+    @Test
+    void theOwnerIsNotEvenAskedWhenTheRecordIsNotLocked() {
+        hasAProcess();
+        when(locks.locked(OBJECT, RECORD)).thenReturn(false);
+
+        guard.requireOpenForPlatform(OBJECT, RECORD, hookOf(REQUEST));
+
+        verify(locks, never()).ownedBy(anyString(), any(), any());
+    }
 }

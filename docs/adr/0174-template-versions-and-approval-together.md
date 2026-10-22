@@ -88,6 +88,8 @@ the history of the request). Nobody else (the owner and author included) passes 
 
 ### 5. What the engine needs: one generic hook
 
+> **Built in FA4A ([ADR-0187](0187-approval-hooks-the-lock-owners-write-and-the-step-that-is-skipped.md)).** The contract exists with the three calls as decided here, plus a narrow writer for the one write the lock lets through; the cluster's own hook is FA4. One refinement: `onSubmit` is handed the identifier the request will have, so a hook can record it before the request exists.
+
 Two things need a synchronous reaction inside the engine's transaction: moving the version row ([section 2](#2-the-transitions-who-may-what-each-writes) rows 3 to 6) and the first approver's number ([ADR-0176](0176-number-series-and-the-first-approvers-number.md)).
 **Decision: a shared-kernel contract `ApprovalHooks`** (implemented by the cluster glue, found by object name, called in the engine's own transaction, a failure rolls the decision back): `onSubmit(context)` (may refuse with a stable reason), `beforeApprove(context, step, approver)`, `onEnded(context, outcome)`.
 `approval` calls it; the cluster implements it; `data` and `approval` do not depend on the cluster (the inversion of `RecordLocks`). It reopens what ADR-0153 left out ("no step actions").
@@ -95,6 +97,8 @@ Two things need a synchronous reaction inside the engine's transaction: moving t
 Events are kept for what does not have to be atomic (a notice, a refresh of the master list).
 
 ### 6. Can the existing process builder express this? What it cannot do (the list the prompt asked for)
+
+> **Built in FA4A ([ADR-0187](0187-approval-hooks-the-lock-owners-write-and-the-step-that-is-skipped.md)):** gap 1 (the step flag `skipWhenNobody`) and gap 2 (the hook, for the number) and gap 7 (`onSubmit`). Gaps 3 to 6 stay as written.
 
 **It can express** (and the organization's administrator builds it in `/setup/approvals`): a process on `InspectionTemplate`; two or more steps; the reviewer and the approver as `RECORD_USER` rules reading two **user fields of the header** that the submitter fills; `allowSelfApproval = false`; `ANY` or `ALL`; a fallback; reminder and escalation hours; entry criteria on header fields
 ("category and sub-category are set"); outcome literals on the header (not needed here).

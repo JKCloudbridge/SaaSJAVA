@@ -807,3 +807,25 @@ Name the object in `sheetOwners` in the `solution.yml` of the solution that brin
 ### 27.5 Settings
 
 `platform.sheets.limits.max-bytes` (1,000,000), `max-rows` (500), `max-columns` (100), `max-header-rows` (10), `max-cell-chars` (1,000), `max-label-chars` (200), `max-picklist-values` (100), `max-merges` (2,000), `max-depth` (12), `max-versions-per-owner` (1,000); `platform.sheets.small-body-bytes` (4,096). The database refuses a grid above 5,000,000 bytes whatever `max-bytes` says. The proxy in front of the application should set a request size limit too (the application bounds a body with no announced length, the proxy bounds the connection).
+
+## 28. A step that is skipped when nobody can decide it, and what a business module can do with an approval (Functional track FA4A)
+
+Decisions in ADR-0187. This section is for an administrator (the first part) and for a contributor (the second).
+
+### For an administrator: an optional step
+
+On the step form of an approval process (**Setup, Approvals**, open a process, a step) there is a box, **"Skip this step when nobody can decide it"**. It is off for every step that exists and for every new step.
+
+- **What it does.** When a step is reached, the platform works out who is asked (the rules of the step; if they name nobody who can decide, the fallback approver of the process). If nobody is left **and the box is ticked**, the step is skipped and the request goes on to the next one. The history of the request shows "Step skipped"; no notice is sent about it and no reminder ever starts for it.
+- **What it does not do.** The fallback approver is always asked first. A step without the box behaves as it always did: if it is the first step, the record cannot be submitted; if it is a later step, the request waits and an administrator is told ("nobody can decide").
+- **The last steps.** If every step after an approval is skipped, the request is **approved** at that moment, exactly as if the last approver had approved: the approved outcome is applied and the person who submitted is told.
+- **Nobody at all.** If, when a record is submitted, nobody can be asked for any step (or an unmarked step that must be decided has nobody), the record cannot be submitted, with the same words as before.
+- **Example.** A process with a *Reviewer* step (box off) and an *Approver* step (box ticked). The person who submits names a reviewer but no approver. The reviewer approves; the second step has nobody, so it is skipped; the request is approved.
+- **Trying it.** "Work it out" on the process page says, for a record, which step would be skipped.
+- **A process saved before this existed** has the box off on every step.
+
+### For a contributor: hooks
+
+A module that owns an object can react to its approvals by implementing `ApprovalHooks` (see the engineering guide, "Approval hooks and the step that is skipped"). In short: one hook per object; `onSubmit` may refuse before the request exists; `beforeApprove` may refuse and may write the fields it declared in `writes()` through the writer it is handed, while the record is locked by the very request that is being decided; `onEnded` is told once how the request ended. Everything happens in the transaction of the decision, so a failure undoes the decision, the hook's writes and any counter it took. A hook is handed facts, never a comment or a value.
+
+**To add a hook:** implement `ApprovalHooks` as a bean in your module (it may depend on `data`, `metadata` and the shared kernel, never the other way round); declare `writes()` with fields that only the platform writes (`platformWritten` in the object file, ADR-0183); keep each call short; test it with a test configuration that registers a hook for a test object, as `ApprovalTestHooks` does, so the neighbouring tests run without it.

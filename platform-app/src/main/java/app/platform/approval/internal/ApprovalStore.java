@@ -85,16 +85,17 @@ class ApprovalStore {
 
     // ---- requests ----
 
-    InstanceRow insertInstance(UUID processId, UUID versionId, String processApiName, String processLabel,
-            int versionNumber, String objectApiName, UUID recordId, long recordVersion, UUID submittedBy,
-            UUID chainRoot, int chainDepth, List<UUID> chainWorkflows, UUID actor) {
-        UUID id = jdbc.sql("insert into approval_instance (process_id, process_version_id, process_api_name, "
+    InstanceRow insertInstance(UUID requestId, UUID processId, UUID versionId, String processApiName,
+            String processLabel, int versionNumber, String objectApiName, UUID recordId, long recordVersion,
+            UUID submittedBy, UUID chainRoot, int chainDepth, List<UUID> chainWorkflows, UUID actor) {
+        UUID id = jdbc.sql("insert into approval_instance (id, process_id, process_version_id, process_api_name, "
                         + "process_label, process_version_number, object_api_name, record_id, record_version, "
                         + "submitted_by, status, current_step, chain_root, chain_depth, chain_workflows, "
-                        + "created_by, updated_by) values (:process, :version, :apiName, :label, :number, :object, "
-                        + ":record, :recordVersion, :submitter, 'PENDING', 1, :chainRoot, :chainDepth, "
-                        + "cast(:chain as text[]), :actor, :actor) returning id")
-                .param("process", processId).param("version", versionId).param("apiName", processApiName)
+                        + "created_by, updated_by) values (:requestId, :process, :version, :apiName, :label, "
+                        + ":number, :object, :record, :recordVersion, :submitter, 'PENDING', 1, :chainRoot, "
+                        + ":chainDepth, cast(:chain as text[]), :actor, :actor) returning id")
+                .param("requestId", requestId).param("process", processId).param("version", versionId)
+                .param("apiName", processApiName)
                 .param("label", processLabel).param("number", versionNumber).param("object", objectApiName)
                 .param("record", recordId).param("recordVersion", recordVersion)
                 .param("submitter", submittedBy, Types.OTHER).param("chainRoot", chainRoot, Types.OTHER)
@@ -212,6 +213,15 @@ class ApprovalStore {
         return jdbc.sql("select exists (select 1 from approval_instance i where i.object_api_name = :object "
                         + "and i.record_id = :record and i.status = 'PENDING' and i.deleted_at is null)")
                 .param("object", objectApiName).param("record", recordId).query(Boolean.class).single();
+    }
+
+    /** Whether this request is the pending request of the record: the owner of the lock (FA4A, ADR-0187). */
+    boolean ownedBy(String objectApiName, UUID recordId, UUID requestId) {
+        return jdbc.sql("select exists (select 1 from approval_instance i where i.id = :request "
+                        + "and i.object_api_name = :object and i.record_id = :record and i.status = 'PENDING' "
+                        + "and i.deleted_at is null)")
+                .param("request", requestId).param("object", objectApiName).param("record", recordId)
+                .query(Boolean.class).single();
     }
 
     /** Which of the records have a pending request. */

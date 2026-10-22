@@ -1,6 +1,6 @@
 # ADR-0153: What Sprint 24 leaves out, and why
 
-- **Status:** Accepted
+- **Status:** Accepted (the "no step actions" row is reopened, in the narrow form of the hook, by [ADR-0187](0187-approval-hooks-the-lock-owners-write-and-the-step-that-is-skipped.md))
 - **Date:** 2026-10-18
 - **Sprint:** S24
 - **Related:** [ADR-0144](0144-what-sprint-23-leaves-out-and-why.md), [ADR-0145](0145-the-approval-model-processes-versions-instances-and-states.md)

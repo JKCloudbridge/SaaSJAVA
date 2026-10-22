@@ -72,7 +72,7 @@ class ApprovalResolveService {
             steps.add(new ApprovalResolutionView.ResolvedStep(spec.name(), spec.label(),
                     resolved.assignees().stream().map(assignee -> new ApprovalPersonView(assignee.userId(),
                             names.get(assignee.userId()))).toList(), resolved.left(), resolved.usedFallback(),
-                    resolved.nobody()));
+                    resolved.nobody(), resolved.nobody() && step.skipWhenNobody()));
         }
         return new ApprovalResolutionView(steps);
     }
@@ -112,7 +112,8 @@ class ApprovalResolveService {
         for (int j = 0; j < spec.approvers().size(); j++) {
             approvers.add(approver(spec.approvers().get(j), place + ".approvers[" + j + "]"));
         }
-        return new ApprovalProcessDefinition.Step(spec.name(), spec.label(), completion, approvers);
+        return new ApprovalProcessDefinition.Step(spec.name(), spec.label(), completion, approvers,
+                Boolean.TRUE.equals(spec.skipWhenNobody()));
     }
 
     private static Approver approver(ApprovalApproverSpec spec, String place) {

@@ -38,7 +38,7 @@ class ApprovalProcessRulesTest {
     }
 
     private static ApprovalStepSpec step(String name, String completion, ApprovalApproverSpec... approvers) {
-        return new ApprovalStepSpec(name, "Label " + name, completion, List.of(approvers));
+        return new ApprovalStepSpec(name, "Label " + name, completion, List.of(approvers), false);
     }
 
     private static Map<String, List<String>> problems(String criteria, List<ApprovalStepSpec> steps,
@@ -73,7 +73,7 @@ class ApprovalProcessRulesTest {
     @Test
     void aStepNeedsANameOnceALabelAKnownCompletionAndSomebodyToAsk() {
         Map<String, List<String>> found = problems(null, List.of(
-                new ApprovalStepSpec("1 bad name", "", "SOMETIMES", List.of()),
+                new ApprovalStepSpec("1 bad name", "", "SOMETIMES", List.of(), false),
                 step("Same", "ANY", user()), step("same", "ANY", user())), null, null);
 
         assertThat(found).containsKeys("steps[0].name", "steps[0].label", "steps[0].completion", "steps[0].approvers",
@@ -148,10 +148,21 @@ class ApprovalProcessRulesTest {
     void noMessageRepeatsWhatAPersonTyped() {
         Map<String, List<String>> found = problems("SECRET-CRITERIA ((", List.of(
                 new ApprovalStepSpec("SECRET name", "SECRET label", "SECRET", List.of(
-                        new ApprovalApproverSpec("SECRET", "SECRET-VALUE")))),
+                        new ApprovalApproverSpec("SECRET", "SECRET-VALUE")), false)),
                 new ApprovalOutcomesSpec(List.of(new ApprovalFieldSpec("SECRET field", "SECRET-LITERAL")), List.of(),
                         List.of()), new ApprovalApproverSpec("SECRET", "SECRET-VALUE"));
 
         assertThat(found.values().stream().flatMap(List::stream).toList()).noneMatch(text -> text.contains("SECRET-"));
+    }
+
+    @Test
+    void theFlagThatSkipsAStepNobodyCanDecideIsKeptAndDefaultsToFalse() {
+        Problems found = new Problems();
+        List<ApprovalStepSpec> kept = RULES.checkSteps(found, List.of(
+                new ApprovalStepSpec("First", "First", "ANY", List.of(user()), null),
+                new ApprovalStepSpec("Second", "Second", "ANY", List.of(user()), true)));
+
+        assertThat(found.any()).isFalse();
+        assertThat(kept).extracting(ApprovalStepSpec::skipWhenNobody).containsExactly(false, true);
     }
 }

@@ -1,10 +1,12 @@
 package app.platform.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.lang.ArchRule;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -62,12 +64,7 @@ class WorkflowArchitectureTest {
         // BackgroundWrites skips the member gate and the permissions, so its callers are a reviewed list of two (the
         // workflow actions, ADR-0139, and the outcome update of an approval, ADR-0149): no
         // controller, import, bulk or other module reaches it (ADR-0139). The data module implements it.
-        noClasses().that().resideOutsideOfPackages("app.platform.workflow..", "app.platform.approval..",
-                "app.platform.data..")
-                .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.data.BackgroundWrites")
-                .because("background writes are for workflows and the outcome of an approval only")
-                .allowEmptyShould(true)
-                .check(platform);
+        outsidersMayNotUseTheBackgroundDoor().check(platform);
         noClasses().that().resideInAPackage("app.platform.data.internal..")
                 .and().haveSimpleNameNotContaining("BackgroundWrites")
                 .should().dependOnClassesThat()
@@ -75,6 +72,24 @@ class WorkflowArchitectureTest {
                 .because("the platform door is entered by the interface only")
                 .allowEmptyShould(true)
                 .check(platform);
+    }
+
+    private static ArchRule outsidersMayNotUseTheBackgroundDoor() {
+        return noClasses().that().resideOutsideOfPackages("app.platform.workflow..", "app.platform.approval..",
+                "app.platform.data..")
+                .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.data.BackgroundWrites")
+                .because("background writes are for workflows and the outcome of an approval only")
+                .allowEmptyShould(true);
+    }
+
+    @Test
+    void aClassOfABusinessModuleThatTakesTheBackgroundDoorBreaksTheRule() {
+        // FA4A, ADR-0187: the hook of a business module writes through the narrow writer, never through this door. The
+        // rule above is held to a class that does the forbidden thing, so it is known to fail when it should.
+        JavaClasses clusterLike = new ClassFileImporter()
+                .importClasses(app.platform.architecture.fixtures.ClusterLikeWriter.class);
+
+        assertThat(outsidersMayNotUseTheBackgroundDoor().evaluate(clusterLike).hasViolation()).isTrue();
     }
 
     @Test
