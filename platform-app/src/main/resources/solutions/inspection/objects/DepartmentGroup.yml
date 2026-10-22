@@ -1,0 +1,68 @@
+# Shipped object: DepartmentGroup, the place where an administrator says which group of people belongs to a department of
+# a location (FA4, ADR-0190). Publishing a template to "Location, then Department" makes it visible to that group, so the
+# publish reads this object as the platform: the person who publishes needs no right on it.
+#
+# One record per pair of location and department. The administrator keeps the group itself in the group setup (adding and
+# removing people there); this record only names which group a pair means. A pair without a record, or whose group has
+# no members, cannot be published to and the publish says so.
+#
+# organizationValues: the platform ships the starting lists below; the organization's administrator owns the lists and
+#                     the pairs from then on (ADR-0182). The starting values are placeholders every organization replaces.
+# codeValues:         every value is a short code (letters, digits, hyphen, underscore; at most 10).
+# requiresFeature:    an organization without the plan feature does not have this object at all.
+# extensible:         an organization cannot add fields of its own to a shipped object.
+apiName: DepartmentGroup
+label: Department group
+pluralLabel: Department groups
+description: Says which group of people belongs to a department of a location, for publishing templates to them.
+extensible: false
+requiresFeature: inspection
+fields:
+  - apiName: name
+    label: Name
+    description: A name for this record, for example the location and the department written out.
+    type: TEXT
+    required: true
+    settings: { maxLength: 120 }
+
+  - apiName: location
+    label: Location
+    description: The place the department is in.
+    type: PICKLIST
+    required: true
+    organizationValues: true
+    codeValues: true
+    settings:
+      values:
+        - { value: PLANT1, label: "PLANT1 - Plant 1" }
+        - { value: PLANT2, label: "PLANT2 - Plant 2" }
+        - { value: HEAD, label: "HEAD - Head office" }
+
+  - apiName: department
+    label: Department
+    description: The department. Only the departments that go with the location can be chosen.
+    type: PICKLIST
+    required: true
+    organizationValues: true
+    codeValues: true
+    settings:
+      values:
+        - { value: PRD, label: "PRD - Production" }
+        - { value: QLT, label: "QLT - Quality" }
+        - { value: MNT, label: "MNT - Maintenance" }
+        - { value: STR, label: "STR - Stores" }
+        - { value: HR, label: "HR - Human resources" }
+        - { value: FIN, label: "FIN - Finance" }
+      dependency:
+        controllingField: location
+        allowed:
+          PLANT1: [PRD, QLT, MNT, STR]
+          PLANT2: [PRD, QLT, MNT]
+          HEAD: [HR, FIN]
+
+  - apiName: groupId
+    label: Group
+    description: The group whose members see the templates published to this department.
+    type: LOOKUP
+    required: true
+    settings: { targetObject: Group }

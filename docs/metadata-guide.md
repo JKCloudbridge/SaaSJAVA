@@ -829,3 +829,42 @@ On the step form of an approval process (**Setup, Approvals**, open a process, a
 A module that owns an object can react to its approvals by implementing `ApprovalHooks` (see the engineering guide, "Approval hooks and the step that is skipped"). In short: one hook per object; `onSubmit` may refuse before the request exists; `beforeApprove` may refuse and may write the fields it declared in `writes()` through the writer it is handed, while the record is locked by the very request that is being decided; `onEnded` is told once how the request ended. Everything happens in the transaction of the decision, so a failure undoes the decision, the hook's writes and any counter it took. A hook is handed facts, never a comment or a value.
 
 **To add a hook:** implement `ApprovalHooks` as a bean in your module (it may depend on `data`, `metadata` and the shared kernel, never the other way round); declare `writes()` with fields that only the platform writes (`platformWritten` in the object file, ADR-0183); keep each call short; test it with a test configuration that registers a hook for a test object, as `ApprovalTestHooks` does, so the neighbouring tests run without it.
+
+## 29. The lifecycle of a template: the approval process, the number, publishing and retiring (Functional track FA4)
+
+For the organization's administrator. The decisions are in ADR-0188 and ADR-0189.
+
+**1. Build the approval process for Template** (Setup, Approvals, new process on Template). Name the approver of each step **by role** (kind Role) or by group; whoever holds the role approves. Do not add "reviewer" or "approver" fields to Template: there are none. A step may be marked "Skip this step when nobody can decide it" (section 28). Entry criteria are not needed. The first approver of the first step who has somebody gives the number, whichever step that is. **An approver must be a licensed member** or the step has nobody. Give every person who approves the **Approver** policy too, or they will not see the template when they are asked to approve (a person with an open task can still read the version they are asked about, and nothing else).
+
+**2. Give the policies.** The five policies come with the application and cannot be changed; you give them to people, groups or roles in Access policies:
+
+| Policy | What it allows |
+|---|---|
+| **Author** | make templates, change their own, build the sheet of a draft, send it for approval |
+| **Approver** | see every template; correct a template or its sheet while it is in review (recorded in the audit trail); publish, unpublish and retire; start a draft |
+| **Reader** | read the templates published to them |
+| **Filler** | read the templates published to them (fill-ins come later) |
+| **Department setup** | keep the list of Department groups |
+
+Give **Author** to the roles that write templates (for example the Auditor QMS role) and **Approver** to the roles that approve and publish (for example the Corporate QMS role). A person who is only to read needs **Reader**, and must be in a department's group to be published to.
+
+**3. The number.** The number is made when the first approver approves: `IMS/01`, `QSP-01`, `WI/PRD/01` and so on, by the category (the formats are in `numbering.yml`, section 26.4). Four categories end in what the author types: a **control plan**, a **process flow chart** and a **failure mode analysis** end in the **part code** (`CP/PRD/AB-12`), a **business plan** in the **plan year** (`BP/2026`). Fill these in before submitting; the submit says what is missing. The category, sub-category, part code and plan year of a template that already has its number are not locked by the platform: do not change them, because the number does not follow.
+
+**4. Publishing is a separate act from approving.** An approved version is visible to the author and the approvers only. **Publish** (a person with the Approver policy) makes it visible to the people of the departments chosen. A template can be published while another version of it is in review. **Unpublish** takes it back from the people it was published to: exactly the access the publish gave is removed, and a share somebody gave by hand with the share panel stays. A published version that is replaced by a newer one becomes "Replaced" and stays readable as history.
+
+**5. Retire** ends a template for good. It needs no pending approval (recall it or let it finish). Nothing is deleted; the people who had it still read it; the number is never given to another template. A retired template cannot be sent for approval again. Nobody can mark a template retired by editing it: only the Retire button does.
+
+**6. Who sees what.** A template is private: its owner (the author), the people who hold the Approver policy (they view every template), and the people it is shared with or published to. The role hierarchy adds nothing for templates, and the sharing setup shows the object as fixed. You can still share one template by hand with a person, a group or a role (the share panel); that gives read access to the template, never to a draft version.
+
+## 30. Department groups: which group is a department (Functional track FA4)
+
+For the organization's administrator. The decisions are in ADR-0190.
+
+A template is published to a **Location** and a **Department**, and the people who see it are **a group you keep**. The place that says which group belongs to which pair is **Audit maintenance, Department groups** (the policy **Department setup** shows it).
+
+1. **The lists.** Location and Department are lists you own, like the categories (section 26). A starting list of placeholders comes with the platform; replace it with yours (Setup, Objects, Department group, the Location and Department fields). A department belongs to the locations you list it under; the department list narrows to the location when you choose.
+2. **The groups.** Make one **public group** for each department (Setup, Groups) and add its people. Nested groups count. The group is yours: add and remove people there, and the next page they open shows or hides the templates.
+3. **The mapping.** Add one **Department group** record for each pair: choose the Location, then the Department, then the Group. **One record for each pair**: if two exist for the same pair the publish refuses and says so.
+4. **What a publish says.** "No group is set up for this department yet" (no record), "More than one group is set up..." (two records), "The group set up for this department no longer exists" (the group was removed; fix the record), "The group set up for this department has no members yet" (the group is empty). A publish to several departments is all or nothing: the first pair that cannot be published to stops it and the dialog names it.
+5. **A removed group** takes its access with it. The template's page says that the group no longer exists; correct the record, then publish again.
+6. **The people** of a department are exactly the members of its group: nothing is read from a person's profile, and nobody is mailed when a template is published to them.

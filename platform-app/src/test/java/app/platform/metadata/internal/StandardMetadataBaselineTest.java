@@ -76,7 +76,8 @@ class StandardMetadataBaselineTest {
             // (ADR-0181): dropping either would hide the object from nobody, or open a kept object to deletion.
             lines.put(object.apiName(), "managedBy=" + (object.managedBy() == null ? "none" : object.managedBy())
                     + (object.requiresFeature() == null ? "" : " requiresFeature=" + object.requiresFeature())
-                    + (object.retainRecords() ? " retainRecords" : ""));
+                    + (object.retainRecords() ? " retainRecords" : "")
+                    + (object.sharingDefault() == null ? "" : " sharingDefault=" + object.sharingDefault()));
             int skip = standard.systemFields().size();
             for (FieldDefinition field : object.fields().subList(skip, object.fields().size())) {
                 lines.put(object.apiName() + "." + field.apiName(), detail(field));
@@ -90,10 +91,8 @@ class StandardMetadataBaselineTest {
         String more = switch (configuration) {
             case ReferenceConfiguration reference -> " target=" + reference.targetObject();
             // The organization owns the list of such a picklist once it starts to change it (ADR-0182): what is
-            // released
-            // is that it is theirs, and which field it depends on, not the platform's starting list, which a release
-            // may
-            // replace as data only.
+            // released is that it is theirs, and which field it depends on, not the platform's starting list, which a
+            // release may replace as data only.
             case PicklistConfiguration picklist when field.organizationValues() -> " organizationValues"
                     + (picklist.dependency() == null ? "" : " dependsOn=" + picklist.dependency().controllingField());
             case PicklistConfiguration picklist -> " values=" + picklist.values().stream().map(PicklistValue::value)

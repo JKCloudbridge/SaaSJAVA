@@ -38,8 +38,23 @@ const check = (name, ok, detail = "") => {
 };
 
 // ---- the API, called from the browser's own session (cookies and the forgery header), to make the data to look at ----
+//
+// The server rotates the forgery cookie after every state-changing request, exactly as the real page's own client
+// does (`ensureForgeryCookie` in `lib/session/SessionProvider.tsx`): a GET of `/api/v1/auth/csrf` refreshes it when
+// it is missing. A script that reused a cookie read before an earlier write would be refused for no reason of its
+// own; this follows the page's own rule so a check never reports a failure the real page would not have.
+
+async function ensureForgeryCookie(page) {
+  const hasToken = await page.evaluate(() => document.cookie.includes("XSRF-TOKEN="));
+  if (!hasToken) {
+    await page.evaluate(() => fetch("/api/v1/auth/csrf"));
+  }
+}
 
 async function api(page, method, path, body) {
+  if (method !== "GET") {
+    await ensureForgeryCookie(page);
+  }
   return page.evaluate(
     async ([method, path, body]) => {
       const csrf = document.cookie.split("; ").find((c) => c.startsWith("XSRF-TOKEN="))?.slice("XSRF-TOKEN=".length) ?? "";
@@ -208,6 +223,75 @@ try {
   check("a tap selects a cell", (await small.locator(".sheet-active").count()) === 1);
   await shot(small, "phone");
   await phone.close();
+
+  // 9. the master list and the publish dialog (Functional track FA4): a template is made, sent for approval, numbered and
+  // approved through the API (the same calls the buttons make), then the list and the dialog are used as a person does.
+  const stamp = Date.now();
+  const members = await api(page, "GET", "/api/v1/members?limit=200");
+  const membership = (members.body?.data ?? []).find((member) => member.email === "user-a@example.test")?.membershipId
+    ?? (members.body?.data ?? [])[0]?.membershipId;
+  const group = await api(page, "POST", "/api/v1/groups", { name: `Browser check group ${stamp}`, description: "" });
+  check("a group is made for a department", group.status === 201, `status ${group.status}`);
+  if (membership) await api(page, "POST", `/api/v1/groups/${group.body?.data?.id}/members`, { membershipId: membership });
+  const mapping = await api(page, "POST", "/api/v1/objects/DepartmentGroup/records", {
+    fields: { name: `Browser check ${stamp}`, location: "PLANT1", department: "PRD", groupId: group.body?.data?.id },
+  });
+  check("the group is set up for Plant 1, Production", mapping.status === 201, `status ${mapping.status} ${JSON.stringify(mapping.body?.error ?? "")}`.slice(0, 200));
+  const processName = `Check${stamp}`;
+  const process = await api(page, "POST", "/api/v1/metadata/approvals/InspectionTemplate", {
+    name: processName, label: processName, description: "", active: true, entryCriteria: null, allowSelfApproval: true,
+    steps: [{ name: "Only", label: "Only", completion: "ANY", approvers: [{ kind: "OWNER" }] }], outcomes: null, fallback: null,
+  });
+  check("an approval process is made", process.status === 201, `status ${process.status} ${JSON.stringify(process.body?.error ?? "")}`.slice(0, 200));
+  const lifecycle = await api(page, "POST", "/api/v1/objects/InspectionTemplate/records", {
+    fields: { name: `Lifecycle check ${stamp}`, category: "WI", subCategory: "PRD" },
+  });
+  const lifeId = lifecycle.body?.data?.id;
+  await api(page, "POST", `/api/v1/sheets/InspectionTemplate/${lifeId}/versions`, { dimension: 2 });
+  const lifeGrid = largestGrid();
+  lifeGrid.columns = lifeGrid.columns.slice(0, 3);
+  lifeGrid.rows = lifeGrid.rows.slice(0, 5);
+  lifeGrid.cells = { "r000:c000": { value: "First" } };
+  lifeGrid.merges = [];
+  await api(page, "PUT", `/api/v1/sheets/InspectionTemplate/${lifeId}/versions/1/grid?version=0`, JSON.stringify(lifeGrid));
+  const submitted = await api(page, "POST", `/api/v1/objects/InspectionTemplate/records/${lifeId}/approval`, { process: processName, comment: null });
+  check("the template is sent for approval", submitted.status === 201, `status ${submitted.status} ${JSON.stringify(submitted.body?.error ?? "")}`.slice(0, 200));
+  const requestId = submitted.body?.data?.summary?.id;
+  const requestVersion = submitted.body?.data?.summary?.version ?? 0;
+  const decided = await api(page, "POST", `/api/v1/approvals/instances/${requestId}/approve`, { version: requestVersion, comment: null });
+  check("the template is approved and takes its number", decided.status === 200, `status ${decided.status} ${JSON.stringify(decided.body?.error ?? "")}`.slice(0, 200));
+
+  await page.goto(`${BASE}/apps/inspection/templates`);
+  const list = page.getByTestId("templates-list");
+  await list.waitFor({ timeout: 20000 });
+  const row = list.getByRole("row").filter({ hasText: `Lifecycle check ${stamp}` });
+  check("the master list shows the template with its number and 'approved, not published'",
+    (await row.count()) === 1 && /WI\/PRD\/\d+/.test(await row.innerText()) && /Approved, not published/.test(await row.innerText()), (await row.innerText().catch(() => "")).replace(/\s+/g, " "));
+  await page.getByLabel("Number or name").fill(`Lifecycle check ${stamp}`);
+  await page.getByRole("button", { name: "Show" }).click();
+  await page.waitForTimeout(600);
+  check("the search narrows the list to the template", (await list.getByRole("row").count()) === 2, `${await list.getByRole("row").count()} rows with the header`);
+  await shot(page, "templates-list");
+
+  await row.getByRole("button", { name: `Lifecycle check ${stamp}` }).click();
+  await page.getByTestId("template-detail").waitFor({ timeout: 20000 });
+  await page.getByRole("button", { name: "Publish" }).click();
+  const dialog = page.getByTestId("publish-dialog");
+  await dialog.waitFor({ timeout: 10000 });
+  check("the department list waits for a location", await dialog.getByLabel("Department").isDisabled());
+  await dialog.getByLabel("Location").selectOption("PLANT1");
+  const offered = await dialog.getByLabel("Department").locator("option").allInnerTexts();
+  check("the departments narrow to the location", offered.some((text) => /Production/.test(text)) && !offered.some((text) => /Human resources/.test(text)), offered.join(" | "));
+  await dialog.getByLabel("Department").selectOption("PRD");
+  await dialog.getByRole("button", { name: "Add this department" }).click();
+  await shot(page, "publish-dialog");
+  await dialog.getByRole("button", { name: "Publish", exact: true }).click();
+  await page.getByText(/published to the people of the departments you chose/).waitFor({ timeout: 15000 });
+  check("the template is published and the page lists its audience", (await page.getByTestId("audience").count()) === 1 && /Plant 1/.test(await page.getByTestId("audience").innerText()));
+  check("and its status is Active", /Active/.test(await page.getByTestId("lifecycle-text").innerText()));
+  await page.getByRole("button", { name: "Unpublish" }).click();
+  await page.getByText(/was taken back from the people/).waitFor({ timeout: 15000 });
+  check("Unpublish takes it back", (await page.getByTestId("audience-none").count()) === 1);
 } catch (error) {
   failed++;
   console.log(`FAIL the script stopped: ${String(error).split("\n")[0]}`);

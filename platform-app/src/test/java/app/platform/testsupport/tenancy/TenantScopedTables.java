@@ -64,8 +64,7 @@ public final class TenantScopedTables {
 
     /**
      * The licences held by members (Sprint 6). A probe row needs a licence type, a pool, a user and a membership, which
-     * it creates.
-     */
+     * it creates. */
     public static final TenantScopedTable LICENCE_ASSIGNMENT = new TenantScopedTable("licence_assignment",
             (connection, tenant) -> {
                 UUID user = UUID.randomUUID();
@@ -210,8 +209,7 @@ public final class TenantScopedTables {
     /**
      * The security version of an organization (Sprint 9). There is one live row per organization and other probe rows
      * may have created it already, so each call retires the live one and adds a new one: every call adds one row, as
-     * the harness expects.
-     */
+     * the harness expects. */
     public static final TenantScopedTable SECURITY_VERSION = new TenantScopedTable("security_version",
             (connection, tenant) -> {
                 TenantFixtures.update(connection,
@@ -745,6 +743,17 @@ public final class TenantScopedTables {
                             + "'FIXED', cast('{}' as jsonb), ?, 2, ?, ?)",
                     tenant, UUID.randomUUID(), new byte[32], ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
 
+    /**
+     * The memory of publishing a template to a group (FA4). Each probe row is a publication of a template of its own.
+     */
+    public static final TenantScopedTable INSPECTION_PUBLICATION = new TenantScopedTable("inspection_publication",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into inspection_publication (tenant_id, template_id, version_no, location, department, "
+                            + "group_id, made_share, created_by, updated_by) values (?, ?, 1, 'PROBE', 'PROBE', ?, "
+                            + "true, ?, ?)",
+                    tenant, UUID.randomUUID(), UUID.randomUUID(), ActorId.SYSTEM.value(),
+                    ActorId.SYSTEM.value()));
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
@@ -760,7 +769,8 @@ public final class TenantScopedTables {
             WORKFLOW_SCHEDULE, APPROVAL_PROCESS, APPROVAL_PROCESS_VERSION, APPROVAL_INSTANCE,
             APPROVAL_STEP_INSTANCE, APPROVAL_ASSIGNMENT, APPROVAL_HISTORY, APPROVAL_DELEGATION, NOTIFICATION,
             NOTIFICATION_PREFERENCE, NOTIFICATION_TEMPLATE, APPROVAL_STEP_TIMER, APPROVAL_REMINDER,
-            ORGANIZATION_FIELD_VALUES, NUMBER_SERIES_COUNTER, SHEET_VERSION);
+            ORGANIZATION_FIELD_VALUES, NUMBER_SERIES_COUNTER, SHEET_VERSION,
+            INSPECTION_PUBLICATION);
 
     private TenantScopedTables() {
     }

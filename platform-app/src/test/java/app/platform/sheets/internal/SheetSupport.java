@@ -52,18 +52,30 @@ abstract class SheetSupport extends SolutionSupport {
         return SHEETS + owner + "/versions";
     }
 
-    /** A member who holds the shipped policy that only reads. */
-    protected Member reader(Setting setting) {
-        return memberHolding(setting.organization(), setting.admin(), "Reader");
+    /**
+     * Gives the member access to the record by an explicit share. The records of the owner object are private to their
+     * owner and to those who may view every record (FA4, ADR-0189), so a member who is not the owner reaches a record
+     * only through a share. */
+    protected static void share(TestBrowser admin, String owner, Member member, String level) {
+        Response shared = admin.request("PUT", RECORDS + "/" + owner + "/shares", "{\"granteeType\":\"USER\","
+                + "\"granteeId\":\"" + member.person().user().id() + "\",\"accessLevel\":\"" + level + "\"}");
+        assertThat(shared.status()).as(shared.body()).isEqualTo(200);
+    }
+
+    /** A member who holds the shipped policy that only reads, and is shared the record. */
+    protected Member reader(Setting setting, String owner) {
+        Member member = memberHolding(setting.organization(), setting.admin(), "Reader");
+        share(setting.admin(), owner, member, "READ");
+        return member;
     }
 
     /** A member who may read and update the records of the owner object, by a policy made for the purpose. */
-    protected Member author(Setting setting) {
-        return authors(setting, 1).get(0);
+    protected Member author(Setting setting, String owner) {
+        return authors(setting, 1, owner).get(0);
     }
 
     /** Several such members, one account each (a sign-in limit is per account), sharing one policy. */
-    protected List<Member> authors(Setting setting, int count) {
+    protected List<Member> authors(Setting setting, int count, String owner) {
         Response policy = setting.admin().postJson(POLICIES, "{\"name\":\"authors-" + UUID.randomUUID()
                 + "\",\"description\":\"\",\"abilities\":[]}");
         assertThat(policy.status()).as(policy.body()).isEqualTo(201);
@@ -75,6 +87,7 @@ abstract class SheetSupport extends SolutionSupport {
         for (int i = 0; i < count; i++) {
             Member member = plainMember(setting.organization());
             give(setting.admin(), member, id);
+            share(setting.admin(), owner, member, "READ_WRITE");
             members.add(member);
         }
         return members;

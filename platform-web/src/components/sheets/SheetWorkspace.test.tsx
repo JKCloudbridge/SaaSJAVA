@@ -29,6 +29,7 @@ function summary(versionNo: number, status: string, version = 0, extra: Partial<
     version,
     createdAt: "2026-10-22T08:00:00Z",
     updatedAt: "2026-10-22T09:00:00Z",
+    reviewEdits: 0,
     ...extra,
   };
 }
@@ -342,5 +343,149 @@ describe("a narrow screen", () => {
     expect(screen.getByRole("grid")).toHaveAttribute("aria-readonly", "true");
     expect(screen.getAllByText(/narrow screen the grid is for reading/).length).toBeGreaterThan(0);
     expect(screen.queryByRole("toolbar")).toBeNull();
+  });
+});
+
+describe("a new version from the active one (FA4)", () => {
+  it("offers one button that starts it from the version in use, while no draft exists", async () => {
+    const calls = fakeApi({
+      [`GET ${BASE}`]: list([summary(3, "ACTIVE", 5), summary(2, "SUPERSEDED", 1)]),
+      [`GET ${BASE}/3`]: one(3, "ACTIVE", 5),
+      [`POST ${BASE}`]: () => json({ data: summary(4, "DRAFT", 0) }, 201),
+    });
+    draw();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Start a new version from the active one" }));
+
+    await waitFor(() => expect(calls.some((c) => c.key === `POST ${BASE}`)).toBe(true));
+    expect(bodyOf(calls, `POST ${BASE}`)).toEqual({});
+  });
+
+  it("offers none to a person who may only read, nor while a draft exists", async () => {
+    fakeApi({
+      [`GET ${BASE}`]: list([summary(3, "ACTIVE", 5)], false),
+      [`GET ${BASE}/3`]: one(3, "ACTIVE", 5),
+    });
+    const { unmount } = draw();
+    await screen.findByRole("grid");
+    expect(screen.queryByRole("button", { name: /Start a new version/ })).toBeNull();
+    unmount();
+
+    fakeApi({
+      [`GET ${BASE}`]: list([summary(4, "DRAFT"), summary(3, "ACTIVE")]),
+      [`GET ${BASE}/4`]: one(4, "DRAFT"),
+    });
+    draw();
+    await screen.findByRole("grid");
+    expect(screen.queryByRole("button", { name: /Start a new version/ })).toBeNull();
+  });
+});
+
+describe("a version in review (FA4)", () => {
+  it("is read-only for a person who may change the sheet but does not approve it, and says why", async () => {
+    fakeApi({
+      [`GET ${BASE}`]: list([summary(2, "IN_REVIEW", 4)]),
+      [`GET ${BASE}/2`]: one(2, "IN_REVIEW", 4),
+    });
+    render(<SheetWorkspace owner={OWNER} label="Fire checks" correctInReview={false} />);
+
+    expect(await screen.findByText(/Version 2 is in review. Only the people who approve it can correct it/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+    expect(screen.queryByTestId("review-edit-note")).toBeNull();
+  });
+
+  it("can be corrected by an approver, who is told it is recorded, and the save is the ordinary one", async () => {
+    const calls = fakeApi({
+      [`GET ${BASE}`]: list([summary(2, "IN_REVIEW", 4)]),
+      [`GET ${BASE}/2`]: one(2, "IN_REVIEW", 4),
+      [`PUT ${BASE}/2/grid`]: () => json({ data: summary(2, "IN_REVIEW", 5, { reviewEdits: 1 }) }),
+    });
+    render(<SheetWorkspace owner={OWNER} label="Fire checks" correctInReview />);
+    expect(await screen.findByTestId("review-edit-note")).toHaveTextContent(/Every correction is recorded in the audit trail/);
+    fireEvent.click(await screen.findByRole("tab", { name: "Form view" }));
+
+    const label = screen.getByRole("textbox", { name: "Label of column 1" });
+    fireEvent.change(label, { target: { value: "Corrected" } });
+    fireEvent.blur(label);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await screen.findByText("All changes are saved.");
+    expect(calls.some((c) => c.key === `PUT ${BASE}/2/grid`)).toBe(true);
+    expect(await screen.findByText(/corrected once while in review/)).toBeInTheDocument();
+  });
+
+  it("shows the API's words when it refuses the correction, and keeps the work", async () => {
+    fakeApi({
+      [`GET ${BASE}`]: list([summary(2, "IN_REVIEW", 4)]),
+      [`GET ${BASE}/2`]: one(2, "IN_REVIEW", 4),
+      [`PUT ${BASE}/2/grid`]: () =>
+        json(
+          { error: { code: "FORBIDDEN", message: "A version that is in review can be changed only by the people who approve it." } },
+          403,
+        ),
+    });
+    render(<SheetWorkspace owner={OWNER} label="Fire checks" correctInReview />);
+    fireEvent.click(await screen.findByRole("tab", { name: "Form view" }));
+    const label = screen.getByRole("textbox", { name: "Label of column 1" });
+    fireEvent.change(label, { target: { value: "Kept" } });
+    fireEvent.blur(label);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("A version that is in review can be changed only by the people who approve it.")).toBeInTheDocument();
+    expect(label).toHaveValue("Kept");
+  });
+
+  it("is never made editable for the draft it replaces: a version in use stays read-only for an approver", async () => {
+    fakeApi({
+      [`GET ${BASE}`]: list([summary(1, "ACTIVE", 5)]),
+      [`GET ${BASE}/1`]: one(1, "ACTIVE", 5),
+    });
+    render(<SheetWorkspace owner={OWNER} label="Fire checks" correctInReview />);
+
+    expect(await screen.findByText(/Version 1 is active and cannot be changed/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+  });
+});
+
+describe("a change outside the sheet (FA4)", () => {
+  it("reads the versions again when the screen raises the token and nothing is unsaved", async () => {
+    let reads = 0;
+    fakeApi({
+      [`GET ${BASE}`]: () => {
+        reads += 1;
+        return json({ data: { versions: [summary(1, reads > 1 ? "ACTIVE" : "APPROVED", 5)], canChange: true, limits: LIMITS } });
+      },
+      [`GET ${BASE}/1`]: one(1, "ACTIVE", 5),
+    });
+    const { rerender } = render(<SheetWorkspace owner={OWNER} label="Fire checks" refreshToken={0} />);
+    await screen.findByRole("table", { name: "Versions" });
+
+    rerender(<SheetWorkspace owner={OWNER} label="Fire checks" refreshToken={1} />);
+
+    await waitFor(() => expect(reads).toBeGreaterThanOrEqual(2));
+  });
+
+  it("never reads over unsaved changes: it tells the person instead", async () => {
+    let reads = 0;
+    fakeApi({
+      [`GET ${BASE}`]: () => {
+        reads += 1;
+        return json({ data: { versions: [summary(1, "DRAFT", 7)], canChange: true, limits: LIMITS } });
+      },
+      [`GET ${BASE}/1`]: one(1, "DRAFT", 7),
+    });
+    const { rerender } = render(<SheetWorkspace owner={OWNER} label="Fire checks" refreshToken={0} />);
+    fireEvent.click(await screen.findByRole("tab", { name: "Form view" }));
+    const label = screen.getByRole("textbox", { name: "Label of column 1" });
+    fireEvent.change(label, { target: { value: "Unsaved" } });
+    fireEvent.blur(label);
+    const before = reads;
+
+    rerender(<SheetWorkspace owner={OWNER} label="Fire checks" refreshToken={1} />);
+
+    expect(await screen.findByText(/Something changed on this template while you were editing/)).toBeInTheDocument();
+    expect(reads).toBe(before);
+    expect(label).toHaveValue("Unsaved");
   });
 });

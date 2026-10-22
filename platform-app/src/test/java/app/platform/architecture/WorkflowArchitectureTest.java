@@ -14,8 +14,7 @@ import org.junit.jupiter.api.Test;
 /**
  * What keeps workflows from becoming a second path to the platform (Sprint 22, ADR-0133 to ADR-0137; Sprint 23,
  * ADR-0138 to ADR-0144). The module graph itself is verified by the module tests; these are the rules that graph cannot
- * say.
- */
+ * say. */
 @Tag("architecture")
 class WorkflowArchitectureTest {
 
@@ -75,10 +74,13 @@ class WorkflowArchitectureTest {
     }
 
     private static ArchRule outsidersMayNotUseTheBackgroundDoor() {
+        // The module of a shipped solution is the third (FA4, ADR-0188): it sets the one field only the platform writes
+        // when it retires what it keeps. The lock still refuses it, and its fields are a short fixed list.
         return noClasses().that().resideOutsideOfPackages("app.platform.workflow..", "app.platform.approval..",
-                "app.platform.data..")
+                "app.platform.data..", "app.platform.inspection..")
                 .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.data.BackgroundWrites")
-                .because("background writes are for workflows and the outcome of an approval only")
+                .because("background writes are for workflows, the outcome of an approval and a solution's own act "
+                        + "only")
                 .allowEmptyShould(true);
     }
 

@@ -9,8 +9,9 @@
 # counter, WI/QLT another). A sub-category added later has no counter yet and starts at 1; one chosen from the list goes
 # on from the last number. Every organization has its own counters.
 #
-# A category with no format here gets no number from the series yet: its last part is typed (a part code or a year),
-# which the template page brings later (Control Plan, Process Flow Chart, FMEA, Business Plan).
+# Four categories have no counter: their last part is typed by the author (a part code or a year) and the number is made
+# from the values alone (FA4, ADR-0188). The unique index of the number field is then the only thing that keeps two
+# numbers apart, so the submit looks for a clash first and says so in plain words.
 series:
   - key: document
     object: InspectionTemplate
@@ -29,3 +30,7 @@ series:
       PPT: "PPT/{field:subCategory}/{seq:2}"
       L: "L/{field:subCategory}/{seq:2}"
       LEHS: "L/EHS/{field:subCategory}/{seq:2}"
+      CP: "CP/{field:subCategory}/{field:partCode}"
+      PFC: "PFC/{field:subCategory}/{field:partCode}"
+      FMEA: "FMEA/{field:subCategory}/{field:partCode}"
+      BP: "BP/{field:planYear}"

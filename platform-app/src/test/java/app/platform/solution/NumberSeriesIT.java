@@ -46,8 +46,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * The number series (FA2A, ADR-0176, ADR-0184) against a real database and two real application instances: the numbers
  * of a scope count up from 1 and are written in the declared format, a rolled-back number is never issued, a number
  * longer than its width is not cut, two instances numbering one scope at once hand out 1 to N exactly once, other
- * scopes
- * and other organizations do not wait for it or share it, and nothing a record holds reaches a log or an error.
+ * scopes and other organizations do not wait for it or share it, and nothing a record holds reaches a log or an error.
  */
 @PlatformIntegrationTest
 class NumberSeriesIT extends SolutionSupport {
@@ -111,6 +110,31 @@ class NumberSeriesIT extends SolutionSupport {
         assertThat(next(organization, "CORPQSP", null)).isEqualTo("CORP-QSP-01");
         assertThat(next(organization, "FEHS", "MNT")).isEqualTo("F/EHS/MNT/01");
         assertThat(next(organization, "WI", "PRD")).isEqualTo("WI/PRD/03");
+    }
+
+    @Test
+    void aFormatWithoutACounterGivesTheTypedPartsTakesNoCounterAndSaysWhatIsStillToFillIn() {
+        Organization organization = organizationWithFeature();
+        Map<String, Object> typed = Map.of("category", "CP", "subCategory", "PRD", "partCode", "AB-12");
+
+        assertThat(here(organization, () -> series.next(SERIES, typed))).isEqualTo("CP/PRD/AB-12");
+        assertThat(here(organization, () -> series.next(SERIES, typed))).as("nothing counts: the unique index of the "
+                + "number field is the backstop").isEqualTo("CP/PRD/AB-12");
+        assertThat(here(organization, () -> series.known(SERIES, typed))).contains("CP/PRD/AB-12");
+        assertThat(here(organization, () -> series.known(SERIES, record("WI", "PRD")))).as("a format that counts")
+                .isEmpty();
+        assertThat(here(organization, () -> series.prefix(SERIES, typed))).contains("CP/PRD/AB-12");
+        assertThat(here(organization, () -> series.next(SERIES, Map.of("category", "BP", "planYear", "2026"))))
+                .isEqualTo("BP/2026");
+        assertThat(here(organization, () -> series.missingParts(SERIES, record("CP", "PRD"))))
+                .contains(List.of("partCode"));
+        assertThat(here(organization, () -> series.missingParts(SERIES, record("WI", "PRD")))).contains(List.of());
+        assertThat(here(organization, () -> series.missingParts(SERIES, record("WI", null))))
+                .contains(List.of("subCategory"));
+        assertThat(here(organization, () -> series.missingParts(SERIES, record("ZZ", "PRD")))).as("no format at all")
+                .isEmpty();
+        assertThat(here(organization, () -> series.missingParts(SERIES, Map.of()))).as("no category").isEmpty();
+        assertThat(next(organization, "WI", "PRD")).as("the typed numbers used no counter").isEqualTo("WI/PRD/01");
     }
 
     @Test
@@ -178,9 +202,13 @@ class NumberSeriesIT extends SolutionSupport {
         assertThatThrownBy(() -> here(organization, () -> series.next("nothing", record("WI", "PRD"))))
                 .isInstanceOfSatisfying(NumberSeriesException.class,
                         refusal -> assertThat(refusal.reason()).isEqualTo(Reason.UNKNOWN_SERIES));
-        assertThatThrownBy(() -> here(organization, () -> series.next(SERIES, record("CP", "PRD"))))
+        assertThatThrownBy(() -> here(organization, () -> series.next(SERIES, record("ZZ", "PRD"))))
                 .isInstanceOfSatisfying(NumberSeriesException.class,
                         refusal -> assertThat(refusal.reason()).isEqualTo(Reason.NO_FORMAT));
+        assertThatThrownBy(() -> here(organization, () -> series.next(SERIES, record("CP", "PRD"))))
+                .isInstanceOfSatisfying(NumberSeriesException.class,
+                        refusal -> assertThat(refusal.reason()).as("a typed part is missing")
+                                .isEqualTo(Reason.PART_MISSING));
         assertThatThrownBy(() -> here(organization, () -> series.next(SERIES, record("WI", null))))
                 .isInstanceOfSatisfying(NumberSeriesException.class,
                         refusal -> assertThat(refusal.reason()).isEqualTo(Reason.PART_MISSING));

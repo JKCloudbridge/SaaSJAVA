@@ -17,10 +17,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * The files of the number series a solution declares (FA2A, ADR-0176, ADR-0184): the real one is sound, and every kind
- * of
- * mistake in a file stops the application from starting with a message that names the solution and the part and never
- * repeats a text.
- */
+ * of mistake in a file stops the application from starting with a message that names the solution and the part and
+ * never repeats a text. */
 class NumberingLoaderTest {
 
     private static final String GOOD = """
@@ -60,9 +58,12 @@ class NumberingLoaderTest {
         assertThat(series.field()).isEqualTo("number");
         assertThat(series.selector()).isEqualTo("category");
         assertThat(series.formats()).containsEntry("WI", "WI/{field:subCategory}/{seq:2}")
-                .containsEntry("IMS", "IMS/{seq:2}").hasSize(12);
-        // The categories whose last part is typed get no format yet.
-        assertThat(series.formats()).doesNotContainKeys("CP", "PFC", "FMEA", "BP");
+                .containsEntry("IMS", "IMS/{seq:2}").hasSize(16);
+        // The categories whose last part the author types have a format without a counter (FA4, ADR-0188).
+        assertThat(series.formats()).containsEntry("CP", "CP/{field:subCategory}/{field:partCode}")
+                .containsEntry("PFC", "PFC/{field:subCategory}/{field:partCode}")
+                .containsEntry("FMEA", "FMEA/{field:subCategory}/{field:partCode}")
+                .containsEntry("BP", "BP/{field:planYear}");
     }
 
     @Test

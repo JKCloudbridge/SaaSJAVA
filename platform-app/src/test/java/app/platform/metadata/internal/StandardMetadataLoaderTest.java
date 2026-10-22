@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -36,8 +37,9 @@ class StandardMetadataLoaderTest {
         StandardMetadata standard = StandardMetadataLoader.load();
 
         assertThat(standard.objects()).extracting(ObjectDefinition::apiName).containsExactlyInAnyOrder(
-                "Account", "AccessPolicy", "AccessPolicyAssignment", "Case", "Contact", "InspectionTemplate",
-                "LicenceType", "Opportunity", "Profile", "RecordType", "Role", "User").doesNotHaveDuplicates();
+                "Account", "AccessPolicy", "AccessPolicyAssignment", "Case", "Contact", "DepartmentGroup", "Group",
+                "InspectionTemplate", "LicenceType", "Opportunity", "Profile", "RecordType", "Role", "User")
+                .doesNotHaveDuplicates();
         assertThat(standard.objects()).allSatisfy(object -> {
             assertThat(object.kind()).isEqualTo(DefinitionKind.STANDARD);
             assertThat(object.fields().subList(0, standard.systemFields().size()))
@@ -246,18 +248,26 @@ class StandardMetadataLoaderTest {
         assertThat(shipped.retainRecords()).isTrue();
         assertThat(shipped.extensible()).isFalse();
         assertThat(shipped.managedBy()).isNull();
+        // A template is private and nothing an administrator does changes that (FA4, ADR-0189).
+        assertThat(shipped.sharingDefault()).isEqualTo("PRIVATE");
+        assertThat(shipped.field("retired").orElseThrow().platformWritten()).isTrue();
         assertThat(shipped.fields().stream().skip(standard.systemFields().size()).map(FieldDefinition::apiName))
-                .containsExactly("name", "retired", "category", "subCategory", "number");
+                .containsExactly("name", "retired", "category", "subCategory", "partCode", "planYear", "number");
+        ObjectDefinition departments = standard.object("DepartmentGroup").orElseThrow();
+        assertThat(departments.requiresFeature()).isEqualTo("inspection");
+        assertThat(departments.retainRecords()).isFalse();
+        assertThat(departments.sharingDefault()).isNull();
     }
 
     @Test
     void everyOtherStandardObjectNeedsNoFeatureAndMayBeDeleted() {
         StandardMetadata standard = StandardMetadataLoader.load();
 
-        assertThat(standard.objects().stream().filter(object -> !object.apiName().equals("InspectionTemplate")))
-                .allSatisfy(object -> {
+        assertThat(standard.objects().stream().filter(object -> !Set.of("InspectionTemplate", "DepartmentGroup")
+                .contains(object.apiName()))).allSatisfy(object -> {
                     assertThat(object.requiresFeature()).isNull();
                     assertThat(object.retainRecords()).isFalse();
+                    assertThat(object.sharingDefault()).isNull();
                 });
     }
 

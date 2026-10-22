@@ -1,6 +1,6 @@
 # ADR-0184: Number series: where they are declared, the format language and the counters
 
-- **Status:** Accepted (the product owner approved the FA2A plan and its recommendations on 2026-10-21)
+- **Status:** Accepted (the product owner approved the FA2A plan and its recommendations on 2026-10-21); **amended in FA4 by [ADR-0188](0188-the-template-lifecycle-the-cluster-module-publishing-and-the-master-list.md) section 3: a format has at most one counter, and none when it reads at least one field of the record**
 - **Date:** 2026-10-21
 - **Sprint:** FA2A (Functional track)
 - **Related:** [ADR-0176](0176-number-series-and-the-first-approvers-number.md) (sections 1 and 3; the engine hook of section 2 is FA4A and FA4), [ADR-0096](0096-auto-number.md) (stays as it is), [ADR-0111](0111-uniqueness-of-field-values.md), [ADR-0181](0181-the-solution-framework.md), [ADR-0182](0182-the-organizations-own-list-of-a-platform-picklist.md), [ADR-0183](0183-a-field-only-the-platform-writes.md)

@@ -11937,6 +11937,290 @@
         "tags" : [ "Support access" ]
       }
     },
+    "/api/v1/templates" : {
+      "get" : {
+        "description" : "One page of templates, each with the numbers of its active, approved, in-review and draft versions and the state of the template as one word. The page is read through the record store, so a caller sees exactly the templates they may see: their own, all of them for a caller who may view every template, and those published to a group they are in. Filters: search (part of a name or a number), category, subCategory, retired and state. The state filter is applied to the page after it is read: a page can hold fewer rows than asked while nextCursor still goes on (filtered is true then). Sort: name, number or newest. canCreate says whether the screen may offer New; the request is decided again.",
+        "operationId" : "listTemplates",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "search",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "category",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "subCategory",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "retired",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "in" : "query",
+          "name" : "state",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTemplatePage"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The templates the caller may see, with the lifecycle of each",
+        "tags" : [ "Templates" ]
+      }
+    },
+    "/api/v1/templates/audience-options" : {
+      "get" : {
+        "description" : "Every location of the organization's list with the departments that go with it, and for each department whether an administrator has set up a group for it. Needs the ability to publish sheets (FORBIDDEN otherwise).",
+        "operationId" : "templateAudienceOptions",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAudienceOptionsView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The locations and departments a template can be published to",
+        "tags" : [ "Templates" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/lifecycle" : {
+      "get" : {
+        "description" : "The numbers of its versions by status, the groups it is published to, and the flags canPublish, canUnpublish and canRetire. The flags only hide buttons: each act is decided again. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares. ",
+        "operationId" : "getTemplateLifecycle",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTemplateLifecycleView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The lifecycle of one template and what the caller may do next",
+        "tags" : [ "Templates" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/publish" : {
+      "post" : {
+        "description" : "Needs the ability to publish sheets. Makes the approved version (the latest one when versionNo is left out) the one in use, replacing the one that was, and shares the template, read only, with the group an administrator set up for each location and department asked for. A group published to and not asked for again is taken back. Every pair is checked before anything is shared and a pair that cannot be published to refuses the whole request: VALIDATION_ERROR with audiences[i] naming it (no group is set up, several are, the group was removed or has no members). CONFLICT for a retired template or when there is nothing approved to publish. Allowed while another version is in review. Audited by counts and version numbers, never by a name. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares. ",
+        "operationId" : "publishTemplate",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PublishTemplateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTemplateLifecycleView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Publish an approved version to the people of departments",
+        "tags" : [ "Templates" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/retire" : {
+      "post" : {
+        "description" : "Needs the ability to retire sheets. The template is marked retired and its version in use ends as retired; nothing is deleted, the number is never given again and the people it was published to still read it. CONFLICT while a version waits for approval (recall it or let it finish first) and for a template that is already retired. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares. ",
+        "operationId" : "retireTemplate",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTemplateLifecycleView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Retire a template for good",
+        "tags" : [ "Templates" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/unpublish" : {
+      "post" : {
+        "description" : "Needs the ability to publish sheets. The version in use is approved again (not in use) and exactly the shares the publish made are removed; a share somebody gave by hand stays. CONFLICT when the template is not published. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares. ",
+        "operationId" : "unpublishTemplate",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTemplateLifecycleView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Take a template back from the people it was published to",
+        "tags" : [ "Templates" ]
+      }
+    },
     "/api/v1/tenant/current" : {
       "get" : {
         "description" : "Answers with the organization the request's host name addresses. A host that addresses no organization, or an unknown one, is NOT_FOUND; a suspended, deactivated or not yet open one is TENANT_UNAVAILABLE. The organization can never be chosen by a header, parameter or body.",
@@ -12778,6 +13062,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/ApprovalResolutionView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseAudienceOptionsView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/AudienceOptionsView"
           }
         },
         "required" : [ "data" ]
@@ -13910,6 +14203,24 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseTemplateLifecycleView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/TemplateLifecycleView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseTemplatePage" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/TemplatePage"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseTenantSummary" : {
         "type" : "object",
         "properties" : {
@@ -14738,6 +15049,65 @@
             "format" : "uuid"
           }
         }
+      },
+      "AudienceDepartment" : {
+        "type" : "object",
+        "properties" : {
+          "configured" : {
+            "type" : "boolean"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "configured", "label", "value" ]
+      },
+      "AudienceLocation" : {
+        "type" : "object",
+        "properties" : {
+          "departments" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AudienceDepartment"
+            }
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "departments", "label", "value" ]
+      },
+      "AudienceOptionsView" : {
+        "type" : "object",
+        "properties" : {
+          "locations" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AudienceLocation"
+            }
+          }
+        },
+        "required" : [ "locations" ]
+      },
+      "AudiencePick" : {
+        "type" : "object",
+        "properties" : {
+          "department" : {
+            "type" : "string",
+            "pattern" : "[A-Za-z0-9_-]{1,10}"
+          },
+          "location" : {
+            "type" : "string",
+            "pattern" : "[A-Za-z0-9_-]{1,10}"
+          }
+        },
+        "required" : [ "department", "location" ]
       },
       "AuditEventView" : {
         "type" : "object",
@@ -18138,6 +18508,9 @@
           "defaultAccess" : {
             "type" : "string"
           },
+          "fixed" : {
+            "type" : "boolean"
+          },
           "grantViaHierarchy" : {
             "type" : "boolean"
           },
@@ -18859,6 +19232,24 @@
           }
         },
         "required" : [ "displayName", "email", "planKey", "slug" ]
+      },
+      "PublishTemplateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "audiences" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AudiencePick"
+            },
+            "maxItems" : 20,
+            "minItems" : 1
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "audiences" ]
       },
       "QueriedRecordView" : {
         "type" : "object",
@@ -20252,6 +20643,10 @@
           "gridHash" : {
             "type" : "string"
           },
+          "reviewEdits" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "rowsMode" : {
             "type" : "string"
           },
@@ -20275,7 +20670,7 @@
             "format" : "int32"
           }
         },
-        "required" : [ "createdAt", "dimension", "gridBytes", "gridHash", "rowsMode", "status", "updatedAt", "version", "versionNo" ]
+        "required" : [ "createdAt", "dimension", "gridBytes", "gridHash", "reviewEdits", "rowsMode", "status", "updatedAt", "version", "versionNo" ]
       },
       "SheetVersionView" : {
         "type" : "object",
@@ -20636,6 +21031,154 @@
           }
         },
         "required" : [ "apiName", "definition", "description", "label", "version" ]
+      },
+      "TemplateAudience" : {
+        "type" : "object",
+        "properties" : {
+          "department" : {
+            "type" : "string"
+          },
+          "departmentLabel" : {
+            "type" : "string"
+          },
+          "groupAvailable" : {
+            "type" : "boolean"
+          },
+          "location" : {
+            "type" : "string"
+          },
+          "locationLabel" : {
+            "type" : "string"
+          },
+          "publishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "department", "departmentLabel", "groupAvailable", "location", "locationLabel", "publishedAt", "versionNo" ]
+      },
+      "TemplateLifecycle" : {
+        "type" : "object",
+        "properties" : {
+          "activeVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "approvedVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "draftVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "highestVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "inReviewVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "retiredVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "state" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "activeVersion", "approvedVersion", "draftVersion", "highestVersion", "inReviewVersion", "retiredVersion", "state" ]
+      },
+      "TemplateLifecycleView" : {
+        "type" : "object",
+        "properties" : {
+          "audience" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TemplateAudience"
+            }
+          },
+          "canPublish" : {
+            "type" : "boolean"
+          },
+          "canRetire" : {
+            "type" : "boolean"
+          },
+          "canUnpublish" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "lifecycle" : {
+            "$ref" : "#/components/schemas/TemplateLifecycle"
+          },
+          "numberPreview" : {
+            "type" : "string"
+          },
+          "numberPreviewComplete" : {
+            "type" : "boolean"
+          },
+          "retired" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "audience", "canPublish", "canRetire", "canUnpublish", "id", "lifecycle", "numberPreviewComplete", "retired" ]
+      },
+      "TemplatePage" : {
+        "type" : "object",
+        "properties" : {
+          "canCreate" : {
+            "type" : "boolean"
+          },
+          "filtered" : {
+            "type" : "boolean"
+          },
+          "nextCursor" : {
+            "type" : "string"
+          },
+          "rows" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TemplateRow"
+            }
+          }
+        },
+        "required" : [ "canCreate", "filtered", "rows" ]
+      },
+      "TemplateRow" : {
+        "type" : "object",
+        "properties" : {
+          "category" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "lifecycle" : {
+            "$ref" : "#/components/schemas/TemplateLifecycle"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "number" : {
+            "type" : "string"
+          },
+          "retired" : {
+            "type" : "boolean"
+          },
+          "subCategory" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "lifecycle", "retired" ]
       },
       "TenantSummary" : {
         "type" : "object",

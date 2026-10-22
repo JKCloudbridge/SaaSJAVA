@@ -31,27 +31,59 @@ public interface ShippedAccessPolicies {
      *        digits, dots and hyphens
      * @param name the name people read; if an administrator's policy already has it, a suffix is added
      * @param description what it is for
-     * @param objects the rights it gives on objects, by object key; it gives no ability and no right on fields yet
+     * @param objects the rights it gives on objects, by object key
+     * @param abilities the keys of the abilities it gives (FA4, ADR-0189); each must be one of the {@link Ability}
+     *        catalogue
+     * @param fields the rights it gives on fields, by field key (the object key, a dot, the field API name; FA4,
+     *        ADR-0189). A field right works only together with the right on its object, and a field the member may not
+     *        read does not exist for them, so a policy that gives rights on an object lists the fields it means
      */
-    record Declaration(String key, String name, String description, Map<String, Set<ObjectAction>> objects) {
+    record Declaration(String key, String name, String description, Map<String, Set<ObjectAction>> objects,
+            Set<String> abilities, Map<String, Set<FieldAction>> fields) {
 
         /** Copies what is given, in a stable order. */
         public Declaration {
             Map<String, Set<ObjectAction>> copy = new TreeMap<>();
             objects.forEach((object, actions) -> copy.put(object, Set.copyOf(new TreeSet<>(actions))));
             objects = Map.copyOf(copy);
+            abilities = Set.copyOf(new TreeSet<>(abilities));
+            Map<String, Set<FieldAction>> fieldCopy = new TreeMap<>();
+            fields.forEach((field, actions) -> fieldCopy.put(field, Set.copyOf(new TreeSet<>(actions))));
+            fields = Map.copyOf(fieldCopy);
+        }
+
+        /** A declaration that gives rights on objects and abilities and none on fields. */
+        public Declaration(String key, String name, String description, Map<String, Set<ObjectAction>> objects,
+                Set<String> abilities) {
+            this(key, name, description, objects, abilities, Map.of());
+        }
+
+        /** A declaration that gives rights on objects and no ability and no right on fields. */
+        public Declaration(String key, String name, String description, Map<String, Set<ObjectAction>> objects) {
+            this(key, name, description, objects, Set.of(), Map.of());
         }
 
         /**
          * A fingerprint of everything the declaration says, so a change of any of it is noticed with one
-         * comparison.
-         */
+         * comparison. */
         public String fingerprint() {
             StringBuilder text = new StringBuilder(key).append('\n').append(name).append('\n').append(description);
             new TreeMap<>(objects).forEach((object, actions) -> {
                 text.append('\n').append(object).append(':');
                 new TreeSet<>(actions).forEach(action -> text.append(action.key()).append(','));
             });
+            // Only when there are some, so the fingerprint of a policy without abilities is what it always was.
+            if (!abilities.isEmpty()) {
+                text.append("\nabilities:");
+                new TreeSet<>(abilities).forEach(ability -> text.append(ability).append(','));
+            }
+            if (!fields.isEmpty()) {
+                text.append("\nfields:");
+                new TreeMap<>(fields).forEach((field, actions) -> {
+                    text.append('\n').append(field).append(':');
+                    new TreeSet<>(actions).forEach(action -> text.append(action.key()).append(','));
+                });
+            }
             try {
                 return HexFormat.of().formatHex(
                         MessageDigest.getInstance("SHA-256").digest(text.toString().getBytes(StandardCharsets.UTF_8)));

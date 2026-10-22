@@ -13,8 +13,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The closed language numbers are written in (FA2A, ADR-0176, ADR-0184): what it accepts, what it writes, and a corpus
- * of
- * hostile formats, each refused with a message that says which part is wrong and never repeats the text.
+ * of hostile formats, each refused with a message that says which part is wrong and never repeats the text.
  */
 class NumberFormatTest {
 
@@ -93,7 +92,7 @@ class NumberFormatTest {
     @ParameterizedTest
     @ValueSource(strings = {
         "",                                         // nothing
-        "WI/",                                      // no counter
+        "WI/",                                      // no counter and nothing to tell two numbers apart
         "{seq:2}{seq:2}",                           // two counters
         "{seq:0}", "{seq:10}", "{seq:x}", "{seq:}", // a counter of the wrong width
         "{field:}", "{field:a b}", "{field:a.b}", "{field:1a}", "{field:a-b}", // a field name that is not one
@@ -117,6 +116,32 @@ class NumberFormatTest {
                         assertThat(message).doesNotContain(format);
                     }
                 });
+    }
+
+    @Test
+    void aFormatWithoutACounterIsWrittenFromTheValuesAloneAndNeedsAtLeastOne() {
+        NumberFormat format = NumberFormat.parse("CP/{field:subCategory}/{field:partCode}");
+        Map<String, Object> record = Map.of("subCategory", "PRD", "partCode", "AB-12");
+
+        assertThat(format.hasCounter()).isFalse();
+        assertThat(format.render(record, 0)).isEqualTo("CP/PRD/AB-12");
+        assertThat(format.render(record, 99)).isEqualTo("CP/PRD/AB-12");
+        assertThat(format.prefix(record)).isEqualTo("CP/PRD/AB-12");
+        assertThat(format.fields()).containsExactly("subCategory", "partCode");
+        assertThat(NumberFormat.parse("BP/{field:planYear}").render(Map.of("planYear", "2026"), 0))
+                .isEqualTo("BP/2026");
+        assertThat(NumberFormat.parse("WI/{field:subCategory}/{seq:2}").hasCounter()).isTrue();
+    }
+
+    @Test
+    void aFormatWithoutACounterStillRefusesAMissingOrBadPart() {
+        NumberFormat format = NumberFormat.parse("BP/{field:planYear}");
+
+        assertThatThrownBy(() -> format.render(Map.of(), 0)).isInstanceOfSatisfying(NumberSeriesException.class,
+                refusal -> assertThat(refusal.reason()).isEqualTo(Reason.PART_MISSING));
+        assertThatThrownBy(() -> format.render(Map.of("planYear", "20 26"), 0))
+                .isInstanceOfSatisfying(NumberSeriesException.class,
+                        refusal -> assertThat(refusal.reason()).isEqualTo(Reason.PART_NOT_A_CODE));
     }
 
     @Test

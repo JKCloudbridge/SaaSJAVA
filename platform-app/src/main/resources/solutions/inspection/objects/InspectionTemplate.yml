@@ -21,6 +21,9 @@
 # requiresFeature: an organization without the plan feature does not have this object at all.
 # retainRecords:   no record of this object is ever deleted, restored over or purged, by anyone (ADR-0174 section 7).
 # extensible:      an organization cannot add fields of its own to a shipped object.
+# sharingDefault:  PRIVATE, fixed by the platform: a template is reached only by its owner (the author), the people who
+#                  may view every template (the approvers) and the people it is published to. The role hierarchy adds
+#                  nothing and no administrator can change it (ADR-0189).
 apiName: InspectionTemplate
 label: Template
 pluralLabel: Templates
@@ -28,6 +31,7 @@ description: A template of the Audit maintenance application. Its records are ke
 extensible: false
 requiresFeature: inspection
 retainRecords: true
+sharingDefault: PRIVATE
 fields:
   - apiName: name
     label: Template name
@@ -38,8 +42,9 @@ fields:
 
   - apiName: retired
     label: Retired
-    description: Whether the template is no longer used. A retired template is kept and can still be read.
+    description: Whether the template is no longer used. A retired template is kept and can still be read. Only retiring it sets this.
     type: BOOLEAN
+    platformWritten: true
 
   - apiName: category
     label: Category
@@ -100,6 +105,18 @@ fields:
           L: [PRD, QLT, MNT, STR]
           LEHS: [PRD, QLT, MNT, STR]
           CSF: [CORP, CUSA, CUSB]
+
+  - apiName: partCode
+    label: Part code
+    description: The code of the part the document is for. Needed for the categories whose number ends in it (control plan, process flow chart, failure mode analysis); the number is made from it, so it is fixed once the template has its number.
+    type: TEXT
+    settings: { maxLength: 10 }
+
+  - apiName: planYear
+    label: Plan year
+    description: The four-digit year of a business plan. Needed for the category whose number ends in it; the number is made from it.
+    type: TEXT
+    settings: { maxLength: 4 }
 
   - apiName: number
     label: Number

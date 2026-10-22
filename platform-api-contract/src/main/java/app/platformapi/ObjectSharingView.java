@@ -14,7 +14,9 @@ import jakarta.validation.constraints.NotNull;
  * @param grantViaHierarchy whether the people above the owner in the role hierarchy read the record
  * @param configured whether an administrator has set the object up (false: the defaults above apply)
  * @param version the version to send when changing it, 0 when not configured yet
+ * @param fixed whether the platform fixes the default of this object ({@code PRIVATE}, hierarchy off): the screen then
+ *        offers no choice and a request to change it is refused
  */
 public record ObjectSharingView(@NotNull String object, @NotNull String defaultAccess, boolean grantViaHierarchy,
-        boolean configured, long version) {
+        boolean configured, long version, boolean fixed) {
 }

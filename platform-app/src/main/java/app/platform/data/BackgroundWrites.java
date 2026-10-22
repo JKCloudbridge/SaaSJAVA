@@ -50,7 +50,12 @@ public interface BackgroundWrites {
          * The write of an approval hook for the request that holds the lock of the record (FA4A, ADR-0187). It is the
          * only kind the lock lets through, and only for the pending request that owns it.
          */
-        APPROVAL_HOOK
+        APPROVAL_HOOK,
+        /**
+         * An act of a shipped solution's own module that sets a field only the platform writes, for instance retiring
+         * what it keeps (FA4, ADR-0188). It passes no lock: a record locked by a pending approval refuses it like a
+         * workflow. */
+        SOLUTION
     }
 
     /**
@@ -80,6 +85,13 @@ public interface BackgroundWrites {
          */
         public static Source approvalHook(String process, UUID request, Chain chain) {
             return new Source(Kind.APPROVAL_HOOK, process, request, chain);
+        }
+
+        /**
+         * An act of a solution's module, such as {@code retire}; {@code subject} is the record it is about.
+         */
+        public static Source solution(String act, UUID subject) {
+            return new Source(Kind.SOLUTION, act, subject, null);
         }
 
         /** The API name of the workflow, or of the approval process. */

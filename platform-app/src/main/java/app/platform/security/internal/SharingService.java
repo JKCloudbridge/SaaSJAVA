@@ -37,6 +37,8 @@ import org.springframework.stereotype.Service;
 class SharingService {
 
     static final String NO_OBJECT = "This object does not exist.";
+    static final String FIXED = "The platform fixes who reaches the records of this object: the owner, people who "
+            + "may view every record, and whoever a record is shared with.";
 
     private static final Set<Ability> MANAGERS = Set.of(Ability.SHARING_MANAGE);
     private static final Set<String> OWNER_SOURCES = Set.of("ROLE", "ROLE_AND_SUBORDINATES");
@@ -91,6 +93,9 @@ class SharingService {
         boolean hierarchy = Boolean.TRUE.equals(request.grantViaHierarchy());
         return gate.run("sharing.object.set", MANAGERS, caller -> {
             requireObject(key);
+            if (catalogue.object(key).map(ObjectCatalog.ObjectInfo::sharingFixed).orElse(false)) {
+                throw new ApiException(ErrorCode.CONFLICT, FIXED);
+            }
             ActorId actor = new ActorId(caller.userId());
             Optional<SharingStore.SettingRow> current = store.settingForUpdate(key);
             String from = current.map(SharingStore.SettingRow::defaultAccess)
@@ -284,11 +289,15 @@ class SharingService {
 
     // ---- views ----
 
-    private static ObjectSharingView view(String key, SharingStore.SettingRow row) {
-        if (row == null) {
-            return new ObjectSharingView(key, SharingDefault.PUBLIC_READ_WRITE.key(), true, false, 0);
+    private ObjectSharingView view(String key, SharingStore.SettingRow row) {
+        if (catalogue.object(key).map(ObjectCatalog.ObjectInfo::sharingFixed).orElse(false)) {
+            // What the platform fixed, whatever a row says (the record security ignores the row too).
+            return new ObjectSharingView(key, SharingDefault.PRIVATE.key(), false, false, 0, true);
         }
-        return new ObjectSharingView(key, row.defaultAccess(), row.grantViaHierarchy(), true, row.version());
+        if (row == null) {
+            return new ObjectSharingView(key, SharingDefault.PUBLIC_READ_WRITE.key(), true, false, 0, false);
+        }
+        return new ObjectSharingView(key, row.defaultAccess(), row.grantViaHierarchy(), true, row.version(), false);
     }
 
     private SharingRuleView view(SharingStore.RuleRow row) {

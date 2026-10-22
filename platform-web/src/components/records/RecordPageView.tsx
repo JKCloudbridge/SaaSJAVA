@@ -80,7 +80,7 @@ export function RecordPageView({ objectApiName, recordId, listHref, recordHref, 
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | undefined>();
   const [overriddenRecord, setOverriddenRecord] = useState<RecordView | undefined>();
-  const [approval, setApproval] = useState<ApprovalState>({ locked: false, mayOverride: false });
+  const [approval, setApproval] = useState<ApprovalState>({ locked: false, mayOverride: false, mayApprove: false });
   const [refresh, setRefresh] = useState(0);
   const { state: pageState, reload: reloadPage } = useRecordPage(objectApiName, recordType, recordId);
   const page = pageState.status === "ready" ? pageState.page : pageState.status === "loading" ? pageState.previous : undefined;

@@ -20,8 +20,10 @@ import java.time.Instant;
  * @param updatedAt when it last changed
  * @param submittedAt when it was sent for approval, if it was
  * @param decidedAt when its review ended, if it did
+ * @param reviewEdits how many times an approver changed the grid while it was in review (FA4); each change is audited
  */
 public record SheetVersionSummaryView(@NotNull Integer versionNo, @NotNull String status, @NotNull Integer dimension,
         @NotNull String rowsMode, @NotNull Long gridBytes, @NotNull String gridHash, @NotNull Long version,
-        @NotNull Instant createdAt, @NotNull Instant updatedAt, Instant submittedAt, Instant decidedAt) {
+        @NotNull Instant createdAt, @NotNull Instant updatedAt, Instant submittedAt, Instant decidedAt,
+        @NotNull Integer reviewEdits) {
 }

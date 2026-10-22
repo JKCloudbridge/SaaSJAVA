@@ -21,11 +21,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * The shipped application as organizations meet it (Functional track FA1, ADR-0175, ADR-0179, ADR-0181): it exists
- * for an
- * organization only while its plan has the feature, asked on every request and never stored; an organization without it
- * sees nothing and gets "not found" where the object would be; losing the feature hides everything and deletes nothing;
- * no row of the organization is written for the application; and a change of plan moves no cache the answers sit in.
- */
+ * for an organization only while its plan has the feature, asked on every request and never stored; an organization
+ * without it sees nothing and gets "not found" where the object would be; losing the feature hides everything and
+ * deletes nothing; no row of the organization is written for the application; and a change of plan moves no cache the
+ * answers sit in. */
 @PlatformIntegrationTest
 class SolutionsIT extends SolutionSupport {
 
@@ -106,7 +105,7 @@ class SolutionsIT extends SolutionSupport {
         assertThat(JsonPath.<List<String>>read(mine.body(), application + ".label"))
                 .containsExactly("Audit maintenance");
         assertThat(JsonPath.<List<String>>read(mine.body(), application + ".iconKey")).containsExactly("clipboard");
-        assertThat(JsonPath.<List<Object>>read(mine.body(), application + ".items[*]")).hasSize(1);
+        assertThat(JsonPath.<List<Object>>read(mine.body(), application + ".items[*]")).hasSize(2);
         assertThat(JsonPath.<List<String>>read(mine.body(), application + ".items[0].type"))
                 .containsExactly("PLATFORM");
         assertThat(JsonPath.<List<String>>read(mine.body(), application + ".items[0].label"))
@@ -358,6 +357,6 @@ class SolutionsIT extends SolutionSupport {
 
         List<String> ids = policyIds(admin);
 
-        assertThat(ids).hasSize(4).doesNotHaveDuplicates().allSatisfy(id -> UUID.fromString(id));
+        assertThat(ids).hasSize(SHIPPED_POLICIES.size()).doesNotHaveDuplicates().allSatisfy(id -> UUID.fromString(id));
     }
 }

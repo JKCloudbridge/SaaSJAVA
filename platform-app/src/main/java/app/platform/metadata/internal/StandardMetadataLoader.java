@@ -65,7 +65,7 @@ final class StandardMetadataLoader {
     private static final ExpressionEngine SYNTAX = new ExpressionEngine(Limits.standard());
 
     private static final Set<String> OBJECT_KEYS = Set.of("apiName", "label", "pluralLabel", "description",
-            "managedBy", "extensible", "requiresFeature", "retainRecords", "fields");
+            "managedBy", "extensible", "requiresFeature", "retainRecords", "sharingDefault", "fields");
     private static final Set<String> FILE_KEYS = Set.of("fields");
     private static final Set<String> FIELD_KEYS = Set.of("apiName", "label", "description", "type", "required",
             "unique", "indexed", "default", "settings", "retired", "organizationValues", "codeValues",
@@ -182,6 +182,11 @@ final class StandardMetadataLoader {
                         + "be hidden by a plan feature or keep its records (its records are not served by the "
                         + "record store)");
             }
+            String sharingDefault = node.optionalText("sharingDefault");
+            if (sharingDefault != null && (!"PRIVATE".equals(sharingDefault) || managedBy != null)) {
+                throw new IllegalStateException(where + ": 'sharingDefault' is PRIVATE or left out, and only an "
+                        + "object the record store serves has one");
+            }
             List<FieldDefinition> own = fields(node, apiName, DefinitionKind.STANDARD);
             if (managedBy != null && own.stream().anyMatch(field -> field.organizationValues()
                     || field.platformWritten())) {
@@ -205,7 +210,7 @@ final class StandardMetadataLoader {
                 throw new IllegalStateException(where + ": more than " + MAX_FIELDS + " fields");
             }
             ObjectDefinition made = new ObjectDefinition(apiName, label, plural, description, DefinitionKind.STANDARD,
-                    managedBy, extensible, 0, all, requiresFeature, retainRecords);
+                    managedBy, extensible, 0, all, requiresFeature, retainRecords, sharingDefault);
             checkDependencies(where, made);
             return made;
         }
@@ -301,9 +306,10 @@ final class StandardMetadataLoader {
                 throw new IllegalStateException(where + ": every value of a picklist with 'codeValues' is a code of "
                         + "1 to 10 letters, digits, hyphens or underscores");
             }
-            if (platformWritten && (type != FieldType.TEXT || checked.required() || checked.defaultValue() != null)) {
-                throw new IllegalStateException(where + ": a field only the platform writes is a text field, is not "
-                        + "required and has no default (a member could never fill it in)");
+            if (platformWritten && (type != FieldType.TEXT && type != FieldType.BOOLEAN || checked.required()
+                    || checked.defaultValue() != null)) {
+                throw new IllegalStateException(where + ": a field only the platform writes is a text field or a "
+                        + "yes/no field, is not required and has no default (a member could never fill it in)");
             }
         }
 

@@ -23,26 +23,39 @@ import java.util.Optional;
  *        without the feature gets "not found" exactly as for an unknown object.
  * @param retainRecords whether every record of the object is kept: it cannot be deleted, restored over or purged,
  *        by anyone, and no delete right can be given on it (ADR-0174 section 7, ADR-0181)
+ * @param sharingDefault the organization-wide default the platform fixes for the records of the object, or null when
+ *        an administrator chooses it. Only {@code PRIVATE} exists: a record is then reached only by its owner, a
+ *        member who may view every record, and whom it is shared with, the role hierarchy adds nothing and no
+ *        administrator can change it (FA4, ADR-0189)
  */
 public record ObjectDefinition(String apiName, String label, String pluralLabel, String description,
         DefinitionKind kind, String managedBy, boolean extensible, long version, List<FieldDefinition> fields,
-        String requiresFeature, boolean retainRecords) {
+        String requiresFeature, boolean retainRecords, String sharingDefault) {
 
     /** Copies what is given. */
     public ObjectDefinition {
         fields = List.copyOf(fields);
     }
 
+    /** An object whose sharing default an administrator chooses (every object before Sprint FA4). */
+    public ObjectDefinition(String apiName, String label, String pluralLabel, String description,
+            DefinitionKind kind, String managedBy, boolean extensible, long version, List<FieldDefinition> fields,
+            String requiresFeature, boolean retainRecords) {
+        this(apiName, label, pluralLabel, description, kind, managedBy, extensible, version, fields, requiresFeature,
+                retainRecords, null);
+    }
+
     /** An object that needs no plan feature and whose records may be deleted (every object before Sprint FA1). */
     public ObjectDefinition(String apiName, String label, String pluralLabel, String description,
             DefinitionKind kind, String managedBy, boolean extensible, long version, List<FieldDefinition> fields) {
-        this(apiName, label, pluralLabel, description, kind, managedBy, extensible, version, fields, null, false);
+        this(apiName, label, pluralLabel, description, kind, managedBy, extensible, version, fields, null, false,
+                null);
     }
 
     /** The same object with other fields (the organization's own fields added to a standard object). */
     public ObjectDefinition withFields(List<FieldDefinition> other) {
         return new ObjectDefinition(apiName, label, pluralLabel, description, kind, managedBy, extensible, version,
-                other, requiresFeature, retainRecords);
+                other, requiresFeature, retainRecords, sharingDefault);
     }
 
     /** The field with the API name, if the object has it. */

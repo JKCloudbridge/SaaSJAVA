@@ -1,0 +1,19 @@
+# Standard object: Group, a public group of the organization: a set of people that access policies and shares can name
+# (ADR-0059, ADR-0185, ADR-0190).
+# The records of this object belong to the security part of the platform (managedBy), changed only through the group
+# screens. The object exists so that a lookup field of an organization's or a shipped object can point at a group, which
+# the record store answers through the group directory of the security module and never by reading its tables.
+# How to change this file: docs/metadata-guide.md.
+apiName: Group
+label: Group
+pluralLabel: Groups
+description: A set of people that access policies and shares can name.
+managedBy: security
+extensible: false
+fields:
+  - apiName: name
+    label: Group name
+    type: TEXT
+    required: true
+    unique: true
+    settings: { maxLength: 80 }

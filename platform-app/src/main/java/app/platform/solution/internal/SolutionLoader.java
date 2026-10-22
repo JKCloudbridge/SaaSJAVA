@@ -1,5 +1,7 @@
 package app.platform.solution.internal;
 
+import app.platform.security.Ability;
+import app.platform.security.FieldAction;
 import app.platform.security.ObjectAction;
 import app.platform.sharedkernel.solution.ShippedEntryView;
 import java.io.IOException;
@@ -44,7 +46,10 @@ final class SolutionLoader {
             "objects", "sheetOwners", "accessPolicies");
     private static final Set<String> APPLICATION_KEYS = Set.of("apiName", "label", "iconKey", "entries");
     private static final Set<String> ENTRY_KEYS = Set.of("type", "label", "object", "pageKey", "readsObject");
-    private static final Set<String> POLICY_KEYS = Set.of("key", "name", "description", "objects");
+    private static final Set<String> POLICY_KEYS = Set.of("key", "name", "description", "objects", "abilities",
+            "fields");
+    private static final Pattern FIELD = Pattern.compile("[a-z][A-Za-z0-9]{0,39}");
+    private static final Pattern ABILITY = Pattern.compile("[a-z][a-z0-9.-]{0,59}");
 
     private SolutionLoader() {
     }
@@ -120,7 +125,7 @@ final class SolutionLoader {
             policies.add(new SolutionBundle.Policy(policyKey,
                     policy.pattern("name", PLAIN_LABEL, "a plain name of at most 80 characters"),
                     policy.pattern("description", PLAIN_TEXT, "plain text of at most 500 characters"),
-                    rights(policy)));
+                    rights(policy), abilities(policy), fieldRights(policy)));
         }
         return new SolutionBundle(key, feature, label, note, application, objects, sheetOwners, policies);
     }
@@ -199,6 +204,71 @@ final class SolutionLoader {
             rights.put(object, parsed);
         }
         return rights;
+    }
+
+    /**
+     * The rights a policy gives on fields: for each object a list of fields under {@code read} and under {@code edit},
+     * as {@code Object.field} keys. A field is listed once, and the names are checked against the object by
+     * {@link SolutionValidator}.
+     */
+    private static Map<String, Set<FieldAction>> fieldRights(Node policy) {
+        Object declared = policy.optional("fields");
+        if (declared == null) {
+            return Map.of();
+        }
+        if (!(declared instanceof Map<?, ?> objects)) {
+            throw new IllegalStateException(policy.where() + ": 'fields' maps an API name to the fields to read "
+                    + "and edit");
+        }
+        Map<String, Set<FieldAction>> rights = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : objects.entrySet()) {
+            String object = String.valueOf(entry.getKey());
+            if (!OBJECT.matcher(object).matches() || !(entry.getValue() instanceof Map<?, ?> byAction)) {
+                throw new IllegalStateException(policy.where() + ": 'fields' names an API name that is not shaped like "
+                        + "one, or gives it no 'read' and 'edit' lists");
+            }
+            for (Map.Entry<?, ?> listed : byAction.entrySet()) {
+                FieldAction action = FieldAction.fromKey(String.valueOf(listed.getKey())).orElseThrow(
+                        () -> new IllegalStateException(policy.where() + ": 'fields' knows 'read' and 'edit' only"));
+                if (!(listed.getValue() instanceof Collection<?> names)) {
+                    throw new IllegalStateException(policy.where() + ": the fields to " + action.key() + " are a list");
+                }
+                for (Object name : names) {
+                    String field = String.valueOf(name);
+                    if (!FIELD.matcher(field).matches()) {
+                        throw new IllegalStateException(policy.where() + ": a field to " + action.key()
+                                + " is not shaped like a field API name");
+                    }
+                    if (rights.put(object + "." + field, Set.of(action)) != null) {
+                        throw new IllegalStateException(policy.where() + ": a field is listed twice under 'fields'");
+                    }
+                }
+            }
+        }
+        return rights;
+    }
+
+    /** The abilities a policy gives: keys of the platform's catalogue, each once. */
+    private static Set<String> abilities(Node policy) {
+        Object declared = policy.optional("abilities");
+        if (declared == null) {
+            return Set.of();
+        }
+        if (!(declared instanceof Collection<?> keys)) {
+            throw new IllegalStateException(policy.where() + ": 'abilities' is a list of ability keys");
+        }
+        Set<String> abilities = new LinkedHashSet<>();
+        for (Object key : keys) {
+            String text = key instanceof String value ? value.strip() : "";
+            if (!ABILITY.matcher(text).matches() || Ability.fromKey(text).isEmpty()) {
+                // Names what is wrong, never the text that was found.
+                throw new IllegalStateException(policy.where() + ": an ability is not one the platform knows");
+            }
+            if (!abilities.add(text)) {
+                throw new IllegalStateException(policy.where() + ": an ability is listed twice");
+            }
+        }
+        return abilities;
     }
 
     private static String folderOf(Resource file) throws IOException {

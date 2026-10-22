@@ -9,15 +9,16 @@ import java.util.regex.Pattern;
 
 /**
  * The closed language a number is written in (FA2A, ADR-0176, ADR-0184). A format is literal text, the stored value of
- * a
- * field of the record, and one counter:
+ * a field of the record, and one counter:
  *
  * <pre>{@code WI/{field:subCategory}/{seq:2}   gives   WI/PRD/03}</pre>
  *
  * <ul>
  * <li>{@code {field:<apiName>}} is the stored value of a short-code picklist or a text field; the value must match
  * {@code [A-Za-z0-9_-]{1,10}} when the number is made;</li>
- * <li>{@code {seq:N}} is the counter, 1 to 9 digits, padded with zeros; there is exactly one;</li>
+ * <li>{@code {seq:N}} is the counter, 1 to 9 digits, padded with zeros; there is one, or none when the format has at
+ * least one {@code {field:...}} (a number the author's own typed code decides, FA4, ADR-0188: the unique index of the
+ * number field is then the only thing that keeps two numbers apart);</li>
  * <li>anything else is literal text from {@code [A-Za-z0-9/_-]}, at most 10 characters in all;</li>
  * <li>at most four {@code {...}} parts and 100 characters in all.</li>
  * </ul>
@@ -117,8 +118,12 @@ final class NumberFormat {
         if (placeholders > MAX_PLACEHOLDERS) {
             throw new IllegalArgumentException("the format has more than " + MAX_PLACEHOLDERS + " parts in braces");
         }
-        if (sequences != 1) {
-            throw new IllegalArgumentException("the format has exactly one {seq:N}");
+        if (sequences > 1) {
+            throw new IllegalArgumentException("the format has at most one {seq:N}");
+        }
+        if (sequences == 0 && placeholders == 0) {
+            // Without a counter only the record's own values tell two numbers apart (FA4, ADR-0188).
+            throw new IllegalArgumentException("the format has a {seq:N} or at least one {field:name}");
         }
         if (literalCharacters > MAX_LITERAL) {
             throw new IllegalArgumentException("the fixed text is at most " + MAX_LITERAL + " characters in all");
@@ -129,6 +134,11 @@ final class NumberFormat {
     /** The parts in order. */
     List<Part> parts() {
         return parts;
+    }
+
+    /** Whether the format has a counter; one without is made of the record's values alone. */
+    boolean hasCounter() {
+        return parts.stream().anyMatch(Sequence.class::isInstance);
     }
 
     /** The API names of the fields the format reads, in order. */

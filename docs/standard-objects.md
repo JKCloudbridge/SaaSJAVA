@@ -122,6 +122,33 @@ A person the business deals with, usually at an account.
 | `mailingPostalCode` | Mailing postal code | TEXT |  |  | up to 20 characters |
 | `mailingCountry` | Mailing country | TEXT |  |  | up to 80 characters |
 
+## DepartmentGroup
+
+Says which group of people belongs to a department of a location, for publishing templates to them.
+
+- Label: Department group / Department groups
+- Records managed by: the organization (ordinary data)
+- Own fields: no
+
+| API name | Label | Type | Required | Unique | Details |
+|----------|-------|------|----------|--------|---------|
+| `name` | Name | TEXT | yes |  | up to 120 characters |
+| `location` | Location | PICKLIST | yes |  | the organization owns the list; starting values: PLANT1, PLANT2, HEAD; values are short codes |
+| `department` | Department | PICKLIST | yes |  | the organization owns the list; starting values: PRD, QLT, MNT, STR, HR, FIN; depends on `location`; values are short codes |
+| `groupId` | Group | LOOKUP | yes |  | points to `Group` |
+
+## Group
+
+A set of people that access policies and shares can name.
+
+- Label: Group / Groups
+- Records managed by: security
+- Own fields: no
+
+| API name | Label | Type | Required | Unique | Details |
+|----------|-------|------|----------|--------|---------|
+| `name` | Group name | TEXT | yes | yes | up to 80 characters |
+
 ## InspectionTemplate
 
 A template of the Audit maintenance application. Its records are kept for good.
@@ -133,9 +160,11 @@ A template of the Audit maintenance application. Its records are kept for good.
 | API name | Label | Type | Required | Unique | Details |
 |----------|-------|------|----------|--------|---------|
 | `name` | Template name | TEXT | yes |  | up to 120 characters |
-| `retired` | Retired | BOOLEAN |  |  |  |
+| `retired` | Retired | BOOLEAN |  |  | written by the platform only |
 | `category` | Category | PICKLIST |  |  | the organization owns the list; starting values: IMS, QSP, CORPQSP, ESSP, CP, WI, PFC, FMEA, SOP, BP, F, FEHS, CSF, PPT, L, LEHS; values are short codes |
 | `subCategory` | Sub-category | PICKLIST |  |  | the organization owns the list; starting values: PRD, QLT, MNT, STR, CORP, CUSA, CUSB; depends on `category`; values are short codes |
+| `partCode` | Part code | TEXT |  |  | up to 10 characters |
+| `planYear` | Plan year | TEXT |  |  | up to 4 characters |
 | `number` | Number | TEXT |  | yes | up to 40 characters; written by the platform only |
 
 ## LicenceType

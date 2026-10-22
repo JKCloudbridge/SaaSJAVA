@@ -62,11 +62,20 @@ Contact.mailingCity TEXT
 Contact.mailingState TEXT
 Contact.mailingPostalCode TEXT
 Contact.mailingCountry TEXT
-InspectionTemplate managedBy=none requiresFeature=inspection retainRecords
+DepartmentGroup managedBy=none requiresFeature=inspection
+DepartmentGroup.name TEXT
+DepartmentGroup.location PICKLIST codeValues organizationValues
+DepartmentGroup.department PICKLIST codeValues organizationValues dependsOn=location
+DepartmentGroup.groupId LOOKUP target=Group
+Group managedBy=security
+Group.name TEXT
+InspectionTemplate managedBy=none requiresFeature=inspection retainRecords sharingDefault=PRIVATE
 InspectionTemplate.name TEXT
-InspectionTemplate.retired BOOLEAN
+InspectionTemplate.retired BOOLEAN platformWritten
 InspectionTemplate.category PICKLIST codeValues organizationValues
 InspectionTemplate.subCategory PICKLIST codeValues organizationValues dependsOn=category
+InspectionTemplate.partCode TEXT
+InspectionTemplate.planYear TEXT
 InspectionTemplate.number TEXT platformWritten
 LicenceType managedBy=licensing
 LicenceType.key TEXT

@@ -16,12 +16,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 /**
  * Takes the numbers of the series (FA2A, ADR-0176, ADR-0184). The counter of a scope is one row of
  * {@code number_series_counter}; taking a number is one statement that makes the row at the first number or moves it
- * on,
- * so two instances numbering one scope at once get two different numbers, and the row stays locked until the
- * surrounding
- * transaction ends. A scope is the value that chooses the format followed by the values of the fields the format reads,
- * joined with slashes ({@code WI/PRD}); a scope that has never been numbered has no row and starts at 1, which is how a
- * newly added abbreviation starts again at one without anyone doing anything.
+ * on, so two instances numbering one scope at once get two different numbers, and the row stays locked until the
+ * surrounding transaction ends. A scope is the value that chooses the format followed by the values of the fields the
+ * format reads, joined with slashes ({@code WI/PRD}); a scope that has never been numbered has no row and starts at 1,
+ * which is how a newly added abbreviation starts again at one without anyone doing anything.
  *
  * <p>The row is the one thing locked, and a number taken in a transaction that rolls back is never issued: the counter
  * goes back with it. Nothing a record holds reaches a log or a message.
@@ -69,6 +67,41 @@ class DefaultNumberSeries implements NumberSeries {
     }
 
     @Override
+    public Optional<List<String>> missingParts(String seriesKey, Map<String, Object> values) {
+        NumberSeriesCatalogue.Series series = series(seriesKey);
+        Object choice = series.selector().isEmpty() ? "" : values.get(series.selector());
+        if (!(choice instanceof String code) || (!series.selector().isEmpty() && code.isEmpty())) {
+            return Optional.empty();
+        }
+        Optional<NumberFormat> format = series.formatFor(code);
+        if (format.isEmpty()) {
+            return Optional.empty();
+        }
+        List<String> missing = new ArrayList<>();
+        for (String name : format.get().fields()) {
+            Object value = values.get(name);
+            if (!(value instanceof String text) || !NumberFormat.CODE.matcher(text).matches()) {
+                missing.add(name);
+            }
+        }
+        return Optional.of(List.copyOf(missing));
+    }
+
+    @Override
+    public Optional<String> known(String seriesKey, Map<String, Object> values) {
+        NumberSeriesCatalogue.Series series = series(seriesKey);
+        try {
+            NumberFormat format = format(series, values);
+            return format.hasCounter() ? Optional.empty() : Optional.of(format.render(values, 0));
+        } catch (NumberSeriesException unavailable) {
+            if (unavailable.reason() == Reason.UNKNOWN_SERIES) {
+                throw unavailable;
+            }
+            return Optional.empty();
+        }
+    }
+
+    @Override
     public String next(String seriesKey, Map<String, Object> values) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("A number is taken inside a transaction");
@@ -77,6 +110,10 @@ class DefaultNumberSeries implements NumberSeries {
         NumberFormat format = format(series, values);
         // Every part is checked before the counter moves: a record that cannot be numbered must not use a number.
         format.render(values, 1);
+        if (!format.hasCounter()) {
+            // Nothing to count: the number is the values themselves and the unique index of the field is the backstop.
+            return format.render(values, 0);
+        }
         String scope = String.join("/", scopeOf(series, format, values));
         long counter = jdbc.sql(NEXT).param("tenant", contexts.require().tenantId().value())
                 .param("series", series.key()).param("scope", scope).param("actor", ActorId.SYSTEM.value())

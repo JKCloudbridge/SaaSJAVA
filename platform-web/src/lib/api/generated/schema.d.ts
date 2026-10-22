@@ -4500,6 +4500,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The templates the caller may see, with the lifecycle of each
+         * @description One page of templates, each with the numbers of its active, approved, in-review and draft versions and the state of the template as one word. The page is read through the record store, so a caller sees exactly the templates they may see: their own, all of them for a caller who may view every template, and those published to a group they are in. Filters: search (part of a name or a number), category, subCategory, retired and state. The state filter is applied to the page after it is read: a page can hold fewer rows than asked while nextCursor still goes on (filtered is true then). Sort: name, number or newest. canCreate says whether the screen may offer New; the request is decided again.
+         */
+        get: operations["listTemplates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/audience-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The locations and departments a template can be published to
+         * @description Every location of the organization's list with the departments that go with it, and for each department whether an administrator has set up a group for it. Needs the ability to publish sheets (FORBIDDEN otherwise).
+         */
+        get: operations["templateAudienceOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/lifecycle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The lifecycle of one template and what the caller may do next
+         * @description The numbers of its versions by status, the groups it is published to, and the flags canPublish, canUnpublish and canRetire. The flags only hide buttons: each act is decided again. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares.
+         */
+        get: operations["getTemplateLifecycle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish an approved version to the people of departments
+         * @description Needs the ability to publish sheets. Makes the approved version (the latest one when versionNo is left out) the one in use, replacing the one that was, and shares the template, read only, with the group an administrator set up for each location and department asked for. A group published to and not asked for again is taken back. Every pair is checked before anything is shared and a pair that cannot be published to refuses the whole request: VALIDATION_ERROR with audiences[i] naming it (no group is set up, several are, the group was removed or has no members). CONFLICT for a retired template or when there is nothing approved to publish. Allowed while another version is in review. Audited by counts and version numbers, never by a name. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares.
+         */
+        post: operations["publishTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retire a template for good
+         * @description Needs the ability to retire sheets. The template is marked retired and its version in use ends as retired; nothing is deleted, the number is never given again and the people it was published to still read it. CONFLICT while a version waits for approval (recall it or let it finish first) and for a template that is already retired. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares.
+         */
+        post: operations["retireTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a template back from the people it was published to
+         * @description Needs the ability to publish sheets. The version in use is approved again (not in use) and exactly the shares the publish made are removed; a share somebody gave by hand stays. CONFLICT when the template is not published. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares.
+         */
+        post: operations["unpublishTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tenant/current": {
         parameters: {
             query?: never;
@@ -4817,6 +4937,9 @@ export interface components {
         };
         ApiResponseApprovalResolutionView: {
             data: components["schemas"]["ApprovalResolutionView"];
+        };
+        ApiResponseAudienceOptionsView: {
+            data: components["schemas"]["AudienceOptionsView"];
         };
         ApiResponseAutomationHealthView: {
             data: components["schemas"]["AutomationHealthView"];
@@ -5148,6 +5271,12 @@ export interface components {
         ApiResponseTabView: {
             data: components["schemas"]["TabView"];
         };
+        ApiResponseTemplateLifecycleView: {
+            data: components["schemas"]["TemplateLifecycleView"];
+        };
+        ApiResponseTemplatePage: {
+            data: components["schemas"]["TemplatePage"];
+        };
         ApiResponseTenantSummary: {
             data: components["schemas"]["TenantSummary"];
         };
@@ -5421,6 +5550,23 @@ export interface components {
         AssignRoleRequest: {
             /** Format: uuid */
             roleId?: string;
+        };
+        AudienceDepartment: {
+            configured: boolean;
+            label: string;
+            value: string;
+        };
+        AudienceLocation: {
+            departments: components["schemas"]["AudienceDepartment"][];
+            label: string;
+            value: string;
+        };
+        AudienceOptionsView: {
+            locations: components["schemas"]["AudienceLocation"][];
+        };
+        AudiencePick: {
+            department: string;
+            location: string;
         };
         AuditEventView: {
             /** Format: uuid */
@@ -6491,6 +6637,7 @@ export interface components {
         ObjectSharingView: {
             configured?: boolean;
             defaultAccess: string;
+            fixed?: boolean;
             grantViaHierarchy?: boolean;
             object: string;
             /** Format: int64 */
@@ -6698,6 +6845,11 @@ export interface components {
             email: string;
             planKey: string;
             slug: string;
+        };
+        PublishTemplateRequest: {
+            audiences: components["schemas"]["AudiencePick"][];
+            /** Format: int32 */
+            versionNo?: number;
         };
         QueriedRecordView: {
             linked: {
@@ -7160,6 +7312,8 @@ export interface components {
             /** Format: int64 */
             gridBytes: number;
             gridHash: string;
+            /** Format: int32 */
+            reviewEdits: number;
             rowsMode: string;
             status: string;
             /** Format: date-time */
@@ -7266,6 +7420,60 @@ export interface components {
             label: string;
             /** Format: int64 */
             version: number;
+        };
+        TemplateAudience: {
+            department: string;
+            departmentLabel: string;
+            groupAvailable: boolean;
+            location: string;
+            locationLabel: string;
+            /** Format: date-time */
+            publishedAt: string;
+            /** Format: int32 */
+            versionNo: number;
+        };
+        TemplateLifecycle: {
+            /** Format: int32 */
+            activeVersion: number;
+            /** Format: int32 */
+            approvedVersion: number;
+            /** Format: int32 */
+            draftVersion: number;
+            /** Format: int32 */
+            highestVersion: number;
+            /** Format: int32 */
+            inReviewVersion: number;
+            /** Format: int32 */
+            retiredVersion: number;
+            state: string;
+        };
+        TemplateLifecycleView: {
+            audience: components["schemas"]["TemplateAudience"][];
+            canPublish: boolean;
+            canRetire: boolean;
+            canUnpublish: boolean;
+            /** Format: uuid */
+            id: string;
+            lifecycle: components["schemas"]["TemplateLifecycle"];
+            numberPreview?: string;
+            numberPreviewComplete: boolean;
+            retired: boolean;
+        };
+        TemplatePage: {
+            canCreate: boolean;
+            filtered: boolean;
+            nextCursor?: string;
+            rows: components["schemas"]["TemplateRow"][];
+        };
+        TemplateRow: {
+            category?: string;
+            /** Format: uuid */
+            id: string;
+            lifecycle: components["schemas"]["TemplateLifecycle"];
+            name?: string;
+            number?: string;
+            retired: boolean;
+            subCategory?: string;
         };
         TenantSummary: {
             displayName: string;
@@ -16866,6 +17074,201 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listTemplates: {
+        parameters: {
+            query?: {
+                search?: string;
+                category?: string;
+                subCategory?: string;
+                retired?: boolean;
+                state?: string;
+                sort?: string;
+                size?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseTemplatePage"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    templateAudienceOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseAudienceOptionsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getTemplateLifecycle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseTemplateLifecycleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    publishTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseTemplateLifecycleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    retireTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseTemplateLifecycleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    unpublishTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseTemplateLifecycleView"];
+                };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {

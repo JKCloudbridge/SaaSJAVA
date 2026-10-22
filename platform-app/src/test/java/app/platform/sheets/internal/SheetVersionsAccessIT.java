@@ -45,7 +45,7 @@ class SheetVersionsAccessIT extends SheetSupport {
     void aMemberWhoMayUpdateTheRecordReadsStartsAndSaves() {
         Setting setting = setting();
         String owner = template(setting.admin());
-        Member member = author(setting);
+        Member member = author(setting, owner);
         TestBrowser author = as(setting.organization(), member);
 
         Response started = start(author, owner, 2);
@@ -65,7 +65,7 @@ class SheetVersionsAccessIT extends SheetSupport {
     @Test
     void aMemberWhoMayOnlyReadSeesTheVersionsThatAreInUseAndNeverTheDraft() {
         Sheet sheet = sheetWithActiveAndDraft();
-        TestBrowser reader = as(sheet.setting().organization(), reader(sheet.setting()));
+        TestBrowser reader = as(sheet.setting().organization(), reader(sheet.setting(), sheet.owner()));
 
         Response list = reader.get(versions(sheet.owner()));
         Response active = read(reader, sheet.owner(), 1);
@@ -95,7 +95,7 @@ class SheetVersionsAccessIT extends SheetSupport {
         startFrom(setting.admin(), owner, null);
         walkTo(setting.organization(), owner, 5, "IN_REVIEW", "WITHDRAWN");
         startFrom(setting.admin(), owner, null);
-        TestBrowser reader = as(setting.organization(), reader(setting));
+        TestBrowser reader = as(setting.organization(), reader(setting, owner));
 
         Response list = reader.get(versions(owner));
 
@@ -109,7 +109,7 @@ class SheetVersionsAccessIT extends SheetSupport {
     @Test
     void aMemberWhoMayOnlyReadCannotStartOrSaveAndIsToldSo() {
         Sheet sheet = sheetWithActiveAndDraft();
-        TestBrowser reader = as(sheet.setting().organization(), reader(sheet.setting()));
+        TestBrowser reader = as(sheet.setting().organization(), reader(sheet.setting(), sheet.owner()));
         String grid = gridOf(read(sheet.setting().admin(), sheet.owner(), 2));
 
         Response started = start(reader, sheet.owner(), 2);
