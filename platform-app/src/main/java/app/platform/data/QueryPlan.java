@@ -55,12 +55,23 @@ public record QueryPlan(String objectApiName, Node where, List<SortKey> order, A
     }
 
     /**
-     * The record is shared with one of the grantees at least at the level (explicit shares, Sprint 17, ADR-0117).
+     * One grantee of a share, as the share table stores it: a kind and an identifier (Functional track FA2B,
+     * ADR-0185). A share matches when both are equal, never the identifier alone.
      *
-     * @param grantees at least one user or group identifier, in a fixed order
+     * @param type {@code USER}, {@code GROUP}, {@code ROLE} or {@code ROLE_AND_SUBORDINATES}
+     * @param id the user, group or role
+     */
+    public record ShareGrantee(String type, UUID id) {
+    }
+
+    /**
+     * The record is shared with one of the grantees at least at the level (explicit shares, Sprint 17, ADR-0117,
+     * ADR-0185).
+     *
+     * @param grantees at least one grantee, in a fixed order
      * @param level the least level of the share: 1 read, 2 read and write
      */
-    public record SharedWithAny(List<UUID> grantees, int level) implements Node {
+    public record SharedWithAny(List<ShareGrantee> grantees, int level) implements Node {
 
         /** Copies the list. */
         public SharedWithAny {

@@ -113,4 +113,53 @@ class RecordAccessFlowsLogsAreCleanIT extends RecordSecuritySupport {
                 .contains(rejected);
         assertThat(report.text().split("\n")[1]).doesNotContain("password");
     }
+
+    @Test
+    void theNameOfARoleOrAGroupARecordIsSharedWithReachesNoLogNoEventNoShareAuditAndNoOneWhoMayNotShare()
+            throws IOException {
+        Items items = items();
+        share(items.admin(), "PRIVATE", false);
+        Person owner = worker(items.organization(), items.admin());
+        Person reader = worker(items.organization(), items.admin());
+        String roleLabel = typed("role-label");
+        String groupLabel = typed("group-label");
+        String role = role(items.admin(), roleLabel, null);
+        String group = group(items.admin(), groupLabel, reader);
+        putInRole(items.admin(), reader, role);
+        String record = newItem(owner.browser(), "record-1");
+        List<String> toOthers = new ArrayList<>();
+
+        owner.browser().request("PUT", ITEM_RECORDS + "/" + record + "/shares", "{\"granteeType\":\"ROLE\","
+                + "\"granteeId\":\"" + role + "\",\"accessLevel\":\"READ\"}");
+        owner.browser().request("PUT", ITEM_RECORDS + "/" + record + "/shares", "{\"granteeType\":"
+                + "\"ROLE_AND_SUBORDINATES\",\"granteeId\":\"" + role + "\",\"accessLevel\":\"READ_WRITE\"}");
+        owner.browser().request("PUT", ITEM_RECORDS + "/" + record + "/shares", "{\"granteeType\":\"GROUP\","
+                + "\"granteeId\":\"" + group + "\",\"accessLevel\":\"READ\"}");
+        owner.browser().request("PUT", ITEM_RECORDS + "/" + record + "/shares", "{\"granteeType\":\"ROLE\","
+                + "\"granteeId\":\"" + missing() + "\",\"accessLevel\":\"READ\"}");
+        owner.browser().request("DELETE", ITEM_RECORDS + "/" + record + "/shares/" + role, null);
+        // What a person who may read the record but not share it is told, and what the list and the read give.
+        toOthers.add(reader.browser().get(ITEM_RECORDS + "/" + record).body());
+        toOthers.add(reader.browser().get(ITEM_RECORDS + "/" + record + "/shares").body());
+        toOthers.add(reader.browser().get(ITEM_RECORDS + "/" + record + "/share-targets?kind=ROLE").body());
+        toOthers.add(reader.browser().request("PUT", ITEM_RECORDS + "/" + record + "/shares", "{\"granteeType\":"
+                + "\"ROLE\",\"granteeId\":\"" + role + "\",\"accessLevel\":\"READ\"}").body());
+        toOthers.add(String.join("", listed(reader.browser())));
+
+        String log = Files.readString(Path.of(LOG_FILE));
+        for (String label : List.of(roleLabel, groupLabel)) {
+            assertThat(log).as("the log: " + label).doesNotContain(label);
+            assertThat(owner("select payload::text from outbox_event where payload::text like ?", "%" + label + "%"))
+                    .as("the events: " + label).isEmpty();
+            assertThat(owner("select attributes::text from audit_record where event_type like 'data.record.%' "
+                    + "and attributes::text like ?", "%" + label + "%")).as("the audit of the shares: " + label)
+                    .isEmpty();
+            toOthers.forEach(answer -> assertThat(answer).as("an answer to someone else: " + label)
+                    .doesNotContain(label));
+        }
+        assertThat(owner("select attributes::text from audit_record where event_type = 'data.record.shared' "
+                + "and context_tenant_id = ?", items.organization().id().value()))
+                .as("the audit says the kind and the level").anySatisfy(attributes -> assertThat(attributes)
+                        .contains("ROLE_AND_SUBORDINATES").contains("READ_WRITE").doesNotContain(role));
+    }
 }

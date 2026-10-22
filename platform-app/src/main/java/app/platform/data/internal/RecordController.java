@@ -29,6 +29,7 @@ import app.platformapi.RecordShareView;
 import app.platformapi.SearchRecordsRequest;
 import app.platformapi.RecordView;
 import app.platformapi.ShareRecordRequest;
+import app.platformapi.ShareTargetView;
 import app.platformapi.UpdateRecordRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -48,6 +49,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -274,16 +276,34 @@ class RecordController {
         return ApiResponse.of(sharing.list(objectApiName, id).stream().map(RecordController::share).toList());
     }
 
+    @GetMapping(RECORDS + "/{id}/share-targets")
+    @Operation(
+            operationId = "listRecordShareTargets",
+            summary = "The roles or public groups a record can be shared with",
+            description = "For whoever may share the record (the right to change it): the names and identifiers of the "
+                    + "live roles (kind ROLE) or public groups (kind GROUP) of the organization whose name contains "
+                    + "the search text, at most 25, by name. It says nothing about the people in them. "
+                    + "VALIDATION_ERROR for another kind or a search text over 80 characters. " + UNKNOWN
+                    + "NOT_FOUND also for a record the caller cannot reach; FORBIDDEN for a caller who can read the "
+                    + "record but not change it.")
+    ApiResponse<List<ShareTargetView>> shareTargets(@PathVariable String objectApiName, @PathVariable UUID id,
+            @RequestParam String kind, @RequestParam(required = false) String search) {
+        return ApiResponse.of(sharing.targets(objectApiName, id, kind, search).stream()
+                .map(target -> new ShareTargetView(target.id(), target.label())).toList());
+    }
+
     @PutMapping(RECORDS + "/{id}/shares")
     @Operation(
             operationId = "shareRecord",
-            summary = "Share a record with a user or a public group",
-            description = "Sharing again with the same user or group changes the level. READ lets them read the "
-                    + "record, READ_WRITE lets them read and change it; a share never gives the right to delete. "
-                    + "Visible at the next question on every instance. Needs the right to change the record. "
-                    + "VALIDATION_ERROR for the owner, for someone who is not a member, for a group that does not "
-                    + "exist; CONFLICT at the most shares a record can have. Audited by identifiers, never by "
-                    + "values. " + UNKNOWN)
+            summary = "Share a record with a user, a public group or a role",
+            description = "ROLE reaches the members whose own role it is; ROLE_AND_SUBORDINATES reaches the members of "
+                    + "that role and of every role below it. Sharing again with the same user, group or role "
+                    + "changes the level (and for a role the kind). READ lets them read the record, READ_WRITE lets "
+                    + "them read and change it; a share never gives the right to delete. Visible at the next "
+                    + "question on every instance, and allowed while an approval has the record locked. Needs the "
+                    + "right to change the record. VALIDATION_ERROR for the owner, for someone who is not a "
+                    + "member, for a group or role that does not exist; CONFLICT at the most shares a record can "
+                    + "have. Audited by kind and level, never by a name or a value. " + UNKNOWN)
     ApiResponse<RecordShareView> share(@PathVariable String objectApiName, @PathVariable UUID id,
             @Valid @RequestBody ShareRecordRequest body) {
         return ApiResponse.of(share(sharing.share(objectApiName, id, body.granteeType(), body.granteeId(),
@@ -294,8 +314,8 @@ class RecordController {
     @Operation(
             operationId = "unshareRecord",
             summary = "Take a share back",
-            description = "NOT_FOUND when the record is not shared with that user or group. Needs the right to change "
-                    + "the record. Audited. " + UNKNOWN)
+            description = "NOT_FOUND when the record is not shared with that user, group or role (the identifier is "
+                    + "the grantee's, whatever its kind). Needs the right to change the record. Audited. " + UNKNOWN)
     ResponseEntity<Void> unshare(@PathVariable String objectApiName, @PathVariable UUID id,
             @PathVariable UUID granteeId) {
         sharing.unshare(objectApiName, id, granteeId);
@@ -395,9 +415,11 @@ class RecordController {
         return new QueriedRecordView(view(queried.record()), linked);
     }
 
-    private static RecordShareView share(ShareStore.ShareRow row) {
+    private static RecordShareView share(RecordSharing.Shared shared) {
+        ShareStore.ShareRow row = shared.row();
         return new RecordShareView(row.id(), row.granteeType(), row.granteeId(),
-                row.level() == ShareLevel.READ_WRITE.value() ? "READ_WRITE" : "READ", row.sharedAt(), row.sharedBy());
+                row.level() == ShareLevel.READ_WRITE.value() ? "READ_WRITE" : "READ", row.sharedAt(), row.sharedBy(),
+                shared.label());
     }
 
     private static RecordView view(DataRecord record) {

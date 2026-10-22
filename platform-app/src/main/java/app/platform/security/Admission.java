@@ -21,8 +21,8 @@ import java.util.UUID;
  *   <li>{@link Everything}: every record of the object.</li>
  *   <li>{@link Nothing}: no record.</li>
  *   <li>{@link OwnedBy}: the records whose owner is one of the users.</li>
- *   <li>{@link SharedWith}: the records that are shared, at least at the level, with one of the grantees (a user or a
- *       public group).</li>
+ *   <li>{@link SharedWith}: the records that are shared, at least at the level, with one of the grantees (a user, a
+ *       public group or a role, each matched by kind and identifier).</li>
  *   <li>{@link Meets}: the records that meet a closed condition on their fields (a criteria-based sharing rule).</li>
  *   <li>{@link AnyOf}: the records that any one of the parts admits. It holds two or more parts that are neither
  *       {@code Everything}, {@code Nothing} nor another {@code AnyOf}: {@link #anyOf} makes sure of that.</li>
@@ -79,10 +79,13 @@ public sealed interface Admission {
     /**
      * Records shared with one of the grantees at least at the level.
      *
-     * @param grantees user and public group identifiers: the member's own user identifier and every group they are in
+     * @param grantees the grantees the member matches: their own user, every group they are in, their own role (as a
+     *        {@link Grantee.Kind#ROLE} grantee) and every role of their chain (as
+     *        {@link Grantee.Kind#ROLE_AND_SUBORDINATES} grantees). A share matches when its kind and identifier are
+     *        one of these pairs.
      * @param atLeast the level the share must have
      */
-    record SharedWith(Set<UUID> grantees, ShareLevel atLeast) implements Admission {
+    record SharedWith(Set<Grantee> grantees, ShareLevel atLeast) implements Admission {
 
         /** Copies the set. */
         public SharedWith {
@@ -126,7 +129,7 @@ public sealed interface Admission {
      */
     static Admission anyOf(Collection<? extends Admission> parts) {
         Set<UUID> owners = new TreeSet<>();
-        Map<ShareLevel, Set<UUID>> shared = new LinkedHashMap<>();
+        Map<ShareLevel, Set<Grantee>> shared = new LinkedHashMap<>();
         List<Meets> criteria = new ArrayList<>();
         List<Admission> pending = new ArrayList<>(parts);
         for (int index = 0; index < pending.size(); index++) {

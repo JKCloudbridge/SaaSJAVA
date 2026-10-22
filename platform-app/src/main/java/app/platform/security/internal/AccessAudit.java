@@ -94,9 +94,9 @@ class AccessAudit {
                 .with("parent", parent == null ? "none" : parent.toString()));
     }
 
-    void roleDeleted(UUID actor, UUID role, String name) {
+    void roleDeleted(UUID actor, UUID role, String name, int sharesEnded) {
         write(AuditRecord.of("access.role.deleted", AuditOutcome.SUCCESS).forUser(actor)
-                .with("role", role.toString()).with("name", name));
+                .with("role", role.toString()).with("name", name).with("shares_ended", Integer.toString(sharesEnded)));
     }
 
     // ---- groups and permissions on data ----
@@ -111,9 +111,10 @@ class AccessAudit {
                 .with("group", group.toString()).with("name", name));
     }
 
-    void groupDeleted(UUID actor, UUID group, String name, int linksEnded) {
+    void groupDeleted(UUID actor, UUID group, String name, int linksEnded, int sharesEnded) {
         write(AuditRecord.of("access.group.deleted", AuditOutcome.SUCCESS).forUser(actor)
-                .with("group", group.toString()).with("name", name).with("links_ended", Integer.toString(linksEnded)));
+                .with("group", group.toString()).with("name", name).with("links_ended", Integer.toString(linksEnded))
+                .with("shares_ended", Integer.toString(sharesEnded)));
     }
 
     /** A person or a group went into a group ({@code kind} is {@code person} or {@code group}). */

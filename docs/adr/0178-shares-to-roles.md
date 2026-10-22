@@ -1,6 +1,6 @@
 # ADR-0178: Shares to roles
 
-- **Status:** Proposed
+- **Status:** Accepted (built in FA2B; what the build settled is in [ADR-0185](0185-shares-to-roles-the-typed-grantee-and-the-choice-of-roles-and-groups.md))
 - **Date:** 2026-10-21
 - **Sprint:** FA0 (Functional track, spike; no product code)
 - **Related:** [ADR-0042](0042-the-role-hierarchy.md), [ADR-0115](0115-the-record-access-model-and-how-it-reaches-a-statement.md), [ADR-0116](0116-defaults-hierarchy-and-sharing-rules.md), [ADR-0117](0117-explicit-sharing-and-who-may-share.md), [ADR-0118](0118-view-all-modify-all-and-one-evaluation.md), [ADR-0053](0053-the-security-cache-and-its-version.md), [ADR-0174](0174-template-versions-and-approval-together.md)

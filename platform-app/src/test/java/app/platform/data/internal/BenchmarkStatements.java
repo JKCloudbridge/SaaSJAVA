@@ -245,7 +245,7 @@ public final class BenchmarkStatements {
         files.put("s17c-private-shared", secured("S17: a Private object, the member owns records and 100 more are "
                 + "shared with them, first page", "",
                 new Group(false, List.of(new OwnedByAny(List.of(person(1))),
-                        new SharedWithAny(List.of(person(1)), 1))),
+                        new SharedWithAny(List.of(new QueryPlan.ShareGrantee("USER", person(1))), 1))),
                 Map.of(person(1).toString(), "(bench_id(300000001))::text")));
         StorageStrategy.SearchWord rare = new StorageStrategy.SearchWord("w00000", false, null);
         StorageStrategy.SearchWord common = new StorageStrategy.SearchWord("tag00", false, null);

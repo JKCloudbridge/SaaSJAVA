@@ -19,7 +19,7 @@ class AdmissionTest {
     @Test
     void aPartThatAdmitsEverythingMakesTheWholeAdmitEverything() {
         Admission combined = Admission.anyOf(List.of(new Admission.OwnedBy(Set.of(ONE)), Admission.everything(),
-                new Admission.SharedWith(Set.of(GROUP), ShareLevel.READ)));
+                new Admission.SharedWith(Set.of(Grantee.group(GROUP)), ShareLevel.READ)));
 
         assertThat(combined).isInstanceOf(Admission.Everything.class);
     }
@@ -43,14 +43,28 @@ class AdmissionTest {
 
     @Test
     void theGranteesOfSharesAtTheSameLevelBecomeOnePartAndLevelsStayApart() {
-        Admission combined = Admission.anyOf(List.of(new Admission.SharedWith(Set.of(ONE), ShareLevel.READ),
-                new Admission.SharedWith(Set.of(GROUP), ShareLevel.READ),
-                new Admission.SharedWith(Set.of(TWO), ShareLevel.READ_WRITE)));
+        Admission combined = Admission.anyOf(List.of(
+                new Admission.SharedWith(Set.of(Grantee.user(ONE)), ShareLevel.READ),
+                new Admission.SharedWith(Set.of(Grantee.group(GROUP)), ShareLevel.READ),
+                new Admission.SharedWith(Set.of(Grantee.user(TWO)), ShareLevel.READ_WRITE)));
 
         assertThat(combined).isInstanceOf(Admission.AnyOf.class);
         assertThat(((Admission.AnyOf) combined).parts()).containsExactly(
-                new Admission.SharedWith(Set.of(ONE, GROUP), ShareLevel.READ),
-                new Admission.SharedWith(Set.of(TWO), ShareLevel.READ_WRITE));
+                new Admission.SharedWith(Set.of(Grantee.user(ONE), Grantee.group(GROUP)), ShareLevel.READ),
+                new Admission.SharedWith(Set.of(Grantee.user(TWO)), ShareLevel.READ_WRITE));
+    }
+
+    @Test
+    void aShareIsMatchedByKindAndIdentifierSoTheSameIdentifierOfAnotherKindIsAnotherGrantee() {
+        Admission combined = Admission.anyOf(List.of(
+                new Admission.SharedWith(Set.of(Grantee.role(ONE)), ShareLevel.READ),
+                new Admission.SharedWith(Set.of(Grantee.roleAndSubordinates(ONE), Grantee.group(ONE)),
+                        ShareLevel.READ)));
+
+        assertThat(combined).isEqualTo(new Admission.SharedWith(Set.of(Grantee.role(ONE),
+                Grantee.roleAndSubordinates(ONE), Grantee.group(ONE)), ShareLevel.READ));
+        assertThat(Grantee.role(ONE)).isNotEqualTo(Grantee.roleAndSubordinates(ONE))
+                .isNotEqualTo(Grantee.user(ONE));
     }
 
     @Test
@@ -70,8 +84,9 @@ class AdmissionTest {
     @Test
     void theSameMeaningGivesTheSameTreeWhateverTheOrder() {
         Admission first = Admission.anyOf(List.of(new Admission.OwnedBy(Set.of(ONE)),
-                new Admission.SharedWith(Set.of(GROUP), ShareLevel.READ)));
-        Admission second = Admission.anyOf(List.of(new Admission.SharedWith(Set.of(GROUP), ShareLevel.READ),
+                new Admission.SharedWith(Set.of(Grantee.group(GROUP)), ShareLevel.READ)));
+        Admission second = Admission.anyOf(List.of(
+                new Admission.SharedWith(Set.of(Grantee.group(GROUP)), ShareLevel.READ),
                 new Admission.OwnedBy(Set.of(ONE))));
 
         assertThat(second).isEqualTo(first);
@@ -79,10 +94,14 @@ class AdmissionTest {
 
     @Test
     void nothingThatBelongsToTheOrganizationIsPrinted() {
-        String printed = List.of(new Admission.OwnedBy(Set.of(ONE)), new Admission.SharedWith(Set.of(GROUP),
+        String printed = List.of(new Admission.OwnedBy(Set.of(ONE)),
+                new Admission.SharedWith(Set.of(Grantee.group(GROUP)),
                 ShareLevel.READ), new Admission.Meets(GROUP, CONDITION)).toString();
 
-        assertThat(printed).doesNotContain(ONE.toString()).doesNotContain("stage__c").doesNotContain("Open");
+        assertThat(printed).doesNotContain(ONE.toString())
+                .doesNotContain("stage__c").doesNotContain("Open");
+        assertThat(new Admission.SharedWith(Set.of(Grantee.role(ONE), Grantee.user(TWO)), ShareLevel.READ).toString())
+                .doesNotContain(ONE.toString()).doesNotContain(TWO.toString());
     }
 
     @Test

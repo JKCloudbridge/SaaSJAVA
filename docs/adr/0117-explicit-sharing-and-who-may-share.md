@@ -21,6 +21,8 @@ A person needs to show one record to one colleague or one group without an admin
 
 ## Consequences
 
+- **Since FA2B ([ADR-0185](0185-shares-to-roles-the-typed-grantee-and-the-choice-of-roles-and-groups.md)) a grantee is also a role** (alone, or with the roles below it); sharing again with the same grantee changes the level and, for a role, the kind.
+
 - Sharing is visible at once on every instance, with no invalidation to get wrong.
 - The cost is that each question about a Private object reads the share rows (an index on `(tenant, record, grantee)`); the measured cost is in ADR-0119.
 - A record that is shared with a group follows the group: members added later see it at their next question; members removed lose it.
