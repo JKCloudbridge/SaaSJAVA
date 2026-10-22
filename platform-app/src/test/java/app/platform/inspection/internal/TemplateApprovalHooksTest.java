@@ -150,6 +150,21 @@ class TemplateApprovalHooksTest {
             throw new UnsupportedOperationException();
         }
 
+        @Override
+        public Started startDraft(String ownerObject, UUID ownerId, int basedOn, UUID actor) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<SheetStatus> statusOf(String ownerObject, UUID ownerId, int versionNo) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<Layout> layoutOf(String ownerObject, UUID ownerId, int versionNo) {
+            throw new UnsupportedOperationException();
+        }
+
         // ---- ApprovalHookWriter ----
 
         @Override

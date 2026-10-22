@@ -12055,6 +12055,309 @@
         "tags" : [ "Templates" ]
       }
     },
+    "/api/v1/templates/{templateId}/change-requests" : {
+      "get" : {
+        "description" : "Each request with its comments, newest first. canReview says whether the caller may answer requests and canRequest whether the screen may offer to ask for a change (a version is in use and the template is not retired); the flags only hide buttons. status narrows the list (OPEN, ACCEPTED, DECLINED or DONE). A comment says whether its place is still in the version in use. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
+        "operationId" : "listChangeRequests",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseChangeRequestsView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The change requests of a template that the caller may see",
+        "tags" : [ "Template change requests" ]
+      },
+      "post" : {
+        "description" : "Needs only the right to read the template. The version must be one that is or was in use; each comment may name a row, a column, both (a cell) or neither (the template as a whole), and a row or column must be in that version. Nothing of the template changes. VALIDATION_ERROR names the place that is wrong. CONFLICT for a retired template, when no version is in use, and when a limit is reached (open requests per person, requests per template). NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
+        "operationId" : "createChangeRequest",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateChangeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseChangeRequestView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Ask for a change to a version of a template",
+        "tags" : [ "Template change requests" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/change-requests/turn-into-version" : {
+      "post" : {
+        "description" : "Needs the right to change the template (FORBIDDEN otherwise). Makes a draft that is a copy of the version in use now (not of the version each person read) and links the requests to it; they become done. When a draft already exists nothing is copied and the requests are linked to that draft (created is false). The draft goes through approval like any other. CONFLICT for a retired template, when no version is in use, and for a request that is already answered or turned (the second of two callers at once gets this). NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
+        "operationId" : "turnChangeRequestsIntoVersion",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TurnIntoVersionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTurnedView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Turn change requests into the next version of the template",
+        "tags" : [ "Template change requests" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/change-requests/{requestId}" : {
+      "get" : {
+        "description" : "NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
+        "operationId" : "getChangeRequest",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "requestId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseChangeRequestView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One change request with its comments",
+        "tags" : [ "Template change requests" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/change-requests/{requestId}/answer" : {
+      "post" : {
+        "description" : "Needs the right to change the template (FORBIDDEN otherwise). ACCEPT moves an open request to accepted; DECLINE needs a reason and ends an open or accepted one; REOPEN puts a done request back to open, only when the version it became was rejected or withdrawn. CONFLICT when it is not in a status that allows the move, or somebody answered first. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
+        "operationId" : "answerChangeRequest",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "requestId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AnswerChangeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseChangeRequestView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Accept, decline or reopen a change request",
+        "tags" : [ "Template change requests" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/change-requests/{requestId}/comments" : {
+      "post" : {
+        "description" : "By the person who asked or by a person who may change the template, while the request is open or accepted. The place is checked against the version the request read. CONFLICT when the request is closed or has the most comments. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
+        "operationId" : "addChangeComment",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "requestId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NewChangeComment"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseChangeRequestView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Add a comment to a change request",
+        "tags" : [ "Template change requests" ]
+      }
+    },
     "/api/v1/templates/{templateId}/lifecycle" : {
       "get" : {
         "description" : "The numbers of its versions by status, the groups it is published to, and the flags canPublish, canUnpublish and canRetire. The flags only hide buttons: each act is decided again. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares. ",
@@ -12806,6 +13109,21 @@
         },
         "required" : [ "added", "controllingValues", "label", "value" ]
       },
+      "AnswerChangeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "action" : {
+            "type" : "string",
+            "pattern" : "ACCEPT|DECLINE|REOPEN"
+          },
+          "note" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "action" ]
+      },
       "ApiError" : {
         "type" : "object",
         "properties" : {
@@ -13098,6 +13416,24 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/CatalogueItem"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseChangeRequestView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ChangeRequestView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseChangeRequestsView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ChangeRequestsView"
           }
         },
         "required" : [ "data" ]
@@ -14226,6 +14562,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/TenantSummary"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseTurnedView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/TurnedView"
           }
         },
         "required" : [ "data" ]
@@ -15470,6 +15815,44 @@
         },
         "required" : [ "kind", "phase", "properties", "scheduled", "summary" ]
       },
+      "ChangeCommentView" : {
+        "type" : "object",
+        "properties" : {
+          "authorName" : {
+            "type" : "string"
+          },
+          "columnId" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "inActiveVersion" : {
+            "type" : "boolean"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "mine" : {
+            "type" : "boolean"
+          },
+          "rowId" : {
+            "type" : "string"
+          },
+          "text" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "createdAt", "id", "inActiveVersion", "kind", "label", "mine", "text" ]
+      },
       "ChangeOwnerRequest" : {
         "type" : "object",
         "properties" : {
@@ -15610,6 +15993,109 @@
           }
         },
         "required" : [ "kind" ]
+      },
+      "ChangeRequestView" : {
+        "type" : "object",
+        "properties" : {
+          "answeredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "canAccept" : {
+            "type" : "boolean"
+          },
+          "canComment" : {
+            "type" : "boolean"
+          },
+          "canDecline" : {
+            "type" : "boolean"
+          },
+          "canReopen" : {
+            "type" : "boolean"
+          },
+          "canTurn" : {
+            "type" : "boolean"
+          },
+          "comments" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChangeCommentView"
+            }
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "decisionNote" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "mine" : {
+            "type" : "boolean"
+          },
+          "placesInActive" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "placesTotal" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "requesterName" : {
+            "type" : "string"
+          },
+          "resultingVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "resultingVersionStatus" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "canAccept", "canComment", "canDecline", "canReopen", "canTurn", "comments", "createdAt", "id", "mine", "placesInActive", "placesTotal", "status", "title", "versionNo" ]
+      },
+      "ChangeRequestsView" : {
+        "type" : "object",
+        "properties" : {
+          "activeVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "canRequest" : {
+            "type" : "boolean"
+          },
+          "canReview" : {
+            "type" : "boolean"
+          },
+          "draftVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "openCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "requests" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChangeRequestView"
+            }
+          }
+        },
+        "required" : [ "activeVersion", "canRequest", "canReview", "draftVersion", "openCount", "requests" ]
       },
       "ChangeSetReportView" : {
         "type" : "object",
@@ -15995,6 +16481,27 @@
           }
         },
         "required" : [ "label", "name", "steps" ]
+      },
+      "CreateChangeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "comments" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NewChangeComment"
+            }
+          },
+          "title" : {
+            "type" : "string",
+            "maxLength" : 1000,
+            "minLength" : 0
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "title", "versionNo" ]
       },
       "CreateChangeSetRequest" : {
         "type" : "object",
@@ -18225,6 +18732,27 @@
           }
         },
         "required" : [ "type" ]
+      },
+      "NewChangeComment" : {
+        "type" : "object",
+        "properties" : {
+          "columnId" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "rowId" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "text" : {
+            "type" : "string",
+            "maxLength" : 8000,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "text" ]
       },
       "NewSheetVersionRequest" : {
         "type" : "object",
@@ -21229,6 +21757,38 @@
             }
           }
         }
+      },
+      "TurnIntoVersionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "requestIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            },
+            "maxItems" : 200,
+            "minItems" : 1
+          }
+        },
+        "required" : [ "requestIds" ]
+      },
+      "TurnedView" : {
+        "type" : "object",
+        "properties" : {
+          "created" : {
+            "type" : "boolean"
+          },
+          "requests" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "created", "requests", "versionNo" ]
       },
       "UpdateApplicationRequest" : {
         "type" : "object",
