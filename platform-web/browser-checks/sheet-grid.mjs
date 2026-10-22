@@ -38,8 +38,23 @@ const check = (name, ok, detail = "") => {
 };
 
 // ---- the API, called from the browser's own session (cookies and the forgery header), to make the data to look at ----
+//
+// The server rotates the forgery cookie after every state-changing request, exactly as the real page's own client
+// does (`ensureForgeryCookie` in `lib/session/SessionProvider.tsx`): a GET of `/api/v1/auth/csrf` refreshes it when
+// it is missing. A script that reused a cookie read before an earlier write would be refused for no reason of its
+// own; this follows the page's own rule so a check never reports a failure the real page would not have.
+
+async function ensureForgeryCookie(page) {
+  const hasToken = await page.evaluate(() => document.cookie.includes("XSRF-TOKEN="));
+  if (!hasToken) {
+    await page.evaluate(() => fetch("/api/v1/auth/csrf"));
+  }
+}
 
 async function api(page, method, path, body) {
+  if (method !== "GET") {
+    await ensureForgeryCookie(page);
+  }
   return page.evaluate(
     async ([method, path, body]) => {
       const csrf = document.cookie.split("; ").find((c) => c.startsWith("XSRF-TOKEN="))?.slice("XSRF-TOKEN=".length) ?? "";
