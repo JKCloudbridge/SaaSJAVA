@@ -2,6 +2,7 @@ package app.platform.sheets;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -68,6 +69,54 @@ public interface SheetLifecycle {
      * @return the number of the version, or 0 when none was in use
      */
     int retire(String ownerObject, UUID ownerId, UUID actor);
+
+    /**
+     * Starts the draft of the sheet as a copy of a version (FA5, ADR-0191), for a module that has decided it may: the
+     * copy never leaves the database. Only one draft exists at a time, so when there already is one nothing is made and
+     * the existing draft is reported.
+     *
+     * @param basedOn the number of the version to copy
+     * @param actor the person on whose behalf the module acts
+     * @return the draft and whether this call made it
+     * @throws SheetMoveRefusal {@code NO_VERSION} when that version does not exist, {@code TOO_MANY_VERSIONS}
+     */
+    Started startDraft(String ownerObject, UUID ownerId, int basedOn, UUID actor);
+
+    /** The draft a call of {@link #startDraft} made or found. */
+    record Started(int versionNo, boolean created) {
+    }
+
+    /** The status of one version, or empty when the sheet has no such version. Reads no grid. */
+    Optional<SheetStatus> statusOf(String ownerObject, UUID ownerId, int versionNo);
+
+    /**
+     * The places a version has, for a module that anchors a note to one: the stable identifiers of its columns and rows
+     * (header rows included) with the label each had. Reads the grid of that one version and returns identifiers and
+     * labels only. Empty when the sheet has no such version.
+     */
+    Optional<Layout> layoutOf(String ownerObject, UUID ownerId, int versionNo);
+
+    /**
+     * The places of a version.
+     *
+     * @param status the status of the version
+     * @param columns the label of each column by its identifier (a label may be empty)
+     * @param rows the label of each row by its identifier, header rows included (a label may be empty)
+     */
+    record Layout(SheetStatus status, Map<String, String> columns, Map<String, String> rows) {
+
+        /** Copies the maps. */
+        public Layout {
+            columns = Map.copyOf(columns);
+            rows = Map.copyOf(rows);
+        }
+
+        /** Prints the status only: the labels are the organization's text. */
+        @Override
+        public String toString() {
+            return "Layout[" + status + "]";
+        }
+    }
 
     /**
      * What the versions of these owners add up to, without reading a grid: one statement for all of them.

@@ -43,7 +43,7 @@ class NotificationPreferencesIT extends NotificationSupport {
         Response view = browser.get(PREFERENCES);
 
         assertThat(view.status()).as(view.body()).isEqualTo(200);
-        assertThat(JsonPath.<List<Boolean>>read(view.body(), "$.data.choices[*].enabled")).hasSize(6)
+        assertThat(JsonPath.<List<Boolean>>read(view.body(), "$.data.choices[*].enabled")).hasSize(8)
                 .containsOnly(true);
         assertThat(JsonPath.<List<Boolean>>read(view.body(),
                 "$.data.choices[?(@.category=='ACCOUNT')].locked")).containsExactly(true, true);

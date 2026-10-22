@@ -23,6 +23,10 @@ final class Templates {
     static final String PLAN_YEAR = "planYear";
     static final String RETIRED = "retired";
 
+    /** The application and the entry of it that opens a template with its change requests (a notice leads there). */
+    static final String APPLICATION = "inspection";
+    static final String ENTRY = "s-templates";
+
     /** The object that says which group belongs to a department of a location. */
     static final String DEPARTMENT_OBJECT = "DepartmentGroup";
     static final String LOCATION = "location";

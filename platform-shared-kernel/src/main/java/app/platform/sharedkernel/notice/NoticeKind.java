@@ -26,7 +26,14 @@ public enum NoticeKind {
     WORKFLOW_NOTICE(Category.WORKFLOWS, false, true, Set.of("workflow")),
 
     /** The trial of the organization is ending or has ended. Facts: {@code stage}. */
-    TRIAL_NOTICE(Category.ACCOUNT, true, false, Set.of("stage"));
+    TRIAL_NOTICE(Category.ACCOUNT, true, false, Set.of("stage")),
+
+    /**
+     * Something happened to a change request on a record (FA5, ADR-0191). Facts: {@code event} (a stable key: one was
+     * made, a comment was added, it was accepted, declined or turned into a new version), and {@code application} and
+     * {@code entry}, the address parts of the page that opens the record. The text is the platform's own.
+     */
+    CHANGE_REQUEST(Category.REQUESTS, false, false, Set.of("event", "application", "entry"));
 
     /** What a person switches on or off (ADR-0156). */
     public enum Category {
@@ -35,7 +42,9 @@ public enum NoticeKind {
         /** Notices a workflow sends. */
         WORKFLOWS,
         /** Things about the account and the organization's standing; cannot be switched off. */
-        ACCOUNT
+        ACCOUNT,
+        /** Change requests on records a person asked for or owns. */
+        REQUESTS
     }
 
     private final Category category;

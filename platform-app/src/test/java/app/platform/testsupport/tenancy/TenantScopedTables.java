@@ -754,6 +754,30 @@ public final class TenantScopedTables {
                     tenant, UUID.randomUUID(), UUID.randomUUID(), ActorId.SYSTEM.value(),
                     ActorId.SYSTEM.value()));
 
+    /** The change requests on templates (FA5). Each probe row is a request on a template of its own. */
+    public static final TenantScopedTable INSPECTION_CHANGE_REQUEST = new TenantScopedTable(
+            "inspection_change_request",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into inspection_change_request (tenant_id, template_id, version_no, title, created_by, "
+                            + "updated_by) values (?, ?, 1, 'Probe', ?, ?)",
+                    tenant, UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
+    /** The comments of change requests (FA5). Each probe row is a comment on a request of its own. */
+    public static final TenantScopedTable INSPECTION_CHANGE_COMMENT = new TenantScopedTable(
+            "inspection_change_comment",
+            (connection, tenant) -> {
+                UUID template = UUID.randomUUID();
+                UUID request = UUID.randomUUID();
+                TenantFixtures.update(connection,
+                        "insert into inspection_change_request (id, tenant_id, template_id, version_no, title, "
+                                + "created_by, updated_by) values (?, ?, ?, 1, 'Probe', ?, ?)",
+                        request, tenant, template, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+                TenantFixtures.update(connection,
+                        "insert into inspection_change_comment (tenant_id, request_id, template_id, body, created_by, "
+                                + "updated_by) values (?, ?, ?, 'Probe', ?, ?)",
+                        tenant, request, template, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
@@ -770,7 +794,7 @@ public final class TenantScopedTables {
             APPROVAL_STEP_INSTANCE, APPROVAL_ASSIGNMENT, APPROVAL_HISTORY, APPROVAL_DELEGATION, NOTIFICATION,
             NOTIFICATION_PREFERENCE, NOTIFICATION_TEMPLATE, APPROVAL_STEP_TIMER, APPROVAL_REMINDER,
             ORGANIZATION_FIELD_VALUES, NUMBER_SERIES_COUNTER, SHEET_VERSION,
-            INSPECTION_PUBLICATION);
+            INSPECTION_PUBLICATION, INSPECTION_CHANGE_REQUEST, INSPECTION_CHANGE_COMMENT);
 
     private TenantScopedTables() {
     }

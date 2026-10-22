@@ -5,9 +5,13 @@ import { useState } from "react";
 import { ApprovalPanel, type ApprovalState } from "@/components/records/ApprovalPanel";
 import { useRecord } from "@/components/records/RecordFormPage";
 import { SheetWorkspace } from "@/components/sheets/SheetWorkspace";
+import type { AnnotateContext, Place, SheetAnnotate } from "@/lib/sheets/annotate";
 import { DetailGrid, DetailItem, DetailPage, DetailSection, MissingDetail } from "@/components/ui/lists/DetailPage";
 import { Tag } from "@/components/ui/lists/Tag";
 import { retireTemplate, unpublishTemplate, useLifecycle, type TemplateLifecycleView } from "./api";
+import { AnnotatePanel } from "./AnnotatePanel";
+import { marksFromRequests, useChangeRequests } from "./changeRequests";
+import { ChangeRequestsSection } from "./ChangeRequestsSection";
 import { lifecycleText, stateTag } from "./lifecycle";
 import { PublishDialog } from "./PublishDialog";
 import { TEMPLATE_OBJECT, text } from "./template";
@@ -28,6 +32,9 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
   const [refresh, setRefresh] = useState(0);
   const record = useRecord(TEMPLATE_OBJECT, id, refresh);
   const { state: lifecycle, reload } = useLifecycle(id, refresh);
+  const { state: requests, reload: reloadRequests } = useChangeRequests(id, refresh);
+  // A place a comment in the list asked to be shown: the panel under the grid stands the grid on it and clears this.
+  const [show, setShow] = useState<Place | null>(null);
   const [approval, setApproval] = useState<ApprovalState>({ locked: false, mayOverride: false, mayApprove: false });
   const [publishing, setPublishing] = useState(false);
   const [notice, setNotice] = useState<{ text: string; error: boolean } | undefined>();
@@ -37,6 +44,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
   const changed = () => {
     setRefresh((now) => now + 1);
     reload();
+    reloadRequests();
   };
 
   if (record.status === "loading") {
@@ -59,6 +67,26 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
   const name = text(fields.name) || "Untitled template";
   const view: TemplateLifecycleView | undefined = lifecycle.status === "ready" ? lifecycle.view : undefined;
   const tag = view ? stateTag(view.lifecycle.state) : undefined;
+  const requestsView = requests.status === "ready" ? requests.view : undefined;
+
+  // Annotate mode (FA5): the version in use can be pointed at by anyone the API says may ask for a change.
+  const annotate: SheetAnnotate | undefined =
+    view && view.lifecycle.activeVersion > 0 && requestsView?.canRequest
+      ? {
+          versionNo: view.lifecycle.activeVersion,
+          marks: marksFromRequests(requestsView),
+          panel: (context: AnnotateContext) => (
+            <AnnotatePanel
+              templateId={id}
+              context={context}
+              view={requestsView}
+              show={show}
+              onShown={() => setShow(null)}
+              onSent={changed}
+            />
+          ),
+        }
+      : undefined;
 
   const act = async (run: () => ReturnType<typeof unpublishTemplate>, done: string) => {
     setBusy(true);
@@ -232,6 +260,16 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
           label={name}
           correctInReview={approval.mayOverride}
           refreshToken={refresh}
+          annotate={annotate}
+        />
+      </DetailSection>
+
+      <DetailSection title="Change requests" stack>
+        <ChangeRequestsSection
+          templateId={id}
+          state={requests}
+          onChanged={changed}
+          onShow={annotate ? setShow : undefined}
         />
       </DetailSection>
     </DetailPage>

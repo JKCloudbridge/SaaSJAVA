@@ -1,5 +1,6 @@
 "use client";
 
+import type { AnnotationMarks } from "@/lib/sheets/annotate";
 import type { FontSize } from "@/lib/sheets/types";
 import { SheetGrid } from "./SheetGrid";
 import type { SheetEditor } from "./useSheetEditor";
@@ -18,6 +19,8 @@ export interface GridViewProps {
   /** Why the grid is read-only, in words, shown above it. */
   readOnlyReason?: string;
   label: string;
+  /** Annotate mode (FA5): the places with notes are marked and Enter on a cell asks for a note on it. */
+  annotation?: { marks: AnnotationMarks; onActivate(): void };
 }
 
 /**
@@ -26,7 +29,7 @@ export interface GridViewProps {
  * model's operations on the selection, and a refusal is shown in its words under the grid. A button that the model would
  * refuse is not hidden, it is tried, so the person is told why.
  */
-export function GridView({ editor, readOnly, readOnlyReason, label }: GridViewProps) {
+export function GridView({ editor, readOnly, readOnlyReason, label, annotation }: GridViewProps) {
   const { state, selection, rows, doc } = editor;
   const focusRow = rows[selection.fr];
   const focusColumn = doc.columns[selection.fc];
@@ -117,9 +120,11 @@ export function GridView({ editor, readOnly, readOnlyReason, label }: GridViewPr
           </button>
         </div>
       )}
-      <SheetGrid editor={editor} readOnly={readOnly} label={label} />
+      <SheetGrid editor={editor} readOnly={readOnly} label={label} annotation={annotation} />
       <p className="hint">
-        {readOnly
+        {annotation
+          ? "Arrow keys move; click a column label to stand on a column. Press Enter on a cell to write a comment about it, or use the buttons under the grid. Marked places already have comments."
+          : readOnly
           ? "Arrow keys move; Ctrl+C copies."
           : "Type to write fixed text, Enter to edit, Delete to clear, Ctrl+B and Ctrl+I for bold and italic, Ctrl+Z to undo. Cells with no text are cells the filler types into."}
       </p>

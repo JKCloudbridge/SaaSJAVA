@@ -118,6 +118,10 @@ function listAnswers(create = true) {
       }),
     [`GET ${RECORDS}/${ID}/approval`]: () => json(NO_APPROVAL),
     [`GET /api/v1/templates/${ID}/lifecycle`]: () => json(lifecycleOf()),
+    [`GET /api/v1/templates/${ID}/change-requests`]: () =>
+      json({
+        data: { requests: [], canReview: false, canRequest: false, activeVersion: 0, draftVersion: 0, openCount: 0 },
+      }),
     [`GET /api/v1/sheets/InspectionTemplate/${ID}/versions`]: () =>
       json({ data: { versions: [], canChange: true, limits: LIMITS } }),
   } as Record<string, Handler>;
@@ -469,5 +473,87 @@ describe("a draft beside a version in review", () => {
 
     await screen.findByTestId("audience-none");
     expect(screen.queryByTestId("draft-waits")).toBeNull();
+  });
+});
+
+describe("change requests on the template page (FA5)", () => {
+  const SUMMARY = {
+    versionNo: 3,
+    status: "ACTIVE",
+    dimension: 2,
+    rowsMode: "FIXED",
+    gridBytes: 10,
+    gridHash: "a".repeat(64),
+    version: 0,
+    createdAt: "2026-10-22T08:00:00Z",
+    updatedAt: "2026-10-22T08:00:00Z",
+    reviewEdits: 0,
+  };
+
+  function reading(canRequest: boolean, requests: unknown[] = []) {
+    return {
+      ...listAnswers(),
+      [`GET /api/v1/templates/${ID}/lifecycle`]: () =>
+        json(lifecycleOf({}, { ...NONE, state: "ACTIVE", activeVersion: 3, highestVersion: 3 })),
+      [`GET /api/v1/templates/${ID}/change-requests`]: () =>
+        json({ data: { requests, canReview: false, canRequest, activeVersion: 3, draftVersion: 0, openCount: requests.length } }),
+      [`GET /api/v1/sheets/InspectionTemplate/${ID}/versions`]: () =>
+        json({ data: { versions: [SUMMARY], canChange: false, limits: LIMITS } }),
+      [`GET /api/v1/sheets/InspectionTemplate/${ID}/versions/3`]: () => json({ data: { version: SUMMARY, grid: sampleDoc() } }),
+    };
+  }
+
+  it("offers a reader of the version in use the panel to ask for a change under the grid, and lists their requests", async () => {
+    setUrl(`/apps/inspection/templates?open=${ID}`);
+    fakeApi(
+      reading(true, [
+        {
+          id: "q-1",
+          title: "The first row",
+          status: "OPEN",
+          versionNo: 3,
+          requesterName: "Me",
+          mine: true,
+          createdAt: "2026-10-22T08:00:00Z",
+          placesTotal: 1,
+          placesInActive: 1,
+          canComment: true,
+          canAccept: false,
+          canDecline: false,
+          canTurn: false,
+          canReopen: false,
+          comments: [
+            {
+              id: "c-1",
+              kind: "ROW",
+              rowId: "r1",
+              label: "First",
+              inActiveVersion: true,
+              text: "Wrong",
+              createdAt: "2026-10-22T08:00:00Z",
+              mine: true,
+            },
+          ],
+        },
+      ]),
+    );
+
+    render(<TemplatesPage />);
+
+    expect(await screen.findByTestId("annotate-panel")).toBeInTheDocument();
+    expect(screen.getByRole("grid", { name: "Fire exit check, version 3" })).toHaveAttribute("aria-readonly", "true");
+    expect(await screen.findByRole("heading", { name: "The first row" })).toBeInTheDocument();
+    expect(document.querySelector(".sheet-row-noted")).not.toBeNull();
+  });
+
+  it("offers no panel when the API says nobody can ask for a change", async () => {
+    setUrl(`/apps/inspection/templates?open=${ID}`);
+    fakeApi(reading(false));
+
+    render(<TemplatesPage />);
+
+    expect(await screen.findByRole("grid", { name: "Fire exit check, version 3" })).toBeInTheDocument();
+    expect(screen.queryByTestId("annotate-panel")).toBeNull();
+    expect(await screen.findByText(/You have not asked for a change to this template/)).toBeInTheDocument();
   });
 });

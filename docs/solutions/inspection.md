@@ -4,6 +4,16 @@ The first platform-shipped solution (Functional track). This page is for two rea
 
 ## 1. For administrators
 
+### What exists in this release (FA5): change requests
+
+A person who can read a published template may now **ask for a change** without being able to edit it.
+
+1. **Ask.** Open the template (Audit maintenance, Templates). Under the sheet, **Ask for a change**: stand on a place in the grid (a click on a cell or on a column label, or the arrow keys; **Enter** on a cell goes to the box for the comment), choose **this cell, this row, this column or the whole template**, write the comment and add it to the request. Give the request a title and send it. The sheet cannot be changed from here and the request changes nothing in it.
+2. **Who sees it.** The person who asked, the owner of the template and everybody who holds the Approver policy. No other reader, and no other author. If the person who asked can no longer read the template they no longer see their request.
+3. **Review.** Under **Change requests** the owner sees each request with its comments, the version it read, which places are still in the version in use (**no longer in this version** for one that a later version removed), and can comment, **accept**, **decline** (with a reason the person reads), or choose requests and **turn them into a new version**: a draft that is a copy of the version in use, to which the requests are linked. If a draft already exists they are linked to it as it is. The draft is edited in the sheet and sent for approval like any other. A rejected or withdrawn version keeps its comments; the owner can **reopen** the request.
+4. **Told by notice.** The owner when a request arrives or the requester comments; the requester when someone else comments or the request is accepted, declined or turned into a version. A person can switch these off (Change requests in their notification preferences). No mail is sent.
+5. **Nothing to set up**: no new policy, ability or setting. Asking is the right to read the template; answering is the right to change it.
+
 ### What exists in this release (FA4): the lifecycle of a template
 
 A template now goes through its whole life.
@@ -62,7 +72,8 @@ The `local` profile switches the feature on for `tenant-a` and leaves `tenant-b`
 | The feature row | migration `V058__add_inspection_feature.sql` |
 | The department mapping object (the group of a department of a location) | `platform-app/src/main/resources/solutions/inspection/objects/DepartmentGroup.yml` ([ADR-0190](../adr/0190-department-groups-the-object-group-and-the-mapping.md)) |
 | The cluster's module: the hook, publishing, retiring, the master list | `platform-app/src/main/java/app/platform/inspection/` ([ADR-0188](../adr/0188-the-template-lifecycle-the-cluster-module-publishing-and-the-master-list.md)); the table `inspection_publication` is migration `V066__create_inspection_publication.sql` |
-| The page keys the web application knows | `platform-web/src/solutions/inspection/registry.ts` (the pages: `TemplatesPage.tsx` the master list, `TemplateDetail.tsx` one template with its lifecycle, `PublishDialog.tsx`, `lifecycle.ts`, `api.ts`) |
+| The change requests: the rules, who sees what, the tables, the endpoints | `platform-app/src/main/java/app/platform/inspection/internal/` (`ChangeRequests`, `ChangeRequestAccess`, `ChangeRequestStore`, `ChangeRequestController`, `ChangeRequestViews`, `ChangeText`, `ChangeAnchor`, `ChangeRequestStatus`, `ChangeRequestProperties`); the tables are `V067__create_inspection_change_requests.sql`; the notice kind and category are `V068__allow_change_request_notices.sql` ([ADR-0191](../adr/0191-change-requests-on-a-published-template.md)) |
+| The page keys the web application knows | `platform-web/src/solutions/inspection/registry.ts` (the pages: `TemplatesPage.tsx` the master list, `TemplateDetail.tsx` one template with its lifecycle, `PublishDialog.tsx`, `lifecycle.ts`, `api.ts`; since FA5 `AnnotatePanel.tsx` the composer under the grid, `ChangeRequestsSection.tsx` the list and the review, `changeRequests.ts` the calls and the words) |
 | The sheet: versions, validation, the grid | generic: module `sheets`, `platform-web/src/lib/sheets`, `platform-web/src/components/sheets` (no cluster word); the bundle names the owner in `sheetOwners` of `solution.yml` |
 | The generic code | modules `solution`, `metadata`, `data`, `security`, `application` (no cluster word; `SolutionBoundaryTest`) |
 
