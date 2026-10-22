@@ -4,7 +4,11 @@ The first platform-shipped solution (Functional track). This page is for two rea
 
 ## 1. For administrators
 
-### What exists in this release (FA2A)
+### What exists in this release (FA3)
+
+Since FA3 a template has a **sheet**: open **Templates** in the Audit maintenance application, open a template (or choose **New template**), start its first version, build it in the Form view or the Grid view, save it and keep its versions. The full description for the administrator is [metadata-guide.md](../metadata-guide.md) section 27. In this release a version is only ever a **draft**: submitting for approval, the number, publishing and retiring come next (FA4A and FA4). The page lists the templates plainly (no filters, no lifecycle summary: the master list is FA4).
+
+### What existed in FA2A
 
 The framework (FA1) and, since FA2A, the first fields of the object and the numbering. The templates themselves, the grid, the approval and the publishing come in later sprints (FA3 to FA5).
 
@@ -38,7 +42,8 @@ The `local` profile switches the feature on for `tenant-a` and leaves `tenant-b`
 | The shipped object (platform definition; read by the metadata module) | `platform-app/src/main/resources/solutions/inspection/objects/InspectionTemplate.yml` |
 | The number series: the formats by category | `platform-app/src/main/resources/solutions/inspection/numbering.yml` ([metadata-guide.md](../metadata-guide.md) section 26.4) |
 | The feature row | migration `V058__add_inspection_feature.sql` |
-| The page keys the web application knows | `platform-web/src/solutions/inspection/registry.ts` (the page itself: `TemplatesPage.tsx`) |
+| The page keys the web application knows | `platform-web/src/solutions/inspection/registry.ts` (the pages: `TemplatesPage.tsx` the list, `TemplateDetail.tsx` one template with its sheet) |
+| The sheet: versions, validation, the grid | generic: module `sheets`, `platform-web/src/lib/sheets`, `platform-web/src/components/sheets` (no cluster word); the bundle names the owner in `sheetOwners` of `solution.yml` |
 | The generic code | modules `solution`, `metadata`, `data`, `security`, `application` (no cluster word; `SolutionBoundaryTest`) |
 
 **Add a page.** Add the page component under `platform-web/src/solutions/inspection/`, register its key in `registry.ts`, and add a `PLATFORM` entry with that `pageKey` (and the object whose read right shows it) to `solution.yml`. The frontend test compares the two lists.

@@ -1,0 +1,131 @@
+@@ The corpus of hostile grids (Functional track FA3, ADR-0173 section 4, ADR-0186).
+@@
+@@ One construct per line, four fields separated by a TAB:
+@@   1. the code of the FIRST problem the validator must answer with;
+@@   2. how the document is made: "merge" (a JSON merge patch applied to the smallest valid document: a key set to null
+@@      is removed, an object is merged key by key, anything else, an array included, replaces), "raw" (the payload is
+@@      the whole text of the document) or "gen" (the payload names a generator in SheetHostileCorpusTest);
+@@   3. the payload;
+@@   4. why the construct is hostile.
+@@ The smallest valid document has two columns (c1 a text, c2 a number), one header row h1 and one row r1.
+@@ Every line must be refused with that code and with places and words that never repeat what was typed: the marker
+@@ HOSTILEMARK and markup must not come back (SheetHostileCorpusTest). A line that starts with two at signs is a
+@@ comment. To add a line: write it and run the test; to see that the test can fail, follow
+@@ "Sprint FA3 manual testing.md".
+@@
+@@ ---- size and nesting (refused before anything is parsed) ----
+too_large	gen	oversize	one byte over the size limit
+too_large	gen	oversize-cell	a cell of 10 MB
+too_deep	gen	deep-10000	nesting 10,000 levels deep, which would exhaust a recursive parser
+too_deep	gen	deep-over-by-one	nesting one level over the allowed depth
+@@ ---- JSON ----
+not_json	raw	HOSTILEMARK{{{	text that is not JSON
+not_json	raw		an empty body
+not_json	raw	null	the JSON value null
+not_json	raw	{"HOSTILEMARK":1,"HOSTILEMARK":2}	a repeated key at the top (a browser keeps the last one and hides the first)
+not_json	raw	{"formatVersion":1,"dimension":2,"rowsMode":"FIXED","columns":[{"id":"c1","label":"A","type":"text"}],"headerRows":[{"id":"h1"}],"rows":[],"cells":{"h1:c1":{"value":"a"},"h1:c1":{"value":"HOSTILEMARK"}},"merges":[]}	a repeated cell key
+not_json	raw	{"formatVersion":1,"formatVersion":2,"dimension":2,"rowsMode":"FIXED","columns":[{"id":"c1","label":"A","type":"text"}],"rows":[],"cells":{},"merges":[]}	a repeated format version, the second hiding the first
+@@ ---- shape ----
+shape	raw	[]	a list where an object belongs
+shape	raw	"HOSTILEMARK"	a text where an object belongs
+shape	merge	{"HOSTILEMARK":1}	an unknown top-level part
+shape	merge	{"formatVersion":2}	a format version this release does not read
+shape	merge	{"formatVersion":0}	format version zero
+shape	merge	{"formatVersion":"1"}	the format version as text
+shape	merge	{"dimension":3}	a dimension that does not exist
+shape	merge	{"rowsMode":"HOSTILEMARK"}	a rows mode that does not exist
+shape	merge	{"cells":{"HOSTILEMARK<script>:c1":{"value":"x"}}}	a cell key that is not row:column
+shape	merge	{"cells":{"r1:c1:c2":{"value":"HOSTILEMARK"}}}	a cell key with three parts
+shape	merge	{"cells":{":c1":{"value":"HOSTILEMARK"}}}	a cell key with no row
+shape	raw	{"__proto__":{"x":1},"formatVersion":1,"dimension":2,"rowsMode":"FIXED","columns":[{"id":"c1","label":"A","type":"text"}],"rows":[],"cells":{},"merges":[]}	a prototype-pollution key
+shape	merge	{"columns":[{"id":"HOSTILEMARK123456789012345678901234567890","label":"A","type":"text"}]}	a column identifier of 41 characters
+shape	merge	{"rows":[{"id":"HOSTILEMARK123456789012345678901234567890"}]}	a row identifier of 41 characters
+shape	merge	{"headerRows":[{"id":"has space"}]}	an identifier with a space
+shape	merge	{"headerRows":[{"id":"<b>HOSTILEMARK"}]}	an identifier that is markup
+shape	merge	{"cells":{"r1:c1":{"value":12}}}	a number where text belongs
+shape	merge	{"cells":{"r1:c1":{"value":{"HOSTILEMARK":1}}}}	an object where text belongs
+shape	merge	{"cells":{"r1:c1":{"value":["HOSTILEMARK"]}}}	a list where text belongs
+shape	merge	{"cells":{"r1:c1":{"style":{"fontSize":"HOSTILEMARK"}}}}	a font size that is not one of the four names
+shape	merge	{"cells":{"r1:c1":{"style":{"fontSize":"large"}}}}	a font size in the wrong case
+shape	merge	{"cells":{"r1:c1":{"style":{"fontSize":14}}}}	a font size as a pixel number
+shape	merge	{"cells":{"r1:c1":{"style":{"fontSize":"14px"}}}}	a font size as a pixel text
+shape	merge	{"cells":{"r1:c1":{"style":{"color":"red"}}}}	a style the format does not have
+shape	merge	{"cells":{"r1:c1":{"kind":"HOSTILEMARK"}}}	a kind that does not exist
+shape	merge	{"cells":{"r1:c1":{"HOSTILEMARK":1}}}	a part of a cell that does not exist
+shape	merge	{"columns":[]}	no column at all
+shape	merge	{"columns":[{"id":"c1","label":"A","type":"HOSTILEMARK"}]}	a column type that does not exist
+shape	merge	{"columns":[{"id":"c1","label":"A"}]}	a column without a type
+shape	merge	{"columns":[{"id":"c1","label":"A","type":"text","width":5000}]}	a column wider than allowed
+shape	merge	{"columns":[{"id":"c1","label":"A","type":"text","HOSTILEMARK":1}]}	a part of a column that does not exist
+shape	merge	{"columns":[{"id":"c1","label":"A","type":"picklist","picklist":{"values":[""]}}]}	an empty picklist value
+shape	gen	value-101chars	a picklist value of 101 characters
+shape	merge	{"columns":[{"id":"c1","label":"A","type":"text","default":12}]}	a number as a default
+shape	merge	{"merges":[{"from":"r1","to":"r1:c2"}]}	a merge end that is not a cell reference
+shape	merge	{"merges":[{"from":"r1:c1"}]}	a merge without an end
+@@ ---- limits that are settings ----
+too_many_columns	gen	columns-101	one column over the limit
+too_many_rows	gen	rows-501	one row over the limit
+too_many_header_rows	gen	headers-11	one header row over the limit
+too_many_merges	gen	merges-2001	one merged area over the limit
+too_many_values	gen	values-101	one picklist value over the limit
+text_too_long	gen	cell-1001	a cell of 1,001 characters
+text_too_long	gen	default-1001	a column default of 1,001 characters
+label_too_long	gen	label-201	a label of 201 characters
+@@ ---- text ----
+unsafe_text	merge	{"columns":[{"id":"c1","label":"<script>alert('HOSTILEMARK')</script>","type":"text"}]}	markup in a column label
+unsafe_text	merge	{"rows":[{"id":"r1","label":"<img src=x onerror=HOSTILEMARK>"}]}	markup in a row label
+unsafe_text	merge	{"headerRows":[{"id":"h1","label":"<!--HOSTILEMARK"}]}	a comment opener in a header row label
+unsafe_text	merge	{"cells":{"r1:c1":{"value":"<b>HOSTILEMARK</b>"}}}	markup in a cell
+unsafe_text	merge	{"cells":{"r1:c1":{"value":"</div>HOSTILEMARK"}}}	a closing tag in a cell
+unsafe_text	merge	{"cells":{"r1:c1":{"value":"<?xml HOSTILEMARK"}}}	a processing instruction in a cell
+unsafe_text	merge	{"columns":[{"id":"c1","label":"HOSTILEMARK\u0000","type":"text"}]}	a null character in a label
+unsafe_text	merge	{"cells":{"r1:c1":{"value":"HOSTILEMARK\u001b[31m"}}}	an escape character in a cell
+unsafe_text	merge	{"cells":{"r1:c1":{"value":"HOSTILEMARK\u007f"}}}	the delete character in a cell
+unsafe_text	merge	{"cells":{"r1:c1":{"value":"HOSTILEMARK\u0085"}}}	a C1 control character in a cell
+unsafe_text	merge	{"cells":{"r1:c1":{"value":"HOSTILEMARK "}}}	a line separator in a cell
+unsafe_text	merge	{"cells":{"r1:c1":{"value":"HOSTILEMARK‮"}}}	a right-to-left override that reorders how text is drawn
+unsafe_text	merge	{"cells":{"r1:c1":{"value":"HOSTILEMARK⁦"}}}	a directional isolate that reorders how text is drawn
+unsafe_text	merge	{"columns":[{"id":"c1","label":"A","type":"picklist","picklist":{"values":["<i>HOSTILEMARK"]}}]}	markup in a picklist value
+unsafe_text	merge	{"columns":[{"id":"c1","label":"A","type":"text","default":"<u>HOSTILEMARK"}]}	markup in a default
+@@ ---- structure ----
+duplicate_id	merge	{"columns":[{"id":"c1","label":"A","type":"text"},{"id":"c1","label":"B","type":"text"}]}	two columns with one identifier
+duplicate_id	merge	{"rows":[{"id":"c1","label":"HOSTILEMARK"}]}	a row with the identifier of a column
+duplicate_id	merge	{"headerRows":[{"id":"r1"}]}	a header row with the identifier of a row
+duplicate_id	merge	{"rows":[{"id":"r1"},{"id":"r1"}]}	two rows with one identifier
+picklist_missing	merge	{"columns":[{"id":"c1","label":"A","type":"picklist"}]}	a list column without its values
+picklist_missing	merge	{"columns":[{"id":"c1","label":"A","type":"picklist","picklist":null}]}	a list column whose list is null
+picklist_duplicate	merge	{"columns":[{"id":"c1","label":"A","type":"picklist","picklist":{"values":["HOSTILEMARK","HOSTILEMARK"]}}]}	a list with a value twice
+picklist_blank	merge	{"columns":[{"id":"c1","label":"A","type":"picklist","picklist":{"values":["Pass","   "]}}]}	a list value of spaces only
+picklist_unexpected	merge	{"columns":[{"id":"c1","label":"A","type":"text","picklist":{"values":["HOSTILEMARK"]}}]}	a list on a column that is not a list column
+rows_mode	merge	{"dimension":1,"rowsMode":"FIXED","rows":[]}	a sheet whose filler adds the rows that claims fixed rows
+rows_mode	merge	{"dimension":1,"rowsMode":"FIXED_AND_REPEATABLE","rows":[]}	a sheet whose filler adds the rows, fixed and repeatable
+rows_mode	merge	{"dimension":1,"rowsMode":"REPEATABLE"}	a sheet whose filler adds the rows that names a row
+rows_mode	merge	{"dimension":2,"rowsMode":"REPEATABLE"}	a sheet that names its rows and is repeatable only
+@@ ---- cells ----
+default_type	merge	{"columns":[{"id":"c1","label":"A","type":"date","default":"HOSTILEMARK"}]}	a default that is not a date
+default_type	merge	{"columns":[{"id":"c1","label":"A","type":"number","default":"1,5"}]}	a default that is not digits
+default_type	merge	{"columns":[{"id":"c1","label":"A","type":"boolean","default":"HOSTILEMARK"}]}	a default that is not yes or no
+default_type	merge	{"columns":[{"id":"c1","label":"A","type":"picklist","picklist":{"values":["Pass"]},"default":"HOSTILEMARK"}]}	a default that is not in the list
+cell_unknown	merge	{"cells":{"nope:c1":{"value":"HOSTILEMARK"}}}	a cell on a row that does not exist
+cell_unknown	merge	{"cells":{"r1:nope":{"value":"HOSTILEMARK"}}}	a cell in a column that does not exist
+cell_unknown	merge	{"cells":{"c1:r1":{"value":"HOSTILEMARK"}}}	a cell whose row and column are swapped
+header_input	merge	{"cells":{"h1:c1":{"value":"HOSTILEMARK","kind":"input"}}}	an input cell in the header
+fixed_value	merge	{"cells":{"r1:c1":{"value":true,"kind":"fixed"}}}	a fixed cell that holds a yes or no
+fixed_value	merge	{"cells":{"h1:c1":{"value":true}}}	a header cell that holds a yes or no
+value_type	merge	{"cells":{"r1:c2":{"value":"HOSTILEMARK","kind":"input"}}}	a preset that is not a number
+value_type	merge	{"cells":{"r1:c2":{"value":"1,5","kind":"input"}}}	a number with a comma
+value_type	merge	{"cells":{"r1:c2":{"value":"1e5","kind":"input"}}}	a number in exponent form
+value_type	merge	{"cells":{"r1:c2":{"value":"123456789012345678901234567890123456789","kind":"input"}}}	a number of 39 digits
+value_type	merge	{"columns":[{"id":"c1","label":"A","type":"date"},{"id":"c2","label":"B","type":"number"}],"cells":{"r1:c1":{"value":"2026-02-30","kind":"input"}}}	a date that does not exist
+value_type	merge	{"columns":[{"id":"c1","label":"A","type":"boolean"},{"id":"c2","label":"B","type":"number"}],"cells":{"r1:c1":{"value":"HOSTILEMARK","kind":"input"}}}	a yes or no column given text
+value_type	merge	{"columns":[{"id":"c1","label":"A","type":"picklist","picklist":{"values":["Pass"]}},{"id":"c2","label":"B","type":"number"}],"cells":{"r1:c1":{"value":"HOSTILEMARK","kind":"input"}}}	a value that is not in the list
+style_on_input	merge	{"cells":{"r1:c2":{"value":"5","kind":"input","style":{"fontSize":"LARGE"}}}}	a font size on an input cell
+style_on_input	merge	{"cells":{"r1:c2":{"style":{"bold":true}}}}	bold on an empty body cell, which is an input cell
+style_on_input	merge	{"cells":{"r1:c2":{"value":"5","kind":"input","style":{"italic":true}}}}	italic on a preset
+@@ ---- merges ----
+merge_overlap	merge	{"columns":[{"id":"c1","label":"A","type":"text"},{"id":"c2","label":"B","type":"text"},{"id":"c3","label":"C","type":"text"}],"headerRows":[{"id":"h1"},{"id":"h2"}],"merges":[{"from":"h1:c1","to":"h2:c2"},{"from":"h2:c2","to":"h2:c3"}]}	two merged areas that share a cell
+merge_zones	merge	{"merges":[{"from":"h1:c1","to":"r1:c2"}]}	a merged area from the header into the body
+merge_order	merge	{"merges":[{"from":"h1:c2","to":"h1:c1"}]}	a merged area written from right to left
+merge_single	merge	{"merges":[{"from":"r1:c1","to":"r1:c1"}]}	a merged area of one cell
+merge_unknown	merge	{"merges":[{"from":"r1:c1","to":"nope:c2"}]}	a merged area to a cell that does not exist
+merge_covered	merge	{"merges":[{"from":"h1:c1","to":"h1:c2"}],"cells":{"h1:c2":{"value":"HOSTILEMARK"}}}	a cell under a merged area that holds text, which no spreadsheet would show

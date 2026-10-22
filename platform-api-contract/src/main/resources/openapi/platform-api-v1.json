@@ -11578,6 +11578,230 @@
         "tags" : [ "Sharing" ]
       }
     },
+    "/api/v1/sheets/{ownerObject}/{ownerId}/versions" : {
+      "get" : {
+        "description" : "Newest first, without their grids (a list never reads a grid). A caller who may only read the record sees the versions that are in use or were (ACTIVE, SUPERSEDED, RETIRED); a caller who may change it sees every version, drafts included. canChange says whether the screen may offer to start or save a draft; every request that follows is decided again. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record. ",
+        "operationId" : "listSheetVersions",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ownerObject",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "ownerId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSheetVersionsView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The versions of a sheet the caller may see",
+        "tags" : [ "Sheets" ]
+      },
+      "post" : {
+        "description" : "The first version is blank and names the shape of the sheet (dimension, and optionally rowsMode); every later one is a copy of the version named by basedOn, or of the active version (the latest when none is active), and keeps the shape: another shape is VALIDATION_ERROR. Versions are numbered automatically and a number is never reused. There is at most one draft at a time: CONFLICT names the number of the existing one, and two requests that arrive together get one draft and one answer. CONFLICT also at the most versions a sheet may have. FORBIDDEN for a caller who may read the record but not update it. Audited by the number of the version and the shape, never by content. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record. ",
+        "operationId" : "createSheetVersion",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ownerObject",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "ownerId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NewSheetVersionRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSheetVersionSummaryView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Start a new draft version of a sheet",
+        "tags" : [ "Sheets" ]
+      }
+    },
+    "/api/v1/sheets/{ownerObject}/{ownerId}/versions/{versionNo}" : {
+      "get" : {
+        "description" : "The only call that reads a grid. NOT_FOUND also for a version that does not exist and for a version the caller may not see (a caller who may only read the record sees ACTIVE, SUPERSEDED and RETIRED versions; a draft or a version in review answers like a version that does not exist). NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record. ",
+        "operationId" : "getSheetVersion",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ownerObject",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "ownerId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "versionNo",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSheetVersionView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One version of a sheet with its grid",
+        "tags" : [ "Sheets" ]
+      }
+    },
+    "/api/v1/sheets/{ownerObject}/{ownerId}/versions/{versionNo}/grid" : {
+      "put" : {
+        "description" : "The body is the grid itself (the schema SheetGrid of this document), as JSON, and nothing else; the row version that was read goes in the version parameter. The size is checked before anything is parsed, from the length the client announces and again on the bytes read (so a body without a length is bounded too): PAYLOAD_TOO_LARGE above the limit of the organization. Then the grid is checked in a fixed order and the first stage with a problem answers alone, with every place of that stage under grid: VALIDATION_ERROR. A grid is stored in a canonical form, so the same grid always has the same hash. CONCURRENT_MODIFICATION (409) when the draft has changed since it was read, and nothing changes; CONFLICT for a version that is no longer a draft. FORBIDDEN for a caller who may read the record but not update it. Audited by the number, the size, the hash and counts, never by content. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record. ",
+        "operationId" : "saveSheetGrid",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ownerObject",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "ownerId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "versionNo",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "in" : "query",
+          "name" : "version",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SheetGrid"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSheetVersionSummaryView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Save the grid of a draft version",
+        "tags" : [ "Sheets" ]
+      }
+    },
     "/api/v1/support-access" : {
       "get" : {
         "description" : "Who asked, why, and what became of it. For the administrators of the organization of the host. NOT_FOUND on the platform host.",
@@ -13637,6 +13861,33 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/SharingRuleView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseSheetVersionSummaryView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/SheetVersionSummaryView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseSheetVersionView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/SheetVersionView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseSheetVersionsView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/SheetVersionsView"
           }
         },
         "required" : [ "data" ]
@@ -17602,6 +17853,27 @@
         },
         "required" : [ "type" ]
       },
+      "NewSheetVersionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "basedOn" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 1
+          },
+          "dimension" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 2,
+            "minimum" : 1
+          },
+          "rowsMode" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          }
+        }
+      },
       "NotificationPlaceholderView" : {
         "type" : "object",
         "properties" : {
@@ -19731,6 +20003,303 @@
           }
         },
         "required" : [ "accessLevel", "id", "kind", "name", "object", "targetId", "targetType" ]
+      },
+      "SheetCell" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "kind" : {
+            "type" : "string",
+            "description" : "A header cell is always fixed. A body cell that holds a value and has no kind is fixed text; otherwise it is an input cell.",
+            "enum" : [ "fixed", "input" ]
+          },
+          "style" : {
+            "$ref" : "#/components/schemas/SheetCellStyle"
+          },
+          "value" : {
+            "type" : [ "string", "boolean", "null" ]
+          }
+        }
+      },
+      "SheetCellRef" : {
+        "type" : "string",
+        "description" : "A cell: the identifier of its row, a colon, the identifier of its column.",
+        "pattern" : "^[A-Za-z0-9_-]{1,40}:[A-Za-z0-9_-]{1,40}$"
+      },
+      "SheetCellStyle" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "description" : "Only a fixed cell may carry a style. The size is one of four names and never a number: the page decides what each name looks like.",
+        "properties" : {
+          "bold" : {
+            "type" : "boolean"
+          },
+          "fontSize" : {
+            "type" : "string",
+            "enum" : [ "SMALL", "NORMAL", "LARGE", "TITLE" ]
+          },
+          "italic" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "SheetColumn" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "default" : {
+            "type" : [ "string", "boolean", "null" ],
+            "description" : "The value a new row starts with. It must fit the column type."
+          },
+          "id" : {
+            "$ref" : "#/components/schemas/SheetId"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "picklist" : {
+            "type" : [ "object", "null" ],
+            "additionalProperties" : false,
+            "description" : "The list of a picklist column, kept inside the version so that it is frozen with it.",
+            "properties" : {
+              "values" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "string",
+                  "maxLength" : 100,
+                  "minLength" : 1
+                },
+                "minItems" : 1
+              }
+            },
+            "required" : [ "values" ]
+          },
+          "required" : {
+            "type" : "boolean"
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "What a filler may type: text, a number written as digits, a date written year-month-day, one value of a list, or yes or no.",
+            "enum" : [ "text", "number", "date", "picklist", "boolean" ]
+          },
+          "width" : {
+            "type" : "integer",
+            "maximum" : 1000,
+            "minimum" : 40
+          }
+        },
+        "required" : [ "id", "label", "type" ]
+      },
+      "SheetGrid" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "description" : "The grid of one version: named columns of five types, header rows (a title over merged columns), optionally named body rows, merged cells, and the cells that hold fixed text or a style. Stored sparsely: a body cell that holds nothing is an input cell and is not stored.",
+        "properties" : {
+          "cells" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/SheetCell"
+            },
+            "description" : "Sparse: only a cell that holds something or has a style is stored. The key is the row identifier, a colon and the column identifier.",
+            "propertyNames" : {
+              "$ref" : "#/components/schemas/SheetCellRef"
+            }
+          },
+          "columns" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetColumn"
+            },
+            "minItems" : 1
+          },
+          "dimension" : {
+            "type" : "integer",
+            "description" : "1: columns only, the filler adds the rows. 2: the sheet names the rows.",
+            "enum" : [ 1, 2 ]
+          },
+          "formatVersion" : {
+            "const" : 1,
+            "description" : "The format of this document. A document of another number is refused."
+          },
+          "headerRows" : {
+            "type" : "array",
+            "description" : "Bands above the body under the column labels. Their cells are always fixed text.",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetRowDefinition"
+            }
+          },
+          "merges" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetMerge"
+            }
+          },
+          "rows" : {
+            "type" : "array",
+            "description" : "The named body rows (dimension 2 only).",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetRowDefinition"
+            }
+          },
+          "rowsMode" : {
+            "type" : "string",
+            "description" : "Dimension 1 is REPEATABLE. Dimension 2 is FIXED or FIXED_AND_REPEATABLE.",
+            "enum" : [ "FIXED", "REPEATABLE", "FIXED_AND_REPEATABLE" ]
+          }
+        },
+        "required" : [ "cells", "columns", "dimension", "formatVersion", "merges", "rows", "rowsMode" ]
+      },
+      "SheetId" : {
+        "type" : "string",
+        "description" : "The stable identifier of a column, a row or a header row. Generated, never typed, never reused inside one sheet; everything that points at a place (cells, merges, later comments and fill-ins) uses it, never a position.",
+        "pattern" : "^[A-Za-z0-9_-]{1,40}$"
+      },
+      "SheetLimitsView" : {
+        "type" : "object",
+        "properties" : {
+          "maxBytes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxCellChars" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxColumns" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxHeaderRows" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxLabelChars" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxMerges" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxPicklistValues" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxRows" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "maxBytes", "maxCellChars", "maxColumns", "maxHeaderRows", "maxLabelChars", "maxMerges", "maxPicklistValues", "maxRows" ]
+      },
+      "SheetMerge" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "description" : "Two cells, top left and bottom right, inside one zone (header rows or body), never overlapping another merge. Only the top left cell keeps content.",
+        "properties" : {
+          "from" : {
+            "$ref" : "#/components/schemas/SheetCellRef"
+          },
+          "to" : {
+            "$ref" : "#/components/schemas/SheetCellRef"
+          }
+        },
+        "required" : [ "from", "to" ]
+      },
+      "SheetRowDefinition" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "height" : {
+            "type" : "integer",
+            "maximum" : 400,
+            "minimum" : 16
+          },
+          "id" : {
+            "$ref" : "#/components/schemas/SheetId"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id" ]
+      },
+      "SheetVersionSummaryView" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "decidedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "dimension" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "gridBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "gridHash" : {
+            "type" : "string"
+          },
+          "rowsMode" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "submittedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "createdAt", "dimension", "gridBytes", "gridHash", "rowsMode", "status", "updatedAt", "version", "versionNo" ]
+      },
+      "SheetVersionView" : {
+        "type" : "object",
+        "properties" : {
+          "grid" : {
+            "$ref" : "#/components/schemas/SheetGrid"
+          },
+          "version" : {
+            "$ref" : "#/components/schemas/SheetVersionSummaryView"
+          }
+        },
+        "required" : [ "grid", "version" ]
+      },
+      "SheetVersionsView" : {
+        "type" : "object",
+        "properties" : {
+          "canChange" : {
+            "type" : "boolean"
+          },
+          "limits" : {
+            "$ref" : "#/components/schemas/SheetLimitsView"
+          },
+          "versions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetVersionSummaryView"
+            }
+          }
+        },
+        "required" : [ "canChange", "limits", "versions" ]
       },
       "SignInRequest" : {
         "type" : "object",

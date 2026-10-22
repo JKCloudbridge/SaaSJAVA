@@ -100,6 +100,17 @@ public final class TestBrowser {
     }
 
     /**
+     * A state-changing request with a JSON body of bytes sent without an announced length (chunked), with the
+     * forgery-protection header attached the way the web app does.
+     */
+    public Response chunked(String method, String path, byte[] body, String... headers) {
+        ensureCsrfCookie();
+        return remember(http.requestChunked(method, path, body, withBrowserHeaders(overriding(
+                List.of("Content-Type", "application/json", "X-XSRF-TOKEN", cookies.getOrDefault("XSRF-TOKEN", "")),
+                headers))));
+    }
+
+    /**
      * Any method with a body of bytes (a file) and an answer of bytes, with the forgery-protection header attached the
      * way the web app does.
      */

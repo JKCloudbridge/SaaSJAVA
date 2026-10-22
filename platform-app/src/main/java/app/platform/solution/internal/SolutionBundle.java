@@ -17,17 +17,25 @@ import java.util.Set;
  * @param application the application the solution shows in the member's menu
  * @param objects the API names of the objects the solution brings, which the metadata module reads from the
  *        solution's {@code objects} folder
+ * @param sheetOwners the objects, among {@code objects}, whose records may own a sheet (FA3, ADR-0186)
  * @param policies the access policies the solution ships
  */
 record SolutionBundle(String key, String feature, String label, String removalNote, Application application,
-        List<String> objects, List<Policy> policies) {
+        List<String> objects, List<String> sheetOwners, List<Policy> policies) {
 
     /** The prefix of the identity of a shipped policy: {@code <solution key>.<policy key>}. */
     static final String OWNER = "solution";
 
     SolutionBundle {
         objects = List.copyOf(objects);
+        sheetOwners = List.copyOf(sheetOwners);
         policies = List.copyOf(policies);
+    }
+
+    /** A solution whose objects own no sheet. */
+    SolutionBundle(String key, String feature, String label, String removalNote, Application application,
+            List<String> objects, List<Policy> policies) {
+        this(key, feature, label, removalNote, application, objects, List.of(), policies);
     }
 
     /**

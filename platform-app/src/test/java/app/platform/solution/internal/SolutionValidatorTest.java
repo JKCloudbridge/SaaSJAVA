@@ -175,6 +175,18 @@ class SolutionValidatorTest {
     }
 
     @Test
+    void aSheetOwnerMustBeAnObjectTheSolutionBrings() {
+        SolutionBundle stray = new SolutionBundle("demo", "demo-feature", "Label", "", good().application(),
+                List.of("Widget"), List.of("Gadget"), good().policies());
+        SolutionBundle fine = new SolutionBundle("demo", "demo-feature", "Label", "", good().application(),
+                List.of("Widget"), List.of("Widget"), good().policies());
+
+        assertThatThrownBy(() -> SolutionValidator.validate(List.of(stray), WIDGET, null))
+                .hasMessageContaining("solution 'demo'").hasMessageContaining("the sheet owner 'Gadget'");
+        assertThatCode(() -> SolutionValidator.validate(List.of(fine), WIDGET, null)).doesNotThrowAnyException();
+    }
+
+    @Test
     void twoPoliciesOfOneSolutionMayNotShareAName() {
         SolutionBundle twins = bundle("demo", "demo-feature", "demo", List.of("Widget"), good().application().entries(),
                 List.of(new SolutionBundle.Policy("a", "Reader", "d", Map.of()),

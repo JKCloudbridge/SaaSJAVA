@@ -1,6 +1,6 @@
 # ADR-0172: The grid component, and the adapter that keeps its format out
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-10-22, FA3: built as written; see [ADR-0186](0186-the-sheets-module-versions-the-owner-seam-and-the-request-size.md) for what the building added)
 - **Date:** 2026-10-21
 - **Sprint:** FA0 (Functional track, spike; no product code)
 - **Related:** [ADR-0173](0173-the-canonical-grid-json-and-its-limits.md), [ADR-0126](0126-visual-design-system-and-self-hosted-fonts.md), [ADR-0127](0127-custom-page-scripts-and-the-sandboxed-iframe.md) (why a native page, not the frame), [ADR-0129](0129-record-screens-the-members-description-names-and-validation.md)

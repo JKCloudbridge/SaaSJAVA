@@ -21,7 +21,7 @@ export default defineConfig([
     },
   },
   {
-    files: ["src/lib/log.ts", "scripts/**"],
+    files: ["src/lib/log.ts", "scripts/**", "browser-checks/**"],
     rules: { "no-console": "off" },
   },
 ]);

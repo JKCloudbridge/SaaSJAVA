@@ -25,6 +25,9 @@ application:
       readsObject: InspectionTemplate
 objects:
   - InspectionTemplate
+# The records of these objects own a sheet: the grid of the template, kept in versions (FA3, ADR-0186).
+sheetOwners:
+  - InspectionTemplate
 accessPolicies:
   - key: author
     name: Author

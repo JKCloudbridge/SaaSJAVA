@@ -77,6 +77,8 @@
   --search-min-width: 16rem;
   --field-min-width: 10rem;
   --cell-max-width: 20rem;
+  --sheet-grid-height: 30rem;
+  --sheet-input-min-width: 4rem;
 }
 
 @media (prefers-color-scheme: dark) {

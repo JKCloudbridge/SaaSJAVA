@@ -2485,3 +2485,259 @@ form + .detail-section {
 .page-body .filters {
   background: var(--color-surface-sunken);
 }
+
+/* ------------------------------------------------------------------------------------------------------------------
+   Sheets (Functional track FA3, ADR-0172, ADR-0186). The grid, its toolbar, the form view and the history. Colours and
+   sizes come from the tokens; the size of a piece of text is one of four names (small, normal, large, title), never a
+   number a document holds. The geometry of a row or a column (its height, its width) is data and is set from the
+   document with an inline style, which the strict content policy allows because it is set through the DOM.
+   ------------------------------------------------------------------------------------------------------------------ */
+
+.sheet-workspace {
+  min-width: 0;
+}
+
+.sheet-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.sheet-bar-title {
+  margin: 0;
+}
+
+.sheet-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.sheet-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.sheet-confirm {
+  border-color: var(--color-danger);
+}
+
+.sheet-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.sheet-toolbar button[aria-pressed="true"] {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+}
+
+.sheet-toolbar-gap {
+  width: var(--space-2);
+}
+
+.sheet-toolbar-field select {
+  min-height: var(--size-control);
+}
+
+.sheet-grid-wrap {
+  min-width: 0;
+}
+
+.sheet-grid {
+  position: relative;
+  height: var(--sheet-grid-height);
+  max-height: 70vh;
+  overflow: auto;
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height);
+}
+
+.sheet-grid:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+.sheet-canvas {
+  position: relative;
+}
+
+.sheet-labels {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--color-surface-sunken);
+  border-bottom: var(--border-width) solid var(--color-border-strong);
+}
+
+.sheet-label {
+  position: absolute;
+  top: 0;
+  padding: 0 var(--space-2);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  border-right: var(--border-width) solid var(--color-border);
+  box-sizing: border-box;
+}
+
+.sheet-row {
+  position: absolute;
+  left: 0;
+}
+
+.sheet-cell {
+  position: absolute;
+  top: 0;
+  box-sizing: border-box;
+  padding: 0 var(--space-2);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: pre;
+  text-overflow: ellipsis;
+  border-right: var(--border-width) solid var(--color-border);
+  border-bottom: var(--border-width) solid var(--color-border);
+  cursor: cell;
+  user-select: none;
+}
+
+/* Fixed text is quiet and flat; a cell the filler types into is open. The difference is also in the words of the cell for a
+   screen reader ("Input cell"), never in colour alone. */
+.sheet-cell-fixed {
+  background: var(--color-surface-sunken);
+}
+
+.sheet-cell-input {
+  background: var(--color-surface);
+}
+
+.sheet-cell-header {
+  background: var(--color-accent-soft);
+}
+
+.sheet-cell-blank {
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  border-bottom-style: dashed;
+}
+
+.sheet-cell-input:empty::after,
+.sheet-cell-blank:empty::after {
+  content: "";
+}
+
+.sheet-bold {
+  font-weight: 700;
+}
+
+.sheet-italic {
+  font-style: italic;
+}
+
+.sheet-size-small {
+  font-size: var(--font-size-xs);
+}
+
+.sheet-size-large {
+  font-size: var(--font-size-lg);
+}
+
+.sheet-size-title {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+}
+
+.sheet-merged {
+  align-items: flex-start;
+  padding-top: var(--space-1);
+}
+
+.sheet-selected {
+  background: var(--color-accent-soft);
+}
+
+.sheet-active {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.sheet-input {
+  width: 100%;
+  min-width: var(--sheet-input-min-width);
+  height: 100%;
+  box-sizing: border-box;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.sheet-input:focus {
+  outline: none;
+}
+
+.sheet-message {
+  min-height: 1.5em;
+  margin: var(--space-2) 0 0;
+}
+
+.sheet-form-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.sheet-form-item {
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.sheet-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--field-min-width), 1fr));
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.sheet-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.sheet-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (forced-colors: active) {
+  .sheet-active,
+  .sheet-selected {
+    outline: 2px solid Highlight;
+  }
+
+  .sheet-cell-fixed {
+    border-bottom-style: solid;
+  }
+}

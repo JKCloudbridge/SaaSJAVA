@@ -27,6 +27,7 @@
     "@opentelemetry/sdk-trace-base": "2.11.0",
     "@opentelemetry/sdk-trace-web": "2.11.0",
     "@opentelemetry/semantic-conventions": "1.43.0",
+    "@tanstack/react-virtual": "3.14.21",
     "next": "16.3.8",
     "openapi-fetch": "0.17.0",
     "react": "19.3.0",
