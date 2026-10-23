@@ -3,16 +3,20 @@ package app.platform.inspection.internal;
 import app.platform.inspection.internal.FillInViews.FillInOptionsView;
 import app.platform.inspection.internal.FillInViews.FillInPage;
 import app.platform.inspection.internal.FillInViews.FillInStartedView;
+import app.platform.inspection.internal.FillInViews.FillReportRequest;
+import app.platform.inspection.internal.FillInViews.ReportColumnsView;
 import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -34,9 +38,11 @@ class FillInController {
             + "permission, the private default of a template, and the shares. ";
 
     private final FillIns fillIns;
+    private final FillReport report;
 
-    FillInController(FillIns fillIns) {
+    FillInController(FillIns fillIns, FillReport report) {
         this.fillIns = fillIns;
+        this.report = report;
     }
 
     @GetMapping(ApiPaths.V1 + "/templates/{templateId}/fill-in-options")
@@ -79,5 +85,35 @@ class FillInController {
             @RequestParam(required = false) String status, @RequestParam(required = false) Integer size,
             @RequestParam(required = false) String cursor) {
         return ApiResponse.of(fillIns.page(templateId, status, size, cursor));
+    }
+
+    @GetMapping(ApiPaths.V1 + "/fill-ins/report/columns")
+    @Operation(
+            operationId = "getFillInReportColumns",
+            summary = "The columns of a template version that can be reported on",
+            description = "The columns the author flagged reportable in the version (the version in use when "
+                    + "versionNo is left out), in the order of the sheet, with their type and, for a list column, "
+                    + "its values. A version still being written or reviewed has none to show. Only to draw the "
+                    + "report's choices: the report decides again. " + SEES)
+    ApiResponse<ReportColumnsView> reportColumns(@RequestParam UUID templateId,
+            @RequestParam(required = false) Integer versionNo) {
+        return ApiResponse.of(report.columns(templateId, versionNo));
+    }
+
+    @PostMapping(ApiPaths.V1 + "/fill-ins/report")
+    @Operation(
+            operationId = "reportFillIns",
+            summary = "The fill-ins of a template version that hold a value in a reportable column",
+            description = "One condition on one reportable column: EQUALS one value, ONE_OF up to 100 values, or "
+                    + "BETWEEN two bounds (either may be left out) for a number or a date. The answer is a page "
+                    + "of fill-ins in the form of the list, newest first, without the cells, paged by the key of "
+                    + "the last one looked at and never by an offset. A caller sees exactly the fill-ins they see "
+                    + "in the list: the same visibility, decided by the same code. Because a caller who sees few "
+                    + "of many matches makes the search look through more of them, a page can be short and still "
+                    + "carry a nextCursor: only a missing nextCursor means the end. The value travels in the body "
+                    + "and is never logged or audited. VALIDATION_ERROR names the field that is wrong, with fixed "
+                    + "words. " + SEES)
+    ApiResponse<FillInPage> report(@Valid @RequestBody FillReportRequest request) {
+        return ApiResponse.of(report.run(request));
     }
 }

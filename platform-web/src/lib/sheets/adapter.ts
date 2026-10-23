@@ -53,6 +53,9 @@ function column(raw: unknown): GridColumn | null {
   if (source.required === true) {
     out.required = true;
   }
+  if (source.reportable === true) {
+    out.reportable = true;
+  }
   const given = scalar(source.default);
   if (given !== null && given !== "") {
     out.default = given;

@@ -17,6 +17,8 @@ export interface GridColumn {
   label: string;
   type: ColumnType;
   required?: boolean;
+  /** Copied, when a fill-in is saved, to the table a report reads (FF2). Absent means no. */
+  reportable?: boolean;
   default?: string | boolean | null;
   picklist?: { values: string[] } | null;
   width?: number;

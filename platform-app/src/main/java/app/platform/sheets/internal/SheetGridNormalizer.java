@@ -50,7 +50,7 @@ final class SheetGridNormalizer {
     private static Column column(Column column) {
         return new Column(column.id(), column.label(), column.type(), column.required(),
                 column.defaultValue() instanceof String text && text.isEmpty() ? null : column.defaultValue(),
-                column.picklist(), column.width());
+                column.picklist(), column.width(), column.reportable());
     }
 
     private static Line line(Line line) {

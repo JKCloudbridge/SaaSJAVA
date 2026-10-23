@@ -74,6 +74,22 @@ class FillChanges {
                 .increment();
     }
 
+    /**
+     * The cells of an approved fill-in were moved to the object store (FF2, ADR-0193). Done by the platform, so
+     * there is
+     * no actor. The sizes and the object say that it happened and how big it was; the cells are never written down.
+     */
+    void archived(String object, UUID fill, long bytes, int packedBytes) {
+        audit.record(base("sheets.fill.archived", null, object, fill).with("bytes", Long.toString(bytes))
+                .with("archived_bytes", Integer.toString(packedBytes)));
+        meters.counter("platform.sheets.fill.archive", "result", "ok").increment();
+    }
+
+    /** An archive move or an archive read did not happen; {@code reason} is one of a few fixed words. */
+    void archiveProblem(String reason) {
+        meters.counter("platform.sheets.fill.archive", "result", reason).increment();
+    }
+
     /** A request was refused; {@code reason} is one of a few fixed words, never a code that names a place. */
     void refused(String operation, String reason) {
         meters.counter("platform.sheets.fills", "operation", operation, "result", reason).increment();

@@ -55,7 +55,8 @@ final class SheetGridReader {
         }
         return new Column(node.path("id").asString(), node.path("label").asString(""),
                 ColumnType.of(node.path("type").asString()).orElseThrow(), node.path("required").asBoolean(false),
-                scalar(node.path("default")), picklist, node.has("width") ? node.path("width").asInt() : null);
+                scalar(node.path("default")), picklist, node.has("width") ? node.path("width").asInt() : null,
+                node.path("reportable").asBoolean(false));
     }
 
     private static List<Line> lines(JsonNode list) {

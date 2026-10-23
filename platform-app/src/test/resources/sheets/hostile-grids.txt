@@ -64,6 +64,7 @@ shape	merge	{"merges":[{"from":"r1","to":"r1:c2"}]}	a merge end that is not a ce
 shape	merge	{"merges":[{"from":"r1:c1"}]}	a merge without an end
 @@ ---- limits that are settings ----
 too_many_columns	gen	columns-101	one column over the limit
+too_many_reportable	gen	reportable-21	one reportable column over the limit
 too_many_rows	gen	rows-501	one row over the limit
 too_many_header_rows	gen	headers-11	one header row over the limit
 too_many_merges	gen	merges-2001	one merged area over the limit

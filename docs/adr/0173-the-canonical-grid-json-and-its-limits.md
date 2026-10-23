@@ -145,6 +145,8 @@ one template-year of typical fills is about 1 to 2 GB; **ten templates in ten or
 Beyond about **a few hundred GB**, in this order: (1) the shape (B or C); (2) **monthly partitions** by `created_at` (cheaper vacuum, smaller indexes per partition, a unit for archiving); (3) **move fills older than a chosen age to the object store** as compressed documents and keep only the header row and a pointer (never deleted: a decided rule), read back on demand;
 (4) a **typed projection table** for the columns flagged reportable, copied in the same transaction (never an index on the JSON: [ADR-0083](0083-storage-benchmark-result-gate-g1.md), [ADR-0101](0101-the-index-policy-and-the-slots.md)); (5) a per-cell patch endpoint, only if whole-document writes of the full sheet become a problem. None of these needs a change of the template format.
 
+**Built in FF2 ([ADR-0193](0193-fill-ins-the-rest-attachments-reportable-columns-the-report-and-the-archive.md)):** item (3), the archive of old fill-ins to the object store, and item (4), the typed projection for reportable columns. Item (2), monthly partitions, was **deliberately not built** (reasons in ADR-0193 section 5). Item (1), the shape, stays B: no real filled example has arrived.
+
 ## Consequences
 
 - One schema file, one validator class (`SheetGridValidator`), one limits class; the adapter of [ADR-0172](0172-the-grid-component-and-the-adapter.md) converts to and from the library; the browser validates for the person's convenience only and the server decides again.

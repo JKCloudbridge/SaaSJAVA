@@ -48,6 +48,12 @@ final class SheetGridValidator {
     private static final int MOST_PROBLEMS = 20;
 
     /**
+     * The most reportable columns a version may have (FF2, ADR-0193): each costs a row in the report table for every
+     * filled row of every fill-in, so the cost of a save and of the table is bounded by this, whatever the author does.
+     */
+    static final int MAX_REPORTABLE = 20;
+
+    /**
      * One problem: a stable code (for tests and metrics), the place and the words shown to the person.
      *
      * @param code a lower case code
@@ -209,6 +215,10 @@ final class SheetGridValidator {
             if (grid.columns().size() > limits.maxColumns()) {
                 out.add(new Problem("too_many_columns", "grid.columns", "There are more columns than the allowed "
                         + limits.maxColumns() + "."));
+            }
+            if (grid.columns().stream().filter(Column::reportable).count() > MAX_REPORTABLE) {
+                out.add(new Problem("too_many_reportable", "grid.columns", "More columns are reportable than the "
+                        + "allowed " + MAX_REPORTABLE + "."));
             }
             if (grid.rows().size() > limits.maxRows()) {
                 out.add(new Problem("too_many_rows", "grid.rows", "There are more rows than the allowed "

@@ -15,7 +15,7 @@ import tools.jackson.databind.JsonNode;
  * enforces are one text.
  */
 @Configuration
-@EnableConfigurationProperties({SheetProperties.class, FillProperties.class})
+@EnableConfigurationProperties({SheetProperties.class, FillProperties.class, FillArchiveProperties.class})
 class SheetModuleConfiguration {
 
     @Bean

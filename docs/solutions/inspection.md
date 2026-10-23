@@ -97,3 +97,13 @@ The `local` profile switches the feature on for `tenant-a` and leaves `tenant-b`
 **Change a policy.** Edit it in `solution.yml`. Every organization that has the feature gets the new rights at its next page load (the stored fingerprint differs). Never give the delete right on an object whose records are kept; the loader refuses it.
 
 **Rules to keep.** The cluster's words (`inspection`, "template", "audit maintenance") appear only in the places `SolutionBoundaryTest` lists; the generic modules say `sheet`, `version`, `fill`. Nothing in the bundle can be edited or removed by an organization. A page asks the API for everything: the browser decides nothing.
+
+## Fill-ins, the rest (FF2)
+
+| What | Where |
+|------|-------|
+| The report and the file rule | `platform-app/src/main/java/app/platform/inspection/internal/` (`FillReport`, `FillFileRules`, the endpoints in `FillInController`) |
+| Report values, archive | `platform-app/src/main/java/app/platform/sheets/` (`FillReports`; `internal/FillValues`, `FillValueStore`, `DefaultFillReports`, `FillArchive`, `FillArchiveJob`) |
+| The report page | `platform-web/src/solutions/inspection/` (`FillInReportPage`, `report.ts`, the page key `fill-in-report`) |
+
+The application has a "Report" entry beside "Fill-ins". A fill-in page has an "Attachments" section and shows "Archived" for a fill-in whose cells are in the archive. Decision: ADR-0193.

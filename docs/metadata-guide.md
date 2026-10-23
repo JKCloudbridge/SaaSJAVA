@@ -908,3 +908,13 @@ For the organization's administrator and for the contributor. The decisions are 
 - *The shape of the cells* is shape B of ADR-0173 section 6: `{"formatVersion":1,"rows":[{"id","cells":{"<columnId>":"value"|true|false}}]}`, sparse and canonical. A different shape later is a new reader and a migration of stored fill-ins, decided with the real filled example (open item B).
 - *The status* is the cell table's (`DRAFT`, `SUBMITTED`, `RETURNED`, `APPROVED`, moves guarded by V069); the header carries a copy, written together with every move by `FillHeaders` (the cluster's only other use of the platform's door to records).
 - *Not built, on purpose (FF2):* attachments, reportable columns and reports, partitions, archiving old fill-ins to the object store, a number for each fill-in.
+
+## 33. Reports on fill-ins and the archive (FF2)
+
+**Mark a column reportable.** In a new version of a template, open a column and tick "Can be used in a report". At most 20 columns of a version can be ticked. Only fill-ins started on a version where the box was ticked can be found by the report on that column; older versions and their fill-ins are not changed.
+
+**Ask the report.** Open the "Report" page of the application, choose a template, a column, a comparison and a value. You see the fill-ins you are allowed to see, as in the list. A page can be short and still have "Show more".
+
+**Attachments.** A fill-in's files are added on its page. The person who started a draft or returned fill-in adds and removes them; after it was sent, only people who may correct it do, and each such change is recorded.
+
+**The archive.** Approved fill-ins older than the archive age (setting `platform.sheets.archive.age`, default 365 days) are moved out of the database to the object store. They stay in the list, are still found by the report, open as before and are read-only. Nothing is deleted.

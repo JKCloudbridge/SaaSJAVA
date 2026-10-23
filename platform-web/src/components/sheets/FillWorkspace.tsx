@@ -27,6 +27,8 @@ export interface FillWorkspaceProps {
   onDirty?(dirty: boolean): void;
   /** Told after the cells were saved. */
   onSaved?(summary: FillSummary): void;
+  /** Told whenever a fill-in has been read: the facts of it, for a page that shows more than the cells (FF2). */
+  onLoaded?(summary: FillSummary): void;
 }
 
 /**
@@ -38,7 +40,7 @@ export interface FillWorkspaceProps {
  *
  * It knows no business word: the header record is a parameter.
  */
-export function FillWorkspace({ owner: given, label, refreshToken = 0, onDirty, onSaved }: FillWorkspaceProps) {
+export function FillWorkspace({ owner: given, label, refreshToken = 0, onDirty, onSaved, onLoaded }: FillWorkspaceProps) {
   const owner = useMemo<FillOwner>(() => ({ object: given.object, id: given.id }), [given.object, given.id]);
   const [dirty, setDirty] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -87,6 +89,7 @@ export function FillWorkspace({ owner: given, label, refreshToken = 0, onDirty, 
       view={state.view}
       onDirty={setDirty}
       onSaved={onSaved}
+      onLoaded={onLoaded}
       onReload={() => setRefresh((n) => n + 1)}
     />
   );
@@ -98,6 +101,7 @@ function FillPane({
   view,
   onDirty,
   onSaved,
+  onLoaded,
   onReload,
 }: {
   owner: FillOwner;
@@ -105,6 +109,7 @@ function FillPane({
   view: FillView;
   onDirty(dirty: boolean): void;
   onSaved: ((summary: FillSummary) => void) | undefined;
+  onLoaded: ((summary: FillSummary) => void) | undefined;
   onReload(): void;
 }) {
   const grid = useMemo<GridDoc>(() => fromApi(view.grid), [view.grid]);
@@ -128,6 +133,9 @@ function FillPane({
   useEffect(() => {
     onDirty(dirty);
   }, [dirty, onDirty]);
+  useEffect(() => {
+    onLoaded?.(view.fill);
+  }, [view.fill, onLoaded]);
   useEffect(() => {
     if (!dirty) {
       return;
@@ -193,6 +201,11 @@ function FillPane({
       <p className="hint" role="note" data-testid="fill-status-note">
         {fillStatusWords(summary.status)}
       </p>
+      {summary.archivedAt ? (
+        <p className="hint" role="note" data-testid="fill-archived-note">
+          This fill-in is archived. It is kept exactly as it was, read back when you open it, and it cannot be changed.
+        </p>
+      ) : null}
       {sheetWords ? (
         <p className="hint" role="note" data-testid="fill-version-note">
           {sheetWords}

@@ -15,6 +15,9 @@ export type FillInPage = components["schemas"]["FillInPage"];
 export type FillInRow = components["schemas"]["FillInRow"];
 export type FillInOptions = components["schemas"]["FillInOptionsView"];
 export type FillInStarted = components["schemas"]["FillInStartedView"];
+export type ReportColumns = components["schemas"]["ReportColumnsView"];
+export type ReportColumn = components["schemas"]["ReportColumnView"];
+export type ReportRequest = components["schemas"]["FillReportRequest"];
 
 /** The object that holds the fill-ins of the application (the header record; its cells are kept apart). */
 export const FILL_OBJECT = "InspectionFill";
@@ -73,6 +76,21 @@ export function startFillIn(templateId: string): Promise<Outcome<FillInStarted>>
   return unwrap(
     call(() => api.POST("/api/v1/templates/{templateId}/fill-ins", { params: { path: { templateId } } })),
   );
+}
+
+/** The columns the author of a version flagged reportable (the version in use when none is named). */
+export function getReportColumns(templateId: string, versionNo?: number): Promise<Outcome<ReportColumns>> {
+  return unwrap(
+    call(() => api.GET("/api/v1/fill-ins/report/columns", { params: { query: { templateId, versionNo } } })),
+  );
+}
+
+/**
+ * One page of the fill-ins the member may see that hold a value in a reportable column (FF2, ADR-0193). The value goes in
+ * the body, never in the address: it is text of the organization.
+ */
+export function runReport(request: ReportRequest): Promise<Outcome<FillInPage>> {
+  return unwrap(call(() => api.POST("/api/v1/fill-ins/report", { body: request })));
 }
 
 export type OptionsState =

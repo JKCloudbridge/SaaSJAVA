@@ -65,6 +65,7 @@ function answers(rows = [row(FILL, { filledBy: "Pat Filler" }), row(OTHER, { sta
         },
       }),
     [`GET ${RECORDS}/${FILL}/approval`]: () => json(NO_APPROVAL),
+    [`GET ${RECORDS}/${FILL}/files`]: () => json({ data: [] }),
     [`GET /api/v1/sheet-fills/InspectionFill/${FILL}`]: () =>
       json({
         data: {
@@ -111,6 +112,15 @@ describe("the list of fill-ins", () => {
     expect(screen.getByText("v3")).toBeInTheDocument();
     expect(screen.getByText("v2 (a newer version is in use)")).toBeInTheDocument();
     expect(screen.getAllByText("Not sent")).toHaveLength(2);
+  });
+
+  it("marks an archived fill-in in the list", async () => {
+    fakeApi(answers([row(FILL, { archivedAt: "2026-10-23T10:00:00Z" }), row(OTHER)]));
+
+    render(<FillInsPage />);
+    await screen.findAllByText("Fire exit check");
+
+    expect(within(screen.getByTestId("fill-ins-list")).getAllByText("Archived")).toHaveLength(1);
   });
 
   it("offers no New: a fill-in is started from its template", async () => {

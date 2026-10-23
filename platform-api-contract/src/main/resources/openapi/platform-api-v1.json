@@ -1870,6 +1870,93 @@
         "tags" : [ "Fill-ins" ]
       }
     },
+    "/api/v1/fill-ins/report" : {
+      "post" : {
+        "description" : "One condition on one reportable column: EQUALS one value, ONE_OF up to 100 values, or BETWEEN two bounds (either may be left out) for a number or a date. The answer is a page of fill-ins in the form of the list, newest first, without the cells, paged by the key of the last one looked at and never by an offset. A caller sees exactly the fill-ins they see in the list: the same visibility, decided by the same code. Because a caller who sees few of many matches makes the search look through more of them, a page can be short and still carry a nextCursor: only a missing nextCursor means the end. The value travels in the body and is never logged or audited. VALIDATION_ERROR names the field that is wrong, with fixed words. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares. ",
+        "operationId" : "reportFillIns",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/FillReportRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseFillInPage"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The fill-ins of a template version that hold a value in a reportable column",
+        "tags" : [ "Fill-ins" ]
+      }
+    },
+    "/api/v1/fill-ins/report/columns" : {
+      "get" : {
+        "description" : "The columns the author flagged reportable in the version (the version in use when versionNo is left out), in the order of the sheet, with their type and, for a list column, its values. A version still being written or reviewed has none to show. Only to draw the report's choices: the report decides again. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares. ",
+        "operationId" : "getFillInReportColumns",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "versionNo",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseReportColumnsView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The columns of a template version that can be reported on",
+        "tags" : [ "Fill-ins" ]
+      }
+    },
     "/api/v1/groups" : {
       "get" : {
         "description" : "With their people, nested groups and access policies. For members who manage access. NOT_FOUND on the platform host, FORBIDDEN without the ability.",
@@ -14742,6 +14829,15 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseReportColumnsView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ReportColumnsView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseRequestAccepted" : {
         "type" : "object",
         "properties" : {
@@ -17874,6 +17970,10 @@
       "FillInRow" : {
         "type" : "object",
         "properties" : {
+          "archivedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
           "createdAt" : {
             "type" : "string",
             "format" : "date-time"
@@ -17934,6 +18034,48 @@
           }
         },
         "required" : [ "fillId", "templateId", "versionNo" ]
+      },
+      "FillReportRequest" : {
+        "type" : "object",
+        "properties" : {
+          "columnId" : {
+            "type" : "string"
+          },
+          "cursor" : {
+            "type" : "string"
+          },
+          "from" : {
+            "type" : "string"
+          },
+          "operator" : {
+            "type" : "string"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "templateId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "to" : {
+            "type" : "string"
+          },
+          "values" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "columnId", "operator", "templateId" ]
       },
       "FirstAdministratorInfo" : {
         "type" : "object",
@@ -20824,6 +20966,43 @@
         },
         "required" : [ "createdAt", "items", "kind", "latest", "number" ]
       },
+      "ReportColumnView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "values" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        },
+        "required" : [ "id", "label", "type", "values" ]
+      },
+      "ReportColumnsView" : {
+        "type" : "object",
+        "properties" : {
+          "columns" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReportColumnView"
+            }
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "columns", "versionNo" ]
+      },
       "RequestAccepted" : {
         "type" : "object",
         "properties" : {
@@ -21387,6 +21566,10 @@
             },
             "required" : [ "values" ]
           },
+          "reportable" : {
+            "type" : "boolean",
+            "description" : "Whether the value of this column is copied, when a fill-in is saved, to the table a report reads. Absent means no."
+          },
           "required" : {
             "type" : "boolean"
           },
@@ -21424,6 +21607,10 @@
       "SheetFillSummaryView" : {
         "type" : "object",
         "properties" : {
+          "archivedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
           "cellsBytes" : {
             "type" : "integer",
             "format" : "int64"

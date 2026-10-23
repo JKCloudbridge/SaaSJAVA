@@ -149,7 +149,12 @@ function FillInsScreen() {
           header: "Status",
           cell: (row) => {
             const tag = fillStatusTag(row.status);
-            return <Tag tone={TONES[tag.tone]}>{tag.text}</Tag>;
+            return (
+              <>
+                <Tag tone={TONES[tag.tone]}>{tag.text}</Tag>
+                {row.archivedAt ? <Tag tone="quiet">Archived</Tag> : null}
+              </>
+            );
           },
           kind: "tag",
         },

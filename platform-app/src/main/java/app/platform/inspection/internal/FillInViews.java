@@ -53,10 +53,60 @@ public final class FillInViews {
      * @param createdAt when it was started
      * @param updatedAt when it last changed
      * @param submittedAt when it was last sent for review, or null
+     * @param archivedAt when its cells were moved to the archive (FF2, ADR-0193), or null; an archived fill-in is
+     *        read-only and its cells are read back on demand
      */
     public record FillInRow(@NotNull UUID fillId, @NotNull UUID templateId, String name, @NotNull String status,
             @NotNull Integer versionNo, @NotNull Boolean versionInUse, @NotNull Integer rowCount, String filledBy,
-            @NotNull Instant createdAt, @NotNull Instant updatedAt, Instant submittedAt) {
+            @NotNull Instant createdAt, @NotNull Instant updatedAt, Instant submittedAt, Instant archivedAt) {
+    }
+
+    /**
+     * A column an author flagged reportable in a version of a template, for the report to offer.
+     *
+     * @param id the stable identifier of the column
+     * @param label what the column is called
+     * @param type {@code text}, {@code number}, {@code date}, {@code picklist} or {@code boolean}
+     * @param values the listed values of a picklist column, empty for any other type
+     */
+    public record ReportColumnView(@NotNull String id, @NotNull String label, @NotNull String type,
+            @NotNull List<String> values) {
+    }
+
+    /**
+     * The reportable columns of one version of a template.
+     *
+     * @param versionNo the version they belong to
+     * @param columns the columns in the order of the sheet; empty when the version flags none
+     */
+    public record ReportColumnsView(@NotNull Integer versionNo, @NotNull List<ReportColumnView> columns) {
+    }
+
+    /**
+     * A question to the report: the fill-ins of one version of a template that hold a value in one reportable column.
+     * It is sent in a body, never in an address, because a value is text of the organization.
+     *
+     * @param templateId the template
+     * @param versionNo the version, or null for the version in use
+     * @param columnId the reportable column
+     * @param operator {@code EQUALS}, {@code ONE_OF} or {@code BETWEEN}
+     * @param values for EQUALS one value, for ONE_OF one to 100; left out for BETWEEN. A number is the digits, a date
+     *        is year-month-day, a yes or no is {@code true} or {@code false}
+     * @param from for BETWEEN the lower bound (a number or a date), or null
+     * @param to for BETWEEN the upper bound, or null
+     * @param status only fill-ins in this status, or null
+     * @param size the page size, at most 200; 0 or null is 50
+     * @param cursor the cursor of the previous page of the same question, or null
+     */
+    public record FillReportRequest(@NotNull UUID templateId, Integer versionNo, @NotNull String columnId,
+            @NotNull String operator, List<String> values, String from, String to, String status, Integer size,
+            String cursor) {
+
+        /** Prints a marker, never a value. */
+        @Override
+        public String toString() {
+            return "FillReportRequest[redacted]";
+        }
     }
 
     /**

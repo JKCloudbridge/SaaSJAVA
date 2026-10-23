@@ -93,6 +93,9 @@ final class SheetGridWriter {
         if (column.width() != null) {
             out.put("width", column.width());
         }
+        if (column.reportable()) {
+            out.put("reportable", true);
+        }
         return out;
     }
 
