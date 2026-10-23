@@ -38,7 +38,8 @@ class StandardMetadataLoaderTest {
 
         assertThat(standard.objects()).extracting(ObjectDefinition::apiName).containsExactlyInAnyOrder(
                 "Account", "AccessPolicy", "AccessPolicyAssignment", "Case", "Contact", "DepartmentGroup", "Group",
-                "InspectionTemplate", "LicenceType", "Opportunity", "Profile", "RecordType", "Role", "User")
+                "InspectionFill", "InspectionTemplate", "LicenceType", "Opportunity", "Profile", "RecordType", "Role",
+                "User")
                 .doesNotHaveDuplicates();
         assertThat(standard.objects()).allSatisfy(object -> {
             assertThat(object.kind()).isEqualTo(DefinitionKind.STANDARD);
@@ -253,6 +254,15 @@ class StandardMetadataLoaderTest {
         assertThat(shipped.field("retired").orElseThrow().platformWritten()).isTrue();
         assertThat(shipped.fields().stream().skip(standard.systemFields().size()).map(FieldDefinition::apiName))
                 .containsExactly("name", "retired", "category", "subCategory", "partCode", "planYear", "number");
+        // A fill-in (FF1, ADR-0192): private, kept, and every field one only the platform writes.
+        ObjectDefinition fill = standard.object("InspectionFill").orElseThrow();
+        assertThat(fill.requiresFeature()).isEqualTo("inspection");
+        assertThat(fill.retainRecords()).isTrue();
+        assertThat(fill.sharingDefault()).isEqualTo("PRIVATE");
+        assertThat(fill.fields().stream().skip(standard.systemFields().size())).allSatisfy(
+                field -> assertThat(field.platformWritten()).as(field.apiName()).isTrue());
+        assertThat(fill.fields().stream().skip(standard.systemFields().size()).map(FieldDefinition::apiName))
+                .containsExactly("name", "templateId", "status");
         ObjectDefinition departments = standard.object("DepartmentGroup").orElseThrow();
         assertThat(departments.requiresFeature()).isEqualTo("inspection");
         assertThat(departments.retainRecords()).isFalse();
@@ -263,7 +273,8 @@ class StandardMetadataLoaderTest {
     void everyOtherStandardObjectNeedsNoFeatureAndMayBeDeleted() {
         StandardMetadata standard = StandardMetadataLoader.load();
 
-        assertThat(standard.objects().stream().filter(object -> !Set.of("InspectionTemplate", "DepartmentGroup")
+        Set<String> shipped = Set.of("InspectionTemplate", "InspectionFill", "DepartmentGroup");
+        assertThat(standard.objects().stream().filter(object -> !shipped
                 .contains(object.apiName()))).allSatisfy(object -> {
                     assertThat(object.requiresFeature()).isNull();
                     assertThat(object.retainRecords()).isFalse();

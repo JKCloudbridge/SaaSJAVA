@@ -39,8 +39,9 @@ public abstract class SolutionSupport {
     protected static final String METADATA_OBJECTS = "/api/v1/metadata/objects";
     protected static final String RECORDS = "/api/v1/objects/" + OBJECT + "/records";
     protected static final String MEMBERS = "/api/v1/members";
+    protected static final String FILL = "InspectionFill";
     protected static final List<String> SHIPPED_POLICIES = List.of("Author", "Approver", "Reader", "Filler",
-            "Department setup");
+            "Reviewer", "Department setup");
 
     @LocalServerPort
     protected int port;

@@ -2,6 +2,7 @@ package app.platform.architecture.fixtures;
 
 import app.platform.data.RecordShares;
 import app.platform.security.Grantee;
+import app.platform.sheets.FillLifecycle;
 import app.platform.sheets.SheetLifecycle;
 import java.util.UUID;
 
@@ -15,10 +16,17 @@ public final class ClusterLikeSharer {
 
     private final RecordShares shares;
     private final SheetLifecycle sheets;
+    private final FillLifecycle fills;
 
-    public ClusterLikeSharer(RecordShares shares, SheetLifecycle sheets) {
+    public ClusterLikeSharer(RecordShares shares, SheetLifecycle sheets, FillLifecycle fills) {
         this.shares = shares;
         this.sheets = sheets;
+        this.fills = fills;
+    }
+
+    /** Sends a fill-in for review without the approval engine's say (FF1, ADR-0192). */
+    public void send(String object, UUID fill, UUID request, UUID actor) {
+        fills.submit(object, fill, request, actor);
     }
 
     /** Gives a group read access to a record and makes a version the one in use, without anyone's say. */

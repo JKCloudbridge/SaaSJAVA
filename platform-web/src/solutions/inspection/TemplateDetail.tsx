@@ -14,6 +14,7 @@ import { marksFromRequests, useChangeRequests } from "./changeRequests";
 import { ChangeRequestsSection } from "./ChangeRequestsSection";
 import { lifecycleText, stateTag } from "./lifecycle";
 import { PublishDialog } from "./PublishDialog";
+import { StartFillIn } from "./StartFillIn";
 import { TEMPLATE_OBJECT, text } from "./template";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
@@ -253,6 +254,12 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
           </>
         ) : null}
       </DetailSection>
+
+      {view && view.lifecycle.activeVersion > 0 && !view.retired ? (
+        <DetailSection title="Fill-ins" stack>
+          <StartFillIn templateId={id} refresh={refresh} />
+        </DetailSection>
+      ) : null}
 
       <DetailSection title="Sheet" stack>
         <SheetWorkspace

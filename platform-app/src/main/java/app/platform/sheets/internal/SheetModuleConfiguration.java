@@ -15,7 +15,7 @@ import tools.jackson.databind.JsonNode;
  * enforces are one text.
  */
 @Configuration
-@EnableConfigurationProperties(SheetProperties.class)
+@EnableConfigurationProperties({SheetProperties.class, FillProperties.class})
 class SheetModuleConfiguration {
 
     @Bean
@@ -29,14 +29,21 @@ class SheetModuleConfiguration {
     }
 
     @Bean
+    FillValidator fillValidator(FillProperties fills, SheetProperties properties) {
+        return new FillValidator(fills, properties.limits());
+    }
+
+    @Bean
     OpenApiCustomizer sheetGridSchemas(SheetSchemas schemas) {
         return openApi -> {
             for (java.util.Map.Entry<String, JsonNode> entry : schemas.publishedSchemas().properties()) {
                 openApi.getComponents().addSchemas(entry.getKey(), parse(entry.getValue()));
             }
-            Schema<?> holder = openApi.getComponents().getSchemas().get("SheetVersionView");
-            if (holder != null && holder.getProperties() != null) {
-                holder.getProperties().put("grid", new Schema<>().$ref("#/components/schemas/SheetGrid"));
+            for (String name : java.util.List.of("SheetVersionView", "SheetFillView")) {
+                Schema<?> holder = openApi.getComponents().getSchemas().get(name);
+                if (holder != null && holder.getProperties() != null) {
+                    holder.getProperties().put("grid", new Schema<>().$ref("#/components/schemas/SheetGrid"));
+                }
             }
         };
     }

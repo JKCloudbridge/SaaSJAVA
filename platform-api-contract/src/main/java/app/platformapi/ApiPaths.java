@@ -206,6 +206,12 @@ public final class ApiPaths {
      */
     public static final String SHEETS = V1 + "/sheets";
 
+    /**
+     * The cells of a fill-in: {@code /sheet-fills/{fillObject}/{fillId}} (Functional track FF1, ADR-0192). A fill-in
+     * belongs to one header record of one object; the address names that record, never the organization.
+     */
+    public static final String SHEET_FILLS = V1 + "/sheet-fills";
+
     /** The applications the signed-in member may use, with their navigation (Sprint 12). */
     public static final String MY_APPLICATIONS = V1 + "/applications";
 

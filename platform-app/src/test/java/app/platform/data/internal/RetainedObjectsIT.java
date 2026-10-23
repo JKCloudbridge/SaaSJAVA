@@ -286,7 +286,9 @@ class RetainedObjectsIT extends SolutionSupport {
         assertThat(retained.sync()).as("starting again writes nothing").isZero();
         assertThat(ownerCount("select count(*) from retained_object where object_api_name = 'InspectionTemplate' "
                 + "and deleted_at is null")).isEqualTo(1);
-        assertThat(ownerCount("select count(*) from retained_object")).isEqualTo(1);
+        assertThat(ownerCount("select count(*) from retained_object where object_api_name = 'InspectionFill' "
+                + "and deleted_at is null")).isEqualTo(1);
+        assertThat(ownerCount("select count(*) from retained_object")).isEqualTo(2);
 
         assertThatThrownBy(() -> ownerRuns("update retained_object set version = version + 1, updated_by = '"
                 + UUID.randomUUID() + "'")).hasMessageContaining("only grows");
@@ -296,7 +298,7 @@ class RetainedObjectsIT extends SolutionSupport {
         assertThatThrownBy(() -> TenantFixtures.asNobody(connection -> TenantFixtures.update(connection,
                 "update retained_object set deleted_at = now(), deleted_by = ?, version = version + 1, updated_by = ?",
                 UUID.randomUUID(), UUID.randomUUID()))).hasMessageContaining("only grows");
-        assertThat(ownerCount("select count(*) from retained_object where deleted_at is null")).isEqualTo(1);
+        assertThat(ownerCount("select count(*) from retained_object where deleted_at is null")).isEqualTo(2);
     }
 
     // ---- the recycle-bin retention job ----

@@ -137,6 +137,29 @@ export interface SheetEditor {
 }
 
 /**
+ * What the grid itself needs of an editor: the document, the rows to draw, the selection, the last message, and the few
+ * edits a key or a paste can make. The author's editor offers all of it; the editor of a fill-in (FF1) offers it over the
+ * cells a filler types, so one grid draws both.
+ */
+export type SheetGridEditor = Pick<
+  SheetEditor,
+  | "doc"
+  | "rows"
+  | "selection"
+  | "rect"
+  | "message"
+  | "select"
+  | "say"
+  | "setText"
+  | "clear"
+  | "paste"
+  | "undo"
+  | "redo"
+  | "bold"
+  | "italic"
+>;
+
+/**
  * The state of an edit session over one grid: the document with its undo history, the selection and the last message
  * (FA3, ADR-0172 section 4, ADR-0186). Every edit is one of the pure operations of `lib/sheets/gridModel`; this hook
  * only keeps their results. It decides no rule and no permission.

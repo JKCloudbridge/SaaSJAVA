@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
 
 /**
@@ -32,6 +33,9 @@ import org.springframework.test.context.TestPropertySource;
 class TemplateNumberingIT extends TemplateSupport {
 
     private static TestApplication instanceB;
+
+    @Autowired
+    private app.platform.data.internal.BackfillDriver driver;
 
     @BeforeAll
     static void startTheOtherInstance() {
@@ -195,6 +199,14 @@ class TemplateNumberingIT extends TemplateSupport {
         String second = template(run.author().browser(), "{\"name\":\"" + newName()
                 + "\",\"category\":\"CP\",\"subCategory\":\"PRD\",\"partCode\":\"SAME\"}");
         fill(run.author().browser(), second, firstVersion(run.author().browser(), second));
+        // The database enforces uniqueness of the number only once the background work has filled its copy and set the
+        // constraint; a fresh organization has not had that yet, so this test drives it and waits for it.
+        org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(60)).until(() -> {
+            driver.workOn(run.setting().organization().id());
+            List<String> states = JsonPath.read(run.setting().admin()
+                    .get("/api/v1/objects/InspectionTemplate/index-status").body(), "$.data.uniqueness[*].state");
+            return !states.isEmpty() && states.stream().allMatch("ENFORCED"::equals);
+        });
         // Both are on their way before either has its number: the submit cannot see the clash yet.
         String requestOne = submitted(run.author().browser(), first, run.process());
         String requestTwo = submitted(run.author().browser(), second, run.process());

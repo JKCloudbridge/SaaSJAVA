@@ -17,7 +17,7 @@ import {
 import type { AnnotationMarks } from "@/lib/sheets/annotate";
 import { parseClipboard } from "@/lib/sheets/gridModel";
 import type { GridCell } from "@/lib/sheets/types";
-import type { SheetEditor } from "./useSheetEditor";
+import type { SheetGridEditor } from "./useSheetEditor";
 
 /** What a cell shows: text as it is, a yes or no in words. */
 function shown(value: GridCell["value"]): string {
@@ -40,9 +40,15 @@ interface Editing {
 }
 
 export interface SheetGridProps {
-  editor: SheetEditor;
+  editor: SheetGridEditor;
   /** True when the grid may be looked at and copied from but not changed. */
   readOnly: boolean;
+  /**
+   * Fill mode (FF1, ADR-0192): whether a person may type into the cell of this row and column. The grid of an author
+   * leaves it out (any body cell takes text); the grid of a filler passes the sheet's own rule, so a cell the sheet fixes
+   * is not opened. It only spares the person a refusal: the editor and the server decide again.
+   */
+  canEditCell?: (rowId: string, columnId: string) => boolean;
   /** The name of the grid for a screen reader. */
   label: string;
   /**
@@ -64,7 +70,7 @@ function notesWords(count: number | undefined): string {
  * `sheet-*` classes, and makes no request. Every change goes through the editor, which uses the pure operations of the
  * model; the grid only turns a key, a click or a paste into one of them.
  */
-export function SheetGrid({ editor, readOnly, label, annotation }: SheetGridProps) {
+export function SheetGrid({ editor, readOnly, canEditCell, label, annotation }: SheetGridProps) {
   const { doc, rows, selection, rect } = editor;
   const gridId = useId();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -210,6 +216,10 @@ export function SheetGrid({ editor, readOnly, label, annotation }: SheetGridProp
     const target = rows[row];
     if (!target || target.zone === "blank") {
       editor.say("The blank rows show what a filler will get. They cannot be changed.", true);
+      return;
+    }
+    if (canEditCell && !canEditCell(target.id, at(doc.columns, column).id)) {
+      editor.say("This cell is fixed text and cannot be typed into.", true);
       return;
     }
     const cell = doc.cells[cellKey(target.id, at(doc.columns, column).id)];

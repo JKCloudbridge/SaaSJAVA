@@ -744,6 +744,30 @@ public final class TenantScopedTables {
                     tenant, UUID.randomUUID(), new byte[32], ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
 
     /**
+     * The cells of a fill-in (FF1). A fill-in is started only on a version in use, so each probe row first makes the
+     * first version of a sheet of its own and takes it through the lifecycle to the one in use.
+     */
+    public static final TenantScopedTable SHEET_FILL = new TenantScopedTable("sheet_fill",
+            (connection, tenant) -> {
+                UUID owner = UUID.randomUUID();
+                TenantFixtures.update(connection,
+                        "insert into sheet_version (tenant_id, owner_object, owner_id, version_no, dimension, "
+                                + "rows_mode, grid, grid_hash, grid_bytes, created_by, updated_by) values (?, "
+                                + "'Probe', ?, 1, 2, 'FIXED', cast('{}' as jsonb), ?, 2, ?, ?)",
+                        tenant, owner, new byte[32], ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+                for (String status : List.of("IN_REVIEW", "APPROVED", "ACTIVE")) {
+                    TenantFixtures.update(connection, "update sheet_version set status = '" + status
+                            + "', version = version + 1 where owner_id = ?", owner);
+                }
+                TenantFixtures.update(connection,
+                        "insert into sheet_fill (tenant_id, fill_object, fill_id, owner_object, owner_id, version_no, "
+                                + "cells, cells_hash, cells_bytes, created_by, updated_by) values (?, 'ProbeFill', "
+                                + "?, 'Probe', ?, 1, cast('{\"formatVersion\":1,\"rows\":[]}' as jsonb), ?, 28, ?, ?)",
+                        tenant, UUID.randomUUID(), owner, new byte[32], ActorId.SYSTEM.value(),
+                        ActorId.SYSTEM.value());
+            });
+
+    /**
      * The memory of publishing a template to a group (FA4). Each probe row is a publication of a template of its own.
      */
     public static final TenantScopedTable INSPECTION_PUBLICATION = new TenantScopedTable("inspection_publication",
@@ -793,7 +817,7 @@ public final class TenantScopedTables {
             WORKFLOW_SCHEDULE, APPROVAL_PROCESS, APPROVAL_PROCESS_VERSION, APPROVAL_INSTANCE,
             APPROVAL_STEP_INSTANCE, APPROVAL_ASSIGNMENT, APPROVAL_HISTORY, APPROVAL_DELEGATION, NOTIFICATION,
             NOTIFICATION_PREFERENCE, NOTIFICATION_TEMPLATE, APPROVAL_STEP_TIMER, APPROVAL_REMINDER,
-            ORGANIZATION_FIELD_VALUES, NUMBER_SERIES_COUNTER, SHEET_VERSION,
+            ORGANIZATION_FIELD_VALUES, NUMBER_SERIES_COUNTER, SHEET_VERSION, SHEET_FILL,
             INSPECTION_PUBLICATION, INSPECTION_CHANGE_REQUEST, INSPECTION_CHANGE_COMMENT);
 
     private TenantScopedTables() {

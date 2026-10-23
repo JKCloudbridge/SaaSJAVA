@@ -118,6 +118,8 @@ function listAnswers(create = true) {
       }),
     [`GET ${RECORDS}/${ID}/approval`]: () => json(NO_APPROVAL),
     [`GET /api/v1/templates/${ID}/lifecycle`]: () => json(lifecycleOf()),
+    [`GET /api/v1/templates/${ID}/fill-in-options`]: () =>
+      json({ data: { canStart: false, activeVersion: 0, reason: "You do not have the right to fill in templates." } }),
     [`GET /api/v1/templates/${ID}/change-requests`]: () =>
       json({
         data: { requests: [], canReview: false, canRequest: false, activeVersion: 0, draftVersion: 0, openCount: 0 },
@@ -555,5 +557,33 @@ describe("change requests on the template page (FA5)", () => {
     expect(await screen.findByRole("grid", { name: "Fire exit check, version 3" })).toBeInTheDocument();
     expect(screen.queryByTestId("annotate-panel")).toBeNull();
     expect(await screen.findByText(/You have not asked for a change to this template/)).toBeInTheDocument();
+  });
+});
+
+describe("the fill-ins of a template (FF1)", () => {
+  it("offers to start a fill-in only while a version is in use and the API says the member may", async () => {
+    setUrl(`/apps/inspection/templates?open=${ID}`);
+    fakeApi({
+      ...listAnswers(),
+      [`GET /api/v1/templates/${ID}/lifecycle`]: () =>
+        json(lifecycleOf({}, { ...NONE, state: "ACTIVE", activeVersion: 3, highestVersion: 3 })),
+      [`GET /api/v1/templates/${ID}/fill-in-options`]: () => json({ data: { canStart: true, activeVersion: 3 } }),
+    });
+
+    render(<TemplatesPage />);
+
+    expect(await screen.findByRole("button", { name: "Start a fill-in" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "See the fill-ins of this template" })).toBeInTheDocument();
+  });
+
+  it("has no fill-ins section while no version is in use", async () => {
+    setUrl(`/apps/inspection/templates?open=${ID}`);
+    fakeApi(listAnswers());
+
+    render(<TemplatesPage />);
+    await screen.findByTestId("template-detail");
+
+    expect(screen.queryByTestId("start-fill-in")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Start a fill-in" })).toBeNull();
   });
 });

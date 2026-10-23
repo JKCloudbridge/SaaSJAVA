@@ -66,11 +66,12 @@ class SolutionLoaderTest {
         assertThat(bundle.label()).isEqualTo("Audit maintenance");
         assertThat(bundle.application().apiName()).isEqualTo("inspection");
         assertThat(bundle.application().entries()).extracting(SolutionBundle.Entry::kind)
-                .containsExactly(ShippedEntryView.Kind.PLATFORM, ShippedEntryView.Kind.OBJECT);
-        assertThat(bundle.objects()).containsExactly("InspectionTemplate", "DepartmentGroup");
+                .containsExactly(ShippedEntryView.Kind.PLATFORM, ShippedEntryView.Kind.PLATFORM,
+                        ShippedEntryView.Kind.OBJECT);
+        assertThat(bundle.objects()).containsExactly("InspectionTemplate", "InspectionFill", "DepartmentGroup");
         assertThat(bundle.sheetOwners()).containsExactly("InspectionTemplate");
         assertThat(bundle.policies()).extracting(SolutionBundle.Policy::name)
-                .containsExactly("Author", "Approver", "Reader", "Filler", "Department setup");
+                .containsExactly("Author", "Approver", "Reader", "Filler", "Reviewer", "Department setup");
         assertThat(policy(bundle, "author").objects().get("InspectionTemplate")).containsExactlyInAnyOrder(
                 ObjectAction.CREATE, ObjectAction.READ, ObjectAction.UPDATE);
         assertThat(policy(bundle, "author").abilities()).isEmpty();
@@ -82,6 +83,20 @@ class SolutionLoaderTest {
         assertThat(policy(bundle, "reader").objects().get("InspectionTemplate")).containsExactly(ObjectAction.READ);
         assertThat(policy(bundle, "filler").objects().get("InspectionTemplate")).containsExactly(ObjectAction.READ);
         assertThat(policy(bundle, "reader").abilities()).isEmpty();
+        // A fill-in (FF1): the filler starts and works on their own, the reviewer and the approver see every one, and
+        // nobody gets the right to create the header or to delete it: the platform makes it and it is kept.
+        assertThat(policy(bundle, "filler").abilities()).containsExactly("sheets.fill");
+        assertThat(policy(bundle, "filler").objects().get("InspectionFill")).containsExactlyInAnyOrder(
+                ObjectAction.READ, ObjectAction.UPDATE);
+        assertThat(policy(bundle, "reviewer").objects().get("InspectionFill")).containsExactlyInAnyOrder(
+                ObjectAction.READ, ObjectAction.VIEW_ALL);
+        assertThat(policy(bundle, "reviewer").abilities()).isEmpty();
+        assertThat(policy(bundle, "approver").objects().get("InspectionFill")).contains(ObjectAction.VIEW_ALL,
+                ObjectAction.MODIFY_ALL);
+        assertThat(bundle.policies()).allSatisfy(one -> assertThat(one.objects().getOrDefault("InspectionFill",
+                java.util.Set.of())).doesNotContain(ObjectAction.CREATE, ObjectAction.DELETE));
+        assertThat(policy(bundle, "filler").fields().keySet()).noneMatch(key -> key.startsWith("InspectionFill.")
+                && policy(bundle, "filler").fields().get(key).contains(app.platform.security.FieldAction.EDIT));
         assertThat(policy(bundle, "departments").objects()).containsOnlyKeys("DepartmentGroup");
         // A field is theirs to see only when the policy says so: an author edits what they write and reads the rest.
         assertThat(policy(bundle, "author").fields()).containsEntry("InspectionTemplate.name",

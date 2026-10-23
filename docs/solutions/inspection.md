@@ -4,6 +4,18 @@ The first platform-shipped solution (Functional track). This page is for two rea
 
 ## 1. For administrators
 
+### What exists in this release (FF1): fill-ins
+
+A person can now **fill in** a template that was published to them. The decisions are in ADR-0192.
+
+1. **Start.** On the page of a template that has a version in use, a person who holds the **Filler** policy and is in a department it was published to sees **Start a fill-in**. The fill-in is made on the version in use and stays on it for ever. A template with no version in use, or a retired one, starts none.
+2. **Fill.** The fill-in opens in the **Fill-ins** page of the application (also reachable from the template: **See the fill-ins of this template**). Only the cells the template marks as input take a value; each value is checked by the type of its column; rows can be added where the template allows. **Grid view** on a wide screen, **Form view** on a phone. Save as often as needed; a half-done fill-in can be saved.
+3. **Send and review.** The ordinary **Submit for approval** of the fill-in's page. A required value missing, or no row where the filler adds the rows, is refused in plain words. The administrator builds the approval process on **Fill-in** (`/setup/approvals`); a rejection returns the fill-in to its filler, an approval fixes it.
+4. **Who sees which.** The filler sees their own. **Approver** and the new **Reviewer** policy see every fill-in of the organization. A person asked to review reads that one fill-in.
+5. **After it was sent.** Only the people who hold the **Approver** policy can correct it; each correction is counted and recorded without its content.
+
+**What the organization's administrator sets up for fill-ins.** See `Sprint FF1 manual steps.md`: give **Filler** to the people who fill in (they must also be in a department the template is published to), **Reviewer** to the people who only need to see every fill-in, and build the approval process on Fill-in.
+
 ### What exists in this release (FA5): change requests
 
 A person who can read a published template may now **ask for a change** without being able to edit it.
@@ -71,6 +83,7 @@ The `local` profile switches the feature on for `tenant-a` and leaves `tenant-b`
 | The number series: the formats by category | `platform-app/src/main/resources/solutions/inspection/numbering.yml` ([metadata-guide.md](../metadata-guide.md) section 26.4) |
 | The feature row | migration `V058__add_inspection_feature.sql` |
 | The department mapping object (the group of a department of a location) | `platform-app/src/main/resources/solutions/inspection/objects/DepartmentGroup.yml` ([ADR-0190](../adr/0190-department-groups-the-object-group-and-the-mapping.md)) |
+| Fill-ins: the start, the list, the hook of the approval engine, the header writer | `platform-app/src/main/java/app/platform/inspection/internal/` (`FillIns`, `FillInController`, `FillInViews`, `FillApprovalHooks`, `FillHeaders`, `Fills`); the header object is `platform-app/src/main/resources/solutions/inspection/objects/InspectionFill.yml`; the cells and the pin are generic: `platform-app/src/main/java/app/platform/sheets/` (`FillLifecycle`, `internal/SheetFills`, `FillValidator`, `FillStructure`, `SheetFillStore`) and migration `V069__create_sheet_fill.sql` ([ADR-0192](../adr/0192-fill-ins-the-header-record-the-cell-table-and-review-by-the-approval-engine.md)) |
 | The cluster's module: the hook, publishing, retiring, the master list | `platform-app/src/main/java/app/platform/inspection/` ([ADR-0188](../adr/0188-the-template-lifecycle-the-cluster-module-publishing-and-the-master-list.md)); the table `inspection_publication` is migration `V066__create_inspection_publication.sql` |
 | The change requests: the rules, who sees what, the tables, the endpoints | `platform-app/src/main/java/app/platform/inspection/internal/` (`ChangeRequests`, `ChangeRequestAccess`, `ChangeRequestStore`, `ChangeRequestController`, `ChangeRequestViews`, `ChangeText`, `ChangeAnchor`, `ChangeRequestStatus`, `ChangeRequestProperties`); the tables are `V067__create_inspection_change_requests.sql`; the notice kind and category are `V068__allow_change_request_notices.sql` ([ADR-0191](../adr/0191-change-requests-on-a-published-template.md)) |
 | The page keys the web application knows | `platform-web/src/solutions/inspection/registry.ts` (the pages: `TemplatesPage.tsx` the master list, `TemplateDetail.tsx` one template with its lifecycle, `PublishDialog.tsx`, `lifecycle.ts`, `api.ts`; since FA5 `AnnotatePanel.tsx` the composer under the grid, `ChangeRequestsSection.tsx` the list and the review, `changeRequests.ts` the calls and the words) |

@@ -317,19 +317,57 @@ try {
   await panel.getByLabel("What is the request about?").fill(`Widen the column ${stamp}`);
   await panel.getByRole("button", { name: "Send the request" }).click();
   await page.getByText("Your request was sent to the people who look after this template.").waitFor({ timeout: 15000 });
-  const requests = page.getByTestId("change-requests");
-  await requests.getByRole("heading", { name: `Widen the column ${stamp}` }).waitFor({ timeout: 15000 });
+  const changeList = page.getByTestId("change-requests");
+  await changeList.getByRole("heading", { name: `Widen the column ${stamp}` }).waitFor({ timeout: 15000 });
   check("the request is listed with its comment and the place it points at",
-    /Column “Column 2”/.test(await requests.innerText()) && /too narrow for the readings/.test(await requests.innerText()));
+    /Column “Column 2”/.test(await changeList.innerText()) && /too narrow for the readings/.test(await changeList.innerText()));
   check("the column is marked in the grid", (await page.locator(".sheet-label.sheet-noted", { hasText: "Column 2" }).count()) === 1);
   await page.getByRole("grid").focus();
   await page.keyboard.press("Enter");
   check("Enter on a cell takes the keyboard to the box of a comment",
     (await page.evaluate(() => document.activeElement?.tagName)) === "TEXTAREA");
   await shot(page, "change-request");
-  await requests.getByRole("button", { name: "Accept" }).click();
+  await changeList.getByRole("button", { name: "Accept" }).click();
   await page.getByText("The request was accepted.").waitFor({ timeout: 15000 });
-  check("the owner accepts the request", /Accepted/.test(await requests.innerText()));
+  check("the owner accepts the request", /Accepted/.test(await changeList.innerText()));
+  // 11. a fill-in (Functional track FF1, ADR-0192): started from the template that section 10 left published, filled in
+  // as a person does (a cell the template fixes is not opened, an input cell takes the typed value), saved, and read back
+  // through the API against the version it was started on; then opened on a phone, where the form view comes first.
+  await page.goto(`${BASE}/apps/inspection/s-templates?open=${lifeId}`);
+  await page.getByRole("button", { name: "Start a fill-in" }).click();
+  await page.waitForURL(/s-fill-ins\?open=/, { timeout: 20000 });
+  const fillGrid = page.getByRole("grid");
+  await fillGrid.waitFor({ timeout: 20000 });
+  const fillId = new URL(page.url()).searchParams.get("open");
+  check("a fill-in is started on the version in use and opens in the fill-ins page", Boolean(fillId));
+  await page.locator('[data-r="1"][data-c="0"]').dblclick();
+  check("a cell the template fixes is not opened",
+    (await page.getByText("This cell is fixed text and cannot be typed into.").count()) >= 1 && (await page.locator(".sheet-input").count()) === 0);
+  await page.locator('[data-r="1"][data-c="1"]').dblclick();
+  await page.keyboard.type("Looks fine");
+  await page.keyboard.press("Enter");
+  check("a typed value stays in an input cell", (await page.locator('[data-r="1"][data-c="1"]').innerText()).includes("Looks fine"));
+  await page.getByRole("button", { name: "Save" }).click();
+  await page.getByText("All changes are saved.").waitFor({ timeout: 15000 });
+  const stored = await api(page, "GET", `/api/v1/sheet-fills/InspectionFill/${fillId}`);
+  check("the value is stored against the version the fill-in was started on",
+    stored.body?.data?.cells?.rows?.[0]?.cells?.c001 === "Looks fine" && stored.body?.data?.fill?.versionNo === 1,
+    JSON.stringify(stored.body?.data?.cells ?? stored.body?.error ?? "").slice(0, 160));
+  await shot(page, "fill-in");
+  const fillPhone = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+  const fillSmall = await fillPhone.newPage();
+  await fillSmall.goto(`${BASE}/sign-in`);
+  await fillSmall.getByLabel("Email address").fill(EMAIL);
+  await fillSmall.getByLabel("Password").fill(PASSWORD);
+  await fillSmall.getByRole("button", { name: /sign in/i }).click();
+  await fillSmall.waitForURL((url) => !url.pathname.startsWith("/sign-in"), { timeout: 20000 });
+  await fillSmall.goto(`${BASE}/apps/inspection/s-fill-ins?open=${fillId}`);
+  await fillSmall.getByTestId("fill-form").waitFor({ timeout: 20000 });
+  check("on a phone the fill-in opens in the form view, the way to fill", (await fillSmall.getByTestId("fill-form").count()) === 1);
+  check("on a phone the page does not scroll sideways",
+    await fillSmall.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+  await shot(fillSmall, "fill-in-phone");
+  await fillPhone.close();
 } catch (error) {
   failed++;
   console.log(`FAIL the script stopped: ${String(error).split("\n")[0]}`);

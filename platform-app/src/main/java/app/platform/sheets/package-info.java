@@ -18,6 +18,15 @@
  * a sheet belongs to, and the counted correction of an approver while a version is in review; the database refuses
  * every move that is not part of the lifecycle whoever asks (ADR-0188, ADR-0189).
  *
+ * <p>FF1 adds the <strong>fill-ins</strong> of a sheet (ADR-0192): what a person types into a sheet that was published.
+ * The cells of a fill-in are one canonical document in a table of this module (one row for each header record of the
+ * caller's own object), pinned for ever to the version of the sheet that was in use when the fill-in was started, with a
+ * status the database guards and cells that change only while the fill-in is a draft or returned, or by a counted
+ * correction. The module that owns the header record starts, sends and ends a fill-in through
+ * {@link app.platform.sheets.FillLifecycle}; who may read or change the cells is the header record's own answer from
+ * the decision API, asked in one place. The cells are checked in a fixed order against the pinned version: only input
+ * cells take a value, each value fits the type of its column, and rows can be added only where the sheet allows it.
+ *
  * <p>Other modules may use only the types in this package (its public API). Everything in sub-packages is internal.
  * Allowed outgoing dependencies are declared below and verified by the architecture tests.
  */
