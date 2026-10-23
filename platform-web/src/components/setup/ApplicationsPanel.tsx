@@ -73,7 +73,6 @@ export function ApplicationsPanel() {
   return (
     <ListPage<ApplicationView>
       title="Applications"
-      intro="An application is a menu of the organization: the objects, tabs, record pages and links its members see. Members see an application when it names their profile, or when it names no profile."
       items={applications}
       failure={failure}
       rowKey={(row) => row.apiName}

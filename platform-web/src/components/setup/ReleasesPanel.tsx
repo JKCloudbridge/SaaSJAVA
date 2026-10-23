@@ -148,7 +148,6 @@ export function ReleasesPanel() {
   return (
     <ListPage<Release>
       title="History"
-      intro="Every publication of objects, fields and record types is numbered here, whether it was a change set or a single change made at once. The latest one can be rolled back; that is a new publication that undoes it. A field that was removed comes back as a definition, but the permissions on it ended when it was removed and do not come back."
       items={releases}
       failure={failure}
       rowKey={(row) => String(row.number)}

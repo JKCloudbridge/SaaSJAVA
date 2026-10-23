@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api/client";
 import type { ApiFailure } from "@/lib/api/errors";
 import type { components } from "@/lib/api/generated/schema";
+import type { ListRequest } from "@/components/ui/lists/useListViews";
 import { call, type Outcome } from "@/lib/records/call";
 
 /**
@@ -60,6 +61,23 @@ export function listFillIns(filters: FillInFilters, cursor?: string): Promise<Ou
             status: filters.status === "" ? undefined : filters.status,
             cursor,
           },
+        },
+      }),
+    ),
+  );
+}
+
+/** One page of the fill-ins for the question of a list view, optionally narrowed to one template (UI3A). */
+export function queryFillIns(request: ListRequest, templateId: string, cursor?: string): Promise<Outcome<FillInPage>> {
+  return unwrap(
+    call(() =>
+      api.POST("/api/v1/fill-ins/query", {
+        body: {
+          search: request.search === "" ? undefined : request.search,
+          filter: request.filter,
+          sort: request.sort,
+          templateId: templateId === "" ? undefined : templateId,
+          cursor,
         },
       }),
     ),

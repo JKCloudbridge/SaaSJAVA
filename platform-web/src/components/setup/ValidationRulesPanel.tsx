@@ -373,7 +373,6 @@ export function ValidationRulesPanel({ object, reload: reloadObject, authorship 
     <ListPage<RuleView>
       title={tabTitle(object, "Validation rules")}
       crumbs={crumbs}
-      intro="A validation rule is a condition. When it is true for a record, the save is rejected and the person reads the message of the rule. A condition with no value does not reject."
       items={rules}
       failure={failure}
       rowKey={(row) => row.apiName}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api/client";
 import type { ApiFailure } from "@/lib/api/errors";
 import type { components } from "@/lib/api/generated/schema";
+import type { ListRequest } from "@/components/ui/lists/useListViews";
 import { call, type Outcome } from "@/lib/records/call";
 
 /**
@@ -62,6 +63,25 @@ export function listTemplates(filters: ListFilters, cursor?: string): Promise<Ou
             sort: filters.sort,
             cursor,
           },
+        },
+      }),
+    ),
+  );
+}
+
+/**
+ * One page of the templates for the question of a list view: the search text, the conditions and the order, all judged by
+ * the server (UI3A). `cursor` continues the same question; a different question starts again.
+ */
+export function queryTemplates(request: ListRequest, cursor?: string): Promise<Outcome<TemplatePage>> {
+  return unwrap(
+    call(() =>
+      api.POST("/api/v1/templates/query", {
+        body: {
+          search: request.search === "" ? undefined : request.search,
+          filter: request.filter,
+          sort: request.sort,
+          cursor,
         },
       }),
     ),

@@ -349,7 +349,6 @@ export function FieldsPanel({ object, types, objects, reload, authorship }: Obje
     <ListPage<FieldView>
       title={tabTitle(object, "Fields")}
       crumbs={crumbs}
-      intro={object.extensible ? undefined : "The platform does not allow extra fields on this object."}
       items={object.fields}
       rowKey={(row) => row.apiName}
       primaryHeader="Label"

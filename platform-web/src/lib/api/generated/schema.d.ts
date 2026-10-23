@@ -860,6 +860,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/fill-ins/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The fill-ins the caller may see, for a search, a filter and an order
+         * @description The same page as the list, for a question a list view holds: search (a name, or the whole word of a status), a filter and up to two sort keys in the closed query model of the record store, and the narrowing to one template or status. A post, because the filter does not belong in an address. The page is read through the record store, so the caller sees exactly the fill-ins they may see. Nothing typed is logged.
+         */
+        post: operations["queryFillIns"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/fill-ins/report": {
         parameters: {
             query?: never;
@@ -4640,6 +4660,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/templates/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The templates the caller may see, for a search, a filter and an order
+         * @description The same page as the list, for a question a list view holds: search (a name or a number, or a whole category or sub-category code), a filter (the closed query model of the record store, conditions combined with AND or OR), up to two sort keys, and a lifecycle state. A post, because the filter does not belong in an address. A field the caller may not read is answered like a field that does not exist, and an order or a filter that cannot use an index is bounded by the query engine's scan limit (and refused above it, naming the field). The page is read through the record store, so the caller sees exactly the templates they may see. Nothing typed is logged.
+         */
+        post: operations["queryTemplates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/templates/{templateId}/change-requests": {
         parameters: {
             query?: never;
@@ -6507,6 +6547,17 @@ export interface components {
             nextCursor?: string;
             rows: components["schemas"]["FillInRow"][];
         };
+        FillInQuery: {
+            cursor?: string;
+            filter?: components["schemas"]["QueryFilterNode"];
+            search?: string;
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["QuerySortKey"][];
+            status?: string;
+            /** Format: uuid */
+            templateId?: string;
+        };
         FillInRow: {
             /** Format: date-time */
             archivedAt?: string;
@@ -7919,6 +7970,15 @@ export interface components {
             filtered: boolean;
             nextCursor?: string;
             rows: components["schemas"]["TemplateRow"][];
+        };
+        TemplateQuery: {
+            cursor?: string;
+            filter?: components["schemas"]["QueryFilterNode"];
+            search?: string;
+            /** Format: int32 */
+            size?: number;
+            sort?: components["schemas"]["QuerySortKey"][];
+            state?: string;
         };
         TemplateRow: {
             category?: string;
@@ -9738,6 +9798,39 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseFillInPage"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    queryFillIns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FillInQuery"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -17774,6 +17867,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseAudienceOptionsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    queryTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateQuery"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseTemplatePage"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

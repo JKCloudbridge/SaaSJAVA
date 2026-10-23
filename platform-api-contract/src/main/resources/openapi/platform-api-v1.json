@@ -1870,6 +1870,46 @@
         "tags" : [ "Fill-ins" ]
       }
     },
+    "/api/v1/fill-ins/query" : {
+      "post" : {
+        "description" : "The same page as the list, for a question a list view holds: search (a name, or the whole word of a status), a filter and up to two sort keys in the closed query model of the record store, and the narrowing to one template or status. A post, because the filter does not belong in an address. The page is read through the record store, so the caller sees exactly the fill-ins they may see. Nothing typed is logged.",
+        "operationId" : "queryFillIns",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/FillInQuery"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseFillInPage"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The fill-ins the caller may see, for a search, a filter and an order",
+        "tags" : [ "Fill-ins" ]
+      }
+    },
     "/api/v1/fill-ins/report" : {
       "post" : {
         "description" : "One condition on one reportable column: EQUALS one value, ONE_OF up to 100 values, or BETWEEN two bounds (either may be left out) for a number or a date. The answer is a page of fill-ins in the form of the list, newest first, without the cells, paged by the key of the last one looked at and never by an offset. A caller sees exactly the fill-ins they see in the list: the same visibility, decided by the same code. Because a caller who sees few of many matches makes the search look through more of them, a page can be short and still carry a nextCursor: only a missing nextCursor means the end. The value travels in the body and is never logged or audited. VALIDATION_ERROR names the field that is wrong, with fixed words. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares. ",
@@ -12312,6 +12352,46 @@
         "tags" : [ "Templates" ]
       }
     },
+    "/api/v1/templates/query" : {
+      "post" : {
+        "description" : "The same page as the list, for a question a list view holds: search (a name or a number, or a whole category or sub-category code), a filter (the closed query model of the record store, conditions combined with AND or OR), up to two sort keys, and a lifecycle state. A post, because the filter does not belong in an address. A field the caller may not read is answered like a field that does not exist, and an order or a filter that cannot use an index is bounded by the query engine's scan limit (and refused above it, naming the field). The page is read through the record store, so the caller sees exactly the templates they may see. Nothing typed is logged.",
+        "operationId" : "queryTemplates",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TemplateQuery"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTemplatePage"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The templates the caller may see, for a search, a filter and an order",
+        "tags" : [ "Templates" ]
+      }
+    },
     "/api/v1/templates/{templateId}/change-requests" : {
       "get" : {
         "description" : "Each request with its comments, newest first. canReview says whether the caller may answer requests and canRequest whether the screen may offer to ask for a change (a version is in use and the template is not retired); the flags only hide buttons. status narrows the list (OPEN, ACCEPTED, DECLINED or DONE). A comment says whether its place is still in the version in use. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
@@ -17967,6 +18047,45 @@
         },
         "required" : [ "rows" ]
       },
+      "FillInQuery" : {
+        "type" : "object",
+        "properties" : {
+          "cursor" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          },
+          "filter" : {
+            "$ref" : "#/components/schemas/QueryFilterNode"
+          },
+          "search" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "sort" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/QuerySortKey"
+            },
+            "maxItems" : 2,
+            "minItems" : 0
+          },
+          "status" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "templateId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
       "FillInRow" : {
         "type" : "object",
         "properties" : {
@@ -22359,6 +22478,41 @@
           }
         },
         "required" : [ "canCreate", "filtered", "rows" ]
+      },
+      "TemplateQuery" : {
+        "type" : "object",
+        "properties" : {
+          "cursor" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          },
+          "filter" : {
+            "$ref" : "#/components/schemas/QueryFilterNode"
+          },
+          "search" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "sort" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/QuerySortKey"
+            },
+            "maxItems" : 2,
+            "minItems" : 0
+          },
+          "state" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          }
+        }
       },
       "TemplateRow" : {
         "type" : "object",

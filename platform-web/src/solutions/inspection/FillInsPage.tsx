@@ -1,34 +1,28 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { ListPage } from "@/components/ui/lists/ListPage";
+import { Suspense, useEffect, useState } from "react";
+import { ListPage, type ListColumn } from "@/components/ui/lists/ListPage";
+import { useListViews } from "@/components/ui/lists/useListViews";
 import { Tag } from "@/components/ui/lists/Tag";
 import { useListRoute } from "@/components/ui/lists/useListRoute";
 import { fillStatusTag } from "@/lib/sheets/fillTags";
 import { FillInDetail } from "./FillInDetail";
-import {
-  fillInsHref,
-  listFillIns,
-  NO_FILL_FILTERS,
-  startFillIn,
-  useFillInOptions,
-  type FillInFilters,
-  type FillInRow,
-} from "./fillIns";
+import { fillInsHref, queryFillIns, startFillIn, useFillInOptions, type FillInRow } from "./fillIns";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
 
 /**
  * The page of the "Fill-ins" entry (Functional track FF1, ADR-0192): the fill-ins the member may see, newest first, with
- * the status of each, one search box over the rows read, a click on a header to order by it, and one fill-in opened in
- * the same pane. A person sees their own; a person who
+ * the status of each, one search box, a click on a header to order the whole result, a view menu, and one fill-in opened
+ * in the same pane. A person sees their own; a person who
  * may view every fill-in sees all of them. The list never carries the cells, and "Show more" continues from the last
  * fill-in seen, never from a count, so it is as quick at the thousandth as at the first. A fill-in is started from its
  * template, not here.
  *
  * <p>It asks the API for everything and decides nothing. A link from a template narrows the list to that template
- * (`?template=`); the narrowing is the API's filter, not a rule of the screen.
+ * (`?template=`); the narrowing is the API's filter, not a rule of the screen. The search, the order, the filter and the
+ * columns belong to the view in use (`useListViews`, UI3A) and are answered by the server for the whole result.
  */
 export function FillInsPage() {
   return (
@@ -63,16 +57,23 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
   const [result, setResult] = useState<{ key: string; loaded: Loaded } | null>(null);
   const [more, setMore] = useState(false);
 
-  const applied = useMemo<FillInFilters>(() => ({ ...NO_FILL_FILTERS, templateId }), [templateId]);
-  const key = JSON.stringify(applied);
+  const views = useListViews({
+    objectApiName: "InspectionFill",
+    displayable: ["status"],
+    defaults: ["status"],
+    primaryField: "name",
+    allLabel: "All fill-ins",
+  });
+  const request = views.request;
+  const key = `${templateId}|${views.requestKey}`;
   const loaded: Loaded = result && result.key === key ? result.loaded : { status: "loading" };
 
   useEffect(() => {
-    if (!embedded && route.openId) {
+    if ((!embedded && route.openId) || !views.ready) {
       return;
     }
     let live = true;
-    void listFillIns(applied).then((outcome) => {
+    void queryFillIns(request, templateId).then((outcome) => {
       if (live) {
         setResult({
           key,
@@ -85,14 +86,14 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
     return () => {
       live = false;
     };
-  }, [applied, key, route.openId, embedded]);
+  }, [request, templateId, key, route.openId, embedded, views.ready]);
 
   const showMore = async () => {
     if (loaded.status !== "ready" || !loaded.next) {
       return;
     }
     setMore(true);
-    const outcome = await listFillIns(applied, loaded.next);
+    const outcome = await queryFillIns(request, templateId, loaded.next);
     setMore(false);
     setResult({
       key,
@@ -119,30 +120,47 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
     return <FillInDetail id={route.openId} onBack={() => route.close()} />;
   }
 
+  const statusColumn: ListColumn<FillInRow> = {
+    key: "status",
+    header: "Status",
+    cell: (row) => {
+      const tag = fillStatusTag(row.status);
+      return (
+        <>
+          <Tag tone={TONES[tag.tone]}>{tag.text}</Tag>
+          {row.archivedAt ? <Tag tone="quiet">Archived</Tag> : null}
+        </>
+      );
+    },
+    kind: "tag",
+    sort: (row) => row.status,
+  };
   const ready = loaded.status === "ready" ? loaded : undefined;
   return (
+    <>
     <ListPage<FillInRow>
       title="Fill-ins"
+      titleControl={views.titleControl}
+      remote={views.remote}
       items={ready?.rows}
       failure={loaded.status === "failed" ? loaded.message : undefined}
       rowKey={(row) => row.fillId}
       primaryHeader="Name"
       sortPrimary
-      searchText={(row) => [row.name, row.filledBy, fillStatusTag(row.status).text].join(" ")}
-      searchLabel="Search fill-ins by name, person or status"
+      searchLabel="Search fill-ins by name or status"
       primary={(row) => row.name || "Fill-in"}
       primaryExtra={(row) => (row.filledBy ? <span className="hint">{row.filledBy}</span> : null)}
+      menu={views.menu}
       columns={[
         {
           key: "version",
           header: "Version",
           cell: (row) => (row.versionInUse ? `v${row.versionNo}` : `v${row.versionNo} (a newer version is in use)`),
           kind: "muted",
-          sort: (row) => row.versionNo,
         },
-        { key: "rows", header: "Rows", cell: (row) => String(row.rowCount), kind: "muted", sort: (row) => row.rowCount },
+        { key: "rows", header: "Rows", cell: (row) => String(row.rowCount), kind: "muted" },
         {
-          key: "started",
+          key: "createdAt",
           header: "Started",
           cell: (row) => when(row.createdAt),
           kind: "muted",
@@ -153,23 +171,8 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
           header: "Sent",
           cell: (row) => when(row.submittedAt) || "Not sent",
           kind: "muted",
-          sort: (row) => row.submittedAt ?? "",
         },
-        {
-          key: "status",
-          header: "Status",
-          cell: (row) => {
-            const tag = fillStatusTag(row.status);
-            return (
-              <>
-                <Tag tone={TONES[tag.tone]}>{tag.text}</Tag>
-                {row.archivedAt ? <Tag tone="quiet">Archived</Tag> : null}
-              </>
-            );
-          },
-          kind: "tag",
-          sort: (row) => fillStatusTag(row.status).text,
-        },
+        ...(views.columns.includes("status") ? [statusColumn] : []),
       ]}
       embedded={embedded}
       onOpen={embedded ? undefined : (row) => route.open(row.fillId)}
@@ -201,5 +204,7 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
       }
       testId="fill-ins-list"
     />
+    {views.dialogs}
+    </>
   );
 }

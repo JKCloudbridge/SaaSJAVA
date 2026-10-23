@@ -284,7 +284,6 @@ export function AccessPoliciesPanel() {
   return (
     <ListPage<Policy>
       title="Access policies"
-      intro="An access policy adds abilities to the members it is given to; it never takes any away. A policy can need a licence: giving it to a member then uses one licence of that type, and taking it back or deactivating the member returns it."
       items={loaded?.policies}
       failure={failure}
       rowKey={(row) => row.id}

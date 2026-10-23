@@ -411,7 +411,6 @@ export function RecordTypesPanel({ object, reload: reloadObject, refreshToken, a
     <ListPage<RecordTypeView>
       title={tabTitle(object, "Record types")}
       crumbs={crumbs}
-      intro="A record type is a variant of this object (for example New business and Renewal): it offers some of the fields and allows some of the values of a picklist."
       items={types}
       failure={failure}
       rowKey={(row) => row.apiName}

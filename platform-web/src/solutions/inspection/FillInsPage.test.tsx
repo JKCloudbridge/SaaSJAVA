@@ -51,7 +51,31 @@ const NO_APPROVAL = {
 
 function answers(rows = [row(FILL, { filledBy: "Pat Filler" }), row(OTHER, { status: "APPROVED", versionNo: 2, versionInUse: false })]) {
   return {
-    "GET /api/v1/fill-ins": () => json({ data: { rows } }),
+    "GET /api/v1/objects/InspectionFill/views": () => json({ data: [] }),
+    "GET /api/v1/objects/InspectionFill/form": () =>
+      json({
+        data: {
+          objectApiName: "InspectionFill",
+          label: "Fill-in",
+          pluralLabel: "Fill-ins",
+          layout: { source: "LAYOUT", sections: [] },
+          fields: [
+            { apiName: "name", label: "Name", type: "TEXT", sortable: true, filterOperators: ["EQ", "CONTAINS"] },
+            {
+              apiName: "status",
+              label: "Status",
+              type: "PICKLIST",
+              values: [{ value: "DRAFT", label: "Draft", active: true }],
+              sortable: true,
+              filterOperators: ["EQ"],
+            },
+          ],
+          sections: [],
+          recordTypes: [],
+          actions: { create: false, update: false, delete: false },
+        },
+      }),
+    "POST /api/v1/fill-ins/query": () => json({ data: { rows } }),
     [`GET ${RECORDS}/${FILL}`]: () =>
       json({
         data: {
@@ -105,7 +129,7 @@ describe("the list of fill-ins", () => {
     render(<FillInsPage />);
 
     expect(await screen.findAllByText("Fire exit check")).toHaveLength(2);
-    expect(screen.getByRole("heading", { name: "Fill-ins" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /All fill-ins/ })).toBeInTheDocument();
     expect(screen.getByText("Pat Filler")).toBeInTheDocument();
     expect(within(screen.getByTestId("fill-ins-list")).getByText("Draft")).toBeInTheDocument();
     expect(within(screen.getByTestId("fill-ins-list")).getByText("Approved")).toBeInTheDocument();
@@ -137,14 +161,15 @@ describe("the list of fill-ins", () => {
     setUrl(`/apps/inspection/s-fill-ins?template=${TEMPLATE}`);
     fakeApi({
       ...answers(),
-      "GET /api/v1/fill-ins": (request) => {
-        asked.push(new URL(request.url).search);
-        return json({ data: { rows: [row(FILL)] } });
-      },
+      "POST /api/v1/fill-ins/query": (request) =>
+        request.text().then((body) => {
+          asked.push(body);
+          return json({ data: { rows: [row(FILL)] } });
+        }),
     });
     render(<FillInsPage />);
     await screen.findByText("Fire exit check");
-    expect(new URLSearchParams(asked[0]).get("templateId")).toBe(TEMPLATE);
+    expect(JSON.parse(asked[0] ?? "{}").templateId).toBe(TEMPLATE);
 
     expect(screen.queryByTestId("fill-in-filters")).toBeNull();
     expect(screen.getByRole("searchbox")).toBeInTheDocument();
@@ -154,11 +179,14 @@ describe("the list of fill-ins", () => {
     const cursors: (string | null)[] = [];
     fakeApi({
       ...answers(),
-      "GET /api/v1/fill-ins": (request) => {
-        const cursor = new URL(request.url).searchParams.get("cursor");
-        cursors.push(cursor);
-        return json(cursor ? { data: { rows: [row(OTHER)] } } : { data: { rows: [row(FILL)], nextCursor: "after-fill" } });
-      },
+      "POST /api/v1/fill-ins/query": (request) =>
+        request.text().then((body) => {
+          const cursor = (JSON.parse(body) as { cursor?: string }).cursor ?? null;
+          cursors.push(cursor);
+          return json(
+            cursor ? { data: { rows: [row(OTHER)] } } : { data: { rows: [row(FILL)], nextCursor: "after-fill" } },
+          );
+        }),
     });
     render(<FillInsPage />);
     await screen.findByText("Fire exit check");
@@ -176,7 +204,10 @@ describe("the list of fill-ins", () => {
     expect(await screen.findByText(/There are no fill-ins you can see yet/)).toBeInTheDocument();
     unmount();
 
-    fakeApi({ ...answers(), "GET /api/v1/fill-ins": () => refusal("NOT_FOUND", "This does not exist.", 404) });
+    fakeApi({
+      ...answers(),
+      "POST /api/v1/fill-ins/query": () => refusal("NOT_FOUND", "This does not exist.", 404),
+    });
     render(<FillInsPage />);
     expect(await screen.findByText("This does not exist.")).toBeInTheDocument();
   });

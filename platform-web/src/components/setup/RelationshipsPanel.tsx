@@ -120,7 +120,6 @@ export function RelationshipsPanel({ object, refreshToken }: ObjectTabProps) {
     <ListPage<Row>
       title={tabTitle(object, "Relationships")}
       crumbs={listCrumbs(object, "Relationships")}
-      intro="A relationship is made by a lookup or master-detail field. Change how it behaves on the field."
       items={rows}
       failure={failure}
       rowKey={(row) => row.key}

@@ -380,7 +380,6 @@ export function GroupsPanel() {
   return (
     <ListPage<Group>
       title="Groups"
-      intro="A group is a named set of people and of other groups. Give a group an access policy and everyone in it, directly or through a nested group, holds what the policy gives. A policy that needs a licence is given to people one by one."
       items={loaded?.groups}
       failure={failure}
       rowKey={(row) => row.id}

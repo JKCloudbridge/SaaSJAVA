@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import { useEffect, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { ActionMenu, type ActionMenuItem } from "@/components/ui/ActionMenu";
 import { Icon } from "@/components/ui/Icon";
 import { Breadcrumb, type Crumb } from "./Breadcrumb";
@@ -16,14 +16,28 @@ export interface ListColumn<T> {
   header: string;
   cell: (item: T) => ReactNode;
   kind?: "muted" | "tag" | "actions";
-  /** The value the column is ordered by. Without it the header is not a button. */
+  /** The value the column is ordered by (for a server list its presence only makes the header a button). Without it the header is not a button. */
   sort?: (item: T) => string | number;
 }
 
 /** One entry of the settings menu at the right of the title band. */
 export type ListMenuItem = ActionMenuItem;
 
+/**
+ * The part of a list that works on the server (UI3A, ADR-0194): the search text and the order are the screen's, the rows
+ * come back already searched and ordered, and a click on a header orders the whole result, not the rows read so far.
+ */
+export interface ListRemote {
+  search: string;
+  onSearch: (text: string) => void;
+  order: { key: string; direction: "desc" | "asc" } | null;
+  onOrder: (next: { key: string; direction: "desc" | "asc" } | null) => void;
+  /** The field the first column is ordered by (the first column has no key of its own). */
+  primaryKey: string;
+}
+
 const PRIMARY_KEY = "__primary";
+const SEARCH_DELAY_MS = 300;
 
 const ariaSort = (order: { key: string; direction: "desc" | "asc" } | null, key: string) =>
   order?.key === key ? (order.direction === "desc" ? "descending" : "ascending") : undefined;
@@ -36,8 +50,10 @@ export interface ListPageProps<T> {
   embedded?: boolean;
   /** The trail above the title when the list is a tab of a larger page (UA3); the last step is the list itself. */
   crumbs?: readonly Crumb[];
-  /** @deprecated No longer drawn (see PageFrame). */
-  intro?: ReactNode;
+  /** The list asks the server for its search and its order (see ListRemote). */
+  remote?: ListRemote;
+  /** Replaces the title with a control (the view menu); the title still names the page for assistive technology. */
+  titleControl?: ReactNode;
   /** The rows the screen has loaded; undefined while they are still on the way. */
   items: readonly T[] | undefined;
   /** The API's words when the list could not be loaded: shown instead of the table. */
@@ -84,15 +100,45 @@ export interface ListPageProps<T> {
  * the screen has loaded, never the server's; a list that the API pages or filters keeps its own filter bar instead.
  */
 export function ListPage<T>(props: ListPageProps<T>) {
-  const { items, failure, searchText, onOpen, openHref, onNew, newHref } = props;
-  const [query, setQuery] = useState("");
+  const { items, failure, searchText, remote, onOpen, openHref, onNew, newHref } = props;
+  const [typed, setTyped] = useState(remote?.search ?? "");
   // The first click on a header orders from high to low, the second from low to high, the third goes back to the order read.
-  const [order, setOrder] = useState<{ key: string; direction: "desc" | "asc" } | null>(null);
+  const [ownOrder, setOwnOrder] = useState<{ key: string; direction: "desc" | "asc" } | null>(null);
+  const query = remote ? remote.search : typed;
+  const order = remote
+    ? remote.order && remote.order.key === remote.primaryKey
+      ? { ...remote.order, key: PRIMARY_KEY }
+      : remote.order
+    : ownOrder;
+  const setOrder = (change: (current: typeof order) => typeof order) => {
+    const next = change(order);
+    if (!remote) {
+      setOwnOrder(next);
+    } else {
+      remote.onOrder(next && { ...next, key: next.key === PRIMARY_KEY ? remote.primaryKey : next.key });
+    }
+  };
 
-  const needle = query.trim().toLowerCase();
+  // A typed search reaches the server a moment after the person stops typing, and a search the screen resets comes back.
+  const remoteSearch = remote?.search;
+  const sendSearch = remote?.onSearch;
+  const [seen, setSeen] = useState(remoteSearch);
+  if (remoteSearch !== undefined && remoteSearch !== seen) {
+    setSeen(remoteSearch);
+    setTyped(remoteSearch);
+  }
+  useEffect(() => {
+    if (!sendSearch || typed === remoteSearch) {
+      return;
+    }
+    const timer = setTimeout(() => sendSearch(typed), SEARCH_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [typed, remoteSearch, sendSearch]);
+
+  const needle = remote ? "" : typed.trim().toLowerCase();
   const found =
     items && searchText && needle ? items.filter((item) => searchText(item).toLowerCase().includes(needle)) : items;
-  const sorter = order
+  const sorter = order && !remote
     ? order.key === PRIMARY_KEY
       ? (item: T) => props.primary(item)
       : props.columns.find((column) => column.key === order.key)?.sort
@@ -139,15 +185,15 @@ export function ListPage<T>(props: ListPageProps<T>) {
           {newLabel}
         </Link>
       ) : null}
-      {searchText ? (
+      {searchText || remote ? (
         <div className="search-box">
           <Icon name="search" className="search-box-icon" />
           <input
             type="search"
             aria-label={label}
             placeholder={`${label}…`}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
           />
         </div>
       ) : null}
@@ -201,7 +247,7 @@ export function ListPage<T>(props: ListPageProps<T>) {
               {shown.length === 0 ? (
                 <tr className="table-list-empty">
                   <td colSpan={props.columns.length + 1}>
-                    {items && items.length > 0 ? `Nothing matches “${query.trim()}”.` : props.emptyText}
+                    {items && items.length > 0 && !remote ? `Nothing matches “${query.trim()}”.` : remote && (query.trim() !== "" || remote.order) ? "Nothing matches." : props.emptyText}
                   </td>
                 </tr>
               ) : (
@@ -261,7 +307,10 @@ export function ListPage<T>(props: ListPageProps<T>) {
   if (props.embedded) {
     return (
       <div className="stack" data-testid={`${props.testId}-embedded`}>
-        <div className="list-toolbar">{tools}</div>
+        <div className="list-toolbar">
+          {props.titleControl}
+          {tools}
+        </div>
         {props.notices}
         {content}
       </div>
@@ -270,6 +319,7 @@ export function ListPage<T>(props: ListPageProps<T>) {
   return (
     <PageFrame
       title={props.title}
+      titleControl={props.titleControl}
       breadcrumb={props.crumbs ? <Breadcrumb crumbs={props.crumbs} /> : undefined}
       tools={tools}
       notices={props.notices}

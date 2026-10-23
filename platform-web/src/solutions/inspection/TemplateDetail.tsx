@@ -16,6 +16,8 @@ import { SheetWorkspace } from "@/components/sheets/SheetWorkspace";
 import { Modal } from "@/components/ui/Modal";
 import type { ActionMenuItem } from "@/components/ui/ActionMenu";
 import { useObjectForm } from "@/lib/records/hooks";
+import { useAbilities } from "@/lib/session/SessionProvider";
+import { canSetUp } from "@/lib/shell/areas";
 import type { AnnotateContext, Place, SheetAnnotate } from "@/lib/sheets/annotate";
 import { DetailGrid, DetailItem, DetailPage, DetailSection, MissingDetail } from "@/components/ui/lists/DetailPage";
 import { Tag } from "@/components/ui/lists/Tag";
@@ -92,6 +94,11 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
       }
     },
   });
+
+  // A note for the people who can set things up: without an approval process nobody sees a Submit button, and nothing
+  // else says why. It is a courtesy; the server decides what anyone may do.
+  const abilities = useAbilities();
+  const mayAdminister = abilities !== null && canSetUp(abilities);
 
   const view: TemplateLifecycleView | undefined = lifecycle.status === "ready" ? lifecycle.view : undefined;
 
@@ -328,6 +335,11 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
                   )}
                 </DetailSection>
                 <ApprovalCard approval={decisions} recordVersion={record.record.version} actions={false} />
+                {decisions.panel && !decisions.panel.available && mayAdminister ? (
+                  <p className="hint" data-testid="no-approval-note">
+                    No approval process is set up for templates yet.
+                  </p>
+                ) : null}
               </>
             ) : null}
           </>

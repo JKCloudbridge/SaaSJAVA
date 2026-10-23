@@ -1,5 +1,7 @@
 package app.platform.inspection.internal;
 
+import app.platformapi.QueryFilterNode;
+import app.platformapi.QuerySortKey;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -50,6 +52,27 @@ public final class TemplateViews {
      */
     public record TemplateRow(@NotNull UUID id, String name, String number, String category, String subCategory,
             @NotNull Boolean retired, @NotNull TemplateLifecycle lifecycle) {
+    }
+
+    /**
+     * The question a list view puts to the master list (UI3A). The filter and the order are the closed query model of
+     * the record store; nothing in it is a rule of who may see what, and a typed text in it is never logged.
+     *
+     * @param search a text matched against the name, the number and (a whole code) the category and sub-category
+     * @param filter conditions on the fields of the template, or null
+     * @param sort up to two keys; none gives the name order
+     * @param state a lifecycle state to keep, or null
+     * @param size the page size, at most 200; null is 50
+     * @param cursor the cursor of the previous page of the same question, or null
+     */
+    public record TemplateQuery(@Size(max = 80) String search, @Valid QueryFilterNode filter,
+            @Size(max = 2) List<@NotNull @Valid QuerySortKey> sort, @Size(max = 20) String state, Integer size,
+            @Size(max = 2000) String cursor) {
+
+        @Override
+        public String toString() {
+            return "TemplateQuery[redacted]";
+        }
     }
 
     /**

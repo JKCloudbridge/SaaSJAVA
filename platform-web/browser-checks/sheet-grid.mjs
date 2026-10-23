@@ -373,6 +373,52 @@ try {
     await fillSmall.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
   await shot(fillSmall, "fill-in-phone");
   await fillPhone.close();
+  // 12. the list views of the Templates list (UI3A, ADR-0194): the title row, the search and the order asked of the server,
+  // the two boxes of "Select fields to display", the filter, and a saved view that is chosen again and then removed.
+  await page.goto(`${BASE}/apps/inspection/s-templates`);
+  await page.getByTestId("view-menu").waitFor({ timeout: 20000 });
+  const titleRow = page.locator(".page-head-row");
+  check("the title row holds the view menu, New, the search box and the settings icon",
+    (await titleRow.getByTestId("view-menu").count()) === 1 && (await titleRow.getByRole("button", { name: "New" }).count()) === 1 &&
+      (await titleRow.getByRole("searchbox").count()) === 1 && (await titleRow.getByRole("button", { name: "Templates settings" }).count()) === 1);
+  check("no description sits under the title", (await page.locator(".page-intro").count()) === 0);
+  const asked = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().endsWith("/api/v1/templates/query")) asked.push(request.postData() ?? "");
+  });
+  await titleRow.getByRole("searchbox").fill("Browser");
+  await page.waitForResponse((r) => r.url().endsWith("/api/v1/templates/query"), { timeout: 15000 });
+  check("a typed search is asked of the server, not filtered in the browser", asked.some((body) => body.includes('"search":"Browser"')));
+  await page.getByRole("button", { name: /^Name/ }).click();
+  await page.waitForResponse((r) => r.url().endsWith("/api/v1/templates/query"), { timeout: 15000 });
+  check("a click on a header orders the whole result on the server", asked.some((body) => body.includes('"descending":true')));
+  await titleRow.getByRole("button", { name: "Templates settings" }).click();
+  check("the settings menu offers Select fields and Filter and no Delete",
+    (await page.getByRole("menuitem", { name: "Select fields to display" }).count()) === 1 &&
+      (await page.getByRole("menuitem", { name: "Filter" }).count()) === 1 && (await page.getByRole("menuitem", { name: /Delete/ }).count()) === 0);
+  await page.getByRole("menuitem", { name: "Select fields to display" }).click();
+  const fieldsDialog = page.getByRole("dialog", { name: "Select fields to display" });
+  await fieldsDialog.getByLabel("Selected fields").selectOption("category");
+  await fieldsDialog.getByRole("button", { name: "‹ Remove" }).click();
+  await fieldsDialog.getByRole("button", { name: "Apply" }).click();
+  check("a field moved out of the selected box leaves the table", (await page.getByRole("columnheader", { name: /^Category/ }).count()) === 0);
+  await shot(page, "template-list-views");
+  await titleRow.getByTestId("view-menu").click();
+  await page.getByRole("menuitem", { name: "Save view…" }).click();
+  const saveDialog = page.getByRole("dialog", { name: "Save this view" });
+  await saveDialog.getByLabel("Name").fill("Browser check view");
+  await saveDialog.getByRole("button", { name: "Save view" }).click();
+  await page.getByRole("dialog").waitFor({ state: "detached", timeout: 15000 });
+  check("a saved view names the list", /Browser check view/.test(await titleRow.getByTestId("view-menu").innerText()));
+  await page.reload();
+  await page.getByTestId("view-menu").waitFor({ timeout: 20000 });
+  await page.waitForFunction(() => /Browser check view/.test(document.querySelector('[data-testid="view-menu"]')?.textContent ?? ""), null, { timeout: 15000 });
+  check("the view the person had open opens again", true);
+  await page.getByTestId("view-menu").click();
+  await page.getByRole("menuitem", { name: "Remove this view…" }).click();
+  await page.getByRole("dialog", { name: "Remove this view" }).getByRole("button", { name: "Remove view" }).click();
+  await page.getByRole("dialog").waitFor({ state: "detached", timeout: 15000 });
+  check("a view of the person's own is removed", /All templates/.test(await page.getByTestId("view-menu").innerText()));
 } catch (error) {
   failed++;
   console.log(`FAIL the script stopped: ${String(error).split("\n")[0]}`);

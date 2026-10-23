@@ -121,11 +121,6 @@ function toIso(local: string): string | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }
 
-const INTRO: Record<AuditScope, string> = {
-  organization: "Who changed what in this organization, and when. Newest first.",
-  platform: "What happened on the platform: platform actions, support access, organization status, retention. Newest first.",
-};
-
 /**
  * The audit viewer (Sprint 9): what happened in the organization (or on the platform), newest first, with filters and
  * "Show more". It shows exactly what the API answers, in the API's own words when it refuses, and says so plainly when
@@ -202,7 +197,7 @@ export function AuditViewer({ scope }: { scope: AuditScope }) {
   const filtered = Object.values(applied).some((value) => value !== "");
 
   return (
-    <PageFrame title="Audit trail" intro={INTRO[scope]} testId="audit-viewer">
+    <PageFrame title="Audit trail" testId="audit-viewer">
       <form onSubmit={search} aria-label="Filter the audit events" className="filters">
         <label>
           Kind

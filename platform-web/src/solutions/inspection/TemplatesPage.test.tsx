@@ -8,6 +8,13 @@ import { TemplatesPage } from "./TemplatesPage";
 
 vi.mock("next/navigation", async () => (await import("@/test/navigation")).navigationMock);
 
+// The abilities of the signed-in member, for the note that only people who can set things up read; null is no session.
+const session = vi.hoisted(() => ({ abilities: null as readonly string[] | null }));
+vi.mock("@/lib/session/SessionProvider", async (original) => ({
+  ...(await original<typeof import("@/lib/session/SessionProvider")>()),
+  useAbilities: () => session.abilities,
+}));
+
 sizeTheGrid();
 configure({ asyncUtilTimeout: 5000 });
 
@@ -46,13 +53,31 @@ function formWith(create: boolean) {
           sections: [{ label: "Details", columns: 1, fields: ["name", "category", "subCategory"] }],
         },
         fields: [
-          { apiName: "name", label: "Name", type: "TEXT", editable: true, required: true },
-          { apiName: "category", label: "Category", type: "PICKLIST", values: picks(["WI", "SOP", "CSF"]) },
+          {
+            apiName: "name",
+            label: "Name",
+            type: "TEXT",
+            editable: true,
+            required: true,
+            sortable: true,
+            filterOperators: ["EQ", "CONTAINS"],
+          },
+          { apiName: "number", label: "Number", type: "TEXT", sortable: true, filterOperators: ["EQ", "CONTAINS"] },
+          {
+            apiName: "category",
+            label: "Category",
+            type: "PICKLIST",
+            values: picks(["WI", "SOP", "CSF"]),
+            sortable: true,
+            filterOperators: ["EQ", "IN"],
+          },
           {
             apiName: "subCategory",
             label: "Sub-category",
             type: "PICKLIST",
             values: picks(["PRD", "QLT", "CUSA"]),
+            sortable: true,
+            filterOperators: ["EQ"],
             dependency: { controllingField: "category", allowed: { WI: ["PRD", "QLT"], SOP: ["PRD"], CSF: ["CUSA"] } },
           },
         ],
@@ -108,7 +133,8 @@ function listAnswers(create = true) {
   ];
   return {
     "GET /api/v1/objects/InspectionTemplate/form": formWith(create),
-    "GET /api/v1/templates": () => json(pageOf(rows, { canCreate: create })),
+    "GET /api/v1/objects/InspectionTemplate/views": () => json({ data: [] }),
+    "POST /api/v1/templates/query": () => json(pageOf(rows, { canCreate: create })),
     [`GET ${RECORDS}/${ID}`]: () =>
       json({
         data: {
@@ -136,6 +162,7 @@ function listAnswers(create = true) {
 
 beforeEach(() => {
   setUrl("/apps/inspection/templates");
+  session.abilities = null;
 });
 
 describe("the master list", () => {
@@ -150,25 +177,25 @@ describe("the master list", () => {
     expect(within(screen.getByTestId("templates-list")).getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("Not numbered yet")).toBeInTheDocument();
     expect(screen.getByText("Retired, v2 was the last in use")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Templates" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /All templates/ })).toBeInTheDocument();
   });
 
   it("offers New next to the search box only when the API says the member may create a template", async () => {
     fakeApi(listAnswers(true));
     const { unmount } = render(<TemplatesPage />);
-    expect(await screen.findByRole("button", { name: "New template" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "New" })).toBeInTheDocument();
     unmount();
 
     fakeApi(listAnswers(false));
     render(<TemplatesPage />);
     await screen.findByText("Fire exit check");
-    expect(screen.queryByRole("button", { name: "New template" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "New" })).toBeNull();
   });
 
   it("says in the API's words when the list cannot be read", async () => {
     fakeApi({
       ...listAnswers(),
-      "GET /api/v1/templates": () => refusal("FORBIDDEN", "You are not allowed to perform this action.", 403),
+      "POST /api/v1/templates/query": () => refusal("FORBIDDEN", "You are not allowed to perform this action.", 403),
     });
 
     render(<TemplatesPage />);
@@ -176,37 +203,48 @@ describe("the master list", () => {
     expect(await screen.findByText("You are not allowed to perform this action.")).toBeInTheDocument();
   });
 
-  it("has one search box over number, name, category, sub-category and status, and no filter pane", async () => {
-    fakeApi(listAnswers());
+  it("has one search box that asks the server, and no filter pane", async () => {
+    const asked: string[] = [];
+    fakeApi({
+      ...listAnswers(),
+      "POST /api/v1/templates/query": (request) =>
+        request.text().then((body) => {
+          asked.push(body);
+          return json(pageOf([templateRow(ID, "Fire exit check")]));
+        }),
+    });
     render(<TemplatesPage />);
     await screen.findByText("Fire exit check");
     expect(screen.queryByTestId("template-filters")).toBeNull();
 
-    const box = screen.getByRole("searchbox");
-    fireEvent.change(box, { target: { value: "wi/prd" } });
-    expect(screen.getByText("Fire exit check")).toBeInTheDocument();
-    fireEvent.change(box, { target: { value: "zzz" } });
-    expect(screen.queryByText("Fire exit check")).toBeNull();
-    expect(screen.getByText(/Nothing matches/)).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "wi/prd" } });
+
+    await waitFor(() => expect(asked.some((body) => JSON.parse(body).search === "wi/prd")).toBe(true));
   });
 
-  it("orders by a header: first click high to low, second low to high, third back", async () => {
+  it("orders by a header on the server: first click high to low, second low to high, third back", async () => {
+    const asked: Array<{ sort?: unknown[] }> = [];
     fakeApi({
       ...listAnswers(),
-      "GET /api/v1/templates": () => json(pageOf([templateRow(ID, "Fire exit check"), templateRow(OTHER, "Stores audit")])),
+      "POST /api/v1/templates/query": (request) =>
+        request.text().then((body) => {
+          asked.push(JSON.parse(body));
+          return json(pageOf([templateRow(ID, "Fire exit check"), templateRow(OTHER, "Stores audit")]));
+        }),
     });
     render(<TemplatesPage />);
     await screen.findByText("Fire exit check");
-    const names = () => within(screen.getByTestId("templates-list")).getAllByRole("button", { name: /check|audit/ }).map((b) => b.textContent);
     const header = () => screen.getByRole("button", { name: /^Name/ });
+    const last = () => asked[asked.length - 1]?.sort;
 
     fireEvent.click(header());
-    expect(names()).toEqual(["Stores audit", "Fire exit check"]);
+    await waitFor(() => expect(last()).toEqual([{ field: "name", descending: true }]));
     expect(screen.getByRole("columnheader", { name: /Name/ })).toHaveAttribute("aria-sort", "descending");
     fireEvent.click(header());
-    expect(names()).toEqual(["Fire exit check", "Stores audit"]);
+    await waitFor(() => expect(last()).toEqual([{ field: "name", descending: false }]));
     expect(screen.getByRole("columnheader", { name: /Name/ })).toHaveAttribute("aria-sort", "ascending");
     fireEvent.click(header());
+    await waitFor(() => expect(last()).toEqual([]));
     expect(screen.getByRole("columnheader", { name: /Name/ })).not.toHaveAttribute("aria-sort");
   });
 
@@ -214,15 +252,16 @@ describe("the master list", () => {
     const cursors: Array<string | null> = [];
     fakeApi({
       ...listAnswers(),
-      "GET /api/v1/templates": (request) => {
-        const cursor = new URL(request.url).searchParams.get("cursor");
-        cursors.push(cursor);
-        return json(
-          cursor === null
-            ? pageOf([templateRow(ID, "Fire exit check")], { nextCursor: "next-1", filtered: true })
-            : pageOf([templateRow(OTHER, "Stores audit")], { filtered: true }),
-        );
-      },
+      "POST /api/v1/templates/query": (request) =>
+        request.text().then((body) => {
+          const cursor = (JSON.parse(body) as { cursor?: string }).cursor ?? null;
+          cursors.push(cursor);
+          return json(
+            cursor === null
+              ? pageOf([templateRow(ID, "Fire exit check")], { nextCursor: "next-1", filtered: true })
+              : pageOf([templateRow(OTHER, "Stores audit")], { filtered: true }),
+          );
+        }),
     });
     render(<TemplatesPage />);
     await screen.findByText("Fire exit check");
@@ -236,7 +275,7 @@ describe("the master list", () => {
   });
 
   it("says plainly when there are no templates", async () => {
-    fakeApi({ ...listAnswers(), "GET /api/v1/templates": () => json(pageOf([])) });
+    fakeApi({ ...listAnswers(), "POST /api/v1/templates/query": () => json(pageOf([])) });
     render(<TemplatesPage />);
     expect(await screen.findByText("There are no templates you can see yet.")).toBeInTheDocument();
   });
@@ -267,6 +306,34 @@ describe("one template", () => {
     expect(within(detail).queryByRole("button", { name: "Templates" })).toBeNull();
     expect(within(detail).queryByRole("link", { name: "Edit the details" })).toBeNull();
     expect(await within(detail).findByRole("button", { name: "Edit" })).toBeInTheDocument();
+  });
+
+  it("tells a person who can set things up that no approval process exists, and nobody else", async () => {
+    setUrl(OPEN);
+    session.abilities = ["metadata.manage", "metadata.view"];
+    fakeApi(listAnswers());
+    const { unmount } = render(<TemplatesPage />);
+    expect(await screen.findByTestId("no-approval-note")).toHaveTextContent(
+      "No approval process is set up for templates yet.",
+    );
+    unmount();
+
+    session.abilities = [];
+    fakeApi(listAnswers());
+    render(<TemplatesPage />);
+    await screen.findByTestId("audience-none");
+    expect(screen.queryByTestId("no-approval-note")).toBeNull();
+  });
+
+  it("draws no such note when an approval process is available", async () => {
+    setUrl(OPEN);
+    session.abilities = ["metadata.manage", "metadata.view"];
+    fakeApi({ ...listAnswers(), [`GET ${RECORDS}/${ID}/approval`]: () => json(approvalWith({ canSubmit: true })) });
+    render(<TemplatesPage />);
+
+    await screen.findByTestId("audience-none");
+
+    expect(screen.queryByTestId("no-approval-note")).toBeNull();
   });
 
   it("keeps the open tab in the address and offers Edit on the Details tab only", async () => {
@@ -631,6 +698,23 @@ describe("change requests on the template page (FA5)", () => {
   });
 });
 
+const FILL_LIST = {
+  "GET /api/v1/objects/InspectionFill/views": () => json({ data: [] }),
+  "GET /api/v1/objects/InspectionFill/form": () =>
+    json({
+      data: {
+        objectApiName: "InspectionFill",
+        label: "Fill-in",
+        pluralLabel: "Fill-ins",
+        layout: { source: "LAYOUT", sections: [] },
+        fields: [{ apiName: "name", label: "Name", type: "TEXT", sortable: true, filterOperators: ["EQ"] }],
+        sections: [],
+        recordTypes: [],
+        actions: { create: false, update: false, delete: false },
+      },
+    }),
+} as Record<string, Handler>;
+
 describe("the Fill-ins tab (FF1)", () => {
   const fillRow = {
     fillId: "f-1",
@@ -649,11 +733,13 @@ describe("the Fill-ins tab (FF1)", () => {
     const asked: string[] = [];
     fakeApi({
       ...listAnswers(),
+      ...FILL_LIST,
       [`GET /api/v1/templates/${ID}/fill-in-options`]: () => json({ data: { canStart: true, activeVersion: 3 } }),
-      "GET /api/v1/fill-ins": (request) => {
-        asked.push(new URL(request.url).searchParams.get("templateId") ?? "");
-        return json({ data: { rows: [fillRow] } });
-      },
+      "POST /api/v1/fill-ins/query": (request) =>
+        request.text().then((body) => {
+          asked.push((JSON.parse(body) as { templateId?: string }).templateId ?? "");
+          return json({ data: { rows: [fillRow] } });
+        }),
     });
 
     render(<TemplatesPage />);
@@ -665,7 +751,7 @@ describe("the Fill-ins tab (FF1)", () => {
 
   it("draws no Start button and no explanation when a fill-in cannot be started", async () => {
     setUrl(`${OPEN}&tab=fill-ins`);
-    fakeApi({ ...listAnswers(), "GET /api/v1/fill-ins": () => json({ data: { rows: [] } }) });
+    fakeApi({ ...listAnswers(), ...FILL_LIST, "POST /api/v1/fill-ins/query": () => json({ data: { rows: [] } }) });
 
     render(<TemplatesPage />);
 
@@ -684,7 +770,7 @@ describe("the New template popup", () => {
 
     const dialog = await screen.findByRole("dialog", { name: "New template" });
     expect(within(dialog).queryByRole("link")).toBeNull();
-    expect(screen.getByTestId("templates-list")).toBeInTheDocument();
+    expect(await screen.findByTestId("templates-list")).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(currentUrl()).toBe("/apps/inspection/templates"));
   });
