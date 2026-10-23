@@ -52,6 +52,14 @@ class InspectionArchitectureTest {
     }
 
     @Test
+    void onlyTheClusterAsksTheFillInReport() {
+        noClasses().that().resideOutsideOfPackages("app.platform.inspection..", "app.platform.sheets..")
+                .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.sheets.FillReports")
+                .because("who may see a fill-in is decided by the module that owns the header record (ADR-0193)")
+                .allowEmptyShould(true).check(platform);
+    }
+
+    @Test
     void onlyTheClusterMovesAFillIn() {
         onlyTheClusterMayMoveAFillIn().check(platform);
     }

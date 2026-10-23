@@ -25,9 +25,12 @@ import java.util.UUID;
  * @param updatedAt when it last changed
  * @param submittedAt when it was last sent for review, or null
  * @param decidedAt when its last review ended, or null
+ * @param archivedAt when its cells were moved to the archive (FF2, ADR-0193), or null while they are in the database;
+ *        an archived fill-in is read-only and is read back from the archive on demand
  */
 public record SheetFillSummaryView(@NotNull UUID fillId, @NotNull String ownerObject, @NotNull UUID ownerId,
         @NotNull Integer versionNo, String versionStatus, @NotNull String status, @NotNull Long version,
         @NotNull Integer rowCount, @NotNull Long cellsBytes, @NotNull String cellsHash, @NotNull Integer corrections,
-        @NotNull Instant createdAt, @NotNull Instant updatedAt, Instant submittedAt, Instant decidedAt) {
+        @NotNull Instant createdAt, @NotNull Instant updatedAt, Instant submittedAt, Instant decidedAt,
+        Instant archivedAt) {
 }

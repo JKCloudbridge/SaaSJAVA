@@ -51,10 +51,13 @@ class SheetFills {
     private final FillProperties properties;
     private final SheetProperties sheetProperties;
     private final RecordLocks locks;
+    private final FillValueStore valueStore;
+    private final FillArchive archive;
     private final JsonMapper json = JsonMapper.builder().build();
 
     SheetFills(FillOwners owners, SheetFillStore store, SheetVersionStore versions, FillValidator validator,
-            FillChanges changes, FillProperties properties, SheetProperties sheetProperties, RecordLocks locks) {
+            FillChanges changes, FillProperties properties, SheetProperties sheetProperties, RecordLocks locks,
+            FillValueStore valueStore, FillArchive archive) {
         this.owners = owners;
         this.store = store;
         this.versions = versions;
@@ -63,6 +66,8 @@ class SheetFills {
         this.properties = properties;
         this.sheetProperties = sheetProperties;
         this.locks = locks;
+        this.valueStore = valueStore;
+        this.archive = archive;
     }
 
     /** One fill-in with the version of the sheet it is pinned to and its cells. */
@@ -83,7 +88,9 @@ class SheetFills {
         FillStatus status = FillStatus.valueOf(row.status());
         boolean canEdit = false;
         boolean correction = false;
-        if (reach.isPresent() && reach.get().canChange()) {
+        // The cells of an archived fill-in are read back from the object store and are read-only (ADR-0193).
+        String cells = row.archived() ? archive.read(row) : found.cells();
+        if (reach.isPresent() && reach.get().canChange() && !row.archived()) {
             if (status.fillerMayChange()) {
                 canEdit = !retired(pinned) && caller.userId().equals(row.createdBy());
             } else if (owners.mayCorrect(reach.get())) {
@@ -92,7 +99,7 @@ class SheetFills {
             }
         }
         return new SheetFillView(summary(row, pinned.row().status()), json.readValue(pinned.grid(), DOCUMENT),
-                json.readValue(found.cells(), DOCUMENT), canEdit, correction, limits());
+                json.readValue(cells, DOCUMENT), canEdit, correction, limits());
     }
 
     /**
@@ -109,6 +116,10 @@ class SheetFills {
         FillOwners.Reach reach = owners.reachForChange(fillObject, fillId);
         store.lock(fillObject, fillId);
         SheetFillStore.Row current = store.find(fillObject, fillId).orElseThrow(() -> ApiException.notFound(NO_FILL));
+        if (current.archived()) {
+            changes.refused("save", "archived");
+            throw new ApiException(ErrorCode.CONFLICT, "This fill-in is archived, so it can no longer be changed.");
+        }
         FillStatus status = FillStatus.valueOf(current.status());
         boolean correction = !status.fillerMayChange();
         if (!correction && !reach.userId().equals(current.createdBy())) {
@@ -128,7 +139,8 @@ class SheetFills {
             throw new ApiException(ErrorCode.CONFLICT, "The sheet this fill-in was made for is retired, so the "
                     + "fill-in can no longer be changed.");
         }
-        FillStructure structure = new FillStructure(SheetGridReader.read(json.readTree(pinned.grid())));
+        SheetGrid grid = SheetGridReader.read(json.readTree(pinned.grid()));
+        FillStructure structure = new FillStructure(grid);
         FillValidator.Result result = validator.check(raw, structure);
         if (!result.accepted()) {
             changes.refused("save", "invalid");
@@ -159,6 +171,11 @@ class SheetFills {
                 throw new ApiException(ErrorCode.CONFLICT, "This fill-in has moved on since you opened it. Reload it.");
             }
             throw new ApiException(ErrorCode.CONCURRENT_MODIFICATION);
+        }
+        if (!FillValues.reportableColumns(grid).isEmpty()) {
+            // In the transaction of the save: the copy a report reads is never ahead of or behind the cells (ADR-0193).
+            valueStore.replace(fillObject, fillId, current.ownerObject(), current.ownerId(), current.versionNo(),
+                    FillValues.of(grid, checked.doc()), reach.userId());
         }
         if (correction) {
             if (status == FillStatus.SUBMITTED) {
@@ -195,6 +212,7 @@ class SheetFills {
     static SheetFillSummaryView summary(SheetFillStore.Row row, String versionStatus) {
         return new SheetFillSummaryView(row.fillId(), row.ownerObject(), row.ownerId(), row.versionNo(),
                 versionStatus, row.status(), row.version(), row.rowCount(), row.cellsBytes(), row.cellsHash(),
-                row.corrections(), row.createdAt(), row.updatedAt(), row.submittedAt(), row.decidedAt());
+                row.corrections(), row.createdAt(), row.updatedAt(), row.submittedAt(), row.decidedAt(),
+                row.archivedAt());
     }
 }

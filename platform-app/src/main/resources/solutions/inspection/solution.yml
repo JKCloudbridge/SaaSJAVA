@@ -29,6 +29,10 @@ application:
       label: Fill-ins
       pageKey: fill-ins
       readsObject: InspectionFill
+    - type: PLATFORM
+      label: Report
+      pageKey: fill-in-report
+      readsObject: InspectionFill
     - type: OBJECT
       object: DepartmentGroup
 objects:

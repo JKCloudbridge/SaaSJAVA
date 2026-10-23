@@ -1,6 +1,8 @@
 package app.platform.data.internal;
 
 import app.platform.sharedkernel.Uuids;
+import app.platform.sharedkernel.files.RecordFileRefusal;
+import app.platform.sharedkernel.files.RecordFileRules;
 import app.platform.sharedkernel.storage.ObjectStore;
 import app.platform.sharedkernel.storage.ObjectStoreException;
 import app.platform.tenant.TenantContexts;
@@ -13,7 +15,9 @@ import java.io.SequenceInputStream;
 import java.io.UncheckedIOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,10 +65,11 @@ class FileService {
     private final RecordChanges changes;
     private final TransactionTemplate transaction;
     private final TenantContexts contexts;
+    private final Map<String, RecordFileRules> rules = new HashMap<>();
 
     FileService(RecordAuthorization authorization, FileStore files, ObjectStore objects, FilePolicy policy,
             FileProperties properties, RecordChanges changes, TransactionTemplate transaction,
-            TenantContexts contexts) {
+            TenantContexts contexts, List<RecordFileRules> fileRules) {
         this.authorization = authorization;
         this.files = files;
         this.objects = objects;
@@ -73,6 +78,11 @@ class FileService {
         this.changes = changes;
         this.transaction = transaction;
         this.contexts = contexts;
+        for (RecordFileRules rule : fileRules) {
+            if (rules.put(rule.object(), rule) != null) {
+                throw new IllegalStateException("Two file rules serve the object " + rule.object());
+            }
+        }
     }
 
     /** The files of a record the member can read. */
@@ -178,6 +188,7 @@ class FileService {
         transaction.executeWithoutResult(status -> {
             RecordGate.Passed passed = authorization.forEdit(objectApiName, recordId);
             files.activeFile(recordId, fileId).orElseThrow(() -> ApiException.notFound(NO_FILE));
+            ownerRule(passed, RecordFileRules.Act.REMOVE, recordId);
             files.delete(fileId);
             changes.fileDeleted(passed.userId(), passed.object().apiName(), recordId, fileId);
         });
@@ -187,6 +198,7 @@ class FileService {
 
     private Started start(String objectApiName, UUID recordId, FilePolicy.Checked checked) {
         RecordGate.Passed passed = authorization.forEdit(objectApiName, recordId);
+        ownerRule(passed, RecordFileRules.Act.ADD, recordId);
         files.lockRecord(recordId);
         if (files.open(recordId, properties.pendingTtl()) >= properties.maxPerRecord()) {
             throw new ApiException(ErrorCode.CONFLICT, "This record has the most files it can have.");
@@ -196,6 +208,23 @@ class FileService {
         FileStore.FileRow row = files.insertPending(id, passed.object().apiName(), recordId, checked.name(),
                 checked.contentType(), key, passed.userId());
         return new Started(row, passed.userId(), passed.object().apiName());
+    }
+
+    /**
+     * The extra requirement of the module that owns the object, if it has one (FF2, ADR-0193). It can only refuse, and
+     * its words are shown as they are.
+     */
+    private void ownerRule(RecordGate.Passed passed, RecordFileRules.Act act, UUID recordId) {
+        RecordFileRules rule = rules.get(passed.object().apiName());
+        if (rule == null) {
+            return;
+        }
+        try {
+            rule.check(new RecordFileRules.Change(act, recordId, passed.userId(), passed.membershipId()));
+        } catch (RecordFileRefusal refusal) {
+            throw new ApiException(refusal.kind() == RecordFileRefusal.Kind.FORBIDDEN ? ErrorCode.FORBIDDEN
+                    : ErrorCode.CONFLICT, refusal.getMessage());
+        }
     }
 
     /** Removes the row of an upload that failed (the trigger queues its bytes) and tries to remove them at once. */

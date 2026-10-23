@@ -767,6 +767,14 @@ public final class TenantScopedTables {
                         ActorId.SYSTEM.value());
             });
 
+    /** The reportable values of a fill-in (FF2). Each probe row is a value of a fill-in of its own. */
+    public static final TenantScopedTable SHEET_FILL_VALUE = new TenantScopedTable("sheet_fill_value",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into sheet_fill_value (tenant_id, fill_object, fill_id, owner_object, owner_id, "
+                            + "version_no, row_id, column_id, kind, text_value, created_by, updated_by) values "
+                            + "(?, 'ProbeFill', ?, 'Probe', ?, 1, 'r1', 'c1', 'TEXT', 'probe', ?, ?)",
+                    tenant, UUID.randomUUID(), UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
     /**
      * The memory of publishing a template to a group (FA4). Each probe row is a publication of a template of its own.
      */
@@ -817,7 +825,7 @@ public final class TenantScopedTables {
             WORKFLOW_SCHEDULE, APPROVAL_PROCESS, APPROVAL_PROCESS_VERSION, APPROVAL_INSTANCE,
             APPROVAL_STEP_INSTANCE, APPROVAL_ASSIGNMENT, APPROVAL_HISTORY, APPROVAL_DELEGATION, NOTIFICATION,
             NOTIFICATION_PREFERENCE, NOTIFICATION_TEMPLATE, APPROVAL_STEP_TIMER, APPROVAL_REMINDER,
-            ORGANIZATION_FIELD_VALUES, NUMBER_SERIES_COUNTER, SHEET_VERSION, SHEET_FILL,
+            ORGANIZATION_FIELD_VALUES, NUMBER_SERIES_COUNTER, SHEET_VERSION, SHEET_FILL, SHEET_FILL_VALUE,
             INSPECTION_PUBLICATION, INSPECTION_CHANGE_REQUEST, INSPECTION_CHANGE_COMMENT);
 
     private TenantScopedTables() {

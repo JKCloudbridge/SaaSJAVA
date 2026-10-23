@@ -166,19 +166,29 @@ class FillIns {
         RecordQuery query = new RecordQuery(filter(templateId, wantedStatus),
                 List.of(new QuerySort("createdAt", true)), FIELDS, List.of(), limit, cursor);
         QueryResult result = records.query(Fills.OBJECT, query);
-        List<UUID> ids = result.records().stream().map(QueriedRecord::record).map(DataRecord::id).toList();
+        return new FillInPage(rowsOf(result.records()), result.nextCursor());
+    }
+
+    /**
+     * The rows of a list for headers the caller has already been allowed to see (they come out of the record store's
+     * own query): one statement over the fill-in rows of exactly these headers and one over the versions of their
+     * templates, no cells. A header with no fill-in row is left out. Used by the list and by the report.
+     */
+    @Transactional(readOnly = true)
+    List<FillInRow> rowsOf(List<QueriedRecord> visible) {
+        List<UUID> ids = visible.stream().map(QueriedRecord::record).map(DataRecord::id).toList();
         Map<UUID, FillLifecycle.Summary> summaries = fills.summaries(Fills.OBJECT, ids);
         Set<UUID> templates = new LinkedHashSet<>();
-        result.records().forEach(found -> {
+        visible.forEach(found -> {
             UUID id = Fills.templateOf(found.record().fields().get(Fills.TEMPLATE_ID));
             if (id != null) {
                 templates.add(id);
             }
         });
         Map<UUID, SheetLifecycle.Summary> versions = sheets.summaries(Templates.OBJECT, templates);
-        Map<UUID, String> people = people(result.records());
+        Map<UUID, String> people = people(visible);
         List<FillInRow> rows = new ArrayList<>();
-        for (QueriedRecord found : result.records()) {
+        for (QueriedRecord found : visible) {
             DataRecord header = found.record();
             UUID template = Fills.templateOf(header.fields().get(Fills.TEMPLATE_ID));
             FillLifecycle.Summary summary = summaries.get(header.id());
@@ -188,9 +198,10 @@ class FillIns {
             SheetLifecycle.Summary inUse = versions.get(template);
             rows.add(new FillInRow(header.id(), template, text(header, Fills.NAME), summary.status().name(),
                     summary.versionNo(), inUse != null && inUse.active() == summary.versionNo(), summary.rowCount(),
-                    people.get(header.ownerId()), summary.createdAt(), summary.updatedAt(), summary.submittedAt()));
+                    people.get(header.ownerId()), summary.createdAt(), summary.updatedAt(), summary.submittedAt(),
+                    summary.archivedAt()));
         }
-        return new FillInPage(rows, result.nextCursor());
+        return rows;
     }
 
     // ---- helpers ----

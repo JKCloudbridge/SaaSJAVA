@@ -43,10 +43,18 @@ class SheetFillStore {
      * @param submittedAt when it was last sent for review, or null
      * @param decidedAt when its last review ended, or null
      * @param approvalRequestId the approval request that reviews it or reviewed it last, or null
+     * @param archivedAt when its cells were moved to the object store (FF2, ADR-0193), or null
+     * @param archiveKey where they are kept, or null while they are in the row
      */
     record Row(UUID fillId, String ownerObject, UUID ownerId, int versionNo, String status, int rowCount,
             long cellsBytes, String cellsHash, int corrections, long version, Instant createdAt, UUID createdBy,
-            Instant updatedAt, Instant submittedAt, Instant decidedAt, UUID approvalRequestId) {
+            Instant updatedAt, Instant submittedAt, Instant decidedAt, UUID approvalRequestId, Instant archivedAt,
+            String archiveKey) {
+
+        /** Whether the cells are in the archive and not in the row. */
+        boolean archived() {
+            return archivedAt != null;
+        }
     }
 
     /** A fill-in with its cells as the JSON text the database holds. The cells are the organization's text. */
@@ -60,7 +68,7 @@ class SheetFillStore {
 
     private static final String COLUMNS = "fill_id, owner_object, owner_id, version_no, status, row_count, "
             + "cells_bytes, encode(cells_hash, 'hex') as cells_hash, corrections, version, created_at, created_by, "
-            + "updated_at, submitted_at, decided_at, approval_request_id";
+            + "updated_at, submitted_at, decided_at, approval_request_id, archived_at, archive_key";
 
     private static final String WHERE_FILL = "tenant_id = :tenant and fill_object = :object and fill_id = :fill "
             + "and deleted_at is null";
@@ -89,6 +97,17 @@ class SheetFillStore {
     private static final String END = "update sheet_fill set status = :status, decided_at = now(), "
             + "version = version + 1, updated_by = :actor where " + WHERE_FILL + " and status = 'SUBMITTED' "
             + "and approval_request_id = :request returning " + COLUMNS;
+
+    private static final String ARCHIVABLE = "select fill_object, fill_id from sheet_fill where tenant_id = :tenant "
+            + "and status = 'APPROVED' and archived_at is null and deleted_at is null and decided_at < :cutoff "
+            + "order by decided_at, id limit :limit";
+
+    // The move to the archive (V071): the cells become the empty object, nothing else about the fill-in changes. The
+    // status and the empty archive pointer in the where clause make a second move, or a move of a fill-in that is not
+    // approved, find nothing; the database refuses them too.
+    private static final String ARCHIVE = "update sheet_fill set cells = cast('{}' as jsonb), archived_at = now(), "
+            + "archive_key = :key, archive_bytes = :packed, version = version + 1, updated_by = :actor where "
+            + WHERE_FILL + " and status = 'APPROVED' and archived_at is null returning " + COLUMNS;
 
     private static final String SUMMARIES = "select " + COLUMNS + " from sheet_fill where tenant_id = :tenant "
             + "and fill_object = :object and fill_id in (:fills) and deleted_at is null";
@@ -122,6 +141,37 @@ class SheetFillStore {
         return jdbc.sql("select " + COLUMNS + ", cells::text as cells_text from sheet_fill where " + WHERE_FILL)
                 .param("tenant", tenant()).param("object", object).param("fill", fill)
                 .query((rs, row) -> new WithCells(map(rs, row), rs.getString("cells_text"))).optional();
+    }
+
+    /** A header a job works on. */
+    record Ref(String object, UUID id) {
+    }
+
+    /**
+     * Approved fill-ins decided before the cutoff whose cells are still in the row, oldest decision first (FF2,
+     * ADR-0193). Reads no cells.
+     */
+    List<Ref> archivable(Instant cutoff, int limit) {
+        return jdbc.sql(ARCHIVABLE).param("tenant", tenant()).param("cutoff", OffsetDateTime.ofInstant(cutoff,
+                java.time.ZoneOffset.UTC)).param("limit", limit)
+                .query((rs, row) -> new Ref(rs.getString("fill_object"), rs.getObject("fill_id", UUID.class))).list();
+    }
+
+    /**
+     * Moves the cells of a fill-in to the archive: the row keeps its hash, size and row count and gets the pointer. The
+     * database lets this happen only in a transaction that sets {@code platform.fill_archive} to {@code on}; it is
+     * switched on for this one statement and off again, so nothing else in the transaction can use the window.
+     *
+     * @return the fill-in as it now is, or empty when it is not approved or was archived already
+     */
+    Optional<Row> archive(String object, UUID fill, String key, int packedBytes) {
+        jdbc.sql("select set_config('platform.fill_archive', 'on', true)").query().listOfRows();
+        Optional<Row> moved = jdbc.sql(ARCHIVE).param("tenant", tenant()).param("object", object)
+                .param("fill", fill).param("key", key).param("packed", packedBytes)
+                .param("actor", app.platform.sharedkernel.ActorId.SYSTEM.value()).query(SheetFillStore::map)
+                .optional();
+        jdbc.sql("select set_config('platform.fill_archive', 'off', true)").query().listOfRows();
+        return moved;
     }
 
     /** The facts of these fill-ins, one row each, without a cells document. */
@@ -193,7 +243,8 @@ class SheetFillStore {
                 rs.getInt("row_count"), rs.getLong("cells_bytes"), rs.getString("cells_hash"),
                 rs.getInt("corrections"), rs.getLong("version"), instant(rs, "created_at"),
                 rs.getObject("created_by", UUID.class), instant(rs, "updated_at"), instant(rs, "submitted_at"),
-                instant(rs, "decided_at"), rs.getObject("approval_request_id", UUID.class));
+                instant(rs, "decided_at"), rs.getObject("approval_request_id", UUID.class),
+                instant(rs, "archived_at"), rs.getString("archive_key"));
     }
 
     private static Instant instant(ResultSet rs, String column) throws SQLException {

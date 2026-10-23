@@ -422,7 +422,9 @@ export function moveColumn(doc: GridDoc, columnId: string, delta: -1 | 1): OpRes
   return ok({ ...doc, columns });
 }
 
-export type ColumnChange = Partial<Pick<GridColumn, "label" | "type" | "required" | "default" | "picklist" | "width">>;
+export type ColumnChange = Partial<
+  Pick<GridColumn, "label" | "type" | "required" | "reportable" | "default" | "picklist" | "width">
+>;
 
 /**
  * Changes what a column is called or holds. A new type drops the default and the list that no longer fit, and clears
@@ -479,6 +481,9 @@ function tidyColumn(column: GridColumn): GridColumn {
   const out: GridColumn = { id: column.id, label: column.label, type: column.type };
   if (column.required) {
     out.required = true;
+  }
+  if (column.reportable) {
+    out.reportable = true;
   }
   if (column.default !== undefined && column.default !== null && column.default !== "") {
     out.default = column.default;

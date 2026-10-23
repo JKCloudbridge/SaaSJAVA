@@ -294,6 +294,16 @@ function ColumnEditor({
           />
           <span>The filler must fill it</span>
         </label>
+        <label className="sheet-check">
+          <input
+            type="checkbox"
+            checked={column.reportable === true}
+            disabled={readOnly}
+            aria-label={`Column ${number} can be used in a report`}
+            onChange={(event) => editor.updateColumn(column.id, { reportable: event.target.checked })}
+          />
+          <span>Can be used in a report</span>
+        </label>
       </div>
       {column.type === "picklist" ? (
         <div className="field">

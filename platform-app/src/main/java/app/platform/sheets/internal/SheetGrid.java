@@ -92,9 +92,11 @@ record SheetGrid(int dimension, RowsMode rowsMode, List<Column> columns, List<Li
      * @param defaultValue the value a new row starts with (a string or a boolean), or null
      * @param picklist the values of a picklist column, or null for any other type
      * @param width the width in pixels, or null for the default
+     * @param reportable whether the value of this column is copied, in the transaction of every save of a fill-in,
+     *        to the table a report reads (FF2, ADR-0193); absent in the document means false
      */
     record Column(String id, String label, ColumnType type, boolean required, Object defaultValue,
-            List<String> picklist, Integer width) {
+            List<String> picklist, Integer width, boolean reportable) {
 
         Column {
             picklist = picklist == null ? null : List.copyOf(picklist);

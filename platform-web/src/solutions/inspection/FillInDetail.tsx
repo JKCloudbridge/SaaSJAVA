@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { ApprovalPanel, type ApprovalState } from "@/components/records/ApprovalPanel";
+import { RecordFiles } from "@/components/records/RecordFiles";
 import { useRecord } from "@/components/records/RecordFormPage";
 import { FillWorkspace } from "@/components/sheets/FillWorkspace";
 import { DetailGrid, DetailItem, DetailPage, DetailSection } from "@/components/ui/lists/DetailPage";
 import { Tag } from "@/components/ui/lists/Tag";
 import { fillStatusTag } from "@/lib/sheets/fillTags";
+import type { FillSummary } from "@/lib/sheets/fillApi";
 import { FILL_OBJECT } from "./fillIns";
 import { text } from "./template";
 
@@ -28,6 +30,8 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
   const record = useRecord(FILL_OBJECT, id, refresh);
   const [approval, setApproval] = useState<ApprovalState>({ locked: false, mayOverride: false, mayApprove: false });
   const [dirty, setDirty] = useState(false);
+  const [archived, setArchived] = useState(false);
+  const onLoaded = useCallback((summary: FillSummary) => setArchived(Boolean(summary.archivedAt)), []);
 
   const header = record.status === "ready" ? record.record : undefined;
   const fields = header?.fields ?? {};
@@ -35,6 +39,9 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
   const status = text(fields.status);
   const tag = status ? fillStatusTag(status) : undefined;
   const templateId = text(fields.templateId);
+  // Only a hint for the buttons: a draft or returned fill-in takes files from the person who started it, a sent or approved
+  // one from a person who may correct it, and an archived one from nobody. The server decides on every call.
+  const mayChangeFiles = !archived && (status === "DRAFT" || status === "RETURNED" || approval.mayOverride);
 
   if (record.status === "loading") {
     return (
@@ -80,6 +87,16 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
         />
       ) : null}
 
+      {header ? (
+        <DetailSection title="Attachments" stack>
+          <p className="hint">
+            Photographs and documents that belong to this fill-in. Whoever can see the fill-in can open them; they are
+            downloaded, never shown inside the page.
+          </p>
+          <RecordFiles objectApiName={FILL_OBJECT} recordId={id} mayChange={mayChangeFiles} />
+        </DetailSection>
+      ) : null}
+
       <DetailSection title="Fill-in" stack>
         {dirty ? (
           <p className="form-message" role="note" data-testid="unsaved-note">
@@ -91,6 +108,7 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
           label={name}
           refreshToken={refresh}
           onDirty={setDirty}
+          onLoaded={onLoaded}
         />
       </DetailSection>
     </DetailPage>

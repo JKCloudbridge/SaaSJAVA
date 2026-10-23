@@ -42,7 +42,7 @@ class SheetHostileCorpusTest {
             "label_too_long", "text_too_long", "unsafe_text", "duplicate_id", "picklist_missing", "picklist_duplicate",
             "picklist_blank", "picklist_unexpected", "rows_mode", "default_type", "cell_unknown", "header_input",
             "fixed_value", "value_type", "style_on_input", "merge_unknown", "merge_zones", "merge_order",
-            "merge_single", "merge_overlap", "merge_covered"));
+            "merge_single", "merge_overlap", "merge_covered", "too_many_reportable"));
 
     /** One line of the corpus. */
     record Construct(int line, String expected, String kind, String payload, String reason) {
@@ -152,6 +152,7 @@ class SheetHostileCorpusTest {
             case "deep-over-by-one" -> ("[".repeat(LIMITS.maxDepth() + 1) + "]".repeat(LIMITS.maxDepth() + 1))
                     .getBytes(StandardCharsets.UTF_8);
             case "columns-101" -> GridDocs.bytes(GridDocs.template(0, LIMITS.maxColumns() + 1, 1, 0, 1));
+            case "reportable-21" -> reportable(SheetGridValidator.MAX_REPORTABLE + 1);
             case "rows-501" -> GridDocs.bytes(GridDocs.template(LIMITS.maxRows() + 1, 3, 2, 0, 1));
             case "headers-11" -> headers(LIMITS.maxHeaderRows() + 1);
             case "merges-2001" -> merges(LIMITS.maxMerges() + 1);
@@ -173,6 +174,16 @@ class SheetHostileCorpusTest {
     private static byte[] defaultOf(String text) {
         var doc = GridDocs.minimal();
         GridDocs.list(doc, "columns").get(0).put("default", text);
+        return GridDocs.bytes(doc);
+    }
+
+    private static byte[] reportable(int count) {
+        var doc = GridDocs.minimal();
+        List<java.util.Map<String, Object>> columns = GridDocs.list(doc, "columns");
+        columns.forEach(column -> column.put("reportable", true));
+        for (int i = columns.size(); i < count; i++) {
+            columns.add(GridDocs.map("id", "x" + i, "label", "A", "type", "text", "reportable", true));
+        }
         return GridDocs.bytes(doc);
     }
 

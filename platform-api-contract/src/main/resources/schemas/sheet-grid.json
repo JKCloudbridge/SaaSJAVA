@@ -114,6 +114,10 @@
         "required": {
           "type": "boolean"
         },
+        "reportable": {
+          "type": "boolean",
+          "description": "Whether the value of this column is copied, when a fill-in is saved, to the table a report reads. Absent means no."
+        },
         "default": {
           "type": [
             "string",

@@ -89,8 +89,10 @@ public interface FillLifecycle {
      * @param updatedAt when it last changed
      * @param submittedAt when it was last sent for review, or null
      * @param decidedAt when its last review ended, or null
+     * @param startedBy the person who started it, its filler
+     * @param archivedAt when its cells were moved to the archive (FF2, ADR-0193), or null
      */
     record Summary(int versionNo, FillStatus status, int rowCount, long cellsBytes, int corrections, Instant createdAt,
-            Instant updatedAt, Instant submittedAt, Instant decidedAt) {
+            Instant updatedAt, Instant submittedAt, Instant decidedAt, UUID startedBy, Instant archivedAt) {
     }
 }

@@ -129,7 +129,7 @@ class DefaultFillLifecycle implements FillLifecycle {
         for (SheetFillStore.Row row : store.summaries(fillObject, fillIds)) {
             found.put(row.fillId(), new Summary(row.versionNo(), FillStatus.valueOf(row.status()), row.rowCount(),
                     row.cellsBytes(), row.corrections(), row.createdAt(), row.updatedAt(), row.submittedAt(),
-                    row.decidedAt()));
+                    row.decidedAt(), row.createdBy(), row.archivedAt()));
         }
         return found;
     }

@@ -208,6 +208,11 @@ platform:
       final-notice-days: 1
       interval: 10m
       batch-size: 50
+  sheets:
+    # The archive of old fill-ins (ADR-0193): approved fill-ins older than the age have their cells moved to the object
+    # store; the row, the pin and the hash stay. Nothing is ever deleted.
+    archive:
+      enabled: ${PLATFORM_FILL_ARCHIVE_ENABLED:true}
   workflow:
     # Every instance may run the dispatcher (the worker of queued executions and the scheduler); they coordinate
     # through the database (ADR-0135).
