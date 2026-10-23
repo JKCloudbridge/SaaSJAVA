@@ -67,7 +67,7 @@ accessPolicies:
         edit: [name, category, subCategory, partCode, planYear]
         read: [number, retired, createdAt, updatedAt, ownerId, createdById, updatedById]
       InspectionFill:
-        read: [name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: reader
     name: Reader
     description: Reads the templates published to them. Comes with the Audit maintenance application and cannot be changed.
@@ -90,7 +90,7 @@ accessPolicies:
         read: [name, number, category, subCategory, partCode, planYear, retired, createdAt, updatedAt, ownerId,
                 createdById, updatedById]
       InspectionFill:
-        read: [name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: reviewer
     name: Reviewer
     description: Sees every fill-in. Whether a person reviews one is decided by the approval process. Comes with the Audit maintenance application and cannot be changed.
@@ -98,7 +98,7 @@ accessPolicies:
       InspectionFill: [read, view-all]
     fields:
       InspectionFill:
-        read: [name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: departments
     name: Department setup
     description: Says which group of people belongs to which department of which location. Comes with the Audit maintenance application and cannot be changed.

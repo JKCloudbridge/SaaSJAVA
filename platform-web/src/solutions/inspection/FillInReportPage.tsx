@@ -97,6 +97,7 @@ export function FillInReportPage() {
   const column = choices?.list.find((one) => one.id === columnId);
   const type = (column?.type ?? "text") as ColumnType;
   const operators = operatorsFor(type);
+  const effective: Operator = operators.includes(operator) ? operator : (operators[0] ?? "EQUALS");
 
   const ask = async (cursor?: string) => {
     if (!choices || !column) {
@@ -111,7 +112,7 @@ export function FillInReportPage() {
             versionNo: choices.versionNo,
             columnId,
             type,
-            operator: operators.includes(operator) ? operator : operators[0],
+            operator: effective,
             value,
             many,
             from,
@@ -145,7 +146,6 @@ export function FillInReportPage() {
   };
 
   const valueInput = () => {
-    const effective = operators.includes(operator) ? operator : operators[0];
     if (effective === "ONE_OF") {
       return (
         <label>
@@ -262,7 +262,7 @@ export function FillInReportPage() {
             <>
               <label>
                 Comparison
-                <select value={operators.includes(operator) ? operator : operators[0]} onChange={(event) => setOperator(event.target.value as Operator)}>
+                <select value={effective} onChange={(event) => setOperator(event.target.value as Operator)}>
                   {operators.map((one) => (
                     <option key={one} value={one}>
                       {OPERATOR_WORDS[one]}

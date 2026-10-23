@@ -860,6 +860,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/fill-ins/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The fill-ins of a template version that hold a value in a reportable column
+         * @description One condition on one reportable column: EQUALS one value, ONE_OF up to 100 values, or BETWEEN two bounds (either may be left out) for a number or a date. The answer is a page of fill-ins in the form of the list, newest first, without the cells, paged by the key of the last one looked at and never by an offset. A caller sees exactly the fill-ins they see in the list: the same visibility, decided by the same code. Because a caller who sees few of many matches makes the search look through more of them, a page can be short and still carry a nextCursor: only a missing nextCursor means the end. The value travels in the body and is never logged or audited. VALIDATION_ERROR names the field that is wrong, with fixed words. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares.
+         */
+        post: operations["reportFillIns"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fill-ins/report/columns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The columns of a template version that can be reported on
+         * @description The columns the author flagged reportable in the version (the version in use when versionNo is left out), in the order of the sheet, with their type and, for a list column, its values. A version still being written or reviewed has none to show. Only to draw the report's choices: the report decides again. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares.
+         */
+        get: operations["getFillInReportColumns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/groups": {
         parameters: {
             query?: never;
@@ -5470,6 +5510,9 @@ export interface components {
         ApiResponseReleaseView: {
             data: components["schemas"]["ReleaseView"];
         };
+        ApiResponseReportColumnsView: {
+            data: components["schemas"]["ReportColumnsView"];
+        };
         ApiResponseRequestAccepted: {
             data: components["schemas"]["RequestAccepted"];
         };
@@ -6466,6 +6509,8 @@ export interface components {
         };
         FillInRow: {
             /** Format: date-time */
+            archivedAt?: string;
+            /** Format: date-time */
             createdAt: string;
             /** Format: uuid */
             fillId: string;
@@ -6491,6 +6536,21 @@ export interface components {
             templateId: string;
             /** Format: int32 */
             versionNo: number;
+        };
+        FillReportRequest: {
+            columnId: string;
+            cursor?: string;
+            from?: string;
+            operator: string;
+            /** Format: int32 */
+            size?: number;
+            status?: string;
+            /** Format: uuid */
+            templateId: string;
+            to?: string;
+            values?: string[];
+            /** Format: int32 */
+            versionNo?: number;
         };
         FirstAdministratorInfo: {
             /** Format: date-time */
@@ -7395,6 +7455,17 @@ export interface components {
             /** Format: int64 */
             undoesRelease?: number;
         };
+        ReportColumnView: {
+            id: string;
+            label: string;
+            type: string;
+            values: string[];
+        };
+        ReportColumnsView: {
+            columns: components["schemas"]["ReportColumnView"][];
+            /** Format: int32 */
+            versionNo: number;
+        };
         RequestAccepted: {
             message: string;
         };
@@ -7570,6 +7641,8 @@ export interface components {
             picklist?: {
                 values: string[];
             } | null;
+            /** @description Whether the value of this column is copied, when a fill-in is saved, to the table a report reads. Absent means no. */
+            reportable?: boolean;
             required?: boolean;
             /**
              * @description What a filler may type: text, a number written as digits, a date written year-month-day, one value of a list, or yes or no.
@@ -7587,6 +7660,8 @@ export interface components {
             maxRows: number;
         };
         SheetFillSummaryView: {
+            /** Format: date-time */
+            archivedAt?: string;
             /** Format: int64 */
             cellsBytes: number;
             cellsHash: string;
@@ -9671,6 +9746,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseFillInPage"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    reportFillIns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FillReportRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseFillInPage"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getFillInReportColumns: {
+        parameters: {
+            query: {
+                templateId: string;
+                versionNo?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseReportColumnsView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

@@ -133,8 +133,8 @@ class FillReportIT extends FillSupport {
                 .containsExactly(failToo);
         assertThat(found(report(world.colleague().browser(), world, "p", "EQUALS", "\"values\":[\"Fail\"]")))
                 .containsExactly(fail);
-        assertThat(found(report(world.outsider().browser(), world, "p", "EQUALS", "\"values\":[\"Fail\"]")))
-                .as("a person who cannot see the template is told it does not exist").isEmpty();
+        assertThat(report(world.outsider().browser(), world, "p", "EQUALS", "\"values\":[\"Fail\"]").status())
+                .as("a person who cannot see the template is told it does not exist").isEqualTo(404);
     }
 
     @Test

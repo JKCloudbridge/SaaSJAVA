@@ -58,7 +58,8 @@ create table sheet_fill_value (
 );
 
 -- The copy of one fill-in: to replace it as a whole, and the key of a value.
-create unique index sheet_fill_value_cell on sheet_fill_value (tenant_id, fill_object, fill_id, row_id, column_id);
+create unique index sheet_fill_value_cell on sheet_fill_value (tenant_id, fill_object, fill_id, row_id, column_id)
+    where deleted_at is null;
 
 -- The four ways a report asks: the sheet and version, the column, then the value, then the fill-in (so the fill-ins of a
 -- value come in order and can be paged by key). One partial index for each kind, so a row costs one entry of them.

@@ -67,7 +67,7 @@ class SolutionLoaderTest {
         assertThat(bundle.application().apiName()).isEqualTo("inspection");
         assertThat(bundle.application().entries()).extracting(SolutionBundle.Entry::kind)
                 .containsExactly(ShippedEntryView.Kind.PLATFORM, ShippedEntryView.Kind.PLATFORM,
-                        ShippedEntryView.Kind.OBJECT);
+                        ShippedEntryView.Kind.PLATFORM, ShippedEntryView.Kind.OBJECT);
         assertThat(bundle.objects()).containsExactly("InspectionTemplate", "InspectionFill", "DepartmentGroup");
         assertThat(bundle.sheetOwners()).containsExactly("InspectionTemplate");
         assertThat(bundle.policies()).extracting(SolutionBundle.Policy::name)
