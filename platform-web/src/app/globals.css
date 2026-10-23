@@ -2675,6 +2675,26 @@ form + .detail-section {
   outline-offset: -2px;
 }
 
+/* Annotate mode (FA5, ADR-0191): a place that has notes is marked by an accent edge on a cell or a label and an accent line under
+   a row. The count is also in the words of the cell for a screen reader, never in colour alone. */
+.sheet-label-pick {
+  cursor: pointer;
+}
+
+/* The text of a change request is a person's own: its line breaks are kept and a long word breaks instead of widening the page. */
+.comment-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.sheet-noted {
+  box-shadow: inset 0 calc(-1 * var(--sheet-mark-size)) 0 var(--color-accent);
+}
+
+.sheet-row-noted > .sheet-cell {
+  border-bottom-color: var(--color-accent);
+}
+
 .sheet-input {
   width: 100%;
   min-width: var(--sheet-input-min-width);

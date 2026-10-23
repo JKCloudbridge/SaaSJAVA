@@ -25,7 +25,11 @@ public final class SheetMoveRefusal extends RuntimeException {
         /** The version asked for is not an approved version. */
         NOT_APPROVED("Only an approved version can be published."),
         /** No version of the sheet is in use. */
-        NOTHING_ACTIVE("No version of this sheet is in use.");
+        NOTHING_ACTIVE("No version of this sheet is in use."),
+        /** The version a draft was to be copied from does not exist. */
+        NO_VERSION("There is no such version to start from."),
+        /** The sheet has the most versions it can have. */
+        TOO_MANY_VERSIONS("This sheet has the most versions it can have.");
 
         private final String words;
 

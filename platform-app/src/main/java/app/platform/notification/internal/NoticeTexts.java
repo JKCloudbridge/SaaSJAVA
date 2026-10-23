@@ -43,6 +43,13 @@ class NoticeTexts {
 
     private static final Map<String, String> OUTCOMES = Map.of("APPROVED", "approved", "REJECTED", "rejected",
             "RECALLED", "withdrawn");
+    /** What happened to a change request, by the stable key the notice carries (FA5, ADR-0191). */
+    private static final Map<String, String> EVENTS = Map.of(
+            "requested", "a change was asked for",
+            "commented", "a comment was added",
+            "accepted", "it was accepted",
+            "declined", "it was declined",
+            "done", "it was turned into a new version");
     private static final Map<String, String> TRIAL = Map.of(
             "first", "The trial of {organization} is ending. When the grace period is over, the organization is "
                     + "suspended: nothing is deleted, and a platform administrator can open it again once a plan is "
@@ -137,6 +144,10 @@ class NoticeTexts {
             if (outcome != null) {
                 values.put("outcome", OUTCOMES.getOrDefault(outcome, ""));
             }
+            String event = row.facts().get("event");
+            if (event != null) {
+                values.put("event", EVENTS.getOrDefault(event, "there is news"));
+            }
             return values;
         }
 
@@ -168,6 +179,15 @@ class NoticeTexts {
         private String href(NoticeKind kind, NoticeStore.Row row) {
             if (kind == NoticeKind.APPROVAL_TASK || kind == NoticeKind.APPROVAL_REMINDER) {
                 return "/approvals";
+            }
+            if (kind == NoticeKind.CHANGE_REQUEST && row.recordId() != null) {
+                // The page of the application that shows the record with its requests; both parts are facts of the
+                // notice, checked at creation to be only letters, digits and a few marks. Without them: the record.
+                String application = row.facts().get("application");
+                String entry = row.facts().get("entry");
+                if (application != null && entry != null) {
+                    return "/apps/" + application + "/" + entry + "?open=" + row.recordId();
+                }
             }
             if (row.objectApiName() != null && row.recordId() != null) {
                 return "/records/" + row.objectApiName() + "/" + row.recordId();

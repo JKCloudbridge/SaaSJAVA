@@ -4540,6 +4540,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/templates/{templateId}/change-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The change requests of a template that the caller may see
+         * @description Each request with its comments, newest first. canReview says whether the caller may answer requests and canRequest whether the screen may offer to ask for a change (a version is in use and the template is not retired); the flags only hide buttons. status narrows the list (OPEN, ACCEPTED, DECLINED or DONE). A comment says whether its place is still in the version in use. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
+         */
+        get: operations["listChangeRequests"];
+        put?: never;
+        /**
+         * Ask for a change to a version of a template
+         * @description Needs only the right to read the template. The version must be one that is or was in use; each comment may name a row, a column, both (a cell) or neither (the template as a whole), and a row or column must be in that version. Nothing of the template changes. VALIDATION_ERROR names the place that is wrong. CONFLICT for a retired template, when no version is in use, and when a limit is reached (open requests per person, requests per template). NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
+         */
+        post: operations["createChangeRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/change-requests/turn-into-version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn change requests into the next version of the template
+         * @description Needs the right to change the template (FORBIDDEN otherwise). Makes a draft that is a copy of the version in use now (not of the version each person read) and links the requests to it; they become done. When a draft already exists nothing is copied and the requests are linked to that draft (created is false). The draft goes through approval like any other. CONFLICT for a retired template, when no version is in use, and for a request that is already answered or turned (the second of two callers at once gets this). NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
+         */
+        post: operations["turnChangeRequestsIntoVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/change-requests/{requestId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One change request with its comments
+         * @description NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
+         */
+        get: operations["getChangeRequest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/change-requests/{requestId}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept, decline or reopen a change request
+         * @description Needs the right to change the template (FORBIDDEN otherwise). ACCEPT moves an open request to accepted; DECLINE needs a reason and ends an open or accepted one; REOPEN puts a done request back to open, only when the version it became was rejected or withdrawn. CONFLICT when it is not in a status that allows the move, or somebody answered first. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
+         */
+        post: operations["answerChangeRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/change-requests/{requestId}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a comment to a change request
+         * @description By the person who asked or by a person who may change the template, while the request is open or accepted. The place is checked against the version the request read. CONFLICT when the request is closed or has the most comments. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
+         */
+        post: operations["addChangeComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/templates/{templateId}/lifecycle": {
         parameters: {
             query?: never;
@@ -4859,6 +4963,10 @@ export interface components {
             label: string;
             value: string;
         };
+        AnswerChangeRequest: {
+            action: string;
+            note?: string;
+        };
         ApiError: {
             code: components["schemas"]["ErrorCode"];
             fields?: {
@@ -4949,6 +5057,12 @@ export interface components {
         };
         ApiResponseCatalogueItem: {
             data: components["schemas"]["CatalogueItem"];
+        };
+        ApiResponseChangeRequestView: {
+            data: components["schemas"]["ChangeRequestView"];
+        };
+        ApiResponseChangeRequestsView: {
+            data: components["schemas"]["ChangeRequestsView"];
         };
         ApiResponseChangeSetReportView: {
             data: components["schemas"]["ChangeSetReportView"];
@@ -5279,6 +5393,9 @@ export interface components {
         };
         ApiResponseTenantSummary: {
             data: components["schemas"]["TenantSummary"];
+        };
+        ApiResponseTurnedView: {
+            data: components["schemas"]["TurnedView"];
         };
         ApiResponseValidationRuleView: {
             data: components["schemas"]["ValidationRuleView"];
@@ -5694,6 +5811,20 @@ export interface components {
             scheduled: boolean;
             summary: string;
         };
+        ChangeCommentView: {
+            authorName?: string;
+            columnId?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            id: string;
+            inActiveVersion: boolean;
+            kind: string;
+            label: string;
+            mine: boolean;
+            rowId?: string;
+            text: string;
+        };
         ChangeOwnerRequest: {
             /** Format: uuid */
             ownerId: string;
@@ -5738,6 +5869,45 @@ export interface components {
             updateTab?: components["schemas"]["UpdateTabRequest"];
             updateValidationRule?: components["schemas"]["UpdateValidationRuleRequest"];
             updateWorkflow?: components["schemas"]["UpdateWorkflowRequest"];
+        };
+        ChangeRequestView: {
+            /** Format: date-time */
+            answeredAt?: string;
+            canAccept: boolean;
+            canComment: boolean;
+            canDecline: boolean;
+            canReopen: boolean;
+            canTurn: boolean;
+            comments: components["schemas"]["ChangeCommentView"][];
+            /** Format: date-time */
+            createdAt: string;
+            decisionNote?: string;
+            /** Format: uuid */
+            id: string;
+            mine: boolean;
+            /** Format: int32 */
+            placesInActive: number;
+            /** Format: int32 */
+            placesTotal: number;
+            requesterName?: string;
+            /** Format: int32 */
+            resultingVersion?: number;
+            resultingVersionStatus?: string;
+            status: string;
+            title: string;
+            /** Format: int32 */
+            versionNo: number;
+        };
+        ChangeRequestsView: {
+            /** Format: int32 */
+            activeVersion: number;
+            canRequest: boolean;
+            canReview: boolean;
+            /** Format: int32 */
+            draftVersion: number;
+            /** Format: int32 */
+            openCount: number;
+            requests: components["schemas"]["ChangeRequestView"][];
         };
         ChangeSetReportView: {
             items: components["schemas"]["ReleaseItemView"][];
@@ -5849,6 +6019,12 @@ export interface components {
             /** Format: int32 */
             remindAfterHours?: number;
             steps: components["schemas"]["ApprovalStepSpec"][];
+        };
+        CreateChangeRequest: {
+            comments?: components["schemas"]["NewChangeComment"][];
+            title: string;
+            /** Format: int32 */
+            versionNo: number;
         };
         CreateChangeSetRequest: {
             description?: string;
@@ -6549,6 +6725,11 @@ export interface components {
             /** @enum {string} */
             type: "OBJECT" | "RECORD_PAGE" | "LINK" | "HEADING" | "TAB";
         } & (unknown & unknown & unknown & unknown & unknown);
+        NewChangeComment: {
+            columnId?: string;
+            rowId?: string;
+            text: string;
+        };
         NewSheetVersionRequest: {
             /** Format: int32 */
             basedOn?: number;
@@ -7491,6 +7672,16 @@ export interface components {
             values?: {
                 [key: string]: string;
             };
+        };
+        TurnIntoVersionRequest: {
+            requestIds: string[];
+        };
+        TurnedView: {
+            created: boolean;
+            /** Format: int32 */
+            requests: number;
+            /** Format: int32 */
+            versionNo: number;
         };
         UpdateApplicationRequest: {
             definition: components["schemas"]["ApplicationDefinition"];
@@ -17140,6 +17331,213 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseAudienceOptionsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listChangeRequests: {
+        parameters: {
+            query?: {
+                status?: string;
+            };
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeRequestsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createChangeRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeRequestView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    turnChangeRequestsIntoVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TurnIntoVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseTurnedView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getChangeRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+                requestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeRequestView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    answerChangeRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+                requestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeRequestView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    addChangeComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+                requestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewChangeComment"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeRequestView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

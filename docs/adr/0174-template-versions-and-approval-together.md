@@ -1,6 +1,6 @@
 # ADR-0174: Template versions and approval together
 
-- **Status:** Accepted (2026-10-21, with the FA1 go-ahead); **built in FA4** ([ADR-0188](0188-the-template-lifecycle-the-cluster-module-publishing-and-the-master-list.md), [ADR-0189](0189-who-sees-a-template-the-fixed-private-default-abilities-and-field-rights-of-shipped-policies-the-approvers-edit-and-the-open-task-read.md)): sections 2 (rows 3 to 9), 3 and 4
+- **Status:** Accepted (2026-10-21, with the FA1 go-ahead); **built in FA4** ([ADR-0188](0188-the-template-lifecycle-the-cluster-module-publishing-and-the-master-list.md), [ADR-0189](0189-who-sees-a-template-the-fixed-private-default-abilities-and-field-rights-of-shipped-policies-the-approvers-edit-and-the-open-task-read.md)): sections 2 (rows 3 to 9), 3 and 4; **row 1 (a new version from a request) and "a rejected version keeps its comments" built in FA5** ([ADR-0191](0191-change-requests-on-a-published-template.md))
 - **Date:** 2026-10-21
 - **Sprint:** FA0 (Functional track, spike; no product code)
 - **Related:** [ADR-0145](0145-the-approval-model-processes-versions-instances-and-states.md), [ADR-0148](0148-record-locking-while-an-approval-is-pending.md), [ADR-0149](0149-outcome-updates-and-the-events-that-carry-the-rest.md), [ADR-0153](0153-what-sprint-24-leaves-out-and-why.md), [ADR-0139](0139-background-writes-the-one-reviewed-path.md), [ADR-0173](0173-the-canonical-grid-json-and-its-limits.md), [ADR-0176](0176-number-series-and-the-first-approvers-number.md), [ADR-0178](0178-shares-to-roles.md)

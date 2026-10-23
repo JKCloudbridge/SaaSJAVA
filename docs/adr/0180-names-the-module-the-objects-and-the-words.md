@@ -1,6 +1,6 @@
 # ADR-0180: Names: the module, the objects and the words on the screens
 
-- **Status:** Accepted (the product owner agreed to the names on 2026-10-21 ("yes to rest"); confirmed with the FA1 go-ahead)
+- **Status:** Accepted (the product owner agreed to the names on 2026-10-21 ("yes to rest"); confirmed with the FA1 go-ahead); **amended in FA5 ([ADR-0191](0191-change-requests-on-a-published-template.md)): the change request and its comment are tables of the cluster, not the objects `TemplateChangeRequest` and `TemplateChangeComment`**
 - **Date:** 2026-10-21
 - **Sprint:** FA0 (Functional track, spike; no product code)
 - **Related:** [ADR-0175](0175-how-a-platform-shipped-application-exists.md), [ADR-0054](0054-audit-v1-record-source-and-read-model.md) (the audit trail)

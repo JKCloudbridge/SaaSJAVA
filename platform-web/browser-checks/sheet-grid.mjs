@@ -292,6 +292,44 @@ try {
   await page.getByRole("button", { name: "Unpublish" }).click();
   await page.getByText(/was taken back from the people/).waitFor({ timeout: 15000 });
   check("Unpublish takes it back", (await page.getByTestId("audience-none").count()) === 1);
+
+  // 10. change requests (Functional track FA5, ADR-0191): the template is published again, and a person points at a column of
+  // the version in use, writes a comment, sends the request, sees it in the list with the column marked, and the owner
+  // accepts it. The grid stays read-only throughout; the keyboard reaches the box of a comment from the grid.
+  await page.getByRole("button", { name: "Publish" }).click();
+  const again = page.getByTestId("publish-dialog");
+  await again.waitFor({ timeout: 10000 });
+  await again.getByLabel("Location").selectOption("PLANT1");
+  await again.getByLabel("Department").selectOption("PRD");
+  await again.getByRole("button", { name: "Add this department" }).click();
+  await again.getByRole("button", { name: "Publish", exact: true }).click();
+  await page.getByText(/published to the people of the departments you chose/).waitFor({ timeout: 15000 });
+  const panel = page.getByTestId("annotate-panel");
+  await panel.waitFor({ timeout: 15000 });
+  check("a reader of the version in use is offered the panel to ask for a change", (await panel.count()) === 1);
+  check("and the grid is read-only", (await page.getByRole("grid").getAttribute("aria-readonly")) === "true");
+  await page.getByRole("columnheader", { name: /Column 2/ }).click();
+  check("a click on a column label stands on that column",
+    (await page.locator(".sheet-active").first().getAttribute("data-c")) === "1");
+  await panel.getByRole("button", { name: "Comment on this column" }).click();
+  await panel.getByRole("textbox", { name: /Your comment/ }).fill("This column is too narrow for the readings");
+  await panel.getByRole("button", { name: "Add to my request" }).click();
+  await panel.getByLabel("What is the request about?").fill(`Widen the column ${stamp}`);
+  await panel.getByRole("button", { name: "Send the request" }).click();
+  await page.getByText("Your request was sent to the people who look after this template.").waitFor({ timeout: 15000 });
+  const requests = page.getByTestId("change-requests");
+  await requests.getByRole("heading", { name: `Widen the column ${stamp}` }).waitFor({ timeout: 15000 });
+  check("the request is listed with its comment and the place it points at",
+    /Column “Column 2”/.test(await requests.innerText()) && /too narrow for the readings/.test(await requests.innerText()));
+  check("the column is marked in the grid", (await page.locator(".sheet-label.sheet-noted", { hasText: "Column 2" }).count()) === 1);
+  await page.getByRole("grid").focus();
+  await page.keyboard.press("Enter");
+  check("Enter on a cell takes the keyboard to the box of a comment",
+    (await page.evaluate(() => document.activeElement?.tagName)) === "TEXTAREA");
+  await shot(page, "change-request");
+  await requests.getByRole("button", { name: "Accept" }).click();
+  await page.getByText("The request was accepted.").waitFor({ timeout: 15000 });
+  check("the owner accepts the request", /Accepted/.test(await requests.innerText()));
 } catch (error) {
   failed++;
   console.log(`FAIL the script stopped: ${String(error).split("\n")[0]}`);

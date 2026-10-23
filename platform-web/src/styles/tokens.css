@@ -79,6 +79,7 @@
   --cell-max-width: 20rem;
   --sheet-grid-height: 30rem;
   --sheet-input-min-width: 4rem;
+  --sheet-mark-size: 0.25rem;
 }
 
 @media (prefers-color-scheme: dark) {

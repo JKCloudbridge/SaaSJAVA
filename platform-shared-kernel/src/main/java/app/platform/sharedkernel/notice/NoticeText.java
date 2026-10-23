@@ -59,6 +59,7 @@ public final class NoticeText {
             case "step" -> "The label of the step of the approval.";
             case "workflow" -> "The label of the workflow.";
             case "outcome" -> "How the approval ended: approved, rejected or withdrawn.";
+            case "event" -> "What happened to the change request, in words.";
             default -> "";
         };
     }
@@ -71,6 +72,7 @@ public final class NoticeText {
             case APPROVAL_DECIDED -> "An approval has ended";
             case WORKFLOW_NOTICE -> "A record needs your attention";
             case TRIAL_NOTICE -> "About your trial";
+            case CHANGE_REQUEST -> "A change request has news";
         };
     }
 
@@ -83,6 +85,7 @@ public final class NoticeText {
             case APPROVAL_DECIDED -> "The approval \"{process}\" of your record of {object} ended: {outcome}.";
             case WORKFLOW_NOTICE -> "The workflow \"{workflow}\" asks you to look at a record of {object}.";
             case TRIAL_NOTICE -> "";
+            case CHANGE_REQUEST -> "On a change request about a record of {object}: {event}.";
         };
     }
 

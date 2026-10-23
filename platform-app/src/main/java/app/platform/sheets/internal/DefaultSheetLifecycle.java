@@ -14,6 +14,7 @@ import java.util.UUID;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The moves of a version, for the module that owns the thing a sheet belongs to (FA4, ADR-0188). It is called inside
@@ -35,11 +36,15 @@ class DefaultSheetLifecycle implements SheetLifecycle {
     private final SheetVersionStore store;
     private final SheetGridValidator validator;
     private final SheetChanges changes;
+    private final SheetProperties properties;
+    private final JsonMapper json = JsonMapper.builder().build();
 
-    DefaultSheetLifecycle(SheetVersionStore store, SheetGridValidator validator, SheetChanges changes) {
+    DefaultSheetLifecycle(SheetVersionStore store, SheetGridValidator validator, SheetChanges changes,
+            SheetProperties properties) {
         this.store = store;
         this.validator = validator;
         this.changes = changes;
+        this.properties = properties;
     }
 
     @Override
@@ -115,6 +120,49 @@ class DefaultSheetLifecycle implements SheetLifecycle {
             changes.retired(actor, ownerObject, ownerId, version);
         }
         return version;
+    }
+
+    @Override
+    public Started startDraft(String ownerObject, UUID ownerId, int basedOn, UUID actor) {
+        store.lock(ownerObject, ownerId);
+        SheetVersionStore.State state = store.state(ownerObject, ownerId);
+        if (state.draft() != null) {
+            // One draft at a time and none is ever deleted: the caller goes on with the one that exists.
+            return new Started(state.draft(), false);
+        }
+        if (state.count() >= properties.limits().maxVersionsPerOwner()) {
+            throw refused("start", Reason.TOO_MANY_VERSIONS);
+        }
+        int versionNo = state.highest() + 1;
+        SheetVersionStore.Row row = store.insertCopy(ownerObject, ownerId, versionNo, basedOn, actor)
+                .orElseThrow(() -> refused("start", Reason.NO_VERSION));
+        changes.created(actor, ownerObject, ownerId, row.versionNo(), basedOn, row.dimension());
+        return new Started(row.versionNo(), true);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<SheetStatus> statusOf(String ownerObject, UUID ownerId, int versionNo) {
+        return store.find(ownerObject, ownerId, versionNo).map(row -> SheetStatus.valueOf(row.status()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Layout> layoutOf(String ownerObject, UUID ownerId, int versionNo) {
+        return store.findGrid(ownerObject, ownerId, versionNo).map(found -> {
+            // The stored grid passed the schema when it was saved, so the reader may trust its shape.
+            SheetGrid grid = SheetGridReader.read(json.readTree(found.grid()));
+            Map<String, String> columns = new LinkedHashMap<>();
+            grid.columns().forEach(column -> columns.put(column.id(), label(column.label())));
+            Map<String, String> rows = new LinkedHashMap<>();
+            grid.headerRows().forEach(line -> rows.put(line.id(), label(line.label())));
+            grid.rows().forEach(line -> rows.put(line.id(), label(line.label())));
+            return new Layout(SheetStatus.valueOf(found.row().status()), columns, rows);
+        });
+    }
+
+    private static String label(String text) {
+        return text == null ? "" : text;
     }
 
     @Override
