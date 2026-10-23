@@ -45,7 +45,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * identifiers and a size.
  */
 @Service
-class FileService {
+final class FileService {
 
     private static final Logger LOG = LoggerFactory.getLogger(FileService.class);
     private static final String NO_FILE = "This file does not exist.";
