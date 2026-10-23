@@ -95,7 +95,7 @@ describe("editing: every type a person can type into has a labelled control", ()
     expect(input).toHaveAttribute("aria-invalid", "true");
     expect(input.getAttribute("aria-describedby")).toContain("field-name__c-error");
     expect(screen.getByRole("alert")).toHaveTextContent("Enter a value for this field.");
-    expect(screen.getByText("What it is called")).toBeInTheDocument();
+    expect(screen.queryByText("What it is called")).toBeNull();
   });
 
   it("starts a date and time with minutes, and with seconds only when the value has them", () => {

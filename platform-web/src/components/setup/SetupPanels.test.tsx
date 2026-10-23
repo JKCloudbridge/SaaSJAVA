@@ -352,7 +352,6 @@ describe("RolesPanel", () => {
     const second = within(rows[1] as HTMLElement).getAllByRole("cell")[0] as HTMLElement;
     expect(first.style.paddingInlineStart).toContain("* 0");
     expect(second.style.paddingInlineStart).toContain("* 1");
-    expect(screen.getByText(/gives no ability/)).toBeInTheDocument();
   });
 
   it("shows the parent and the roles below on the role's page", async () => {

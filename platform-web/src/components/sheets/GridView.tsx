@@ -120,13 +120,19 @@ export function GridView({ editor, readOnly, readOnlyReason, label, annotation }
           </button>
         </div>
       )}
-      <SheetGrid editor={editor} readOnly={readOnly} label={label} annotation={annotation} />
+      <SheetGrid
+        editor={editor}
+        readOnly={readOnly}
+        label={label}
+        annotation={annotation}
+        onResizeColumn={readOnly || annotation ? undefined : (id, width) => editor.updateColumn(id, { width })}
+      />
       <p className="hint">
         {annotation
           ? "Arrow keys move; click a column label to stand on a column. Press Enter on a cell to write a comment about it, or use the buttons under the grid. Marked places already have comments."
           : readOnly
           ? "Arrow keys move; Ctrl+C copies."
-          : "Type to write fixed text, Enter to edit, Delete to clear, Ctrl+B and Ctrl+I for bold and italic, Ctrl+Z to undo. Cells with no text are cells the filler types into."}
+          : "Type to write fixed text, Enter to edit, Delete to clear, Ctrl+B and Ctrl+I for bold and italic, Ctrl+Z to undo. Drag the right edge of a column label to change its width. Cells with no text are cells the filler types into."}
       </p>
     </div>
   );

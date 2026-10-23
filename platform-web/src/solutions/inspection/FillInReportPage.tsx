@@ -307,7 +307,6 @@ export function FillInReportPage() {
   return (
     <ListPage<FillInRow>
       title="Report"
-      intro="Find the fill-ins of a template where one of its columns holds a value. You see the fill-ins you are allowed to see."
       items={found.status === "idle" ? [] : ready?.rows}
       failure={found.status === "failed" ? found.message : undefined}
       rowKey={(row) => row.fillId}

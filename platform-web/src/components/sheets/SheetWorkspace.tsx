@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Modal } from "@/components/ui/Modal";
 import { fromApi } from "@/lib/sheets/adapter";
 import {
   describePlace,
@@ -25,7 +27,7 @@ import { FormView } from "./FormView";
 import { GridView } from "./GridView";
 import { useNarrowScreen } from "./useNarrowScreen";
 import { useSheetEditor } from "./useSheetEditor";
-import { sizeWords, VersionList } from "./VersionList";
+import { VersionList } from "./VersionList";
 
 export interface SheetWorkspaceProps {
   /** The record the sheet belongs to. */
@@ -51,6 +53,17 @@ export interface SheetWorkspaceProps {
    * workspace knows no business word: what a note is, who may write one and where it goes is the caller's.
    */
   annotate?: SheetAnnotate;
+  /**
+   * Show the list of versions first and a version only after the person opens it, with a way back to the list inside the
+   * workspace. Without it the list and the version in use are drawn together (the first behaviour of the screen).
+   */
+  listFirst?: boolean;
+  /**
+   * Where the row of buttons of an open version (back to the versions, Form, Grid, Save) is drawn when the page has a place
+   * for it beside its own tabs. `null` means the place is not there yet (nothing is drawn until it is); without the property
+   * the row is drawn above the grid.
+   */
+  toolbarSlot?: HTMLElement | null;
 }
 
 interface Notice {
@@ -74,6 +87,8 @@ export function SheetWorkspace({
   startLabel,
   refreshToken,
   annotate,
+  listFirst = false,
+  toolbarSlot,
 }: SheetWorkspaceProps) {
   const owner = useMemo<SheetOwner>(() => ({ object: given.object, id: given.id }), [given.object, given.id]);
   const { state, reload } = useVersions(owner);
@@ -84,11 +99,12 @@ export function SheetWorkspace({
   const [notice, setNotice] = useState<Notice | null>(null);
   const [starting, setStarting] = useState(false);
   const [dimension, setDimension] = useState<1 | 2>(2);
+  const [opened, setOpened] = useState(!listFirst);
   const heading = useId();
 
   const versions = state.status === "ready" ? state.view.versions : [];
   const current = selected ?? defaultVersion(versions)?.versionNo ?? 0;
-  const version = useVersion(owner, current, refresh);
+  const version = useVersion(owner, opened ? current : 0, refresh);
 
   // Something outside the sheet changed what it may do (FA4): read the versions again, but never over unsaved changes.
   const seenToken = useRef(refreshToken);
@@ -113,6 +129,7 @@ export function SheetWorkspace({
 
   const open = (versionNo: number) => {
     if (versionNo === current) {
+      setOpened(true);
       return;
     }
     if (dirty) {
@@ -121,6 +138,17 @@ export function SheetWorkspace({
     }
     setNotice(null);
     setSelected(versionNo);
+    setOpened(true);
+  };
+
+  /** Back to the list of versions (the list-first layout); changes that are not saved are asked about first. */
+  const backToList = () => {
+    if (dirty) {
+      setPending(0);
+      return;
+    }
+    setNotice(null);
+    setOpened(false);
   };
 
   const start = async (body: NewVersion) => {
@@ -134,6 +162,7 @@ export function SheetWorkspace({
     }
     setDirty(false);
     setSelected(outcome.data.versionNo);
+    setOpened(true);
     reload();
   };
 
@@ -160,32 +189,44 @@ export function SheetWorkspace({
 
   return (
     <section className="stack sheet-workspace" aria-labelledby={heading} data-testid="sheet-workspace">
-      <h2 id={heading}>Versions</h2>
+      <h2 id={heading} className={listFirst ? "visually-hidden" : undefined}>
+        Versions
+      </h2>
       {notice ? (
         <p className={notice.error ? "form-message" : "hint"} role={notice.error ? "alert" : "status"}>
           {notice.text}
         </p>
       ) : null}
       {pending !== null ? (
-        <div role="alertdialog" aria-label="Unsaved changes" className="card sheet-confirm">
-          <p>You have changes that are not saved. Open version {pending} and lose them?</p>
-          <div className="split">
-            <button
-              type="button"
-              className="button button-danger"
-              onClick={() => {
-                setDirty(false);
-                setSelected(pending);
-                setPending(null);
-              }}
-            >
-              Discard the changes and open it
-            </button>
-            <button type="button" className="button button-secondary" onClick={() => setPending(null)}>
-              Keep editing
-            </button>
+        <Modal title="Unsaved changes" onClose={() => setPending(null)}>
+          <div role="alertdialog" aria-label="Unsaved changes" className="stack">
+            <p>
+              {pending === 0
+                ? "You have changes that are not saved. Go back to the versions and lose them?"
+                : `You have changes that are not saved. Open version ${pending} and lose them?`}
+            </p>
+            <div className="split">
+              <button
+                type="button"
+                className="button button-danger"
+                onClick={() => {
+                  setDirty(false);
+                  if (pending === 0) {
+                    setOpened(false);
+                  } else {
+                    setSelected(pending);
+                  }
+                  setPending(null);
+                }}
+              >
+                {pending === 0 ? "Discard the changes and go back" : "Discard the changes and open it"}
+              </button>
+              <button type="button" className="button button-secondary" onClick={() => setPending(null)}>
+                Keep editing
+              </button>
+            </div>
           </div>
-        </div>
+        </Modal>
       ) : null}
 
       {versions.length === 0 ? (
@@ -220,11 +261,11 @@ export function SheetWorkspace({
             No version is in use yet.
           </p>
         )
-      ) : (
+      ) : listFirst && opened ? null : (
         <>
           <VersionList
             versions={versions}
-            current={current}
+            current={listFirst ? 0 : current}
             onOpen={open}
             onStartFrom={canChange && !draft ? (no) => void start({ basedOn: no }) : undefined}
           />
@@ -243,17 +284,17 @@ export function SheetWorkspace({
         </>
       )}
 
-      {version.status === "loading" ? (
+      {listFirst && !opened ? null : version.status === "loading" ? (
         <p role="status" className="hint">
           Opening version {current}…
         </p>
       ) : null}
-      {version.status === "failed" ? (
+      {opened && version.status === "failed" ? (
         <p role="alert" className="form-message">
           {version.failure.message}
         </p>
       ) : null}
-      {version.status === "ready" ? (
+      {opened && version.status === "ready" ? (
         <VersionEditor
           key={`${version.version.version.versionNo}-${refresh}`}
           owner={owner}
@@ -264,6 +305,8 @@ export function SheetWorkspace({
           canChange={canChange}
           correctInReview={correctInReview}
           annotate={annotate}
+          onBack={listFirst ? backToList : undefined}
+          toolbarSlot={toolbarSlot}
           onDirty={setDirty}
           onSaved={reload}
           onReload={() => setRefresh((n) => n + 1)}
@@ -282,6 +325,8 @@ function VersionEditor({
   canChange,
   correctInReview,
   annotate,
+  onBack,
+  toolbarSlot,
   onDirty,
   onSaved,
   onReload,
@@ -294,6 +339,8 @@ function VersionEditor({
   canChange: boolean;
   correctInReview: boolean;
   annotate: SheetAnnotate | undefined;
+  onBack?: () => void;
+  toolbarSlot?: HTMLElement | null;
   onDirty(dirty: boolean): void;
   onSaved(): void;
   onReload(): void;
@@ -400,26 +447,60 @@ function VersionEditor({
 
   const serverProblems = refused && refused.doc === editor.doc ? refused.problems : [];
 
+  const bar = (
+    <div className="sheet-bar">
+      {onBack ? (
+        <button type="button" className="link-button" onClick={onBack}>
+          ‹ Versions
+        </button>
+      ) : null}
+      <div role="tablist" aria-label="Views of the sheet" className="sheet-tabs">
+        <button
+          type="button"
+          role="tab"
+          id={`${tabs}-form-tab`}
+          aria-selected={tab === "form"}
+          aria-controls={`${tabs}-form`}
+          aria-label="Form view"
+          className={tab === "form" ? "button" : "button button-secondary"}
+          onClick={() => setTab("form")}
+        >
+          Form
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id={`${tabs}-grid-tab`}
+          aria-selected={tab === "grid"}
+          aria-controls={`${tabs}-grid`}
+          aria-label="Grid view"
+          className={tab === "grid" ? "button" : "button button-secondary"}
+          onClick={() => setTab("grid")}
+        >
+          Grid
+        </button>
+      </div>
+      {readOnly ? null : (
+        <div className="sheet-bar-actions">
+          <button type="button" className="button" onClick={() => void save()} disabled={saving || !dirty}>
+            {saving ? "Saving…" : "Save"}
+          </button>
+          <span className="visually-hidden" role="status">
+            {saved && !dirty ? "All changes are saved." : dirty ? "There are changes that are not saved." : ""}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="stack sheet-editor" data-testid="version-editor">
-      <div className="sheet-bar">
-        <p className="sheet-bar-title">
-          <strong>Version {summary.versionNo}</strong> · {tag.text} · {sizeWords(summary.gridBytes)}
-          {summary.reviewEdits > 0
-            ? ` · corrected ${summary.reviewEdits === 1 ? "once" : `${summary.reviewEdits} times`} while in review`
-            : ""}
+      {toolbarSlot === undefined ? bar : toolbarSlot ? createPortal(bar, toolbarSlot) : null}
+      {summary.reviewEdits > 0 ? (
+        <p className="hint">
+          This version was corrected {summary.reviewEdits === 1 ? "once" : `${summary.reviewEdits} times`} while in review.
         </p>
-        {readOnly ? null : (
-          <div className="sheet-bar-actions">
-            <button type="button" className="button" onClick={() => void save()} disabled={saving || !dirty}>
-              {saving ? "Saving…" : "Save"}
-            </button>
-            <span className="hint" role="status">
-              {saved && !dirty ? "All changes are saved." : dirty ? "There are changes that are not saved." : ""}
-            </span>
-          </div>
-        )}
-      </div>
+      ) : null}
       {readOnly && readOnlyReason ? (
         <p className="hint" role="note">
           {readOnlyReason}
@@ -454,30 +535,6 @@ function VersionEditor({
         </div>
       ) : null}
 
-      <div role="tablist" aria-label="Views of the sheet" className="sheet-tabs">
-        <button
-          type="button"
-          role="tab"
-          id={`${tabs}-form-tab`}
-          aria-selected={tab === "form"}
-          aria-controls={`${tabs}-form`}
-          className={tab === "form" ? "button" : "button button-secondary"}
-          onClick={() => setTab("form")}
-        >
-          Form view
-        </button>
-        <button
-          type="button"
-          role="tab"
-          id={`${tabs}-grid-tab`}
-          aria-selected={tab === "grid"}
-          aria-controls={`${tabs}-grid`}
-          className={tab === "grid" ? "button" : "button button-secondary"}
-          onClick={() => setTab("grid")}
-        >
-          Grid view
-        </button>
-      </div>
       {tab === "form" ? (
         <div role="tabpanel" id={`${tabs}-form`} aria-labelledby={`${tabs}-form-tab`}>
           <FormView

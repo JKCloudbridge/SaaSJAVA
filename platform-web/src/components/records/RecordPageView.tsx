@@ -96,7 +96,6 @@ export function RecordPageView({ objectApiName, recordId, listHref, recordHref, 
           <strong>This page is not available.</strong>
         </p>
         <p>It may have been removed, or it may not be part of your access.</p>
-        <Link href={listHref}>Back to the list</Link>
       </div>
     );
   }
@@ -192,9 +191,6 @@ export function RecordPageView({ objectApiName, recordId, listHref, recordHref, 
 
   return (
     <div className="stack">
-      <p>
-        <Link href={listHref}>← {form.pluralLabel}</Link>
-      </p>
       <div className="card">
         <div className="list-head">
           <h1 className="entry-title">{headingOf(form, record)}</h1>

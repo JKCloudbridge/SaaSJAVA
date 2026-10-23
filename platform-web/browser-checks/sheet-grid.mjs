@@ -113,8 +113,9 @@ try {
   const saved = await api(page, "PUT", `/api/v1/sheets/InspectionTemplate/${id}/versions/1/grid?version=0`, JSON.stringify(largestGrid()));
   check("the largest sheet (500 x 100) is saved", saved.status === 200, `status ${saved.status} ${JSON.stringify(saved.body?.error ?? "")}`.slice(0, 200));
 
-  // ---- the page, with the grid ----
-  await page.goto(`${BASE}/apps/inspection/templates?open=${id}`);
+  // ---- the page, with the grid (the Sheet tab lists the versions first; one is opened) ----
+  await page.goto(`${BASE}/apps/inspection/templates?open=${id}&tab=sheet`);
+  await page.getByRole("button", { name: "Open version 1" }).click();
   const grid = page.getByRole("grid");
   await grid.waitFor({ timeout: 20000 });
   check("the grid counts its 502 rows (the labels, a header row, 500 rows) and 100 columns for a reader", (await grid.getAttribute("aria-rowcount")) === "502" && (await grid.getAttribute("aria-colcount")) === "100",
@@ -182,7 +183,8 @@ try {
       headers: { ...response.headers(), "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self'; img-src 'self' data:; connect-src 'self'" },
     });
   });
-  await page.goto(`${BASE}/apps/inspection/templates?open=${id}`);
+  await page.goto(`${BASE}/apps/inspection/templates?open=${id}&tab=sheet`);
+  await page.getByRole("button", { name: "Open version 1" }).click();
   await grid.waitFor({ timeout: 20000 });
   await page.waitForTimeout(500);
   const strict = await page.evaluate(() => window.__violations);
@@ -210,7 +212,8 @@ try {
   await small.getByLabel("Password").fill(PASSWORD);
   await small.getByRole("button", { name: /sign in/i }).click();
   await small.waitForURL((url) => !url.pathname.startsWith("/sign-in"), { timeout: 20000 });
-  await small.goto(`${BASE}/apps/inspection/templates?open=${id}`);
+  await small.goto(`${BASE}/apps/inspection/templates?open=${id}&tab=sheet`);
+  await small.getByRole("button", { name: "Open version 1" }).click();
   await small.getByTestId("form-view").waitFor({ timeout: 20000 });
   check("on a phone the form view opens first", true);
   const fits = await small.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
@@ -267,9 +270,8 @@ try {
   const row = list.getByRole("row").filter({ hasText: `Lifecycle check ${stamp}` });
   check("the master list shows the template with its number and 'approved, not published'",
     (await row.count()) === 1 && /WI\/PRD\/\d+/.test(await row.innerText()) && /Approved, not published/.test(await row.innerText()), (await row.innerText().catch(() => "")).replace(/\s+/g, " "));
-  await page.getByLabel("Number or name").fill(`Lifecycle check ${stamp}`);
-  await page.getByRole("button", { name: "Show" }).click();
-  await page.waitForTimeout(600);
+  await page.getByRole("searchbox").fill(`Lifecycle check ${stamp}`);
+  await page.waitForTimeout(300);
   check("the search narrows the list to the template", (await list.getByRole("row").count()) === 2, `${await list.getByRole("row").count()} rows with the header`);
   await shot(page, "templates-list");
 
@@ -289,7 +291,8 @@ try {
   await page.getByText(/published to the people of the departments you chose/).waitFor({ timeout: 15000 });
   check("the template is published and the page lists its audience", (await page.getByTestId("audience").count()) === 1 && /Plant 1/.test(await page.getByTestId("audience").innerText()));
   check("and its status is Active", /Active/.test(await page.getByTestId("lifecycle-text").innerText()));
-  await page.getByRole("button", { name: "Unpublish" }).click();
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Unpublish" }).click();
   await page.getByText(/was taken back from the people/).waitFor({ timeout: 15000 });
   check("Unpublish takes it back", (await page.getByTestId("audience-none").count()) === 1);
 
@@ -304,6 +307,8 @@ try {
   await again.getByRole("button", { name: "Add this department" }).click();
   await again.getByRole("button", { name: "Publish", exact: true }).click();
   await page.getByText(/published to the people of the departments you chose/).waitFor({ timeout: 15000 });
+  await page.goto(`${BASE}/apps/inspection/templates?open=${lifeId}&tab=sheet`);
+  await page.getByRole("button", { name: "Open version 1" }).click();
   const panel = page.getByTestId("annotate-panel");
   await panel.waitFor({ timeout: 15000 });
   check("a reader of the version in use is offered the panel to ask for a change", (await panel.count()) === 1);
@@ -333,7 +338,7 @@ try {
   // 11. a fill-in (Functional track FF1, ADR-0192): started from the template that section 10 left published, filled in
   // as a person does (a cell the template fixes is not opened, an input cell takes the typed value), saved, and read back
   // through the API against the version it was started on; then opened on a phone, where the form view comes first.
-  await page.goto(`${BASE}/apps/inspection/s-templates?open=${lifeId}`);
+  await page.goto(`${BASE}/apps/inspection/s-templates?open=${lifeId}&tab=fill-ins`);
   await page.getByRole("button", { name: "Start a fill-in" }).click();
   await page.waitForURL(/s-fill-ins\?open=/, { timeout: 20000 });
   const fillGrid = page.getByRole("grid");

@@ -184,7 +184,6 @@ describe("the page of one record", () => {
     const note = await screen.findByTestId("record-unavailable");
 
     expect(note).toHaveTextContent("This page is not available.");
-    expect(screen.getByRole("link", { name: "Back to the list" })).toHaveAttribute("href", "/records/Deal__c");
   });
 
   it("does not show a create form to a member who may not create", async () => {

@@ -104,6 +104,9 @@ export function useFillInOptions(templateId: string, refresh: number): OptionsSt
   const key = `${templateId}|${refresh}`;
 
   useEffect(() => {
+    if (templateId === "") {
+      return;
+    }
     let live = true;
     void getFillInOptions(templateId).then((outcome) => {
       if (live) {

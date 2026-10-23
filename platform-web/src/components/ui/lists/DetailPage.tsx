@@ -12,6 +12,10 @@ export interface DetailPageProps {
   onBack?: () => void;
   backHref?: string;
   title: string;
+  /** A status chip or two beside the title. */
+  titleExtra?: ReactNode;
+  /** Leave the trail out: the page sits under a strip tab that already leads back to the list (the applications). */
+  noBreadcrumb?: boolean;
   /** Edit or Save and the screen's own actions: the right end of the title band. */
   actions?: ReactNode;
   notices?: ReactNode;
@@ -28,10 +32,13 @@ export function DetailPage(props: DetailPageProps) {
   const list: Crumb = props.backHref
     ? { label: props.listLabel, href: props.backHref }
     : { label: props.listLabel, onClick: props.onBack };
-  const breadcrumb = <Breadcrumb crumbs={[...(props.parents ?? []), list, { label: props.title }]} />;
+  const breadcrumb = props.noBreadcrumb ? undefined : (
+    <Breadcrumb crumbs={[...(props.parents ?? []), list, { label: props.title }]} />
+  );
   return (
     <PageFrame
       title={props.title}
+      titleExtra={props.titleExtra}
       intro={props.intro}
       breadcrumb={breadcrumb}
       tools={props.actions}

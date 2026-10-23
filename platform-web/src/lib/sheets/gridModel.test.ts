@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { at, cellKey, cellKind, displayRows, indexesOf, mergeRects, normalized } from "./geometry";
+import { at, BLANK_ROWS, cellKey, cellKind, displayRows, indexesOf, mergeRects, normalized } from "./geometry";
 import {
   addColumn,
   addRow,
@@ -46,7 +46,8 @@ const rowsOf = (d: GridDoc) => displayRows(d);
 describe("geometry", () => {
   it("draws header rows, then named rows, then blank sample rows when the filler adds the rows", () => {
     expect(rowsOf(sampleDoc()).map((r) => r.zone)).toEqual(["header", "header", "body", "body", "body"]);
-    expect(rowsOf(oneDimension()).map((r) => r.zone)).toEqual(["header", "header", "blank", "blank", "blank", "blank", "blank"]);
+    expect(rowsOf(oneDimension()).map((r) => r.zone)).toEqual(["header", "header", ...Array<string>(BLANK_ROWS).fill("blank")]);
+    expect(BLANK_ROWS).toBe(10);
   });
 
   it("says a header cell is always fixed and a body cell is fixed only with text or by saying so", () => {

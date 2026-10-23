@@ -56,7 +56,19 @@ export interface SheetGridProps {
    * selects that column, and Enter or a double click on a cell asks the caller to open its box for a note. It decides nothing.
    */
   annotation?: { marks: AnnotationMarks; onActivate(): void };
+  /**
+   * The author's grid lets the width of a column be changed by dragging the right edge of its label, as in a spreadsheet.
+   * Called once when the drag ends (or a key was pressed), with the new width in pixels, or undefined to go back to the
+   * default width. Without it no handle is drawn (a read-only grid, and the grid of a filler: the width belongs to the sheet).
+   */
+  onResizeColumn?: (columnId: string, width: number | undefined) => void;
 }
+
+/** The narrowest and the widest a column may be: the same bounds as the schema of the sheet. */
+const MIN_COLUMN_WIDTH = 40;
+const MAX_COLUMN_WIDTH = 1000;
+
+const clampWidth = (width: number) => Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, Math.round(width)));
 
 /** The words a screen reader adds to a place that has notes. */
 function notesWords(count: number | undefined): string {
@@ -70,7 +82,7 @@ function notesWords(count: number | undefined): string {
  * `sheet-*` classes, and makes no request. Every change goes through the editor, which uses the pure operations of the
  * model; the grid only turns a key, a click or a paste into one of them.
  */
-export function SheetGrid({ editor, readOnly, canEditCell, label, annotation }: SheetGridProps) {
+export function SheetGrid({ editor, readOnly, canEditCell, label, annotation, onResizeColumn }: SheetGridProps) {
   const { doc, rows, selection, rect } = editor;
   const gridId = useId();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -78,6 +90,10 @@ export function SheetGrid({ editor, readOnly, canEditCell, label, annotation }: 
   const dragging = useRef(false);
   const lastTap = useRef(0);
   const [editing, setEditing] = useState<Editing | null>(null);
+  // The width a column has while its edge is being dragged; the document changes once, when the drag ends (one undo step).
+  const [live, setLive] = useState<{ id: string; width: number } | null>(null);
+  const widthOf = (column: { id: string; width?: number }) =>
+    live && live.id === column.id ? live.width : (column.width ?? DEFAULT_COLUMN_WIDTH);
 
   const indexes = useMemo(() => indexesOf(doc, rows), [doc, rows]);
   const rects = useMemo(() => mergeRects(doc, indexes), [doc, indexes]);
@@ -102,8 +118,8 @@ export function SheetGrid({ editor, readOnly, canEditCell, label, annotation }: 
   }, [rows]);
   const colLeft = useMemo(() => {
     let x = 0;
-    return [...doc.columns.map((column) => { const left = x; x += column.width ?? DEFAULT_COLUMN_WIDTH; return left; }), x];
-  }, [doc.columns]);
+    return [...doc.columns.map((column) => { const left = x; x += live && live.id === column.id ? live.width : (column.width ?? DEFAULT_COLUMN_WIDTH); return left; }), x];
+  }, [doc.columns, live]);
   const totalHeight = at(rowTop, rows.length);
   const totalWidth = at(colLeft, doc.columns.length);
 
@@ -121,7 +137,7 @@ export function SheetGrid({ editor, readOnly, canEditCell, label, annotation }: 
     horizontal: true,
     count: doc.columns.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: (j) => at(doc.columns, j).width ?? DEFAULT_COLUMN_WIDTH,
+    estimateSize: (j) => widthOf(at(doc.columns, j)),
     overscan: 2,
     initialRect: { width: 800, height: 400 },
   });
@@ -454,7 +470,7 @@ export function SheetGrid({ editor, readOnly, canEditCell, label, annotation }: 
                   className={["sheet-label", annotation ? "sheet-label-pick" : "", columnNotes ? "sheet-noted" : ""]
                     .filter(Boolean)
                     .join(" ")}
-                  style={{ left: at(colLeft, j), width: column.width ?? DEFAULT_COLUMN_WIDTH, height: LABEL_BAND_HEIGHT }}
+                  style={{ left: at(colLeft, j), width: widthOf(column), height: LABEL_BAND_HEIGHT }}
                   onMouseDown={
                     annotation
                       ? (event) => {
@@ -470,6 +486,17 @@ export function SheetGrid({ editor, readOnly, canEditCell, label, annotation }: 
                   {column.required ? <span aria-hidden="true"> *</span> : null}
                   {column.required ? <span className="visually-hidden"> (required)</span> : null}
                   {columnNotes ? <span className="visually-hidden"> ({notesWords(columnNotes)})</span> : null}
+                  {onResizeColumn && !annotation ? (
+                    <ColumnEdge
+                      label={column.label}
+                      width={widthOf(column)}
+                      onLive={(width) => setLive(width === undefined ? null : { id: column.id, width })}
+                      onDone={(width) => {
+                        setLive(null);
+                        onResizeColumn(column.id, width);
+                      }}
+                    />
+                  ) : null}
                 </div>
               );
             })}
@@ -586,5 +613,64 @@ export function SheetGrid({ editor, readOnly, canEditCell, label, annotation }: 
         {editor.message?.text ?? ""}
       </p>
     </div>
+  );
+}
+
+/**
+ * The edge of a column label that is dragged to change the width, like the edge of a column in a spreadsheet; a double click
+ * goes back to the default width. It is for a mouse: a person who works with the keyboard sets the width in the Width field
+ * of the form view. It only reports widths: `onLive` while dragging, `onDone` once at the end; the grid keeps no width of its own.
+ */
+function ColumnEdge({
+  label,
+  width,
+  onLive,
+  onDone,
+}: {
+  label: string;
+  width: number;
+  onLive: (width: number | undefined) => void;
+  onDone: (width: number | undefined) => void;
+}) {
+  const start = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const x0 = event.clientX;
+    const w0 = width;
+    let now = w0;
+    const move = (e: globalThis.MouseEvent) => {
+      now = clampWidth(w0 + e.clientX - x0);
+      onLive(now);
+    };
+    const up = () => {
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", up);
+      if (now === w0) {
+        onLive(undefined);
+      } else {
+        onDone(now);
+      }
+    };
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+  };
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Width of column ${label}`}
+      aria-valuemin={MIN_COLUMN_WIDTH}
+      aria-valuemax={MAX_COLUMN_WIDTH}
+      aria-valuenow={width}
+      className="sheet-edge"
+      onMouseDown={start}
+      onDoubleClick={(event) => {
+        event.stopPropagation();
+        onDone(undefined);
+      }}
+    />
   );
 }

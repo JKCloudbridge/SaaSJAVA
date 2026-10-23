@@ -240,8 +240,8 @@ export function FieldEditor({
   const id = `field-${field.apiName}`;
   const control = controlOf(field);
   const errorId = `${id}-error`;
-  const hintId = `${id}-hint`;
-  const describedBy = [problems.length > 0 ? errorId : null, field.description ? hintId : null].filter(Boolean).join(" ") || undefined;
+  // The field's own description is for the setup screens: a form never explains itself under a field.
+  const describedBy = problems.length > 0 ? errorId : undefined;
   const editor = EDITORS[control]({
     objectApiName,
     field,
@@ -286,11 +286,6 @@ export function FieldEditor({
           {editor}
         </>
       )}
-      {field.description ? (
-        <p className="hint" id={hintId}>
-          {field.description}
-        </p>
-      ) : null}
       {problems.length > 0 ? (
         <p className="field-error" id={errorId} role="alert">
           {problems.join(" ")}
