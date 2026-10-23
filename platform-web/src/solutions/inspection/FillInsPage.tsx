@@ -1,27 +1,28 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { ListPage } from "@/components/ui/lists/ListPage";
 import { Tag } from "@/components/ui/lists/Tag";
 import { useListRoute } from "@/components/ui/lists/useListRoute";
 import { fillStatusTag } from "@/lib/sheets/fillTags";
 import { FillInDetail } from "./FillInDetail";
-import { listFillIns, NO_FILL_FILTERS, type FillInFilters, type FillInRow } from "./fillIns";
+import {
+  fillInsHref,
+  listFillIns,
+  NO_FILL_FILTERS,
+  startFillIn,
+  useFillInOptions,
+  type FillInFilters,
+  type FillInRow,
+} from "./fillIns";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
 
-const STATUSES: ReadonlyArray<{ value: string; label: string }> = [
-  { value: "", label: "Any status" },
-  { value: "DRAFT", label: "Draft" },
-  { value: "SUBMITTED", label: "Sent for review" },
-  { value: "RETURNED", label: "Returned" },
-  { value: "APPROVED", label: "Approved" },
-];
-
 /**
  * The page of the "Fill-ins" entry (Functional track FF1, ADR-0192): the fill-ins the member may see, newest first, with
- * the status of each and a filter by status, and one fill-in opened in the same pane. A person sees their own; a person who
+ * the status of each, one search box over the rows read, a click on a header to order by it, and one fill-in opened in
+ * the same pane. A person sees their own; a person who
  * may view every fill-in sees all of them. The list never carries the cells, and "Show more" continues from the last
  * fill-in seen, never from a count, so it is as quick at the thousandth as at the first. A fill-in is started from its
  * template, not here.
@@ -32,7 +33,7 @@ const STATUSES: ReadonlyArray<{ value: string; label: string }> = [
 export function FillInsPage() {
   return (
     <Suspense fallback={null}>
-      <FillInsScreen />
+      <FillInsList />
     </Suspense>
   );
 }
@@ -46,25 +47,32 @@ function when(iso: string | null | undefined): string {
   return iso ? new Date(iso).toLocaleString() : "";
 }
 
-function FillInsScreen() {
+/**
+ * The list of fill-ins. As a page it opens a row in the same pane; as the "Fill-ins" tab of one template (`embedded`) it
+ * has no title band, links each row to the fill-in's own address, and puts "Start a fill-in" where New is when the API
+ * says a fill-in can be started on the version in use.
+ */
+export function FillInsList({ templateId: given, embedded = false }: { templateId?: string; embedded?: boolean }) {
   const route = useListRoute({ keep: ["template"] });
   const params = useSearchParams();
-  const templateId = params?.get("template") ?? "";
-  const [draft, setDraft] = useState("");
-  const [status, setStatus] = useState("");
+  const router = useRouter();
+  const templateId = given ?? params?.get("template") ?? "";
+  const options = useFillInOptions(embedded ? templateId : "", 0);
+  const [startMessage, setStartMessage] = useState<string | undefined>();
+  const [starting, setStarting] = useState(false);
   const [result, setResult] = useState<{ key: string; loaded: Loaded } | null>(null);
   const [more, setMore] = useState(false);
 
-  const applied: FillInFilters = { ...NO_FILL_FILTERS, templateId, status };
+  const applied = useMemo<FillInFilters>(() => ({ ...NO_FILL_FILTERS, templateId }), [templateId]);
   const key = JSON.stringify(applied);
   const loaded: Loaded = result && result.key === key ? result.loaded : { status: "loading" };
 
   useEffect(() => {
-    if (route.openId) {
+    if (!embedded && route.openId) {
       return;
     }
     let live = true;
-    void listFillIns({ templateId, status }).then((outcome) => {
+    void listFillIns(applied).then((outcome) => {
       if (live) {
         setResult({
           key,
@@ -77,7 +85,7 @@ function FillInsScreen() {
     return () => {
       live = false;
     };
-  }, [templateId, status, key, route.openId]);
+  }, [applied, key, route.openId, embedded]);
 
   const showMore = async () => {
     if (loaded.status !== "ready" || !loaded.next) {
@@ -94,44 +102,34 @@ function FillInsScreen() {
     });
   };
 
-  const choose = (event: FormEvent) => {
-    event.preventDefault();
-    setStatus(draft);
+  const start = async () => {
+    setStarting(true);
+    setStartMessage(undefined);
+    const outcome = await startFillIn(templateId);
+    setStarting(false);
+    if (outcome.ok) {
+      router.push(fillInsHref(outcome.data.fillId));
+      return;
+    }
+    setStartMessage(outcome.failure.message);
   };
+  const canStart = embedded && options.status === "ready" && options.options.canStart;
 
-  if (route.openId) {
+  if (!embedded && route.openId) {
     return <FillInDetail id={route.openId} onBack={() => route.close()} />;
   }
-
-  const filters = (
-    <form onSubmit={choose} aria-label="Filter the fill-ins" className="filters" data-testid="fill-in-filters">
-      <label>
-        Status
-        <select value={draft} onChange={(event) => setDraft(event.target.value)}>
-          {STATUSES.map((choice) => (
-            <option key={choice.value} value={choice.value}>
-              {choice.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="filters-actions">
-        <button type="submit" className="button">
-          Show
-        </button>
-      </div>
-    </form>
-  );
 
   const ready = loaded.status === "ready" ? loaded : undefined;
   return (
     <ListPage<FillInRow>
       title="Fill-ins"
-      intro="A fill-in is a template filled in by a person. You see the fill-ins you made, and the ones you are allowed to check."
       items={ready?.rows}
       failure={loaded.status === "failed" ? loaded.message : undefined}
       rowKey={(row) => row.fillId}
       primaryHeader="Name"
+      sortPrimary
+      searchText={(row) => [row.name, row.filledBy, fillStatusTag(row.status).text].join(" ")}
+      searchLabel="Search fill-ins by name, person or status"
       primary={(row) => row.name || "Fill-in"}
       primaryExtra={(row) => (row.filledBy ? <span className="hint">{row.filledBy}</span> : null)}
       columns={[
@@ -140,10 +138,23 @@ function FillInsScreen() {
           header: "Version",
           cell: (row) => (row.versionInUse ? `v${row.versionNo}` : `v${row.versionNo} (a newer version is in use)`),
           kind: "muted",
+          sort: (row) => row.versionNo,
         },
-        { key: "rows", header: "Rows", cell: (row) => String(row.rowCount), kind: "muted" },
-        { key: "started", header: "Started", cell: (row) => when(row.createdAt), kind: "muted" },
-        { key: "sent", header: "Sent", cell: (row) => when(row.submittedAt) || "Not sent", kind: "muted" },
+        { key: "rows", header: "Rows", cell: (row) => String(row.rowCount), kind: "muted", sort: (row) => row.rowCount },
+        {
+          key: "started",
+          header: "Started",
+          cell: (row) => when(row.createdAt),
+          kind: "muted",
+          sort: (row) => row.createdAt ?? "",
+        },
+        {
+          key: "sent",
+          header: "Sent",
+          cell: (row) => when(row.submittedAt) || "Not sent",
+          kind: "muted",
+          sort: (row) => row.submittedAt ?? "",
+        },
         {
           key: "status",
           header: "Status",
@@ -157,10 +168,21 @@ function FillInsScreen() {
             );
           },
           kind: "tag",
+          sort: (row) => fillStatusTag(row.status).text,
         },
       ]}
-      onOpen={(row) => route.open(row.fillId)}
-      above={filters}
+      embedded={embedded}
+      onOpen={embedded ? undefined : (row) => route.open(row.fillId)}
+      openHref={embedded ? (row) => fillInsHref(row.fillId) : undefined}
+      onNew={canStart && !starting ? () => void start() : undefined}
+      newLabel="Start a fill-in"
+      notices={
+        startMessage ? (
+          <p className="form-message" role="alert">
+            {startMessage}
+          </p>
+        ) : undefined
+      }
       below={
         ready?.next ? (
           <div>
@@ -171,7 +193,9 @@ function FillInsScreen() {
         ) : undefined
       }
       emptyText={
-        status || templateId
+        embedded
+          ? "No fill-ins on this template yet."
+          : templateId
           ? "No fill-in matches."
           : "There are no fill-ins you can see yet. Open a template that is published to you and start one."
       }

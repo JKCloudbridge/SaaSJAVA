@@ -55,7 +55,16 @@ export function VersionList({ versions, current, onOpen, onStartFrom }: VersionL
         {versions.map((version) => {
           const tag = statusTag(version.status);
           return (
-            <tr key={version.versionNo} aria-current={version.versionNo === current ? "true" : undefined}>
+      <tr
+              key={version.versionNo}
+              aria-current={version.versionNo === current ? "true" : undefined}
+              onClick={(event) => {
+                // A click on the row opens the version, unless it landed on a button that does its own thing.
+                if (!(event.target as HTMLElement).closest("button, a")) {
+                  onOpen(version.versionNo);
+                }
+              }}
+            >
               <th scope="row">Version {version.versionNo}</th>
               <td>
                 <Tag tone={TONES[tag.tone]}>{tag.text}</Tag>

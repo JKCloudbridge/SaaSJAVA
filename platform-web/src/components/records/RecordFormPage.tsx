@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api/client";
@@ -66,6 +65,8 @@ export function headingOf(form: ObjectForm, record: RecordView): string {
  * @param recordHref where a linked record is, by object and identifier
  * @param cloneFromId a record to start the new one from (Sprint 20, "Clone"); the copy is an ordinary new record
  * @param savedHref where a record just created opens (Sprint 20); without it the list does
+ * @param dialog the form is inside a popup that gives the title: no heading, and what a save or a cancel leads to is the
+ *   popup's own (UI3), not an address
  */
 export function RecordFormPage({
   objectApiName,
@@ -74,6 +75,7 @@ export function RecordFormPage({
   recordHref,
   cloneFromId,
   savedHref,
+  dialog,
 }: {
   objectApiName: string;
   recordId?: string;
@@ -81,6 +83,7 @@ export function RecordFormPage({
   recordHref: (objectApiName: string, id: string) => string;
   cloneFromId?: string;
   savedHref?: (id: string) => string;
+  dialog?: { onSaved: (id: string) => void; onCancel: () => void };
 }) {
   const router = useRouter();
   const [recordType, setRecordType] = useState<string | undefined>();
@@ -99,7 +102,6 @@ export function RecordFormPage({
           <strong>This page is not available.</strong>
         </p>
         <p>It may have been removed, or it may not be part of your access.</p>
-        <Link href={listHref}>Back to the list</Link>
       </div>
     );
   }
@@ -120,21 +122,19 @@ export function RecordFormPage({
         <p>
           <strong>You cannot create {form.pluralLabel.toLowerCase()}.</strong>
         </p>
-        <Link href={listHref}>Back to the list</Link>
       </div>
     );
   }
 
   return (
     <div className="stack">
-      <p>
-        <Link href={listHref}>← {form.pluralLabel}</Link>
-      </p>
-      <h1 className="entry-title">
-        {loadedRecord
-          ? headingOf(form, loadedRecord)
-          : `New ${form.label.toLowerCase()}${template ? " (a copy)" : ""}`}
-      </h1>
+      {dialog ? null : (
+        <h1 className="entry-title">
+          {loadedRecord
+            ? headingOf(form, loadedRecord)
+            : `New ${form.label.toLowerCase()}${template ? " (a copy)" : ""}`}
+        </h1>
+      )}
       <RecordForm
         key={recordId ?? "new"}
         objectApiName={objectApiName}
@@ -143,8 +143,10 @@ export function RecordFormPage({
         template={template}
         recordHref={recordHref}
         onRecordTypeChange={setRecordType}
-        onSaved={(saved) => router.push(!editing && savedHref ? savedHref(saved.id) : listHref)}
-        onCancel={() => router.push(listHref)}
+        onSaved={(saved) =>
+          dialog ? dialog.onSaved(saved.id) : router.push(!editing && savedHref ? savedHref(saved.id) : listHref)
+        }
+        onCancel={() => (dialog ? dialog.onCancel() : router.push(listHref))}
         onDeleted={editing ? () => router.push(listHref) : undefined}
       />
     </div>

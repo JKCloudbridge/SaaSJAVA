@@ -38,8 +38,8 @@ class SheetVersionsIT extends SheetSupport {
         Response opened = read(setting.admin(), owner, 1);
         assertThat(opened.status()).as(opened.body()).isEqualTo(200);
         assertThat(JsonPath.<Integer>read(opened.body(), "$.data.grid.formatVersion")).isEqualTo(1);
-        assertThat(JsonPath.<List<?>>read(opened.body(), "$.data.grid.columns")).hasSize(1);
-        assertThat(JsonPath.<List<?>>read(opened.body(), "$.data.grid.rows")).isEmpty();
+        assertThat(JsonPath.<List<?>>read(opened.body(), "$.data.grid.columns")).hasSize(10);
+        assertThat(JsonPath.<List<?>>read(opened.body(), "$.data.grid.rows")).hasSize(10);
         assertThat(opened.header("Cache-Control")).hasValueSatisfying(value -> assertThat(value).contains("no-store"));
     }
 
@@ -52,6 +52,9 @@ class SheetVersionsIT extends SheetSupport {
 
         assertThat(JsonPath.<String>read(started.body(), "$.data.rowsMode")).isEqualTo("REPEATABLE");
         assertThat(JsonPath.<Integer>read(started.body(), "$.data.dimension")).isEqualTo(1);
+        Response opened = read(setting.admin(), owner, 1);
+        assertThat(JsonPath.<List<?>>read(opened.body(), "$.data.grid.columns")).as("ten columns").hasSize(10);
+        assertThat(JsonPath.<List<?>>read(opened.body(), "$.data.grid.rows")).as("the filler adds the rows").isEmpty();
     }
 
     @Test
@@ -97,7 +100,8 @@ class SheetVersionsIT extends SheetSupport {
         assertThat(JsonPath.<String>read(opened.body(), "$.data.grid.cells['h1:" + c1 + "'].style.fontSize"))
                 .isEqualTo("TITLE");
         assertThat(JsonPath.<String>read(opened.body(), "$.data.grid.cells['r1:c2'].value")).isEqualTo("12.5");
-        assertThat(JsonPath.<List<?>>read(opened.body(), "$.data.grid.columns")).hasSize(2);
+        assertThat(JsonPath.<List<?>>read(opened.body(), "$.data.grid.columns"))
+                .as("the ten it started with and one more").hasSize(11);
         assertThat(JsonPath.<String>read(opened.body(), "$.data.version.gridHash"))
                 .isEqualTo(JsonPath.<String>read(saved.body(), "$.data.gridHash"));
     }
@@ -153,7 +157,7 @@ class SheetVersionsIT extends SheetSupport {
         assertThat(refused.status()).as(refused.body()).isEqualTo(400);
         assertThat(JsonPath.<String>read(refused.body(), "$.error.code")).isEqualTo("VALIDATION_ERROR");
         assertThat(JsonPath.<Map<String, ?>>read(refused.body(), "$.error.fields")).containsOnlyKeys(
-                "grid.columns[0].label", "grid.columns[1].label");
+                "grid.columns[0].label", "grid.columns[10].label");
         assertThat(refused.body()).as("what was typed does not come back").doesNotContain("HOSTILEMARK");
         assertThat(JsonPath.<String>read(read(setting.admin(), owner, 1).body(), "$.data.version.gridHash"))
                 .as("nothing was stored").isEqualTo(before);
@@ -184,6 +188,7 @@ class SheetVersionsIT extends SheetSupport {
         Map<String, Object> grid = gridMap(read(setting.admin(), owner, 1));
         grid.put("dimension", 1);
         grid.put("rowsMode", "REPEATABLE");
+        grid.put("rows", List.of());
 
         Response saved = save(setting.admin(), owner, 1, 0, json(grid));
 
@@ -332,6 +337,7 @@ class SheetVersionsIT extends SheetSupport {
         Map<String, Object> grid = gridMap(read(setting.admin(), owner, 2));
         grid.put("dimension", 1);
         grid.put("rowsMode", "REPEATABLE");
+        grid.put("rows", List.of());
 
         Response refused = save(setting.admin(), owner, 2, 0, json(grid));
 

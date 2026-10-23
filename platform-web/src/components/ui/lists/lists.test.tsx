@@ -106,6 +106,55 @@ describe("ListPage", () => {
   });
 });
 
+describe("ListPage as a tab, with ordering and a settings menu", () => {
+  it("draws no title band when it sits inside a tab, but keeps New, the search box and the table", () => {
+    render(list({ embedded: true, onNew: vi.fn(), newLabel: "Start one" }));
+
+    expect(screen.queryByRole("heading", { name: "Things" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Start one" })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox")).toBeInTheDocument();
+    expect(screen.getByTestId("things")).toBeInTheDocument();
+  });
+
+  it("puts New before the search box", () => {
+    render(list({ onNew: vi.fn(), newLabel: "New thing" }));
+
+    const button = screen.getByRole("button", { name: "New thing" });
+    const box = screen.getByRole("searchbox");
+    expect(button.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("orders by a header: high to low, then low to high, then as read", () => {
+    render(list({ sortPrimary: true }));
+    const first = () => within(screen.getAllByTestId("thing-row")[0] as HTMLElement).getByText(/Alpha|Beta|Gamma/).textContent;
+    expect(screen.getAllByTestId("thing-row")).toHaveLength(3);
+    expect(first()).toBe("Alpha");
+
+    fireEvent.click(screen.getByRole("button", { name: /^Name/ }));
+    expect(first()).toBe("Gamma");
+    expect(screen.getByRole("columnheader", { name: /Name/ })).toHaveAttribute("aria-sort", "descending");
+
+    fireEvent.click(screen.getByRole("button", { name: /^Name/ }));
+    expect(first()).toBe("Alpha");
+    expect(screen.getByRole("columnheader", { name: /Name/ })).toHaveAttribute("aria-sort", "ascending");
+
+    fireEvent.click(screen.getByRole("button", { name: /^Name/ }));
+    expect(screen.getByRole("columnheader", { name: /Name/ })).not.toHaveAttribute("aria-sort");
+  });
+
+  it("draws the settings icon only when there is something in its menu", () => {
+    const { unmount } = render(list());
+    expect(screen.queryByRole("button", { name: "Things settings" })).toBeNull();
+    unmount();
+
+    const pick = vi.fn();
+    render(list({ menu: [{ label: "Select fields", onSelect: pick }] }));
+    fireEvent.click(screen.getByRole("button", { name: "Things settings" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Select fields" }));
+    expect(pick).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("DetailPage", () => {
   it("draws the breadcrumb back to the list, the title, the actions and the sections", () => {
     const onBack = vi.fn();

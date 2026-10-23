@@ -132,7 +132,7 @@ describe("the list of fill-ins", () => {
     expect(screen.queryByRole("button", { name: /New/ })).not.toBeInTheDocument();
   });
 
-  it("asks the API for the template of the address and the status chosen, never filtering by itself", async () => {
+  it("asks the API for the template of the address, and has one search box instead of a filter pane", async () => {
     const asked: string[] = [];
     setUrl(`/apps/inspection/s-fill-ins?template=${TEMPLATE}`);
     fakeApi({
@@ -146,11 +146,8 @@ describe("the list of fill-ins", () => {
     await screen.findByText("Fire exit check");
     expect(new URLSearchParams(asked[0]).get("templateId")).toBe(TEMPLATE);
 
-    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "RETURNED" } });
-    fireEvent.click(screen.getByRole("button", { name: "Show" }));
-
-    await waitFor(() => expect(new URLSearchParams(asked.at(-1)).get("status")).toBe("RETURNED"));
-    expect(new URLSearchParams(asked.at(-1)).get("templateId")).toBe(TEMPLATE);
+    expect(screen.queryByTestId("fill-in-filters")).toBeNull();
+    expect(screen.getByRole("searchbox")).toBeInTheDocument();
   });
 
   it("continues from the cursor of the last fill-in seen and appends the next page", async () => {

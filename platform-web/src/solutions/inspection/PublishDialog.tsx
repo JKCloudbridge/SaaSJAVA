@@ -24,11 +24,14 @@ type Options = { status: "loading" } | { status: "ready"; options: AudienceOptio
 export function PublishDialog({
   templateId,
   lifecycle,
+  inModal = false,
   onClose,
   onDone,
 }: {
   templateId: string;
   lifecycle: TemplateLifecycleView;
+  /** The popup around it gives the title and the frame: the dialog draws neither. */
+  inModal?: boolean;
   onClose: () => void;
   onDone: (view: TemplateLifecycleView) => void;
 }) {
@@ -102,8 +105,13 @@ export function PublishDialog({
   });
 
   return (
-    <div className="card stack" role="dialog" aria-labelledby={heading} data-testid="publish-dialog">
-      <h3 id={heading}>Publish this template</h3>
+    <div
+      className={inModal ? "stack" : "card stack"}
+      role={inModal ? undefined : "dialog"}
+      aria-labelledby={inModal ? undefined : heading}
+      data-testid="publish-dialog"
+    >
+      {inModal ? null : <h3 id={heading}>Publish this template</h3>}
       <p>
         {changesVersion
           ? `Version ${versionNo} becomes the one in use and replaces ${numbers.activeVersion > 0 ? `version ${numbers.activeVersion}` : "nothing yet"}.`

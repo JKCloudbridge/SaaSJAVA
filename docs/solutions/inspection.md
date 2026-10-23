@@ -107,3 +107,19 @@ The `local` profile switches the feature on for `tenant-a` and leaves `tenant-b`
 | The report page | `platform-web/src/solutions/inspection/` (`FillInReportPage`, `report.ts`, the page key `fill-in-report`) |
 
 The application has a "Report" entry beside "Fill-ins". A fill-in page has an "Attachments" section and shows "Archived" for a fill-in whose cells are in the archive. Decision: ADR-0193.
+
+## The lists and the template page (UI3)
+
+Frontend only; the decisions are in the UI3 entry of `docs/delivery-plan.md`.
+
+- **A list** of this application is a `ListPage` (`components/ui/lists`): one search box over the columns it names (`searchText`), a click on a header orders by it (`sort` on a column, `sortPrimary` for the first; high to low, then low to high, then as read), New to the left of the search box, and the settings icon (`menu`) only when it holds something. There is no filter pane and no sentence under the title. Search and ordering work on the rows read so far.
+- **The template page** (`TemplateDetail.tsx`) has three tabs in the address (`?open=<id>&tab=sheet|fill-ins`; none means Details). Details are read first and edited in place (`RecordForm` with `formId` and `hideActions`; Save and Cancel are in the title band). The buttons in the band follow the flags of the server: Submit for approval, Approve and Reject (`useRecordApproval`, `ApprovalHeaderActions` in `components/records/ApprovalPanel.tsx`), Publish; Unpublish, Retire and the rare approval actions are in the "more" menu (`ActionMenu`). After an approval ends and the lifecycle says `canPublish`, the Publish popup opens by itself (two acts of the server, one flow).
+- **A new template** is a popup (`Modal`) over the list (`?new=1`); a save opens the new template.
+- **The Sheet tab** lists the versions first (`SheetWorkspace` with `listFirst`) and opens one with its grid, a way back to the list inside the tab, and the change requests under it. The Fill-ins tab is `FillInsList` with `embedded`.
+- **No back link.** The strip's tab "Templates" leads back; pages of this application draw no breadcrumb (`DetailPage noBreadcrumb`) and the record screens draw no "back to the list" link. Setup and console pages keep theirs.
+- **Field descriptions** are not drawn in forms; they stay in the setup screens.
+- **The sheet** starts with ten columns and, when the sheet names its rows, ten rows (`BlankGrids`, backend; a copy of a version is never blank). A column is widened by dragging the right edge of its label in the author's grid (`SheetGrid` prop `onResizeColumn`, given by `GridView` only when the grid can be changed and is not in annotate mode; the grid of a filler gets none, the width belongs to the sheet); the width is part of the sheet format (40 to 1000 pixels) and one drag is one undo step.
+
+## Change the tabs of the application
+
+The application is in `platform-app/src/main/resources/solutions/inspection/solution.yml` (`application.entries`), computed on every request and stored nowhere for an organization, so the setup Applications screen does not list it and an organization cannot change it. To **add** a tab: write the page under `platform-web/src/solutions/inspection/`, register its `pageKey` in `registry.ts`, add a `PLATFORM` entry with that key (and `readsObject` when a read right should show it). To **rename** one: change its `label` (the key stays). To **reorder**: move the entry. To **remove**: delete the entry and its registry line (the frontend test compares the two lists). A change reaches every organization with the feature at the next release. A tab for one organization only is not possible today.

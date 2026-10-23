@@ -144,3 +144,59 @@ describe("the toolbar of the grid view", () => {
     expect(sampleDoc().columns).toHaveLength(3);
   });
 });
+
+describe("changing the width of a column by dragging its edge", () => {
+  const edge = (name: string) => screen.getByRole("separator", { name: `Width of column ${name}` });
+
+  it("widens the column while the mouse moves and writes the width once, when it is let go", () => {
+    const { doc } = draw();
+    const original = doc().columns[0]?.width;
+    const before = original ?? 120;
+
+    fireEvent.mouseDown(edge("Item"), { clientX: 100 });
+    fireEvent.mouseMove(document, { clientX: 160 });
+    expect(edge("Item")).toHaveAttribute("aria-valuenow", String(before + 60));
+    expect(doc().columns[0]?.width).toBe(original);
+    fireEvent.mouseUp(document);
+
+    expect(doc().columns[0]?.width).toBe(before + 60);
+    fireEvent.keyDown(screen.getByRole("grid"), { key: "z", ctrlKey: true });
+    expect(doc().columns[0]?.width).toBe(before);
+  });
+
+  it("keeps a column between 40 and 1000 pixels", () => {
+    const { doc } = draw();
+
+    fireEvent.mouseDown(edge("Item"), { clientX: 500 });
+    fireEvent.mouseMove(document, { clientX: -900 });
+    fireEvent.mouseUp(document);
+    expect(doc().columns[0]?.width).toBe(40);
+
+    fireEvent.mouseDown(edge("Item"), { clientX: 0 });
+    fireEvent.mouseMove(document, { clientX: 5000 });
+    fireEvent.mouseUp(document);
+    expect(doc().columns[0]?.width).toBe(1000);
+  });
+
+  it("goes back to the default width on a double click, and changes nothing when the mouse did not move", () => {
+    const { doc } = draw();
+    fireEvent.mouseDown(edge("Item"), { clientX: 10 });
+    fireEvent.mouseMove(document, { clientX: 90 });
+    fireEvent.mouseUp(document);
+    expect(doc().columns[0]?.width).toBeDefined();
+
+    fireEvent.doubleClick(edge("Item"));
+    expect(doc().columns[0]?.width).toBeUndefined();
+
+    const same = doc();
+    fireEvent.mouseDown(edge("Item"), { clientX: 10 });
+    fireEvent.mouseUp(document);
+    expect(doc()).toBe(same);
+  });
+
+  it("draws no handle in a grid that cannot be changed", () => {
+    draw({ readOnly: true });
+
+    expect(screen.queryByRole("separator")).toBeNull();
+  });
+});

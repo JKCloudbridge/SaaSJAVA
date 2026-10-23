@@ -2,8 +2,10 @@ import { useId, type ReactNode } from "react";
 
 export interface PageFrameProps {
   title: string;
-  /** A quiet sentence under the title band (what the page is for). */
+  /** @deprecated No longer drawn: pages do not explain themselves under the title. The call sites are removed later. */
   intro?: ReactNode;
+  /** A status chip or two drawn beside the title. */
+  titleExtra?: ReactNode;
   /** The trail back to the list, drawn above the title (a detail page). */
   breadcrumb?: ReactNode;
   /** The search box, the New button and the screen's own actions: the right end of the title band. */
@@ -19,7 +21,7 @@ export interface PageFrameProps {
  * a page that is neither (counts, a timeline) all sit in it, so they look and behave alike (ADR-0168). It draws what it is
  * given and decides nothing.
  */
-export function PageFrame({ title, intro, breadcrumb, tools, notices, children, testId }: PageFrameProps) {
+export function PageFrame({ title, titleExtra, breadcrumb, tools, notices, children, testId }: PageFrameProps) {
   const headingId = useId();
   return (
     <section className="page-frame" aria-labelledby={headingId} data-testid={testId}>
@@ -27,11 +29,11 @@ export function PageFrame({ title, intro, breadcrumb, tools, notices, children, 
         {breadcrumb}
         <div className="page-head-row">
           <h1 id={headingId}>{title}</h1>
+          {titleExtra ? <div className="page-head-extra">{titleExtra}</div> : null}
           {tools ? <div className="page-head-tools">{tools}</div> : null}
         </div>
       </header>
       <div className="page-body">
-        {intro ? <p className="page-intro">{intro}</p> : null}
         {notices}
         {children}
       </div>

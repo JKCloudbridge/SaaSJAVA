@@ -47,6 +47,7 @@
   --border-width: 1px;
   --shadow-1: 0 1px 2px rgb(16 24 40 / 6%), 0 1px 3px rgb(16 24 40 / 5%);
   --shadow-2: 0 10px 30px rgb(16 24 40 / 15%);
+  --color-overlay: rgb(16 24 40 / 45%);
   --transition: 120ms ease;
   --transition-calm: 200ms ease;
 
@@ -102,5 +103,6 @@
     --color-focus-ring: #2dd4bf;
     --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
     --shadow-2: 0 10px 30px rgb(0 0 0 / 50%);
+    --color-overlay: rgb(0 0 0 / 60%);
   }
 }

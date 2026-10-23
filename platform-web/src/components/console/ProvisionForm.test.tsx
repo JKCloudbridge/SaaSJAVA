@@ -99,12 +99,4 @@ describe("ProvisionForm", () => {
 
     await waitFor(() => expect(screen.getByTestId("provision-message")).toHaveTextContent("not allowed"));
   });
-
-  it("promises nothing about the account of the address", async () => {
-    fakeApi({ "GET /api/v1/platform/plans": () => json(PLANS) });
-    render(<ProvisionForm />);
-    await screen.findByRole("option", { name: "Plan A" });
-
-    expect(screen.getByText(/The answer is the same whether or not the address already has an account/)).toBeInTheDocument();
-  });
 });

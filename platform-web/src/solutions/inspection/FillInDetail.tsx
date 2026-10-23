@@ -52,7 +52,7 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
   }
 
   return (
-    <DetailPage listLabel="Fill-ins" onBack={onBack} title={name} testId="fill-in-detail">
+    <DetailPage listLabel="Fill-ins" onBack={onBack} noBreadcrumb title={name} testId="fill-in-detail">
       {header ? (
         <DetailSection title="Details">
           <DetailGrid>

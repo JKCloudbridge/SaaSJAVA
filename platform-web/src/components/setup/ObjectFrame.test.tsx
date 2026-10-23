@@ -225,7 +225,6 @@ describe("ObjectFrame: the Fields tab", () => {
 
     await screen.findAllByTestId("field-row");
 
-    expect(screen.getByText("The platform does not allow extra fields on this object.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New" })).toBeNull();
   });
 

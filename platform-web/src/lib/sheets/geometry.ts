@@ -13,7 +13,7 @@ export const DEFAULT_COLUMN_WIDTH = 120;
 /** The height of the band of column labels above the first row, in pixels. */
 export const LABEL_BAND_HEIGHT = 28;
 /** How many blank sample rows a grid whose filler adds the rows shows. */
-export const BLANK_ROWS = 5;
+export const BLANK_ROWS = 10;
 
 export const cellKey = (rowId: string, columnId: string): string => `${rowId}:${columnId}`;
 
