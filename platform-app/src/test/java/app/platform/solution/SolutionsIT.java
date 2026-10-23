@@ -105,7 +105,7 @@ class SolutionsIT extends SolutionSupport {
         assertThat(JsonPath.<List<String>>read(mine.body(), application + ".label"))
                 .containsExactly("Audit maintenance");
         assertThat(JsonPath.<List<String>>read(mine.body(), application + ".iconKey")).containsExactly("clipboard");
-        assertThat(JsonPath.<List<Object>>read(mine.body(), application + ".items[*]")).hasSize(2);
+        assertThat(JsonPath.<List<Object>>read(mine.body(), application + ".items[*]")).hasSize(3);
         assertThat(JsonPath.<List<String>>read(mine.body(), application + ".items[0].type"))
                 .containsExactly("PLATFORM");
         assertThat(JsonPath.<List<String>>read(mine.body(), application + ".items[0].label"))
