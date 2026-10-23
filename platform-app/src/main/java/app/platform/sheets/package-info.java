@@ -20,7 +20,8 @@
  *
  * <p>FF1 adds the <strong>fill-ins</strong> of a sheet (ADR-0192): what a person types into a sheet that was published.
  * The cells of a fill-in are one canonical document in a table of this module (one row for each header record of the
- * caller's own object), pinned for ever to the version of the sheet that was in use when the fill-in was started, with a
+ * caller's own object), pinned for ever to the version of the sheet that was in use when the fill-in was started,
+ * with a
  * status the database guards and cells that change only while the fill-in is a draft or returned, or by a counted
  * correction. The module that owns the header record starts, sends and ends a fill-in through
  * {@link app.platform.sheets.FillLifecycle}; who may read or change the cells is the header record's own answer from
