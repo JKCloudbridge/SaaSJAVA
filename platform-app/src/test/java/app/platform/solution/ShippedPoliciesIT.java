@@ -68,8 +68,9 @@ class ShippedPoliciesIT extends SolutionSupport {
         assertThat(JsonPath.<List<Object>>read(list.body(), "$.data[?(@.managed==true && @.requiredLicenceType)]"))
                 .as("a shipped policy is not licence-bound").isEmpty();
         assertThat(JsonPath.<List<String>>read(list.body(), "$.data[?(@.managed==true)].abilities[*]"))
-                .as("only the Approver gives abilities, the three the template lifecycle needs")
-                .containsExactlyInAnyOrder("approvals.override-lock", "sheets.publish", "sheets.retire");
+                .as("the Approver gives the three the lifecycle needs, the Filler the one that starts fill-ins")
+                .containsExactlyInAnyOrder("approvals.override-lock", "sheets.publish", "sheets.retire",
+                        "sheets.fill");
     }
 
     @Test
@@ -119,9 +120,11 @@ class ShippedPoliciesIT extends SolutionSupport {
         applicationsOf(admin);
         Map<String, Map<String, List<String>>> objects = Map.of(
                 "Author", Map.of(OBJECT, List.of("create", "read", "update")),
-                "Approver", Map.of(OBJECT, List.of("modify-all", "read", "update", "view-all")),
+                "Approver", Map.of(OBJECT, List.of("modify-all", "read", "update", "view-all"),
+                        FILL, List.of("modify-all", "read", "update", "view-all")),
                 "Reader", Map.of(OBJECT, List.of("read")),
-                "Filler", Map.of(OBJECT, List.of("read")),
+                "Filler", Map.of(OBJECT, List.of("read"), FILL, List.of("read", "update")),
+                "Reviewer", Map.of(FILL, List.of("read", "view-all")),
                 "Department setup", Map.of("DepartmentGroup", List.of("create", "delete", "read", "update")));
         Map<String, Map<String, String>> fields = Map.of(
                 "Author", Map.of("name", "edit", "category", "edit", "subCategory", "edit", "partCode", "edit",
@@ -133,12 +136,11 @@ class ShippedPoliciesIT extends SolutionSupport {
             Response access = admin.get(POLICIES + "/" + policyId(admin, name) + "/data-access");
 
             assertThat(access.status()).as(name + ": " + access.body()).isEqualTo(200);
-            objects.get(name).forEach((object, actions) -> {
-                assertThat(JsonPath.<List<String>>read(access.body(), "$.data.objects[*].key")).as(name)
-                        .containsExactly(object);
-                assertThat(JsonPath.<List<String>>read(access.body(), "$.data.objects[0].actions")).as(name)
-                        .containsExactlyInAnyOrderElementsOf(actions);
-            });
+            assertThat(JsonPath.<List<String>>read(access.body(), "$.data.objects[*].key")).as(name)
+                    .containsExactlyInAnyOrderElementsOf(objects.get(name).keySet());
+            objects.get(name).forEach((object, actions) -> assertThat(JsonPath.<List<String>>read(access.body(),
+                    "$.data.objects[?(@.key=='" + object + "')].actions[*]")).as(name + " " + object)
+                    .containsExactlyInAnyOrderElementsOf(actions));
             Map<String, String> wanted = fields.get(name);
             if (wanted != null) {
                 for (Map.Entry<String, String> field : wanted.entrySet()) {
@@ -148,10 +150,10 @@ class ShippedPoliciesIT extends SolutionSupport {
                 }
             }
         }
-        // No policy gives the delete right on a template: its records are kept.
-        for (String name : List.of("Author", "Approver", "Reader", "Filler")) {
+        // No policy gives the delete right on a template or a fill-in: their records are kept.
+        for (String name : List.of("Author", "Approver", "Reader", "Filler", "Reviewer")) {
             Response access = admin.get(POLICIES + "/" + policyId(admin, name) + "/data-access");
-            assertThat(JsonPath.<List<String>>read(access.body(), "$.data.objects[0].actions")).as(name)
+            assertThat(JsonPath.<List<String>>read(access.body(), "$.data.objects[*].actions[*]")).as(name)
                     .doesNotContain("delete");
         }
     }
@@ -228,7 +230,8 @@ class ShippedPoliciesIT extends SolutionSupport {
                 .containsExactly("Author");
         assertThat(JsonPath.<List<String>>read(list.body(), "$.data[?(@.managed==false)].id")).containsExactly(ownId);
         assertThat(JsonPath.<List<String>>read(list.body(), "$.data[?(@.managed==true)].name"))
-                .containsExactlyInAnyOrder("Author (platform)", "Approver", "Reader", "Filler", "Department setup");
+                .containsExactlyInAnyOrder("Author (platform)", "Approver", "Reader", "Filler", "Reviewer",
+                        "Department setup");
         assertThat(admin.request("DELETE", POLICIES + "/" + ownId, null).status()).as("their own policy is theirs")
                 .isIn(200, 204);
     }

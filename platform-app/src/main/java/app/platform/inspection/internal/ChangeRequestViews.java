@@ -39,6 +39,12 @@ public final class ChangeRequestViews {
     public record ChangeCommentView(@NotNull UUID id, @NotNull String kind, String rowId, String columnId,
             @NotNull String label, @NotNull Boolean inActiveVersion, @NotNull String text, @NotNull Instant createdAt,
             String authorName, @NotNull Boolean mine) {
+
+        /** Prints a marker only: the text in it is the organization's and never reaches a log. */
+        @Override
+        public String toString() {
+            return "ChangeCommentView[redacted]";
+        }
     }
 
     /**
@@ -70,6 +76,12 @@ public final class ChangeRequestViews {
             @NotNull Integer placesTotal, @NotNull Integer placesInActive, @NotNull Boolean canComment,
             @NotNull Boolean canAccept, @NotNull Boolean canDecline, @NotNull Boolean canTurn,
             @NotNull Boolean canReopen, @NotNull List<ChangeCommentView> comments) {
+
+        /** Prints a marker only: the text in it is the organization's and never reaches a log. */
+        @Override
+        public String toString() {
+            return "ChangeRequestView[redacted]";
+        }
     }
 
     /**
@@ -98,6 +110,12 @@ public final class ChangeRequestViews {
      */
     public record NewChangeComment(@Size(max = 40) String rowId, @Size(max = 40) String columnId,
             @NotNull @Size(max = 8000) String text) {
+
+        /** Prints a marker only: the text in it is the organization's and never reaches a log. */
+        @Override
+        public String toString() {
+            return "NewChangeComment[redacted]";
+        }
     }
 
     /**
@@ -109,6 +127,12 @@ public final class ChangeRequestViews {
      */
     public record CreateChangeRequest(@NotNull @Size(max = 1000) String title, @NotNull Integer versionNo,
             @Valid List<@Valid NewChangeComment> comments) {
+
+        /** Prints a marker only: the text in it is the organization's and never reaches a log. */
+        @Override
+        public String toString() {
+            return "CreateChangeRequest[redacted]";
+        }
     }
 
     /**
@@ -119,6 +143,12 @@ public final class ChangeRequestViews {
      */
     public record AnswerChangeRequest(@NotNull @Pattern(regexp = "ACCEPT|DECLINE|REOPEN") String action,
             @Size(max = 4000) String note) {
+
+        /** Prints a marker only: the text in it is the organization's and never reaches a log. */
+        @Override
+        public String toString() {
+            return "AnswerChangeRequest[redacted]";
+        }
     }
 
     /**

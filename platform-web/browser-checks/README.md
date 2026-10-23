@@ -22,6 +22,8 @@ It prints one line per check, `ok` or `FAIL`, and exits with 1 when any failed. 
 
 **Status:** written in FA3 and checked for syntax only; it was **not run** in the sprint (it needs the services, the backend and a production build). Run it once and fix what it finds before relying on it.
 
+**FF1 addition:** the script now has a section 11 (a fill-in): the template left published by section 10 is opened, **Start a fill-in** is pressed, a cell the template fixes is double-clicked and is not opened, an input cell takes a typed value, the fill-in is saved and read back through the API against version 1, and on a phone the fill-in opens in the form view without scrolling sideways. Like the rest it is written and checked for syntax only; it was **not run**.
+
 **FA5 addition:** the script now has a section 10 (change requests): the template is published again, a column of the version in use is clicked, a comment is written and the request sent, the request is listed with the column marked in the grid, Enter on a cell takes the keyboard to the box of a comment, and the owner accepts the request. Like the rest it is written and checked for syntax only; it was **not run**.
 
 **FA4 addition:** the script now has a section 9 (the master list with its filters, and the publish dialog: Location, then Department). Like the rest it is written and checked for syntax only; it was **not run**.

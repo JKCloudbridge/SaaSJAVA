@@ -69,6 +69,10 @@ DepartmentGroup.department PICKLIST codeValues organizationValues dependsOn=loca
 DepartmentGroup.groupId LOOKUP target=Group
 Group managedBy=security
 Group.name TEXT
+InspectionFill managedBy=none requiresFeature=inspection retainRecords sharingDefault=PRIVATE
+InspectionFill.name TEXT platformWritten
+InspectionFill.templateId TEXT indexed platformWritten
+InspectionFill.status TEXT indexed platformWritten
 InspectionTemplate managedBy=none requiresFeature=inspection retainRecords sharingDefault=PRIVATE
 InspectionTemplate.name TEXT
 InspectionTemplate.retired BOOLEAN platformWritten

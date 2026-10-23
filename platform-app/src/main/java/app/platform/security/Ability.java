@@ -171,7 +171,17 @@ public enum Ability {
      */
     SHEETS_RETIRE("sheets.retire", "Retire sheets",
             "Retire a record that has a sheet. It stays stored and readable to those who had access, and its number "
-                    + "is never given to another record.");
+                    + "is never given to another record."),
+
+    /**
+     * Start a fill-in of a published sheet (FF1, ADR-0192): type into the cells the sheet marks as input, in a fill-in
+     * of one's own. It is an ability and not the right to create records because a fill-in's header is made by the
+     * platform together with its cells; nobody makes one through the record screens. The sheet must be visible to the
+     * person and have a version in use.
+     */
+    SHEETS_FILL("sheets.fill", "Start fill-ins of sheets",
+            "Start a fill-in of a sheet that is published to you and work on it: type into the cells the sheet marks "
+                    + "as input, add rows where the sheet allows it, and send the fill-in for review.");
 
     private final String key;
     private final String title;

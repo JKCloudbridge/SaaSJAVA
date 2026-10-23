@@ -23,24 +23,31 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 class SheetBodyLimit implements HandlerInterceptor, WebMvcConfigurer {
 
     private final SheetProperties properties;
+    private final FillProperties fills;
 
-    SheetBodyLimit(SheetProperties properties) {
+    SheetBodyLimit(SheetProperties properties, FillProperties fills) {
         this.properties = properties;
+        this.fills = fills;
     }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(this).addPathPatterns(ApiPaths.SHEETS + "/**");
+        registry.addInterceptor(this).addPathPatterns(ApiPaths.SHEETS + "/**", ApiPaths.SHEET_FILLS + "/**");
     }
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         long announced = request.getContentLengthLong();
-        boolean grid = "PUT".equals(request.getMethod()) && request.getRequestURI().endsWith("/grid");
+        boolean put = "PUT".equals(request.getMethod());
+        boolean grid = put && request.getRequestURI().endsWith("/grid");
+        boolean cells = put && request.getRequestURI().endsWith("/cells");
         if (grid && announced > properties.limits().maxBytes()) {
             throw SheetController.tooLarge(properties.limits().maxBytes());
         }
-        if (!grid && announced > properties.smallBodyBytes()) {
+        if (cells && announced > fills.maxBytes()) {
+            throw SheetFillController.tooLarge(fills.maxBytes());
+        }
+        if (!grid && !cells && announced > properties.smallBodyBytes()) {
             throw new ApiException(ErrorCode.PAYLOAD_TOO_LARGE);
         }
         return true;

@@ -1809,6 +1809,67 @@
         "tags" : [ "Authentication" ]
       }
     },
+    "/api/v1/fill-ins" : {
+      "get" : {
+        "description" : "One page, without the cells (a list never reads them), paged by the key of the last one seen and never by an offset, so a page is as cheap at the thousandth as at the first. The page is read through the record store, so a caller sees exactly the fill-ins they may see: their own, and all of them for a caller who may view every fill-in. Filters: templateId and status (DRAFT, SUBMITTED, RETURNED or APPROVED). A fill-in stays in the list after its template is unpublished or retired. size is at most 200 (50 when left out).",
+        "operationId" : "listFillIns",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "templateId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseFillInPage"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The fill-ins the caller may see, newest first",
+        "tags" : [ "Fill-ins" ]
+      }
+    },
     "/api/v1/groups" : {
       "get" : {
         "description" : "With their people, nested groups and access policies. For members who manage access. NOT_FOUND on the platform host, FORBIDDEN without the ability.",
@@ -11578,6 +11639,115 @@
         "tags" : [ "Sharing" ]
       }
     },
+    "/api/v1/sheet-fills/{fillObject}/{fillId}" : {
+      "get" : {
+        "description" : "The call that reads the cells. The sheet is the version the fill-in is pinned to for ever (versionStatus says whether it is still the one in use), so the fill-in shows against the structure it was made on whatever happened to the sheet since. canEdit says whether the screen may offer to type; correction says that typing would be a counted correction of a fill-in that was sent. A person asked to review the fill-in reads it even without the right to read the header. NOT_FOUND for an object that has no fill-ins, for a fill-in that does not exist and for a header record the caller may not read (all three answer alike). A fill-in has no permission of its own: reading it needs the right to read the header record and changing it the right to update the header record. ",
+        "operationId" : "getSheetFill",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "fillObject",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "fillId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSheetFillView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One fill-in with the sheet version it was made on and its cells",
+        "tags" : [ "Sheet fill-ins" ]
+      }
+    },
+    "/api/v1/sheet-fills/{fillObject}/{fillId}/cells" : {
+      "put" : {
+        "description" : "The body is the cells document itself (formatVersion and rows, each row with an id and its cells keyed by the identifier of the column), as JSON, and nothing else; the row version that was read goes in the version parameter. The size is checked before anything is parsed, from the length the client announces and again on the bytes read: PAYLOAD_TOO_LARGE above the limit. Then the cells are checked in a fixed order and the first stage with a problem answers alone, with every place of that stage under cells: VALIDATION_ERROR. Only input cells accept a value, each value must fit the type of its column, and rows can be added only where the sheet allows it. A draft may be saved half done. CONCURRENT_MODIFICATION (409) when the fill-in has changed since it was read, and nothing changes. A fill-in that was sent for review can be changed only as a counted correction by a caller who may correct it (FORBIDDEN otherwise), and stays complete. CONFLICT when the sheet was retired. Audited by the size, the hash and counts, never by content. NOT_FOUND for an object that has no fill-ins, for a fill-in that does not exist and for a header record the caller may not read (all three answer alike). A fill-in has no permission of its own: reading it needs the right to read the header record and changing it the right to update the header record. ",
+        "operationId" : "saveSheetFillCells",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "fillObject",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "fillId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "version",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSheetFillSummaryView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Save the cells of a fill-in",
+        "tags" : [ "Sheet fill-ins" ]
+      }
+    },
     "/api/v1/sheets/{ownerObject}/{ownerId}/versions" : {
       "get" : {
         "description" : "Newest first, without their grids (a list never reads a grid). A caller who may only read the record sees the versions that are in use or were (ACTIVE, SUPERSEDED, RETIRED); a caller who may change it sees every version, drafts included. canChange says whether the screen may offer to start or save a draft; every request that follows is decided again. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record. ",
@@ -12356,6 +12526,84 @@
         },
         "summary" : "Add a comment to a change request",
         "tags" : [ "Template change requests" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/fill-in-options" : {
+      "get" : {
+        "description" : "canStart is true when the caller holds the right to create fill-ins, the template is not retired and a version is in use; activeVersion is the version a fill-in started now would be made on. When canStart is false, reason says why in words for a person. The flag only hides a button: starting is decided again. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares. ",
+        "operationId" : "getFillInOptions",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseFillInOptionsView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Whether the caller may start a fill-in on a template",
+        "tags" : [ "Fill-ins" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/fill-ins" : {
+      "post" : {
+        "description" : "Needs the right to create fill-ins (FORBIDDEN otherwise). The fill-in is pinned to the version in use at that moment for ever; the template and every other fill-in are untouched. The caller owns the new fill-in, and by the private default of the object nobody else sees it, apart from the people who may view every fill-in. CONFLICT for a retired template, when no version is in use and when the version moved while the request ran. Audited by the identifiers and the version number. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares. ",
+        "operationId" : "startFillIn",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseFillInStartedView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Start a fill-in on the version of a template that is in use",
+        "tags" : [ "Fill-ins" ]
       }
     },
     "/api/v1/templates/{templateId}/lifecycle" : {
@@ -13546,6 +13794,33 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseFillInOptionsView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/FillInOptionsView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseFillInPage" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/FillInPage"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseFillInStartedView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/FillInStartedView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseFormulaRecalculationView" : {
         "type" : "object",
         "properties" : {
@@ -14490,6 +14765,24 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/SharingRuleView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseSheetFillSummaryView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/SheetFillSummaryView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseSheetFillView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/SheetFillView"
           }
         },
         "required" : [ "data" ]
@@ -17546,6 +17839,101 @@
           }
         },
         "required" : [ "apiName", "description", "editable", "kind", "label", "required", "retired", "settings", "type", "unique", "version" ]
+      },
+      "FillInOptionsView" : {
+        "type" : "object",
+        "properties" : {
+          "activeVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "canStart" : {
+            "type" : "boolean"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "activeVersion", "canStart" ]
+      },
+      "FillInPage" : {
+        "type" : "object",
+        "properties" : {
+          "nextCursor" : {
+            "type" : "string"
+          },
+          "rows" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FillInRow"
+            }
+          }
+        },
+        "required" : [ "rows" ]
+      },
+      "FillInRow" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "fillId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "filledBy" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "rowCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "submittedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "templateId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "versionInUse" : {
+            "type" : "boolean"
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "createdAt", "fillId", "rowCount", "status", "templateId", "updatedAt", "versionInUse", "versionNo" ]
+      },
+      "FillInStartedView" : {
+        "type" : "object",
+        "properties" : {
+          "fillId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "templateId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "fillId", "templateId", "versionNo" ]
       },
       "FirstAdministratorInfo" : {
         "type" : "object",
@@ -21014,6 +21402,111 @@
           }
         },
         "required" : [ "id", "label", "type" ]
+      },
+      "SheetFillLimitsView" : {
+        "type" : "object",
+        "properties" : {
+          "maxBytes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxCellChars" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxRows" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "maxBytes", "maxCellChars", "maxRows" ]
+      },
+      "SheetFillSummaryView" : {
+        "type" : "object",
+        "properties" : {
+          "cellsBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "cellsHash" : {
+            "type" : "string"
+          },
+          "corrections" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "decidedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "fillId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "ownerId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "ownerObject" : {
+            "type" : "string"
+          },
+          "rowCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "submittedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "versionStatus" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "cellsBytes", "cellsHash", "corrections", "createdAt", "fillId", "ownerId", "ownerObject", "rowCount", "status", "updatedAt", "version", "versionNo" ]
+      },
+      "SheetFillView" : {
+        "type" : "object",
+        "properties" : {
+          "canEdit" : {
+            "type" : "boolean"
+          },
+          "cells" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "correction" : {
+            "type" : "boolean"
+          },
+          "fill" : {
+            "$ref" : "#/components/schemas/SheetFillSummaryView"
+          },
+          "grid" : {
+            "$ref" : "#/components/schemas/SheetGrid"
+          },
+          "limits" : {
+            "$ref" : "#/components/schemas/SheetFillLimitsView"
+          }
+        },
+        "required" : [ "canEdit", "cells", "correction", "fill", "grid", "limits" ]
       },
       "SheetGrid" : {
         "type" : "object",

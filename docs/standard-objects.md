@@ -149,6 +149,20 @@ A set of people that access policies and shares can name.
 |----------|-------|------|----------|--------|---------|
 | `name` | Group name | TEXT | yes | yes | up to 80 characters |
 
+## InspectionFill
+
+A fill-in of a template of the Audit maintenance application. Its records are kept for good.
+
+- Label: Fill-in / Fill-ins
+- Records managed by: the organization (ordinary data)
+- Own fields: no
+
+| API name | Label | Type | Required | Unique | Details |
+|----------|-------|------|----------|--------|---------|
+| `name` | Fill-in name | TEXT |  |  | up to 160 characters; written by the platform only |
+| `templateId` | Template | TEXT |  |  | up to 36 characters; written by the platform only |
+| `status` | Status | TEXT |  |  | up to 20 characters; written by the platform only |
+
 ## InspectionTemplate
 
 A template of the Audit maintenance application. Its records are kept for good.

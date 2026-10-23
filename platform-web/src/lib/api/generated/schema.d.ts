@@ -840,6 +840,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/fill-ins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The fill-ins the caller may see, newest first
+         * @description One page, without the cells (a list never reads them), paged by the key of the last one seen and never by an offset, so a page is as cheap at the thousandth as at the first. The page is read through the record store, so a caller sees exactly the fill-ins they may see: their own, and all of them for a caller who may view every fill-in. Filters: templateId and status (DRAFT, SUBMITTED, RETURNED or APPROVED). A fill-in stays in the list after its template is unpublished or retired. size is at most 200 (50 when left out).
+         */
+        get: operations["listFillIns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/groups": {
         parameters: {
             query?: never;
@@ -4356,6 +4376,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sheet-fills/{fillObject}/{fillId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One fill-in with the sheet version it was made on and its cells
+         * @description The call that reads the cells. The sheet is the version the fill-in is pinned to for ever (versionStatus says whether it is still the one in use), so the fill-in shows against the structure it was made on whatever happened to the sheet since. canEdit says whether the screen may offer to type; correction says that typing would be a counted correction of a fill-in that was sent. A person asked to review the fill-in reads it even without the right to read the header. NOT_FOUND for an object that has no fill-ins, for a fill-in that does not exist and for a header record the caller may not read (all three answer alike). A fill-in has no permission of its own: reading it needs the right to read the header record and changing it the right to update the header record.
+         */
+        get: operations["getSheetFill"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sheet-fills/{fillObject}/{fillId}/cells": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save the cells of a fill-in
+         * @description The body is the cells document itself (formatVersion and rows, each row with an id and its cells keyed by the identifier of the column), as JSON, and nothing else; the row version that was read goes in the version parameter. The size is checked before anything is parsed, from the length the client announces and again on the bytes read: PAYLOAD_TOO_LARGE above the limit. Then the cells are checked in a fixed order and the first stage with a problem answers alone, with every place of that stage under cells: VALIDATION_ERROR. Only input cells accept a value, each value must fit the type of its column, and rows can be added only where the sheet allows it. A draft may be saved half done. CONCURRENT_MODIFICATION (409) when the fill-in has changed since it was read, and nothing changes. A fill-in that was sent for review can be changed only as a counted correction by a caller who may correct it (FORBIDDEN otherwise), and stays complete. CONFLICT when the sheet was retired. Audited by the size, the hash and counts, never by content. NOT_FOUND for an object that has no fill-ins, for a fill-in that does not exist and for a header record the caller may not read (all three answer alike). A fill-in has no permission of its own: reading it needs the right to read the header record and changing it the right to update the header record.
+         */
+        put: operations["saveSheetFillCells"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sheets/{ownerObject}/{ownerId}/versions": {
         parameters: {
             query?: never;
@@ -4638,6 +4698,46 @@ export interface paths {
          * @description By the person who asked or by a person who may change the template, while the request is open or accepted. The place is checked against the version the request read. CONFLICT when the request is closed or has the most comments. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
          */
         post: operations["addChangeComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/fill-in-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether the caller may start a fill-in on a template
+         * @description canStart is true when the caller holds the right to create fill-ins, the template is not retired and a version is in use; activeVersion is the version a fill-in started now would be made on. When canStart is false, reason says why in words for a person. The flag only hides a button: starting is decided again. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares.
+         */
+        get: operations["getFillInOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/fill-ins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a fill-in on the version of a template that is in use
+         * @description Needs the right to create fill-ins (FORBIDDEN otherwise). The fill-in is pinned to the version in use at that moment for ever; the template and every other fill-in are untouched. The caller owns the new fill-in, and by the private default of the object nobody else sees it, apart from the people who may view every fill-in. CONFLICT for a retired template, when no version is in use and when the version moved while the request ran. Audited by the identifiers and the version number. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares.
+         */
+        post: operations["startFillIn"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5100,6 +5200,15 @@ export interface components {
         ApiResponseFieldView: {
             data: components["schemas"]["FieldView"];
         };
+        ApiResponseFillInOptionsView: {
+            data: components["schemas"]["FillInOptionsView"];
+        };
+        ApiResponseFillInPage: {
+            data: components["schemas"]["FillInPage"];
+        };
+        ApiResponseFillInStartedView: {
+            data: components["schemas"]["FillInStartedView"];
+        };
         ApiResponseFormulaRecalculationView: {
             data: components["schemas"]["FormulaRecalculationView"];
         };
@@ -5369,6 +5478,12 @@ export interface components {
         };
         ApiResponseSharingRuleView: {
             data: components["schemas"]["SharingRuleView"];
+        };
+        ApiResponseSheetFillSummaryView: {
+            data: components["schemas"]["SheetFillSummaryView"];
+        };
+        ApiResponseSheetFillView: {
+            data: components["schemas"]["SheetFillView"];
         };
         ApiResponseSheetVersionSummaryView: {
             data: components["schemas"]["SheetVersionSummaryView"];
@@ -6338,6 +6453,44 @@ export interface components {
             unique: boolean;
             /** Format: int64 */
             version: number;
+        };
+        FillInOptionsView: {
+            /** Format: int32 */
+            activeVersion: number;
+            canStart: boolean;
+            reason?: string;
+        };
+        FillInPage: {
+            nextCursor?: string;
+            rows: components["schemas"]["FillInRow"][];
+        };
+        FillInRow: {
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            fillId: string;
+            filledBy?: string;
+            name?: string;
+            /** Format: int32 */
+            rowCount: number;
+            status: string;
+            /** Format: date-time */
+            submittedAt?: string;
+            /** Format: uuid */
+            templateId: string;
+            /** Format: date-time */
+            updatedAt: string;
+            versionInUse: boolean;
+            /** Format: int32 */
+            versionNo: number;
+        };
+        FillInStartedView: {
+            /** Format: uuid */
+            fillId: string;
+            /** Format: uuid */
+            templateId: string;
+            /** Format: int32 */
+            versionNo: number;
         };
         FirstAdministratorInfo: {
             /** Format: date-time */
@@ -7424,6 +7577,52 @@ export interface components {
              */
             type: "text" | "number" | "date" | "picklist" | "boolean";
             width?: number;
+        };
+        SheetFillLimitsView: {
+            /** Format: int32 */
+            maxBytes: number;
+            /** Format: int32 */
+            maxCellChars: number;
+            /** Format: int32 */
+            maxRows: number;
+        };
+        SheetFillSummaryView: {
+            /** Format: int64 */
+            cellsBytes: number;
+            cellsHash: string;
+            /** Format: int32 */
+            corrections: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            decidedAt?: string;
+            /** Format: uuid */
+            fillId: string;
+            /** Format: uuid */
+            ownerId: string;
+            ownerObject: string;
+            /** Format: int32 */
+            rowCount: number;
+            status: string;
+            /** Format: date-time */
+            submittedAt?: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
+            /** Format: int32 */
+            versionNo: number;
+            versionStatus?: string;
+        };
+        SheetFillView: {
+            canEdit: boolean;
+            cells: {
+                [key: string]: unknown;
+            };
+            correction: boolean;
+            fill: components["schemas"]["SheetFillSummaryView"];
+            grid: components["schemas"]["SheetGrid"];
+            limits: components["schemas"]["SheetFillLimitsView"];
         };
         /** @description The grid of one version: named columns of five types, header rows (a title over merged columns), optionally named body rows, merged cells, and the cells that hold fixed text or a style. Stored sparsely: a body cell that holds nothing is an input cell and is not stored. */
         SheetGrid: {
@@ -9438,6 +9637,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseEmbeddedTokenView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listFillIns: {
+        parameters: {
+            query?: {
+                templateId?: string;
+                status?: string;
+                size?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseFillInPage"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -17017,6 +17250,76 @@ export interface operations {
             };
         };
     };
+    getSheetFill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fillObject: string;
+                fillId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseSheetFillView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    saveSheetFillCells: {
+        parameters: {
+            query: {
+                version: number;
+            };
+            header?: never;
+            path: {
+                fillObject: string;
+                fillId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseSheetFillSummaryView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     listSheetVersions: {
         parameters: {
             query?: never;
@@ -17538,6 +17841,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseChangeRequestView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getFillInOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseFillInOptionsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    startFillIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseFillInStartedView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

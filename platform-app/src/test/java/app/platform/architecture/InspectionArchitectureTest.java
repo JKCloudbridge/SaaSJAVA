@@ -44,6 +44,18 @@ class InspectionArchitectureTest {
                 .allowEmptyShould(true);
     }
 
+    private static ArchRule onlyTheClusterMayMoveAFillIn() {
+        return noClasses().that().resideOutsideOfPackages("app.platform.inspection..", "app.platform.sheets..")
+                .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.sheets.FillLifecycle")
+                .because("the moves of a fill-in are decided by the module that owns its header record (ADR-0192)")
+                .allowEmptyShould(true);
+    }
+
+    @Test
+    void onlyTheClusterMovesAFillIn() {
+        onlyTheClusterMayMoveAFillIn().check(platform);
+    }
+
     @Test
     void onlyTheClusterSharesARecordFromJava() {
         onlyTheClusterMayShareFromJava().check(platform);
@@ -61,6 +73,7 @@ class InspectionArchitectureTest {
 
         assertThat(onlyTheClusterMayShareFromJava().evaluate(sharer).hasViolation()).isTrue();
         assertThat(onlyTheClusterMayMoveAVersion().evaluate(sharer).hasViolation()).isTrue();
+        assertThat(onlyTheClusterMayMoveAFillIn().evaluate(sharer).hasViolation()).isTrue();
     }
 
     @Test
@@ -80,12 +93,14 @@ class InspectionArchitectureTest {
     }
 
     @Test
-    void theClusterTakesThePlatformsDoorToRecordsOnlyToRetireATemplate() {
+    void theClusterTakesThePlatformsDoorToRecordsInTwoPlacesOnly() {
         noClasses().that().resideInAPackage("app.platform.inspection..")
                 .and().haveSimpleNameNotContaining("TemplatePublishing")
+                .and().haveSimpleNameNotContaining("FillHeaders")
                 .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.data.BackgroundWrites")
-                .because("the one write the cluster makes as the platform is the retired mark, and it is made in one "
-                        + "place (ADR-0188); the number is written through the engine's narrow writer")
+                .because("the writes the cluster makes as the platform are the retired mark of a template "
+                        + "(ADR-0188) and the header of a fill-in with its status (ADR-0192), each made in one place; "
+                        + "the number is written through the engine's narrow writer")
                 .allowEmptyShould(true).check(platform);
     }
 

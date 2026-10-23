@@ -25,10 +25,15 @@ application:
       label: Templates
       pageKey: templates
       readsObject: InspectionTemplate
+    - type: PLATFORM
+      label: Fill-ins
+      pageKey: fill-ins
+      readsObject: InspectionFill
     - type: OBJECT
       object: DepartmentGroup
 objects:
   - InspectionTemplate
+  - InspectionFill
   - DepartmentGroup
 # The records of these objects own a sheet: the grid of the template, kept in versions (FA3, ADR-0186).
 sheetOwners:
@@ -48,6 +53,7 @@ accessPolicies:
     description: Sees every template, changes one that is in review, publishes and retires. Comes with the Audit maintenance application and cannot be changed.
     objects:
       InspectionTemplate: [read, update, view-all, modify-all]
+      InspectionFill: [read, update, view-all, modify-all]
     abilities:
       - approvals.override-lock
       - sheets.publish
@@ -56,6 +62,8 @@ accessPolicies:
       InspectionTemplate:
         edit: [name, category, subCategory, partCode, planYear]
         read: [number, retired, createdAt, updatedAt, ownerId, createdById, updatedById]
+      InspectionFill:
+        read: [name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: reader
     name: Reader
     description: Reads the templates published to them. Comes with the Audit maintenance application and cannot be changed.
@@ -70,10 +78,23 @@ accessPolicies:
     description: Fills in published templates. Comes with the Audit maintenance application and cannot be changed.
     objects:
       InspectionTemplate: [read]
+      InspectionFill: [read, update]
+    abilities:
+      - sheets.fill
     fields:
       InspectionTemplate:
         read: [name, number, category, subCategory, partCode, planYear, retired, createdAt, updatedAt, ownerId,
                 createdById, updatedById]
+      InspectionFill:
+        read: [name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+  - key: reviewer
+    name: Reviewer
+    description: Sees every fill-in. Whether a person reviews one is decided by the approval process. Comes with the Audit maintenance application and cannot be changed.
+    objects:
+      InspectionFill: [read, view-all]
+    fields:
+      InspectionFill:
+        read: [name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: departments
     name: Department setup
     description: Says which group of people belongs to which department of which location. Comes with the Audit maintenance application and cannot be changed.
