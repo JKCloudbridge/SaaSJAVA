@@ -35,6 +35,7 @@ function request(extra: Partial<ChangeRequestView> = {}): ChangeRequestView {
     status: "OPEN",
     versionNo: 1,
     requesterName: "Reader A",
+    requesterDepartment: "Plant 1 · Production",
     mine: false,
     createdAt: "2026-10-22T08:00:00Z",
     placesTotal: 1,
@@ -145,6 +146,25 @@ describe("a request and its comments", () => {
     draw(ready(view([request({ requesterName: undefined, comments: [comment({ authorName: undefined })] })])));
 
     expect(screen.getAllByText(/Someone who has left/).length).toBeGreaterThan(0);
+  });
+
+  it("shows the department the requester was in when they asked, a dash for none and every one for several", () => {
+    draw(
+      ready(
+        view([
+          request({ id: "q-1", title: "One", requesterDepartment: "Plant 1 · Production" }),
+          request({ id: "q-2", title: "Two", requesterDepartment: undefined }),
+          request({ id: "q-3", title: "Three", requesterDepartment: "Plant 1 · Production; Head office · Quality" }),
+        ]),
+      ),
+    );
+
+    const lines = screen.getAllByTestId("request-department").map((line) => line.textContent);
+    expect(lines).toEqual([
+      "Department when asked: Plant 1 · Production",
+      "Department when asked: —",
+      "Department when asked: Plant 1 · Production; Head office · Quality",
+    ]);
   });
 
   it("says which version a request became and the reason it was declined", () => {

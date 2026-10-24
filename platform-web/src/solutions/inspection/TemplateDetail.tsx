@@ -300,8 +300,10 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
               <RecordDetails objectApiName={TEMPLATE_OBJECT} form={objectForm} record={record.record} recordHref={recordHref} />
             ) : (
               <DetailGrid>
-                <DetailItem label="Category">{text(fields.category) || "None"}</DetailItem>
-                <DetailItem label="Sub-category">{text(fields.subCategory) || "None"}</DetailItem>
+                <DetailItem label="Level">{text(fields.level) || "None"}</DetailItem>
+                <DetailItem label="Document">{text(fields.documentType) || "None"}</DetailItem>
+                <DetailItem label="Identity category">{text(fields.category) || "None"}</DetailItem>
+                <DetailItem label="Identity sub-category">{text(fields.subCategory) || "None"}</DetailItem>
               </DetailGrid>
             )}
             {!editing ? (

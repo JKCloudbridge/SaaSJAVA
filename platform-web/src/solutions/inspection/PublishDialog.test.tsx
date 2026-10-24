@@ -1,4 +1,4 @@
-import { configure, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { configure, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { fakeApi, json, refusal } from "@/test/fakeApi";
 import type { TemplateLifecycleView } from "./api";
@@ -53,47 +53,47 @@ function draw(lifecycle = view()) {
   return { onDone, onClose };
 }
 
-async function choose(location: string, department: string) {
+/** Chooses the location, ticks the departments by their words, and adds them to the list. */
+async function choose(location: string, ...departments: string[]) {
   fireEvent.change(await screen.findByLabelText("Location"), { target: { value: location } });
-  fireEvent.change(screen.getByLabelText("Department"), { target: { value: department } });
-  fireEvent.click(screen.getByRole("button", { name: "Add this department" }));
+  for (const department of departments) {
+    fireEvent.click(screen.getByRole("checkbox", { name: new RegExp(`^${department}`) }));
+  }
+  fireEvent.click(screen.getByRole("button", { name: "Add the ticked departments" }));
 }
 
 describe("the publish dialog", () => {
-  it("asks for the location first and narrows the departments to it", async () => {
+  it("asks for the location first and offers a tick box for each department of it", async () => {
     fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
     draw();
 
-    const department = await screen.findByLabelText("Department");
-    expect(department).toBeDisabled();
-    expect(screen.getByRole("option", { name: "Choose a location first" })).toBeInTheDocument();
+    await screen.findByLabelText("Location");
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(screen.getByText("Choose a location first.")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Location"), { target: { value: "PLANT1" } });
-    expect(department).toBeEnabled();
-    expect(within(department).getAllByRole("option").map((option) => option.textContent)).toEqual([
-      "Choose a department",
+    expect(screen.getAllByRole("checkbox").map((box) => box.parentElement?.textContent?.trim())).toEqual([
       "Production",
       "Quality (no group set up yet)",
     ]);
 
     fireEvent.change(screen.getByLabelText("Location"), { target: { value: "HEAD" } });
-    expect(within(department).getAllByRole("option").map((option) => option.textContent)).toEqual([
-      "Choose a department",
+    expect(screen.getAllByRole("checkbox").map((box) => box.parentElement?.textContent?.trim())).toEqual([
       "Human resources",
     ]);
   });
 
-  it("publishes the version waiting, to every department added, and hands over the answer", async () => {
+  it("adds every ticked department at once, then another location, with one Publish at the end", async () => {
     const calls = fakeApi({
       "GET /api/v1/templates/audience-options": () => json(OPTIONS),
       [`POST /api/v1/templates/${ID}/publish`]: () => json({ data: view({ audience: [] }) }),
     });
     const { onDone } = draw();
 
-    await choose("PLANT1", "PRD");
-    await choose("HEAD", "HR");
+    await choose("PLANT1", "Production", "Quality");
     expect(screen.getByText("Plant 1 · Production")).toBeInTheDocument();
-    expect(screen.getByText("Head office · Human resources")).toBeInTheDocument();
+    expect(screen.getByText("Plant 1 · Quality")).toBeInTheDocument();
+    await choose("HEAD", "Human resources");
     fireEvent.click(screen.getByRole("button", { name: "Publish" }));
 
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
@@ -102,20 +102,24 @@ describe("the publish dialog", () => {
       versionNo: 2,
       audiences: [
         { location: "PLANT1", department: "PRD" },
+        { location: "PLANT1", department: "QLT" },
         { location: "HEAD", department: "HR" },
       ],
     });
+    expect(calls.filter((call) => call.key.endsWith("/publish"))).toHaveLength(1);
   });
 
-  it("will not publish to nobody, and does not add the same department twice", async () => {
+  it("will not publish to nobody, shows a department already in the list ticked and disabled, and adds it once", async () => {
     fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
     draw();
 
     expect(await screen.findByRole("button", { name: "Publish" })).toBeDisabled();
     expect(screen.getByText(/No department is chosen yet/)).toBeInTheDocument();
-    await choose("PLANT1", "PRD");
-    fireEvent.change(screen.getByLabelText("Department"), { target: { value: "PRD" } });
-    expect(screen.getByRole("button", { name: "Add this department" })).toBeDisabled();
+    await choose("PLANT1", "Production");
+    const box = screen.getByRole("checkbox", { name: /^Production/ });
+    expect(box).toBeChecked();
+    expect(box).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add the ticked departments" })).toBeDisabled();
     expect(screen.getAllByText("Plant 1 · Production")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Publish" })).toBeEnabled();
   });
@@ -136,8 +140,7 @@ describe("the publish dialog", () => {
         ),
     });
     const { onDone } = draw();
-    await choose("PLANT1", "PRD");
-    await choose("PLANT1", "QLT");
+    await choose("PLANT1", "Production", "Quality");
 
     fireEvent.click(screen.getByRole("button", { name: "Publish" }));
 

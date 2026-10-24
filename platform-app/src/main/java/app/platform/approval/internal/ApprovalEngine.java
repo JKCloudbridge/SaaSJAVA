@@ -32,6 +32,7 @@ import app.platform.security.ObjectAction;
 import app.platform.security.RecordRef;
 import app.platform.sharedkernel.ActorId;
 import app.platform.sharedkernel.Uuids;
+import app.platform.sharedkernel.approval.ApprovalApplicability;
 import app.platform.sharedkernel.approval.ApprovalHookRefusal;
 import app.platform.sharedkernel.approval.ApprovalHooks.SubmitContext;
 import app.platform.sharedkernel.approval.ApprovalOutcome;
@@ -71,7 +72,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 @Transactional
-class ApprovalEngine implements Approvals {
+class ApprovalEngine implements Approvals, ApprovalApplicability {
 
     static final String FEATURE = "approvals";
 
@@ -120,6 +121,21 @@ class ApprovalEngine implements Approvals {
     }
 
     // ---- submitting ----
+
+    /** Whether a submit of the record would find a process: the plan has approvals and one active process fits it. */
+    @Override
+    @Transactional(readOnly = true)
+    public boolean applies(String objectApiName, UUID recordId) {
+        if (!entitlements.enabled(FEATURE)) {
+            return false;
+        }
+        DataRecord record = records.find(objectApiName, recordId).filter(found -> !found.deleted()).orElse(null);
+        if (record == null) {
+            return false;
+        }
+        return definitions.approvalProcesses(objectApiName).stream()
+                .anyMatch(process -> judge(process, record) != ConditionOutcome.FALSE);
+    }
 
     /** A member submits a record. */
     InstanceRow submit(Member member, String objectApiName, UUID recordId, String processName, String comment) {

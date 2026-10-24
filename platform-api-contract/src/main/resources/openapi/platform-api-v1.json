@@ -1997,6 +1997,45 @@
         "tags" : [ "Fill-ins" ]
       }
     },
+    "/api/v1/fill-ins/{fillId}/submit" : {
+      "post" : {
+        "description" : "For the person who started the fill-in (and may read and change its record). When an approval process applies to the fill-in, nothing is changed and the outcome is REVIEW_NEEDED: send it for review through the approval endpoint. When none applies, the cells are checked as they are for a review (every required value, at least one row where the sheet needs it) and the fill-in becomes SUBMITTED for good: read-only, with no review after it, and its status on the record follows. NOT_FOUND for a fill-in the caller cannot see, FORBIDDEN for one they may see but not change, CONFLICT with fixed words for a check that fails (the place is named by identifiers, never by what was typed). Audited by identifiers.",
+        "operationId" : "submitFillIn",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "fillId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseFillInSubmittedView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Send the caller's own fill-in",
+        "tags" : [ "Fill-ins" ]
+      }
+    },
     "/api/v1/groups" : {
       "get" : {
         "description" : "With their people, nested groups and access policies. For members who manage access. NOT_FOUND on the platform host, FORBIDDEN without the ability.",
@@ -14067,6 +14106,15 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseFillInSubmittedView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/FillInSubmittedView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseFormulaRecalculationView" : {
         "type" : "object",
         "properties" : {
@@ -16601,6 +16649,9 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "requesterDepartment" : {
+            "type" : "string"
+          },
           "requesterName" : {
             "type" : "string"
           },
@@ -18241,6 +18292,15 @@
           }
         },
         "required" : [ "fillId", "templateId", "versionNo" ]
+      },
+      "FillInSubmittedView" : {
+        "type" : "object",
+        "properties" : {
+          "outcome" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "outcome" ]
       },
       "FillReportRequest" : {
         "type" : "object",
@@ -22673,9 +22733,15 @@
           "category" : {
             "type" : "string"
           },
+          "documentType" : {
+            "type" : "string"
+          },
           "id" : {
             "type" : "string",
             "format" : "uuid"
+          },
+          "level" : {
+            "type" : "string"
           },
           "lifecycle" : {
             "$ref" : "#/components/schemas/TemplateLifecycle"

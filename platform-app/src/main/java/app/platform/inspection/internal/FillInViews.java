@@ -33,6 +33,16 @@ public final class FillInViews {
     }
 
     /**
+     * What sending a fill-in did (FA6A, ADR-0196).
+     *
+     * @param outcome {@code SUBMITTED} when the fill-in was sent for good (no approval process applies to it), or
+     *        {@code REVIEW_NEEDED} when a process applies and nothing was changed: the caller sends it for review the
+     *        ordinary way
+     */
+    public record FillInSubmittedView(@NotNull String outcome) {
+    }
+
+    /**
      * A fill-in just started.
      *
      * @param fillId the header record; the cells are read and saved through the sheet fill-in endpoints

@@ -40,6 +40,35 @@ fields:
     required: true
     settings: { maxLength: 120 }
 
+  - apiName: level
+    label: Level
+    description: The level the document belongs to. It decides which documents can be chosen. The administrator keeps the list and the pairs in Setup.
+    type: PICKLIST
+    organizationValues: true
+    codeValues: true
+    settings:
+      values:
+        - { value: L1, label: "Level 1" }
+        - { value: L2, label: "Level 2" }
+
+  - apiName: documentType
+    label: Document
+    description: The kind of document within the level. Only the documents that go with the level can be chosen.
+    type: PICKLIST
+    organizationValues: true
+    codeValues: true
+    settings:
+      values:
+        - { value: DOCA, label: "Document A" }
+        - { value: DOCB, label: "Document B" }
+        - { value: DOCC, label: "Document C" }
+        - { value: DOCD, label: "Document D" }
+      dependency:
+        controllingField: level
+        allowed:
+          L1: [DOCA, DOCB]
+          L2: [DOCC, DOCD]
+
   - apiName: retired
     label: Retired
     description: Whether the template is no longer used. A retired template is kept and can still be read. Only retiring it sets this.
@@ -47,7 +76,7 @@ fields:
     platformWritten: true
 
   - apiName: category
-    label: Category
+    label: Identity category
     description: The kind of document. It decides how the number is written and which sub-categories go with it.
     type: PICKLIST
     organizationValues: true
@@ -72,7 +101,7 @@ fields:
         - { value: LEHS, label: "L/EHS - List, Environment health safety" }
 
   - apiName: subCategory
-    label: Sub-category
+    label: Identity sub-category
     description: The process or the customer the document is for. Only the sub-categories that go with the category can be chosen.
     type: PICKLIST
     organizationValues: true

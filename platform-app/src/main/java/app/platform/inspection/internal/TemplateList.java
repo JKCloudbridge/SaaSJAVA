@@ -47,7 +47,7 @@ class TemplateList {
     private static final int MOST = 200;
     private static final Set<String> STATES = Set.of("ACTIVE", "APPROVED", "IN_REVIEW", "DRAFT", "NONE", "RETIRED");
     private static final List<String> FIELDS = List.of(Templates.NAME, Templates.NUMBER, Templates.CATEGORY,
-            Templates.SUB_CATEGORY, Templates.RETIRED);
+            Templates.SUB_CATEGORY, Templates.LEVEL, Templates.DOCUMENT_TYPE, Templates.RETIRED);
 
     private static final Pattern CODE = Pattern.compile("[A-Za-z0-9_-]{1,10}");
 
@@ -119,7 +119,8 @@ class TemplateList {
             var lifecycle = TemplatePublishing.lifecycle(summary, isRetired);
             if (wantedState == null || wantedState.equals(lifecycle.state())) {
                 rows.add(new TemplateRow(header.id(), text(header, Templates.NAME), text(header, Templates.NUMBER),
-                        text(header, Templates.CATEGORY), text(header, Templates.SUB_CATEGORY), isRetired, lifecycle));
+                        text(header, Templates.CATEGORY), text(header, Templates.SUB_CATEGORY),
+                        text(header, Templates.LEVEL), text(header, Templates.DOCUMENT_TYPE), isRetired, lifecycle));
             }
         }
         boolean canCreate = decisions.can(caller.membershipId(), Templates.OBJECT, ObjectAction.CREATE).allowed();

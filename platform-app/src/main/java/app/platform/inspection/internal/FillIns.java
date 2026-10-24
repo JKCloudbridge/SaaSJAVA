@@ -14,14 +14,18 @@ import app.platform.inspection.internal.FillInViews.FillInOptionsView;
 import app.platform.inspection.internal.FillInViews.FillInPage;
 import app.platform.inspection.internal.FillInViews.FillInRow;
 import app.platform.inspection.internal.FillInViews.FillInStartedView;
+import app.platform.inspection.internal.FillInViews.FillInSubmittedView;
 import app.platform.inspection.internal.TemplateAccess.Caller;
 import app.platform.security.Ability;
+import app.platform.sharedkernel.approval.ApprovalApplicability;
 import app.platform.sharedkernel.audit.AuditOutcome;
 import app.platform.sharedkernel.audit.AuditRecord;
 import app.platform.sharedkernel.audit.AuditRecorder;
 import app.platform.sharedkernel.directory.ReferenceLabels;
 import app.platform.sheets.FillLifecycle;
 import app.platform.sheets.FillRefusal;
+import app.platform.sheets.FillStatus;
+import app.platform.sheets.FillSubmission;
 import app.platform.sheets.SheetLifecycle;
 import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiException;
@@ -76,20 +80,24 @@ class FillIns {
     private final SheetLifecycle sheets;
     private final FillLifecycle fills;
     private final FillHeaders headers;
+    private final FillSubmission submission;
+    private final ApprovalApplicability approvals;
     private final List<ReferenceLabels> labels;
     private final AuditRecorder audit;
     private final TenantContexts contexts;
     private final MeterRegistry meters;
 
     FillIns(TemplateAccess access, BackgroundRecords background, Records records, SheetLifecycle sheets,
-            FillLifecycle fills, FillHeaders headers, List<ReferenceLabels> labels, AuditRecorder audit,
-            TenantContexts contexts, MeterRegistry meters) {
+            FillLifecycle fills, FillHeaders headers, FillSubmission submission, ApprovalApplicability approvals,
+            List<ReferenceLabels> labels, AuditRecorder audit, TenantContexts contexts, MeterRegistry meters) {
         this.access = access;
         this.background = background;
         this.records = records;
         this.sheets = sheets;
         this.fills = fills;
         this.headers = headers;
+        this.submission = submission;
+        this.approvals = approvals;
         this.labels = labels;
         this.audit = audit;
         this.contexts = contexts;
@@ -145,6 +153,37 @@ class FillIns {
                 .with("template", templateId.toString()).with("version_no", Integer.toString(active)));
         meters.counter("platform.inspection.fill", "act", "start", "result", "ok").increment();
         return new FillInStartedView(header.id(), templateId, active);
+    }
+
+    /**
+     * Sends the caller's own fill-in (FA6A, ADR-0196). When an approval process applies to it nothing is changed and
+     * the
+     * answer says a review is needed, so the way without a review is never a way round a process. Otherwise the cells
+     * are checked as they are for a review, the fill-in becomes {@code SUBMITTED} for good and its header follows.
+     *
+     * @throws ApiException {@code NOT_FOUND} (a fill-in the caller cannot see), {@code FORBIDDEN} (they may see it but
+     *         not change it), {@code CONFLICT} with the fixed words of the check that failed
+     */
+    FillInSubmittedView submit(UUID fillId) {
+        records.get(Fills.OBJECT, fillId);
+        if (approvals.applies(Fills.OBJECT, fillId)) {
+            return new FillInSubmittedView("REVIEW_NEEDED");
+        }
+        try {
+            submission.submitWithoutReview(Fills.OBJECT, fillId);
+        } catch (FillRefusal refusal) {
+            refuse("submit", refusal.reason().name().toLowerCase(Locale.ROOT));
+            throw new ApiException(ErrorCode.CONFLICT, Templates.fit(refusal.getMessage()));
+        }
+        try {
+            headers.status(fillId, FillStatus.SUBMITTED);
+        } catch (BackgroundWriteException refused) {
+            // The header is the platform's own record: a failure here undoes the submit with this transaction.
+            throw new IllegalStateException("The status of a fill-in could not follow its submit ("
+                    + refused.reason().key() + ")");
+        }
+        meters.counter("platform.inspection.fill", "act", "submit", "result", "ok").increment();
+        return new FillInSubmittedView("SUBMITTED");
     }
 
     /**

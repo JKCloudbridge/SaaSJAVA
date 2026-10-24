@@ -111,7 +111,8 @@ class TemplateQueryIT extends FillSupport {
             Response answer = browser.postJson(QUERY, body + (cursor == null ? "" : ",\"cursor\":\"" + cursor + "\"")
                     + "}");
             seen.addAll(ids(answer));
-            cursor = answer.body().contains("\"nextCursor\"") ? JsonPath.read(answer.body(), "$.data.nextCursor") : null;
+            cursor = answer.body().contains("\"nextCursor\"")
+                    ? JsonPath.read(answer.body(), "$.data.nextCursor") : null;
             if (cursor == null) {
                 break;
             }

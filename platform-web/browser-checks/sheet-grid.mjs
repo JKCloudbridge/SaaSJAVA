@@ -240,6 +240,13 @@ try {
     fields: { name: `Browser check ${stamp}`, location: "PLANT1", department: "PRD", groupId: group.body?.data?.id },
   });
   check("the group is set up for Plant 1, Production", mapping.status === 201, `status ${mapping.status} ${JSON.stringify(mapping.body?.error ?? "")}`.slice(0, 200));
+  // A second department of the same location (FA6A), so that two can be ticked and published at once.
+  const quality = await api(page, "POST", "/api/v1/groups", { name: `Browser check quality ${stamp}`, description: "" });
+  if (membership) await api(page, "POST", `/api/v1/groups/${quality.body?.data?.id}/members`, { membershipId: membership });
+  const qualityMapping = await api(page, "POST", "/api/v1/objects/DepartmentGroup/records", {
+    fields: { name: `Browser check quality ${stamp}`, location: "PLANT1", department: "QLT", groupId: quality.body?.data?.id },
+  });
+  check("the group is set up for Plant 1, Quality", qualityMapping.status === 201, `status ${qualityMapping.status}`);
   const processName = `Check${stamp}`;
   const process = await api(page, "POST", "/api/v1/metadata/approvals/InspectionTemplate", {
     name: processName, label: processName, description: "", active: true, entryCriteria: null, allowSelfApproval: true,
@@ -280,12 +287,15 @@ try {
   await page.getByRole("button", { name: "Publish" }).click();
   const dialog = page.getByTestId("publish-dialog");
   await dialog.waitFor({ timeout: 10000 });
-  check("the department list waits for a location", await dialog.getByLabel("Department").isDisabled());
+  check("the departments wait for a location (FA6A: tick boxes, none before a location is chosen)", (await dialog.getByRole("checkbox").count()) === 0);
   await dialog.getByLabel("Location").selectOption("PLANT1");
-  const offered = await dialog.getByLabel("Department").locator("option").allInnerTexts();
+  const offered = await dialog.getByRole("checkbox").evaluateAll((boxes) => boxes.map((box) => box.parentElement?.textContent ?? ""));
   check("the departments narrow to the location", offered.some((text) => /Production/.test(text)) && !offered.some((text) => /Human resources/.test(text)), offered.join(" | "));
-  await dialog.getByLabel("Department").selectOption("PRD");
-  await dialog.getByRole("button", { name: "Add this department" }).click();
+  await dialog.getByRole("checkbox", { name: /Production/ }).check();
+  await dialog.getByRole("checkbox", { name: /Quality/ }).check();
+  await dialog.getByRole("button", { name: "Add the ticked departments" }).click();
+  check("both ticked departments were added at once and show ticked and disabled",
+    (await dialog.getByRole("checkbox", { name: /Production/ }).isDisabled()) && (await dialog.getByRole("checkbox", { name: /Quality/ }).isChecked()));
   await shot(page, "publish-dialog");
   await dialog.getByRole("button", { name: "Publish", exact: true }).click();
   await page.getByText(/published to the people of the departments you chose/).waitFor({ timeout: 15000 });
@@ -303,8 +313,8 @@ try {
   const again = page.getByTestId("publish-dialog");
   await again.waitFor({ timeout: 10000 });
   await again.getByLabel("Location").selectOption("PLANT1");
-  await again.getByLabel("Department").selectOption("PRD");
-  await again.getByRole("button", { name: "Add this department" }).click();
+  await again.getByRole("checkbox", { name: /Production/ }).check();
+  await again.getByRole("button", { name: "Add the ticked departments" }).click();
   await again.getByRole("button", { name: "Publish", exact: true }).click();
   await page.getByText(/published to the people of the departments you chose/).waitFor({ timeout: 15000 });
   await page.goto(`${BASE}/apps/inspection/templates?open=${lifeId}&tab=sheet`);

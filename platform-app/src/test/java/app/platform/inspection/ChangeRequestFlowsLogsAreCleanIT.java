@@ -88,7 +88,11 @@ class ChangeRequestFlowsLogsAreCleanIT extends ChangeRequestSupport {
 
         String trail = world.setting().admin().get("/api/v1/audit-events?limit=200").body();
         String log = Files.readString(Path.of(LOG_FILE));
-        List<String> secrets = List.of(label, title, firstComment, reply, reason, otherTitle, markup);
+        // The department kept with a request (FA6A, ADR-0196) is the organization's words too: shown, never logged.
+        String department = "PLANT1 - Plant 1 · PRD - Production";
+        assertThat(one(world.reader().browser(), template, request).body()).as("the snapshot is shown")
+                .contains(department);
+        List<String> secrets = List.of(label, title, firstComment, reply, reason, otherTitle, markup, department);
 
         for (Response ok : List.of(replied, accepted, declined, turned)) {
             assertThat(ok.status()).as(ok.body()).isEqualTo(200);

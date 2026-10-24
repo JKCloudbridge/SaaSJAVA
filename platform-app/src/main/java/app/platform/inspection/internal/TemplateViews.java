@@ -47,11 +47,13 @@ public final class TemplateViews {
      * @param number its number, or null before the first approval
      * @param category the category code
      * @param subCategory the sub-category code, or null
+     * @param level the level code (FA6A), or null
+     * @param documentType the document code that goes with the level (FA6A), or null
      * @param retired whether it is retired
      * @param lifecycle what its versions add up to
      */
     public record TemplateRow(@NotNull UUID id, String name, String number, String category, String subCategory,
-            @NotNull Boolean retired, @NotNull TemplateLifecycle lifecycle) {
+            String level, String documentType, @NotNull Boolean retired, @NotNull TemplateLifecycle lifecycle) {
     }
 
     /**

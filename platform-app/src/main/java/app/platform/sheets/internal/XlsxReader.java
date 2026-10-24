@@ -362,8 +362,8 @@ final class XlsxReader {
                             if (inXfs && fontOf.size() < 100_000) {
                                 Integer font = integer(r.getAttributeValue(null, "fontId"));
                                 Integer format = integer(r.getAttributeValue(null, "numFmtId"));
-                                fontOf.add(font == null ? -1 : font);
-                                formatOf.add(format == null ? 0 : format);
+                                fontOf.add(font == null ? Integer.valueOf(-1) : font);
+                                formatOf.add(format == null ? Integer.valueOf(0) : format);
                             }
                         }
                         default -> {

@@ -77,7 +77,14 @@ class SolutionLoaderTest {
         assertThat(policy(bundle, "author").abilities()).isEmpty();
         // Only an approver passes the lock of an approval, publishes and retires (ADR-0189).
         assertThat(policy(bundle, "approver").abilities()).containsExactlyInAnyOrder("approvals.override-lock",
-                "sheets.publish", "sheets.retire");
+                "sheets.publish", "sheets.retire", "field-values.add");
+        // FA6A: the author edits the name, level and document; the identity pair is the approver's to set.
+        assertThat(policy(bundle, "author").fields()).containsEntry("InspectionTemplate.level",
+                java.util.Set.of(app.platform.security.FieldAction.EDIT)).containsEntry(
+                "InspectionTemplate.category", java.util.Set.of(app.platform.security.FieldAction.READ));
+        assertThat(policy(bundle, "approver").fields()).containsEntry("InspectionTemplate.category",
+                java.util.Set.of(app.platform.security.FieldAction.EDIT)).containsEntry(
+                "InspectionTemplate.documentType", java.util.Set.of(app.platform.security.FieldAction.EDIT));
         assertThat(policy(bundle, "approver").objects().get("InspectionTemplate")).contains(ObjectAction.UPDATE,
                 ObjectAction.VIEW_ALL, ObjectAction.MODIFY_ALL).doesNotContain(ObjectAction.DELETE);
         assertThat(policy(bundle, "reader").objects().get("InspectionTemplate")).containsExactly(ObjectAction.READ);

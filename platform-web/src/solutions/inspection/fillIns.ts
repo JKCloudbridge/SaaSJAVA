@@ -16,6 +16,7 @@ export type FillInPage = components["schemas"]["FillInPage"];
 export type FillInRow = components["schemas"]["FillInRow"];
 export type FillInOptions = components["schemas"]["FillInOptionsView"];
 export type FillInStarted = components["schemas"]["FillInStartedView"];
+export type FillInSubmitted = components["schemas"]["FillInSubmittedView"];
 export type ReportColumns = components["schemas"]["ReportColumnsView"];
 export type ReportColumn = components["schemas"]["ReportColumnView"];
 export type ReportRequest = components["schemas"]["FillReportRequest"];
@@ -94,6 +95,14 @@ export function startFillIn(templateId: string): Promise<Outcome<FillInStarted>>
   return unwrap(
     call(() => api.POST("/api/v1/templates/{templateId}/fill-ins", { params: { path: { templateId } } })),
   );
+}
+
+/**
+ * Sends the member's own fill-in (FA6A, ADR-0196). `SUBMITTED` means it was sent for good (no approval process applies);
+ * `REVIEW_NEEDED` means a process applies, nothing was changed and the ordinary approval submit is the way.
+ */
+export function submitFillIn(fillId: string): Promise<Outcome<FillInSubmitted>> {
+  return unwrap(call(() => api.POST("/api/v1/fill-ins/{fillId}/submit", { params: { path: { fillId } } })));
 }
 
 /** The columns the author of a version flagged reportable (the version in use when none is named). */

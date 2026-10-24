@@ -403,10 +403,13 @@ function ApprovalForms({ approval, recordVersion }: { approval: RecordApproval; 
 export function ApprovalHeaderActions({
   approval,
   extra = [],
+  submitButton = true,
   children,
 }: {
   approval: RecordApproval;
   extra?: readonly ActionMenuItem[];
+  /** False when the page has its own Submit (the fill-in's, which sends it for good when no process applies). */
+  submitButton?: boolean;
   /** The page's own buttons (Publish), drawn after the approval's and before the menu. */
   children?: ReactNode;
 }) {
@@ -421,7 +424,7 @@ export function ApprovalHeaderActions({
   ];
   return (
     <>
-      {actions?.canSubmit ? (
+      {submitButton && actions?.canSubmit ? (
         <button type="button" className="button" onClick={() => setActing("submit")} data-testid="approval-submit">
           Submit for approval
         </button>

@@ -14,7 +14,7 @@ A person can now **fill in** a template that was published to them. The decision
 4. **Who sees which.** The filler sees their own. **Approver** and the new **Reviewer** policy see every fill-in of the organization. A person asked to review reads that one fill-in.
 5. **After it was sent.** Only the people who hold the **Approver** policy can correct it; each correction is counted and recorded without its content.
 
-**What the organization's administrator sets up for fill-ins.** See `Sprint FF1 manual steps.md`: give **Filler** to the people who fill in (they must also be in a department the template is published to), **Reviewer** to the people who only need to see every fill-in, and build the approval process on Fill-in.
+**What the organization's administrator sets up for fill-ins.** Give **Filler** to the people who fill in (they must also be in a department the template is published to), **Reviewer** to the people who only need to see every fill-in, and build the approval process on Fill-in.
 
 ### What exists in this release (FA5): change requests
 
@@ -42,7 +42,7 @@ While a version is in review, **only the people who approve it can change it** (
 
 ### What the organization's administrator sets up (FA4)
 
-See `Sprint FA4 manual steps.md` for the steps in order. In short: give the policies **Author**, **Approver**, **Reader** and **Department setup** to the right people, roles or groups; build the approval process on Template; make one **public group** for each department and put its people in it; and add one **Department group** record for each Location and Department that names that group (Audit maintenance, Department groups). A department with no record, or with an empty group, cannot be published to and the dialog says so.
+The steps in order are in `docs/metadata-guide.md` section 29 (and the demo set-up in section 34). In short: give the policies **Author**, **Approver**, **Reader** and **Department setup** to the right people or groups (an access policy is never given to a role); build the approval process on Template; make one **public group** for each department and put its people in it; and add one **Department group** record for each Location and Department that names that group (Audit maintenance, Department groups). A department with no record, or with an empty group, cannot be published to and the dialog says so.
 
 ### What existed in FA3
 
@@ -67,7 +67,7 @@ Only the framework and its first object. An organization that has the feature se
 ### What the organization's administrator does
 
 1. The five access policies **Author**, **Approver**, **Reader**, **Filler** and **Department setup** appear in Access policies on their own, marked "Comes with the platform", the first time anyone in the organization opens a page after the feature was gained. They can be given to members and groups; they cannot be changed or removed. They use no licence.
-2. Until a person holds one of them they see nothing of the application. Since FA4 the policies hold the real rights (create and change a template, view every template, publish, retire, correct a version in review), described in section "What exists in this release (FA4)". Which people hold which is the administrator's decision: give **Author** to the roles that write templates and **Approver** to the roles that approve and publish.
+2. Until a person holds one of them they see nothing of the application. Since FA4 the policies hold the real rights (create and change a template, view every template, publish, retire, correct a version in review), described in section "What exists in this release (FA4)". Which people hold which is the administrator's decision: give **Author** to the people or groups that write templates and **Approver** to the people or groups that approve and publish. Since FA6A the Author edits the name, Level and Document; the Approver sets the identity category and sub-category (the numbering) while the template is in review, and may add a missing picklist value from the form.
 3. The records of the Template object are **kept**: nobody can delete one (the delete right does not exist for this object), and a template that is no longer used is marked **Retired**.
 
 ### On a developer machine
@@ -146,3 +146,14 @@ The decision is ADR-0195. One API addition (`POST .../versions/import`), no migr
 ## Change the tabs of the application
 
 The application is in `platform-app/src/main/resources/solutions/inspection/solution.yml` (`application.entries`), computed on every request and stored nowhere for an organization, so the setup Applications screen does not list it and an organization cannot change it. To **add** a tab: write the page under `platform-web/src/solutions/inspection/`, register its `pageKey` in `registry.ts`, add a `PLATFORM` entry with that key (and `readsObject` when a read right should show it). To **rename** one: change its `label` (the key stays). To **reorder**: move the entry. To **remove**: delete the entry and its registry line (the frontend test compares the two lists). A change reaches every organization with the feature at the next release. A tab for one organization only is not possible today.
+
+## Level and Document, the identity pair, the department of a request and Submit (FA6A)
+
+The decision is in [ADR-0196](../adr/0196-the-identity-pair-at-the-first-approval-level-and-document-the-department-of-a-request-and-submit-without-a-process.md), the administrator's view in [../metadata-guide.md](../metadata-guide.md) section 34.
+
+- **Fields:** `InspectionTemplate.level` (controlling) and `documentType` (dependent), organization-owned lists with a short placeholder start, no number. The numbering pair keeps its API names `category` and `subCategory`; on screen they are "Identity category" and "Identity sub-category".
+- **Policies:** Author edits `name`, `level`, `documentType`; Approver edits all, and holds `field-values.add` besides `approvals.override-lock`, `sheets.publish`, `sheets.retire`. The read lists of every policy include the new fields (a field a policy does not list does not exist for the person).
+- **Hook:** the numbering checks are in `TemplateApprovalHooks.beforeApprove`, asked only while the template has no number; `onSubmit` keeps the retired check and the sheet's own.
+- **Change requests:** `requester_department` (V072), written once by `ChangeRequests.create` from `DepartmentAudiences.departmentsOf`; shown as `requesterDepartment`.
+- **Fill-ins:** `POST /api/v1/fill-ins/{id}/submit` (`REVIEW_NEEDED` or `SUBMITTED`); `FillSubmission`, `ApprovalApplicability`; the screen's Submit and Cancel are in `FillInDetail` and `FillWorkspace`.
+- **Tests:** no database: `TemplateApprovalHooksTest`, `SolutionLoaderTest`, `StandardMetadataLoaderTest`; real PostgreSQL: `TemplateIdentityIT`, `FillInSubmitIT`, `ChangeRequestDepartmentIT`, `ChangeRequestFlowsLogsAreCleanIT`, `ShippedPoliciesIT`, `TemplateNumberingIT`, `TemplateLifecycleIT`. Frontend: `PublishDialog`, `FillInsPage`, `ChangeRequestsSection`, `TemplatesPage` tests.

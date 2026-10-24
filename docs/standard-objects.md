@@ -174,9 +174,11 @@ A template of the Audit maintenance application. Its records are kept for good.
 | API name | Label | Type | Required | Unique | Details |
 |----------|-------|------|----------|--------|---------|
 | `name` | Template name | TEXT | yes |  | up to 120 characters |
+| `level` | Level | PICKLIST |  |  | the organization owns the list; starting values: L1, L2; values are short codes |
+| `documentType` | Document | PICKLIST |  |  | the organization owns the list; starting values: DOCA, DOCB, DOCC, DOCD; depends on `level`; values are short codes |
 | `retired` | Retired | BOOLEAN |  |  | written by the platform only |
-| `category` | Category | PICKLIST |  |  | the organization owns the list; starting values: IMS, QSP, CORPQSP, ESSP, CP, WI, PFC, FMEA, SOP, BP, F, FEHS, CSF, PPT, L, LEHS; values are short codes |
-| `subCategory` | Sub-category | PICKLIST |  |  | the organization owns the list; starting values: PRD, QLT, MNT, STR, CORP, CUSA, CUSB; depends on `category`; values are short codes |
+| `category` | Identity category | PICKLIST |  |  | the organization owns the list; starting values: IMS, QSP, CORPQSP, ESSP, CP, WI, PFC, FMEA, SOP, BP, F, FEHS, CSF, PPT, L, LEHS; values are short codes |
+| `subCategory` | Identity sub-category | PICKLIST |  |  | the organization owns the list; starting values: PRD, QLT, MNT, STR, CORP, CUSA, CUSB; depends on `category`; values are short codes |
 | `partCode` | Part code | TEXT |  |  | up to 10 characters |
 | `planYear` | Plan year | TEXT |  |  | up to 4 characters |
 | `number` | Number | TEXT |  | yes | up to 40 characters; written by the platform only |

@@ -13,8 +13,9 @@ import {
 type Options = { status: "loading" } | { status: "ready"; options: AudienceOptions } | { status: "failed"; message: string };
 
 /**
- * The dialog of Publish (Functional track FA4, ADR-0188): choose a Location, then a Department (the choices of the
- * department narrow to the location chosen, as the organization keeps them), add as many as are needed, and publish. The
+ * The dialog of Publish (Functional track FA4, ADR-0188): choose a Location, then tick the Departments of it (the
+ * choices narrow to the location chosen, as the organization keeps them), add the ticked ones at once, choose another
+ * location and tick again if needed, and publish. The
  * people of each department are a group an administrator keeps; the server finds the group, so this dialog names none.
  *
  * <p>It shows the audience the template already has and keeps it unless the approver changes it. It offers every department
@@ -41,7 +42,7 @@ export function PublishDialog({
     lifecycle.audience.map((audience) => ({ location: audience.location, department: audience.department })),
   );
   const [location, setLocation] = useState("");
-  const [department, setDepartment] = useState("");
+  const [ticks, setTicks] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<ApiFailure | undefined>();
 
@@ -74,14 +75,19 @@ export function PublishDialog({
     const part = place?.departments.find((entry) => entry.value === pick.department);
     return `${place?.label ?? pick.location} · ${part?.label ?? pick.department}`;
   };
-  const already = chosen.some((pick) => pick.location === location && pick.department === department);
+  const isChosen = (code: string) => chosen.some((pick) => pick.location === location && pick.department === code);
 
+  const toggle = (code: string) =>
+    setTicks((now) => (now.includes(code) ? now.filter((one) => one !== code) : [...now, code]));
+
+  // Every ticked department of the location goes into the list at once, in the order the organization's list has them.
   const add = () => {
-    if (location === "" || department === "" || already) {
+    const wanted = departments.filter((part) => ticks.includes(part.value) && !isChosen(part.value));
+    if (location === "" || wanted.length === 0) {
       return;
     }
-    setChosen([...chosen, { location, department }]);
-    setDepartment("");
+    setChosen([...chosen, ...wanted.map((part) => ({ location, department: part.value }))]);
+    setTicks([]);
     setRefusal(undefined);
   };
 
@@ -139,7 +145,7 @@ export function PublishDialog({
                 value={location}
                 onChange={(event) => {
                   setLocation(event.target.value);
-                  setDepartment("");
+                  setTicks([]);
                 }}
               >
                 <option value="">Choose a location</option>
@@ -150,23 +156,31 @@ export function PublishDialog({
                 ))}
               </select>
             </label>
-            <label>
-              Department
-              <select value={department} onChange={(event) => setDepartment(event.target.value)} disabled={location === ""}>
-                <option value="">{location === "" ? "Choose a location first" : "Choose a department"}</option>
-                {departments.map((part) => (
-                  <option key={part.value} value={part.value}>
-                    {part.configured ? part.label : `${part.label} (no group set up yet)`}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="filters-actions">
-              <button type="button" className="button button-secondary" onClick={add} disabled={department === "" || already}>
-                Add this department
+          </div>
+
+          <fieldset className="stack" disabled={location === ""}>
+            <legend>Departments</legend>
+            {location === "" ? <p className="hint">Choose a location first.</p> : null}
+            {departments.map((part) => {
+              const listed = isChosen(part.value);
+              return (
+                <label key={part.value}>
+                  <input
+                    type="checkbox"
+                    checked={listed || ticks.includes(part.value)}
+                    disabled={listed}
+                    onChange={() => toggle(part.value)}
+                  />{" "}
+                  {part.configured ? part.label : `${part.label} (no group set up yet)`}
+                </label>
+              );
+            })}
+            <div>
+              <button type="button" className="button button-secondary" onClick={add} disabled={ticks.length === 0}>
+                Add the ticked departments
               </button>
             </div>
-          </div>
+          </fieldset>
 
           {chosen.length === 0 ? (
             <p className="hint">No department is chosen yet. Add at least one.</p>

@@ -45,6 +45,8 @@ class DepartmentAudiences {
     private static final int LOOK_AT = 2;
     /** The most mapping records the options read: an organization has one per department of a location. */
     private static final int MOST_MAPPINGS = 1000;
+    /** The most characters a snapshot of departments keeps (the column's own limit). */
+    private static final int MOST_DEPARTMENT_CHARS = 500;
 
     /**
      * A pair that was resolved to the group it means.
@@ -137,6 +139,56 @@ class DepartmentAudiences {
             result.add(new AudienceLocation(place.value(), place.label(), offered));
         }
         return new AudienceOptionsView(result);
+    }
+
+    /**
+     * The departments a member belongs to now, in words (FA6A, ADR-0196): the groups of the member, nested ones
+     * included, matched against the records of the mapping object, each read as "Location, then department" in the
+     * labels of the lists. Several are joined with a semicolon, in the order of the mapping records; none gives null.
+     * Read as the platform (the person asking may not read the mapping). A change request keeps this text as a
+     * snapshot; the words are the organization's and are never logged.
+     *
+     * @param membershipId the member
+     */
+    String departmentsOf(UUID membershipId) {
+        if (membershipId == null) {
+            return null;
+        }
+        Set<UUID> member = groups.groupsOf(membershipId);
+        if (member.isEmpty()) {
+            return null;
+        }
+        Map<String, String> places = labels(Templates.LOCATION);
+        Map<String, String> parts = labels(Templates.DEPARTMENT);
+        List<String> words = new ArrayList<>();
+        UUID after = null;
+        int read = 0;
+        while (read < MOST_MAPPINGS) {
+            List<DataRecord> page = records.scan(Templates.DEPARTMENT_OBJECT, null, after, 200);
+            for (DataRecord mapping : page) {
+                UUID group = groupId(mapping);
+                Object place = mapping.fields().get(Templates.LOCATION);
+                Object part = mapping.fields().get(Templates.DEPARTMENT);
+                if (group != null && member.contains(group) && place instanceof String location
+                        && part instanceof String department) {
+                    String one = places.getOrDefault(location, location) + " \u00b7 "
+                            + parts.getOrDefault(department, department);
+                    if (!words.contains(one)) {
+                        words.add(one);
+                    }
+                }
+            }
+            read += page.size();
+            if (page.size() < 200) {
+                break;
+            }
+            after = page.get(page.size() - 1).id();
+        }
+        if (words.isEmpty()) {
+            return null;
+        }
+        String joined = String.join("; ", words);
+        return joined.length() <= MOST_DEPARTMENT_CHARS ? joined : joined.substring(0, MOST_DEPARTMENT_CHARS);
     }
 
     /**

@@ -39,10 +39,11 @@ class ChangeRequestStore {
      * @param version the row version
      * @param createdAt when it was made
      * @param createdBy who asked
+     * @param requesterDepartment the department of the person when they asked, in the words of the lists then, or null
      */
     record RequestRow(UUID id, UUID templateId, int versionNo, String title, String status, String decisionNote,
             Instant decidedAt, UUID decidedBy, Integer resultingVersion, long version, Instant createdAt,
-            UUID createdBy) {
+            UUID createdBy, String requesterDepartment) {
 
         ChangeRequestStatus state() {
             return ChangeRequestStatus.of(status).orElseThrow();
@@ -82,7 +83,7 @@ class ChangeRequestStore {
     }
 
     private static final String REQUEST_COLUMNS = "id, template_id, version_no, title, status, decision_note, "
-            + "decided_at, decided_by, resulting_version, version, created_at, created_by";
+            + "decided_at, decided_by, resulting_version, version, created_at, created_by, requester_department";
 
     private static final String COMMENT_COLUMNS = "id, request_id, row_id, column_id, anchor_label, body, created_at, "
             + "created_by";
@@ -107,12 +108,13 @@ class ChangeRequestStore {
                 .param("key", "change-requests:" + tenant() + ":" + templateId).query().listOfRows();
     }
 
-    RequestRow insertRequest(UUID templateId, int versionNo, String title, UUID actor) {
+    RequestRow insertRequest(UUID templateId, int versionNo, String title, UUID actor, String department) {
         return jdbc.sql("insert into inspection_change_request (tenant_id, template_id, version_no, title, "
-                        + "created_by, updated_by) values (:tenant, :template, :version, :title, :actor, :actor) "
-                        + "returning " + REQUEST_COLUMNS)
+                        + "created_by, updated_by, requester_department) values (:tenant, :template, :version, "
+                        + ":title, :actor, :actor, cast(:department as text)) returning " + REQUEST_COLUMNS)
                 .param("tenant", tenant()).param("template", templateId).param("version", versionNo)
-                .param("title", title).param("actor", actor).query(ChangeRequestStore::request).single();
+                .param("title", title).param("actor", actor).param("department", department)
+                .query(ChangeRequestStore::request).single();
     }
 
     CommentRow insertComment(UUID requestId, UUID templateId, ChangeAnchor anchor, String label, String body,
@@ -211,7 +213,7 @@ class ChangeRequestStore {
                 rs.getInt("version_no"), rs.getString("title"), rs.getString("status"),
                 rs.getString("decision_note"), instant(rs, "decided_at"), rs.getObject("decided_by", UUID.class),
                 rs.getObject("resulting_version", Integer.class), rs.getLong("version"), instant(rs, "created_at"),
-                rs.getObject("created_by", UUID.class));
+                rs.getObject("created_by", UUID.class), rs.getString("requester_department"));
     }
 
     private static CommentRow comment(ResultSet rs, int row) throws SQLException {

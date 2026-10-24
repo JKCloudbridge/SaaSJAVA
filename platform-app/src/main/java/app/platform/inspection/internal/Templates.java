@@ -17,6 +17,8 @@ final class Templates {
     static final String SERIES = "document";
     static final String NAME = "name";
     static final String NUMBER = "number";
+    static final String LEVEL = "level";
+    static final String DOCUMENT_TYPE = "documentType";
     static final String CATEGORY = "category";
     static final String SUB_CATEGORY = "subCategory";
     static final String PART_CODE = "partCode";
@@ -38,7 +40,7 @@ final class Templates {
     private static final Pattern YEAR = Pattern.compile("[0-9]{4}");
     /** What an author is told to fill in, by the field the number is made of. */
     private static final Map<String, String> PART_WORDS = Map.of(
-            SUB_CATEGORY, "the sub-category",
+            SUB_CATEGORY, "the identity sub-category",
             PART_CODE, "the part code (letters, digits, hyphen or underscore, up to 10)",
             PLAN_YEAR, "the plan year");
 
@@ -59,7 +61,7 @@ final class Templates {
     static String neededWords(List<String> fields) {
         String parts = String.join(" and ", fields.stream()
                 .map(field -> PART_WORDS.getOrDefault(field, "a part of the number")).toList());
-        return fit("Fill in " + parts + " before sending the template for approval: its number is made from "
+        return fit("Fill in " + parts + " (Edit), then approve again: its number is made from "
                 + (fields.size() == 1 ? "it." : "them."));
     }
 

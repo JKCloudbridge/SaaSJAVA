@@ -83,6 +83,14 @@ public abstract class FillSupport extends TemplateSupport {
 
     /** A published template of this shape: approved, then published to the department of the fillers. */
     protected World world(int dimension, String rowsMode) {
+        return world(dimension, rowsMode, true);
+    }
+
+    /**
+     * As {@link #world(int, String)}; with {@code withFillProcess} false the organization has no approval process for
+     * fill-ins (FA6A), so a fill-in is sent for good with Submit.
+     */
+    protected World world(int dimension, String rowsMode, boolean withFillProcess) {
         Setting setting = setting();
         Person author = author(setting);
         Person approver = approver(setting);
@@ -94,8 +102,10 @@ public abstract class FillSupport extends TemplateSupport {
                 "user");
         Person outsider = outsider(setting);
         String templateProcess = process(setting.admin(), "OneStep", step("Only", user(approver.userId())));
-        String fillProcess = fillProcess(setting.admin(), "FillReview", step("Review", user(approver.userId()),
-                user(checker.userId())));
+        String fillProcess = withFillProcess
+                ? fillProcess(setting.admin(), "FillReview", step("Review", user(approver.userId()),
+                        user(checker.userId())))
+                : null;
         department(setting.admin(), "PLANT1", "PRD",
                 group(setting.admin(), "dept-" + System.nanoTime(), filler, colleague));
         String template = templateWithColumns(author.browser(), dimension, rowsMode);
