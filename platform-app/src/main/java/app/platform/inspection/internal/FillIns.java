@@ -156,7 +156,8 @@ class FillIns {
     }
 
     /**
-     * Sends the caller's own fill-in (FA6A, ADR-0196). When an approval process applies to it nothing is changed and the
+     * Sends the caller's own fill-in (FA6A, ADR-0196). When an approval process applies to it nothing is changed and
+     * the
      * answer says a review is needed, so the way without a review is never a way round a process. Otherwise the cells
      * are checked as they are for a review, the fill-in becomes {@code SUBMITTED} for good and its header follows.
      *

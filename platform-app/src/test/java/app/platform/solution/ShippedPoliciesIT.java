@@ -132,7 +132,8 @@ class ShippedPoliciesIT extends SolutionSupport {
                         "retired", "read"),
                 "Approver", Map.of("name", "edit", "level", "edit", "documentType", "edit", "category", "edit",
                         "subCategory", "edit", "partCode", "edit", "planYear", "edit", "number", "read"),
-                "Reader", Map.of("name", "read", "level", "read", "documentType", "read", "category", "read", "subCategory", "read", "partCode", "read",
+                "Reader", Map.of("name", "read", "level", "read", "documentType", "read", "category", "read",
+                        "subCategory", "read", "partCode", "read",
                         "planYear", "read", "number", "read", "retired", "read"));
 
         for (String name : SHIPPED_POLICIES) {
