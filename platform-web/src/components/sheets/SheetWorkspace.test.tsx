@@ -489,3 +489,76 @@ describe("a change outside the sheet (FA4)", () => {
     expect(label).toHaveValue("Unsaved");
   });
 });
+
+describe("a version made from a spreadsheet file", () => {
+  const REPORT = { columns: 3, rows: 2, mergedAreas: 0, notes: [] };
+  const choose = (name: string) =>
+    fireEvent.change(screen.getByLabelText("Choose a spreadsheet file"), {
+      target: { files: [new File([new Uint8Array(10)], name)] },
+    });
+
+  it("is offered beside the new version button to a person who may change the sheet and no draft exists", async () => {
+    fakeApi({ [`GET ${BASE}`]: list([summary(1, "ACTIVE", 5)]), [`GET ${BASE}/1`]: one(1, "ACTIVE", 5) });
+
+    draw();
+
+    expect(await screen.findByRole("button", { name: "Upload a spreadsheet" })).toBeEnabled();
+  });
+
+  it("is not offered while a draft exists, nor to a person who may only read", async () => {
+    fakeApi({
+      [`GET ${BASE}`]: list([summary(2, "DRAFT", 3), summary(1, "ACTIVE", 5)]),
+      [`GET ${BASE}/2`]: one(2, "DRAFT", 3),
+    });
+    const withDraft = draw();
+    await screen.findByText(/Version 2 is a draft/);
+    expect(screen.queryByRole("button", { name: "Upload a spreadsheet" })).toBeNull();
+    withDraft.unmount();
+
+    fakeApi({ [`GET ${BASE}`]: list([summary(1, "ACTIVE", 5)], false), [`GET ${BASE}/1`]: one(1, "ACTIVE", 5) });
+    draw();
+    await screen.findByRole("table", { name: "Versions" });
+    expect(screen.queryByRole("button", { name: "Upload a spreadsheet" })).toBeNull();
+  });
+
+  it("starts the first version from a file and opens the new draft once it is saved", async () => {
+    let made = false;
+    const calls = fakeApi({
+      [`GET ${BASE}`]: () => json({ data: { versions: made ? [summary(1, "DRAFT", 0)] : [], canChange: true, limits: LIMITS } }),
+      [`GET ${BASE}/1`]: one(1, "DRAFT", 0),
+      [`POST ${BASE}/import`]: (request) => {
+        if (new URL(request.url).searchParams.get("preview") === "true") {
+          return json({ data: { saved: false, report: REPORT } });
+        }
+        made = true;
+        return json({ data: { saved: true, version: summary(1, "DRAFT", 0), report: REPORT } }, 201);
+      },
+    });
+    draw();
+    await screen.findByRole("button", { name: "Start the first version" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Start from a spreadsheet" }));
+    choose("Fire checks.xlsx");
+    await screen.findByText(/The file gives/);
+    fireEvent.click(screen.getByRole("button", { name: "Save as a new draft" }));
+
+    expect(await screen.findByRole("grid", { name: "Fire checks, version 1" })).toBeInTheDocument();
+    expect(calls.filter((call) => call.key === `POST ${BASE}/import`)).toHaveLength(2);
+    expect(calls.some((call) => call.key === `POST ${BASE}`)).toBe(false);
+  }, 20_000);
+});
+
+describe("who last changed a version", () => {
+  it("is named in the list, and a version nobody can be named for shows a dash", async () => {
+    fakeApi({
+      [`GET ${BASE}`]: list([summary(2, "ACTIVE", 3, { updatedBy: "User One" }), summary(1, "SUPERSEDED", 5)]),
+      [`GET ${BASE}/2`]: one(2, "ACTIVE", 3),
+    });
+
+    draw();
+
+    expect(await screen.findByRole("columnheader", { name: "Last changed by" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "User One" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Nobody to name")).toBeInTheDocument();
+  });
+});

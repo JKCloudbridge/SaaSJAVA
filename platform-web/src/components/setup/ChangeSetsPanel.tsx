@@ -326,7 +326,6 @@ export function ChangeSetsPanel() {
   return (
     <ListPage<ChangeSet>
       title="Change sets"
-      intro="A change set is a group of changes to objects, fields and record types that goes live all together or not at all. While it is open nothing in it is live. Check it to see every problem, preview it to see the result, then publish it."
       items={sets}
       failure={failure}
       rowKey={(row) => row.id}

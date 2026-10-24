@@ -3,6 +3,7 @@ package app.platform.inspection.internal;
 import app.platform.data.DataRecord;
 import app.platform.data.QueriedRecord;
 import app.platform.data.QueryFilter;
+import app.platform.data.QueryFilterNodes;
 import app.platform.data.QueryResult;
 import app.platform.data.QuerySort;
 import app.platform.data.RecordQuery;
@@ -20,6 +21,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,6 +48,8 @@ class TemplateList {
     private static final Set<String> STATES = Set.of("ACTIVE", "APPROVED", "IN_REVIEW", "DRAFT", "NONE", "RETIRED");
     private static final List<String> FIELDS = List.of(Templates.NAME, Templates.NUMBER, Templates.CATEGORY,
             Templates.SUB_CATEGORY, Templates.RETIRED);
+
+    private static final Pattern CODE = Pattern.compile("[A-Za-z0-9_-]{1,10}");
 
     private final TemplateAccess access;
     private final Records records;
@@ -74,13 +78,34 @@ class TemplateList {
      */
     TemplatePage page(String search, String category, String subCategory, Boolean retired, String state, String sort,
             Integer size, String cursor) {
+        return run(search, null, category, subCategory, retired, state, order(sort), size, cursor);
+    }
+
+    /**
+     * One page of the templates the caller may see for a question a person built (UI3A): a search text, the filter
+     * and the order of a list view, and a lifecycle state. The filter and the order are the closed query model of
+     * Sprint 16, checked by the same stages as any list of records, so a field the caller may not read is a field
+     * that does not exist and a record they may not see is never in the answer.
+     *
+     * @param query the question; its filter, sort, state, size and cursor may all be null
+     */
+    TemplatePage query(TemplateViews.TemplateQuery query) {
+        QueryFilter filter = query.filter() == null ? null : QueryFilterNodes.toFilter(query.filter(), "filter");
+        List<QuerySort> sort = query.sort() == null ? List.of() : query.sort().stream()
+                .map(key -> new QuerySort(key.field(), Boolean.TRUE.equals(key.descending()))).toList();
+        return run(query.search(), filter, null, null, null, query.state(), sort.isEmpty() ? order(null) : sort,
+                query.size(), query.cursor());
+    }
+
+    private TemplatePage run(String search, QueryFilter extra, String category, String subCategory, Boolean retired,
+            String state, List<QuerySort> sort, Integer size, String cursor) {
         Caller caller = access.member();
         String wantedState = state == null || state.isBlank() ? null : state.toUpperCase(Locale.ROOT);
         if (wantedState != null && !STATES.contains(wantedState)) {
             throw ApiException.validation("state", "Choose ACTIVE, APPROVED, IN_REVIEW, DRAFT, NONE or RETIRED.");
         }
         int limit = size == null || size <= 0 ? DEFAULT_SIZE : Math.min(size, MOST);
-        RecordQuery query = new RecordQuery(filter(search, category, subCategory, retired), order(sort), FIELDS,
+        RecordQuery query = new RecordQuery(filter(search, extra, category, subCategory, retired), sort, FIELDS,
                 List.of(), limit, cursor);
         QueryResult result = records.query(Templates.OBJECT, query);
         List<UUID> ids = result.records().stream().map(QueriedRecord::record).map(DataRecord::id).toList();
@@ -101,16 +126,26 @@ class TemplateList {
         return new TemplatePage(rows, result.nextCursor(), canCreate, wantedState != null);
     }
 
-    private static QueryFilter filter(String search, String category, String subCategory, Boolean retired) {
+    private static QueryFilter filter(String search, QueryFilter extra, String category, String subCategory,
+            Boolean retired) {
         List<QueryFilter> all = new ArrayList<>();
+        if (extra != null) {
+            all.add(extra);
+        }
         if (search != null && !search.isBlank()) {
             String text = search.strip();
             if (text.length() > 80) {
                 throw ApiException.validation("search", "Is too long.");
             }
-            all.add(new QueryFilter(QueryFilter.Op.OR, List.of(
+            List<QueryFilter> any = new ArrayList<>(List.of(
                     condition(QueryFilter.Op.CONTAINS, Templates.NAME, text),
-                    condition(QueryFilter.Op.CONTAINS, Templates.NUMBER, text)), null, null));
+                    condition(QueryFilter.Op.CONTAINS, Templates.NUMBER, text)));
+            if (CODE.matcher(text).matches()) {
+                // The category and the sub-category are picklists of short codes: a code typed whole finds them.
+                any.add(condition(QueryFilter.Op.EQ, Templates.CATEGORY, text.toUpperCase(Locale.ROOT)));
+                any.add(condition(QueryFilter.Op.EQ, Templates.SUB_CATEGORY, text.toUpperCase(Locale.ROOT)));
+            }
+            all.add(new QueryFilter(QueryFilter.Op.OR, any, null, null));
         }
         if (category != null && !category.isBlank()) {
             all.add(condition(QueryFilter.Op.EQ, Templates.CATEGORY, category.strip()));

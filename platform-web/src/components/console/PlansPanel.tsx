@@ -369,7 +369,6 @@ export function PlansPanel() {
   return (
     <ListPage<Plan>
       title="Plans"
-      intro="The plans the platform sells, with their default licences and features. Open a plan to change it; below are the licence types and the feature keys."
       items={ok?.plans}
       failure={loaded.kind === "failed" ? loaded.message : undefined}
       rowKey={(row) => row.key}

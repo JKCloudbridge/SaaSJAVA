@@ -177,12 +177,21 @@ class DefaultSheetLifecycle implements SheetLifecycle {
     }
 
     /**
-     * Whether the grid still is what a new sheet starts as: one column and nothing else. A sheet with a second column,
-     * a header band, a named row or a cell has been worked on.
+     * Whether the grid still is what a new sheet starts as: the placeholder columns and, for a sheet that names its
+     * rows, the unnamed rows, and nothing else. A sheet with a header band, a named row, a cell, or a column the
+     * author changed (a label of their own, another type, a width, a default, a list, required, reportable) has been
+     * worked on.
      */
     static boolean empty(SheetGrid grid) {
-        return grid.columns().size() <= 1 && grid.headerRows().isEmpty() && grid.rows().isEmpty()
-                && grid.cells().isEmpty();
+        return grid.headerRows().isEmpty() && grid.cells().isEmpty()
+                && grid.rows().stream().allMatch(row -> row.label() == null || row.label().isBlank())
+                && grid.columns().stream().allMatch(DefaultSheetLifecycle::untouched);
+    }
+
+    private static boolean untouched(SheetGrid.Column column) {
+        return column.label().matches("Column [0-9]+") && column.type() == SheetGrid.ColumnType.TEXT
+                && !column.required() && !column.reportable() && column.defaultValue() == null
+                && column.picklist() == null && column.width() == null;
     }
 
     private SheetMoveRefusal refused(String operation, Reason reason) {

@@ -5,6 +5,7 @@ import app.platform.data.BackgroundWriteException;
 import app.platform.data.DataRecord;
 import app.platform.data.QueriedRecord;
 import app.platform.data.QueryFilter;
+import app.platform.data.QueryFilterNodes;
 import app.platform.data.QueryResult;
 import app.platform.data.QuerySort;
 import app.platform.data.RecordQuery;
@@ -157,16 +158,56 @@ class FillIns {
      */
     @Transactional(readOnly = true)
     FillInPage page(UUID templateId, String status, Integer size, String cursor) {
+        return run(null, null, templateId, status, List.of(new QuerySort("createdAt", true)), size, cursor);
+    }
+
+    /**
+     * One page for a question a person built (UI3A): a search text, the filter and the order of a list view, and the
+     * narrowing to one template or status. It goes through the same record store query as {@link #page}, so the person
+     * sees exactly the fill-ins they may see.
+     *
+     * @param query the question; everything in it may be null
+     */
+    @Transactional(readOnly = true)
+    FillInPage query(FillInViews.FillInQuery query) {
+        QueryFilter filter = query.filter() == null ? null : QueryFilterNodes.toFilter(query.filter(), "filter");
+        List<QuerySort> sort = query.sort() == null || query.sort().isEmpty()
+                ? List.of(new QuerySort("createdAt", true))
+                : query.sort().stream().map(key -> new QuerySort(key.field(), Boolean.TRUE.equals(key.descending())))
+                        .toList();
+        return run(query.search(), filter, query.templateId(), query.status(), sort, query.size(), query.cursor());
+    }
+
+    private FillInPage run(String search, QueryFilter extra, UUID templateId, String status, List<QuerySort> sort,
+            Integer size, String cursor) {
         access.member();
         String wantedStatus = status == null || status.isBlank() ? null : status.toUpperCase(Locale.ROOT);
         if (wantedStatus != null && !STATUSES.contains(wantedStatus)) {
             throw ApiException.validation("status", "Choose DRAFT, SUBMITTED, RETURNED or APPROVED.");
         }
         int limit = size == null || size <= 0 ? DEFAULT_SIZE : Math.min(size, MOST);
-        RecordQuery query = new RecordQuery(filter(templateId, wantedStatus),
-                List.of(new QuerySort("createdAt", true)), FIELDS, List.of(), limit, cursor);
+        RecordQuery query = new RecordQuery(filter(templateId, wantedStatus, extra, searchFilter(search)), sort, FIELDS,
+                List.of(), limit, cursor);
         QueryResult result = records.query(Fills.OBJECT, query);
         return new FillInPage(rowsOf(result.records()), result.nextCursor());
+    }
+
+    /** The search text as a condition: part of the name, or the whole word of a status. */
+    private static QueryFilter searchFilter(String search) {
+        if (search == null || search.isBlank()) {
+            return null;
+        }
+        String text = search.strip();
+        if (text.length() > 80) {
+            throw ApiException.validation("search", "Is too long.");
+        }
+        List<QueryFilter> any = new ArrayList<>(List.of(
+                new QueryFilter(QueryFilter.Op.CONTAINS, null, Fills.NAME, List.of(text))));
+        String upper = text.toUpperCase(Locale.ROOT);
+        if (STATUSES.contains(upper)) {
+            any.add(new QueryFilter(QueryFilter.Op.EQ, null, Fills.STATUS, List.of(upper)));
+        }
+        return new QueryFilter(QueryFilter.Op.OR, any, null, null);
     }
 
     /**
@@ -236,8 +277,13 @@ class FillIns {
         return name == null ? "Fill-in" : name;
     }
 
-    private static QueryFilter filter(UUID templateId, String status) {
+    private static QueryFilter filter(UUID templateId, String status, QueryFilter... more) {
         List<QueryFilter> all = new ArrayList<>();
+        for (QueryFilter one : more) {
+            if (one != null) {
+                all.add(one);
+            }
+        }
         if (templateId != null) {
             all.add(new QueryFilter(QueryFilter.Op.EQ, null, Fills.TEMPLATE_ID, List.of(templateId.toString())));
         }

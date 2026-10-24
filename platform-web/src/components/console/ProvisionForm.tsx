@@ -103,7 +103,6 @@ export function ProvisionForm() {
       listLabel="Organizations"
       backHref="/console"
       title="Set up an organization"
-      intro="An invitation is sent to the first administrator. The answer is the same whether or not the address already has an account."
       notices={
         message ? (
           <p className="form-message" role="alert" data-testid="provision-message">

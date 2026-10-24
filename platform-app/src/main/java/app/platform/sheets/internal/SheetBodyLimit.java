@@ -17,17 +17,20 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  *
  * <p>It looks at the length the client announces. A client that announces none (a chunked body) passes here and is
  * bounded by {@link SheetController}, which counts the bytes it reads and stops at the limit; the front proxy of the
- * deployment must set a request size limit too (a deployment requirement, written in the runbook).
+ * deployment must set a request size limit too (the upload of a spreadsheet file, UI3B, may be as large as
+ * {@code platform.sheets.imports.max-file-bytes}) (a deployment requirement, written in the runbook).
  */
 @Component
 class SheetBodyLimit implements HandlerInterceptor, WebMvcConfigurer {
 
     private final SheetProperties properties;
     private final FillProperties fills;
+    private final ImportProperties imports;
 
-    SheetBodyLimit(SheetProperties properties, FillProperties fills) {
+    SheetBodyLimit(SheetProperties properties, FillProperties fills, ImportProperties imports) {
         this.properties = properties;
         this.fills = fills;
+        this.imports = imports;
     }
 
     @Override
@@ -41,13 +44,17 @@ class SheetBodyLimit implements HandlerInterceptor, WebMvcConfigurer {
         boolean put = "PUT".equals(request.getMethod());
         boolean grid = put && request.getRequestURI().endsWith("/grid");
         boolean cells = put && request.getRequestURI().endsWith("/cells");
+        boolean upload = "POST".equals(request.getMethod()) && request.getRequestURI().endsWith("/versions/import");
+        if (upload && announced > imports.maxFileBytes()) {
+            throw SheetController.fileTooLarge(imports.maxFileBytes());
+        }
         if (grid && announced > properties.limits().maxBytes()) {
             throw SheetController.tooLarge(properties.limits().maxBytes());
         }
         if (cells && announced > fills.maxBytes()) {
             throw SheetFillController.tooLarge(fills.maxBytes());
         }
-        if (!grid && !cells && announced > properties.smallBodyBytes()) {
+        if (!grid && !cells && !upload && announced > properties.smallBodyBytes()) {
             throw new ApiException(ErrorCode.PAYLOAD_TOO_LARGE);
         }
         return true;

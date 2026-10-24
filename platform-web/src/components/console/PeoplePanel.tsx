@@ -79,7 +79,6 @@ export function PeoplePanel() {
         listLabel="Platform people"
         onBack={cancel}
         title="Give a platform role"
-        intro="The person must already have an account."
         notices={messages}
         actions={
           <>

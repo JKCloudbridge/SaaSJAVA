@@ -121,6 +121,15 @@ export function useSession(): SessionApi {
 }
 
 /**
+ * The signed-in member's abilities as the API listed them, or null when there is no signed-in session (or no provider, as
+ * in a test of one panel). For a note that only people who can do something should read; the API decides what anyone may do.
+ */
+export function useAbilities(): readonly string[] | null {
+  const context = useContext(SessionContext);
+  return context?.state.status === "signedIn" ? context.state.user.abilities : null;
+}
+
+/**
  * Whether a button that needs the ability should be drawn. The abilities are the API's own list for the signed-in member,
  * so this is only a courtesy: it is false only when the list is known and lacks the ability, and the API still decides
  * (and answers in its own words) whatever the page offered. Without a session (a test of a single panel) it is true.

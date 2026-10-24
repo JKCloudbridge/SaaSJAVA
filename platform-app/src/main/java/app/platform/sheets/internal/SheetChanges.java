@@ -42,6 +42,29 @@ class SheetChanges {
         meters.counter("platform.sheets.versions", "operation", "create", "result", "ok").increment();
     }
 
+    /**
+     * A draft was made from an uploaded spreadsheet file (UI3B). The size of the file, the hash and the counts say that
+     * it happened and how much; nothing the file held is written down, not even the name of the file or of its sheet.
+     *
+     * @param format {@code xlsx} or {@code csv}
+     * @param fileBytes the size of the file as it arrived
+     * @param leftOut how many things the file held that the sheet does not
+     */
+    void imported(UUID actor, String object, UUID owner, int versionNo, String format, int fileBytes,
+            SheetGridValidator.Checked checked, int leftOut) {
+        SheetGrid grid = checked.grid();
+        audit.record(base("sheets.version.imported", actor, object, owner, versionNo).with("format", format)
+                .with("file_bytes", Integer.toString(fileBytes)).with("bytes", Integer.toString(checked.bytes()))
+                .with("hash", SheetGridWriter.hex(checked.hash()))
+                .with("columns", Integer.toString(grid.columns().size()))
+                .with("rows", Integer.toString(grid.rows().size()))
+                .with("cells", Integer.toString(grid.cells().size()))
+                .with("merges", Integer.toString(grid.merges().size())).with("left_out", Integer.toString(leftOut)));
+        meters.counter("platform.sheets.versions", "operation", "import", "result", "ok").increment();
+        DistributionSummary.builder("platform.sheets.import.bytes").baseUnit("bytes").register(meters)
+                .record(fileBytes);
+    }
+
     /** A draft was saved. */
     void saved(UUID actor, String object, UUID owner, int versionNo, long version, SheetGridValidator.Checked checked) {
         SheetGrid grid = checked.grid();

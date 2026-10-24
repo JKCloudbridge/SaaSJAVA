@@ -540,7 +540,6 @@ export function TabsPanel() {
   return (
     <ListPage<Row>
       title="Tabs"
-      intro="Every object already has its own tab here: it opens the object's list. Make a custom tab to show a custom page, then place the tab in an application or on a record page."
       items={rows}
       failure={failure}
       rowKey={(row) => row.key}

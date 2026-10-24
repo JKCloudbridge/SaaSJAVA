@@ -195,7 +195,6 @@ export function ExecutionsPanel() {
     <PageFrame
       title="Workflow runs"
       testId="runs"
-      intro="Every run of a workflow, newest first: what started it, what became of it and why. A run that needs a person is kept here, longer than the others, until it is replayed."
       tools={
         <Link className="button button-secondary" href="/setup/workflows">
           Workflows

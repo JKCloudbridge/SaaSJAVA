@@ -166,7 +166,6 @@ export function MembersPanel() {
         onBack={cancel}
         title="New member"
         notices={messages}
-        intro="The person gets an e-mail with a link where they choose a password. You choose their profile and role; they get no access until they accept."
         actions={
           <>
             <button type="button" className="button button-secondary" onClick={cancel}>

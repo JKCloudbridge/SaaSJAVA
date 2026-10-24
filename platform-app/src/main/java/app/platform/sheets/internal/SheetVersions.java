@@ -1,6 +1,7 @@
 package app.platform.sheets.internal;
 
 import app.platform.sharedkernel.approval.RecordLocks;
+import app.platform.sharedkernel.directory.ReferenceLabels;
 import app.platform.sheets.SheetStatus;
 import app.platform.sheets.internal.SheetGrid.RowsMode;
 import app.platformapi.ApiException;
@@ -11,10 +12,13 @@ import app.platformapi.SheetVersionSummaryView;
 import app.platformapi.SheetVersionView;
 import app.platformapi.SheetVersionsView;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -41,6 +45,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Transactional
 class SheetVersions {
 
+    private static final UUID PLATFORM_ACTOR = new UUID(0L, 0L);
     private static final String NO_SHEET = "This sheet does not exist.";
     private static final String NO_VERSION = "This version does not exist.";
     private static final TypeReference<Map<String, Object>> GRID = new TypeReference<>() {
@@ -51,17 +56,22 @@ class SheetVersions {
     private final SheetGridValidator validator;
     private final SheetChanges changes;
     private final SheetProperties properties;
+    private final ImportProperties importProperties;
     private final RecordLocks locks;
+    private final List<ReferenceLabels> directories;
     private final JsonMapper json = JsonMapper.builder().build();
 
     SheetVersions(SheetOwners owners, SheetVersionStore store, SheetGridValidator validator, SheetChanges changes,
-            SheetProperties properties, RecordLocks locks) {
+            SheetProperties properties, ImportProperties importProperties, RecordLocks locks,
+            List<ReferenceLabels> directories) {
         this.owners = owners;
         this.store = store;
         this.validator = validator;
         this.changes = changes;
         this.properties = properties;
+        this.importProperties = importProperties;
         this.locks = locks;
+        this.directories = directories;
     }
 
     /**
@@ -85,11 +95,13 @@ class SheetVersions {
             }
             canChange = false;
         }
-        List<SheetVersionSummaryView> versions = rows.stream().map(SheetVersions::summary).toList();
+        Map<UUID, String> names = names(rows.stream().map(SheetVersionStore.Row::updatedBy).toList());
+        List<SheetVersionSummaryView> versions = rows.stream().map(row -> summary(row, names)).toList();
         SheetProperties.Limits limits = properties.limits();
         return new SheetVersionsView(versions, canChange, new SheetLimitsView(limits.maxBytes(),
                 limits.maxRows(), limits.maxColumns(), limits.maxHeaderRows(), limits.maxCellChars(),
-                limits.maxLabelChars(), limits.maxPicklistValues(), limits.maxMerges()));
+                limits.maxLabelChars(), limits.maxPicklistValues(), limits.maxMerges(),
+                importProperties.maxFileBytes()));
     }
 
     /** One version with its grid. */
@@ -101,7 +113,7 @@ class SheetVersions {
                 .filter(version -> reach.map(r -> visible(r, version.row())).orElse(false)
                         || underReviewOf(caller, version.row()))
                 .orElseThrow(() -> ApiException.notFound(NO_VERSION));
-        return new SheetVersionView(summary(found.row()), json.readValue(found.grid(), GRID));
+        return new SheetVersionView(summaryOf(found.row()), json.readValue(found.grid(), GRID));
     }
 
     /**
@@ -141,7 +153,7 @@ class SheetVersions {
             throw new ApiException(ErrorCode.CONFLICT, "A draft already exists. Reload and continue with it.");
         }
         changes.created(reach.userId(), reach.object(), reach.id(), row.versionNo(), basedOn, row.dimension());
-        return summary(row);
+        return summaryOf(row);
     }
 
     /**
@@ -190,7 +202,7 @@ class SheetVersions {
             // Nothing to correct: the same grid is not a correction, and counting it would be a lie (the database
             // counts a review edit only when the grid changes). The answer is the version as it is.
             changes.refused("save", "unchanged");
-            return summary(current);
+            return summaryOf(current);
         }
         SheetVersionStore.Row saved;
         try {
@@ -219,7 +231,7 @@ class SheetVersions {
         } else {
             changes.saved(reach.userId(), reach.object(), reach.id(), versionNo, saved.version(), checked);
         }
-        return summary(saved);
+        return summaryOf(saved);
     }
 
     // ---- rules ----
@@ -286,9 +298,32 @@ class SheetVersions {
         return places;
     }
 
-    private static SheetVersionSummaryView summary(SheetVersionStore.Row row) {
+    SheetVersionSummaryView summaryOf(SheetVersionStore.Row row) {
+        return summary(row, names(java.util.Collections.singletonList(row.updatedBy())));
+    }
+
+    private static SheetVersionSummaryView summary(SheetVersionStore.Row row, Map<UUID, String> names) {
         return new SheetVersionSummaryView(row.versionNo(), row.status(), row.dimension(), row.rowsMode(),
                 row.gridBytes(), row.gridHash(), row.version(), row.createdAt(), row.updatedAt(), row.submittedAt(),
-                row.decidedAt(), row.reviewEdits());
+                row.decidedAt(), row.reviewEdits(), row.updatedBy() == null ? null : names.get(row.updatedBy()));
+    }
+
+    /**
+     * The display names of the people who last changed versions: active members only, through the same contract the
+     * other lists use. A person who left, and the platform's own actor, get none (the screen shows a dash); an
+     * identifier is never sent.
+     */
+    private Map<UUID, String> names(Collection<UUID> actors) {
+        Set<UUID> people = new HashSet<>();
+        for (UUID actor : actors) {
+            if (actor != null && !PLATFORM_ACTOR.equals(actor)) {
+                people.add(actor);
+            }
+        }
+        if (people.isEmpty()) {
+            return Map.of();
+        }
+        return directories.stream().filter(directory -> "User".equals(directory.object())).findFirst()
+                .map(directory -> directory.labels(people)).orElse(Map.of());
     }
 }

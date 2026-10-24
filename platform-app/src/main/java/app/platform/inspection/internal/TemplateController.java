@@ -63,6 +63,22 @@ class TemplateController {
         return ApiResponse.of(list.page(search, category, subCategory, retired, state, sort, size, cursor));
     }
 
+    @PostMapping(BASE + "/query")
+    @Operation(
+            operationId = "queryTemplates",
+            summary = "The templates the caller may see, for a search, a filter and an order",
+            description = "The same page as the list, for a question a list view holds: search (a name or a number, or "
+                    + "a whole category or sub-category code), a filter (the closed query model of the record "
+                    + "store, conditions combined with AND or OR), up to two sort keys, and a lifecycle state. A "
+                    + "post, because the filter does not belong in an address. A field the caller may not read is "
+                    + "answered like a field that does not exist, and an order or a filter that cannot use an index "
+                    + "is bounded by the query engine's scan limit (and refused above it, naming the field). The "
+                    + "page is read through the record store, so the caller sees exactly the templates they may see. "
+                    + "Nothing typed is logged.")
+    ApiResponse<TemplatePage> query(@Valid @RequestBody TemplateViews.TemplateQuery body) {
+        return ApiResponse.of(list.query(body));
+    }
+
     @GetMapping(BASE + "/audience-options")
     @Operation(
             operationId = "templateAudienceOptions",

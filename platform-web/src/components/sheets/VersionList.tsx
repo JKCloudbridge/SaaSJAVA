@@ -46,6 +46,7 @@ export function VersionList({ versions, current, onOpen, onStartFrom }: VersionL
           <th scope="col">Status</th>
           <th scope="col">Size</th>
           <th scope="col">Last changed</th>
+          <th scope="col">Last changed by</th>
           <th scope="col">
             <span className="visually-hidden">Actions</span>
           </th>
@@ -73,6 +74,7 @@ export function VersionList({ versions, current, onOpen, onStartFrom }: VersionL
               <td>
                 <time dateTime={version.updatedAt}>{new Date(version.updatedAt).toLocaleString()}</time>
               </td>
+              <td>{version.updatedBy ? version.updatedBy : <span aria-label="Nobody to name">—</span>}</td>
               <td>
                 <button type="button" className="link-button" onClick={() => onOpen(version.versionNo)}>
                   {version.versionNo === current ? `Version ${version.versionNo} is open` : `Open version ${version.versionNo}`}

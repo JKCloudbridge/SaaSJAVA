@@ -255,7 +255,6 @@ export function ProfilesPanel() {
   return (
     <ListPage<Profile>
       title="Profiles"
-      intro="A profile is the base set of abilities of a member and belongs to one licence type: giving a member a profile uses one licence of that type. A member has exactly one profile."
       items={loaded?.profiles}
       failure={failure}
       rowKey={(row) => row.id}

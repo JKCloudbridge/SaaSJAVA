@@ -19,7 +19,6 @@ export interface DetailPageProps {
   /** Edit or Save and the screen's own actions: the right end of the title band. */
   actions?: ReactNode;
   notices?: ReactNode;
-  intro?: ReactNode;
   children?: ReactNode;
   testId?: string;
 }
@@ -39,7 +38,6 @@ export function DetailPage(props: DetailPageProps) {
     <PageFrame
       title={props.title}
       titleExtra={props.titleExtra}
-      intro={props.intro}
       breadcrumb={breadcrumb}
       tools={props.actions}
       notices={props.notices}

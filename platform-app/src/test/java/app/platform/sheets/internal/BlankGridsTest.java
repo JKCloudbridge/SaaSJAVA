@@ -55,4 +55,27 @@ class BlankGridsTest {
         assertThat(validator.check(BlankGrids.of(1, RowsMode.REPEATABLE)).accepted()).isTrue();
         assertThat(List.of(BlankGrids.STARTING_SIZE)).containsExactly(10);
     }
+
+    @Test
+    void aBlankGridIsEmptyForTheLifecycleUntilTheAuthorWorksOnIt() {
+        SheetGrid blank = BlankGrids.of(2, RowsMode.FIXED);
+        assertThat(DefaultSheetLifecycle.empty(blank)).isTrue();
+        assertThat(DefaultSheetLifecycle.empty(BlankGrids.of(1, RowsMode.REPEATABLE))).isTrue();
+
+        List<Column> renamed = new java.util.ArrayList<>(blank.columns());
+        Column first = renamed.get(0);
+        renamed.set(0, new Column(first.id(), "Finding", first.type(), false, null, null, null, false));
+        assertThat(DefaultSheetLifecycle.empty(new SheetGrid(2, RowsMode.FIXED, renamed, blank.headerRows(),
+                blank.rows(), blank.cells(), blank.merges()))).as("a label of the author's own").isFalse();
+
+        List<Column> widened = new java.util.ArrayList<>(blank.columns());
+        widened.set(0, new Column(first.id(), first.label(), first.type(), false, null, null, 200, false));
+        assertThat(DefaultSheetLifecycle.empty(new SheetGrid(2, RowsMode.FIXED, widened, blank.headerRows(),
+                blank.rows(), blank.cells(), blank.merges()))).as("a width").isFalse();
+
+        List<Line> named = new java.util.ArrayList<>(blank.rows());
+        named.set(0, new Line(named.get(0).id(), "First", null));
+        assertThat(DefaultSheetLifecycle.empty(new SheetGrid(2, RowsMode.FIXED, blank.columns(), blank.headerRows(),
+                named, blank.cells(), blank.merges()))).as("a named row").isFalse();
+    }
 }

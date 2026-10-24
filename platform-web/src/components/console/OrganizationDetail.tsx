@@ -132,12 +132,6 @@ export function OrganizationDetail() {
       backHref="/console"
       title={organization.displayName}
       testId="organization-detail"
-      intro={
-        <>
-          <span className="mono">{organization.slug}</span> · {organization.status} since{" "}
-          {new Date(organization.statusChangedAt).toLocaleString()}
-        </>
-      }
       notices={<ActionMessages notice={notice} problem={problem} testId="organization" />}
     >
 

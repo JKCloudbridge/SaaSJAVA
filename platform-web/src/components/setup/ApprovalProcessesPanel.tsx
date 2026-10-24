@@ -164,7 +164,6 @@ export function ApprovalProcessesPanel() {
   return (
     <ListPage<ProcessView>
       title="Approval processes"
-      intro="An approval process decides a record in steps: when a record is submitted it is locked, each step asks the people the process names, and when the request ends the record is unlocked and the process may set fields of it. A request that is under way keeps the version of the process it started under."
       items={processes}
       failure={failure}
       rowKey={(row) => `${row.objectApiName}.${row.apiName}`}

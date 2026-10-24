@@ -40,7 +40,8 @@ final class BlankGrids {
                 List.of());
     }
 
-    private static String identifier(String prefix) {
+    /** A new identifier: a prefix and twelve characters of a random number, never typed by a person. */
+    static String identifier(String prefix) {
         return prefix + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
     }
 }

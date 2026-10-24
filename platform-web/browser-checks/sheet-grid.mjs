@@ -373,6 +373,92 @@ try {
     await fillSmall.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
   await shot(fillSmall, "fill-in-phone");
   await fillPhone.close();
+  // 12. the list views of the Templates list (UI3A, ADR-0194): the title row, the search and the order asked of the server,
+  // the two boxes of "Select fields to display", the filter, and a saved view that is chosen again and then removed.
+  await page.goto(`${BASE}/apps/inspection/s-templates`);
+  await page.getByTestId("view-menu").waitFor({ timeout: 20000 });
+  const titleRow = page.locator(".page-head-row");
+  check("the title row holds the view menu, New, the search box and the settings icon",
+    (await titleRow.getByTestId("view-menu").count()) === 1 && (await titleRow.getByRole("button", { name: "New" }).count()) === 1 &&
+      (await titleRow.getByRole("searchbox").count()) === 1 && (await titleRow.getByRole("button", { name: "Templates settings" }).count()) === 1);
+  check("no description sits under the title", (await page.locator(".page-intro").count()) === 0);
+  const asked = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().endsWith("/api/v1/templates/query")) asked.push(request.postData() ?? "");
+  });
+  await titleRow.getByRole("searchbox").fill("Browser");
+  await page.waitForResponse((r) => r.url().endsWith("/api/v1/templates/query"), { timeout: 15000 });
+  check("a typed search is asked of the server, not filtered in the browser", asked.some((body) => body.includes('"search":"Browser"')));
+  await page.getByRole("button", { name: /^Name/ }).click();
+  await page.waitForResponse((r) => r.url().endsWith("/api/v1/templates/query"), { timeout: 15000 });
+  check("a click on a header orders the whole result on the server", asked.some((body) => body.includes('"descending":true')));
+  await titleRow.getByRole("button", { name: "Templates settings" }).click();
+  check("the settings menu offers Select fields and Filter and no Delete",
+    (await page.getByRole("menuitem", { name: "Select fields to display" }).count()) === 1 &&
+      (await page.getByRole("menuitem", { name: "Filter" }).count()) === 1 && (await page.getByRole("menuitem", { name: /Delete/ }).count()) === 0);
+  await page.getByRole("menuitem", { name: "Select fields to display" }).click();
+  const fieldsDialog = page.getByRole("dialog", { name: "Select fields to display" });
+  await fieldsDialog.getByLabel("Selected fields").selectOption("category");
+  await fieldsDialog.getByRole("button", { name: "‹ Remove" }).click();
+  await fieldsDialog.getByRole("button", { name: "Apply" }).click();
+  check("a field moved out of the selected box leaves the table", (await page.getByRole("columnheader", { name: /^Category/ }).count()) === 0);
+  await shot(page, "template-list-views");
+  await titleRow.getByTestId("view-menu").click();
+  await page.getByRole("menuitem", { name: "Save view…" }).click();
+  const saveDialog = page.getByRole("dialog", { name: "Save this view" });
+  await saveDialog.getByLabel("Name").fill("Browser check view");
+  await saveDialog.getByRole("button", { name: "Save view" }).click();
+  await page.getByRole("dialog").waitFor({ state: "detached", timeout: 15000 });
+  check("a saved view names the list", /Browser check view/.test(await titleRow.getByTestId("view-menu").innerText()));
+  await page.reload();
+  await page.getByTestId("view-menu").waitFor({ timeout: 20000 });
+  await page.waitForFunction(() => /Browser check view/.test(document.querySelector('[data-testid="view-menu"]')?.textContent ?? ""), null, { timeout: 15000 });
+  check("the view the person had open opens again", true);
+  await page.getByTestId("view-menu").click();
+  await page.getByRole("menuitem", { name: "Remove this view…" }).click();
+  await page.getByRole("dialog", { name: "Remove this view" }).getByRole("button", { name: "Remove view" }).click();
+  await page.getByRole("dialog").waitFor({ state: "detached", timeout: 15000 });
+  check("a view of the person's own is removed", /All templates/.test(await page.getByTestId("view-menu").innerText()));
+  // 13. a version made from a spreadsheet file (UI3B, ADR-0195) and the height of a row dragged by its bottom edge: a fresh
+  // template with no version is started from a text file (a workbook is made by the tests of the server), the preview says
+  // what the file gives, Save makes the draft, the grid shows the file's column names, a row is made taller by dragging and
+  // saved, and the list of versions names the person who last changed it.
+  const second = await api(page, "POST", "/api/v1/objects/InspectionTemplate/records", { fields: { name: `Browser upload ${Date.now()}` } });
+  const uploadId = second.body?.data?.id;
+  await page.goto(`${BASE}/apps/inspection/templates?open=${uploadId}&tab=sheet`);
+  await page.getByRole("button", { name: "Start from a spreadsheet" }).click({ timeout: 20000 });
+  await page.getByLabel("Choose a spreadsheet file").setInputFiles({
+    name: "upload-check.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("Item,Result\nDoor closes,pass\nAlarm sounds,\n"),
+  });
+  const uploadDialog = page.getByRole("dialog", { name: "Make a version from a spreadsheet" });
+  await uploadDialog.getByText(/The file gives 2 columns, 2 rows/).waitFor({ timeout: 20000 });
+  check("the preview says what the file gives and saves nothing yet",
+    (await api(page, "GET", `/api/v1/sheets/InspectionTemplate/${uploadId}/versions`)).body?.data?.versions?.length === 0);
+  await shot(page, "upload-preview");
+  await uploadDialog.getByRole("button", { name: "Save as a new draft" }).click();
+  await page.getByRole("grid").waitFor({ timeout: 20000 });
+  const made = await api(page, "GET", `/api/v1/sheets/InspectionTemplate/${uploadId}/versions/1`);
+  check("the draft holds the columns and rows of the file",
+    JSON.stringify(made.body?.data?.grid?.columns?.map((c) => c.label)) === JSON.stringify(["Item", "Result"]) && made.body?.data?.grid?.rows?.length === 2);
+  check("the grid shows the file's column names", (await page.locator(".sheet-label", { hasText: "Item" }).count()) === 1);
+  const edge = page.locator('[role="separator"][aria-label^="Height of"]').first();
+  const box = await edge.boundingBox();
+  if (box) {
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 30, { steps: 5 });
+    await page.mouse.up();
+  }
+  check("dragging the bottom edge of a row makes it taller", Number(await edge.getAttribute("aria-valuenow")) > 24);
+  await page.getByRole("button", { name: "Save" }).click();
+  await page.getByText("All changes are saved.").waitFor({ timeout: 15000 });
+  const taller = await api(page, "GET", `/api/v1/sheets/InspectionTemplate/${uploadId}/versions/1`);
+  check("the height is saved with the version", (taller.body?.data?.grid?.rows?.[0]?.height ?? 0) > 24);
+  const listed = await api(page, "GET", `/api/v1/sheets/InspectionTemplate/${uploadId}/versions`);
+  check("the list names the person who last changed the version", typeof listed.body?.data?.versions?.[0]?.updatedBy === "string");
+  await shot(page, "upload-draft");
 } catch (error) {
   failed++;
   console.log(`FAIL the script stopped: ${String(error).split("\n")[0]}`);

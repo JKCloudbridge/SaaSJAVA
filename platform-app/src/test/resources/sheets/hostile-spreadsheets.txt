@@ -1,0 +1,52 @@
+@@ The corpus of hostile spreadsheet files (UI3B, ADR-0195).
+@@
+@@ One construct per line, four fields separated by a TAB:
+@@   1. the code the reader must refuse the file with (see ImportRefusal);
+@@   2. the kind: "xlsx" or "csv" (the format the person said the file has);
+@@   3. the name of the generator in SpreadsheetCorpusTest that makes the file bytes (a file is made, never stored);
+@@   4. why the construct is hostile.
+@@ Every line must be refused with that code, and the words of the refusal must never repeat what the file held (the
+@@ marker HOSTILEMARK and markup must not come back). A line that starts with two at signs is a comment. A code the
+@@ reader can answer with and that has no line fails SpreadsheetCorpusTest: a new rule cannot be added without a
+@@ hostile case. "busy" and "grid_invalid" have no file of their own: the first is the answer when all the places that
+@@ bound the files read at once are taken (SpreadsheetImporterTest), the second is the defence behind the checks of
+@@ the builder and is not reachable from a file. The entity attack has its own test (SpreadsheetImporterTest) because
+@@ the parser may refuse it or ignore it, and both are safe.
+@@
+@@ ---- the file is not what its name says ----
+not_xlsx	xlsx	text-named-xlsx	a text file sent as a workbook
+not_xlsx	xlsx	truncated-zip	a workbook cut off in the middle
+not_xlsx	xlsx	zip-without-workbook	a zip archive that holds no workbook
+not_xlsx	xlsx	broken-sheet-xml	a workbook whose sheet is not well formed XML
+not_xlsx	xlsx	empty-archive-bytes	four bytes that start like a zip and end there
+old_format	xlsx	ole-header	an older binary workbook, or one protected by a password
+no_sheet	xlsx	no-sheet-part	a workbook whose first sheet points at a part that is not there
+not_csv	csv	zip-named-csv	a workbook sent as a text file
+not_csv	csv	binary-named-csv	a file with a zero byte in it
+not_csv	csv	unclosed-quote	a quoted value that never ends
+not_utf8	csv	latin-1	text in another encoding, which would change people's words if guessed
+@@ ---- macros ----
+macros	xlsx	vba-part	a workbook that carries a macro project
+macros	xlsx	macro-content-type	a workbook that declares itself macro enabled
+@@ ---- size, counted while reading ----
+file_too_large	csv	one-byte-over	one byte over the size of a file
+inflated	xlsx	zip-bomb-sheet	a sheet that unpacks to far more than its size
+inflated	xlsx	zip-bomb-skipped-part	a part that is never read and still unpacks to far more than its size
+inflated	xlsx	zip-bomb-many-parts	many parts that together unpack to more than the whole may be
+entries	xlsx	too-many-parts	more parts than a workbook has
+cells	xlsx	too-many-cells	more cells and rows than can be read
+cells	csv	too-many-values	more values than can be read
+too_many_merges	xlsx	too-many-merges	more merged areas than a sheet may have
+too_many_columns	csv	columns-101	one column over the limit
+too_many_rows	csv	rows-501	one row over the limit
+@@ ---- what a person typed ----
+text_too_long	csv	cell-1001	a text of 1,001 characters
+text_too_long	csv	label-201	a column name of 201 characters
+text_too_long	xlsx	cell-1001-in-workbook	a text of 1,001 characters in a workbook
+unsafe_text	csv	markup	a text that holds a tag
+unsafe_text	xlsx	direction-override-in-workbook	a text in a workbook that holds a character that reorders how text is drawn, written as a character reference
+unsafe_text	csv	direction-mark	a text that holds a character that reorders how text is drawn
+@@ ---- nothing to read ----
+empty_file	csv	zero-bytes	a file of no bytes
+empty_file	csv	only-line-breaks	a file of line breaks and spaces only
+empty_file	xlsx	empty-workbook	a workbook whose sheet has no text

@@ -5,6 +5,9 @@ import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
 import app.platformapi.ErrorCode;
 import app.platformapi.NewSheetVersionRequest;
+import app.platformapi.SheetImportNoteView;
+import app.platformapi.SheetImportReportView;
+import app.platformapi.SheetImportResultView;
 import app.platformapi.SheetVersionSummaryView;
 import app.platformapi.SheetVersionView;
 import app.platformapi.SheetVersionsView;
@@ -46,10 +49,15 @@ class SheetController {
 
     private final SheetVersions versions;
     private final SheetProperties properties;
+    private final SheetImports imports;
+    private final SpreadsheetImporter importer;
 
-    SheetController(SheetVersions versions, SheetProperties properties) {
+    SheetController(SheetVersions versions, SheetProperties properties, SheetImports imports,
+            SpreadsheetImporter importer) {
         this.versions = versions;
         this.properties = properties;
+        this.imports = imports;
+        this.importer = importer;
     }
 
     @GetMapping(VERSIONS)
@@ -81,6 +89,70 @@ class SheetController {
         NewSheetVersionRequest request = body == null ? new NewSheetVersionRequest(null, null, null) : body;
         return ResponseEntity.status(HttpStatus.CREATED).header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .body(ApiResponse.of(versions.create(ownerObject, ownerId, request)));
+    }
+
+    @PostMapping(value = VERSIONS + "/import", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+    @Operation(
+            operationId = "importSheetVersion",
+            summary = "Make a new draft version from an uploaded spreadsheet file",
+            description = "The body is the file itself (an .xlsx workbook or a UTF-8 text file with comma, semicolon "
+                    + "or tab separated values) and nothing else; format says which. The file is read on the server "
+                    + "and kept nowhere. The first sheet of a workbook is read; text becomes fixed text of the sheet, "
+                    + "a cell with no text is left to be typed into, and column widths, row heights, bold, italic, "
+                    + "the four sizes and merged areas come with it. Formulas come in as their last values and dates "
+                    + "as text written year-month-day. Images, charts, other sheets and links to other files are "
+                    + "left out and counted in the report, which says what was left out in plain words. "
+                    + "firstRowLabels (default true) makes the first row with text the names of the columns. A "
+                    + "sheet that has no version yet is made in the shape where the sheet names its rows; a sheet "
+                    + "that has versions keeps its shape (where the filler adds the rows, only the names of the "
+                    + "columns come in). preview=true answers with the report and saves nothing. The size is "
+                    + "checked before anything is read, from the announced length and again on the bytes read: "
+                    + "PAYLOAD_TOO_LARGE (also for a file that unpacks to more than is allowed). VALIDATION_ERROR "
+                    + "for a file that is not what its format says, a workbook with macros, a limit of the sheet "
+                    + "that the file goes over (it is named, with the row and column when a cell is the reason) or a "
+                    + "text that holds markup; nothing is cut. CONFLICT names the number of the draft when one "
+                    + "exists, or when the sheet has the most versions it can have. RATE_LIMITED when other files "
+                    + "are being read at the same moment. FORBIDDEN for a caller who may read the record but not "
+                    + "update it. Audited by the format, the sizes and the counts, never by what the file held. "
+                    + UNKNOWN)
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(mediaType = "application/octet-stream",
+            schema = @Schema(type = "string", format = "binary")))
+    ResponseEntity<ApiResponse<SheetImportResultView>> importFile(@PathVariable String ownerObject,
+            @PathVariable UUID ownerId, @RequestParam String format,
+            @RequestParam(defaultValue = "true") boolean firstRowLabels,
+            @RequestParam(defaultValue = "false") boolean preview, HttpServletRequest request) {
+        SpreadsheetImporter.Format kind = SpreadsheetImporter.Format.of(format)
+                .orElseThrow(() -> ApiException.validation("format", "Choose xlsx or csv."));
+        // Before the body is read: who may change the sheet, and whether a draft can be started at all.
+        SheetImports.Plan plan = imports.plan(ownerObject, ownerId);
+        byte[] file = readBounded(request, importer.maxFileBytes(), true);
+        SpreadsheetImporter.Imported imported;
+        try {
+            imported = importer.read(file, kind, new SheetImportBuilder.Options(firstRowLabels, plan.dimension(),
+                    plan.rowsMode()));
+        } catch (ImportRefusal e) {
+            imports.refused(e.code());
+            throw refusal(e);
+        }
+        SheetVersionSummaryView saved = preview ? null : imports.start(ownerObject, ownerId, plan, imported,
+                kind.name().toLowerCase(java.util.Locale.ROOT), file.length);
+        return ResponseEntity.status(preview ? HttpStatus.OK : HttpStatus.CREATED)
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(ApiResponse.of(new SheetImportResultView(!preview, saved, view(imported.report()))));
+    }
+
+    private static SheetImportReportView view(SheetImportBuilder.Report report) {
+        return new SheetImportReportView(report.columns(), report.rows(), report.mergedAreas(),
+                report.notes().stream().map(entry -> new SheetImportNoteView(entry.note().code(), entry.count(),
+                        entry.note().leftOut(), entry.note().words(entry.count()))).toList());
+    }
+
+    private static ApiException refusal(ImportRefusal e) {
+        return switch (e.kind()) {
+            case TOO_LARGE -> new ApiException(ErrorCode.PAYLOAD_TOO_LARGE, e.words());
+            case BUSY -> ApiException.rateLimited(2);
+            default -> ApiException.validation("file", e.words());
+        };
     }
 
     @GetMapping(VERSIONS + "/{versionNo}")
@@ -125,16 +197,24 @@ class SheetController {
      * (a chunked body), cannot make the server hold more.
      */
     private byte[] readBounded(HttpServletRequest request) {
-        int most = properties.limits().maxBytes();
+        return readBounded(request, properties.limits().maxBytes(), false);
+    }
+
+    private static byte[] readBounded(HttpServletRequest request, int most, boolean file) {
         try {
             byte[] bytes = request.getInputStream().readNBytes(most + 1);
             if (bytes.length > most) {
-                throw tooLarge(most);
+                throw file ? fileTooLarge(most) : tooLarge(most);
             }
             return bytes;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    static ApiException fileTooLarge(int most) {
+        return new ApiException(ErrorCode.PAYLOAD_TOO_LARGE, "The file is larger than the allowed size of " + most
+                + " bytes.");
     }
 
     static ApiException tooLarge(int most) {

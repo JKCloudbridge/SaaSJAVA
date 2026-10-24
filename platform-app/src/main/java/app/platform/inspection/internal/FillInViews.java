@@ -1,6 +1,10 @@
 package app.platform.inspection.internal;
 
+import app.platformapi.QueryFilterNode;
+import app.platformapi.QuerySortKey;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -116,5 +120,27 @@ public final class FillInViews {
      * @param nextCursor the cursor of the next page of the same query, or null on the last page
      */
     public record FillInPage(@NotNull List<FillInRow> rows, String nextCursor) {
+    }
+
+    /**
+     * The question a list view puts to the fill-in list (UI3A). Like the list of templates, the filter and the order
+     * are the closed query model of the record store; a typed text in it is never logged.
+     *
+     * @param search a text matched against the name, or the whole word of a status
+     * @param filter conditions on the fields of the fill-in header, or null
+     * @param sort up to two keys; none gives newest first
+     * @param templateId only the fill-ins of this template, or null
+     * @param status only fill-ins in this status, or null
+     * @param size the page size, at most 200; null is 50
+     * @param cursor the cursor of the previous page of the same question, or null
+     */
+    public record FillInQuery(@Size(max = 80) String search, @Valid QueryFilterNode filter,
+            @Size(max = 2) List<@NotNull @Valid QuerySortKey> sort, UUID templateId, @Size(max = 20) String status,
+            Integer size, @Size(max = 2000) String cursor) {
+
+        @Override
+        public String toString() {
+            return "FillInQuery[redacted]";
+        }
     }
 }

@@ -128,7 +128,6 @@ export function LayoutsPanel({ object, reload: reloadObject, refreshToken, autho
     <ListPage<LayoutView>
       title={tabTitle(object, "Page layouts")}
       crumbs={listCrumbs(object, "Page layouts")}
-      intro="A page layout is the structure of a record form: sections with fields in them. It must show every required field of the object."
       items={layouts}
       failure={failure}
       rowKey={(row) => row.apiName}

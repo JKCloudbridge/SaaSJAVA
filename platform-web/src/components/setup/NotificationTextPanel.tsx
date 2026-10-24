@@ -231,7 +231,6 @@ export function NotificationTextPanel() {
   return (
     <ListPage<Template>
       title="Notification text"
-      intro="The sentences the platform sends to members, in the application and by mail. A placeholder stands for a label of your organization (never for anything in a record), and a text holds no link: the platform adds its own. Notices already made show the new words the next time they are read."
       items={view?.templates}
       failure={failure}
       rowKey={(row) => row.kind}

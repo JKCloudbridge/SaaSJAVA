@@ -163,7 +163,6 @@ export function WorkflowsPanel() {
   return (
     <ListPage<WorkflowView>
       title="Workflows"
-      intro="A workflow reacts to something that happens to a record, or to a time: if its condition holds, it runs its actions in order, after the change is saved. A run that cannot finish is kept in the list of runs for a person to replay."
       items={workflows}
       failure={failure}
       rowKey={(row) => `${row.objectApiName}.${row.apiName}`}

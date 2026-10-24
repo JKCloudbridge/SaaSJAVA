@@ -164,7 +164,6 @@ export function RecordPagesPanel({ object, reload: reloadObject, refreshToken }:
     <ListPage<RecordPageView>
       title={tabTitle(object, "Record pages")}
       crumbs={listCrumbs(object, "Record pages")}
-      intro="A record page puts the details of a layout together with a header, related lists, tabs and actions. When a part is shown can depend on a field or on an ability of the person."
       items={pages}
       failure={failure}
       rowKey={(row) => row.apiName}

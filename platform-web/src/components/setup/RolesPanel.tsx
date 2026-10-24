@@ -269,7 +269,6 @@ export function RolesPanel() {
   return (
     <ListPage<TreeRow>
       title="Roles"
-      intro="Roles form a tree that says who works under whom. Once records exist, a role decides which records a member may see. A role gives no ability, so choosing one changes nothing a member can do today."
       items={tree}
       failure={failure}
       rowKey={(row) => row.role.id}

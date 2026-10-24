@@ -39,10 +39,11 @@ class SheetVersionStore {
      * @param decidedAt when its review ended, or null
      * @param reviewEdits how many times an approver changed the grid while it was in review
      * @param approvalRequestId the approval request that reviews it or reviewed it, or null
+     * @param updatedBy who last changed it (the base column), or null
      */
     record Row(int versionNo, String status, int dimension, String rowsMode, long gridBytes, String gridHash,
             long version, Instant createdAt, Instant updatedAt, Instant submittedAt, Instant decidedAt,
-            int reviewEdits, UUID approvalRequestId) {
+            int reviewEdits, UUID approvalRequestId, UUID updatedBy) {
     }
 
     /** A version with its grid as the JSON text the database holds. The grid is the organization's text. */
@@ -65,7 +66,7 @@ class SheetVersionStore {
 
     private static final String COLUMNS = "version_no, status, dimension, rows_mode, grid_bytes, "
             + "encode(grid_hash, 'hex') as grid_hash, version, created_at, updated_at, submitted_at, decided_at, "
-            + "review_edits, approval_request_id";
+            + "review_edits, approval_request_id, updated_by";
 
     private static final String WHERE_OWNER = "tenant_id = :tenant and owner_object = :object and owner_id = :owner "
             + "and deleted_at is null";
@@ -279,7 +280,7 @@ class SheetVersionStore {
                 rs.getString("rows_mode"), rs.getLong("grid_bytes"), rs.getString("grid_hash"), rs.getLong("version"),
                 instant(rs, "created_at"), instant(rs, "updated_at"), instant(rs, "submitted_at"),
                 instant(rs, "decided_at"), rs.getInt("review_edits"),
-                rs.getObject("approval_request_id", UUID.class));
+                rs.getObject("approval_request_id", UUID.class), rs.getObject("updated_by", UUID.class));
     }
 
     private static Instant instant(ResultSet rs, String column) throws SQLException {

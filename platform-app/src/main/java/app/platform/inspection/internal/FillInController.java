@@ -87,6 +87,19 @@ class FillInController {
         return ApiResponse.of(fillIns.page(templateId, status, size, cursor));
     }
 
+    @PostMapping(ApiPaths.V1 + "/fill-ins/query")
+    @Operation(
+            operationId = "queryFillIns",
+            summary = "The fill-ins the caller may see, for a search, a filter and an order",
+            description = "The same page as the list, for a question a list view holds: search (a name, or the whole "
+                    + "word of a status), a filter and up to two sort keys in the closed query model of the record "
+                    + "store, and the narrowing to one template or status. A post, because the filter does not "
+                    + "belong in an address. The page is read through the record store, so the caller sees exactly "
+                    + "the fill-ins they may see. Nothing typed is logged.")
+    ApiResponse<FillInPage> query(@Valid @RequestBody FillInViews.FillInQuery body) {
+        return ApiResponse.of(fillIns.query(body));
+    }
+
     @GetMapping(ApiPaths.V1 + "/fill-ins/report/columns")
     @Operation(
             operationId = "getFillInReportColumns",

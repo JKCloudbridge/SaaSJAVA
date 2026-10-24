@@ -2,8 +2,8 @@ import { useId, type ReactNode } from "react";
 
 export interface PageFrameProps {
   title: string;
-  /** @deprecated No longer drawn: pages do not explain themselves under the title. The call sites are removed later. */
-  intro?: ReactNode;
+  /** Stands in the title's place (the view menu of a list); the title still names the page for assistive technology. */
+  titleControl?: ReactNode;
   /** A status chip or two drawn beside the title. */
   titleExtra?: ReactNode;
   /** The trail back to the list, drawn above the title (a detail page). */
@@ -21,14 +21,19 @@ export interface PageFrameProps {
  * a page that is neither (counts, a timeline) all sit in it, so they look and behave alike (ADR-0168). It draws what it is
  * given and decides nothing.
  */
-export function PageFrame({ title, titleExtra, breadcrumb, tools, notices, children, testId }: PageFrameProps) {
+export function PageFrame({ title, titleControl, titleExtra, breadcrumb, tools, notices, children, testId }: PageFrameProps) {
   const headingId = useId();
   return (
-    <section className="page-frame" aria-labelledby={headingId} data-testid={testId}>
+    <section
+      className="page-frame"
+      aria-labelledby={titleControl ? undefined : headingId}
+      aria-label={titleControl ? title : undefined}
+      data-testid={testId}
+    >
       <header className="page-head">
         {breadcrumb}
         <div className="page-head-row">
-          <h1 id={headingId}>{title}</h1>
+          <h1 id={headingId}>{titleControl ?? title}</h1>
           {titleExtra ? <div className="page-head-extra">{titleExtra}</div> : null}
           {tools ? <div className="page-head-tools">{tools}</div> : null}
         </div>

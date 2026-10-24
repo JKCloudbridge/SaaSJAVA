@@ -62,7 +62,6 @@ export function SessionsPanel() {
   return (
     <PageFrame
       title="Sessions"
-      intro="Look at the live sign-ins of a person, and sign them out everywhere. A reason is needed for both; it is kept in the audit trail."
       notices={
         <>
           {notice ? (

@@ -2233,12 +2233,6 @@ a.control-tab:hover {
   min-width: 0;
 }
 
-.page-intro {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-}
-
 .breadcrumb {
   display: flex;
   flex-wrap: wrap;
@@ -2608,6 +2602,23 @@ form + .detail-section {
 
 .sheet-edge:hover,
 .sheet-edge:focus-visible {
+  background: var(--color-accent);
+  outline: none;
+}
+
+/* The bottom edge of a row: wide enough to grab, drawn as a thin line when pointed at or focused. */
+.sheet-edge-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  z-index: 3;
+  cursor: row-resize;
+}
+
+.sheet-edge-row:hover,
+.sheet-edge-row:focus-visible {
   background: var(--color-accent);
   outline: none;
 }
@@ -2985,4 +2996,83 @@ form + .detail-section {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+}
+
+/* The view menu: the name of the view in use at the left of a list's title row, with the other views in a menu (UI3A). */
+.view-menu-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.view-menu-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.view-menu-items {
+  inset-inline-start: 0;
+  inset-inline-end: auto;
+}
+
+.view-menu-items [aria-checked="true"] {
+  font-weight: 600;
+}
+
+.menu-group {
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.menu-divider {
+  margin: var(--space-1) 0;
+  border-top: var(--border-width) solid var(--color-border);
+}
+
+/* "Select fields to display": the boxes of what can be shown and what is shown, with the buttons between them. */
+.field-picker {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.field-picker-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field-picker-box select {
+  width: 100%;
+}
+
+.field-picker-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-self: center;
+}
+
+.field-picker-actions {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 40rem) {
+  .field-picker {
+    grid-template-columns: 1fr;
+  }
+
+  .field-picker-buttons {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
 }
