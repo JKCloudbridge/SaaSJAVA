@@ -21,9 +21,11 @@ import java.time.Instant;
  * @param submittedAt when it was sent for approval, if it was
  * @param decidedAt when its review ended, if it did
  * @param reviewEdits how many times an approver changed the grid while it was in review (FA4); each change is audited
+ * @param updatedBy the display name of the person who last changed the version (UI3B), or absent when that person
+ *        has left or the platform did it: never an identifier
  */
 public record SheetVersionSummaryView(@NotNull Integer versionNo, @NotNull String status, @NotNull Integer dimension,
         @NotNull String rowsMode, @NotNull Long gridBytes, @NotNull String gridHash, @NotNull Long version,
         @NotNull Instant createdAt, @NotNull Instant updatedAt, Instant submittedAt, Instant decidedAt,
-        @NotNull Integer reviewEdits) {
+        @NotNull Integer reviewEdits, String updatedBy) {
 }

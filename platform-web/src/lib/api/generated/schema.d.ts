@@ -4500,6 +4500,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sheets/{ownerObject}/{ownerId}/versions/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a new draft version from an uploaded spreadsheet file
+         * @description The body is the file itself (an .xlsx workbook or a UTF-8 text file with comma, semicolon or tab separated values) and nothing else; format says which. The file is read on the server and kept nowhere. The first sheet of a workbook is read; text becomes fixed text of the sheet, a cell with no text is left to be typed into, and column widths, row heights, bold, italic, the four sizes and merged areas come with it. Formulas come in as their last values and dates as text written year-month-day. Images, charts, other sheets and links to other files are left out and counted in the report, which says what was left out in plain words. firstRowLabels (default true) makes the first row with text the names of the columns. A sheet that has no version yet is made in the shape where the sheet names its rows; a sheet that has versions keeps its shape (where the filler adds the rows, only the names of the columns come in). preview=true answers with the report and saves nothing. The size is checked before anything is read, from the announced length and again on the bytes read: PAYLOAD_TOO_LARGE (also for a file that unpacks to more than is allowed). VALIDATION_ERROR for a file that is not what its format says, a workbook with macros, a limit of the sheet that the file goes over (it is named, with the row and column when a cell is the reason) or a text that holds markup; nothing is cut. CONFLICT names the number of the draft when one exists, or when the sheet has the most versions it can have. RATE_LIMITED when other files are being read at the same moment. FORBIDDEN for a caller who may read the record but not update it. Audited by the format, the sizes and the counts, never by what the file held. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record.
+         */
+        post: operations["importSheetVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sheets/{ownerObject}/{ownerId}/versions/{versionNo}": {
         parameters: {
             query?: never;
@@ -5567,6 +5587,9 @@ export interface components {
         };
         ApiResponseSheetFillView: {
             data: components["schemas"]["SheetFillView"];
+        };
+        ApiResponseSheetImportResultView: {
+            data: components["schemas"]["SheetImportResultView"];
         };
         ApiResponseSheetVersionSummaryView: {
             data: components["schemas"]["SheetVersionSummaryView"];
@@ -7780,6 +7803,27 @@ export interface components {
         };
         /** @description The stable identifier of a column, a row or a header row. Generated, never typed, never reused inside one sheet; everything that points at a place (cells, merges, later comments and fill-ins) uses it, never a position. */
         SheetId: string;
+        SheetImportNoteView: {
+            code: string;
+            /** Format: int32 */
+            count: number;
+            leftOut: boolean;
+            words: string;
+        };
+        SheetImportReportView: {
+            /** Format: int32 */
+            columns: number;
+            /** Format: int32 */
+            mergedAreas: number;
+            notes: components["schemas"]["SheetImportNoteView"][];
+            /** Format: int32 */
+            rows: number;
+        };
+        SheetImportResultView: {
+            report: components["schemas"]["SheetImportReportView"];
+            saved: boolean;
+            version?: components["schemas"]["SheetVersionSummaryView"];
+        };
         SheetLimitsView: {
             /** Format: int32 */
             maxBytes: number;
@@ -7789,6 +7833,8 @@ export interface components {
             maxColumns: number;
             /** Format: int32 */
             maxHeaderRows: number;
+            /** Format: int32 */
+            maxImportBytes: number;
             /** Format: int32 */
             maxLabelChars: number;
             /** Format: int32 */
@@ -7826,6 +7872,7 @@ export interface components {
             submittedAt?: string;
             /** Format: date-time */
             updatedAt: string;
+            updatedBy?: string;
             /** Format: int64 */
             version: number;
             /** Format: int32 */
@@ -17608,6 +17655,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseSheetVersionSummaryView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    importSheetVersion: {
+        parameters: {
+            query: {
+                format: string;
+                firstRowLabels?: boolean;
+                preview?: boolean;
+            };
+            header?: never;
+            path: {
+                ownerObject: string;
+                ownerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseSheetImportResultView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

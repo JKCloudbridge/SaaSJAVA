@@ -62,6 +62,12 @@ export interface SheetGridProps {
    * default width. Without it no handle is drawn (a read-only grid, and the grid of a filler: the width belongs to the sheet).
    */
   onResizeColumn?: (columnId: string, width: number | undefined) => void;
+  /**
+   * The same for the height of a row (UI3B): the bottom edge of a header row or a named row is dragged, one drag is one
+   * change, a double click goes back to the default height. Without it no handle is drawn (a read-only grid, the grid of a
+   * filler, and the sample rows of a sheet whose filler adds the rows, which have no height of their own).
+   */
+  onResizeRow?: (rowId: string, height: number | undefined) => void;
 }
 
 /** The narrowest and the widest a column may be: the same bounds as the schema of the sheet. */
@@ -69,6 +75,12 @@ const MIN_COLUMN_WIDTH = 40;
 const MAX_COLUMN_WIDTH = 1000;
 
 const clampWidth = (width: number) => Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, Math.round(width)));
+
+/** The shortest and the tallest a row may be: the same bounds as the schema of the sheet. */
+const MIN_ROW_HEIGHT = 16;
+const MAX_ROW_HEIGHT = 400;
+
+const clampHeight = (height: number) => Math.min(MAX_ROW_HEIGHT, Math.max(MIN_ROW_HEIGHT, Math.round(height)));
 
 /** The words a screen reader adds to a place that has notes. */
 function notesWords(count: number | undefined): string {
@@ -82,7 +94,15 @@ function notesWords(count: number | undefined): string {
  * `sheet-*` classes, and makes no request. Every change goes through the editor, which uses the pure operations of the
  * model; the grid only turns a key, a click or a paste into one of them.
  */
-export function SheetGrid({ editor, readOnly, canEditCell, label, annotation, onResizeColumn }: SheetGridProps) {
+export function SheetGrid({
+  editor,
+  readOnly,
+  canEditCell,
+  label,
+  annotation,
+  onResizeColumn,
+  onResizeRow,
+}: SheetGridProps) {
   const { doc, rows, selection, rect } = editor;
   const gridId = useId();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -92,6 +112,9 @@ export function SheetGrid({ editor, readOnly, canEditCell, label, annotation, on
   const [editing, setEditing] = useState<Editing | null>(null);
   // The width a column has while its edge is being dragged; the document changes once, when the drag ends (one undo step).
   const [live, setLive] = useState<{ id: string; width: number } | null>(null);
+  // The same for the height of a row while its bottom edge is being dragged.
+  const [liveRow, setLiveRow] = useState<{ id: string; height: number } | null>(null);
+  const heightOf = (row: { id: string; height: number }) => (liveRow && liveRow.id === row.id ? liveRow.height : row.height);
   const widthOf = (column: { id: string; width?: number }) =>
     live && live.id === column.id ? live.width : (column.width ?? DEFAULT_COLUMN_WIDTH);
 
@@ -114,8 +137,8 @@ export function SheetGrid({ editor, readOnly, canEditCell, label, annotation, on
   }, [rects]);
   const rowTop = useMemo(() => {
     let y = 0;
-    return [...rows.map((row) => { const top = y; y += row.height; return top; }), y];
-  }, [rows]);
+    return [...rows.map((row) => { const top = y; y += liveRow && liveRow.id === row.id ? liveRow.height : row.height; return top; }), y];
+  }, [rows, liveRow]);
   const colLeft = useMemo(() => {
     let x = 0;
     return [...doc.columns.map((column) => { const left = x; x += live && live.id === column.id ? live.width : (column.width ?? DEFAULT_COLUMN_WIDTH); return left; }), x];
@@ -127,7 +150,7 @@ export function SheetGrid({ editor, readOnly, canEditCell, label, annotation, on
   const rowVirtual = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: (i) => at(rows, i).height,
+    estimateSize: (i) => heightOf(at(rows, i)),
     overscan: 6,
     paddingStart: LABEL_BAND_HEIGHT,
     scrollPaddingStart: LABEL_BAND_HEIGHT,
@@ -512,7 +535,7 @@ export function SheetGrid({ editor, readOnly, canEditCell, label, annotation, on
                 aria-rowindex={i + 2}
                 aria-label={rowName || undefined}
                 className={rowNotes ? "sheet-row sheet-row-noted" : "sheet-row"}
-                style={{ top: LABEL_BAND_HEIGHT + at(rowTop, i), height: row.height, width: totalWidth }}
+                style={{ top: LABEL_BAND_HEIGHT + at(rowTop, i), height: heightOf(row), width: totalWidth }}
               >
                 {visibleColumns.map((j) => {
                   if (covered.has(`${i}:${j}`)) {
@@ -601,6 +624,17 @@ export function SheetGrid({ editor, readOnly, canEditCell, label, annotation, on
                     </div>
                   );
                 })}
+                {onResizeRow && !annotation && row.zone !== "blank" ? (
+                  <RowEdge
+                    label={row.label || `row ${i + 1}`}
+                    height={heightOf(row)}
+                    onLive={(height) => setLiveRow(height === undefined ? null : { id: row.id, height })}
+                    onDone={(height) => {
+                      setLiveRow(null);
+                      onResizeRow(row.id, height);
+                    }}
+                  />
+                ) : null}
               </div>
             );
           })}
@@ -666,6 +700,66 @@ function ColumnEdge({
       aria-valuemax={MAX_COLUMN_WIDTH}
       aria-valuenow={width}
       className="sheet-edge"
+      onMouseDown={start}
+      onDoubleClick={(event) => {
+        event.stopPropagation();
+        onDone(undefined);
+      }}
+    />
+  );
+}
+
+/**
+ * The bottom edge of a row that is dragged to change its height, like the edge of a row in a spreadsheet; a double click
+ * goes back to the default height. It is for a mouse: a person who works with the keyboard sets the height in the Height
+ * field of the form view. It only reports heights: `onLive` while dragging, `onDone` once at the end; the grid keeps no
+ * height of its own.
+ */
+function RowEdge({
+  label,
+  height,
+  onLive,
+  onDone,
+}: {
+  label: string;
+  height: number;
+  onLive: (height: number | undefined) => void;
+  onDone: (height: number | undefined) => void;
+}) {
+  const start = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const y0 = event.clientY;
+    const h0 = height;
+    let now = h0;
+    const move = (e: globalThis.MouseEvent) => {
+      now = clampHeight(h0 + e.clientY - y0);
+      onLive(now);
+    };
+    const up = () => {
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", up);
+      if (now === h0) {
+        onLive(undefined);
+      } else {
+        onDone(now);
+      }
+    };
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+  };
+  return (
+    <div
+      role="separator"
+      aria-orientation="horizontal"
+      aria-label={`Height of ${label}`}
+      aria-valuemin={MIN_ROW_HEIGHT}
+      aria-valuemax={MAX_ROW_HEIGHT}
+      aria-valuenow={height}
+      className="sheet-edge-row"
       onMouseDown={start}
       onDoubleClick={(event) => {
         event.stopPropagation();

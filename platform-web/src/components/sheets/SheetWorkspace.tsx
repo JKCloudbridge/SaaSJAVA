@@ -27,6 +27,7 @@ import { FormView } from "./FormView";
 import { GridView } from "./GridView";
 import { useNarrowScreen } from "./useNarrowScreen";
 import { useSheetEditor } from "./useSheetEditor";
+import { UploadSheet } from "./UploadSheet";
 import { VersionList } from "./VersionList";
 
 export interface SheetWorkspaceProps {
@@ -160,8 +161,14 @@ export function SheetWorkspace({
       setNotice({ text: outcome.failure.message, error: true });
       return;
     }
+    afterNewDraft(outcome.data.versionNo);
+  };
+
+  /** A new draft exists (started here, or made from an uploaded file): open it and read the versions again. */
+  const afterNewDraft = (versionNo: number) => {
     setDirty(false);
-    setSelected(outcome.data.versionNo);
+    setNotice(null);
+    setSelected(versionNo);
     setOpened(true);
     reload();
   };
@@ -231,6 +238,7 @@ export function SheetWorkspace({
 
       {versions.length === 0 ? (
         canChange ? (
+          <>
           <form
             className="form stack"
             onSubmit={(event) => {
@@ -256,6 +264,17 @@ export function SheetWorkspace({
               </button>
             </div>
           </form>
+          <div>
+            <UploadSheet
+              owner={owner}
+              label="Start from a spreadsheet"
+              firstVersion
+              maxBytes={state.view.limits.maxImportBytes}
+              disabled={starting}
+              onSaved={(created) => afterNewDraft(created.versionNo)}
+            />
+          </div>
+          </>
         ) : (
           <p className="empty-state" role="status">
             No version is in use yet.
@@ -275,10 +294,17 @@ export function SheetWorkspace({
             </p>
           ) : null}
           {canChange && !draft ? (
-            <div>
+            <div className="split">
               <button type="button" className="button button-secondary" onClick={() => void start({})} disabled={starting}>
                 {startLabel ?? (versions.some((entry) => entry.status === "ACTIVE") ? "Start a new version from the active one" : "Start a new version")}
               </button>
+              <UploadSheet
+                owner={owner}
+                label="Upload a spreadsheet"
+                maxBytes={state.view.limits.maxImportBytes}
+                disabled={starting}
+                onSaved={(created) => afterNewDraft(created.versionNo)}
+              />
             </div>
           ) : null}
         </>

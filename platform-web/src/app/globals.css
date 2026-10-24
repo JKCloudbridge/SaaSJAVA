@@ -2606,6 +2606,23 @@ form + .detail-section {
   outline: none;
 }
 
+/* The bottom edge of a row: wide enough to grab, drawn as a thin line when pointed at or focused. */
+.sheet-edge-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  z-index: 3;
+  cursor: row-resize;
+}
+
+.sheet-edge-row:hover,
+.sheet-edge-row:focus-visible {
+  background: var(--color-accent);
+  outline: none;
+}
+
 .sheet-row {
   position: absolute;
   left: 0;

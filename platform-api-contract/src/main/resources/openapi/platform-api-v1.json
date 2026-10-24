@@ -11974,6 +11974,85 @@
         "tags" : [ "Sheets" ]
       }
     },
+    "/api/v1/sheets/{ownerObject}/{ownerId}/versions/import" : {
+      "post" : {
+        "description" : "The body is the file itself (an .xlsx workbook or a UTF-8 text file with comma, semicolon or tab separated values) and nothing else; format says which. The file is read on the server and kept nowhere. The first sheet of a workbook is read; text becomes fixed text of the sheet, a cell with no text is left to be typed into, and column widths, row heights, bold, italic, the four sizes and merged areas come with it. Formulas come in as their last values and dates as text written year-month-day. Images, charts, other sheets and links to other files are left out and counted in the report, which says what was left out in plain words. firstRowLabels (default true) makes the first row with text the names of the columns. A sheet that has no version yet is made in the shape where the sheet names its rows; a sheet that has versions keeps its shape (where the filler adds the rows, only the names of the columns come in). preview=true answers with the report and saves nothing. The size is checked before anything is read, from the announced length and again on the bytes read: PAYLOAD_TOO_LARGE (also for a file that unpacks to more than is allowed). VALIDATION_ERROR for a file that is not what its format says, a workbook with macros, a limit of the sheet that the file goes over (it is named, with the row and column when a cell is the reason) or a text that holds markup; nothing is cut. CONFLICT names the number of the draft when one exists, or when the sheet has the most versions it can have. RATE_LIMITED when other files are being read at the same moment. FORBIDDEN for a caller who may read the record but not update it. Audited by the format, the sizes and the counts, never by what the file held. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record. ",
+        "operationId" : "importSheetVersion",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ownerObject",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "ownerId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "format",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "firstRowLabels",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : true
+          }
+        }, {
+          "in" : "query",
+          "name" : "preview",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/octet-stream" : {
+              "schema" : {
+                "type" : "string",
+                "format" : "binary"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSheetImportResultView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Make a new draft version from an uploaded spreadsheet file",
+        "tags" : [ "Sheets" ]
+      }
+    },
     "/api/v1/sheets/{ownerObject}/{ownerId}/versions/{versionNo}" : {
       "get" : {
         "description" : "The only call that reads a grid. NOT_FOUND also for a version that does not exist and for a version the caller may not see (a caller who may only read the record sees ACTIVE, SUPERSEDED and RETIRED versions; a draft or a version in review answers like a version that does not exist). NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record. ",
@@ -14959,6 +15038,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/SheetFillView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseSheetImportResultView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/SheetImportResultView"
           }
         },
         "required" : [ "data" ]
@@ -21878,6 +21966,64 @@
         "description" : "The stable identifier of a column, a row or a header row. Generated, never typed, never reused inside one sheet; everything that points at a place (cells, merges, later comments and fill-ins) uses it, never a position.",
         "pattern" : "^[A-Za-z0-9_-]{1,40}$"
       },
+      "SheetImportNoteView" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "leftOut" : {
+            "type" : "boolean"
+          },
+          "words" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "count", "leftOut", "words" ]
+      },
+      "SheetImportReportView" : {
+        "type" : "object",
+        "properties" : {
+          "columns" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "mergedAreas" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "notes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetImportNoteView"
+            }
+          },
+          "rows" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "columns", "mergedAreas", "notes", "rows" ]
+      },
+      "SheetImportResultView" : {
+        "type" : "object",
+        "properties" : {
+          "report" : {
+            "$ref" : "#/components/schemas/SheetImportReportView"
+          },
+          "saved" : {
+            "type" : "boolean"
+          },
+          "version" : {
+            "$ref" : "#/components/schemas/SheetVersionSummaryView"
+          }
+        },
+        "required" : [ "report", "saved" ]
+      },
       "SheetLimitsView" : {
         "type" : "object",
         "properties" : {
@@ -21894,6 +22040,10 @@
             "format" : "int32"
           },
           "maxHeaderRows" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxImportBytes" : {
             "type" : "integer",
             "format" : "int32"
           },
@@ -21914,7 +22064,7 @@
             "format" : "int32"
           }
         },
-        "required" : [ "maxBytes", "maxCellChars", "maxColumns", "maxHeaderRows", "maxLabelChars", "maxMerges", "maxPicklistValues", "maxRows" ]
+        "required" : [ "maxBytes", "maxCellChars", "maxColumns", "maxHeaderRows", "maxImportBytes", "maxLabelChars", "maxMerges", "maxPicklistValues", "maxRows" ]
       },
       "SheetMerge" : {
         "type" : "object",
@@ -21987,6 +22137,9 @@
           "updatedAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "updatedBy" : {
+            "type" : "string"
           },
           "version" : {
             "type" : "integer",

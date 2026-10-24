@@ -15,8 +15,9 @@ import jakarta.validation.constraints.NotNull;
  * @param maxLabelChars the characters of a label
  * @param maxPicklistValues the values of a picklist column
  * @param maxMerges the merged areas
+ * @param maxImportBytes the size of a spreadsheet file that can be uploaded into a sheet (UI3B), in bytes
  */
 public record SheetLimitsView(@NotNull Integer maxBytes, @NotNull Integer maxRows, @NotNull Integer maxColumns,
         @NotNull Integer maxHeaderRows, @NotNull Integer maxCellChars, @NotNull Integer maxLabelChars,
-        @NotNull Integer maxPicklistValues, @NotNull Integer maxMerges) {
+        @NotNull Integer maxPicklistValues, @NotNull Integer maxMerges, @NotNull Integer maxImportBytes) {
 }

@@ -200,3 +200,59 @@ describe("changing the width of a column by dragging its edge", () => {
     expect(screen.queryByRole("separator")).toBeNull();
   });
 });
+
+describe("changing the height of a row by dragging its edge", () => {
+  const edges = () => screen.getAllByRole("separator", { name: /^Height of / });
+
+  it("makes the row taller while the mouse moves and writes the height once, when it is let go", () => {
+    const { doc } = draw();
+    const original = doc().headerRows[0]?.height;
+    const before = original ?? 24;
+
+    fireEvent.mouseDown(edges()[0] as HTMLElement, { clientY: 100 });
+    fireEvent.mouseMove(document, { clientY: 130 });
+    expect(edges()[0]).toHaveAttribute("aria-valuenow", String(before + 30));
+    expect(doc().headerRows[0]?.height).toBe(original);
+    fireEvent.mouseUp(document);
+
+    expect(doc().headerRows[0]?.height).toBe(before + 30);
+    fireEvent.keyDown(screen.getByRole("grid"), { key: "z", ctrlKey: true });
+    expect(doc().headerRows[0]?.height).toBe(original);
+  });
+
+  it("keeps a row between 16 and 400 pixels", () => {
+    const { doc } = draw();
+
+    fireEvent.mouseDown(edges()[0] as HTMLElement, { clientY: 500 });
+    fireEvent.mouseMove(document, { clientY: -900 });
+    fireEvent.mouseUp(document);
+    expect(doc().headerRows[0]?.height).toBe(16);
+
+    fireEvent.mouseDown(edges()[0] as HTMLElement, { clientY: 0 });
+    fireEvent.mouseMove(document, { clientY: 5000 });
+    fireEvent.mouseUp(document);
+    expect(doc().headerRows[0]?.height).toBe(400);
+  });
+
+  it("goes back to the default height on a double click, and changes nothing when the mouse did not move", () => {
+    const { doc } = draw();
+    fireEvent.mouseDown(edges()[0] as HTMLElement, { clientY: 10 });
+    fireEvent.mouseMove(document, { clientY: 50 });
+    fireEvent.mouseUp(document);
+    expect(doc().headerRows[0]?.height).toBeDefined();
+
+    fireEvent.doubleClick(edges()[0] as HTMLElement);
+    expect(doc().headerRows[0]?.height).toBeUndefined();
+
+    const same = doc();
+    fireEvent.mouseDown(edges()[0] as HTMLElement, { clientY: 10 });
+    fireEvent.mouseUp(document);
+    expect(doc()).toBe(same);
+  });
+
+  it("draws no row handle in a grid that cannot be changed", () => {
+    draw({ readOnly: true });
+
+    expect(screen.queryByRole("separator", { name: /^Height of / })).toBeNull();
+  });
+});
