@@ -10,8 +10,8 @@ import java.util.UUID;
  *
  * <p>The answer is the engine's own choice of process: the plan has the approvals feature and at least one active
  * process of the object whose entry criteria are not false for the record as it is now. A process whose criteria cannot
- * be evaluated counts as applying, because the person is then told so when they submit, not let past it. Implementations
- * answer for the organization of the thread's tenant context, in the caller's transaction.
+ * be evaluated counts as applying, because the person is then told so when they submit, not let past it.
+ * Implementations answer for the organization of the thread's tenant context, in the caller's transaction.
  */
 public interface ApprovalApplicability {
 
