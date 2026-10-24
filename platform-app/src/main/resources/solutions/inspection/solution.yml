@@ -50,8 +50,9 @@ accessPolicies:
       InspectionTemplate: [create, read, update]
     fields:
       InspectionTemplate:
-        edit: [name, category, subCategory, partCode, planYear]
-        read: [number, retired, createdAt, updatedAt, ownerId, createdById, updatedById]
+        edit: [name, level, documentType]
+        read: [category, subCategory, partCode, planYear, number, retired, createdAt, updatedAt, ownerId,
+                createdById, updatedById]
   - key: approver
     name: Approver
     description: Sees every template, changes one that is in review, publishes and retires. Comes with the Audit maintenance application and cannot be changed.
@@ -62,9 +63,10 @@ accessPolicies:
       - approvals.override-lock
       - sheets.publish
       - sheets.retire
+      - field-values.add
     fields:
       InspectionTemplate:
-        edit: [name, category, subCategory, partCode, planYear]
+        edit: [name, level, documentType, category, subCategory, partCode, planYear]
         read: [number, retired, createdAt, updatedAt, ownerId, createdById, updatedById]
       InspectionFill:
         read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
@@ -75,7 +77,7 @@ accessPolicies:
       InspectionTemplate: [read]
     fields:
       InspectionTemplate:
-        read: [name, number, category, subCategory, partCode, planYear, retired, createdAt, updatedAt, ownerId,
+        read: [name, number, level, documentType, category, subCategory, partCode, planYear, retired, createdAt, updatedAt, ownerId,
                 createdById, updatedById]
   - key: filler
     name: Filler
@@ -87,7 +89,7 @@ accessPolicies:
       - sheets.fill
     fields:
       InspectionTemplate:
-        read: [name, number, category, subCategory, partCode, planYear, retired, createdAt, updatedAt, ownerId,
+        read: [name, number, level, documentType, category, subCategory, partCode, planYear, retired, createdAt, updatedAt, ownerId,
                 createdById, updatedById]
       InspectionFill:
         read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]

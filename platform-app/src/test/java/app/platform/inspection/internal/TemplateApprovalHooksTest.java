@@ -248,15 +248,30 @@ class TemplateApprovalHooksTest {
     }
 
     @Test
-    void aSubmitWithoutACategoryIsRefusedInWords() {
+    void aSubmitWithoutACategoryPassesBecauseTheApproversChooseTheIdentity() {
+        Fakes fakes = withTemplate();
+        fakes.fields.remove("category");
+        fakes.missing = Optional.empty();
+
+        hooks(fakes).onSubmit(submit());
+
+        assertThat(fakes.calls).containsExactly("submit:" + REQUEST + ":" + PERSON);
+    }
+
+    @Test
+    void theFirstApprovalWithoutACategoryIsRefusedInWordsAndNothingIsNumbered() {
         Fakes fakes = withTemplate();
         fakes.fields.remove("category");
 
-        ApprovalHookRefusal refused = refusal(() -> hooks(fakes).onSubmit(submit()));
+        ApprovalHookRefusal refused = refusal(() -> hooks(fakes).beforeApprove(decision(), fakes));
 
         assertThat(refused.reason()).isEqualTo("category_needed");
-        assertThat(refused.words()).isEqualTo("Choose the category before sending the template for approval.");
+        assertThat(refused.words())
+                .isEqualTo("Choose the identity category and sub-category (Edit), then approve again.");
         assertThat(fakes.calls).isEmpty();
+        fakes.fields.put("category", "WI");
+        hooks(fakes).beforeApprove(decision(), fakes);
+        assertThat(fakes.fields).containsEntry("number", "WI/PRD/01");
     }
 
     @Test
@@ -265,7 +280,7 @@ class TemplateApprovalHooksTest {
         fakes.fields.put("category", TYPED);
         fakes.missing = Optional.empty();
 
-        ApprovalHookRefusal refused = refusal(() -> hooks(fakes).onSubmit(submit()));
+        ApprovalHookRefusal refused = refusal(() -> hooks(fakes).beforeApprove(decision(), fakes));
 
         assertThat(refused.reason()).isEqualTo("category_not_numbered");
         assertThat(refused.words()).doesNotContain(TYPED);
@@ -277,10 +292,10 @@ class TemplateApprovalHooksTest {
         fakes.fields.put("partCode", "has space " + TYPED);
         fakes.missing = Optional.of(List.of("subCategory", "partCode", "planYear"));
 
-        ApprovalHookRefusal refused = refusal(() -> hooks(fakes).onSubmit(submit()));
+        ApprovalHookRefusal refused = refusal(() -> hooks(fakes).beforeApprove(decision(), fakes));
 
         assertThat(refused.reason()).isEqualTo("number_part_needed");
-        assertThat(refused.words()).startsWith("Fill in the sub-category and the part code")
+        assertThat(refused.words()).startsWith("Fill in the identity sub-category and the part code")
                 .contains("and the plan year").doesNotContain(TYPED);
         assertThat(refused.words().length()).isLessThanOrEqualTo(300);
     }
@@ -290,28 +305,28 @@ class TemplateApprovalHooksTest {
         Fakes fakes = withTemplate();
         fakes.fields.put("planYear", "26");
 
-        ApprovalHookRefusal refused = refusal(() -> hooks(fakes).onSubmit(submit()));
+        ApprovalHookRefusal refused = refusal(() -> hooks(fakes).beforeApprove(decision(), fakes));
 
         assertThat(refused.reason()).isEqualTo("plan_year_invalid");
         fakes.fields.put("planYear", "2026");
-        hooks(fakes).onSubmit(submit());
-        assertThat(fakes.calls).hasSize(1);
+        hooks(fakes).beforeApprove(decision(), fakes);
+        assertThat(fakes.calls).containsExactly("next", "write:[number]");
     }
 
     @Test
-    void aNumberAnotherTemplateAlreadyHasIsRefusedBeforeAnythingMovesButMyOwnIsNotAClash() {
+    void aNumberAnotherTemplateAlreadyHasIsRefusedAtTheFirstApprovalButMyOwnIsNotAClash() {
         Fakes fakes = withTemplate();
         fakes.known = Optional.of("CP/PRD/AB-12");
         fakes.numbersTaken.put("CP/PRD/AB-12", UUID.randomUUID());
 
-        ApprovalHookRefusal refused = refusal(() -> hooks(fakes).onSubmit(submit()));
+        ApprovalHookRefusal refused = refusal(() -> hooks(fakes).beforeApprove(decision(), fakes));
 
         assertThat(refused.reason()).isEqualTo("number_in_use");
         assertThat(refused.words()).doesNotContain("CP/PRD");
         assertThat(fakes.calls).isEmpty();
         fakes.numbersTaken.put("CP/PRD/AB-12", RECORD);
-        hooks(fakes).onSubmit(submit());
-        assertThat(fakes.calls).hasSize(1);
+        hooks(fakes).beforeApprove(decision(), fakes);
+        assertThat(fakes.calls).containsExactly("next", "write:[number]");
     }
 
     @Test
@@ -321,6 +336,7 @@ class TemplateApprovalHooksTest {
         fakes.fields.remove("category");
         fakes.missing = Optional.empty();
 
+        hooks(fakes).beforeApprove(decision(), fakes);
         hooks(fakes).onSubmit(submit());
 
         assertThat(fakes.calls).containsExactly("submit:" + REQUEST + ":" + PERSON);

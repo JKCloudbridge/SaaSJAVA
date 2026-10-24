@@ -237,6 +237,9 @@ function RequestCard({
           ? ` ${request.placesTotal} place${request.placesTotal === 1 ? "" : "s"} named${gone > 0 ? `, ${gone} no longer in the version in use` : ""}.`
           : ""}
       </p>
+      <p className="hint" data-testid="request-department">
+        Department when asked: {request.requesterDepartment ?? "—"}
+      </p>
       {became ? <p>Turned into {became}.</p> : null}
       {request.decisionNote ? (
         <p>

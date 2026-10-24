@@ -73,8 +73,31 @@ public abstract class TemplateSupport extends SolutionSupport {
         return new Person(member, as(setting.organization(), member));
     }
 
+    /**
+     * A person who writes templates the way most tests need: the Author policy plus a test policy that lets them
+     * set the identity pair too (FA6A moved that to the approvers), so that a test does not need an approver to
+     * number its templates. The real Author, with no more, is {@link #plainAuthor}.
+     */
     protected Person author(Setting setting) {
+        Person person = holding(setting, "Author");
+        String policy = JsonPath.read(setting.admin().postJson(POLICIES, "{\"name\":\"identity-" + newName()
+                + "\",\"description\":\"\",\"abilities\":[]}").body(), "$.data.id");
+        Response access = setting.admin().request("PUT", POLICIES + "/" + policy + "/data-access",
+                "{\"objects\":[{\"key\":\"" + OBJECT + "\",\"actions\":[\"read\",\"update\"]}],\"fields\":["
+                + identityField("category") + "," + identityField("subCategory") + "," + identityField("partCode")
+                + "," + identityField("planYear") + "]}");
+        assertThat(access.status()).as(access.body()).isEqualTo(200);
+        give(setting.admin(), person.member(), policy);
+        return person;
+    }
+
+    /** The Author policy and nothing else: the person edits the name, level and document only. */
+    protected Person plainAuthor(Setting setting) {
         return holding(setting, "Author");
+    }
+
+    private static String identityField(String field) {
+        return "{\"key\":\"" + OBJECT + "." + field + "\",\"actions\":[\"edit\"]}";
     }
 
     /** An approver holds the Approver policy and a licence, because a person who decides must be licensed. */

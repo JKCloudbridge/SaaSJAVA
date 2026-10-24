@@ -63,7 +63,8 @@ class FillChanges {
     /** The fill-in went to review under a request. {@code actor} is null when the platform sent it. */
     void submitted(UUID actor, String object, UUID fill, int versionNo, UUID requestId, int rows) {
         audit.record(base("sheets.fill.submitted", actor, object, fill).with("version_no", Integer.toString(versionNo))
-                .with("request", requestId.toString()).with("rows", Integer.toString(rows)));
+                .with("request", requestId == null ? "none" : requestId.toString())
+                .with("rows", Integer.toString(rows)));
         meters.counter("platform.sheets.fills", "operation", "submit", "result", "ok").increment();
     }
 

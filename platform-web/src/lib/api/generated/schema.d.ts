@@ -920,6 +920,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/fill-ins/{fillId}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the caller's own fill-in
+         * @description For the person who started the fill-in (and may read and change its record). When an approval process applies to the fill-in, nothing is changed and the outcome is REVIEW_NEEDED: send it for review through the approval endpoint. When none applies, the cells are checked as they are for a review (every required value, at least one row where the sheet needs it) and the fill-in becomes SUBMITTED for good: read-only, with no review after it, and its status on the record follows. NOT_FOUND for a fill-in the caller cannot see, FORBIDDEN for one they may see but not change, CONFLICT with fixed words for a check that fails (the place is named by identifiers, never by what was typed). Audited by identifiers.
+         */
+        post: operations["submitFillIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/groups": {
         parameters: {
             query?: never;
@@ -5309,6 +5329,9 @@ export interface components {
         ApiResponseFillInStartedView: {
             data: components["schemas"]["FillInStartedView"];
         };
+        ApiResponseFillInSubmittedView: {
+            data: components["schemas"]["FillInSubmittedView"];
+        };
         ApiResponseFormulaRecalculationView: {
             data: components["schemas"]["FormulaRecalculationView"];
         };
@@ -6110,6 +6133,7 @@ export interface components {
             placesInActive: number;
             /** Format: int32 */
             placesTotal: number;
+            requesterDepartment?: string;
             requesterName?: string;
             /** Format: int32 */
             resultingVersion?: number;
@@ -6610,6 +6634,9 @@ export interface components {
             templateId: string;
             /** Format: int32 */
             versionNo: number;
+        };
+        FillInSubmittedView: {
+            outcome: string;
         };
         FillReportRequest: {
             columnId: string;
@@ -8029,8 +8056,10 @@ export interface components {
         };
         TemplateRow: {
             category?: string;
+            documentType?: string;
             /** Format: uuid */
             id: string;
+            level?: string;
             lifecycle: components["schemas"]["TemplateLifecycle"];
             name?: string;
             number?: string;
@@ -9951,6 +9980,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseReportColumnsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    submitFillIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fillId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseFillInSubmittedView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

@@ -25,13 +25,16 @@ import org.springframework.stereotype.Component;
  * asked, and it must be short.
  *
  * <ul>
- *   <li><strong>On submit</strong>: the draft is the only thing under review. The template must not be retired, must be
- *   able to get its number (a category that has a format, and the parts its number is made of), and the number it
- *   would get must be free; then the draft goes to review under the request.</li>
- *   <li><strong>Before an approval</strong>: when the template has no number yet, the approval gives it one from the
- *   series and writes it through the engine's narrow writer. It reads the record, not the position of the step, so a
- *   skipped first step makes no difference, and a later approval of the same step (everyone must approve) finds the
- *   number and does nothing. A template rejected at the first step never reaches this, so it takes no number.</li>
+ *   <li><strong>On submit</strong>: the draft is the only thing under review. The template must not be retired; then
+ *   the draft goes to review under the request. The numbering is <em>not</em> asked of the author (FA6A, ADR-0196): the
+ *   people who approve first decide the identity category and sub-category.</li>
+ *   <li><strong>Before an approval</strong>: when the template has no number yet, it must be able to get one (an
+ *   identity category that has a format, the parts its number is made of, and a number that is free), and the approval
+ *   gives it one from the series and writes it through the engine's narrow writer. It reads the record, not the
+ *   position of the step, so a process of any number of steps, or a skipped first step, makes no difference, and a
+ *   later approval of the same step (everyone must approve) finds the number and does nothing. A template rejected at
+ *   the first step never reaches this, so it takes no number. An approver sets the identity pair in review through
+ *   the override of the lock (ADR-0148) and approves again.</li>
  *   <li><strong>When the request ends</strong>: the version it reviewed is approved, rejected or withdrawn.
  *   Approving does not publish.</li>
  * </ul>
@@ -72,9 +75,6 @@ class TemplateApprovalHooks implements ApprovalHooks {
             throw new ApprovalHookRefusal("template_retired",
                     "This template is retired and cannot be sent for approval.");
         }
-        if (Templates.isBlank(fields.get(Templates.NUMBER))) {
-            checkNumbering(fields, template.id());
-        }
         try {
             sheets.submit(Templates.OBJECT, context.recordId(), context.requestId(), context.submitter());
         } catch (SheetMoveRefusal refusal) {
@@ -89,19 +89,20 @@ class TemplateApprovalHooks implements ApprovalHooks {
         if (!Templates.isBlank(template.fields().get(Templates.NUMBER))) {
             return;
         }
+        checkNumbering(template.fields(), template.id());
         String number;
         try {
             number = numbers.next(Templates.SERIES, template.fields());
         } catch (NumberSeriesException unavailable) {
-            // Submit checked this; it can only have changed in review (an approver corrected the category).
-            throw new ApprovalHookRefusal("not_numbered", "This template cannot get a number yet: check its category, "
-                    + "sub-category, part code and plan year, then approve again.");
+            // The checks above passed a moment ago; a number that still cannot be made is told in the same words.
+            throw new ApprovalHookRefusal("not_numbered", "This template cannot get a number yet: check its identity "
+                    + "category, sub-category, part code and plan year (Edit), then approve again.");
         }
         try {
             writer.set(Map.of(Templates.NUMBER, number));
         } catch (ApprovalHookWriteException refused) {
             throw new ApprovalHookRefusal("number_in_use", "Another template already has the number this one would "
-                    + "get. Change its part code or sub-category, then approve again.");
+                    + "get. Change its part code or identity sub-category (Edit), then approve again.");
         }
     }
 
@@ -116,29 +117,30 @@ class TemplateApprovalHooks implements ApprovalHooks {
         sheets.reviewed(Templates.OBJECT, context.recordId(), context.requestId(), result, context.endedBy());
     }
 
-    // ---- the numbering checks of the submit ----
+    // ---- the numbering checks of the first approval ----
 
     private void checkNumbering(Map<String, Object> fields, UUID templateId) {
         if (Templates.isBlank(fields.get(Templates.CATEGORY))) {
-            throw new ApprovalHookRefusal("category_needed", "Choose the category before sending the template for "
-                    + "approval.");
+            throw new ApprovalHookRefusal("category_needed", "Choose the identity category and sub-category (Edit), "
+                    + "then approve again.");
         }
         Optional<List<String>> missing = numbers.missingParts(Templates.SERIES, fields);
         if (missing.isEmpty()) {
-            throw new ApprovalHookRefusal("category_not_numbered", "This category has no numbering yet. Ask your "
-                    + "administrator.");
+            throw new ApprovalHookRefusal("category_not_numbered", "This identity category has no numbering yet. Ask "
+                    + "your administrator.");
         }
         if (!missing.get().isEmpty()) {
             throw new ApprovalHookRefusal("number_part_needed", Templates.neededWords(missing.get()));
         }
         Object year = fields.get(Templates.PLAN_YEAR);
         if (!Templates.isBlank(year) && !Templates.isYear(year)) {
-            throw new ApprovalHookRefusal("plan_year_invalid", "The plan year is four digits, for example 2026.");
+            throw new ApprovalHookRefusal("plan_year_invalid",
+                    "The plan year is four digits, for example 2026 (Edit), then approve again.");
         }
         Optional<String> known = numbers.known(Templates.SERIES, fields);
         if (known.isPresent() && taken(known.get(), templateId)) {
             throw new ApprovalHookRefusal("number_in_use", "Another template already has the number this one would "
-                    + "get. Change its part code or sub-category.");
+                    + "get. Change its part code or identity sub-category (Edit), then approve again.");
         }
     }
 

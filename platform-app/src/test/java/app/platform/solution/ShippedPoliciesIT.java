@@ -70,7 +70,7 @@ class ShippedPoliciesIT extends SolutionSupport {
         assertThat(JsonPath.<List<String>>read(list.body(), "$.data[?(@.managed==true)].abilities[*]"))
                 .as("the Approver gives the three the lifecycle needs, the Filler the one that starts fill-ins")
                 .containsExactlyInAnyOrder("approvals.override-lock", "sheets.publish", "sheets.retire",
-                        "sheets.fill");
+                        "sheets.fill", "field-values.add");
     }
 
     @Test
@@ -127,9 +127,12 @@ class ShippedPoliciesIT extends SolutionSupport {
                 "Reviewer", Map.of(FILL, List.of("read", "view-all")),
                 "Department setup", Map.of("DepartmentGroup", List.of("create", "delete", "read", "update")));
         Map<String, Map<String, String>> fields = Map.of(
-                "Author", Map.of("name", "edit", "category", "edit", "subCategory", "edit", "partCode", "edit",
-                        "planYear", "edit", "number", "read", "retired", "read"),
-                "Reader", Map.of("name", "read", "category", "read", "subCategory", "read", "partCode", "read",
+                "Author", Map.of("name", "edit", "level", "edit", "documentType", "edit", "category", "read",
+                        "subCategory", "read", "partCode", "read", "planYear", "read", "number", "read",
+                        "retired", "read"),
+                "Approver", Map.of("name", "edit", "level", "edit", "documentType", "edit", "category", "edit",
+                        "subCategory", "edit", "partCode", "edit", "planYear", "edit", "number", "read"),
+                "Reader", Map.of("name", "read", "level", "read", "documentType", "read", "category", "read", "subCategory", "read", "partCode", "read",
                         "planYear", "read", "number", "read", "retired", "read"));
 
         for (String name : SHIPPED_POLICIES) {

@@ -774,4 +774,53 @@ describe("the New template popup", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(currentUrl()).toBe("/apps/inspection/templates"));
   });
+
+  it("asks the author for Level then Document, narrows Document to the level, and leaves the identity pair out", async () => {
+    setUrl("/apps/inspection/templates?new=1");
+    const picks = (values: string[]) => values.map((value) => ({ value, label: `${value} label`, active: true }));
+    fakeApi({
+      ...listAnswers(),
+      "GET /api/v1/objects/InspectionTemplate/form": () =>
+        json({
+          data: {
+            objectApiName: "InspectionTemplate",
+            label: "Template",
+            pluralLabel: "Templates",
+            layout: {
+              source: "LAYOUT",
+              sections: [{ label: "Details", columns: 1, fields: ["name", "level", "documentType", "category"] }],
+            },
+            fields: [
+              { apiName: "name", label: "Template name", type: "TEXT", editable: true, required: true },
+              { apiName: "level", label: "Level", type: "PICKLIST", editable: true, values: picks(["L1", "L2"]) },
+              {
+                apiName: "documentType",
+                label: "Document",
+                type: "PICKLIST",
+                editable: true,
+                values: picks(["DOCA", "DOCB", "DOCC"]),
+                dependency: { controllingField: "level", allowed: { L1: ["DOCA", "DOCB"], L2: ["DOCC"] } },
+              },
+              { apiName: "category", label: "Identity category", type: "PICKLIST", editable: false, values: picks(["WI"]) },
+            ],
+            sections: [],
+            recordTypes: [],
+            actions: { create: true, update: true, delete: false },
+          },
+        }),
+    });
+
+    render(<TemplatesPage />);
+
+    const dialog = await screen.findByRole("dialog", { name: "New template" });
+    const level = await within(dialog).findByLabelText(/^Level/);
+    const document = within(dialog).getByLabelText(/^Document/);
+    const order = within(dialog).getAllByRole("combobox").map((box) => box.id);
+    expect(order.indexOf(level.id)).toBeLessThan(order.indexOf(document.id));
+
+    fireEvent.change(level, { target: { value: "L2" } });
+    expect(within(document).getAllByRole("option").map((option) => option.getAttribute("value"))).toContain("DOCC");
+    expect(within(document).queryByRole("option", { name: "DOCA label" })).toBeNull();
+    expect(within(dialog).queryByLabelText(/^Identity category/)).toBeNull();
+  });
 });

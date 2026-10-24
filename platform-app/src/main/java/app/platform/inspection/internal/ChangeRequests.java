@@ -71,10 +71,11 @@ class ChangeRequests {
     private final BackgroundRecords records;
     private final Notices notices;
     private final List<ReferenceLabels> labels;
+    private final DepartmentAudiences departments;
 
     ChangeRequests(ChangeRequestAccess access, ChangeRequestStore store, ChangeRequestProperties properties,
             ChangeRequestChanges changes, SheetLifecycle sheets, BackgroundRecords records, Notices notices,
-            List<ReferenceLabels> labels) {
+            List<ReferenceLabels> labels, DepartmentAudiences departments) {
         this.access = access;
         this.store = store;
         this.properties = properties;
@@ -83,6 +84,7 @@ class ChangeRequests {
         this.records = records;
         this.notices = notices;
         this.labels = labels;
+        this.departments = departments;
     }
 
     // ---- reading ----
@@ -164,7 +166,7 @@ class ChangeRequests {
                     + " open requests on this template. Wait for an answer before asking for more.");
         }
         RequestRow made = store.insertRequest(templateId, request.versionNo(), ChangeText.clean(request.title()),
-                reach.userId());
+                reach.userId(), departments.departmentsOf(reach.membershipId()));
         int places = 0;
         for (int i = 0; i < asked.size(); i++) {
             ChangeAnchor anchor = anchors.get(i);
@@ -460,7 +462,8 @@ class ChangeRequests {
         boolean reopenable = review && status == ChangeRequestStatus.DONE && became.isPresent()
                 && (became.get() == SheetStatus.REJECTED || became.get() == SheetStatus.WITHDRAWN);
         return new ChangeRequestView(row.id(), row.title(), status.name(), row.versionNo(),
-                frame.names.get(row.createdBy()), mine, row.createdAt(), row.decidedAt(), row.decisionNote(),
+                frame.names.get(row.createdBy()), row.requesterDepartment(), mine, row.createdAt(), row.decidedAt(),
+                row.decisionNote(),
                 row.resultingVersion(), became.map(SheetStatus::name).orElse(null), total, there,
                 status.takesComments() && (review || mine), review && status.canMoveTo(ChangeRequestStatus.ACCEPTED),
                 review && status.canMoveTo(ChangeRequestStatus.DECLINED),

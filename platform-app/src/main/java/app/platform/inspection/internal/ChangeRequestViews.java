@@ -55,6 +55,8 @@ public final class ChangeRequestViews {
      * @param status {@code OPEN}, {@code ACCEPTED}, {@code DECLINED} or {@code DONE}
      * @param versionNo the version the person read
      * @param requesterName who asked, or null for a person who has left
+     * @param requesterDepartment the department of the person when they asked (kept as it was then), or null when they
+     *        were in none
      * @param mine whether the caller asked
      * @param createdAt when it was made
      * @param answeredAt when it was last answered, or null while it is open
@@ -71,7 +73,8 @@ public final class ChangeRequestViews {
      * @param comments its comments, oldest first
      */
     public record ChangeRequestView(@NotNull UUID id, @NotNull String title, @NotNull String status,
-            @NotNull Integer versionNo, String requesterName, @NotNull Boolean mine, @NotNull Instant createdAt,
+            @NotNull Integer versionNo, String requesterName, String requesterDepartment, @NotNull Boolean mine,
+            @NotNull Instant createdAt,
             Instant answeredAt, String decisionNote, Integer resultingVersion, String resultingVersionStatus,
             @NotNull Integer placesTotal, @NotNull Integer placesInActive, @NotNull Boolean canComment,
             @NotNull Boolean canAccept, @NotNull Boolean canDecline, @NotNull Boolean canTurn,

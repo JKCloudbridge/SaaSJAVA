@@ -243,7 +243,7 @@ class TemplateLifecycleIT extends TemplateSupport {
     // ---- what submitting needs ----
 
     @Test
-    void anEmptyDraftAndATemplateWithoutACategoryAreRefusedWithWordsAndNothingChanges() {
+    void anEmptyDraftIsRefusedAtSubmitAndATemplateWithoutACategoryAtTheFirstApprovalWithWords() {
         Run run = run();
         String empty = template(run.author().browser(), "WI", "PRD");
         firstVersion(run.author().browser(), empty);
@@ -257,13 +257,14 @@ class TemplateLifecycleIT extends TemplateSupport {
         String noCategory = template(run.author().browser(), "{\"name\":\"" + newName() + "\"}");
         int number = firstVersion(run.author().browser(), noCategory);
         fill(run.author().browser(), noCategory, number);
-        Response uncategorised = submit(run.author().browser(), noCategory, run.process());
+        String request = submitted(run.author().browser(), noCategory, run.process());
+        Response uncategorised = approve(run.first().browser(), request);
 
         assertThat(uncategorised.status()).isEqualTo(409);
-        assertThat(message(uncategorised)).contains("Choose the category");
-        assertThat(statuses(run.author().browser(), noCategory)).containsExactly("DRAFT");
-        assertThat(JsonPath.<Number>read(run.setting().admin().get(INSTANCES + "?status=PENDING").body(),
-                "$.data.length()").intValue()).isZero();
+        assertThat(message(uncategorised)).contains("Choose the identity category and sub-category (Edit)");
+        assertThat(statuses(run.author().browser(), noCategory)).containsExactly("IN_REVIEW");
+        assertThat(statusOf(run.first().browser(), request)).isEqualTo("PENDING");
+        assertThat(number(run.setting().admin(), noCategory)).isNull();
     }
 
     @Test

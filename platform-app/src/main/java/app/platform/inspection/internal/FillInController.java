@@ -3,6 +3,7 @@ package app.platform.inspection.internal;
 import app.platform.inspection.internal.FillInViews.FillInOptionsView;
 import app.platform.inspection.internal.FillInViews.FillInPage;
 import app.platform.inspection.internal.FillInViews.FillInStartedView;
+import app.platform.inspection.internal.FillInViews.FillInSubmittedView;
 import app.platform.inspection.internal.FillInViews.FillReportRequest;
 import app.platform.inspection.internal.FillInViews.ReportColumnsView;
 import app.platformapi.ApiPaths;
@@ -69,6 +70,22 @@ class FillInController {
                     + "identifiers and the version number. " + SEES)
     ResponseEntity<ApiResponse<FillInStartedView>> start(@PathVariable UUID templateId) {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(fillIns.start(templateId)));
+    }
+
+    @PostMapping(ApiPaths.V1 + "/fill-ins/{fillId}/submit")
+    @Operation(
+            operationId = "submitFillIn",
+            summary = "Send the caller's own fill-in",
+            description = "For the person who started the fill-in (and may read and change its record). When an "
+                    + "approval process applies to the fill-in, nothing is changed and the outcome is REVIEW_NEEDED: "
+                    + "send it for review through the approval endpoint. When none applies, the cells are checked as "
+                    + "they are for a review (every required value, at least one row where the sheet needs it) and "
+                    + "the fill-in becomes SUBMITTED for good: read-only, with no review after it, and its status "
+                    + "on the record follows. NOT_FOUND for a fill-in the caller cannot see, FORBIDDEN for one they "
+                    + "may see but not change, CONFLICT with fixed words for a check that fails (the place is named "
+                    + "by identifiers, never by what was typed). Audited by identifiers.")
+    ApiResponse<FillInSubmittedView> submit(@PathVariable UUID fillId) {
+        return ApiResponse.of(fillIns.submit(fillId));
     }
 
     @GetMapping(ApiPaths.V1 + "/fill-ins")

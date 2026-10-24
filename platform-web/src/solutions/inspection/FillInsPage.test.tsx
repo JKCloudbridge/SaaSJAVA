@@ -254,6 +254,134 @@ describe("one fill-in", () => {
     fireEvent.change(box, { target: { value: "5" } });
     fireEvent.blur(box);
 
-    expect(await screen.findByTestId("unsaved-note")).toHaveTextContent("only what is saved is sent");
+    expect(await screen.findByTestId("unsaved-note")).toHaveTextContent("Submit saves them first");
+  });
+
+  it("sends a fill-in for good with Submit when no approval process applies, and reads it again as stored", async () => {
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
+    let sent = 0;
+    fakeApi({
+      ...answers(),
+      [`POST /api/v1/fill-ins/${FILL}/submit`]: () => {
+        sent += 1;
+        return json({ data: { outcome: "SUBMITTED" } });
+      },
+    });
+    render(<FillInsPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Submit" }));
+
+    expect(await screen.findByTestId("send-note")).toHaveTextContent("The fill-in was submitted");
+    expect(sent).toBe(1);
+    expect(screen.queryByRole("dialog", { name: "Submit for approval" })).not.toBeInTheDocument();
+  });
+
+  it("saves what was typed before it sends, and sends nothing when the save is refused", async () => {
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
+    let sent = 0;
+    const calls = fakeApi({
+      ...answers(),
+      [`PUT /api/v1/sheet-fills/InspectionFill/${FILL}/cells`]: () =>
+        refusal("VALIDATION_ERROR", "A value is not valid.", 422),
+      [`POST /api/v1/fill-ins/${FILL}/submit`]: () => {
+        sent += 1;
+        return json({ data: { outcome: "SUBMITTED" } });
+      },
+    });
+    render(<FillInsPage />);
+    fireEvent.click(await screen.findByRole("tab", { name: "Form view" }));
+    const box = within((await screen.findAllByTestId("fill-row"))[0] as HTMLElement).getByRole("textbox", {
+      name: /Amount/,
+    });
+    fireEvent.change(box, { target: { value: "5" } });
+    fireEvent.blur(box);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Submit" }));
+
+    expect(await screen.findByTestId("save-refused")).toHaveTextContent("A value is not valid.");
+    expect(calls.some((call) => call.key.includes("/cells"))).toBe(true);
+    expect(sent).toBe(0);
+  });
+
+  it("opens the ordinary approval popup instead when the API says a review is needed", async () => {
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
+    fakeApi({
+      ...answers(),
+      [`POST /api/v1/fill-ins/${FILL}/submit`]: () => json({ data: { outcome: "REVIEW_NEEDED" } }),
+      [`GET ${RECORDS}/${FILL}/approval`]: () =>
+        json({
+          data: {
+            ...NO_APPROVAL.data,
+            available: true,
+            processes: [{ apiName: "fill_review", label: "Fill-in review" }],
+            actions: { ...NO_APPROVAL.data.actions, canSubmit: true },
+          },
+        }),
+    });
+    render(<FillInsPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Submit" }));
+
+    expect(await screen.findByTestId("send-note")).toHaveTextContent("A review is set up for fill-ins");
+    expect(await screen.findByRole("button", { name: "Submit and lock the record" })).toBeInTheDocument();
+    // The page has one Submit: the approval's own button is not drawn beside it.
+    expect(screen.queryByTestId("approval-submit")).not.toBeInTheDocument();
+  });
+
+  it("shows the API's words when the fill-in cannot be sent", async () => {
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
+    fakeApi({
+      ...answers(),
+      [`POST /api/v1/fill-ins/${FILL}/submit`]: () =>
+        refusal("CONFLICT", "This fill-in has no rows yet. Add at least one row before sending it.", 409),
+    });
+    render(<FillInsPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Submit" }));
+
+    expect(await screen.findByTestId("send-note")).toHaveTextContent("This fill-in has no rows yet");
+  });
+
+  it("leaves with Cancel and sends nothing; unsaved changes are never dropped by one press", async () => {
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
+    const calls = fakeApi(answers());
+    render(<FillInsPage />);
+    fireEvent.click(await screen.findByRole("tab", { name: "Form view" }));
+    const box = within((await screen.findAllByTestId("fill-row"))[0] as HTMLElement).getByRole("textbox", {
+      name: /Amount/,
+    });
+    fireEvent.change(box, { target: { value: "5" } });
+    fireEvent.blur(box);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+
+    expect(currentUrl()).toContain(`open=${FILL}`);
+    fireEvent.click(screen.getByRole("button", { name: "Leave without saving" }));
+    expect(currentUrl()).not.toContain("open=");
+    expect(calls.some((call) => call.key.includes("/submit"))).toBe(false);
+  });
+
+  it("offers no Submit or Cancel for a fill-in that was already sent", async () => {
+    setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
+    fakeApi({
+      ...answers(),
+      [`GET ${RECORDS}/${FILL}`]: () =>
+        json({
+          data: {
+            id: FILL,
+            objectApiName: "InspectionFill",
+            ownerId: "0198f5c0-0000-7000-8000-000000000001",
+            fields: { name: "Fire exit check", templateId: TEMPLATE, status: "SUBMITTED" },
+            version: 2,
+            createdAt: "2026-10-23T08:00:00Z",
+            updatedAt: "2026-10-23T08:00:00Z",
+          },
+        }),
+    });
+    render(<FillInsPage />);
+
+    await screen.findByRole("grid", { name: /version 3/ });
+    expect(screen.queryByRole("button", { name: "Submit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
   });
 });

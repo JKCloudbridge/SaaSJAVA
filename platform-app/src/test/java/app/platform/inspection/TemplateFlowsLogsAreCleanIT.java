@@ -89,7 +89,8 @@ class TemplateFlowsLogsAreCleanIT extends TemplateSupport {
 
         // Refusals of every kind.
         List<Response> refusals = new ArrayList<>();
-        refusals.add(submit(author.browser(), typedTwo, process));
+        // The clash is found at the first approval now (FA6A), not at Submit.
+        refusals.add(approve(approver.browser(), submitted(author.browser(), typedTwo, process)));
         refusals.add(publish(approver.browser(), typedOne, null, "PLANT1/QLT"));
         refusals.add(publish(approver.browser(), typedOne, null, "HEAD/HR"));
         refusals.add(publish(author.browser(), typedOne, null, "PLANT1/PRD"));

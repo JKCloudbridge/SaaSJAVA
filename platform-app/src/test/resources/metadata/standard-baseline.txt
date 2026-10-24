@@ -75,6 +75,8 @@ InspectionFill.templateId TEXT indexed platformWritten
 InspectionFill.status TEXT indexed platformWritten
 InspectionTemplate managedBy=none requiresFeature=inspection retainRecords sharingDefault=PRIVATE
 InspectionTemplate.name TEXT
+InspectionTemplate.level PICKLIST codeValues organizationValues
+InspectionTemplate.documentType PICKLIST codeValues organizationValues dependsOn=level
 InspectionTemplate.retired BOOLEAN platformWritten
 InspectionTemplate.category PICKLIST codeValues organizationValues
 InspectionTemplate.subCategory PICKLIST codeValues organizationValues dependsOn=category

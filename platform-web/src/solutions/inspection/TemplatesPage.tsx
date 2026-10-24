@@ -39,7 +39,7 @@ type Loaded =
   | { status: "ready"; rows: TemplateRow[]; next?: string; canCreate: boolean }
   | { status: "failed"; message: string };
 
-const FIELD_COLUMNS = ["number", "category", "subCategory"] as const;
+const FIELD_COLUMNS = ["number", "level", "documentType", "category", "subCategory"] as const;
 const PRIMARY_FIELD = "name";
 
 function TemplatesScreen() {
@@ -116,10 +116,24 @@ function TemplatesScreen() {
       kind: "muted",
       sort: (row) => text(row.number),
     },
-    category: { key: "category", header: "Category", cell: (row) => text(row.category), kind: "muted", sort: (row) => text(row.category) },
+    level: { key: "level", header: "Level", cell: (row) => text(row.level), kind: "muted", sort: (row) => text(row.level) },
+    documentType: {
+      key: "documentType",
+      header: "Document",
+      cell: (row) => text(row.documentType),
+      kind: "muted",
+      sort: (row) => text(row.documentType),
+    },
+    category: {
+      key: "category",
+      header: "Identity category",
+      cell: (row) => text(row.category),
+      kind: "muted",
+      sort: (row) => text(row.category),
+    },
     subCategory: {
       key: "subCategory",
-      header: "Sub-category",
+      header: "Identity sub-category",
       cell: (row) => text(row.subCategory),
       kind: "muted",
       sort: (row) => text(row.subCategory),

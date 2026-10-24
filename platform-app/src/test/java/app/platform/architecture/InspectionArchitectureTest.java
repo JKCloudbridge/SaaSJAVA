@@ -52,6 +52,14 @@ class InspectionArchitectureTest {
     }
 
     @Test
+    void onlyTheClusterSendsAFillInWithoutAReview() {
+        noClasses().that().resideOutsideOfPackages("app.platform.inspection..", "app.platform.sheets..")
+                .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.sheets.FillSubmission")
+                .because("the module that owns the header decides when a fill-in is sent for good (ADR-0196)")
+                .allowEmptyShould(true).check(platform);
+    }
+
+    @Test
     void onlyTheClusterAsksTheFillInReport() {
         noClasses().that().resideOutsideOfPackages("app.platform.inspection..", "app.platform.sheets..")
                 .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.sheets.FillReports")

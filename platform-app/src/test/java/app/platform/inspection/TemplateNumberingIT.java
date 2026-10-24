@@ -105,7 +105,7 @@ class TemplateNumberingIT extends TemplateSupport {
     }
 
     @Test
-    void aMissingOrBadTypedPartIsRefusedAtSubmitInWordsAndTheDraftStaysADraft() {
+    void aMissingOrBadTypedPartIsRefusedAtTheFirstApprovalInWordsAndTheTemplateStaysInReview() {
         Run run = run();
         String noCode = templateWithSheet(run.author().browser(), "CP", "PRD");
         String badCode = template(run.author().browser(), "{\"name\":\"" + newName()
@@ -116,28 +116,34 @@ class TemplateNumberingIT extends TemplateSupport {
         String badYear = template(run.author().browser(), "{\"name\":\"" + newName()
                 + "\",\"category\":\"BP\",\"planYear\":\"26\"}");
         fill(run.author().browser(), badYear, firstVersion(run.author().browser(), badYear));
+        List<String> templates = List.of(noCode, badCode, noSub, noYear, badYear);
+        // The author is not asked for the identity: every one of them is sent without a complaint.
+        List<String> requests = new ArrayList<>();
+        for (String template : templates) {
+            requests.add(submitted(run.author().browser(), template, run.process()));
+        }
 
-        Response one = submit(run.author().browser(), noCode, run.process());
-        Response two = submit(run.author().browser(), badCode, run.process());
-        Response three = submit(run.author().browser(), noSub, run.process());
-        Response four = submit(run.author().browser(), noYear, run.process());
-        Response five = submit(run.author().browser(), badYear, run.process());
+        List<Response> refusals = new ArrayList<>();
+        for (String request : requests) {
+            refusals.add(approve(run.approver().browser(), request));
+        }
 
-        assertThat(message(one)).startsWith("Fill in the part code").contains("before sending the template");
-        assertThat(message(two)).startsWith("Fill in the part code");
-        assertThat(message(three)).isEqualTo("Fill in the sub-category before sending the template for approval: "
+        assertThat(message(refusals.get(0))).startsWith("Fill in the part code").contains("then approve again");
+        assertThat(message(refusals.get(1))).startsWith("Fill in the part code");
+        assertThat(message(refusals.get(2))).isEqualTo("Fill in the identity sub-category (Edit), then approve again: "
                 + "its number is made from it.");
-        assertThat(message(four)).startsWith("Fill in the plan year");
-        assertThat(message(five)).startsWith("The plan year is four digits");
-        for (Response refused : List.of(one, two, three, four, five)) {
+        assertThat(message(refusals.get(3))).startsWith("Fill in the plan year");
+        assertThat(message(refusals.get(4))).startsWith("The plan year is four digits");
+        for (Response refused : refusals) {
             assertThat(refused.status()).isEqualTo(409);
             assertThat(code(refused)).isEqualTo("CONFLICT");
         }
-        for (String template : List.of(noCode, badCode, noSub, noYear, badYear)) {
-            assertThat(statuses(run.author().browser(), template)).containsExactly("DRAFT");
-            assertThat(number(run.setting().admin(), template)).isNull();
+        for (int i = 0; i < templates.size(); i++) {
+            assertThat(statuses(run.author().browser(), templates.get(i))).containsExactly("IN_REVIEW");
+            assertThat(statusOf(run.approver().browser(), requests.get(i))).isEqualTo("PENDING");
+            assertThat(number(run.setting().admin(), templates.get(i))).isNull();
         }
-        assertThat(message(one)).as("the words never repeat what was typed").doesNotContain("has space");
+        assertThat(message(refusals.get(0))).as("the words never repeat what was typed").doesNotContain("has space");
     }
 
     @Test
@@ -172,7 +178,7 @@ class TemplateNumberingIT extends TemplateSupport {
     // ---- a clash ----
 
     @Test
-    void aTypedNumberAnotherTemplateAlreadyHasIsRefusedAtSubmitWithWords() {
+    void aTypedNumberAnotherTemplateAlreadyHasIsRefusedAtTheFirstApprovalWithWords() {
         Run run = run();
         String first = template(run.author().browser(), "{\"name\":\"" + newName()
                 + "\",\"category\":\"CP\",\"subCategory\":\"PRD\",\"partCode\":\"SAME\"}");
@@ -181,13 +187,15 @@ class TemplateNumberingIT extends TemplateSupport {
                 + "\",\"category\":\"CP\",\"subCategory\":\"PRD\",\"partCode\":\"SAME\"}");
         fill(run.author().browser(), second, firstVersion(run.author().browser(), second));
         assertThat(approvedNumber(run, first)).isEqualTo("CP/PRD/SAME");
+        String request = submitted(run.author().browser(), second, run.process());
 
-        Response clash = submit(run.author().browser(), second, run.process());
+        Response clash = approve(run.approver().browser(), request);
 
         assertThat(clash.status()).isEqualTo(409);
         assertThat(message(clash)).startsWith("Another template already has the number this one would get");
         assertThat(clash.body()).doesNotContain("SAME");
-        assertThat(statuses(run.author().browser(), second)).containsExactly("DRAFT");
+        assertThat(statuses(run.author().browser(), second)).containsExactly("IN_REVIEW");
+        assertThat(statusOf(run.approver().browser(), request)).isEqualTo("PENDING");
     }
 
     @Test

@@ -29,6 +29,13 @@ export interface FillWorkspaceProps {
   onSaved?(summary: FillSummary): void;
   /** Told whenever a fill-in has been read: the facts of it, for a page that shows more than the cells (FF2). */
   onLoaded?(summary: FillSummary): void;
+  /**
+   * The page's Submit (FA6A): drawn beside Save while the person may edit. The cells are saved first, and nothing is sent
+   * when they cannot be; then the page's call runs and answers with words to show, and whether it worked.
+   */
+  submit?(): Promise<{ ok: boolean; message?: string }>;
+  /** The page's Cancel: leaves without sending. Unsaved changes are never dropped silently (it asks to be pressed twice). */
+  onCancel?(): void;
 }
 
 /**
@@ -40,7 +47,16 @@ export interface FillWorkspaceProps {
  *
  * It knows no business word: the header record is a parameter.
  */
-export function FillWorkspace({ owner: given, label, refreshToken = 0, onDirty, onSaved, onLoaded }: FillWorkspaceProps) {
+export function FillWorkspace({
+  owner: given,
+  label,
+  refreshToken = 0,
+  onDirty,
+  onSaved,
+  onLoaded,
+  submit,
+  onCancel,
+}: FillWorkspaceProps) {
   const owner = useMemo<FillOwner>(() => ({ object: given.object, id: given.id }), [given.object, given.id]);
   const [dirty, setDirty] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -90,6 +106,8 @@ export function FillWorkspace({ owner: given, label, refreshToken = 0, onDirty, 
       onDirty={setDirty}
       onSaved={onSaved}
       onLoaded={onLoaded}
+      submit={submit}
+      onCancel={onCancel}
       onReload={() => setRefresh((n) => n + 1)}
     />
   );
@@ -102,6 +120,8 @@ function FillPane({
   onDirty,
   onSaved,
   onLoaded,
+  submit,
+  onCancel,
   onReload,
 }: {
   owner: FillOwner;
@@ -110,6 +130,8 @@ function FillPane({
   onDirty(dirty: boolean): void;
   onSaved: ((summary: FillSummary) => void) | undefined;
   onLoaded: ((summary: FillSummary) => void) | undefined;
+  submit: FillWorkspaceProps["submit"];
+  onCancel: FillWorkspaceProps["onCancel"];
   onReload(): void;
 }) {
   const grid = useMemo<GridDoc>(() => fromApi(view.grid), [view.grid]);
@@ -120,6 +142,9 @@ function FillPane({
   const [summary, setSummary] = useState(view.fill);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendNote, setSendNote] = useState<{ error: boolean; text: string } | null>(null);
+  const [leaving, setLeaving] = useState(false);
   const [refused, setRefused] = useState<{ sent: FillDoc; problems: Problem[]; message: string; stale: boolean } | null>(
     null,
   );
@@ -153,7 +178,7 @@ function FillPane({
     [grid, showing],
   );
 
-  const save = async () => {
+  const save = async (): Promise<boolean> => {
     setSaving(true);
     setSaved(false);
     const sent = editor.fill;
@@ -165,7 +190,7 @@ function FillPane({
       setRefused(null);
       setSaved(true);
       onSaved?.(outcome.data);
-      return;
+      return true;
     }
     setRefused({
       sent,
@@ -173,6 +198,32 @@ function FillPane({
       message: outcome.failure.message,
       stale: outcome.failure.code === "CONCURRENT_MODIFICATION" || outcome.failure.code === "CONFLICT",
     });
+    return false;
+  };
+
+  // Submit saves what was typed, then sends it. Nothing is sent when the save is refused, and what was typed stays.
+  const send = async () => {
+    if (!submit) {
+      return;
+    }
+    setSending(true);
+    setSendNote(null);
+    setLeaving(false);
+    if (dirty && !(await save())) {
+      setSending(false);
+      return;
+    }
+    const answer = await submit();
+    setSending(false);
+    setSendNote(answer.message ? { error: !answer.ok, text: answer.message } : null);
+  };
+
+  const cancel = () => {
+    if (dirty && !leaving) {
+      setLeaving(true);
+      return;
+    }
+    onCancel?.();
   };
 
   const narrowNote = narrow && !readOnly ? "On a narrow screen the grid is for reading. Fill in the form view." : undefined;
@@ -189,15 +240,44 @@ function FillPane({
         </p>
         {readOnly ? null : (
           <div className="sheet-bar-actions">
-            <button type="button" className="button" onClick={() => void save()} disabled={saving || !dirty}>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => void save()}
+              disabled={saving || sending || !dirty}
+            >
               {saving ? "Saving…" : "Save"}
             </button>
+            {submit ? (
+              <button type="button" className="button" onClick={() => void send()} disabled={saving || sending}>
+                {sending ? "Submitting…" : "Submit"}
+              </button>
+            ) : null}
+            {onCancel ? (
+              <button type="button" className="button button-secondary" onClick={cancel} disabled={sending}>
+                {leaving ? "Leave without saving" : "Cancel"}
+              </button>
+            ) : null}
             <span className="hint" role="status">
               {saved && !dirty ? "All changes are saved." : dirty ? "There are changes that are not saved." : ""}
             </span>
           </div>
         )}
       </div>
+      {sendNote ? (
+        <p
+          className={sendNote.error ? "form-message" : "hint"}
+          role={sendNote.error ? "alert" : "status"}
+          data-testid="send-note"
+        >
+          {sendNote.text}
+        </p>
+      ) : null}
+      {leaving ? (
+        <p className="hint" role="note">
+          There are changes that are not saved. Press the button again to leave without them, or press Save.
+        </p>
+      ) : null}
       <p className="hint" role="note" data-testid="fill-status-note">
         {fillStatusWords(summary.status)}
       </p>
