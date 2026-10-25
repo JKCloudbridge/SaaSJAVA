@@ -166,7 +166,6 @@ final class XlsxWriter {
         int columnCount = grid.columns().size();
         int footerRow = rows.size() + 2;
         // Where a merged area covers cells: they are written empty (with their border) and the area is listed once.
-        Map<Long, Merge> anchors = new HashMap<>();
         Set<Long> covered = new HashSet<>();
         List<String> mergeRefs = new ArrayList<>();
         for (Merge merge : grid.merges()) {
@@ -176,7 +175,6 @@ final class XlsxWriter {
                     || from[0] == to[0] && from[1] == to[1]) {
                 continue;
             }
-            anchors.put(key(from[0], from[1]), merge);
             for (int r = from[0]; r <= to[0]; r++) {
                 for (int c = from[1]; c <= to[1]; c++) {
                     if (r != from[0] || c != from[1]) {
