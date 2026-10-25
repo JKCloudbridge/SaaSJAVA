@@ -83,7 +83,7 @@ class TemplateIdentityIT extends TemplateSupport {
 
         assertThat(refused.status()).isEqualTo(409);
         assertThat(message(refused))
-                .isEqualTo("Choose the identity category and sub-category (Edit), then approve again.");
+                .isEqualTo("Choose the identity category (Edit), then approve again.");
         assertThat(statusOf(run.plant().browser(), request)).isEqualTo("PENDING");
         assertThat(statuses(run.author().browser(), template)).containsExactly("IN_REVIEW");
         assertThat(number(run.setting().admin(), template)).isNull();

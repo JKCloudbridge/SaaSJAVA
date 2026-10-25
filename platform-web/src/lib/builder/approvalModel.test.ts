@@ -238,3 +238,26 @@ describe("the step that is skipped when nobody can decide it", () => {
     );
   });
 });
+
+describe("the step that asks the approver for a choice", () => {
+  it("is off for a new step and for a process saved before the flag existed", () => {
+    expect(newStep([], CATALOGUE).asksForChoice).toBe(false);
+    const draft = draftFromView(PROCESS, CATALOGUE);
+
+    expect(draft.steps.map((step) => step.asksForChoice)).toEqual([false, false]);
+    expect(definitionOf(draft, CATALOGUE).steps.map((step) => step.asksForChoice)).toEqual([false, false]);
+  });
+
+  it("is read from the process, changed on one step only, sent back, and counts as an unsaved change", () => {
+    const view = { ...PROCESS, steps: [PROCESS.steps[0]!, { ...PROCESS.steps[1]!, asksForChoice: true }] };
+    const draft = draftFromView(view, CATALOGUE);
+
+    expect(draft.steps.map((step) => step.asksForChoice)).toEqual([false, true]);
+    const changed = changeStep(draft.steps, 0, { asksForChoice: true });
+    expect(definitionOf({ ...draft, steps: changed }, CATALOGUE).steps.map((step) => step.asksForChoice)).toEqual([
+      true,
+      true,
+    ]);
+    expect(snapshotOf({ ...draft, steps: changed })).not.toBe(snapshotOf(draft));
+  });
+});

@@ -39,6 +39,7 @@ import app.platform.sharedkernel.approval.ApprovalOutcome;
 import app.platform.sharedkernel.approval.ApprovalStartRefusal;
 import app.platform.sharedkernel.approval.ApprovalStarter;
 import app.platformapi.ApiException;
+import app.platformapi.ApprovalDecisionRequest;
 import app.platformapi.ErrorCode;
 import java.time.Clock;
 import java.time.Instant;
@@ -419,8 +420,9 @@ class ApprovalEngine implements Approvals, ApprovalApplicability, ApprovalStarte
     // ---- deciding ----
 
     /** A person approves their task. */
-    InstanceRow approve(Member member, UUID id, long version, String comment) {
-        return decide(member, id, version, comment(comment), true);
+    InstanceRow approve(Member member, UUID id, long version, String comment,
+            List<ApprovalDecisionRequest.DecisionChoice> choices) {
+        return decide(member, id, version, comment(comment), true, choices);
     }
 
     /** A person rejects their task; the comment is required. */
@@ -429,10 +431,11 @@ class ApprovalEngine implements Approvals, ApprovalApplicability, ApprovalStarte
         if (note == null) {
             throw ApiException.validation("comment", "Say why you reject it.");
         }
-        return decide(member, id, version, note, false);
+        return decide(member, id, version, note, false, List.of());
     }
 
-    private InstanceRow decide(Member member, UUID id, long version, String note, boolean approve) {
+    private InstanceRow decide(Member member, UUID id, long version, String note, boolean approve,
+            List<ApprovalDecisionRequest.DecisionChoice> choices) {
         InstanceRow instance = hold(id);
         List<AssignmentRow> tasks = store.assignmentsOf(id);
         List<AssignmentRow> mine = tasks.stream().filter(task -> task.assigneeId().equals(member.userId())).toList();
@@ -456,7 +459,9 @@ class ApprovalEngine implements Approvals, ApprovalApplicability, ApprovalStarte
         if (approve) {
             // After the person's standing, task and the machine's answer, before anything is written (ADR-0187).
             try {
-                hooks.beforeApprove(instance, step, member.userId());
+                boolean asks = pinned(instance).process().definition().steps().get(step.position() - 1)
+                        .asksForChoice();
+                hooks.beforeApprove(instance, step, member.userId(), asks, choices);
             } catch (ApprovalHookRefusal refusal) {
                 throw new ApiException(ErrorCode.CONFLICT, refusal.words());
             }

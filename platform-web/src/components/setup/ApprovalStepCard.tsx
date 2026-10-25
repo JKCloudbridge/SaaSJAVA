@@ -139,6 +139,23 @@ export function ApprovalStepCard({
         </p>
       </div>
 
+      <div className="field">
+        <label htmlFor={`${prefix}-choice`}>
+          <input
+            id={`${prefix}-choice`}
+            type="checkbox"
+            checked={step.asksForChoice}
+            onChange={(event) => onChange((steps) => changeStep(steps, index, { asksForChoice: event.target.checked }))}
+          />{" "}
+          Ask the approver for a choice
+        </label>
+        <p className="hint" id={`${prefix}-choice-hint`}>
+          When the record&apos;s module has a choice to ask for (for a template: where it is meant to be published), the
+          approver is asked for it when they approve this step, and cannot approve without it. It is kept as a
+          suggestion for the later steps and shares nothing. A step that is skipped asks nobody.
+        </p>
+      </div>
+
       <fieldset className="field" data-testid="approvers">
         <legend>Who is asked</legend>
         {step.approvers.length === 0 ? (

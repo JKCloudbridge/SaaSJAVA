@@ -33,6 +33,9 @@ import org.springframework.stereotype.Component;
  *   checks completeness and fixes the reservation and identity. An unnumbered header is still allocated through the
  *   narrow writer as a backstop. Any number of steps and skipped steps work; later approvals never allocate again.
  *   Rejection retains every allocation; it cannot reverse a first-Approve fixed mark.</li>
+ *   <li><strong>At a step that asks for a choice</strong> (FA6G, ADR-0200): the approval carries the places the
+ *   template is suggested for; a location is required, a department is not; it is kept with the request and shares
+ *   nothing.</li>
  *   <li><strong>When the request ends</strong>: the version it reviewed is approved, rejected or withdrawn.
  *   Approving does not publish.</li>
  * </ul>
@@ -49,9 +52,11 @@ class TemplateApprovalHooks implements ApprovalHooks {
     private final NumberSeries numbers;
     private final SheetLifecycle sheets;
     private final NumberAssignments assignments;
+    private final AudienceSuggestions suggestions;
 
     TemplateApprovalHooks(BackgroundRecords records, NumberSeries numbers, SheetLifecycle sheets,
-            NumberAssignments assignments) {
+            NumberAssignments assignments, AudienceSuggestions suggestions) {
+        this.suggestions = suggestions;
         this.records = records;
         this.numbers = numbers;
         this.sheets = sheets;
@@ -86,6 +91,10 @@ class TemplateApprovalHooks implements ApprovalHooks {
 
     @Override
     public void beforeApprove(DecisionContext context, ApprovalHookWriter writer) {
+        if (context.asksForChoice()) {
+            // A step the process marks as asking for a choice: no approval without a location (FA6G, ADR-0200).
+            suggestions.accept(context);
+        }
         DataRecord template = template(context.recordId());
         if (!Templates.isBlank(template.fields().get(Templates.NUMBER))) {
             if (!assignments.fixed(Templates.SERIES, template.id(),

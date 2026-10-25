@@ -1,8 +1,10 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import { api } from "@/lib/api/client";
+import type { Choice } from "@/lib/approvals/choiceForm";
 import { call } from "@/lib/records/call";
+import { choiceFormElement } from "@/solutions/choices";
 import { PersonPicker } from "./PersonPicker";
 
 /** What a person can do with a request; the server says which of these are open to them (`actions`). */
@@ -25,6 +27,10 @@ const ASKS: Record<ApprovalActionKind, { comment: "required" | "optional"; perso
  * else decided first, a person who cannot be asked). The comment is text of a person; it is sent and never kept here.
  *
  * @param explain a sentence saying what will happen if the person goes on, written by the screen from what it shows
+ * @param asksForChoice whether the active step needs a choice with the approval (the process says so, FA6G); the form of
+ *        the object's module is shown and the approval is not sent without what it gives. The server insists as well
+ * @param objectApiName the object of the record, to find the form that asks for the choice
+ * @param recordId the record the approval is about
  */
 export function ApprovalActionForm({
   kind,
@@ -32,6 +38,9 @@ export function ApprovalActionForm({
   version,
   explain,
   labels,
+  asksForChoice = false,
+  objectApiName,
+  recordId,
   onDone,
   onClose,
 }: {
@@ -41,6 +50,9 @@ export function ApprovalActionForm({
   explain: string;
   /** Other words for the button of an action (a change request is accepted or declined, not approved or rejected). */
   labels?: Partial<Record<ApprovalActionKind, string>>;
+  asksForChoice?: boolean;
+  objectApiName?: string;
+  recordId?: string;
   onDone: (text: string) => void;
   onClose: () => void;
 }) {
@@ -51,8 +63,16 @@ export function ApprovalActionForm({
   const [personName, setPersonName] = useState("");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | undefined>();
+  const [choices, setChoices] = useState<Choice[] | null>(null);
+  const onChoices = useCallback((next: Choice[] | null) => setChoices(next), []);
+  // Only an approval carries the choice; rejecting at the same step asks for none.
+  const needsChoice = kind === "approve" && asksForChoice;
+  const choiceForm =
+    needsChoice && objectApiName && recordId ? choiceFormElement(objectApiName, { recordId, onChange: onChoices }) : undefined;
   const missing =
-    (ask.comment === "required" && comment.trim() === "") || (ask.person && person === "");
+    (ask.comment === "required" && comment.trim() === "") ||
+    (ask.person && person === "") ||
+    (needsChoice && (choiceForm === undefined || choices === null));
 
   async function go() {
     setBusy(true);
@@ -62,7 +82,10 @@ export function ApprovalActionForm({
     const outcome = await call(() => {
       switch (kind) {
         case "approve":
-          return api.POST("/api/v1/approvals/instances/{id}/approve", { ...path, body: { version, comment: note } });
+          return api.POST("/api/v1/approvals/instances/{id}/approve", {
+            ...path,
+            body: { version, comment: note, choices: needsChoice ? (choices ?? undefined) : undefined },
+          });
         case "reject":
           return api.POST("/api/v1/approvals/instances/{id}/reject", { ...path, body: { version, comment: note } });
         case "recall":
@@ -102,6 +125,12 @@ export function ApprovalActionForm({
       }}
     >
       <p data-testid="approval-explain">{explain}</p>
+      {choiceForm}
+      {needsChoice && !choiceForm ? (
+        <p className="form-message" role="alert" data-testid="approval-choice-unavailable">
+          This step needs a choice that this screen cannot ask for. Open the record to approve it.
+        </p>
+      ) : null}
       {ask.person ? (
         <PersonPicker id={`${id}-person`} label="Who" value={person} name={personName} onChange={(value, name) => {
           setPerson(value);

@@ -6,14 +6,13 @@ import { Tag } from "@/components/ui/lists/Tag";
 import { formatInstant } from "@/lib/records/fieldValue";
 import {
   addChangeComment,
-  answerChangeRequest,
   becameWords,
   changeRequestsHref,
   placeOf,
+  reopenChangeRequest,
   placeWords,
   statusWords,
   turnIntoVersion,
-  type Answer,
   type ChangeRequestView,
   type ChangeRequestsState,
 } from "./changeRequests";
@@ -198,15 +197,16 @@ function RequestCard({
 }) {
   const ids = useId();
   const [reply, setReply] = useState("");
-  const [reason, setReason] = useState<string | null>(null);
   const tag = statusWords(request.status);
   const became = becameWords(request);
   const gone = request.placesTotal - request.placesInActive;
 
-  const answer = (action: Answer, note: string | undefined, done: string) =>
+  const reopen = () =>
     run(async () => {
-      const outcome = await answerChangeRequest(templateId, request.id, action, note);
-      return outcome.ok ? { ok: true as const, text: done } : { ok: false as const, text: outcome.failure.message };
+      const outcome = await reopenChangeRequest(templateId, request.id);
+      return outcome.ok
+        ? { ok: true as const, text: "The request is accepted again and can be turned into a version." }
+        : { ok: false as const, text: outcome.failure.message };
     });
 
   const comment = () =>
@@ -249,11 +249,6 @@ function RequestCard({
         Department when asked: {request.requesterDepartment ?? "—"}
       </p>
       {became ? <p>Turned into {became}.</p> : null}
-      {request.decisionNote ? (
-        <p>
-          <strong>Reason it was declined:</strong> <span className="comment-text">{request.decisionNote}</span>
-        </p>
-      ) : null}
 
       <ul className="stack" aria-label="Comments">
         {request.comments.map((comment) => {
@@ -293,49 +288,11 @@ function RequestCard({
         </div>
       ) : null}
 
-      {request.canAccept || request.canDecline || request.canReopen ? (
+      {request.canReopen ? (
         <div className="split">
-          {request.canAccept ? (
-            <button
-              type="button"
-              className="button button-secondary"
-              disabled={busy}
-              onClick={() => void answer("ACCEPT", undefined, "The request was accepted.")}
-            >
-              Accept
-            </button>
-          ) : null}
-          {request.canDecline ? (
-            <button type="button" className="button button-danger" disabled={busy} onClick={() => setReason(reason === null ? "" : null)}>
-              Decline
-            </button>
-          ) : null}
-          {request.canReopen ? (
-            <button
-              type="button"
-              className="button button-secondary"
-              disabled={busy}
-              onClick={() => void answer("REOPEN", undefined, "The request is open again.")}
-            >
-              Reopen
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-      {reason !== null ? (
-        <div className="field" role="group" aria-label="Decline this request">
-          <label htmlFor={`${ids}-reason`}>Why is it declined? The person who asked will read this.</label>
-          <textarea id={`${ids}-reason`} rows={2} value={reason} onChange={(event) => setReason(event.target.value)} />
-          <div>
-            <button
-              type="button"
-              className="button button-danger"
-              disabled={busy || reason.trim() === ""}
-              onClick={() => void answer("DECLINE", reason, "The request was declined.").then(() => setReason(null))}
-            >
-              Decline it
-            </button>
-          </div>
+          <button type="button" className="button button-secondary" disabled={busy} onClick={() => void reopen()}>
+            Reopen
+          </button>
         </div>
       ) : null}
     </article>

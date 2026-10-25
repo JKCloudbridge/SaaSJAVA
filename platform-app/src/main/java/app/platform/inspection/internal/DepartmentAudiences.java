@@ -142,6 +142,32 @@ class DepartmentAudiences {
     }
 
     /**
+     * The locations the organization offers now, each with the department codes that go with it, in the order the
+     * lists keep them. Nothing is read from the mapping records: this is the lists alone, which is what a suggestion
+     * is judged against (a suggestion needs no group, only a place that is still offered).
+     */
+    Map<String, List<String>> offered() {
+        ObjectDefinition object = metadata.object(Templates.DEPARTMENT_OBJECT)
+                .orElseThrow(() -> ApiException.notFound("This list does not exist."));
+        PicklistConfiguration locations = (PicklistConfiguration) object.field(Templates.LOCATION).orElseThrow()
+                .configuration();
+        PicklistConfiguration departments = (PicklistConfiguration) object.field(Templates.DEPARTMENT).orElseThrow()
+                .configuration();
+        List<String> activeDepartments = departments.values().stream().filter(PicklistValue::active)
+                .map(PicklistValue::value).toList();
+        Map<String, List<String>> result = new LinkedHashMap<>();
+        for (PicklistValue place : locations.values()) {
+            if (!place.active()) {
+                continue;
+            }
+            List<String> allowed = departments.dependency() == null ? activeDepartments
+                    : departments.dependency().allowed().getOrDefault(place.value(), List.of());
+            result.put(place.value(), allowed.stream().filter(activeDepartments::contains).toList());
+        }
+        return result;
+    }
+
+    /**
      * The departments a member belongs to now, in words (FA6A, ADR-0196): the groups of the member, nested ones
      * included, matched against the records of the mapping object, each read as "Location, then department" in the
      * labels of the lists. Several are joined with a semicolon, in the order of the mapping records; none gives null.

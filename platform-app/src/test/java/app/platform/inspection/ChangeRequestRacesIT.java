@@ -49,7 +49,7 @@ class ChangeRequestRacesIT extends ChangeRequestSupport {
     void theSameRequestTurnedIntoAVersionFromTwoInstancesMakesOneDraftAndOneWinner() {
         Run run = run();
         World world = run.world();
-        String request = asked(world.reader().browser(), world.template(), "Once", 1);
+        String request = acceptedRequest(world, world.reader().browser(), "Once", 1);
 
         CompletableFuture<Response> a = CompletableFuture.supplyAsync(() -> turn(world.author().browser(),
                 world.template(), request));
@@ -64,42 +64,5 @@ class ChangeRequestRacesIT extends ChangeRequestSupport {
                 + "and status = 'DRAFT'", java.util.UUID.fromString(world.template()))).isEqualTo(1);
         assertThat(scalar(world.setting().organization(), "select resulting_version from inspection_change_request "
                 + "where id = ?", java.util.UUID.fromString(request))).isEqualTo(2);
-    }
-
-    @Test
-    void theSameAnswerFromTwoInstancesIsGivenOnce() {
-        Run run = run();
-        World world = run.world();
-        String request = asked(world.reader().browser(), world.template(), "Once", 1);
-
-        CompletableFuture<Response> a = CompletableFuture.supplyAsync(() -> answerRequest(world.author().browser(),
-                world.template(), request, "ACCEPT", null));
-        CompletableFuture<Response> b = CompletableFuture.supplyAsync(() -> answerRequest(run.approverOnB(),
-                world.template(), request, "ACCEPT", null));
-
-        assertThat(List.of(a.join().status(), b.join().status())).containsExactlyInAnyOrder(200, 409);
-        assertThat(requestStatus(world.reader().browser(), world.template(), request)).isEqualTo("ACCEPTED");
-        assertThat(audited(world.setting().organization(), "inspection.changerequest.accepted")).isEqualTo(1);
-    }
-
-    @Test
-    void anAnswerAndATurnAtOnceEndInAStateTheLifecycleAllows() {
-        Run run = run();
-        World world = run.world();
-        String request = asked(world.reader().browser(), world.template(), "Either", 1);
-
-        CompletableFuture<Response> decline = CompletableFuture.supplyAsync(() -> answerRequest(
-                world.author().browser(), world.template(), request, "DECLINE", "No"));
-        CompletableFuture<Response> turn = CompletableFuture.supplyAsync(() -> turn(run.approverOnB(),
-                world.template(), request));
-
-        int declined = decline.join().status();
-        int turned = turn.join().status();
-        assertThat(List.of(declined, turned)).containsExactlyInAnyOrder(200, 409);
-        String status = requestStatus(world.reader().browser(), world.template(), request);
-        assertThat(status).isIn("DECLINED", "DONE");
-        assertThat(statuses(world.author().browser(), world.template()))
-                .as("a draft exists exactly when the request was turned")
-                .hasSize("DONE".equals(status) ? 2 : 1);
     }
 }

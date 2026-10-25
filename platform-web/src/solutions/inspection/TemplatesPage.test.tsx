@@ -98,6 +98,8 @@ const lifecycleOf = (extra: Record<string, unknown> = {}, numbers = NONE) => ({
     canUnpublish: false,
     canRetire: false,
     numberPreviewComplete: false,
+    suggestedAudience: [],
+    suggestionDropped: 0,
     ...extra,
   },
 });

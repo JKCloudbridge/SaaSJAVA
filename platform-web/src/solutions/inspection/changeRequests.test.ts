@@ -36,8 +36,6 @@ function request(extra: Partial<ChangeRequestView> = {}): ChangeRequestView {
     placesTotal: 1,
     placesInActive: 1,
     canComment: false,
-    canAccept: false,
-    canDecline: false,
     canTurn: false,
     canReopen: false,
     comments: [comment()],

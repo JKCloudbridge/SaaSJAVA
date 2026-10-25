@@ -195,9 +195,11 @@ public record ApprovalProcessDefinition(UUID id, UUID versionId, String objectAp
      * @param approvers who is asked
      * @param skipWhenNobody whether the step is skipped when nobody can be asked to decide it, after the fallback
      *        approver was tried (FA4A, ADR-0187); false for a process made before the flag existed
+     * @param asksForChoice whether the person who approves the step must also send the choice the object's module asks
+     *        for (FA6G, ADR-0200); false for a process made before the flag existed
      */
     public record Step(String name, String label, Completion completion, List<Approver> approvers,
-            boolean skipWhenNobody) {
+            boolean skipWhenNobody, boolean asksForChoice) {
 
         /** Copies the list. */
         public Step {
@@ -206,7 +208,13 @@ public record ApprovalProcessDefinition(UUID id, UUID versionId, String objectAp
 
         /** A step that is never skipped (the shape before FA4A). */
         public Step(String name, String label, Completion completion, List<Approver> approvers) {
-            this(name, label, completion, approvers, false);
+            this(name, label, completion, approvers, false, false);
+        }
+
+        /** A step that asks for no choice (the shape before FA6G). */
+        public Step(String name, String label, Completion completion, List<Approver> approvers,
+                boolean skipWhenNobody) {
+            this(name, label, completion, approvers, skipWhenNobody, false);
         }
 
         @Override

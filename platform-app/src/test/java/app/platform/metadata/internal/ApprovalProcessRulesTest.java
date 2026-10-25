@@ -156,6 +156,17 @@ class ApprovalProcessRulesTest {
     }
 
     @Test
+    void theFlagThatAsksForAChoiceIsKeptAndDefaultsToFalse() {
+        Problems found = new Problems();
+        List<ApprovalStepSpec> kept = RULES.checkSteps(found, List.of(
+                new ApprovalStepSpec("First", "First", "ANY", List.of(user()), null, null),
+                new ApprovalStepSpec("Second", "Second", "ANY", List.of(user()), false, true)));
+
+        assertThat(found.any()).isFalse();
+        assertThat(kept).extracting(ApprovalStepSpec::asksForChoice).containsExactly(false, true);
+    }
+
+    @Test
     void theFlagThatSkipsAStepNobodyCanDecideIsKeptAndDefaultsToFalse() {
         Problems found = new Problems();
         List<ApprovalStepSpec> kept = RULES.checkSteps(found, List.of(

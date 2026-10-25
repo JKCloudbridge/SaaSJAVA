@@ -27,6 +27,7 @@ function instance(id: string, steps: readonly string[]): Instance {
       label,
       completion: "ANY",
       status: "APPROVED",
+      asksForChoice: false,
       assignments: [{ id: `${id}-${index}`, assignee: { userId: `u${index}`, name: `Person ${index}` }, via: "RULE", status: "APPROVED" }],
     })),
     summary: {
@@ -41,6 +42,7 @@ function instance(id: string, steps: readonly string[]): Instance {
       stepCount: steps.length,
       submittedBy: { userId: "u0", name: "Department Author" },
       version: 1,
+      currentStepAsksForChoice: false,
     },
   } as Instance;
 }

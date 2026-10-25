@@ -49,10 +49,8 @@ class TemplateOpenRequestsIT extends ChangeRequestReviewSupport {
         String declined = asked(world.reader().browser(), world.template(), "Declined", 1);
 
         assertThat(onList(world.author().browser(), world.template())).isEqualTo(2);
-        assertThat(answerRequest(world.author().browser(), world.template(), accepted, "ACCEPT", null).status())
-                .isEqualTo(200);
-        assertThat(answerRequest(world.author().browser(), world.template(), declined, "DECLINE", "No").status())
-                .isEqualTo(200);
+        assertThat(accept(world, accepted).status()).isEqualTo(200);
+        assertThat(decline(world, declined, "No").status()).isEqualTo(200);
         assertThat(onList(world.author().browser(), world.template())).as("accepted waits for its version")
                 .isEqualTo(1);
         assertThat(onLifecycle(world.author().browser(), world.template())).isEqualTo(1);

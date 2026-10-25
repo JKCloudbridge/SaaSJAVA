@@ -191,7 +191,7 @@ class TemplateApprovalHooksTest {
         var assignments = org.mockito.Mockito.mock(app.platform.data.NumberAssignments.class);
         org.mockito.Mockito.when(assignments.fixed(org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
-        return new TemplateApprovalHooks(fakes, fakes, fakes, assignments);
+        return new TemplateApprovalHooks(fakes, fakes, fakes, assignments, null);
     }
 
     private static Fakes withTemplate() {

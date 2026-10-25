@@ -4964,26 +4964,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/templates/{templateId}/change-requests/{requestId}/answer": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Accept, decline or reopen a change request
-         * @description Needs the right to change the template (FORBIDDEN otherwise). ACCEPT moves an open request to accepted; DECLINE needs a reason and ends an open or accepted one; REOPEN puts a done request back to open, only when the version it became was rejected or withdrawn. CONFLICT when it is not in a status that allows the move, or somebody answered first. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
-         */
-        post: operations["answerChangeRequest"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/templates/{templateId}/change-requests/{requestId}/comments": {
         parameters: {
             query?: never;
@@ -4998,6 +4978,26 @@ export interface paths {
          * @description By the person who asked or by a person who may change the template, while the request is open or accepted. The place is checked against the version the request read. CONFLICT when the request is closed or has the most comments. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
          */
         post: operations["addChangeComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/change-requests/{requestId}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen a change request whose new version was not used
+         * @description Needs the right to change the template (FORBIDDEN otherwise). Puts a done request back to accepted, only when the version it became was rejected or withdrawn, so it can be turned into a version again. Accepting and declining a request is the work of its approval, never of this endpoint. CONFLICT when it is not done, its version was used, or somebody moved it first. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
+         */
+        post: operations["reopenChangeRequest"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5098,6 +5098,26 @@ export interface paths {
          * @description Needs the ability to retire sheets. The template is marked retired and its version in use ends as retired; nothing is deleted, the number is never given again and the people it was published to still read it. CONFLICT while a version waits for approval (recall it or let it finish first) and for a template that is already retired. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares.
          */
         post: operations["retireTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/suggestion-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The locations and departments an approver may suggest for a template
+         * @description The same lists as the publish dialog, for the popup of an approval step that asks for an audience. Needs only that the caller can see the template (NOT_FOUND otherwise), not the ability to publish: a suggestion shares nothing. The lists are the organization's own words.
+         */
+        get: operations["templateSuggestionOptions"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5369,10 +5389,6 @@ export interface components {
             values: {
                 [key: string]: string;
             };
-        };
-        AnswerChangeRequest: {
-            action: string;
-            note?: string;
         };
         ApiError: {
             code: components["schemas"]["ErrorCode"];
@@ -5927,6 +5943,7 @@ export interface components {
             roles: components["schemas"]["Named"][];
         };
         ApprovalDecisionRequest: {
+            choices?: components["schemas"]["DecisionChoice"][];
             comment?: string;
             /** Format: int64 */
             version: number;
@@ -5977,6 +5994,7 @@ export interface components {
             attention?: string;
             /** Format: int32 */
             currentStep?: number;
+            currentStepAsksForChoice: boolean;
             currentStepLabel?: string;
             /** Format: date-time */
             finishedAt?: string;
@@ -6066,6 +6084,7 @@ export interface components {
         };
         ApprovalStepSpec: {
             approvers: components["schemas"]["ApprovalApproverSpec"][];
+            asksForChoice?: boolean;
             completion: string;
             label: string;
             name: string;
@@ -6074,6 +6093,7 @@ export interface components {
         ApprovalStepView: {
             /** Format: date-time */
             activatedAt?: string;
+            asksForChoice: boolean;
             assignments: components["schemas"]["ApprovalAssignmentView"][];
             completion: string;
             /** Format: date-time */
@@ -6359,15 +6379,12 @@ export interface components {
         ChangeRequestView: {
             /** Format: date-time */
             answeredAt?: string;
-            canAccept: boolean;
             canComment: boolean;
-            canDecline: boolean;
             canReopen: boolean;
             canTurn: boolean;
             comments: components["schemas"]["ChangeCommentView"][];
             /** Format: date-time */
             createdAt: string;
-            decisionNote?: string;
             /** Format: uuid */
             id: string;
             mine: boolean;
@@ -6708,6 +6725,10 @@ export interface components {
             objectApiName: string;
             reason: string;
             workflow: string;
+        };
+        DecisionChoice: {
+            key: string;
+            value: string;
         };
         EmbeddedTokenRequest: {
             customPage?: string;
@@ -8276,6 +8297,12 @@ export interface components {
             trialEndsAt?: string;
             trialExpired?: boolean;
         };
+        SuggestedAudience: {
+            department?: string;
+            departmentLabel?: string;
+            location: string;
+            locationLabel: string;
+        };
         SupportAccessRequestBody: {
             /** Format: int32 */
             minutes: number;
@@ -8370,6 +8397,9 @@ export interface components {
             /** Format: int32 */
             openChangeRequests: number;
             retired: boolean;
+            suggestedAudience: components["schemas"]["SuggestedAudience"][];
+            /** Format: int32 */
+            suggestionDropped: number;
             versionReviews: components["schemas"]["VersionReview"][];
         };
         TemplatePage: {
@@ -18835,7 +18865,7 @@ export interface operations {
             };
         };
     };
-    answerChangeRequest: {
+    addChangeComment: {
         parameters: {
             query?: never;
             header?: never;
@@ -18847,7 +18877,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AnswerChangeRequest"];
+                "application/json": components["schemas"]["NewChangeComment"];
             };
         };
         responses: {
@@ -18871,7 +18901,7 @@ export interface operations {
             };
         };
     };
-    addChangeComment: {
+    reopenChangeRequest: {
         parameters: {
             query?: never;
             header?: never;
@@ -18881,11 +18911,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NewChangeComment"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -19053,6 +19079,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseTemplateLifecycleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    templateSuggestionOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseAudienceOptionsView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

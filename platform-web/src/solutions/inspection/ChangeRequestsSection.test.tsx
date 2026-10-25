@@ -1,4 +1,4 @@
-import { configure, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { configure, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeApi, json, refusal, type Call } from "@/test/fakeApi";
 import type { ChangeCommentView, ChangeRequestView, ChangeRequestsState, ChangeRequestsView } from "./changeRequests";
@@ -41,8 +41,6 @@ function request(extra: Partial<ChangeRequestView> = {}): ChangeRequestView {
     placesTotal: 1,
     placesInActive: 1,
     canComment: false,
-    canAccept: false,
-    canDecline: false,
     canTurn: false,
     canReopen: false,
     comments: [comment()],
@@ -168,19 +166,18 @@ describe("a request and its comments", () => {
     ]);
   });
 
-  it("says which version a request became and the reason it was declined", () => {
+  it("says which version a request became", () => {
     draw(
       ready(
         view([
           request({ id: "q-2", status: "DONE", resultingVersion: 3, resultingVersionStatus: "IN_REVIEW", title: "Done one" }),
-          request({ id: "q-3", status: "DECLINED", decisionNote: "Not our decision", title: "Declined one" }),
+          request({ id: "q-3", status: "DECLINED", title: "Declined one" }),
         ]),
       ),
     );
 
     const cards = screen.getAllByTestId("change-request");
     expect(screen.getByText("Turned into Version 3 (in review).")).toBeInTheDocument();
-    expect(screen.getByText("Not our decision")).toBeInTheDocument();
     expect(within(cards[1] as HTMLElement).getByText("Declined")).toBeInTheDocument();
     expect(within(cards[0] as HTMLElement).getByText("Done")).toBeInTheDocument();
   });
@@ -247,34 +244,8 @@ describe("the person who asked", () => {
 describe("the people who may change the template", () => {
   const REVIEW = { canReview: true };
 
-  it("accepts a request and says so", async () => {
-    const calls = fakeApi({ [`POST ${BASE}/q-1/answer`]: () => json({ data: request({ status: "ACCEPTED" }) }) });
-    const { onChanged } = draw(ready(view([request({ canAccept: true, canDecline: true })], REVIEW)));
-
-    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
-
-    await screen.findByText("The request was accepted.");
-    expect(bodyOf(calls, `POST ${BASE}/q-1/answer`)).toEqual({ action: "ACCEPT" });
-    expect(onChanged).toHaveBeenCalledTimes(1);
-  });
-
-  it("declines only with a reason, which is sent with the answer", async () => {
-    const calls = fakeApi({ [`POST ${BASE}/q-1/answer`]: () => json({ data: request({ status: "DECLINED" }) }) });
-    draw(ready(view([request({ canAccept: true, canDecline: true })], REVIEW)));
-
-    fireEvent.click(screen.getByRole("button", { name: "Decline" }));
-    const decline = screen.getByRole("button", { name: "Decline it" });
-    expect(decline).toBeDisabled();
-    fireEvent.change(screen.getByLabelText(/Why is it declined/), { target: { value: "Out of scope" } });
-    fireEvent.click(decline);
-
-    await screen.findByText("The request was declined.");
-    expect(bodyOf(calls, `POST ${BASE}/q-1/answer`)).toEqual({ action: "DECLINE", note: "Out of scope" });
-    await waitFor(() => expect(screen.queryByLabelText(/Why is it declined/)).toBeNull());
-  });
-
   it("reopens a request whose version was not used", async () => {
-    const calls = fakeApi({ [`POST ${BASE}/q-1/answer`]: () => json({ data: request() }) });
+    const calls = fakeApi({ [`POST ${BASE}/q-1/reopen`]: () => json({ data: request() }) });
     draw(
       ready(
         view(
@@ -287,8 +258,8 @@ describe("the people who may change the template", () => {
     expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
 
-    await screen.findByText("The request is open again.");
-    expect(bodyOf(calls, `POST ${BASE}/q-1/answer`)).toEqual({ action: "REOPEN" });
+    await screen.findByText("The request is accepted again and can be turned into a version.");
+    expect(calls.some((one) => one.key === `POST ${BASE}/q-1/reopen`)).toBe(true);
   });
 
   it("turns the chosen requests into a version and says it is a copy of the one in use", async () => {
@@ -331,14 +302,16 @@ describe("the people who may change the template", () => {
     expect(await screen.findByText(/A draft already existed, so 1 request is linked to version 5 as it is/)).toBeInTheDocument();
   });
 
-  it("shows the API's words when a request cannot be answered and changes nothing", async () => {
+  it("shows the API's words when a request cannot be reopened and changes nothing", async () => {
     fakeApi({
-      [`POST ${BASE}/q-1/answer`]: () =>
+      [`POST ${BASE}/q-1/reopen`]: () =>
         refusal("CONFLICT", "This request was answered by someone else just now. Reload the page.", 409),
     });
-    const { onChanged } = draw(ready(view([request({ canAccept: true })], REVIEW)));
+    const { onChanged } = draw(
+      ready(view([request({ status: "DONE", resultingVersion: 2, resultingVersionStatus: "REJECTED", canReopen: true })], REVIEW)),
+    );
 
-    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("answered by someone else just now");
     expect(onChanged).not.toHaveBeenCalled();

@@ -90,6 +90,17 @@ class TemplateController {
         return ApiResponse.of(publishing.audienceOptions());
     }
 
+    @GetMapping(BASE + "/{templateId}/suggestion-options")
+    @Operation(
+            operationId = "templateSuggestionOptions",
+            summary = "The locations and departments an approver may suggest for a template",
+            description = "The same lists as the publish dialog, for the popup of an approval step that asks for an "
+                    + "audience. Needs only that the caller can see the template (NOT_FOUND otherwise), not the "
+                    + "ability to publish: a suggestion shares nothing. The lists are the organization's own words.")
+    ApiResponse<AudienceOptionsView> suggestionOptions(@PathVariable UUID templateId) {
+        return ApiResponse.of(publishing.suggestionOptions(templateId));
+    }
+
     @GetMapping(BASE + "/{templateId}/lifecycle")
     @Operation(
             operationId = "getTemplateLifecycle",

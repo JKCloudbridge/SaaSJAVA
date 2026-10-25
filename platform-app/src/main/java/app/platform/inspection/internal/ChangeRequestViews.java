@@ -60,14 +60,11 @@ public final class ChangeRequestViews {
      * @param mine whether the caller asked
      * @param createdAt when it was made
      * @param answeredAt when it was last answered, or null while it is open
-     * @param decisionNote the reason it was declined, or null
      * @param resultingVersion the version it was turned into, or null
      * @param resultingVersionStatus the status of that version now, or null
      * @param placesTotal how many places its comments point at (a comment on the whole template points at none)
      * @param placesInActive how many of those places are still in the version in use
      * @param canComment whether the caller may add a comment now
-     * @param canAccept whether the caller may accept it now
-     * @param canDecline whether the caller may decline it now
      * @param canTurn whether the caller may turn it into a new version now
      * @param canReopen whether the caller may reopen it (its version was not used)
      * @param comments its comments, oldest first
@@ -75,14 +72,14 @@ public final class ChangeRequestViews {
      * @param templateName the template's name, or null when the caller may not read it
      * @param templateNumber the template's number, or null when it has none or the caller may not read it
      * @param reviewId the record the approval engine reviews for this request (the address of its approval panel), or
-     *        null when the request is answered directly (FA6E, ADR-0199)
+     *        null for a request made before every request had an approval (FA6E, ADR-0199)
      */
     public record ChangeRequestView(@NotNull UUID id, @NotNull String title, @NotNull String status,
             @NotNull Integer versionNo, String requesterName, String requesterDepartment, @NotNull Boolean mine,
             @NotNull Instant createdAt,
-            Instant answeredAt, String decisionNote, Integer resultingVersion, String resultingVersionStatus,
+            Instant answeredAt, Integer resultingVersion, String resultingVersionStatus,
             @NotNull Integer placesTotal, @NotNull Integer placesInActive, @NotNull Boolean canComment,
-            @NotNull Boolean canAccept, @NotNull Boolean canDecline, @NotNull Boolean canTurn,
+            @NotNull Boolean canTurn,
             @NotNull Boolean canReopen, @NotNull List<ChangeCommentView> comments, @NotNull UUID templateId,
             String templateName, String templateNumber, UUID reviewId) {
 
@@ -201,22 +198,6 @@ public final class ChangeRequestViews {
         @Override
         public String toString() {
             return "CreateChangeRequest[redacted]";
-        }
-    }
-
-    /**
-     * An answer to a request.
-     *
-     * @param action {@code ACCEPT}, {@code DECLINE} (a reason is needed) or {@code REOPEN}
-     * @param note the reason for declining
-     */
-    public record AnswerChangeRequest(@NotNull @Pattern(regexp = "ACCEPT|DECLINE|REOPEN") String action,
-            @Size(max = 4000) String note) {
-
-        /** Prints a marker only: the text in it is the organization's and never reaches a log. */
-        @Override
-        public String toString() {
-            return "AnswerChangeRequest[redacted]";
         }
     }
 

@@ -13,7 +13,7 @@ function task(name: string | undefined, status: string, at?: string): Task {
 }
 
 function step(position: number, label: string, status: string, assignments: Task[] = []): Step {
-  return { position, name: label.toLowerCase(), label, completion: "ANY", status, assignments };
+  return { position, name: label.toLowerCase(), label, completion: "ANY", status, assignments, asksForChoice: false };
 }
 
 function request(status: string, steps: Step[], submittedBy = person("Author One")): Instance {
@@ -43,6 +43,7 @@ function request(status: string, steps: Step[], submittedBy = person("Author One
       stepCount: steps.length,
       submittedBy,
       version: 1,
+      currentStepAsksForChoice: false,
     },
   } as Instance;
 }

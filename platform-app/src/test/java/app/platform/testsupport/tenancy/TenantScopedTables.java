@@ -795,6 +795,20 @@ public final class TenantScopedTables {
                     tenant, UUID.randomUUID(), UUID.randomUUID(), ActorId.SYSTEM.value(),
                     ActorId.SYSTEM.value()));
 
+    /**
+     * The audience a step suggested for a template (FA6G). The guard lets only the step's approval write, so the probe
+     * raises the transaction setting in the same statement.
+     */
+    public static final TenantScopedTable INSPECTION_AUDIENCE_SUGGESTION = new TenantScopedTable(
+            "inspection_audience_suggestion",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "with allowed as (select set_config('platform.audience_suggestion_write', 'on', true)) "
+                            + "insert into inspection_audience_suggestion (tenant_id, request_id, template_id, "
+                            + "step_position, location, department, created_by, updated_by) "
+                            + "select ?, ?, ?, 1, 'PROBE', 'PROBE', ?, ? from allowed",
+                    tenant, UUID.randomUUID(), UUID.randomUUID(), ActorId.SYSTEM.value(),
+                    ActorId.SYSTEM.value()));
+
     /** The change requests on templates (FA5). Each probe row is a request on a template of its own. */
     public static final TenantScopedTable INSPECTION_CHANGE_REQUEST = new TenantScopedTable(
             "inspection_change_request",
@@ -846,7 +860,8 @@ public final class TenantScopedTables {
             ORGANIZATION_FIELD_VALUES, NUMBER_SERIES_COUNTER, NUMBERING_FORMAT, NUMBER_RESERVATION,
             SHEET_VERSION, SHEET_FILL,
             SHEET_FILL_VALUE,
-            INSPECTION_PUBLICATION, INSPECTION_CHANGE_REQUEST, INSPECTION_CHANGE_COMMENT);
+            INSPECTION_PUBLICATION, INSPECTION_CHANGE_REQUEST, INSPECTION_CHANGE_COMMENT,
+            INSPECTION_AUDIENCE_SUGGESTION);
 
     private TenantScopedTables() {
     }

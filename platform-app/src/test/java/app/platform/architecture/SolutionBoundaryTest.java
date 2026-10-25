@@ -49,6 +49,7 @@ class SolutionBoundaryTest {
             "platform-app/src/main/resources/db/migration/V058__add_inspection_feature.sql",
             "platform-app/src/main/resources/db/migration/V066__create_inspection_publication.sql",
             "platform-app/src/main/resources/db/migration/V067__create_inspection_change_requests.sql",
+            "platform-app/src/main/resources/db/migration/V076__create_audience_suggestion.sql",
             "platform-web/src/solutions/",
             "platform-app/src/main/java/app/platform/inspection/");
 

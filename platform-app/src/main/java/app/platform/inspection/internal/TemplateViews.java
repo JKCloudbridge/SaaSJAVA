@@ -127,12 +127,30 @@ public final class TemplateViews {
      *        among those the caller may see (FA6E)
      * @param versionReviews which approval request reviewed which version, lowest version first, so a screen can name
      *        each approval of the history by its version (FA6E)
+     * @param suggestedAudience the places a step of the review suggested for the version Publish would make current,
+     *        ready to fill the Publish popup; empty for a caller who may not publish, when there is none, and when the
+     *        step was skipped (FA6G). A suggestion shares nothing
+     * @param suggestionDropped how many suggested places are no longer offered by the organization's lists and were
+     *        left out of {@code suggestedAudience}
      */
     public record TemplateLifecycleView(@NotNull UUID id, @NotNull Boolean retired,
             @NotNull TemplateLifecycle lifecycle, @NotNull List<TemplateAudience> audience,
             @NotNull Boolean canPublish, @NotNull Boolean canUnpublish, @NotNull Boolean canRetire,
             String numberPreview, @NotNull Boolean numberPreviewComplete, @NotNull Integer openChangeRequests,
-            @NotNull List<VersionReview> versionReviews) {
+            @NotNull List<VersionReview> versionReviews, @NotNull List<SuggestedAudience> suggestedAudience,
+            @NotNull Integer suggestionDropped) {
+    }
+
+    /**
+     * One place a step of the review suggested.
+     *
+     * @param location the location code
+     * @param locationLabel what people read for the location
+     * @param department the department code, or null for the location alone
+     * @param departmentLabel what people read for the department, or null
+     */
+    public record SuggestedAudience(@NotNull String location, @NotNull String locationLabel, String department,
+            String departmentLabel) {
     }
 
     /**

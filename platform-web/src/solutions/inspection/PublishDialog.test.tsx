@@ -44,6 +44,8 @@ function view(extra: Partial<TemplateLifecycleView> = {}): TemplateLifecycleView
     numberPreviewComplete: false,
     openChangeRequests: 0,
     versionReviews: [],
+    suggestedAudience: [],
+    suggestionDropped: 0,
     ...extra,
   };
 }
@@ -223,5 +225,80 @@ describe("the publish dialog", () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(calls.some((call) => call.key.endsWith("/publish"))).toBe(false);
+  });
+});
+
+describe("the publish dialog with a suggestion made at approval", () => {
+  it("starts from the suggested departments, which the person may change, and says where they came from", async () => {
+    const calls = fakeApi({
+      "GET /api/v1/templates/audience-options": () => json(OPTIONS),
+      [`POST /api/v1/templates/${ID}/publish`]: () => json({ data: view() }),
+    });
+    const { onDone } = draw(
+      view({
+        suggestedAudience: [
+          { location: "PLANT1", locationLabel: "Plant 1", department: "PRD", departmentLabel: "Production" },
+        ],
+      }),
+    );
+
+    expect(await screen.findByTestId("publish-suggested")).toBeInTheDocument();
+    expect(await screen.findByText("Plant 1 · Production")).toBeInTheDocument();
+    await choose("PLANT1", "Quality");
+    fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    const sent = JSON.parse(calls.filter((call) => call.key.endsWith("/publish")).at(-1)?.body ?? "null") as unknown;
+    expect(sent).toEqual({
+      versionNo: 2,
+      audiences: [
+        { location: "PLANT1", department: "PRD" },
+        { location: "PLANT1", department: "QLT" },
+      ],
+    });
+  });
+
+  it("has the suggested location chosen but cannot publish until a department is added", async () => {
+    fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
+    draw(view({ suggestedAudience: [{ location: "PLANT1", locationLabel: "Plant 1" }] }));
+
+    const location = (await screen.findByLabelText("Location")) as HTMLSelectElement;
+    expect(location.value).toBe("PLANT1");
+    expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("checkbox", { name: /^Production/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add the ticked departments" }));
+    expect(screen.getByRole("button", { name: "Publish" })).toBeEnabled();
+  });
+
+  it("says in plain words that suggested places are no longer offered", async () => {
+    fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
+    draw(view({ suggestionDropped: 2 }));
+
+    expect(await screen.findByTestId("publish-suggestion-dropped")).toHaveTextContent(
+      "2 suggested places are no longer offered and were left out.",
+    );
+    expect(screen.queryByTestId("publish-suggested")).not.toBeInTheDocument();
+  });
+
+  it("starts from the audience the template already has when nothing was suggested", async () => {
+    fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
+    draw(
+      view({
+        audience: [
+          {
+            location: "HEAD",
+            department: "HR",
+            locationLabel: "Head office",
+            departmentLabel: "Human resources",
+            versionNo: 1,
+            publishedAt: "2026-10-24T08:00:00Z",
+            groupAvailable: true,
+          },
+        ],
+      }),
+    );
+
+    expect(await screen.findByText("Head office · Human resources")).toBeInTheDocument();
+    expect(screen.queryByTestId("publish-suggested")).not.toBeInTheDocument();
   });
 });

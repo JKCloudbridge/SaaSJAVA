@@ -60,6 +60,7 @@ export function summary(more: Partial<Summary> = {}): Summary {
     submittedBy: { userId: "33333333-3333-4333-8333-333333333333", name: "User A" },
     startedAt: "2026-10-18T09:00:00Z",
     version: 3,
+    currentStepAsksForChoice: false,
     ...more,
   };
 }

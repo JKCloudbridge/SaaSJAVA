@@ -89,8 +89,7 @@ class ChangeRequestListIT extends ChangeRequestReviewSupport {
         World world = world();
         String first = asked(world.reader().browser(), world.template(), "First", 1);
         String second = asked(world.colleague().browser(), world.template(), "Second", 1);
-        assertThat(answerRequest(world.author().browser(), world.template(), second, "ACCEPT", null).status())
-                .isEqualTo(200);
+        assertThat(accept(world, second).status()).isEqualTo(200);
 
         assertThat(ids(queryRequests(world.approver().browser(), "{}"))).as("newest first by default")
                 .containsExactly(second, first);

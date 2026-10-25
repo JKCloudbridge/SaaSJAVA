@@ -329,15 +329,6 @@ class ChangeRequestStore {
                 .param("tenant", tenant()).param("id", requestId).param("from", from.name()).update() == 1;
     }
 
-    /** A request that was done goes back to open (its version was not used); the answer is cleared. */
-    boolean reopen(UUID requestId, UUID actor) {
-        return jdbc.sql("update inspection_change_request set status = 'OPEN', decision_note = null, "
-                        + "decided_at = null, decided_by = null, resulting_version = null, version = version + 1, "
-                        + "updated_by = :actor where tenant_id = :tenant and id = :id and status = 'DONE' "
-                        + "and header_id is null and deleted_at is null")
-                .param("actor", actor).param("tenant", tenant()).param("id", requestId).update() == 1;
-    }
-
     /**
      * A request that was done and was reviewed goes back to accepted (its version was not used): the review already
      * happened, so it can be turned into a version again. The answer of the review is kept.

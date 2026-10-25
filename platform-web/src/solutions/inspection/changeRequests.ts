@@ -61,19 +61,12 @@ export function addChangeComment(
   );
 }
 
-export type Answer = "ACCEPT" | "DECLINE" | "REOPEN";
-
-export function answerChangeRequest(
-  templateId: string,
-  requestId: string,
-  action: Answer,
-  note?: string,
-): Promise<Outcome<ChangeRequestView>> {
+/** Puts a request back to accepted when the version it became was rejected or withdrawn. Accepting and declining are the approval's. */
+export function reopenChangeRequest(templateId: string, requestId: string): Promise<Outcome<ChangeRequestView>> {
   return unwrap(
     call(() =>
-      api.POST("/api/v1/templates/{templateId}/change-requests/{requestId}/answer", {
+      api.POST("/api/v1/templates/{templateId}/change-requests/{requestId}/reopen", {
         params: { path: { templateId, requestId } },
-        body: { action, note },
       }),
     ),
   );

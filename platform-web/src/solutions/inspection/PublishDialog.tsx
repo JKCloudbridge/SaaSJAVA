@@ -18,7 +18,10 @@ type Options = { status: "loading" } | { status: "ready"; options: AudienceOptio
  * location and tick again if needed, and publish. The
  * people of each department are a group an administrator keeps; the server finds the group, so this dialog names none.
  *
- * <p>It shows the audience the template already has and keeps it unless the approver changes it. It offers every department
+ * <p>When a step of the review suggested where the template is meant to be published (FA6G, ADR-0200) the dialog starts from
+ * that suggestion, which the person may change: the departments suggested are listed ready, and a location suggested
+ * without a department is already chosen, waiting for its departments. A suggestion shares nothing; only Publish does.
+ * Otherwise it shows the audience the template already has and keeps it unless the approver changes it. It offers every department
  * of the organization's list, marking those without a group, because the server is the one that says "no group is set up
  * for this department yet" in its own words; a refusal names the pair it is about. Nothing here decides a permission.
  */
@@ -38,10 +41,16 @@ export function PublishDialog({
 }) {
   const heading = useId();
   const [options, setOptions] = useState<Options>({ status: "loading" });
+  const suggested = lifecycle.suggestedAudience;
   const [chosen, setChosen] = useState<AudiencePick[]>(() =>
-    lifecycle.audience.map((audience) => ({ location: audience.location, department: audience.department })),
+    suggested.length > 0
+      ? suggested.flatMap((place) =>
+          place.department ? [{ location: place.location, department: place.department }] : [],
+        )
+      : lifecycle.audience.map((audience) => ({ location: audience.location, department: audience.department })),
   );
-  const [location, setLocation] = useState("");
+  // A location suggested alone is chosen already, so the person only has to tick its departments.
+  const [location, setLocation] = useState(() => suggested.find((place) => !place.department)?.location ?? "");
   const [ticks, setTicks] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<ApiFailure | undefined>();
@@ -124,6 +133,20 @@ export function PublishDialog({
           : `Version ${versionNo} stays in use. Only who it is published to changes.`}{" "}
         The people of the departments you choose will see it in the Templates list, and nobody else will.
       </p>
+
+      {suggested.length > 0 ? (
+        <p className="hint" data-testid="publish-suggested">
+          Filled in from the places suggested when this template was approved. Change them if they are not right; nobody
+          sees the template until you publish.
+        </p>
+      ) : null}
+      {lifecycle.suggestionDropped > 0 ? (
+        <p className="hint" data-testid="publish-suggestion-dropped">
+          {lifecycle.suggestionDropped === 1
+            ? "One suggested place is no longer offered and was left out."
+            : `${lifecycle.suggestionDropped} suggested places are no longer offered and were left out.`}
+        </p>
+      ) : null}
 
       {options.status === "loading" ? (
         <p role="status" className="hint">

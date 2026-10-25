@@ -1,6 +1,5 @@
 package app.platform.inspection.internal;
 
-import app.platform.inspection.internal.ChangeRequestViews.AnswerChangeRequest;
 import app.platform.inspection.internal.ChangeRequestViews.ChangeRequestPage;
 import app.platform.inspection.internal.ChangeRequestViews.ChangeRequestQuery;
 import app.platform.inspection.internal.ChangeRequestViews.ChangeRequestView;
@@ -121,17 +120,17 @@ class ChangeRequestController {
         return ApiResponse.of(requests.comment(templateId, requestId, body));
     }
 
-    @PostMapping(BASE + "/{requestId}/answer")
+    @PostMapping(BASE + "/{requestId}/reopen")
     @Operation(
-            operationId = "answerChangeRequest",
-            summary = "Accept, decline or reopen a change request",
-            description = "Needs the right to change the template (FORBIDDEN otherwise). ACCEPT moves an open request "
-                    + "to accepted; DECLINE needs a reason and ends an open or accepted one; REOPEN puts a done "
-                    + "request back to open, only when the version it became was rejected or withdrawn. CONFLICT "
-                    + "when it is not in a status that allows the move, or somebody answered first. " + SEES)
-    ApiResponse<ChangeRequestView> answer(@PathVariable UUID templateId, @PathVariable UUID requestId,
-            @Valid @RequestBody AnswerChangeRequest body) {
-        return ApiResponse.of(requests.answer(templateId, requestId, body));
+            operationId = "reopenChangeRequest",
+            summary = "Reopen a change request whose new version was not used",
+            description = "Needs the right to change the template (FORBIDDEN otherwise). Puts a done request back to "
+                    + "accepted, only when the version it became was rejected or withdrawn, so it can be turned into "
+                    + "a version again. Accepting and declining a request is the work of its approval, never of this "
+                    + "endpoint. CONFLICT when it is not done, its version was used, or somebody moved it first. "
+                    + SEES)
+    ApiResponse<ChangeRequestView> reopen(@PathVariable UUID templateId, @PathVariable UUID requestId) {
+        return ApiResponse.of(requests.reopen(templateId, requestId));
     }
 
     @PostMapping(BASE + "/turn-into-version")

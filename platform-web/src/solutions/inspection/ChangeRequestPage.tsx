@@ -16,14 +16,13 @@ import { Tag } from "@/components/ui/lists/Tag";
 import { formatInstant } from "@/lib/records/fieldValue";
 import {
   addChangeComment,
-  answerChangeRequest,
   becameWords,
   placeOf,
+  reopenChangeRequest,
   placeWords,
   statusWords,
   turnIntoVersion,
   useChangeRequest,
-  type Answer,
   type ChangeRequestView,
 } from "./changeRequests";
 import { REQUEST_OBJECT } from "./template";
@@ -132,13 +131,12 @@ function Body({
   const [notice, setNotice] = useState<{ text: string; error: boolean } | undefined>();
   const [busy, setBusy] = useState(false);
   const [reply, setReply] = useState("");
-  const [reason, setReason] = useState<string | null>(null);
   const tag = statusWords(request.status);
   const became = becameWords(request);
   const [first, ...rest] = request.comments;
   const templateName = request.templateName ?? "Template";
   const title = request.templateNumber ? `${templateName} · ${request.templateNumber}` : templateName;
-  const declined = request.status === "DECLINED" ? (request.decisionNote ?? declinedBecause(approval)) : undefined;
+  const declined = request.status === "DECLINED" ? declinedBecause(approval) : undefined;
 
   const run = async (act: () => Promise<{ ok: boolean; text: string }>) => {
     setBusy(true);
@@ -150,10 +148,10 @@ function Body({
       onChanged();
     }
   };
-  const answer = (action: Answer, note: string | undefined, text: string) =>
+  const reopen = () =>
     run(async () => {
-      const outcome = await answerChangeRequest(request.templateId, request.id, action, note);
-      return outcome.ok ? { ok: true, text } : { ok: false, text: outcome.failure.message };
+      const outcome = await reopenChangeRequest(request.templateId, request.id);
+      return outcome.ok ? { ok: true, text: "The request is accepted again and can be turned into a version." } : { ok: false, text: outcome.failure.message };
     });
   const turn = () =>
     run(async () => {
@@ -178,23 +176,13 @@ function Body({
   const actions = (
     <>
       {approval ? <ApprovalHeaderActions approval={approval} submitButton={false} /> : null}
-      {request.canAccept ? (
-        <button type="button" className="button" disabled={busy} onClick={() => void answer("ACCEPT", undefined, "The request was accepted.")}>
-          Accept
-        </button>
-      ) : null}
-      {request.canDecline ? (
-        <button type="button" className="button button-danger" disabled={busy} onClick={() => setReason(reason === null ? "" : null)}>
-          Decline
-        </button>
-      ) : null}
       {request.canTurn ? (
         <button type="button" className="button button-secondary" disabled={busy} onClick={() => void turn()} data-testid="request-turn">
           Turn into a new version
         </button>
       ) : null}
       {request.canReopen ? (
-        <button type="button" className="button button-secondary" disabled={busy} onClick={() => void answer("REOPEN", undefined, "The request is open again.")}>
+        <button type="button" className="button button-secondary" disabled={busy} onClick={() => void reopen()}>
           Reopen
         </button>
       ) : null}
@@ -220,22 +208,6 @@ function Body({
         <>
           {notice ? <ActionNotice key={notice.text} text={notice.text} error={notice.error} className="hint" occurrence={notice} /> : null}
           {approval ? <ApprovalDialogs approval={approval} recordVersion={0} /> : null}
-          {reason !== null ? (
-            <div className="field" role="group" aria-label="Decline this request">
-              <label htmlFor={`${ids}-reason`}>Why is it declined? The person who asked will read this.</label>
-              <textarea id={`${ids}-reason`} rows={2} value={reason} onChange={(event) => setReason(event.target.value)} />
-              <div>
-                <button
-                  type="button"
-                  className="button button-danger"
-                  disabled={busy || reason.trim() === ""}
-                  onClick={() => void answer("DECLINE", reason, "The request was declined.").then(() => setReason(null))}
-                >
-                  Decline it
-                </button>
-              </div>
-            </div>
-          ) : null}
         </>
       }
       testId="change-request-page"

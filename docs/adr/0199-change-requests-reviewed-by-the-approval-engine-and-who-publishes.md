@@ -31,15 +31,17 @@ the Details tab had to show the approvals of a template as a history, not only t
 2. **The process is ordinary data.** It is made in Setup, Approval processes, on the object "Change request", like the
    template's: two steps (Plant QMS, then Corporate QMS with "skip when nobody"), the **same groups** as the template process
    but **steps of its own**: editing one process changes nothing in the other. No code changes to add a step, remove one or
-   change who is in it. **An organization without a process for the object keeps the old way**: the request has no record
-   (`header_id` is null) and whoever may change the template answers it. A process whose first step has nobody refuses the
-   request with the engine's fixed words and leaves nothing behind.
+   change who is in it. **Every request is decided by its approval and by nothing else**: an organization without a process
+   for the object cannot raise a request (409, fixed words that say an administrator must make the process in Setup), so there is no
+   second way to decide and no fallback. A process whose first step has nobody refuses the request with the engine's fixed words and
+   leaves nothing behind. (A request made before this rule, with no record, can be neither accepted nor turned; it exists only as
+   demo data.)
 3. **The outcome is mapped by the hook (`ChangeRequestApprovalHooks`, `onEnded`).** Approved becomes `ACCEPTED`, rejected
    becomes `DECLINED` and is final (the department person raises a new request), recalled or cancelled leaves the request
    `OPEN`. A hook is handed no comment (ADR-0187), so the reason an approver typed stays in the approval's own history, where the
-   request page reads it for those who may see it; `decision_note` is empty for a request the process declined. While a
-   request has a record, the old answer endpoint refuses `ACCEPT` and `DECLINE` (409, fixed words): one decision, one door.
-   **Turning into a version needs `ACCEPTED`** for such a request. A turned request whose version was rejected or withdrawn goes
+   request page reads it for those who may see it; `decision_note` stays empty and is not shown. There is no endpoint that accepts or
+   declines a request: the former direct answer was removed (`POST .../answer` is gone; `POST .../{id}/reopen` only puts a done
+   request back to accepted when its version was rejected or withdrawn). **Turning into a version needs `ACCEPTED`**. A turned request whose version was rejected or withdrawn goes
    back to `ACCEPTED` (its review already happened); V075 replaces the guard function to allow exactly that move for a request
    that has a record, and to keep the move to `OPEN` for one that has none.
 4. **"Open" for the asterisk means still waiting for someone**: `OPEN` or `ACCEPTED` (an accepted request waits to become a

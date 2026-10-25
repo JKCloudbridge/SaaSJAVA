@@ -49,8 +49,6 @@ function request(extra: Record<string, unknown> = {}) {
     placesTotal: 1,
     placesInActive: 1,
     canComment: false,
-    canAccept: false,
-    canDecline: false,
     canTurn: false,
     canReopen: false,
     comments: [
@@ -216,21 +214,6 @@ describe("one change request (FA6E)", () => {
     expect(JSON.parse(calls.find((one) => one.key.endsWith("/turn-into-version"))?.body ?? "{}")).toEqual({
       requestIds: [REQUEST],
     });
-  });
-
-  it("answers a request that has no approval with its own Accept and Decline", async () => {
-    const calls = fakeApi({
-      [`GET /api/v1/change-requests/${REQUEST}`]: () =>
-        json({ data: request({ reviewId: undefined, canAccept: true, canDecline: true }) }),
-      [`POST /api/v1/templates/${TEMPLATE}/change-requests/${REQUEST}/answer`]: () =>
-        json({ data: request({ status: "ACCEPTED" }) }),
-    });
-
-    render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Accept" }));
-
-    await waitFor(() => expect(calls.some((one) => one.key.endsWith("/answer"))).toBe(true));
-    expect(JSON.parse(calls.find((one) => one.key.endsWith("/answer"))?.body ?? "{}")).toMatchObject({ action: "ACCEPT" });
   });
 
   it("says in the words of the screen when the request is not available", async () => {

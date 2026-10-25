@@ -21,6 +21,9 @@ public abstract class ChangeRequestSupport extends TemplateSupport {
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
+    protected static final String REQUEST_OBJECT = "InspectionChangeRequest";
+    protected static final String REVIEW_RECORDS = "/api/v1/objects/" + REQUEST_OBJECT + "/records";
+
     /**
      * A published template and the people around it.
      *
@@ -39,8 +42,46 @@ public abstract class ChangeRequestSupport extends TemplateSupport {
         return TEMPLATES + "/" + template + "/change-requests";
     }
 
-    /** A template that is approved and published to a department whose group holds the reader and the colleague. */
+    protected static String groupApprover(String groupId) {
+        return "{\"kind\":\"GROUP\",\"value\":\"" + groupId + "\"}";
+    }
+
+    /** Makes a process on the shipped object that gives requests to the approval engine; returns its API name. */
+    protected static String reviewProcess(TestBrowser admin, String name, String... steps) {
+        Response created = admin.postJson(DEFINITIONS + "/" + REQUEST_OBJECT, "{\"name\":\"" + name
+                + "\",\"label\":\"" + name + "\",\"description\":\"\",\"active\":true,\"entryCriteria\":null,"
+                + "\"allowSelfApproval\":false,\"steps\":[" + String.join(",", steps)
+                + "],\"outcomes\":null,\"fallback\":null}");
+        assertThat(created.status()).as(created.body()).isEqualTo(201);
+        return JsonPath.read(created.body(), "$.data.apiName");
+    }
+
+    /** The identifier of the review record of a request, from the answer that made it or showed it. */
+    protected static String reviewIdOf(Response request) {
+        return JsonPath.read(request.body(), "$.data.reviewId");
+    }
+
+    protected static Response approvalPanel(TestBrowser browser, String reviewId) {
+        return browser.get(REVIEW_RECORDS + "/" + reviewId + "/approval");
+    }
+
+    /** The identifier of the approval request behind a review record, as the browser sees it. */
+    protected static String approvalOf(TestBrowser browser, String reviewId) {
+        Response panel = approvalPanel(browser, reviewId);
+        assertThat(panel.status()).as(panel.body()).isEqualTo(200);
+        return JsonPath.read(panel.body(), "$.data.current.summary.id");
+    }
+
+    /**
+     * A template that is approved and published to a department whose group holds the reader and the colleague, and a
+     * process for its change requests with one step: the approver of the world decides every request.
+     */
     protected World world() {
+        return world(true);
+    }
+
+    /** As {@link #world()}; without the process for change requests when a test makes its own. */
+    protected World world(boolean withReviewProcess) {
         Setting setting = setting();
         Person author = author(setting);
         Person approver = approver(setting);
@@ -54,6 +95,9 @@ public abstract class ChangeRequestSupport extends TemplateSupport {
         assertThat(approve(approver.browser(), submitted(author.browser(), template, process)).status())
                 .isEqualTo(200);
         assertThat(publish(approver.browser(), template, null, "PLANT1/PRD").status()).isEqualTo(200);
+        if (withReviewProcess) {
+            reviewProcess(setting.admin(), "ChangeReview" + System.nanoTime(), step("Decide", user(approver.userId())));
+        }
         return new World(setting, author, approver, reader, colleague, outsider, template, process,
                 columnOf(reader.browser(), template, 1));
     }
@@ -87,6 +131,14 @@ public abstract class ChangeRequestSupport extends TemplateSupport {
         return JsonPath.read(made.body(), "$.data.id");
     }
 
+    /** Asks for a change and has the approver of the world accept it; returns the identifier of the request. */
+    protected static String acceptedRequest(World world, TestBrowser browser, String title, int version,
+            String... comments) {
+        String request = asked(browser, world.template(), title, version, comments);
+        assertThat(accept(world, request).status()).isEqualTo(200);
+        return request;
+    }
+
     protected static Response list(TestBrowser browser, String template) {
         return browser.get(changes(template));
     }
@@ -105,12 +157,27 @@ public abstract class ChangeRequestSupport extends TemplateSupport {
         return browser.postJson(changes(template) + "/" + request + "/comments", comment);
     }
 
-    protected static Response answerRequest(TestBrowser browser, String template, String request, String action,
-            String note) {
-        return browser.postJson(changes(template) + "/" + request + "/answer", "{\"action\":\"" + action
-                + "\",\"note\":" + (note == null ? "null" : "\"" + note + "\"") + "}");
+    /** The approval of a request, as the approver of the world sees it. */
+    protected static String approvalOfRequest(World world, String request) {
+        Response shown = one(world.approver().browser(), world.template(), request);
+        assertThat(shown.status()).as(shown.body()).isEqualTo(200);
+        return approvalOf(world.approver().browser(), reviewIdOf(shown));
     }
 
+    /** The approver of the world accepts the request through its approval. */
+    protected static Response accept(World world, String request) {
+        return approve(world.approver().browser(), approvalOfRequest(world, request));
+    }
+
+    /** The approver of the world declines the request through its approval, with a reason. */
+    protected static Response decline(World world, String request, String reason) {
+        return decide(world.approver().browser(), approvalOfRequest(world, request), "reject", reason);
+    }
+
+    /** Puts a request back to accepted when its version was not used. */
+    protected static Response reopen(TestBrowser browser, String template, String request) {
+        return browser.postJson(changes(template) + "/" + request + "/reopen", "{}");
+    }
     protected static Response turn(TestBrowser browser, String template, String... requests) {
         List<String> quoted = new ArrayList<>();
         for (String request : requests) {

@@ -10,6 +10,7 @@ import app.platform.data.BackgroundRecords;
 import app.platform.data.DataRecord;
 import app.platform.data.RecordTitles;
 import app.platform.licensing.Entitlements;
+import app.platform.metadata.ApprovalProcessDefinition;
 import app.platform.metadata.CompiledApprovalProcess;
 import app.platform.metadata.ConditionOutcome;
 import app.platform.metadata.Metadata;
@@ -126,13 +127,16 @@ class ApprovalViews {
         });
         Map<UUID, String> names = resolver.names(people);
         List<ApprovalStepView> stepViews = new ArrayList<>();
+        List<ApprovalProcessDefinition.Step> defined = definitions.approvalProcessVersion(instance.processVersionId())
+                .map(pinned -> pinned.process().definition().steps()).orElse(List.of());
         for (StepRow step : steps) {
+            boolean asks = step.position() <= defined.size() && defined.get(step.position() - 1).asksForChoice();
             List<ApprovalAssignmentView> taskViews = tasks.stream().filter(task -> task.stepId().equals(step.id()))
                     .map(task -> new ApprovalAssignmentView(task.id(), person(task.assigneeId(), names), task.via(),
                             task.forUserId() == null ? null : person(task.forUserId(), names), task.status(),
                             task.decidedAt())).toList();
             stepViews.add(new ApprovalStepView(step.position(), step.name(), step.label(), step.completion(),
-                    step.status(), step.activatedAt(), step.finishedAt(), taskViews));
+                    step.status(), step.activatedAt(), step.finishedAt(), taskViews, asks));
         }
         List<ApprovalHistoryView> lines = history.stream().map(line -> new ApprovalHistoryView(line.id(),
                 line.stepPosition(), line.kind(), line.actorId() == null ? null : person(line.actorId(), names),
@@ -343,7 +347,16 @@ class ApprovalViews {
                 instance.currentStep(), currentLabel, steps.size(), instance.attention(),
                 instance.outcomeFailure(), instance.submittedBy() == null ? null
                         : person(instance.submittedBy(), names), instance.startedAt(), instance.finishedAt(),
-                instance.version());
+                instance.version(), instance.currentStep() != null && "PENDING".equals(instance.status())
+                        && asksForChoice(instance, instance.currentStep()));
+    }
+
+    /** Whether the pinned definition says the step at this position needs a choice with its approval (FA6G). */
+    private boolean asksForChoice(InstanceRow instance, int position) {
+        return definitions.approvalProcessVersion(instance.processVersionId())
+                .map(pinned -> pinned.process().definition().steps())
+                .filter(steps -> position >= 1 && position <= steps.size())
+                .map(steps -> steps.get(position - 1).asksForChoice()).orElse(false);
     }
 
     private ApprovalActionsView actions(Member member, InstanceRow instance, List<AssignmentRow> tasks) {

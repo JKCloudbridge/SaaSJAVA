@@ -15,10 +15,11 @@ import java.util.List;
  * @param activatedAt when the step became active, or null
  * @param finishedAt when it ended, or null
  * @param assignments the people asked (empty while the step waits, and for an active step nobody can decide)
+ * @param asksForChoice whether approving this step needs the choice the object's module asks for (FA6G, ADR-0200)
  */
 public record ApprovalStepView(@NotNull Integer position, @NotNull String name, @NotNull String label,
         @NotNull String completion, @NotNull String status, Instant activatedAt, Instant finishedAt,
-        @NotNull List<ApprovalAssignmentView> assignments) {
+        @NotNull List<ApprovalAssignmentView> assignments, @NotNull Boolean asksForChoice) {
 
     /** Copies the list. */
     public ApprovalStepView {

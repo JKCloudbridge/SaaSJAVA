@@ -6,7 +6,6 @@ import app.platform.data.DataRecord;
 import app.platform.inspection.internal.ChangeRequestAccess.Reach;
 import app.platform.inspection.internal.ChangeRequestStore.CommentRow;
 import app.platform.inspection.internal.ChangeRequestStore.RequestRow;
-import app.platform.inspection.internal.ChangeRequestViews.AnswerChangeRequest;
 import app.platform.inspection.internal.ChangeRequestViews.ChangeCommentView;
 import app.platform.inspection.internal.ChangeRequestViews.ChangeRequestView;
 import app.platform.inspection.internal.ChangeRequestViews.ChangeRequestsView;
@@ -62,8 +61,8 @@ class ChangeRequests {
     private static final String NO_REQUEST = "This change request does not exist.";
     private static final String RETIRED_WORDS = "This template is retired, so no change can be asked for.";
     private static final String RACE_WORDS = "This request was answered by someone else just now. Reload the page.";
-    private static final String BY_REVIEW_WORDS = "This request is decided by its approval. Use Accept or Decline on "
-            + "the request page.";
+    private static final String NO_PROCESS_WORDS = "A change request is decided by an approval, and this organization has "
+            + "not set one up. Ask your administrator to make the approval process for change requests in Setup.";
     private static final String NOT_ACCEPTED_WORDS = "This request has not been accepted yet, so it cannot be turned "
             + "into a version.";
     private static final int NAME_LIMIT = 160;
@@ -214,15 +213,17 @@ class ChangeRequests {
 
     /**
      * Makes the record the approval engine reviews and sends it to the organization's process for change requests, in
-     * the same transaction as the request (FA6E, ADR-0199). When the organization has no such process the request is
-     * answered directly, as before, and there is no record. A start that is refused (for example the first step names
-     * nobody) refuses the request with the engine's fixed words: nothing is left behind.
+     * the same transaction as the request (FA6E, ADR-0199). Every request is decided by its approval: when the
+     * organization has no such process the request is refused with fixed words that say what to set up. A start that
+     * is refused (for example the first step names nobody) refuses the request with the engine's fixed words: nothing
+     * is left behind.
      *
-     * @return the identifier of the record, or null when no process exists
+     * @return the identifier of the record
      */
     private UUID startReview(Reach reach, UUID templateId, DataRecord template) {
         if (!starter.available(RequestRecords.OBJECT)) {
-            return null;
+            refuse("create", "no_process");
+            throw new ApiException(ErrorCode.CONFLICT, NO_PROCESS_WORDS);
         }
         Object name = template.fields().get(Templates.NAME);
         String shown = name instanceof String text && !text.isBlank() ? text.strip() : "Template";
@@ -268,60 +269,32 @@ class ChangeRequests {
         return view(frame(reach, List.of(row)), row);
     }
 
-    // ---- answering ----
+    // ---- reopening ----
 
-    /** Accepts, declines (with a reason) or reopens a request. Needs the right to change the template. */
-    ChangeRequestView answer(UUID templateId, UUID requestId, AnswerChangeRequest answer) {
+    /**
+     * Reopens a request whose new version was rejected or withdrawn, so it can be turned into a version again. Whether
+     * a request is accepted or declined is decided by its approval and by nothing else (ADR-0199). Needs the right to
+     * change the template.
+     */
+    ChangeRequestView reopen(UUID templateId, UUID requestId) {
         Reach reach = access.reach(templateId);
         store.lock(templateId);
         RequestRow row = visibleRequest(reach, requestId);
-        requireReview(reach, "answer");
-        String act;
-        boolean moved;
-        if (row.reviewed() && !"REOPEN".equals(answer.action())) {
-            // The approval decides, through the task of the people it asked; a second way to decide would be a way
-            // round the process (ADR-0199).
-            refuse("answer", "by_review");
-            throw new ApiException(ErrorCode.CONFLICT, BY_REVIEW_WORDS);
+        requireReview(reach, "reopen");
+        requireMove(row, ChangeRequestStatus.OPEN);
+        Optional<SheetStatus> ended = row.resultingVersion() == null ? Optional.empty()
+                : sheets.statusOf(Templates.OBJECT, templateId, row.resultingVersion());
+        if (ended.isEmpty() || (ended.get() != SheetStatus.REJECTED && ended.get() != SheetStatus.WITHDRAWN)) {
+            refuse("reopen", "version_used");
+            throw new ApiException(ErrorCode.CONFLICT, "The version this request became was not rejected or "
+                    + "withdrawn, so the request cannot be reopened.");
         }
-        switch (answer.action()) {
-            case "ACCEPT" -> {
-                act = "accepted";
-                requireMove(row, ChangeRequestStatus.ACCEPTED);
-                moved = store.answer(requestId, row.state(), ChangeRequestStatus.ACCEPTED, null, null, reach.userId());
-            }
-            case "DECLINE" -> {
-                act = "declined";
-                requireMove(row, ChangeRequestStatus.DECLINED);
-                String note = noteOf(answer.note());
-                moved = store.answer(requestId, row.state(), ChangeRequestStatus.DECLINED, note, null, reach.userId());
-            }
-            case "REOPEN" -> {
-                act = "reopened";
-                requireMove(row, ChangeRequestStatus.OPEN);
-                Optional<SheetStatus> ended = row.resultingVersion() == null ? Optional.empty()
-                        : sheets.statusOf(Templates.OBJECT, templateId, row.resultingVersion());
-                if (ended.isEmpty() || (ended.get() != SheetStatus.REJECTED && ended.get() != SheetStatus.WITHDRAWN)) {
-                    refuse("reopen", "version_used");
-                    throw new ApiException(ErrorCode.CONFLICT, "The version this request became was not rejected or "
-                            + "withdrawn, so the request cannot be reopened.");
-                }
-                moved = row.reviewed() ? store.reopenAccepted(requestId, reach.userId())
-                        : store.reopen(requestId, reach.userId());
-                if (moved && row.reviewed()) {
-                    followOnReviewRecord(row, ChangeRequestStatus.ACCEPTED);
-                }
-            }
-            default -> throw ApiException.validation("action", "Choose ACCEPT, DECLINE or REOPEN.");
-        }
-        if (!moved) {
-            refuse(act, "raced");
+        if (row.headerId() == null || !store.reopenAccepted(requestId, reach.userId())) {
+            refuse("reopen", "raced");
             throw new ApiException(ErrorCode.CONFLICT, RACE_WORDS);
         }
-        changes.answered(reach.userId(), templateId, requestId, act);
-        if (!"reopened".equals(act)) {
-            tell(row.createdBy(), reach.userId(), templateId, requestId, act, "chg:" + requestId + ":" + act);
-        }
+        followOnReviewRecord(row, ChangeRequestStatus.ACCEPTED);
+        changes.answered(reach.userId(), templateId, requestId, "reopened");
         RequestRow now = store.find(templateId, requestId).orElseThrow();
         return view(frame(reach, List.of(now)), now);
     }
@@ -360,7 +333,7 @@ class ChangeRequests {
                 throw new ApiException(ErrorCode.CONFLICT, "A request that is already answered or turned into a "
                         + "version cannot be turned into another. Reload the page.");
             }
-            if (row.reviewed() && row.state() != ChangeRequestStatus.ACCEPTED) {
+            if (row.state() != ChangeRequestStatus.ACCEPTED) {
                 // Its review has not ended approved: turning it now would be a way round the process (ADR-0199).
                 refuse("turn", "not_accepted");
                 throw new ApiException(ErrorCode.CONFLICT, NOT_ACCEPTED_WORDS);
@@ -380,9 +353,7 @@ class ChangeRequests {
                 refuse("turn", "raced");
                 throw new ApiException(ErrorCode.CONFLICT, RACE_WORDS);
             }
-            if (row.reviewed()) {
-                followOnReviewRecord(row, ChangeRequestStatus.DONE);
-            }
+            followOnReviewRecord(row, ChangeRequestStatus.DONE);
             tell(row.createdBy(), reach.userId(), templateId, row.id(), "done", "chg:" + row.id() + ":done");
         }
         changes.turned(reach.userId(), templateId, started.versionNo(), started.created(), rows.size());
@@ -424,14 +395,6 @@ class ChangeRequests {
             throw new ApiException(ErrorCode.CONFLICT, "This request is " + row.state().name().toLowerCase(
                     java.util.Locale.ROOT) + " and cannot be answered that way.");
         }
-    }
-
-    private String noteOf(String note) {
-        Optional<String> problem = ChangeText.problem("reason", note, properties.maxNoteChars(), true);
-        if (problem.isPresent()) {
-            throw ApiException.validation("note", problem.get());
-        }
-        return ChangeText.clean(note);
     }
 
     /** The places of the version that was read; a problem is put in the map when it cannot be asked about. */
@@ -548,18 +511,13 @@ class ChangeRequests {
         boolean review = frame.reach.canReview();
         boolean reopenable = review && status == ChangeRequestStatus.DONE && became.isPresent()
                 && (became.get() == SheetStatus.REJECTED || became.get() == SheetStatus.WITHDRAWN);
-        // A request decided by an approval is accepted or declined by the task of the people it asked, on the page of
-        // its review record; the buttons here are for a request answered directly (ADR-0199).
-        boolean direct = !row.reviewed();
-        boolean turnable = review && status.canBeTurned() && frame.canRequest
-                && (direct || status == ChangeRequestStatus.ACCEPTED);
+        // A request is accepted or declined by the task of the people its approval asked (ADR-0199); it can be turned
+        // into a version only once accepted.
+        boolean turnable = review && status.canBeTurned() && frame.canRequest && status == ChangeRequestStatus.ACCEPTED;
         return new ChangeRequestView(row.id(), row.title(), status.name(), row.versionNo(),
                 frame.names.get(row.createdBy()), row.requesterDepartment(), mine, row.createdAt(), row.decidedAt(),
-                row.decisionNote(),
                 row.resultingVersion(), became.map(SheetStatus::name).orElse(null), total, there,
-                status.takesComments() && (review || mine),
-                direct && review && status.canMoveTo(ChangeRequestStatus.ACCEPTED),
-                direct && review && status.canMoveTo(ChangeRequestStatus.DECLINED), turnable, reopenable, comments,
+                status.takesComments() && (review || mine), turnable, reopenable, comments,
                 row.templateId(), frame.templateName, frame.templateNumber, row.headerId());
     }
 

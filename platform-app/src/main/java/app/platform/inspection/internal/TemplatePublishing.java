@@ -13,9 +13,11 @@ import app.platform.inspection.internal.DepartmentAudiences.Resolved;
 import app.platform.inspection.internal.TemplateAccess.Caller;
 import app.platform.inspection.internal.TemplateViews.AudienceOptionsView;
 import app.platform.inspection.internal.TemplateViews.PublishTemplateRequest;
+import app.platform.inspection.internal.TemplateViews.SuggestedAudience;
 import app.platform.inspection.internal.TemplateViews.TemplateAudience;
 import app.platform.inspection.internal.TemplateViews.TemplateLifecycle;
 import app.platform.inspection.internal.TemplateViews.TemplateLifecycleView;
+import app.platform.inspection.internal.TemplateViews.VersionReview;
 import app.platform.security.Ability;
 import app.platform.security.Grantee;
 import app.platform.security.GroupMembers;
@@ -74,11 +76,13 @@ class TemplatePublishing {
     private final MeterRegistry meters;
     private final NumberSeries numbers;
     private final ChangeRequestCounts requestCounts;
+    private final AudienceSuggestions suggestions;
 
     TemplatePublishing(TemplateAccess access, PublicationStore store, SheetLifecycle sheets, RecordShares shares,
             DepartmentAudiences audiences, BackgroundRecords records, BackgroundWrites writes, GroupMembers groups,
             AuditRecorder audit, TenantContexts contexts, MeterRegistry meters, NumberSeries numbers,
-            ChangeRequestCounts requestCounts) {
+            ChangeRequestCounts requestCounts, AudienceSuggestions suggestions) {
+        this.suggestions = suggestions;
         this.access = access;
         this.store = store;
         this.sheets = sheets;
@@ -105,6 +109,17 @@ class TemplatePublishing {
     @Transactional(readOnly = true)
     AudienceOptionsView audienceOptions() {
         access.require(Ability.SHEETS_PUBLISH);
+        return audiences.options();
+    }
+
+    /**
+     * What the popup of an approval step that asks for an audience offers (FA6G, ADR-0200): the same lists as the
+     * publish dialog. The approver needs no ability to publish, only to see the template; the lists are the
+     * organization's own words and nothing about the template or its groups.
+     */
+    @Transactional(readOnly = true)
+    AudienceOptionsView suggestionOptions(UUID templateId) {
+        access.visible(templateId);
         return audiences.options();
     }
 
@@ -284,15 +299,40 @@ class TemplatePublishing {
             whole = numbers.known(Templates.SERIES, header.fields());
             start = whole.isPresent() ? whole : numbers.prefix(Templates.SERIES, header.fields());
         }
+        List<VersionReview> reviews = reviews(templateId);
+        List<SuggestedAudience> suggested = List.of();
+        int dropped = 0;
+        if (mayPublishNow && !retired) {
+            int next = summary.approved() > 0 ? summary.approved() : summary.active();
+            UUID reviewed = reviews.stream().filter(review -> review.versionNo() == next)
+                    .map(VersionReview::requestId).findFirst().orElse(null);
+            if (reviewed != null) {
+                AudienceSuggestions.Held held = suggestions.held(reviewed);
+                suggested = suggestedViews(held.places());
+                dropped = held.dropped();
+            }
+        }
         return new TemplateLifecycleView(templateId, retired, lifecycle(summary, retired), audience,
                 mayPublishNow && !retired, mayPublish && summary.active() > 0,
-                mayRetire && !retired, start.orElse(null), whole.isPresent(), waiting, reviews(templateId));
+                mayRetire && !retired, start.orElse(null), whole.isPresent(), waiting, reviews, suggested, dropped);
     }
 
-    private List<TemplateViews.VersionReview> reviews(UUID templateId) {
+    private List<SuggestedAudience> suggestedViews(List<AudienceChoices.Place> places) {
+        if (places.isEmpty()) {
+            return List.of();
+        }
+        Map<String, String> locationLabels = audiences.labels(Templates.LOCATION);
+        Map<String, String> departmentLabels = audiences.labels(Templates.DEPARTMENT);
+        return places.stream().map(place -> new SuggestedAudience(place.location(),
+                locationLabels.getOrDefault(place.location(), place.location()), place.department(),
+                place.department() == null ? null
+                        : departmentLabels.getOrDefault(place.department(), place.department()))).toList();
+    }
+
+    private List<VersionReview> reviews(UUID templateId) {
         return sheets.reviewRequests(Templates.OBJECT, templateId).entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
-                .map(entry -> new TemplateViews.VersionReview(entry.getKey(), entry.getValue())).toList();
+                .map(entry -> new VersionReview(entry.getKey(), entry.getValue())).toList();
     }
 
     static TemplateLifecycle lifecycle(SheetLifecycle.Summary summary, boolean retired) {

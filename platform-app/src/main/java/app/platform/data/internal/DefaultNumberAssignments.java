@@ -86,7 +86,7 @@ class DefaultNumberAssignments implements NumberAssignments {
         int inserted = jdbc.sql("insert into number_series_reservation "
                 + "(tenant_id, series_key, object_api_name, record_id, number_value, fixed, created_by, updated_by) "
                 + "values (:tenant, :series, :object, :record, :number, :fixed, :actor, :actor) "
-                + "on conflict (tenant_id, series_key, number_value) do nothing")
+                + "on conflict (tenant_id, series_key, number_value) where deleted_at is null do nothing")
                 .param("tenant", caller.tenantId().value()).param("series", series).param("object", object)
                 .param("record", id).param("number", number).param("fixed", fixed).param("actor", actor).update();
         UUID owner = jdbc.sql("select record_id from number_series_reservation where tenant_id = :tenant "

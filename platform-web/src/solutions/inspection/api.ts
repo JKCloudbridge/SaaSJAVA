@@ -98,6 +98,13 @@ export function getAudienceOptions(): Promise<Outcome<AudienceOptions>> {
   return unwrap(call(() => api.GET("/api/v1/templates/audience-options")));
 }
 
+/** The lists the popup of an approval step that asks for an audience offers (needs only that the template is visible). */
+export function getSuggestionOptions(id: string): Promise<Outcome<AudienceOptions>> {
+  return unwrap(
+    call(() => api.GET("/api/v1/templates/{templateId}/suggestion-options", { params: { path: { templateId: id } } })),
+  );
+}
+
 export function publishTemplate(
   id: string,
   body: { versionNo?: number; audiences: AudiencePick[] },

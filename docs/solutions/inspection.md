@@ -239,8 +239,8 @@ object, as the person who asked. The request itself stays in its two tables (`he
 ends approved the request is **accepted**; rejected, it is **declined for good** (the person raises a new one); withdrawn, it
 stays open. Only an accepted request can be turned into a version. The process is data made in Setup, Approval processes, on the
 object **Change request**: Plant QMS (step 1), Corporate QMS (step 2, "skip when nobody"). **The groups are shared with the
-template process; the steps are edited on each process separately.** An organization without such a process answers requests the
-old way (whoever may change the template). `scripts/demo-setup.mjs` makes the process "Change request review" in `tenant-a`.
+template process; the steps are edited on each process separately.** An organization without such a process cannot raise a request: the person is told to ask
+an administrator to make it (Setup, Approval processes). `scripts/demo-setup.mjs` makes the process "Change request review" in `tenant-a`.
 
 **The tab.** The application has an entry **Change requests** beside Fill-ins (page key `change-requests`, reads the object
 Change request, so it is listed for Author, Reader, Filler and Approver). `ChangeRequestsPage` lists the requests of every
@@ -249,7 +249,7 @@ search box (title or the name of the person who asked), a click on Version, Date
 "Show more" continues from a cursor. A row opens `ChangeRequestPage`: at the top left the template and number and the version
 read, in one row who asked and the department, the first comment, the changes requested place by place, and at the top right
 **Accept** and **Decline** (the buttons of the request's approval, shown to the people who hold a task in it; declining asks for a
-reason) or, for a request answered directly, the old flags. A reviewer sees **Turn into a new version** once it is accepted. The
+reason). A reviewer sees **Turn into a new version** once it is accepted. The
 section on the template page stays, with a link to the request page. The address is `/apps/inspection/s-change-requests?open=<id>`.
 
 **The tab on the template.** The template page has a fourth tab, Change requests, after Fill-ins (`TemplateDetail`, `ChangeRequestsList` with `templateId`): the requests of that template through the same query, and the request page opens inside the tab (`?open=<template>&tab=change-requests&request=<id>`). The bell rows about a request (the `CHANGE_REQUEST` notice and the approval notices of the review record) lead to that address (`RequestRecords.pathOf`).
@@ -277,3 +277,25 @@ answer; a bell row opens the request page. No mail.
 `ChangeRequestPage.test.tsx`. Real PostgreSQL: `ChangeRequestReviewIT`, `ChangeRequestListIT`, `TemplateOpenRequestsIT`,
 `TemplatePublishAuthorityIT`, `ApprovalHistoryIT`, `ChangeRequestReviewLogsAreCleanIT`, and the updated `ShippedPoliciesIT`,
 `RetainedObjectsIT`, `SolutionLoaderTest`, `StandardMetadataLoaderTest`, `ChangeRequestsIT`.
+
+## The suggestion made at approval (FA6G)
+
+The decision is ADR-0200. A step of the template's approval process can be marked **asks for a choice**; the approver of that step sends
+the places the template is meant for (a location, required, and departments, optional) together with the approval, and the cluster keeps
+them as a suggestion for the person who publishes.
+
+- **Where it lives.** `AudienceChoices` (the pure rule), `AudienceSuggestions` (judges against the lists the organization offers now, writes
+  once, audits by count), `AudienceSuggestionStore` (the only class that names the table `inspection_audience_suggestion`, V076, written only
+  under the transaction setting the store raises, never changed or deleted), `TemplateApprovalHooks.beforeApprove` (asks for the choice at a
+  marked step), `DepartmentAudiences.offered` (the lists alone, no mapping records), `TemplatePublishing.suggestionOptions` and the endpoint
+  `GET /api/v1/templates/{id}/suggestion-options` (any caller who can see the template; the lists are the organization's words), and
+  `TemplateLifecycleView.suggestedAudience` / `suggestionDropped` (only for a caller who may publish, for the version Publish would make
+  current, read from the request that reviewed it).
+- **Screens.** `solutions/choices.ts` registers `AudienceChoiceForm` for the template object; the generic `ApprovalActionForm` shows it at a
+  marked step and sends the choice; `PublishDialog` starts from `suggestedAudience`.
+- **Never** log, audit, publish in an event or put in a notice a location or department. The audit record is
+  `inspection.audience.suggested` with the number of places.
+- **Tests.** No database: `AudienceChoicesTest`, `ApprovalProcessCodecTest`, `ApprovalProcessRulesTest`. Real PostgreSQL:
+  `AudienceSuggestionIT` (the flows, the refusals, who sees what, another organization, the database guard, the clean trail); the isolation
+  harness lists the table. Frontend: `ApprovalActionFormChoice.test.tsx`, `PublishDialog.test.tsx`, `choices.test.ts`,
+  `approvalModel.test.ts`, `ApprovalBuilder.test.tsx`.

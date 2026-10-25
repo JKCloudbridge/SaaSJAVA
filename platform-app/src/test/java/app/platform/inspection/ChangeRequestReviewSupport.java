@@ -14,9 +14,7 @@ import com.jayway.jsonpath.JsonPath;
  */
 public abstract class ChangeRequestReviewSupport extends ChangeRequestSupport {
 
-    protected static final String REQUEST_OBJECT = "InspectionChangeRequest";
-    protected static final String REVIEW_RECORDS = "/api/v1/objects/" + REQUEST_OBJECT + "/records";
-    protected static final String CHANGE_REQUESTS = "/api/v1/change-requests";
+            protected static final String CHANGE_REQUESTS = "/api/v1/change-requests";
 
     /**
      * A template and the review process for its change requests.
@@ -32,19 +30,6 @@ public abstract class ChangeRequestReviewSupport extends ChangeRequestSupport {
             String process) {
     }
 
-    protected static String groupApprover(String groupId) {
-        return "{\"kind\":\"GROUP\",\"value\":\"" + groupId + "\"}";
-    }
-
-    /** Makes a process on the shipped object that gives requests to the approval engine; returns its API name. */
-    protected static String reviewProcess(TestBrowser admin, String name, String... steps) {
-        Response created = admin.postJson(DEFINITIONS + "/" + REQUEST_OBJECT, "{\"name\":\"" + name + "\",\"label\":\""
-                + name + "\",\"description\":\"\",\"active\":true,\"entryCriteria\":null,\"allowSelfApproval\":false,"
-                + "\"steps\":[" + String.join(",", steps) + "],\"outcomes\":null,\"fallback\":null}");
-        assertThat(created.status()).as(created.body()).isEqualTo(201);
-        return JsonPath.read(created.body(), "$.data.apiName");
-    }
-
     /**
      * A published template and a review process of two steps: the group of Plant QMS, then the group of Corporate QMS.
      *
@@ -52,7 +37,7 @@ public abstract class ChangeRequestReviewSupport extends ChangeRequestSupport {
      * @param corporateSkippable whether the second step is skipped when its group has nobody
      */
     protected Review review(boolean corporateHasPeople, boolean corporateSkippable) {
-        World world = world();
+        World world = world(false);
         Person plant = approver(world.setting());
         Person corporate = approver(world.setting());
         String plantGroup = group(world.setting().admin(), "plant-" + System.nanoTime(), plant);
@@ -71,27 +56,11 @@ public abstract class ChangeRequestReviewSupport extends ChangeRequestSupport {
         return review(true, true);
     }
 
-    /** The identifier of the review record of a request, from the answer that made it or showed it. */
-    protected static String reviewIdOf(Response request) {
-        return JsonPath.read(request.body(), "$.data.reviewId");
-    }
-
     /** Raises a request that must be accepted and returns the whole answer. */
     protected static Response raised(TestBrowser browser, String template, String title, String... comments) {
         Response made = ask(browser, template, title, 1, comments);
         assertThat(made.status()).as(made.body()).isEqualTo(201);
         return made;
-    }
-
-    protected static Response approvalPanel(TestBrowser browser, String reviewId) {
-        return browser.get(REVIEW_RECORDS + "/" + reviewId + "/approval");
-    }
-
-    /** The identifier of the approval request behind a review record, as the browser sees it. */
-    protected static String approvalOf(TestBrowser browser, String reviewId) {
-        Response panel = approvalPanel(browser, reviewId);
-        assertThat(panel.status()).as(panel.body()).isEqualTo(200);
-        return JsonPath.read(panel.body(), "$.data.current.summary.id");
     }
 
     /** What the review record says about the request's status (the copy that follows it). */

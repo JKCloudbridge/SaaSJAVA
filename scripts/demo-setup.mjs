@@ -146,11 +146,11 @@ const PEOPLE = [
   { email: "plant2-accounts@example.test", name: "Plant 2 Accounts User", groups: ["Plant 2 Accounts"] },
 ];
 // group -> the policies it holds ("List editor" is made here: it holds one ability and no right on data).
-// Publisher is the group with the last word: Corporate QMS. In a flow with no Corporate step an administrator gives
-// Publisher to Plant QMS by hand (Setup, Groups) and takes it away again.
+// Publisher is the group with the last word: Plant QMS (FA6G). Corporate QMS approves and suggests where the template is
+// meant to be published; Plant QMS publishes, with that suggestion ready in the popup.
 const GROUP_POLICIES = {
-  "Corporate QMS": ["Approver", "Publisher"],
-  "Plant QMS": ["Approver", "List editor"],
+  "Corporate QMS": ["Approver"],
+  "Plant QMS": ["Approver", "List editor", "Publisher"],
   "Plant 1 HR": ["Author", "Reader", "Filler"],
   "Plant 1 Accounts": ["Author", "Reader", "Filler"],
   "Plant 2 HR": ["Author", "Reader", "Filler"],
@@ -332,17 +332,18 @@ async function ensureProcess(admin, groupIds) {
     await admin.post("/api/v1/metadata/approvals/InspectionTemplate", {
       name: "TemplateReview",
       label: "Template review",
-      description: "Plant QMS checks and numbers the template; Corporate QMS approves it. Corporate QMS is skipped when its group is empty.",
+      description: "Plant QMS checks and numbers the template; Corporate QMS approves it and suggests where it is published (skipped when its group is empty); Plant QMS approves again and then publishes.",
       active: true,
       allowSelfApproval: false,
       steps: [
-        { name: "PlantQms", label: "Plant QMS", completion: "ANY", skipWhenNobody: false, approvers: [{ kind: "GROUP", value: groupIds["Plant QMS"] }] },
-        { name: "CorporateQms", label: "Corporate QMS", completion: "ANY", skipWhenNobody: true, approvers: [{ kind: "GROUP", value: groupIds["Corporate QMS"] }] },
+        { name: "PlantQms", label: "Plant QMS", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "GROUP", value: groupIds["Plant QMS"] }] },
+        { name: "CorporateQms", label: "Corporate QMS", completion: "ANY", skipWhenNobody: true, asksForChoice: true, approvers: [{ kind: "GROUP", value: groupIds["Corporate QMS"] }] },
+        { name: "Publish", label: "Publish", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "GROUP", value: groupIds["Plant QMS"] }] },
       ],
     }),
     "making the approval process",
   );
-  say("made", "approval process Template review (step 1 Plant QMS, step 2 Corporate QMS, skipped when empty)");
+  say("made", "approval process Template review (step 1 Plant QMS, step 2 Corporate QMS asks for a location and is skipped when empty, step 3 Publish)");
 }
 
 // The second process (FA6E, ADR-0199): a change request goes through its own review, on the small record the platform makes

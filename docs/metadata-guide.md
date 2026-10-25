@@ -1027,7 +1027,7 @@ one changes nothing in the other. If you want the same people in both, name the 
 
 **How to make it.** Setup, Approval processes, New: object **Change request**, name it (for example Change request review), add step 1
 (approver: the group Plant QMS), add step 2 (approver: the group Corporate QMS) and tick **Skip this step when nobody can decide it**, make it
-active. Without such a process, a change request is answered by whoever may change the template, as before. With it, the person who
+active. **Without such a process nobody can raise a change request**: the person is told that an administrator must make it. With it, the person who
 raises a request cannot be a decider of their own request (the process does not allow self-approval), Plant QMS accept or decline first,
 then Corporate QMS. A declined request is final; the person raises a new one. An accepted request is turned into a new version by the owner
 of the template (or an approver), and that version goes through the **Template** process like any other.
@@ -1042,3 +1042,26 @@ the policy applies at the next question, to every version, approved before or af
 **The tab and the asterisk.** Everyone with Author, Reader, Filler or Approver sees the tab **Change requests** and, in it, their own
 requests; people who may change a template (its owner, Approver) see all the requests of it. A template with a request that is open or
 accepted shows an asterisk at the right of its row and of its page.
+
+## 38. The step that asks where a template is published (FA6G)
+
+**What it is for.** In the template review, **Corporate QMS** knows where a template is meant to be used and **Plant QMS** publishes it.
+You can make the Corporate QMS step ask for that when its people approve. It is only a **suggestion**: nobody sees the template because of
+it, and nothing is shared. When Plant QMS publishes, the Publish window starts from the suggestion and Plant QMS may change it.
+
+**Set it up (Setup, Approval processes, the process "Template review").** Open the step of Corporate QMS and tick **Ask the approver for a
+choice**, then save the process (a new version of the process; requests already under way keep the old one). The process then has, in this
+order: Plant QMS (checks and numbers), Corporate QMS (ticked; tick **Skip this step when nobody can decide it** as well if the group may be
+empty), and a last step of Plant QMS. Give the access policy **Publisher** to the group **Plant QMS** only, as it holds the last word.
+
+**What the approver sees.** At the ticked step, **Approve** opens a window with the locations of your lists. They must tick at least one
+location. Under each ticked location they may tick departments, or none. Without a location the approval is refused, from the template
+page and from the approvals inbox alike, and the task stays open. When the step is skipped (an empty group) there is no suggestion.
+
+**What Plant QMS sees.** After the last approval, **Publish** opens with the suggested departments listed and a suggested location already
+chosen. They may change all of it. Publish still needs a location **and at least one department** that has a group set up, and the
+Publisher policy; department people see the template only after that Publish. A suggested place that your lists no longer offer is left
+out, and the window says so.
+
+**Nothing is written down but the fact.** The suggestion cannot be changed after the approval, by the approver or by anybody else. The audit
+trail says that a suggestion was made and how many places it holds, never which.

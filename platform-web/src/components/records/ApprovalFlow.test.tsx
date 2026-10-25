@@ -30,6 +30,7 @@ function instance(historyVisible = true): Instance {
         label: "Plant QMS",
         completion: "ANY",
         status: "APPROVED",
+        asksForChoice: false,
         assignments: [
           { id: "t1", assignee: { userId: "u1", name: "Plant Person" }, via: "RULE", status: "APPROVED", decidedAt: "2026-10-24T09:00:00Z" },
         ],
@@ -40,6 +41,7 @@ function instance(historyVisible = true): Instance {
         label: "Corporate QMS",
         completion: "ANY",
         status: "ACTIVE",
+        asksForChoice: false,
         assignments: [
           { id: "t2", assignee: { userId: "u2", name: "Corporate One" }, via: "RULE", status: "OPEN" },
           { id: "t3", assignee: { userId: "u3", name: "Corporate Two" }, via: "RULE", status: "OPEN" },
@@ -58,6 +60,7 @@ function instance(historyVisible = true): Instance {
       stepCount: 2,
       submittedBy: { userId: "u0", name: "Department Author" },
       version: 1,
+      currentStepAsksForChoice: false,
     },
   } as Instance;
 }

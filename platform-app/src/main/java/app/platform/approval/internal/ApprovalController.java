@@ -147,7 +147,8 @@ class ApprovalController {
                     + UNKNOWN)
     ApiResponse<ApprovalInstanceView> approve(@PathVariable UUID id, @Valid @RequestBody ApprovalDecisionRequest body) {
         Member member = callers.require();
-        return ApiResponse.of(views.full(member, engine.approve(member, id, body.version(), body.comment())));
+        return ApiResponse.of(views.full(member, engine.approve(member, id, body.version(), body.comment(),
+                body.choices())));
     }
 
     @PostMapping(INSTANCES + "/{id}/reject")

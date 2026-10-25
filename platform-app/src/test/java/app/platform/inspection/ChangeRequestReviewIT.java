@@ -78,7 +78,7 @@ class ChangeRequestReviewIT extends ChangeRequestReviewSupport {
         assertThat(requestStatus(review.world().reader().browser(), template, request)).isEqualTo("DECLINED");
         assertThat(statusCopy(review.world().reader().browser(), reviewId)).isEqualTo("DECLINED");
         assertThat(turn(review.world().author().browser(), template, request).status()).isEqualTo(409);
-        assertThat(answerRequest(review.world().author().browser(), template, request, "REOPEN", null).status())
+        assertThat(reopen(review.world().author().browser(), template, request).status())
                 .as("a declined request is final: the person raises a new one").isEqualTo(409);
         assertThat(JsonPath.<java.util.List<String>>read(approvalPanel(review.world().reader().browser(), reviewId)
                 .body(), "$.data.current.history[?(@.kind=='REJECTED')].comment"))
@@ -114,24 +114,23 @@ class ChangeRequestReviewIT extends ChangeRequestReviewSupport {
     }
 
     @Test
-    void theOwnerCannotAcceptOrDeclineARequestThatItsApprovalDecides() {
+    void thereIsNoWayToAcceptOrDeclineARequestExceptItsApproval() {
         Review review = review();
         String template = review.world().template();
         String request = JsonPath.read(raised(review.world().reader().browser(), template, "Walkway").body(),
                 "$.data.id");
 
-        Response accept = answerRequest(review.world().author().browser(), template, request, "ACCEPT", null);
-        Response decline = answerRequest(review.world().approver().browser(), template, request, "DECLINE", "No");
+        Response owner = review.world().author().browser().postJson(changes(template) + "/" + request + "/answer",
+                "{\"action\":\"ACCEPT\"}");
+        Response approver = review.world().approver().browser().postJson(
+                changes(template) + "/" + request + "/answer", "{\"action\":\"DECLINE\",\"note\":\"No\"}");
 
-        assertThat(accept.status()).isEqualTo(409);
-        assertThat(message(accept)).contains("decided by its approval");
-        assertThat(decline.status()).isEqualTo(409);
+        assertThat(owner.status()).as("the old answer endpoint is gone").isGreaterThanOrEqualTo(400);
+        assertThat(approver.status()).isGreaterThanOrEqualTo(400);
         assertThat(requestStatus(review.world().author().browser(), template, request)).isEqualTo("OPEN");
         Response view = one(review.world().author().browser(), template, request);
-        assertThat(JsonPath.<Boolean>read(view.body(), "$.data.canAccept")).isFalse();
-        assertThat(JsonPath.<Boolean>read(view.body(), "$.data.canDecline")).isFalse();
+        assertThat(view.body()).doesNotContain("canAccept").doesNotContain("canDecline");
     }
-
     @Test
     void aRequestWithdrawnFromItsReviewStaysOpenAndIsNotAccepted() {
         Review review = review();
@@ -148,18 +147,17 @@ class ChangeRequestReviewIT extends ChangeRequestReviewSupport {
     }
 
     @Test
-    void withoutAProcessForRequestsTheRequestIsAnsweredDirectlyAsBefore() {
-        World world = world();
+    void withoutAProcessForRequestsNoRequestCanBeRaisedAndTheWordsSayWhatToSetUp() {
+        World world = world(false);
 
-        Response made = raised(world.reader().browser(), world.template(), "Walkway");
-        String request = JsonPath.read(made.body(), "$.data.id");
+        Response refused = ask(world.reader().browser(), world.template(), "Walkway", 1);
 
-        assertThat(made.body()).doesNotContain("reviewId");
-        assertThat(answerRequest(world.author().browser(), world.template(), request, "ACCEPT", null).status())
-                .isEqualTo(200);
-        assertThat(requestStatus(world.author().browser(), world.template(), request)).isEqualTo("ACCEPTED");
+        assertThat(refused.status()).as(refused.body()).isEqualTo(409);
+        assertThat(message(refused)).contains("not set one up");
+        assertThat(listedRequests(world.author().browser(), world.template())).as("nothing was made").isEmpty();
+        assertThat(JsonPath.<java.util.List<String>>read(world.approver().browser().get(REVIEW_RECORDS).body(),
+                "$.data[*].id")).as("no review record was left").isEmpty();
     }
-
     @Test
     void aRequestThatWasTurnedAndWhoseVersionWasRejectedGoesBackToAcceptedNotToOpen() {
         Review review = review();
@@ -176,7 +174,7 @@ class ChangeRequestReviewIT extends ChangeRequestReviewSupport {
         String versionApproval = editAndSend(review.world(), draft);
         assertThat(reject(review.world().approver().browser(), versionApproval).status()).isEqualTo(200);
 
-        Response reopened = answerRequest(review.world().author().browser(), template, request, "REOPEN", null);
+        Response reopened = reopen(review.world().author().browser(), template, request);
 
         assertThat(reopened.status()).as(reopened.body()).isEqualTo(200);
         assertThat(JsonPath.<String>read(reopened.body(), "$.data.status")).isEqualTo("ACCEPTED");

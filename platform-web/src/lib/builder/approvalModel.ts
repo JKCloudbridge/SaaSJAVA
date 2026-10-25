@@ -37,6 +37,8 @@ export interface StepDraft {
   approvers: ApproverDraft[];
   /** Skip the step when nobody can be asked to decide it, after the fallback approver was tried (FA4A, ADR-0187). */
   skipWhenNobody: boolean;
+  /** The person who approves the step must also make the choice the object's module asks for (FA6G, ADR-0200). */
+  asksForChoice: boolean;
 }
 
 /** One field an outcome sets, to a literal written as text. */
@@ -106,6 +108,7 @@ export function stepFromSpec(spec: StepSpec): StepDraft {
     approvers: spec.approvers.map(approverFromSpec),
     // A process saved before the flag existed has none, which means "never skipped".
     skipWhenNobody: spec.skipWhenNobody === true,
+    asksForChoice: spec.asksForChoice === true,
   };
 }
 
@@ -160,6 +163,7 @@ export function stepSpec(step: StepDraft, catalogue: Catalogue): StepSpec {
       ),
     ),
     skipWhenNobody: step.skipWhenNobody,
+    asksForChoice: step.asksForChoice,
   };
 }
 
@@ -200,6 +204,7 @@ export function snapshotOf(draft: ApprovalDraft): string {
       label: step.label,
       completion: step.completion,
       skipWhenNobody: step.skipWhenNobody,
+      asksForChoice: step.asksForChoice,
       approvers: step.approvers.map((approver) => ({ kind: approver.kind, value: approver.value })),
     })),
     outcomes: Object.fromEntries(
@@ -233,6 +238,7 @@ export function newStep(steps: readonly StepDraft[], catalogue: Catalogue): Step
     completion: catalogue.completions[0]?.code ?? "",
     approvers: [],
     skipWhenNobody: false,
+    asksForChoice: false,
   };
 }
 

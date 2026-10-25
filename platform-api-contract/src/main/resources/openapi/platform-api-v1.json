@@ -13087,63 +13087,6 @@
         "tags" : [ "Template change requests" ]
       }
     },
-    "/api/v1/templates/{templateId}/change-requests/{requestId}/answer" : {
-      "post" : {
-        "description" : "Needs the right to change the template (FORBIDDEN otherwise). ACCEPT moves an open request to accepted; DECLINE needs a reason and ends an open or accepted one; REOPEN puts a done request back to open, only when the version it became was rejected or withdrawn. CONFLICT when it is not in a status that allows the move, or somebody answered first. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
-        "operationId" : "answerChangeRequest",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "templateId",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        }, {
-          "in" : "path",
-          "name" : "requestId",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/AnswerChangeRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseChangeRequestView"
-                }
-              }
-            },
-            "description" : "OK"
-          },
-          "default" : {
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            },
-            "description" : "Error. The code says what went wrong; the message is safe to show."
-          }
-        },
-        "summary" : "Accept, decline or reopen a change request",
-        "tags" : [ "Template change requests" ]
-      }
-    },
     "/api/v1/templates/{templateId}/change-requests/{requestId}/comments" : {
       "post" : {
         "description" : "By the person who asked or by a person who may change the template, while the request is open or accepted. The place is checked against the version the request read. CONFLICT when the request is closed or has the most comments. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
@@ -13198,6 +13141,53 @@
           }
         },
         "summary" : "Add a comment to a change request",
+        "tags" : [ "Template change requests" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/change-requests/{requestId}/reopen" : {
+      "post" : {
+        "description" : "Needs the right to change the template (FORBIDDEN otherwise). Puts a done request back to accepted, only when the version it became was rejected or withdrawn, so it can be turned into a version again. Accepting and declining a request is the work of its approval, never of this endpoint. CONFLICT when it is not done, its version was used, or somebody moved it first. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
+        "operationId" : "reopenChangeRequest",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "requestId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseChangeRequestView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Reopen a change request whose new version was not used",
         "tags" : [ "Template change requests" ]
       }
     },
@@ -13403,6 +13393,45 @@
           }
         },
         "summary" : "Retire a template for good",
+        "tags" : [ "Templates" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/suggestion-options" : {
+      "get" : {
+        "description" : "The same lists as the publish dialog, for the popup of an approval step that asks for an audience. Needs only that the caller can see the template (NOT_FOUND otherwise), not the ability to publish: a suggestion shares nothing. The lists are the organization's own words.",
+        "operationId" : "templateSuggestionOptions",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAudienceOptionsView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The locations and departments an approver may suggest for a template",
         "tags" : [ "Templates" ]
       }
     },
@@ -14047,21 +14076,6 @@
           }
         },
         "required" : [ "nextValue", "values" ]
-      },
-      "AnswerChangeRequest" : {
-        "type" : "object",
-        "properties" : {
-          "action" : {
-            "type" : "string",
-            "pattern" : "ACCEPT|DECLINE|REOPEN"
-          },
-          "note" : {
-            "type" : "string",
-            "maxLength" : 4000,
-            "minLength" : 0
-          }
-        },
-        "required" : [ "action" ]
       },
       "ApiError" : {
         "type" : "object",
@@ -15917,6 +15931,14 @@
       "ApprovalDecisionRequest" : {
         "type" : "object",
         "properties" : {
+          "choices" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DecisionChoice"
+            },
+            "maxItems" : 50,
+            "minItems" : 0
+          },
           "comment" : {
             "type" : "string",
             "maxLength" : 2000,
@@ -16059,6 +16081,9 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "currentStepAsksForChoice" : {
+            "type" : "boolean"
+          },
           "currentStepLabel" : {
             "type" : "string"
           },
@@ -16109,7 +16134,7 @@
             "format" : "int64"
           }
         },
-        "required" : [ "id", "objectApiName", "processApiName", "processLabel", "processVersion", "recordId", "startedAt", "status", "stepCount", "version" ]
+        "required" : [ "currentStepAsksForChoice", "id", "objectApiName", "processApiName", "processLabel", "processVersion", "recordId", "startedAt", "status", "stepCount", "version" ]
       },
       "ApprovalInstanceView" : {
         "type" : "object",
@@ -16325,6 +16350,9 @@
             "maxItems" : 20,
             "minItems" : 0
           },
+          "asksForChoice" : {
+            "type" : "boolean"
+          },
           "completion" : {
             "type" : "string",
             "maxLength" : 10,
@@ -16353,6 +16381,9 @@
             "type" : "string",
             "format" : "date-time"
           },
+          "asksForChoice" : {
+            "type" : "boolean"
+          },
           "assignments" : {
             "type" : "array",
             "items" : {
@@ -16380,7 +16411,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "assignments", "completion", "label", "name", "position", "status" ]
+        "required" : [ "asksForChoice", "assignments", "completion", "label", "name", "position", "status" ]
       },
       "ApprovalTaskView" : {
         "type" : "object",
@@ -17180,13 +17211,7 @@
             "type" : "string",
             "format" : "date-time"
           },
-          "canAccept" : {
-            "type" : "boolean"
-          },
           "canComment" : {
-            "type" : "boolean"
-          },
-          "canDecline" : {
             "type" : "boolean"
           },
           "canReopen" : {
@@ -17204,9 +17229,6 @@
           "createdAt" : {
             "type" : "string",
             "format" : "date-time"
-          },
-          "decisionNote" : {
-            "type" : "string"
           },
           "id" : {
             "type" : "string",
@@ -17261,7 +17283,7 @@
             "format" : "int32"
           }
         },
-        "required" : [ "canAccept", "canComment", "canDecline", "canReopen", "canTurn", "comments", "createdAt", "id", "mine", "placesInActive", "placesTotal", "status", "templateId", "title", "versionNo" ]
+        "required" : [ "canComment", "canReopen", "canTurn", "comments", "createdAt", "id", "mine", "placesInActive", "placesTotal", "status", "templateId", "title", "versionNo" ]
       },
       "ChangeRequestsView" : {
         "type" : "object",
@@ -18390,6 +18412,22 @@
           }
         },
         "required" : [ "count", "objectApiName", "reason", "workflow" ]
+      },
+      "DecisionChoice" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          },
+          "value" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "key", "value" ]
       },
       "EmbeddedTokenRequest" : {
         "type" : "object",
@@ -23174,6 +23212,24 @@
         },
         "required" : [ "planKey", "planName", "startedAt", "status" ]
       },
+      "SuggestedAudience" : {
+        "type" : "object",
+        "properties" : {
+          "department" : {
+            "type" : "string"
+          },
+          "departmentLabel" : {
+            "type" : "string"
+          },
+          "location" : {
+            "type" : "string"
+          },
+          "locationLabel" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "location", "locationLabel" ]
+      },
       "SupportAccessRequestBody" : {
         "type" : "object",
         "properties" : {
@@ -23502,6 +23558,16 @@
           "retired" : {
             "type" : "boolean"
           },
+          "suggestedAudience" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SuggestedAudience"
+            }
+          },
+          "suggestionDropped" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "versionReviews" : {
             "type" : "array",
             "items" : {
@@ -23509,7 +23575,7 @@
             }
           }
         },
-        "required" : [ "audience", "canPublish", "canRetire", "canUnpublish", "id", "lifecycle", "numberPreviewComplete", "openChangeRequests", "retired", "versionReviews" ]
+        "required" : [ "audience", "canPublish", "canRetire", "canUnpublish", "id", "lifecycle", "numberPreviewComplete", "openChangeRequests", "retired", "suggestedAudience", "suggestionDropped", "versionReviews" ]
       },
       "TemplatePage" : {
         "type" : "object",
