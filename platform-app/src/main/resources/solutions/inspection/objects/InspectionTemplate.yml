@@ -165,5 +165,6 @@ fields:
   - apiName: lastRevisedAt
     label: Last revised on
     description: When the revision now in use was published. The platform sets it at that moment; nobody types it.
-    type: DATETIME
+    type: TEXT
     platformWritten: true
+    settings: { maxLength: 40 }

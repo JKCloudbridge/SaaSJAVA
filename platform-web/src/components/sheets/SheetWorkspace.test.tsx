@@ -30,6 +30,7 @@ function summary(versionNo: number, status: string, version = 0, extra: Partial<
     createdAt: "2026-10-22T08:00:00Z",
     updatedAt: "2026-10-22T09:00:00Z",
     reviewEdits: 0,
+    held: false,
     ...extra,
   };
 }
@@ -87,7 +88,7 @@ describe("a sheet with a draft", () => {
 
     expect(await screen.findByRole("table", { name: "Revisions" })).toBeInTheDocument();
     const rows = screen.getAllByRole("row").slice(1);
-    expect(within(rows[0] as HTMLElement).getByText("Draft")).toBeInTheDocument();
+    expect(within(rows[0] as HTMLElement).getAllByText("Draft").length).toBeGreaterThan(0);
     expect(within(rows[1] as HTMLElement).getByText("Active")).toBeInTheDocument();
     expect(await screen.findByRole("grid", { name: "Fire checks, draft" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();

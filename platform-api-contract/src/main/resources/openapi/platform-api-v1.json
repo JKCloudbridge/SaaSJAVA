@@ -1710,6 +1710,45 @@
         "tags" : [ "Automation health" ]
       }
     },
+    "/api/v1/change-requests/by-review/{reviewId}" : {
+      "get" : {
+        "description" : "For the choice a step of the approval asks for, which knows the record under review and not the request or its template. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
+        "operationId" : "getChangeRequestByReview",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "reviewId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseChangeRequestView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One change request by the identifier of the record its approval reviews",
+        "tags" : [ "Template change requests" ]
+      }
+    },
     "/api/v1/change-requests/query" : {
       "post" : {
         "description" : "One page for the tab of change requests: search (a text matched against the title and the name of the person who asked), an order (date, version or status, with date newest first by default), a narrowing to one template or status, and a cursor. A person sees their own requests, and every request of the templates they may change; they reach a template's requests only while they can read the template, and the platform host and another organization's requests are never in the answer. A page may be short and still have a cursor because requests the caller may not see are skipped; only a missing cursor is the end. A post, because the text does not belong in an address. Nothing typed is logged.",
@@ -1752,7 +1791,7 @@
     },
     "/api/v1/change-requests/{requestId}" : {
       "get" : {
-        "description" : "For a page that was given the request and not its template (the bell, the approval inbox). reviewId names the record whose approval panel decides it, when it is decided by an approval. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
+        "description" : "For a page that was given the request and not its template (the bell, the approval inbox). reviewId names the record whose approval panel decides it. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
         "operationId" : "getChangeRequestById",
         "parameters" : [ {
           "in" : "path",
@@ -12403,7 +12442,7 @@
     },
     "/api/v1/sheets/{ownerObject}/{ownerId}/versions/import" : {
       "post" : {
-        "description" : "The body is the file itself (an .xlsx workbook or a UTF-8 text file with comma, semicolon or tab separated values) and nothing else; format says which. The file is read on the server and kept nowhere. The first sheet of a workbook is read; text becomes fixed text of the sheet, a cell with no text is left to be typed into, and column widths, row heights, bold, italic, the four sizes and merged areas come with it. Formulas come in as their last values and dates as text written year-month-day. Images, charts, other sheets and links to other files are left out and counted in the report, which says what was left out in plain words. firstRowLabels (default true) makes the first row with text the names of the columns. A sheet that has no version yet is made in the shape where the sheet names its rows; a sheet that has versions keeps its shape (where the filler adds the rows, only the names of the columns come in). preview=true answers with the report and saves nothing. The size is checked before anything is read, from the announced length and again on the bytes read: PAYLOAD_TOO_LARGE (also for a file that unpacks to more than is allowed). VALIDATION_ERROR for a file that is not what its format says, a workbook with macros, a limit of the sheet that the file goes over (it is named, with the row and column when a cell is the reason) or a text that holds markup; nothing is cut. CONFLICT names the number of the draft when one exists, or when the sheet has the most versions it can have. RATE_LIMITED when other files are being read at the same moment. FORBIDDEN for a caller who may read the record but not update it. Audited by the format, the sizes and the counts, never by what the file held. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record. ",
+        "description" : "The body is the file itself (an .xlsx workbook or a UTF-8 text file with comma, semicolon or tab separated values) and nothing else; format says which. The file is read on the server and kept nowhere. The first sheet of a workbook is read; text becomes fixed text of the sheet, a cell with no text is left to be typed into, and column widths, row heights, bold, italic, the four sizes and merged areas come with it. Formulas come in as their last values and dates as text written year-month-day. Images, charts, other sheets and links to other files are left out and counted in the report, which says what was left out in plain words. firstRowLabels (default true) makes the first row with text the names of the columns. A sheet that has no version yet is made in the shape where the sheet names its rows; a sheet that has versions keeps its shape (where the filler adds the rows, only the names of the columns come in). preview=true answers with the report and saves nothing. The size is checked before anything is read, from the announced length and again on the bytes read: PAYLOAD_TOO_LARGE (also for a file that unpacks to more than is allowed). VALIDATION_ERROR for a file that is not what its format says, a workbook with macros, a limit of the sheet that the file goes over (it is named, with the row and column when a cell is the reason) or a text that holds markup; nothing is cut. CONFLICT names the number of the draft when one exists, or when the sheet has the most versions it can have. RATE_LIMITED when other files are being read at the same moment. FORBIDDEN for a caller who may read the record but not update it. replace=true puts the grid in the draft that is held for a change request, in place, instead of making a draft: only for the people asked to decide that request. Audited by the format, the sizes and the counts, never by what the file held. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record. ",
         "operationId" : "importSheetVersion",
         "parameters" : [ {
           "in" : "path",
@@ -12438,6 +12477,14 @@
         }, {
           "in" : "query",
           "name" : "preview",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        }, {
+          "in" : "query",
+          "name" : "replace",
           "required" : false,
           "schema" : {
             "type" : "boolean",
@@ -12900,7 +12947,7 @@
     },
     "/api/v1/templates/{templateId}/change-requests" : {
       "get" : {
-        "description" : "Each request with its comments, newest first. canReview says whether the caller may answer requests and canRequest whether the screen may offer to ask for a change (a version is in use and the template is not retired); the flags only hide buttons. status narrows the list (OPEN, ACCEPTED, DECLINED or DONE). A comment says whether its place is still in the version in use. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
+        "description" : "Each request with its comments, newest first. canReview says whether the caller may see all requests and canRequest whether the screen may offer to ask for a change (a revision is in use, the template is not retired and no other change is in progress); inProgress says that one is. The flags only hide buttons. status narrows the list (OPEN, DECLINED or DONE). A comment says whether its place is still in the revision in use. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
         "operationId" : "listChangeRequests",
         "parameters" : [ {
           "in" : "path",
@@ -12944,7 +12991,7 @@
         "tags" : [ "Template change requests" ]
       },
       "post" : {
-        "description" : "Needs only the right to read the template. The version must be one that is or was in use; each comment may name a row, a column, both (a cell) or neither (the template as a whole), and a row or column must be in that version. Nothing of the template changes. VALIDATION_ERROR names the place that is wrong. CONFLICT for a retired template, when no version is in use, and when a limit is reached (open requests per person, requests per template). NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
+        "description" : "Needs only the right to read the template. The body is the register form (the request number the person types, what is asked, the basis, the horizontal deployment and the format that stops being used), the revision that was read and, if the person likes, places on the sheet; each place may name a row, a column, both (a cell) or neither (the template as a whole), and a row or column must be in that revision. The platform fills the rest of the register (document, revision, who and when, department). Nothing of the template changes. VALIDATION_ERROR names the box that is wrong. CONFLICT for a retired template, when no revision is in use, when another change is in progress on the template, when the organization has no approval process for change requests, and when a limit is reached. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
         "operationId" : "createChangeRequest",
         "parameters" : [ {
           "in" : "path",
@@ -12987,14 +13034,14 @@
             "description" : "Error. The code says what went wrong; the message is safe to show."
           }
         },
-        "summary" : "Ask for a change to a version of a template",
+        "summary" : "Ask for a change to a revision of a template",
         "tags" : [ "Template change requests" ]
       }
     },
-    "/api/v1/templates/{templateId}/change-requests/turn-into-version" : {
+    "/api/v1/templates/{templateId}/change-requests/register/file" : {
       "post" : {
-        "description" : "Needs the right to change the template (FORBIDDEN otherwise). Makes a draft that is a copy of the version in use now (not of the version each person read) and links the requests to it; they become done. When a draft already exists nothing is copied and the requests are linked to that draft (created is false). The draft goes through approval like any other. CONFLICT for a retired template, when no version is in use, and for a request that is already answered or turned (the second of two callers at once gets this). NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
-        "operationId" : "turnChangeRequestsIntoVersion",
+        "description" : "The typed parts the body carries (all may be empty) are written with the parts the platform fills. Every cell is text, never a formula. Nothing is stored or logged. NOT_FOUND for a template the caller cannot read.",
+        "operationId" : "downloadChangeRequestRegisterDraft",
         "parameters" : [ {
           "in" : "path",
           "name" : "templateId",
@@ -13008,7 +13055,57 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/TurnIntoVersionRequest"
+                "$ref" : "#/components/schemas/RegisterInput"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            },
+            "description" : "The Excel file"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The register form for a request about the template as an Excel file, to fill there",
+        "tags" : [ "Template change requests" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/change-requests/register/page" : {
+      "post" : {
+        "description" : "For the screen that shows the Excel view while a person types: the typed parts are drawn with the parts the platform fills (the document, the revision in use, who asks and the department). Nothing is stored or logged. CONFLICT when no revision is in use. NOT_FOUND for a template the caller cannot read.",
+        "operationId" : "drawChangeRequestRegister",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegisterInput"
               }
             }
           },
@@ -13019,7 +13116,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseTurnedView"
+                  "$ref" : "#/components/schemas/ApiResponseRegisterView"
                 }
               }
             },
@@ -13036,7 +13133,56 @@
             "description" : "Error. The code says what went wrong; the message is safe to show."
           }
         },
-        "summary" : "Turn change requests into the next version of the template",
+        "summary" : "Draw the register form for a request about the template, without making the request",
+        "tags" : [ "Template change requests" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/change-requests/register/read" : {
+      "post" : {
+        "description" : "The body is the .xlsx file itself and nothing else. Only the parts a requester types are taken, from their places on the page; text anywhere else on the page is refused in plain words that name the place. The file is read under the limits of the spreadsheet upload and kept nowhere; the form is filled with the answer and the person raises the request from it. VALIDATION_ERROR for a file that is not a register, PAYLOAD_TOO_LARGE for a file over the limit, RATE_LIMITED when other files are being read. NOT_FOUND for a template the caller cannot read.",
+        "operationId" : "readChangeRequestRegisterFile",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/octet-stream" : {
+              "schema" : {
+                "type" : "string",
+                "format" : "binary"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRegisterFileView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Take the typed parts out of a filled register file",
         "tags" : [ "Template change requests" ]
       }
     },
@@ -13089,7 +13235,7 @@
     },
     "/api/v1/templates/{templateId}/change-requests/{requestId}/comments" : {
       "post" : {
-        "description" : "By the person who asked or by a person who may change the template, while the request is open or accepted. The place is checked against the version the request read. CONFLICT when the request is closed or has the most comments. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
+        "description" : "By the person who asked or by a person who may change the template, while the request is in progress. The place is checked against the revision the request read. CONFLICT when the request is closed or has the most comments. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
         "operationId" : "addChangeComment",
         "parameters" : [ {
           "in" : "path",
@@ -13144,10 +13290,160 @@
         "tags" : [ "Template change requests" ]
       }
     },
-    "/api/v1/templates/{templateId}/change-requests/{requestId}/reopen" : {
+    "/api/v1/templates/{templateId}/change-requests/{requestId}/register" : {
+      "get" : {
+        "description" : "The values of the Document Change Register form, one set of values for both views, with the form drawn as a sheet page for the Excel view. canComplete says whether the caller may complete the bottom of it now. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
+        "operationId" : "getChangeRequestRegister",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "requestId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRegisterView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The register form of a change request",
+        "tags" : [ "Template change requests" ]
+      },
+      "put" : {
+        "description" : "For the people asked to decide the request now (and the administrator), while it is in progress: the department, the format or document obsoleted with its day, who approved, the signature words, the effective day and the two answers. The new revision and the day it was published are stamped by the publish and cannot be written. The register is changed in place and is final once the request is answered. FORBIDDEN for anybody else, CONFLICT when the request is answered, CONCURRENT_MODIFICATION when the register changed since it was read. Audited by the names of the boxes that changed, never by what was written. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
+        "operationId" : "completeChangeRequestRegister",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "requestId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegisterCompletion"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRegisterView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Complete the bottom of the register form of a change request",
+        "tags" : [ "Template change requests" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/change-requests/{requestId}/register/file" : {
+      "get" : {
+        "description" : "The same values as the form, drawn on the page of the register. Every cell is text, never a formula. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
+        "operationId" : "downloadChangeRequestRegister",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "requestId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            },
+            "description" : "The Excel file"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The register form of a change request as an Excel file",
+        "tags" : [ "Template change requests" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/change-requests/{requestId}/revised-copy" : {
       "post" : {
-        "description" : "Needs the right to change the template (FORBIDDEN otherwise). Puts a done request back to accepted, only when the version it became was rejected or withdrawn, so it can be turned into a version again. Accepting and declining a request is the work of its approval, never of this endpoint. CONFLICT when it is not done, its version was used, or somebody moved it first. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
-        "operationId" : "reopenChangeRequest",
+        "description" : "A draft that is a copy of the revision in use now, held for the request: people who only read the template never see it, and the revision in use is not edited. Only a person asked to decide the request now (and the administrator) may. It is made on demand and only once. FORBIDDEN for anybody else. CONFLICT when the request is answered or not waiting for an approval, when a copy or another draft already exists, or when no revision is in use. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
+        "operationId" : "createRevisedCopy",
         "parameters" : [ {
           "in" : "path",
           "name" : "templateId",
@@ -13187,7 +13483,7 @@
             "description" : "Error. The code says what went wrong; the message is safe to show."
           }
         },
-        "summary" : "Reopen a change request whose new version was not used",
+        "summary" : "Make the revised copy of the sheet for a change request",
         "tags" : [ "Template change requests" ]
       }
     },
@@ -15601,6 +15897,24 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseRegisterFileView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/RegisterFileView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseRegisterView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/RegisterView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseReleaseView" : {
         "type" : "object",
         "properties" : {
@@ -15741,15 +16055,6 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/TenantSummary"
-          }
-        },
-        "required" : [ "data" ]
-      },
-      "ApiResponseTurnedView" : {
-        "type" : "object",
-        "properties" : {
-          "data" : {
-            "$ref" : "#/components/schemas/TurnedView"
           }
         },
         "required" : [ "data" ]
@@ -17308,13 +17613,13 @@
             "type" : "string",
             "format" : "date-time"
           },
+          "canChangeCopy" : {
+            "type" : "boolean"
+          },
           "canComment" : {
             "type" : "boolean"
           },
-          "canReopen" : {
-            "type" : "boolean"
-          },
-          "canTurn" : {
+          "canCreateCopy" : {
             "type" : "boolean"
           },
           "comments" : {
@@ -17342,11 +17647,18 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "publishPrefill" : {
+            "$ref" : "#/components/schemas/PublishPrefill"
+          },
           "requesterDepartment" : {
             "type" : "string"
           },
           "requesterName" : {
             "type" : "string"
+          },
+          "resultingRevision" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "resultingVersion" : {
             "type" : "integer",
@@ -17380,7 +17692,7 @@
             "format" : "int32"
           }
         },
-        "required" : [ "canComment", "canReopen", "canTurn", "comments", "createdAt", "id", "mine", "placesInActive", "placesTotal", "status", "templateId", "title", "versionNo" ]
+        "required" : [ "canChangeCopy", "canComment", "canCreateCopy", "comments", "createdAt", "id", "mine", "placesInActive", "placesTotal", "status", "templateId", "title", "versionNo" ]
       },
       "ChangeRequestsView" : {
         "type" : "object",
@@ -17399,6 +17711,9 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "inProgress" : {
+            "type" : "boolean"
+          },
           "openCount" : {
             "type" : "integer",
             "format" : "int32"
@@ -17410,7 +17725,7 @@
             }
           }
         },
-        "required" : [ "activeVersion", "canRequest", "canReview", "draftVersion", "openCount", "requests" ]
+        "required" : [ "activeVersion", "canRequest", "canReview", "draftVersion", "inProgress", "openCount", "requests" ]
       },
       "ChangeSetReportView" : {
         "type" : "object",
@@ -17806,17 +18121,15 @@
               "$ref" : "#/components/schemas/NewChangeComment"
             }
           },
-          "title" : {
-            "type" : "string",
-            "maxLength" : 1000,
-            "minLength" : 0
+          "register" : {
+            "$ref" : "#/components/schemas/RegisterInput"
           },
           "versionNo" : {
             "type" : "integer",
             "format" : "int32"
           }
         },
-        "required" : [ "title", "versionNo" ]
+        "required" : [ "register", "versionNo" ]
       },
       "CreateChangeSetRequest" : {
         "type" : "object",
@@ -21450,6 +21763,28 @@
         },
         "required" : [ "displayName", "email", "planKey", "slug" ]
       },
+      "PublishPrefill" : {
+        "type" : "object",
+        "properties" : {
+          "allowDownload" : {
+            "type" : "boolean"
+          },
+          "suggested" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SuggestedAudience"
+            }
+          },
+          "suggestionDropped" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "viewOnly" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "allowDownload", "suggested", "suggestionDropped", "viewOnly" ]
+      },
       "PublishTemplateRequest" : {
         "type" : "object",
         "properties" : {
@@ -22049,6 +22384,182 @@
           }
         },
         "required" : [ "createdAt", "fields", "id", "objectApiName", "ownerId", "updatedAt", "version" ]
+      },
+      "RegisterCompletion" : {
+        "type" : "object",
+        "properties" : {
+          "approvedBy" : {
+            "type" : "string",
+            "maxLength" : 10000,
+            "minLength" : 0
+          },
+          "department" : {
+            "type" : "string",
+            "maxLength" : 5000,
+            "minLength" : 0
+          },
+          "effectiveOn" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "masterListUpdated" : {
+            "type" : "string",
+            "maxLength" : 3,
+            "minLength" : 0
+          },
+          "obsoletedEffectiveOn" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "obsoletedFormat" : {
+            "type" : "string",
+            "maxLength" : 5000,
+            "minLength" : 0
+          },
+          "serverUpdated" : {
+            "type" : "string",
+            "maxLength" : 3,
+            "minLength" : 0
+          },
+          "signatureNote" : {
+            "type" : "string",
+            "maxLength" : 2500,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "version" ]
+      },
+      "RegisterFileView" : {
+        "type" : "object",
+        "properties" : {
+          "notes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "values" : {
+            "$ref" : "#/components/schemas/RegisterInput"
+          }
+        },
+        "required" : [ "notes", "values" ]
+      },
+      "RegisterInput" : {
+        "type" : "object",
+        "properties" : {
+          "basisForChange" : {
+            "type" : "string",
+            "maxLength" : 20000,
+            "minLength" : 0
+          },
+          "changeRequested" : {
+            "type" : "string",
+            "maxLength" : 20000,
+            "minLength" : 0
+          },
+          "horizontalDeployment" : {
+            "type" : "string",
+            "maxLength" : 10000,
+            "minLength" : 0
+          },
+          "obsoletedEffectiveOn" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "obsoletedFormat" : {
+            "type" : "string",
+            "maxLength" : 5000,
+            "minLength" : 0
+          },
+          "requestNo" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "changeRequested", "requestNo" ]
+      },
+      "RegisterView" : {
+        "type" : "object",
+        "properties" : {
+          "approvedBy" : {
+            "type" : "string"
+          },
+          "basisForChange" : {
+            "type" : "string"
+          },
+          "canComplete" : {
+            "type" : "boolean"
+          },
+          "changeRequested" : {
+            "type" : "string"
+          },
+          "department" : {
+            "type" : "string"
+          },
+          "documentName" : {
+            "type" : "string"
+          },
+          "documentNo" : {
+            "type" : "string"
+          },
+          "effectiveOn" : {
+            "type" : "string"
+          },
+          "grid" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "horizontalDeployment" : {
+            "type" : "string"
+          },
+          "masterListUpdated" : {
+            "type" : "string"
+          },
+          "newRevNo" : {
+            "type" : "string"
+          },
+          "newRevisionAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "obsoletedEffectiveOn" : {
+            "type" : "string"
+          },
+          "obsoletedFormat" : {
+            "type" : "string"
+          },
+          "requestNo" : {
+            "type" : "string"
+          },
+          "requestedBy" : {
+            "type" : "string"
+          },
+          "requestedOn" : {
+            "type" : "string"
+          },
+          "revNo" : {
+            "type" : "string"
+          },
+          "serverUpdated" : {
+            "type" : "string"
+          },
+          "signatureNote" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "canComplete", "changeRequested", "documentName", "grid", "requestNo", "requestedOn", "revNo", "version" ]
       },
       "RelationshipView" : {
         "type" : "object",
@@ -23163,7 +23674,14 @@
           "gridHash" : {
             "type" : "string"
           },
+          "held" : {
+            "type" : "boolean"
+          },
           "reviewEdits" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "revisionNo" : {
             "type" : "integer",
             "format" : "int32"
           },
@@ -23193,7 +23711,7 @@
             "format" : "int32"
           }
         },
-        "required" : [ "createdAt", "dimension", "gridBytes", "gridHash", "reviewEdits", "rowsMode", "status", "updatedAt", "version", "versionNo" ]
+        "required" : [ "createdAt", "dimension", "gridBytes", "gridHash", "held", "reviewEdits", "rowsMode", "status", "updatedAt", "version", "versionNo" ]
       },
       "SheetVersionView" : {
         "type" : "object",
@@ -23213,6 +23731,9 @@
           "canChange" : {
             "type" : "boolean"
           },
+          "canChangeHeld" : {
+            "type" : "boolean"
+          },
           "limits" : {
             "$ref" : "#/components/schemas/SheetLimitsView"
           },
@@ -23223,7 +23744,7 @@
             }
           }
         },
-        "required" : [ "canChange", "limits", "versions" ]
+        "required" : [ "canChange", "canChangeHeld", "limits", "versions" ]
       },
       "SignInRequest" : {
         "type" : "object",
@@ -23666,6 +24187,10 @@
             "type" : "string",
             "format" : "uuid"
           },
+          "lastRevisedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
           "lifecycle" : {
             "$ref" : "#/components/schemas/TemplateLifecycle"
           },
@@ -23684,6 +24209,9 @@
           },
           "retired" : {
             "type" : "boolean"
+          },
+          "revision" : {
+            "type" : "string"
           },
           "suggestedAudience" : {
             "type" : "array",
@@ -23795,6 +24323,9 @@
           "retired" : {
             "type" : "boolean"
           },
+          "revision" : {
+            "type" : "string"
+          },
           "subCategory" : {
             "type" : "string"
           }
@@ -23850,38 +24381,6 @@
             }
           }
         }
-      },
-      "TurnIntoVersionRequest" : {
-        "type" : "object",
-        "properties" : {
-          "requestIds" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string",
-              "format" : "uuid"
-            },
-            "maxItems" : 200,
-            "minItems" : 1
-          }
-        },
-        "required" : [ "requestIds" ]
-      },
-      "TurnedView" : {
-        "type" : "object",
-        "properties" : {
-          "created" : {
-            "type" : "boolean"
-          },
-          "requests" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "versionNo" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        },
-        "required" : [ "created", "requests", "versionNo" ]
       },
       "UpdateApplicationRequest" : {
         "type" : "object",

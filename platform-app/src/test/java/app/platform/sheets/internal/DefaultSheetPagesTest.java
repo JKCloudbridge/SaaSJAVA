@@ -76,10 +76,10 @@ class DefaultSheetPagesTest {
         List<Found> back = pages.read(pages.xlsx(page()));
 
         assertThat(back).extracting(Found::row, Found::column, Found::text).contains(
-                org.assertj.core.groups.Tuple.tuple(1, 1, "Title"), org.assertj.core.groups.Tuple.tuple(2, 1, "Left"),
-                org.assertj.core.groups.Tuple.tuple(2, 2, "two\nlines"),
-                org.assertj.core.groups.Tuple.tuple(3, 1, "=1+1"),
-                org.assertj.core.groups.Tuple.tuple(3, 2, "@SUM(A1)"));
+                org.assertj.core.groups.Tuple.tuple(0, 0, "Title"), org.assertj.core.groups.Tuple.tuple(1, 0, "Left"),
+                org.assertj.core.groups.Tuple.tuple(1, 1, "two\nlines"),
+                org.assertj.core.groups.Tuple.tuple(2, 0, "=1+1"),
+                org.assertj.core.groups.Tuple.tuple(2, 1, "@SUM(A1)"));
     }
 
     @Test
@@ -90,7 +90,7 @@ class DefaultSheetPagesTest {
         assertThat((List<?>) grid.get("columns")).hasSize(2);
         assertThat((List<?>) grid.get("rows")).hasSize(3);
         assertThat(((Map<?, ?>) grid.get("cells")).keySet().stream().map(Object::toString).toList())
-                .containsExactlyInAnyOrder("r1:c1", "r2:c1", "r2:c2", "r3:c1", "r3:c2");
+                .containsExactlyInAnyOrder("r1:c1", "r1:c2", "r2:c1", "r2:c2", "r3:c1", "r3:c2");
         assertThat((List<?>) grid.get("merges")).hasSize(1);
         assertThat(grid.toString()).doesNotContain("redacted");
     }

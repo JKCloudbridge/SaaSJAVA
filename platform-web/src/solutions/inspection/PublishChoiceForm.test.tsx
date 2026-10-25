@@ -48,7 +48,7 @@ describe("the window of the last approval of a change request (FA8)", () => {
     render(
       <PublishChoiceForm
         templateId="t"
-        prefill={prefill({ suggested: [{ location: "PLANT1", department: "PRD" }] })}
+        prefill={prefill({ suggested: [{ location: "PLANT1", locationLabel: "Plant 1", department: "PRD" }] })}
         onChange={onChange}
       />,
     );
@@ -68,7 +68,7 @@ describe("the window of the last approval of a change request (FA8)", () => {
     render(
       <PublishChoiceForm
         templateId="t"
-        prefill={prefill({ suggested: [{ location: "PLANT1", department: "PRD" }], viewOnly: true })}
+        prefill={prefill({ suggested: [{ location: "PLANT1", locationLabel: "Plant 1", department: "PRD" }], viewOnly: true })}
         onChange={onChange}
       />,
     );
@@ -95,11 +95,11 @@ describe("the window of the last approval of a change request (FA8)", () => {
 
     fireEvent.change(screen.getByRole("combobox", { name: "Location" }), { target: { value: "PLANT1" } });
     expect(departmentBoxes()).toHaveLength(2);
-    fireEvent.click(departmentBoxes()[0]);
-    fireEvent.click(departmentBoxes()[1]);
+    fireEvent.click(departmentBoxes()[0]!);
+    fireEvent.click(departmentBoxes()[1]!);
     fireEvent.click(screen.getByRole("button", { name: "Add the ticked departments" }));
     fireEvent.change(screen.getByRole("combobox", { name: "Location" }), { target: { value: "HEAD" } });
-    fireEvent.click(departmentBoxes()[0]);
+    fireEvent.click(departmentBoxes()[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Add the ticked departments" }));
 
     await waitFor(() =>
@@ -118,7 +118,7 @@ describe("the window of the last approval of a change request (FA8)", () => {
     render(
       <PublishChoiceForm
         templateId="t"
-        prefill={prefill({ suggested: [{ location: "PLANT1", department: "PRD" }] })}
+        prefill={prefill({ suggested: [{ location: "PLANT1", locationLabel: "Plant 1", department: "PRD" }] })}
         onChange={onChange}
       />,
     );
