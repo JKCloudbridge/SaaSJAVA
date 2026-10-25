@@ -48,15 +48,16 @@ function form(kind: "approve" | "reject", object = "InspectionTemplate", onDone 
 }
 
 describe("an approval at a step that asks for a choice", () => {
-  it("cannot be pressed until a location is chosen, and sends the choice with the approval", async () => {
+  it("cannot be pressed until a location is added, and sends the choice with the approval", async () => {
     const calls = fakeApi({ [OPTIONS]: () => json(LISTS), [APPROVE]: () => json({ data: {} }) });
     const { onDone } = form("approve");
 
-    await screen.findByText("Plant 1");
+    fireEvent.change(await screen.findByLabelText("Location"), { target: { value: "PLANT1" } });
     expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Plant 1" }));
-    expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled();
     fireEvent.click(screen.getByRole("checkbox", { name: "Production" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add the ticked departments" }));
+    expect(screen.getByText("Plant 1 · Production")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Approve" }));
 
     await waitFor(() => expect(onDone).toHaveBeenCalledWith("Approve: done."));
@@ -69,12 +70,13 @@ describe("an approval at a step that asks for a choice", () => {
     });
   });
 
-  it("sends a location alone when no department is ticked, because a department is optional", async () => {
+  it("adds a location alone when no department is ticked, because a department is optional", async () => {
     const calls = fakeApi({ [OPTIONS]: () => json(LISTS), [APPROVE]: () => json({ data: {} }) });
     const { onDone } = form("approve");
 
-    await screen.findByText("Head office");
-    fireEvent.click(screen.getByRole("checkbox", { name: "Head office" }));
+    fireEvent.change(await screen.findByLabelText("Location"), { target: { value: "HEAD" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add the location" }));
+    expect(screen.getByRole("button", { name: "Remove Head office" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Approve" }));
 
     await waitFor(() => expect(onDone).toHaveBeenCalled());
@@ -83,14 +85,18 @@ describe("an approval at a step that asks for a choice", () => {
     ]);
   });
 
-  it("goes back to disabled when the location is unticked", async () => {
+  it("lets another location be added, and Remove takes one out; with none left it is disabled again", async () => {
     fakeApi({ [OPTIONS]: () => json(LISTS) });
     form("approve");
 
-    await screen.findByText("Plant 1");
-    const plant = screen.getByRole("checkbox", { name: "Plant 1" });
-    fireEvent.click(plant);
-    fireEvent.click(plant);
+    const select = await screen.findByLabelText("Location");
+    fireEvent.change(select, { target: { value: "HEAD" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add the location" }));
+    fireEvent.change(select, { target: { value: "PLANT1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add the location" }));
+    expect(screen.getAllByRole("button", { name: /^Remove / })).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Remove Head office" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Plant 1" }));
     expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
   });
 

@@ -49,8 +49,11 @@ export function PublishDialog({
         )
       : lifecycle.audience.map((audience) => ({ location: audience.location, department: audience.department })),
   );
-  // A location suggested alone is chosen already, so the person only has to tick its departments.
-  const [location, setLocation] = useState(() => suggested.find((place) => !place.department)?.location ?? "");
+  // The first suggested location is chosen already, so its suggested departments show ticked and the person only has to
+  // add what is missing (a location suggested alone waits for its departments).
+  const [location, setLocation] = useState(
+    () => (suggested.find((place) => !place.department) ?? suggested[0])?.location ?? "",
+  );
   const [ticks, setTicks] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<ApiFailure | undefined>();

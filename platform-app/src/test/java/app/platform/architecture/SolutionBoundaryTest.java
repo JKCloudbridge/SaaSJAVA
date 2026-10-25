@@ -50,6 +50,7 @@ class SolutionBoundaryTest {
             "platform-app/src/main/resources/db/migration/V066__create_inspection_publication.sql",
             "platform-app/src/main/resources/db/migration/V067__create_inspection_change_requests.sql",
             "platform-app/src/main/resources/db/migration/V076__create_audience_suggestion.sql",
+            "platform-app/src/main/resources/db/migration/V078__make_audience_suggestion_key_partial.sql",
             "platform-web/src/solutions/",
             "platform-app/src/main/java/app/platform/inspection/");
 

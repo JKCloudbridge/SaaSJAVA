@@ -9,18 +9,26 @@ type Options =
   | { status: "ready"; options: AudienceOptions }
   | { status: "failed"; message: string };
 
+/** One place of the list: a location, with a department or (departments are optional here) without one. */
+interface Pick {
+  location: string;
+  department?: string;
+}
+
 /**
- * The choice of an approval step that asks where the template is meant to be published (Functional track FA6G, ADR-0200):
- * tick the locations (at least one is required), and under each ticked location the departments of it (optional). It is a
- * suggestion for the person who publishes; nothing is shared and nobody gains access because of it. The lists are the
- * organization's own, as the API answers them; the server judges the choice again and refuses an approval without a
+ * The choice of an approval step that asks where the template is meant to be published (Functional track FA6G, ADR-0200),
+ * drawn like the Publish window: choose a location, tick the departments of it, add them to the list below, and choose
+ * another location if needed. Here a department is optional: with no department ticked, "Add" adds the location alone.
+ * It is a suggestion for the person who publishes; nothing is shared and nobody gains access because of it. The lists are
+ * the organization's own, as the API answers them; the server judges the choice again and refuses an approval without a
  * location, so this form only keeps the button from being pressed too early.
  */
 export function AudienceChoiceForm({ recordId, onChange }: ChoiceFormProps) {
   const heading = useId();
   const [options, setOptions] = useState<Options>({ status: "loading" });
-  // location code -> the department codes ticked under it
-  const [picked, setPicked] = useState<Record<string, string[]>>({});
+  const [chosen, setChosen] = useState<Pick[]>([]);
+  const [location, setLocation] = useState("");
+  const [ticks, setTicks] = useState<string[]>([]);
 
   useEffect(() => {
     let live = true;
@@ -36,37 +44,58 @@ export function AudienceChoiceForm({ recordId, onChange }: ChoiceFormProps) {
     };
   }, [recordId]);
 
+  const locations = useMemo(() => (options.status === "ready" ? options.options.locations : []), [options]);
+  const departments = useMemo(
+    () => locations.find((place) => place.value === location)?.departments ?? [],
+    [locations, location],
+  );
+
   const choices = useMemo<Choice[] | null>(() => {
-    const locations = Object.keys(picked);
-    if (locations.length === 0) {
+    if (chosen.length === 0) {
       return null;
     }
-    return locations.flatMap((location) => [
-      { key: "location", value: location },
-      ...(picked[location] ?? []).map((department) => ({ key: "department", value: `${location}/${department}` })),
-    ]);
-  }, [picked]);
+    const places = [...new Set(chosen.map((pick) => pick.location))];
+    return [
+      ...places.map((place) => ({ key: "location", value: place })),
+      ...chosen.flatMap((pick) =>
+        pick.department ? [{ key: "department", value: `${pick.location}/${pick.department}` }] : [],
+      ),
+    ];
+  }, [chosen]);
 
   useEffect(() => {
     onChange(choices);
   }, [choices, onChange]);
 
-  const toggleLocation = (location: string) =>
-    setPicked((now) => {
-      if (location in now) {
-        return Object.fromEntries(Object.entries(now).filter(([held]) => held !== location));
-      }
-      return { ...now, [location]: [] };
-    });
+  const labelOf = (pick: Pick) => {
+    const place = locations.find((entry) => entry.value === pick.location);
+    const part = place?.departments.find((entry) => entry.value === pick.department);
+    return part ? `${place?.label ?? pick.location} · ${part.label}` : (place?.label ?? pick.location);
+  };
+  const isChosen = (code: string) => chosen.some((pick) => pick.location === location && pick.department === code);
 
-  const toggleDepartment = (location: string, department: string) =>
-    setPicked((now) => {
-      const held = now[location] ?? [];
-      return {
-        ...now,
-        [location]: held.includes(department) ? held.filter((one) => one !== department) : [...held, department],
-      };
-    });
+  const toggle = (code: string) =>
+    setTicks((now) => (now.includes(code) ? now.filter((one) => one !== code) : [...now, code]));
+
+  // The ticked departments of the location go in at once; with none ticked the location goes in alone.
+  const add = () => {
+    if (location === "") {
+      return;
+    }
+    const wanted = departments.filter((part) => ticks.includes(part.value) && !isChosen(part.value));
+    if (ticks.length > 0 && wanted.length === 0) {
+      return;
+    }
+    const others = chosen.filter((pick) => !(pick.location === location && !pick.department));
+    if (wanted.length === 0) {
+      if (!chosen.some((pick) => pick.location === location)) {
+        setChosen([...chosen, { location }]);
+      }
+    } else {
+      setChosen([...others, ...wanted.map((part) => ({ location, department: part.value }))]);
+    }
+    setTicks([]);
+  };
 
   return (
     <div className="stack" data-testid="audience-choice" role="group" aria-labelledby={heading}>
@@ -85,37 +114,76 @@ export function AudienceChoiceForm({ recordId, onChange }: ChoiceFormProps) {
         </p>
       ) : null}
       {options.status === "ready" ? (
-        <div className="stack">
-          {options.options.locations.map((place) => {
-            const ticked = place.value in picked;
-            return (
-              <fieldset key={place.value} className="stack">
-                <legend>
-                  <label>
-                    <input type="checkbox" checked={ticked} onChange={() => toggleLocation(place.value)} /> {place.label}
-                  </label>
-                </legend>
-                {ticked && place.departments.length > 0 ? (
-                  <div className="stack" role="group" aria-label={`Departments of ${place.label} (optional)`}>
-                    {place.departments.map((part) => (
-                      <label key={part.value}>
-                        <input
-                          type="checkbox"
-                          checked={(picked[place.value] ?? []).includes(part.value)}
-                          onChange={() => toggleDepartment(place.value, part.value)}
-                        />{" "}
-                        {part.label}
-                      </label>
-                    ))}
-                  </div>
-                ) : null}
-              </fieldset>
-            );
-          })}
-        </div>
-      ) : null}
-      {choices === null && options.status === "ready" ? (
-        <p className="hint">Choose a location to approve.</p>
+        <>
+          <div className="filters">
+            <label>
+              Location
+              <select
+                value={location}
+                onChange={(event) => {
+                  setLocation(event.target.value);
+                  setTicks([]);
+                }}
+              >
+                <option value="">Choose a location</option>
+                {locations.map((place) => (
+                  <option key={place.value} value={place.value}>
+                    {place.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <fieldset className="stack" disabled={location === ""}>
+            <legend>Departments (optional)</legend>
+            {location === "" ? <p className="hint">Choose a location first.</p> : null}
+            {departments.map((part) => {
+              const listed = isChosen(part.value);
+              return (
+                <label key={part.value}>
+                  <input
+                    type="checkbox"
+                    checked={listed || ticks.includes(part.value)}
+                    disabled={listed}
+                    onChange={() => toggle(part.value)}
+                  />{" "}
+                  {part.label}
+                </label>
+              );
+            })}
+            <div>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={add}
+                disabled={location === "" || (ticks.length === 0 && chosen.some((pick) => pick.location === location))}
+              >
+                {ticks.length > 0 ? "Add the ticked departments" : "Add the location"}
+              </button>
+            </div>
+          </fieldset>
+
+          {chosen.length === 0 ? (
+            <p className="hint">Nothing is chosen yet. Add at least one location.</p>
+          ) : (
+            <ul aria-label="Where it is suggested for" className="stack">
+              {chosen.map((pick, index) => (
+                <li key={`${pick.location}/${pick.department ?? ""}`} className="split">
+                  <span>{labelOf(pick)}</span>
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setChosen(chosen.filter((_, position) => position !== index))}
+                    aria-label={`Remove ${labelOf(pick)}`}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       ) : null}
     </div>
   );

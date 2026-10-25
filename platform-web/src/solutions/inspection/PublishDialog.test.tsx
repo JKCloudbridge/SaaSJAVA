@@ -302,3 +302,21 @@ describe("the publish dialog with a suggestion made at approval", () => {
     expect(screen.queryByTestId("publish-suggested")).not.toBeInTheDocument();
   });
 });
+
+describe("the publish dialog when departments were suggested", () => {
+  it("has the suggested location chosen and its suggested departments shown ticked", async () => {
+    fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
+    draw(
+      view({
+        suggestedAudience: [
+          { location: "PLANT1", locationLabel: "Plant 1", department: "PRD", departmentLabel: "Production" },
+        ],
+      }),
+    );
+
+    const location = (await screen.findByLabelText("Location")) as HTMLSelectElement;
+    expect(location.value).toBe("PLANT1");
+    expect(screen.getByRole("checkbox", { name: /^Production/ })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Publish" })).toBeEnabled();
+  });
+});
