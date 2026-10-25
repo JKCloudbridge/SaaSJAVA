@@ -291,7 +291,7 @@ describe("a fill-in that cannot be changed", () => {
     fakeApi({ [`GET ${URL_OF}`]: view({}, { versionStatus: "SUPERSEDED" }) });
     draw();
 
-    expect(await screen.findByTestId("fill-version-note")).toHaveTextContent("A newer version is in use now");
+    expect(await screen.findByTestId("fill-version-note")).toHaveTextContent("A newer revision is in use now");
     expect(screen.getByTestId("fill-version-note")).toHaveTextContent("stays on revision 02");
   });
 

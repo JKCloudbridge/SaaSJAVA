@@ -8,7 +8,7 @@ import { fillStatusTag } from "@/lib/sheets/fillTags";
 import { listTemplates, NO_FILTERS, type TemplateRow } from "./api";
 import { fillInsHref, getReportColumns, runReport, type FillInRow, type ReportColumn } from "./fillIns";
 import { OPERATOR_WORDS, operatorsFor, toRequest, type ColumnType, type Operator } from "./report";
-import { revisionNumber, revisionWords } from "@/lib/sheets/revision";
+import { revisionNumber } from "@/lib/sheets/revision";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
 

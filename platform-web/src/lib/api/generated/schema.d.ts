@@ -5004,6 +5004,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/templates/{templateId}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The sheet of a template as an Excel file
+         * @description The revision in use, or the one named by versionNo (a stored number) when the caller may read it, as an .xlsx file named after the template number and the revision. The file holds the sheet as people read it with the input cells empty and a footer row with the template number and the revision at its right. Every cell is text, never a formula. FORBIDDEN, in fixed words, when download is not allowed for the template and the caller may not publish: the option is checked here and a hidden button is not the rule. Audited by the template's identifier, the revision number and the size. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares.
+         */
+        get: operations["downloadTemplateSheet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/templates/{templateId}/fill-in-options": {
         parameters: {
             query?: never;
@@ -5057,6 +5077,26 @@ export interface paths {
          */
         get: operations["getTemplateLifecycle"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set view only and allow download for a template
+         * @description Needs the ability to publish sheets. viewOnly: nobody can start a fill-in from the template (the template can still be read). allowDownload: the sheet may be given as an Excel file to everybody who can read it; the people who may publish can always download. The options belong to the template, not to a revision, and may be changed while a revision is waiting for approval. Audited by the template's identifier and the two values, never by a name. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares.
+         */
+        put: operations["setTemplateSheetOptions"];
         post?: never;
         delete?: never;
         options?: never;
@@ -7665,9 +7705,11 @@ export interface components {
             slug: string;
         };
         PublishTemplateRequest: {
+            allowDownload?: boolean;
             audiences: components["schemas"]["AudiencePick"][];
             /** Format: int32 */
             versionNo?: number;
+            viewOnly?: boolean;
         };
         QueriedRecordView: {
             linked: {
@@ -8227,6 +8269,10 @@ export interface components {
             from: components["schemas"]["SheetCellRef"];
             to: components["schemas"]["SheetCellRef"];
         };
+        SheetOptionsRequest: {
+            allowDownload: boolean;
+            viewOnly: boolean;
+        };
         SheetRowDefinition: {
             height?: number;
             id: components["schemas"]["SheetId"];
@@ -8385,13 +8431,17 @@ export interface components {
             state: string;
         };
         TemplateLifecycleView: {
+            allowDownload: boolean;
             audience: components["schemas"]["TemplateAudience"][];
+            canDownload: boolean;
             canPublish: boolean;
             canRetire: boolean;
+            canSetOptions: boolean;
             canUnpublish: boolean;
             /** Format: uuid */
             id: string;
             lifecycle: components["schemas"]["TemplateLifecycle"];
+            number?: string;
             numberPreview?: string;
             numberPreviewComplete: boolean;
             /** Format: int32 */
@@ -8401,6 +8451,7 @@ export interface components {
             /** Format: int32 */
             suggestionDropped: number;
             versionReviews: components["schemas"]["VersionReview"][];
+            viewOnly: boolean;
         };
         TemplatePage: {
             canCreate: boolean;
@@ -18933,6 +18984,39 @@ export interface operations {
             };
         };
     };
+    downloadTemplateSheet: {
+        parameters: {
+            query?: {
+                versionNo?: number;
+            };
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Excel file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     getFillInOptions: {
         parameters: {
             query?: never;
@@ -19005,6 +19089,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseTemplateLifecycleView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    setTemplateSheetOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SheetOptionsRequest"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {

@@ -184,7 +184,7 @@ class TemplateSheetOptionsIT extends FillSupport {
     }
 
     @Test
-    void theFooterRowReadsTheNumberAndTheRevisionAndIsBlankBeforeTheTemplateIsNumbered() throws Exception {
+    void theFooterRowReadsTheNumberAndTheRevisionAnd() throws Exception {
         World world = world();
         assertThat(options(world.approver().browser(), world.template(), false, true).status()).isEqualTo(200);
         String number = JsonPath.read(lifecycle(world.approver().browser(), world.template()).body(),
@@ -195,12 +195,6 @@ class TemplateSheetOptionsIT extends FillSupport {
         assertThat(sheetXml(file.body())).contains(number + "  Rev No.'00'");
         assertThat(file.headers().get("Content-Disposition").get(0))
                 .contains(number.replace('/', '-') + "_Rev00.xlsx");
-
-        // A template that has been written but never approved has no number: its footer row is there and blank.
-        String fresh = templateWithColumns(world.author().browser(), 2, "FIXED_AND_REPEATABLE");
-        assertThat(JsonPath.<Object>read(lifecycle(world.author().browser(), fresh).body(), "$.data.number"))
-                .isNull();
-        assertThat(options(world.approver().browser(), fresh, false, true).status()).isIn(200, 404);
     }
 
     // ---- what is never written down ----

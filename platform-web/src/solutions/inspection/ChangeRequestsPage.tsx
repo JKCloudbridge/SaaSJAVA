@@ -11,7 +11,7 @@ import {
   type ChangeRequestListRequest,
   type ChangeRequestRow,
 } from "./changeRequests";
-import { revisionNumber, revisionWords } from "@/lib/sheets/revision";
+import { revisionNumber } from "@/lib/sheets/revision";
 
 /**
  * The list of change requests, for the whole application (the entry "Change requests") or for one template (its tab of the

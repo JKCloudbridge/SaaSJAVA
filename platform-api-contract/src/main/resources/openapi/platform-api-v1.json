@@ -13191,6 +13191,54 @@
         "tags" : [ "Template change requests" ]
       }
     },
+    "/api/v1/templates/{templateId}/download" : {
+      "get" : {
+        "description" : "The revision in use, or the one named by versionNo (a stored number) when the caller may read it, as an .xlsx file named after the template number and the revision. The file holds the sheet as people read it with the input cells empty and a footer row with the template number and the revision at its right. Every cell is text, never a formula. FORBIDDEN, in fixed words, when download is not allowed for the template and the caller may not publish: the option is checked here and a hidden button is not the rule. Audited by the template's identifier, the revision number and the size. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares. ",
+        "operationId" : "downloadTemplateSheet",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "versionNo",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            },
+            "description" : "The Excel file"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The sheet of a template as an Excel file",
+        "tags" : [ "Templates" ]
+      }
+    },
     "/api/v1/templates/{templateId}/fill-in-options" : {
       "get" : {
         "description" : "canStart is true when the caller holds the right to create fill-ins, the template is not retired and a version is in use; activeVersion is the version a fill-in started now would be made on. When canStart is false, reason says why in words for a person. The flag only hides a button: starting is decided again. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares. ",
@@ -13305,6 +13353,55 @@
           }
         },
         "summary" : "The lifecycle of one template and what the caller may do next",
+        "tags" : [ "Templates" ]
+      }
+    },
+    "/api/v1/templates/{templateId}/options" : {
+      "put" : {
+        "description" : "Needs the ability to publish sheets. viewOnly: nobody can start a fill-in from the template (the template can still be read). allowDownload: the sheet may be given as an Excel file to everybody who can read it; the people who may publish can always download. The options belong to the template, not to a revision, and may be changed while a revision is waiting for approval. Audited by the template's identifier and the two values, never by a name. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares. ",
+        "operationId" : "setTemplateSheetOptions",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "templateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SheetOptionsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTemplateLifecycleView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Set view only and allow download for a template",
         "tags" : [ "Templates" ]
       }
     },
@@ -21356,6 +21453,9 @@
       "PublishTemplateRequest" : {
         "type" : "object",
         "properties" : {
+          "allowDownload" : {
+            "type" : "boolean"
+          },
           "audiences" : {
             "type" : "array",
             "items" : {
@@ -21367,6 +21467,9 @@
           "versionNo" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "viewOnly" : {
+            "type" : "boolean"
           }
         },
         "required" : [ "audiences" ]
@@ -23008,6 +23111,18 @@
         },
         "required" : [ "from", "to" ]
       },
+      "SheetOptionsRequest" : {
+        "type" : "object",
+        "properties" : {
+          "allowDownload" : {
+            "type" : "boolean"
+          },
+          "viewOnly" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "allowDownload", "viewOnly" ]
+      },
       "SheetRowDefinition" : {
         "type" : "object",
         "additionalProperties" : false,
@@ -23523,16 +23638,25 @@
       "TemplateLifecycleView" : {
         "type" : "object",
         "properties" : {
+          "allowDownload" : {
+            "type" : "boolean"
+          },
           "audience" : {
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/TemplateAudience"
             }
           },
+          "canDownload" : {
+            "type" : "boolean"
+          },
           "canPublish" : {
             "type" : "boolean"
           },
           "canRetire" : {
+            "type" : "boolean"
+          },
+          "canSetOptions" : {
             "type" : "boolean"
           },
           "canUnpublish" : {
@@ -23544,6 +23668,9 @@
           },
           "lifecycle" : {
             "$ref" : "#/components/schemas/TemplateLifecycle"
+          },
+          "number" : {
+            "type" : "string"
           },
           "numberPreview" : {
             "type" : "string"
@@ -23573,9 +23700,12 @@
             "items" : {
               "$ref" : "#/components/schemas/VersionReview"
             }
+          },
+          "viewOnly" : {
+            "type" : "boolean"
           }
         },
-        "required" : [ "audience", "canPublish", "canRetire", "canUnpublish", "id", "lifecycle", "numberPreviewComplete", "openChangeRequests", "retired", "suggestedAudience", "suggestionDropped", "versionReviews" ]
+        "required" : [ "allowDownload", "audience", "canDownload", "canPublish", "canRetire", "canSetOptions", "canUnpublish", "id", "lifecycle", "numberPreviewComplete", "openChangeRequests", "retired", "suggestedAudience", "suggestionDropped", "versionReviews", "viewOnly" ]
       },
       "TemplatePage" : {
         "type" : "object",

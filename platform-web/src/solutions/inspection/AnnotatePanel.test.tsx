@@ -1,4 +1,4 @@
-import { configure, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { configure, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { describePlace, placesOfSelection, type AnnotateContext } from "@/lib/sheets/annotate";
 import { sampleDoc, oneDimension } from "@/lib/sheets/fixtures";

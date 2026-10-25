@@ -85,7 +85,7 @@ describe("a sheet with a draft", () => {
 
     draw();
 
-    expect(await screen.findByRole("table", { name: "Versions" })).toBeInTheDocument();
+    expect(await screen.findByRole("table", { name: "Revisions" })).toBeInTheDocument();
     const rows = screen.getAllByRole("row").slice(1);
     expect(within(rows[0] as HTMLElement).getByText("Draft")).toBeInTheDocument();
     expect(within(rows[1] as HTMLElement).getByText("Active")).toBeInTheDocument();
@@ -488,7 +488,7 @@ describe("a change outside the sheet (FA4)", () => {
       [`GET ${BASE}/1`]: one(1, "ACTIVE", 5),
     });
     const { rerender } = render(<SheetWorkspace owner={OWNER} label="Fire checks" refreshToken={0} />);
-    await screen.findByRole("table", { name: "Versions" });
+    await screen.findByRole("table", { name: "Revisions" });
 
     rerender(<SheetWorkspace owner={OWNER} label="Fire checks" refreshToken={1} />);
 
@@ -546,7 +546,7 @@ describe("a revision made from a spreadsheet file", () => {
 
     fakeApi({ [`GET ${BASE}`]: list([summary(1, "ACTIVE", 5)], false), [`GET ${BASE}/1`]: one(1, "ACTIVE", 5) });
     draw();
-    await screen.findByRole("table", { name: "Versions" });
+    await screen.findByRole("table", { name: "Revisions" });
     expect(screen.queryByRole("button", { name: "Upload a spreadsheet" })).toBeNull();
   });
 
