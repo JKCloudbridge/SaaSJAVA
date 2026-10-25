@@ -100,6 +100,7 @@ const HOME_ENTRIES: readonly RailEntry[] = [
     items: [link("/setup/changes", "Change sets", "metadata.view"), link("/setup/history", "History", "metadata.view")],
   },
   link("/audit", "Audit trail", "audit.view"),
+  link("/setup/numbering", "Numbering", "numbering.manage"),
 ];
 
 /** The tabs of one object, in the order of its rail (UA3, ADR-0170). The group "Pages" holds three of them. */

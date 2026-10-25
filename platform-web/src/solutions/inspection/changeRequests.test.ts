@@ -41,6 +41,7 @@ function request(extra: Partial<ChangeRequestView> = {}): ChangeRequestView {
     canTurn: false,
     canReopen: false,
     comments: [comment()],
+    templateId: "t-1",
     ...extra,
   };
 }

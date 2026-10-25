@@ -3,6 +3,8 @@ import { tidyCell } from "./gridModel";
 import {
   COLUMN_TYPES,
   FONT_SIZES,
+  ALIGNMENTS,
+  TEXT_COLOURS,
   type CellStyle,
   type FontSize,
   type GridCell,
@@ -101,6 +103,11 @@ function style(raw: unknown): CellStyle | undefined {
   if (source.italic === true) {
     out.italic = true;
   }
+  if (source.underline === true) out.underline = true;
+  const alignment = ALIGNMENTS.find((candidate) => candidate === source.alignment);
+  const colour = TEXT_COLOURS.find((candidate) => candidate === source.colour);
+  if (alignment && alignment !== "LEFT") out.alignment = alignment;
+  if (colour && colour !== "DEFAULT") out.colour = colour;
   const size: FontSize | undefined = FONT_SIZES.find((candidate) => candidate === source.fontSize);
   if (size && size !== "NORMAL") {
     out.fontSize = size;

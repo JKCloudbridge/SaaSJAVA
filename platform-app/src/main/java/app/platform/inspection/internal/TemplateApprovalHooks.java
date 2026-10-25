@@ -4,6 +4,7 @@ import app.platform.data.BackgroundRecords;
 import app.platform.data.DataRecord;
 import app.platform.data.NumberSeries;
 import app.platform.data.NumberSeriesException;
+import app.platform.data.NumberAssignments;
 import app.platform.sharedkernel.approval.ApprovalHookRefusal;
 import app.platform.sharedkernel.approval.ApprovalHookWriteException;
 import app.platform.sharedkernel.approval.ApprovalHookWriter;
@@ -28,13 +29,10 @@ import org.springframework.stereotype.Component;
  *   <li><strong>On submit</strong>: the draft is the only thing under review. The template must not be retired; then
  *   the draft goes to review under the request. The numbering is <em>not</em> asked of the author (FA6A, ADR-0196): the
  *   people who approve first decide the identity category and sub-category.</li>
- *   <li><strong>Before an approval</strong>: when the template has no number yet, it must be able to get one (an
- *   identity category that has a format, the parts its number is made of, and a number that is free), and the approval
- *   gives it one from the series and writes it through the engine's narrow writer. It reads the record, not the
- *   position of the step, so a process of any number of steps, or a skipped first step, makes no difference, and a
- *   later approval of the same step (everyone must approve) finds the number and does nothing. A template rejected at
- *   the first step never reaches this, so it takes no number. An approver sets the identity pair in review through
- *   the override of the lock (ADR-0148) and approves again.</li>
+ *   <li><strong>Before an approval</strong>: Save normally allocated the provisional number (ADR-0198). First Approve
+ *   checks completeness and fixes the reservation and identity. An unnumbered header is still allocated through the
+ *   narrow writer as a backstop. Any number of steps and skipped steps work; later approvals never allocate again.
+ *   Rejection retains every allocation; it cannot reverse a first-Approve fixed mark.</li>
  *   <li><strong>When the request ends</strong>: the version it reviewed is approved, rejected or withdrawn.
  *   Approving does not publish.</li>
  * </ul>
@@ -50,11 +48,14 @@ class TemplateApprovalHooks implements ApprovalHooks {
     private final BackgroundRecords records;
     private final NumberSeries numbers;
     private final SheetLifecycle sheets;
+    private final NumberAssignments assignments;
 
-    TemplateApprovalHooks(BackgroundRecords records, NumberSeries numbers, SheetLifecycle sheets) {
+    TemplateApprovalHooks(BackgroundRecords records, NumberSeries numbers, SheetLifecycle sheets,
+            NumberAssignments assignments) {
         this.records = records;
         this.numbers = numbers;
         this.sheets = sheets;
+        this.assignments = assignments;
     }
 
     @Override
@@ -87,6 +88,12 @@ class TemplateApprovalHooks implements ApprovalHooks {
     public void beforeApprove(DecisionContext context, ApprovalHookWriter writer) {
         DataRecord template = template(context.recordId());
         if (!Templates.isBlank(template.fields().get(Templates.NUMBER))) {
+            if (!assignments.fixed(Templates.SERIES, template.id(),
+                    (String) template.fields().get(Templates.NUMBER))) {
+                checkNumbering(template.fields(), template.id());
+            }
+            assignments.reserve(Templates.SERIES, Templates.OBJECT, template.id(),
+                    (String) template.fields().get(Templates.NUMBER), true);
             return;
         }
         checkNumbering(template.fields(), template.id());
@@ -100,6 +107,7 @@ class TemplateApprovalHooks implements ApprovalHooks {
         }
         try {
             writer.set(Map.of(Templates.NUMBER, number));
+            assignments.reserve(Templates.SERIES, Templates.OBJECT, template.id(), number, true);
         } catch (ApprovalHookWriteException refused) {
             throw new ApprovalHookRefusal("number_in_use", "Another template already has the number this one would "
                     + "get. Change its part code or identity sub-category (Edit), then approve again.");
@@ -121,7 +129,7 @@ class TemplateApprovalHooks implements ApprovalHooks {
 
     private void checkNumbering(Map<String, Object> fields, UUID templateId) {
         if (Templates.isBlank(fields.get(Templates.CATEGORY))) {
-            throw new ApprovalHookRefusal("category_needed", "Choose the identity category and sub-category (Edit), "
+            throw new ApprovalHookRefusal("category_needed", "Choose the identity category (Edit), "
                     + "then approve again.");
         }
         Optional<List<String>> missing = numbers.missingParts(Templates.SERIES, fields);
@@ -141,6 +149,14 @@ class TemplateApprovalHooks implements ApprovalHooks {
         if (known.isPresent() && taken(known.get(), templateId)) {
             throw new ApprovalHookRefusal("number_in_use", "Another template already has the number this one would "
                     + "get. Change its part code or identity sub-category (Edit), then approve again.");
+        }
+        if (known.isPresent()) {
+            try {
+                assignments.checkAvailable(Templates.SERIES, templateId, known.get());
+            } catch (NumberSeriesException taken) {
+                throw new ApprovalHookRefusal("number_in_use", "Another template already has the number this one "
+                        + "would get. Change its part code or identity sub-category (Edit), then approve again.");
+            }
         }
     }
 

@@ -17,9 +17,16 @@ import java.util.Objects;
  *        format
  * @param formats the formats, by value of the selector (a series with no selector has the one format under the empty
  *        text). A value of the selector that has no format here cannot be numbered
+ * @param defaults optional closed fallback formats and the optional field that chooses between them (FA6B)
  */
 public record NumberSeriesDeclaration(String key, String object, String field, String selector,
-        Map<String, String> formats) {
+        Map<String, String> formats, Map<String, String> defaults) {
+
+    /** A declaration without fallback formats, retained for existing solutions. */
+    public NumberSeriesDeclaration(String key, String object, String field, String selector,
+            Map<String, String> formats) {
+        this(key, object, field, selector, formats, Map.of());
+    }
 
     /** Copies what is given, keeping the order. */
     public NumberSeriesDeclaration {
@@ -28,6 +35,7 @@ public record NumberSeriesDeclaration(String key, String object, String field, S
         Objects.requireNonNull(field);
         selector = selector == null ? "" : selector;
         formats = Map.copyOf(formats);
+        defaults = Map.copyOf(defaults);
     }
 
     /** Prints the key only: the formats are the platform's but the rest of a log line should never need them. */

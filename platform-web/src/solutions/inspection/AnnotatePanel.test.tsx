@@ -42,9 +42,8 @@ function context(row: number, column: number, doc: GridDoc = sampleDoc(), extra:
 
 function draw(ctx = context(2, 1), view: ChangeRequestsView | undefined = VIEW) {
   const onSent = vi.fn();
-  const onShown = vi.fn();
-  const utils = render(<AnnotatePanel templateId={ID} context={ctx} view={view} show={null} onShown={onShown} onSent={onSent} />);
-  return { onSent, onShown, ...utils };
+  const utils = render(<AnnotatePanel templateId={ID} context={ctx} view={view} onSent={onSent} />);
+  return { onSent, ...utils };
 }
 
 const write = (text: string) => fireEvent.change(screen.getByRole("textbox", { name: /Your comment/ }), { target: { value: text } });
@@ -52,7 +51,7 @@ const add = () => fireEvent.click(screen.getByRole("button", { name: "Add to my 
 const title = (text: string) => fireEvent.change(screen.getByRole("textbox", { name: "What is the request about?" }), { target: { value: text } });
 const send = () => fireEvent.click(screen.getByRole("button", { name: "Send the request" }));
 
-describe("asking for a change under the grid (FA5)", () => {
+describe("the request written in the popup (FA5, FA6D)", () => {
   it("names the place the comment is about and lets the person choose another", () => {
     draw();
 
@@ -179,34 +178,5 @@ describe("asking for a change under the grid (FA5)", () => {
 
     expect(screen.getByTestId("annotate-unavailable")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Send the request" })).toBeNull();
-  });
-
-  it("moves to the box of the comment, standing on the cell, when Enter is pressed in the grid", async () => {
-    const first = context(2, 1, sampleDoc(), { activations: 0 });
-    const { rerender } = draw(first);
-    fireEvent.click(screen.getByRole("button", { name: "Comment on the whole template" }));
-
-    rerender(
-      <AnnotatePanel templateId={ID} context={{ ...first, activations: 1 }} view={VIEW} show={null} onShown={vi.fn()} onSent={vi.fn()} />,
-    );
-
-    const box = screen.getByRole("textbox", { name: /Your comment/ });
-    await waitFor(() => expect(box).toHaveFocus());
-    await waitFor(() => expect(box).toHaveAccessibleName("Your comment — Cell: column “Amount”, row “First”"));
-  });
-
-  it("stands the grid on a place a comment in the list asked to be shown, then says it is done", async () => {
-    const ctx = context(2, 1);
-    const onShown = vi.fn();
-    const { rerender } = render(
-      <AnnotatePanel templateId={ID} context={ctx} view={VIEW} show={null} onShown={onShown} onSent={vi.fn()} />,
-    );
-
-    rerender(
-      <AnnotatePanel templateId={ID} context={ctx} view={VIEW} show={{ rowId: "r2", columnId: null }} onShown={onShown} onSent={vi.fn()} />,
-    );
-
-    await waitFor(() => expect(onShown).toHaveBeenCalledTimes(1));
-    expect(ctx.select).toHaveBeenCalledWith({ rowId: "r2", columnId: null });
   });
 });

@@ -73,6 +73,15 @@ record SheetGrid(int dimension, RowsMode rowsMode, List<Column> columns, List<Li
         SMALL, NORMAL, LARGE, TITLE
     }
 
+    enum Alignment {
+        LEFT, CENTER, RIGHT
+    }
+
+    /** Named theme colours; arbitrary CSS never enters a document. */
+    enum Colour {
+        DEFAULT, ACCENT, SUCCESS, DANGER
+    }
+
     /** Whether a body cell is typed into or holds fixed text. */
     enum Kind {
         FIXED, INPUT;
@@ -144,12 +153,22 @@ record SheetGrid(int dimension, RowsMode rowsMode, List<Column> columns, List<Li
      * @param bold bold
      * @param italic italic
      * @param fontSize one of four named sizes, or null for {@link FontSize#NORMAL}
+     * @param underline underline
+     * @param alignment horizontal alignment, or null for left
+     * @param colour a named theme text colour, or null for default
      */
-    record Style(boolean bold, boolean italic, FontSize fontSize) {
+    record Style(boolean bold, boolean italic, FontSize fontSize, boolean underline,
+            Alignment alignment, Colour colour) {
+
+        Style(boolean bold, boolean italic, FontSize fontSize) {
+            this(bold, italic, fontSize, false, null, null);
+        }
 
         /** Whether this changes nothing: no bold, no italic and the normal size. */
         boolean isPlain() {
-            return !bold && !italic && (fontSize == null || fontSize == FontSize.NORMAL);
+            return !bold && !italic && !underline && (fontSize == null || fontSize == FontSize.NORMAL)
+                    && (alignment == null || alignment == Alignment.LEFT)
+                    && (colour == null || colour == Colour.DEFAULT);
         }
     }
 

@@ -88,6 +88,18 @@ function answers(rows = [row(FILL, { filledBy: "Pat Filler" }), row(OTHER, { sta
           updatedAt: "2026-10-23T08:00:00Z",
         },
       }),
+    [`GET /api/v1/objects/InspectionTemplate/records/${TEMPLATE}`]: () =>
+      json({
+        data: {
+          id: TEMPLATE,
+          objectApiName: "InspectionTemplate",
+          ownerId: "0198f5c0-0000-7000-8000-000000000001",
+          fields: { name: "Fire exit template", number: "WI/PRD/03" },
+          version: 1,
+          createdAt: "2026-10-23T08:00:00Z",
+          updatedAt: "2026-10-23T08:00:00Z",
+        },
+      }),
     [`GET ${RECORDS}/${FILL}/approval`]: () => json(NO_APPROVAL),
     [`GET ${RECORDS}/${FILL}/files`]: () => json({ data: [] }),
     [`GET /api/v1/sheet-fills/InspectionFill/${FILL}`]: () =>

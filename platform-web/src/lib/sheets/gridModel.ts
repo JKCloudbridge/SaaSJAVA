@@ -17,6 +17,8 @@ import {
   COLUMN_TYPES,
   type CellKind,
   type CellStyle,
+  type Alignment,
+  type TextColour,
   type DisplayRow,
   type FontSize,
   type GridCell,
@@ -40,7 +42,7 @@ import { TEXT_UNSAFE, unsafeText, valueProblem } from "./values";
  * with the document it was given, which is what makes undo cheap (the history keeps documents, not patches).
  */
 
-export const STYLE_NEEDS_TEXT = "Only fixed text can be bold, italic or a size. Type the text first.";
+export const STYLE_NEEDS_TEXT = "Only fixed text can be formatted. Type the text first.";
 export const BLANK_ROW_NOTE = "The blank rows show what a filler will get. They cannot be changed.";
 
 const ok = (doc: GridDoc, note?: string): OpResult => ({ ok: true, doc, note });
@@ -83,6 +85,9 @@ function tidyStyle(style: CellStyle | undefined): CellStyle | undefined {
   if (style.italic) {
     out.italic = true;
   }
+  if (style.underline) out.underline = true;
+  if (style.alignment && style.alignment !== "LEFT") out.alignment = style.alignment;
+  if (style.colour && style.colour !== "DEFAULT") out.colour = style.colour;
   if (style.fontSize && style.fontSize !== "NORMAL") {
     out.fontSize = style.fontSize;
   }
@@ -220,7 +225,7 @@ function changeStyle(doc: GridDoc, keys: string[], change: (style: CellStyle) =>
 }
 
 /** Bold or italic on every cell of the selection: all of them go on, unless all of them already were. */
-export function toggleStyle(doc: GridDoc, keys: string[], property: "bold" | "italic"): OpResult {
+export function toggleStyle(doc: GridDoc, keys: string[], property: "bold" | "italic" | "underline"): OpResult {
   const allOn = keys.length > 0 && keys.every((key) => doc.cells[key]?.style?.[property] === true);
   return changeStyle(doc, keys, (style) => ({ ...style, [property]: !allOn }));
 }
@@ -228,6 +233,14 @@ export function toggleStyle(doc: GridDoc, keys: string[], property: "bold" | "it
 /** One of the four named sizes on every cell of the selection. */
 export function setFontSize(doc: GridDoc, keys: string[], size: FontSize): OpResult {
   return changeStyle(doc, keys, (style) => ({ ...style, fontSize: size }));
+}
+
+export function setAlignment(doc: GridDoc, keys: string[], alignment: Alignment): OpResult {
+  return changeStyle(doc, keys, (style) => ({ ...style, alignment }));
+}
+
+export function setTextColour(doc: GridDoc, keys: string[], colour: TextColour): OpResult {
+  return changeStyle(doc, keys, (style) => ({ ...style, colour }));
 }
 
 /** Makes a body cell fixed text (an empty one, if it holds nothing) or a cell the filler types into. */
@@ -630,6 +643,9 @@ export interface SelectionState {
   keys: string[];
   bold: boolean;
   italic: boolean;
+  underline: boolean;
+  alignment: Alignment | null;
+  colour: TextColour | null;
   /** The one size every cell has, or null when they differ. */
   size: FontSize | null;
   /** Fixed, input, or mixed. */
@@ -643,6 +659,8 @@ export function selectionState(doc: GridDoc, rows: DisplayRow[], rect: Rect): Se
   const indexes = indexesOf(doc, rows);
   const rects = mergeRects(doc, indexes);
   const sizes = new Set(keys.map((key) => doc.cells[key]?.style?.fontSize ?? "NORMAL"));
+  const alignments = new Set(keys.map((key) => doc.cells[key]?.style?.alignment ?? "LEFT"));
+  const colours = new Set(keys.map((key) => doc.cells[key]?.style?.colour ?? "DEFAULT"));
   const kinds = new Set(
     keys.map((key) => {
       const zone = zoneOfRow(doc, splitKey(key)[0]);
@@ -654,6 +672,9 @@ export function selectionState(doc: GridDoc, rows: DisplayRow[], rect: Rect): Se
     keys,
     bold: keys.length > 0 && keys.every((key) => doc.cells[key]?.style?.bold === true),
     italic: keys.length > 0 && keys.every((key) => doc.cells[key]?.style?.italic === true),
+    underline: keys.length > 0 && keys.every((key) => doc.cells[key]?.style?.underline === true),
+    alignment: alignments.size === 1 ? [...alignments][0]! : null,
+    colour: colours.size === 1 ? [...colours][0]! : null,
     size: sizes.size === 1 ? ([...sizes][0] as FontSize) : null,
     kind: kinds.size === 0 ? null : kinds.size === 1 ? ([...kinds][0] as CellKind) : "mixed",
     canMerge: !single && rows.slice(rect.r0, rect.r1 + 1).every((row) => row.zone !== "blank"),

@@ -97,6 +97,12 @@ class NoticeStore {
                 .param("id", id).param("recipient", recipient).query(Boolean.class).single();
     }
 
+    java.util.Optional<Row> find(UUID recipient, UUID id) {
+        return jdbc.sql("select " + COLUMNS + " from notification where id = :id and recipient_id = :recipient "
+                + "and deleted_at is null").param("id", id).param("recipient", recipient)
+                .query(NoticeStore::row).optional();
+    }
+
     int markAllRead(UUID recipient, UUID actor) {
         return jdbc.sql("update notification set read_at = now(), version = version + 1, updated_by = :actor "
                         + "where recipient_id = :recipient and read_at is null and deleted_at is null")

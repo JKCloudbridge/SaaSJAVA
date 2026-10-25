@@ -1710,6 +1710,85 @@
         "tags" : [ "Automation health" ]
       }
     },
+    "/api/v1/change-requests/query" : {
+      "post" : {
+        "description" : "One page for the tab of change requests: search (a text matched against the title and the name of the person who asked), an order (date, version or status, with date newest first by default), a narrowing to one template or status, and a cursor. A person sees their own requests, and every request of the templates they may change; they reach a template's requests only while they can read the template, and the platform host and another organization's requests are never in the answer. A page may be short and still have a cursor because requests the caller may not see are skipped; only a missing cursor is the end. A post, because the text does not belong in an address. Nothing typed is logged.",
+        "operationId" : "queryChangeRequests",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChangeRequestQuery"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseChangeRequestPage"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The change requests of every template that the caller may see",
+        "tags" : [ "Template change requests" ]
+      }
+    },
+    "/api/v1/change-requests/{requestId}" : {
+      "get" : {
+        "description" : "For a page that was given the request and not its template (the bell, the approval inbox). reviewId names the record whose approval panel decides it, when it is decided by an approval. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them. ",
+        "operationId" : "getChangeRequestById",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "requestId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseChangeRequestView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One change request by its identifier",
+        "tags" : [ "Template change requests" ]
+      }
+    },
     "/api/v1/data-access/mine" : {
       "get" : {
         "description" : "Their effective permissions on objects and fields (profile while licensed, access policies, the access policies of their groups, individual grants), with implied actions written out. Presentation only: every request is decided again by the server. NOT_FOUND on the platform host.",
@@ -7791,6 +7870,45 @@
         "tags" : [ "Notifications" ]
       }
     },
+    "/api/v1/notifications/{id}/open" : {
+      "post" : {
+        "description" : "Only the caller's own notice. A missing or unsupported target stays on the notices list with fixed words. Target access is checked through the ordinary record read gate.",
+        "operationId" : "openNotification",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNotificationOpenView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Read a notice and resolve its readable record",
+        "tags" : [ "Notifications" ]
+      }
+    },
     "/api/v1/notifications/{id}/read" : {
       "post" : {
         "description" : "NOT_FOUND for a notice that is not the caller's, exactly like one that does not exist. Marking a read notice again changes nothing.",
@@ -7821,6 +7939,228 @@
         },
         "summary" : "Mark one of the caller's notices read",
         "tags" : [ "Notifications" ]
+      }
+    },
+    "/api/v1/numbering" : {
+      "get" : {
+        "description" : "Needs numbering.manage. Lists shipped and organization formats and switched-off categories.",
+        "operationId" : "listNumberingSettings",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNumberingSettingsView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The organization's numbering settings",
+        "tags" : [ "Numbering" ]
+      }
+    },
+    "/api/v1/numbering/{seriesKey}/counter" : {
+      "post" : {
+        "description" : "Needs numbering.manage. Uses the current effective format; never lowers a counter. Serialized against allocations and format changes. Numbers already given are unchanged.",
+        "operationId" : "advanceNumberingCounter",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "seriesKey",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AdvanceNumberingCounterRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNumberingPreviewView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Raise a pair's next count",
+        "tags" : [ "Numbering" ]
+      }
+    },
+    "/api/v1/numbering/{seriesKey}/formats" : {
+      "put" : {
+        "description" : "Needs numbering.manage and the version read. Changes future numbers only; never resets a counter. The closed format is checked on the server. Audited by series, setting and count.",
+        "operationId" : "saveNumberingFormat",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "seriesKey",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveNumberingFormatRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNumberingSettingView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Save a number format for this organization",
+        "tags" : [ "Numbering" ]
+      }
+    },
+    "/api/v1/numbering/{seriesKey}/formats/reset" : {
+      "post" : {
+        "description" : "Needs numbering.manage and the version read. Ends this organization's override of one setting; future numbers use the platform's format again. Counters and numbers given are unchanged.",
+        "operationId" : "resetNumberingFormat",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "seriesKey",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ResetNumberingFormatRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNumberingSettingsView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Go back to the platform's format",
+        "tags" : [ "Numbering" ]
+      }
+    },
+    "/api/v1/numbering/{seriesKey}/preview" : {
+      "post" : {
+        "description" : "Needs numbering.manage. A candidate format is optional; without one, uses the current effective format. Reads the count without advancing it. No format, code or number is logged.",
+        "operationId" : "previewNumbering",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "seriesKey",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PreviewNumberingRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNumberingPreviewView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Preview a number without reserving it",
+        "tags" : [ "Numbering" ]
       }
     },
     "/api/v1/objects/{objectApiName}/form" : {
@@ -8538,6 +8878,54 @@
         },
         "summary" : "Create a record of an object",
         "tags" : [ "Records" ]
+      }
+    },
+    "/api/v1/objects/{objectApiName}/records/approval-history" : {
+      "post" : {
+        "description" : "For a screen that draws the story of a record: up to 20 records of one object, and for each up to perRecord requests (5 when left out, at most 10) with their steps and, for a caller who may see it, their history. A record the caller cannot read is left out as if it did not exist. A post only because the list of records does not belong in an address. Nothing a person typed is logged.",
+        "operationId" : "getRecordApprovalHistory",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "objectApiName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ApprovalHistoryRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListRecordApprovalHistoryView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Every approval request of a few records, newest first",
+        "tags" : [ "Approvals" ]
       }
     },
     "/api/v1/objects/{objectApiName}/records/bulk" : {
@@ -11853,7 +12241,7 @@
     },
     "/api/v1/sheet-fills/{fillObject}/{fillId}/cells" : {
       "put" : {
-        "description" : "The body is the cells document itself (formatVersion and rows, each row with an id and its cells keyed by the identifier of the column), as JSON, and nothing else; the row version that was read goes in the version parameter. The size is checked before anything is parsed, from the length the client announces and again on the bytes read: PAYLOAD_TOO_LARGE above the limit. Then the cells are checked in a fixed order and the first stage with a problem answers alone, with every place of that stage under cells: VALIDATION_ERROR. Only input cells accept a value, each value must fit the type of its column, and rows can be added only where the sheet allows it. A draft may be saved half done. CONCURRENT_MODIFICATION (409) when the fill-in has changed since it was read, and nothing changes. A fill-in that was sent for review can be changed only as a counted correction by a caller who may correct it (FORBIDDEN otherwise), and stays complete. CONFLICT when the sheet was retired. Audited by the size, the hash and counts, never by content. NOT_FOUND for an object that has no fill-ins, for a fill-in that does not exist and for a header record the caller may not read (all three answer alike). A fill-in has no permission of its own: reading it needs the right to read the header record and changing it the right to update the header record. ",
+        "description" : "The body is the cells document itself: formatVersion 1 or 2 and rows with an id and cells keyed by column identifier. Version 2 also accepts sparse styles keyed by column: bold/italic/underline booleans, fontSize SMALL, NORMAL, LARGE or TITLE, alignment LEFT/CENTER/RIGHT and colour DEFAULT/ACCENT/SUCCESS/DANGER, only on input cells. Old version 1 documents retain their canonical bytes. The row version that was read goes in the version parameter. The size is checked before anything is parsed, from the length the client announces and again on the bytes read: PAYLOAD_TOO_LARGE above the limit. Then the cells are checked in a fixed order and the first stage with a problem answers alone, with every place of that stage under cells: VALIDATION_ERROR. Only input cells accept a value, each value must fit the type of its column, and rows can be added only where the sheet allows it. A draft may be saved half done. CONCURRENT_MODIFICATION (409) when the fill-in has changed since it was read, and nothing changes. A fill-in that was sent for review can be changed only as a counted correction by a caller who may correct it (FORBIDDEN otherwise), and stays complete. CONFLICT when the sheet was retired. Audited by the size, the hash and counts, never by content. NOT_FOUND for an object that has no fill-ins, for a fill-in that does not exist and for a header record the caller may not read (all three answer alike). A fill-in has no permission of its own: reading it needs the right to read the header record and changing it the right to update the header record. ",
         "operationId" : "saveSheetFillCells",
         "parameters" : [ {
           "in" : "path",
@@ -13642,6 +14030,24 @@
         },
         "required" : [ "added", "controllingValues", "label", "value" ]
       },
+      "AdvanceNumberingCounterRequest" : {
+        "type" : "object",
+        "properties" : {
+          "nextValue" : {
+            "type" : "integer",
+            "format" : "int64",
+            "maximum" : 999999999999,
+            "minimum" : 1
+          },
+          "values" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }
+        },
+        "required" : [ "nextValue", "values" ]
+      },
       "AnswerChangeRequest" : {
         "type" : "object",
         "properties" : {
@@ -13949,6 +14355,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/CatalogueItem"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseChangeRequestPage" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ChangeRequestPage"
           }
         },
         "required" : [ "data" ]
@@ -14568,6 +14983,18 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListRecordApprovalHistoryView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecordApprovalHistoryView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListRecordFileView" : {
         "type" : "object",
         "properties" : {
@@ -14775,6 +15202,15 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseNotificationOpenView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/NotificationOpenView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseNotificationPreferencesView" : {
         "type" : "object",
         "properties" : {
@@ -14816,6 +15252,33 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/NotificationTemplatesView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseNumberingPreviewView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/NumberingPreviewView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseNumberingSettingView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/NumberingSettingView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseNumberingSettingsView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/NumberingSettingsView"
           }
         },
         "required" : [ "data" ]
@@ -15517,6 +15980,25 @@
           }
         },
         "required" : [ "field", "value" ]
+      },
+      "ApprovalHistoryRequest" : {
+        "type" : "object",
+        "properties" : {
+          "perRecord" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "recordIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            },
+            "maxItems" : 20,
+            "minItems" : 1
+          }
+        },
+        "required" : [ "recordIds" ]
       },
       "ApprovalHistoryView" : {
         "type" : "object",
@@ -16599,6 +17081,98 @@
         },
         "required" : [ "kind" ]
       },
+      "ChangeRequestPage" : {
+        "type" : "object",
+        "properties" : {
+          "nextCursor" : {
+            "type" : "string"
+          },
+          "rows" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChangeRequestRow"
+            }
+          }
+        },
+        "required" : [ "rows" ]
+      },
+      "ChangeRequestQuery" : {
+        "type" : "object",
+        "properties" : {
+          "cursor" : {
+            "type" : "string",
+            "maxLength" : 600,
+            "minLength" : 0
+          },
+          "descending" : {
+            "type" : "boolean"
+          },
+          "search" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "sort" : {
+            "type" : "string",
+            "pattern" : "date|version|status"
+          },
+          "status" : {
+            "type" : "string",
+            "pattern" : "OPEN|ACCEPTED|DECLINED|DONE"
+          },
+          "templateId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "ChangeRequestRow" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "mine" : {
+            "type" : "boolean"
+          },
+          "requesterDepartment" : {
+            "type" : "string"
+          },
+          "requesterName" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "templateId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "templateName" : {
+            "type" : "string"
+          },
+          "templateNumber" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "createdAt", "id", "mine", "status", "templateId", "title", "versionNo" ]
+      },
       "ChangeRequestView" : {
         "type" : "object",
         "properties" : {
@@ -16662,7 +17236,21 @@
           "resultingVersionStatus" : {
             "type" : "string"
           },
+          "reviewId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
           "status" : {
+            "type" : "string"
+          },
+          "templateId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "templateName" : {
+            "type" : "string"
+          },
+          "templateNumber" : {
             "type" : "string"
           },
           "title" : {
@@ -16673,7 +17261,7 @@
             "format" : "int32"
           }
         },
-        "required" : [ "canAccept", "canComment", "canDecline", "canReopen", "canTurn", "comments", "createdAt", "id", "mine", "placesInActive", "placesTotal", "status", "title", "versionNo" ]
+        "required" : [ "canAccept", "canComment", "canDecline", "canReopen", "canTurn", "comments", "createdAt", "id", "mine", "placesInActive", "placesTotal", "status", "templateId", "title", "versionNo" ]
       },
       "ChangeRequestsView" : {
         "type" : "object",
@@ -18261,6 +18849,9 @@
             "type" : "string",
             "format" : "uuid"
           },
+          "templateNumber" : {
+            "type" : "string"
+          },
           "updatedAt" : {
             "type" : "string",
             "format" : "date-time"
@@ -19572,6 +20163,18 @@
           }
         }
       },
+      "NotificationOpenView" : {
+        "type" : "object",
+        "properties" : {
+          "explanation" : {
+            "type" : "string"
+          },
+          "href" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "href" ]
+      },
       "NotificationPlaceholderView" : {
         "type" : "object",
         "properties" : {
@@ -19718,6 +20321,134 @@
           }
         },
         "required" : [ "body", "category", "createdAt", "id", "kind", "read", "title" ]
+      },
+      "NumberingFieldView" : {
+        "type" : "object",
+        "properties" : {
+          "apiName" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "values" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PicklistOption"
+            }
+          }
+        },
+        "required" : [ "apiName", "label", "values" ]
+      },
+      "NumberingPreviewView" : {
+        "type" : "object",
+        "properties" : {
+          "example" : {
+            "type" : "string"
+          },
+          "fields" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "missingFields" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "nextValue" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "width" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "fields", "message", "missingFields", "width" ]
+      },
+      "NumberingSeriesView" : {
+        "type" : "object",
+        "properties" : {
+          "fields" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NumberingFieldView"
+            }
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "objectApiName" : {
+            "type" : "string"
+          },
+          "optionalField" : {
+            "type" : "string"
+          },
+          "selector" : {
+            "type" : "string"
+          },
+          "settings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NumberingSettingView"
+            }
+          }
+        },
+        "required" : [ "fields", "key", "label", "objectApiName", "optionalField", "selector", "settings" ]
+      },
+      "NumberingSettingView" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "format" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "CATEGORY", "DEFAULT", "WITHOUT_OPTIONAL" ]
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "selectorValue" : {
+            "type" : "string"
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "width" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "active", "format", "kind", "label", "selectorValue", "source", "version", "width" ]
+      },
+      "NumberingSettingsView" : {
+        "type" : "object",
+        "properties" : {
+          "series" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NumberingSeriesView"
+            }
+          }
+        },
+        "required" : [ "series" ]
       },
       "ObjectFormView" : {
         "type" : "object",
@@ -20463,6 +21194,32 @@
         },
         "required" : [ "category", "categoryLabel", "channel", "channelLabel", "description", "enabled", "locked" ]
       },
+      "PreviewNumberingRequest" : {
+        "type" : "object",
+        "properties" : {
+          "format" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "CATEGORY", "DEFAULT", "WITHOUT_OPTIONAL" ]
+          },
+          "selectorValue" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          },
+          "values" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }
+        },
+        "required" : [ "kind", "selectorValue", "values" ]
+      },
       "ProblemView" : {
         "type" : "object",
         "properties" : {
@@ -20709,6 +21466,22 @@
           }
         },
         "required" : [ "reason" ]
+      },
+      "RecordApprovalHistoryView" : {
+        "type" : "object",
+        "properties" : {
+          "recordId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "requests" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ApprovalInstanceView"
+            }
+          }
+        },
+        "required" : [ "recordId", "requests" ]
       },
       "RecordApprovalView" : {
         "type" : "object",
@@ -21279,6 +22052,26 @@
         },
         "required" : [ "message" ]
       },
+      "ResetNumberingFormatRequest" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "CATEGORY", "DEFAULT", "WITHOUT_OPTIONAL" ]
+          },
+          "selectorValue" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "exclusiveMinimum" : 0
+          }
+        },
+        "required" : [ "kind", "selectorValue", "version" ]
+      },
       "ResetPasswordRequest" : {
         "type" : "object",
         "properties" : {
@@ -21445,6 +22238,31 @@
           }
         },
         "required" : [ "name" ]
+      },
+      "SaveNumberingFormatRequest" : {
+        "type" : "object",
+        "properties" : {
+          "format" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "CATEGORY", "DEFAULT", "WITHOUT_OPTIONAL" ]
+          },
+          "selectorValue" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "format", "kind", "selectorValue", "version" ]
       },
       "SaveObjectSharingRequest" : {
         "type" : "object",
@@ -21790,14 +22608,26 @@
         "additionalProperties" : false,
         "description" : "Only a fixed cell may carry a style. The size is one of four names and never a number: the page decides what each name looks like.",
         "properties" : {
+          "alignment" : {
+            "type" : "string",
+            "enum" : [ "LEFT", "CENTER", "RIGHT" ]
+          },
           "bold" : {
             "type" : "boolean"
+          },
+          "colour" : {
+            "type" : "string",
+            "description" : "A named text colour from the theme palette; never arbitrary CSS.",
+            "enum" : [ "DEFAULT", "ACCENT", "SUCCESS", "DANGER" ]
           },
           "fontSize" : {
             "type" : "string",
             "enum" : [ "SMALL", "NORMAL", "LARGE", "TITLE" ]
           },
           "italic" : {
+            "type" : "boolean"
+          },
+          "underline" : {
             "type" : "boolean"
           }
         }
@@ -22665,11 +23495,21 @@
           "numberPreviewComplete" : {
             "type" : "boolean"
           },
+          "openChangeRequests" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "retired" : {
             "type" : "boolean"
+          },
+          "versionReviews" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/VersionReview"
+            }
           }
         },
-        "required" : [ "audience", "canPublish", "canRetire", "canUnpublish", "id", "lifecycle", "numberPreviewComplete", "retired" ]
+        "required" : [ "audience", "canPublish", "canRetire", "canUnpublish", "id", "lifecycle", "numberPreviewComplete", "openChangeRequests", "retired", "versionReviews" ]
       },
       "TemplatePage" : {
         "type" : "object",
@@ -22752,6 +23592,10 @@
           "number" : {
             "type" : "string"
           },
+          "openChangeRequests" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "retired" : {
             "type" : "boolean"
           },
@@ -22759,7 +23603,7 @@
             "type" : "string"
           }
         },
-        "required" : [ "id", "lifecycle", "retired" ]
+        "required" : [ "id", "lifecycle", "openChangeRequests", "retired" ]
       },
       "TenantSummary" : {
         "type" : "object",
@@ -23387,6 +24231,20 @@
           }
         },
         "required" : [ "active", "apiName", "description", "errorMessage", "expression", "label", "objectApiName", "version" ]
+      },
+      "VersionReview" : {
+        "type" : "object",
+        "properties" : {
+          "requestId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "requestId", "versionNo" ]
       },
       "VisibilityInner" : {
         "type" : "object",

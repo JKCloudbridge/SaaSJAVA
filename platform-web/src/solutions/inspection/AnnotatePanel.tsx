@@ -16,64 +16,80 @@ const MOST_COMMENTS = 10;
 type Target = "cell" | "row" | "column" | "template";
 
 /**
- * Asking for a change (Functional track FA5, ADR-0191), drawn under the grid of the version in use. A person stands on a
- * place in the grid (a cell, with its row and column), chooses what the comment is about, writes it, adds it to the request
- * they are making and sends the request with a title. Nothing here decides: the server checks that the person may read the
- * template, that the version is one that is or was in use and that every place is in it, and it answers in its own words,
- * which are shown with the place that is wrong. The box for a comment takes focus when the person presses Enter on a cell.
+ * What a person has written and not yet sent. It lives outside the popup (in {@link AskForChange}) so that closing the
+ * popup does not throw it away; the panel works on whatever it is given.
+ */
+export interface AnnotateDraft {
+  target: Target;
+  setTarget(target: Target): void;
+  text: string;
+  setText(text: string): void;
+  drafted: Drafted[];
+  setDrafted(update: (now: Drafted[]) => Drafted[]): void;
+  title: string;
+  setTitle(title: string): void;
+  /** Something has been written that was not sent. */
+  dirty: boolean;
+  clear(): void;
+}
+
+export function useAnnotateDraft(): AnnotateDraft {
+  const [target, setTarget] = useState<Target>("cell");
+  const [text, setText] = useState("");
+  const [drafted, setDrafted] = useState<Drafted[]>([]);
+  const [title, setTitle] = useState("");
+  return {
+    target,
+    setTarget,
+    text,
+    setText,
+    drafted,
+    setDrafted,
+    title,
+    setTitle,
+    dirty: text.trim() !== "" || title.trim() !== "" || drafted.length > 0,
+    clear: () => {
+      setTarget("cell");
+      setText("");
+      setDrafted(() => []);
+      setTitle("");
+    },
+  };
+}
+
+/**
+ * The content of the "Ask for a change" popup (Functional track FA5, ADR-0191; a popup since FA6D). The person chose a
+ * place in the grid before opening it; here they choose what the comment is about (that cell, its row, its column or the
+ * whole template), write it, add it to the request they are making and send the request with a title. Nothing here
+ * decides: the server checks that the person may read the template, that the version is one that is or was in use and
+ * that every place is in it, and it answers in its own words, which are shown with the place that is wrong.
  */
 export function AnnotatePanel({
   templateId,
   context,
   view,
-  show,
-  onShown,
+  draft,
   onSent,
 }: {
   templateId: string;
   context: AnnotateContext;
   view: ChangeRequestsView | undefined;
-  /** A place a comment in the list asked to be shown: the grid is stood on it, then `onShown` is called. */
-  show: Place | null;
-  onShown(): void;
+  /** The words kept outside the popup; without it the panel keeps its own (it is lost when the panel goes). */
+  draft?: AnnotateDraft;
   onSent(): void;
 }) {
   const ids = useId();
   const box = useRef<HTMLTextAreaElement>(null);
-  const [target, setTarget] = useState<Target>("cell");
-  const [text, setText] = useState("");
-  const [drafted, setDrafted] = useState<Drafted[]>([]);
-  const [title, setTitle] = useState("");
+  const own = useAnnotateDraft();
+  const { target, setTarget, text, setText, drafted, setDrafted, title, setTitle, clear } = draft ?? own;
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
 
-  // Enter on a cell of the grid: stand the comment on that cell and move to the box.
-  const seen = useRef(context.activations);
+  // The popup opens on the box for the comment. In a microtask so that it runs after the popup has put focus on its own first control.
   useEffect(() => {
-    if (context.activations === seen.current) {
-      return;
-    }
-    seen.current = context.activations;
-    // In a microtask, like the other screens that react to the page around them, so that no state is set while the effect runs.
-    void Promise.resolve().then(() => {
-      setTarget(context.places.cell ? "cell" : "column");
-      box.current?.focus();
-    });
-  }, [context.activations, context.places.cell]);
-
-  const { select } = context;
-  useEffect(() => {
-    if (show) {
-      // In a microtask, like the other screens that react to the page around them, so that no state is set while the effect runs.
-      void Promise.resolve().then(() => {
-        select(show);
-        onShown();
-      });
-    }
-    // `select` is a new function on every render of the grid; only a place asked for should run this.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [show]);
+    void Promise.resolve().then(() => box.current?.focus());
+  }, []);
 
   if (view && !view.canRequest) {
     return (
@@ -129,9 +145,7 @@ export function AnnotatePanel({
       setProblems(Object.values(outcome.failure.fields ?? {}).flat());
       return;
     }
-    setDrafted([]);
-    setTitle("");
-    setText("");
+    clear();
     setMessage({ text: "Your request was sent to the people who look after this template.", error: false });
     onSent();
   };
@@ -144,11 +158,10 @@ export function AnnotatePanel({
   ];
 
   return (
-    <section className="card stack" aria-label="Ask for a change" data-testid="annotate-panel">
-      <h3>Ask for a change</h3>
+    <div className="stack" data-testid="annotate-panel">
       <p className="hint">
-        You cannot change this version. Stand on a place in the grid, say what you would change, and send it as a request. The
-        people who look after the template see it, and nobody else.
+        You cannot change this version. Say what you would change and send it as a request. The people who look after the
+        template see it, and nobody else.
       </p>
       <div className="split" role="group" aria-label="What the comment is about">
         {choices.map((choice) => (
@@ -215,6 +228,6 @@ export function AnnotatePanel({
           ))}
         </ul>
       ) : null}
-    </section>
+    </div>
   );
 }

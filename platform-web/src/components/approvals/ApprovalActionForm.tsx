@@ -31,6 +31,7 @@ export function ApprovalActionForm({
   requestId,
   version,
   explain,
+  labels,
   onDone,
   onClose,
 }: {
@@ -38,10 +39,12 @@ export function ApprovalActionForm({
   requestId: string;
   version: number;
   explain: string;
+  /** Other words for the button of an action (a change request is accepted or declined, not approved or rejected). */
+  labels?: Partial<Record<ApprovalActionKind, string>>;
   onDone: (text: string) => void;
   onClose: () => void;
 }) {
-  const ask = ASKS[kind];
+  const ask = { ...ASKS[kind], button: labels?.[kind] ?? ASKS[kind].button };
   const id = useId();
   const [comment, setComment] = useState("");
   const [person, setPerson] = useState("");

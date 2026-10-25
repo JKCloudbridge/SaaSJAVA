@@ -32,6 +32,7 @@ import app.platformapi.ApprovalStepView;
 import app.platformapi.ApprovalTaskView;
 import app.platformapi.Cursors;
 import app.platformapi.Pagination;
+import app.platformapi.RecordApprovalHistoryView;
 import app.platformapi.RecordApprovalView;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -62,6 +63,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional(readOnly = true)
 class ApprovalViews {
+
+    private static final int MOST_HISTORY_RECORDS = 20;
+    private static final int DEFAULT_PER_RECORD = 5;
+    private static final int MOST_PER_RECORD = 10;
 
     private final ApprovalStore store;
     private final ApproverResolver resolver;
@@ -299,6 +304,32 @@ class ApprovalViews {
                 actions.canAssign(), actions.canReapply());
         return new RecordApprovalView(true, pending.isPresent(), current, choices, choices.isEmpty() ? reason : null,
                 merged);
+    }
+
+    /**
+     * The requests of a few records of one object, newest first. A record the caller cannot read is left out as if it
+     * did not exist, so nothing is learned about it; each request is drawn as in the panel of a record.
+     */
+    List<RecordApprovalHistoryView> history(Member member, String objectApiName, List<UUID> recordIds,
+            Integer perRecord) {
+        List<UUID> wanted = recordIds.stream().distinct().toList();
+        if (wanted.isEmpty() || wanted.size() > MOST_HISTORY_RECORDS) {
+            throw ApiException.validation("recordIds", "Ask for between 1 and " + MOST_HISTORY_RECORDS + " records.");
+        }
+        int each = perRecord == null || perRecord <= 0 ? DEFAULT_PER_RECORD : Math.min(perRecord, MOST_PER_RECORD);
+        Set<UUID> readable = titles.titlesOf(objectApiName, wanted).keySet();
+        List<RecordApprovalHistoryView> result = new ArrayList<>();
+        for (UUID recordId : wanted) {
+            if (!readable.contains(recordId)) {
+                continue;
+            }
+            List<ApprovalInstanceView> requests = new ArrayList<>();
+            for (InstanceRow instance : store.historyFor(objectApiName, recordId, each)) {
+                requests.add(full(member, instance, seen(member, instance)));
+            }
+            result.add(new RecordApprovalHistoryView(recordId, requests));
+        }
+        return result;
     }
 
     // ---- building blocks ----

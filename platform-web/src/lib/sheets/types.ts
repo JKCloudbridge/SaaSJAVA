@@ -7,6 +7,10 @@
 export type ColumnType = "text" | "number" | "date" | "picklist" | "boolean";
 export type RowsMode = "FIXED" | "REPEATABLE" | "FIXED_AND_REPEATABLE";
 export type FontSize = "SMALL" | "NORMAL" | "LARGE" | "TITLE";
+export type Alignment = "LEFT" | "CENTER" | "RIGHT";
+export type TextColour = "DEFAULT" | "ACCENT" | "SUCCESS" | "DANGER";
+export const ALIGNMENTS: readonly Alignment[] = ["LEFT", "CENTER", "RIGHT"];
+export const TEXT_COLOURS: readonly TextColour[] = ["DEFAULT", "ACCENT", "SUCCESS", "DANGER"];
 export type CellKind = "fixed" | "input";
 
 export const COLUMN_TYPES: readonly ColumnType[] = ["text", "number", "date", "picklist", "boolean"];
@@ -34,6 +38,9 @@ export interface GridLine {
 export interface CellStyle {
   bold?: boolean;
   italic?: boolean;
+  underline?: boolean;
+  alignment?: Alignment;
+  colour?: TextColour;
   fontSize?: FontSize;
 }
 

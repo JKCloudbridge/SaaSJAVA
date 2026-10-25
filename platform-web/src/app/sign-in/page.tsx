@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SignInForm } from "@/components/auth/SignInForm";
+import { SignInLayout } from "@/components/auth/SignInLayout";
 import { safeReturnPath } from "@/lib/session/returnPath";
 import { returnPathAfterSignIn } from "@/lib/session/signedInMarker";
 
@@ -14,11 +15,10 @@ export default async function SignInPage({ searchParams }: { searchParams: Searc
   const query = await searchParams;
   const problem = typeof query.problem === "string" ? query.problem : undefined;
   return (
-    <>
-      <h1>Sign in</h1>
+    <SignInLayout title="Sign in">
       <div className="card">
         <SignInForm returnTo={returnPathAfterSignIn(safeReturnPath(query.continue))} problem={problem} />
       </div>
-    </>
+    </SignInLayout>
   );
 }

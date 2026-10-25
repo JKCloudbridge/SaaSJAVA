@@ -1,6 +1,8 @@
 # ADR-0196: The identity pair at the first approval, Level and Document, the department of a request, and Submit without a process
 
 - **Status:** Accepted
+- **Amended by:** [ADR-0198](0198-save-time-template-numbers-and-compatible-fill-formatting.md): numbering normally
+  happens at permitted Save, identity stays editable until first Approve, and previous allocations remain reserved.
 - **Date:** 2026-10-24
 - **Track:** Functional (FA6A, demo readiness), with one additive migration (V072), one additive endpoint and one new
   shared-kernel contract

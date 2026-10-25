@@ -152,6 +152,7 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
       primaryExtra={(row) => (row.filledBy ? <span className="hint">{row.filledBy}</span> : null)}
       menu={views.menu}
       columns={[
+        { key: "number", header: "Template number", cell: (row) => row.templateNumber || "—" },
         {
           key: "version",
           header: "Version",

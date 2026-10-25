@@ -9,7 +9,7 @@
 
 Every screen from Sprint 3 to Sprint 17A was built as the smallest slice that proved its backend contract, so most of them rendered close to
 unstyled HTML. The approved visual design (an interactive prototype handed over on 2026-10-15) specifies one look for the whole product: a
-calm teal accent on cool neutral surfaces, rounded shapes, two typefaces and light and dark themes. It shows no disabled state and no error state.
+calm teal accent (replaced by the product's plum `#93418b` in FA6D: the roles, the structure and dark mode are unchanged, only the values moved) on cool neutral surfaces, rounded shapes, two typefaces and light and dark themes. It shows no disabled state and no error state.
 
 ## Decision
 

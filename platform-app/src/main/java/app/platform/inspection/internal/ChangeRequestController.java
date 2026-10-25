@@ -1,6 +1,8 @@
 package app.platform.inspection.internal;
 
 import app.platform.inspection.internal.ChangeRequestViews.AnswerChangeRequest;
+import app.platform.inspection.internal.ChangeRequestViews.ChangeRequestPage;
+import app.platform.inspection.internal.ChangeRequestViews.ChangeRequestQuery;
 import app.platform.inspection.internal.ChangeRequestViews.ChangeRequestView;
 import app.platform.inspection.internal.ChangeRequestViews.ChangeRequestsView;
 import app.platform.inspection.internal.ChangeRequestViews.CreateChangeRequest;
@@ -37,9 +39,38 @@ class ChangeRequestController {
             + "own requests; a person who may change the template sees all of them. ";
 
     private final ChangeRequests requests;
+    private final ChangeRequestList list;
 
-    ChangeRequestController(ChangeRequests requests) {
+    ChangeRequestController(ChangeRequests requests, ChangeRequestList list) {
         this.requests = requests;
+        this.list = list;
+    }
+
+    @PostMapping(ApiPaths.V1 + "/change-requests/query")
+    @Operation(
+            operationId = "queryChangeRequests",
+            summary = "The change requests of every template that the caller may see",
+            description = "One page for the tab of change requests: search (a text matched against the title and the "
+                    + "name of the person who asked), an order (date, version or status, with date newest first by "
+                    + "default), a narrowing to one template or status, and a cursor. A person sees their own "
+                    + "requests, and every request of the templates they may change; they reach a template's "
+                    + "requests only while they can read the template, and the platform host and another "
+                    + "organization's requests are never in the answer. A page may be short and still have a cursor "
+                    + "because requests the caller may not see are skipped; only a missing cursor is the end. A "
+                    + "post, because the text does not belong in an address. Nothing typed is logged.")
+    ApiResponse<ChangeRequestPage> query(@Valid @RequestBody ChangeRequestQuery body) {
+        return ApiResponse.of(list.query(body));
+    }
+
+    @GetMapping(ApiPaths.V1 + "/change-requests/{requestId}")
+    @Operation(
+            operationId = "getChangeRequestById",
+            summary = "One change request by its identifier",
+            description = "For a page that was given the request and not its template (the bell, the approval inbox). "
+                    + "reviewId names the record whose approval panel decides it, when it is decided by an "
+                    + "approval. " + SEES)
+    ApiResponse<ChangeRequestView> getById(@PathVariable UUID requestId) {
+        return ApiResponse.of(requests.getAnywhere(requestId));
     }
 
     @GetMapping(BASE)

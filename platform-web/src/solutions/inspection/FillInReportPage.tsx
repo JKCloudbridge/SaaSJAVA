@@ -314,6 +314,7 @@ export function FillInReportPage() {
       primary={(row) => row.name || "Fill-in"}
       primaryExtra={(row) => (row.filledBy ? <span className="hint">{row.filledBy}</span> : null)}
       columns={[
+        { key: "number", header: "Template number", cell: (row) => row.templateNumber || "—" },
         { key: "version", header: "Version", cell: (row) => `v${row.versionNo}`, kind: "muted" },
         { key: "started", header: "Started", cell: (row) => when(row.createdAt), kind: "muted" },
         {

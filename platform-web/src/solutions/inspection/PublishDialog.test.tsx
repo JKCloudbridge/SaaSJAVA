@@ -42,6 +42,8 @@ function view(extra: Partial<TemplateLifecycleView> = {}): TemplateLifecycleView
     canUnpublish: false,
     canRetire: true,
     numberPreviewComplete: false,
+    openChangeRequests: 0,
+    versionReviews: [],
     ...extra,
   };
 }

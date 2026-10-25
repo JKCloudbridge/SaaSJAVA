@@ -2,20 +2,23 @@
  * The cells of a fill-in as the browser works with them (Functional track FF1, ADR-0173 section 6, ADR-0192). This is the
  * server's own canonical document, shape B (a list of rows, each with its cells keyed by the identifier of the column),
  * read into plain types. The sheet it was made on (a {@link import("./types").GridDoc}) says which cells exist and which a
- * person may type into; the fill-in holds only what was typed.
+ * person may type into; the fill-in holds values and, in version 2, sparse input-cell style overrides.
  */
 
 /** What a cell of a fill-in holds: text (a number and a date travel as text), or yes or no. */
 export type FillValue = string | boolean;
 
 /** One row: the identifier of a row of the sheet, or one this browser made for a row the filler added. */
+export type FillStyle = import("./types").CellStyle;
+
 export interface FillRow {
   id: string;
   cells: Record<string, FillValue>;
+  styles?: Record<string, FillStyle>;
 }
 
 export interface FillDoc {
-  formatVersion: 1;
+  formatVersion: 1 | 2;
   rows: FillRow[];
 }
 

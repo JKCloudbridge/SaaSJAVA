@@ -225,7 +225,8 @@ class ChangeRequestsIT extends ChangeRequestSupport {
                 .as("a declined request stays declined").isEqualTo(409);
         assertThat(answerRequest(world.author().browser(), world.template(), open, "ACCEPT", null).status())
                 .as("accepted twice").isEqualTo(409);
-        assertThat(list(world.author().browser(), world.template()).body()).contains("\"openCount\":0");
+        // An accepted request still waits for its version, so it counts as open; the declined one does not (FA6E).
+        assertThat(list(world.author().browser(), world.template()).body()).contains("\"openCount\":1");
     }
 
     // ---- turning requests into a version ----
@@ -381,7 +382,9 @@ class ChangeRequestsIT extends ChangeRequestSupport {
         assertThat(requesterSaw.toString()).contains("it was accepted").contains("it was declined");
         String notices = world.author().browser().get("/api/v1/notifications").body();
         assertThat(JsonPath.<List<String>>read(notices, "$.data[?(@.kind=='CHANGE_REQUEST')].href"))
-                .allMatch(href -> href.equals("/apps/inspection/s-templates?open=" + world.template()));
+                .as("a bell row opens the template on its Change requests tab, with the request open")
+                .allMatch(href -> href.startsWith("/apps/inspection/s-templates?open=" + world.template()
+                        + "&tab=change-requests&request="));
         assertThat(JsonPath.<List<String>>read(notices, "$.data[?(@.kind=='CHANGE_REQUEST')].category"))
                 .containsOnly("REQUESTS");
     }

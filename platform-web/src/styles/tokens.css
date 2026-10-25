@@ -4,7 +4,7 @@
  * A test fails when a literal colour appears anywhere else in the source.
  *
  * Roles, not shades: --color-surface is "a panel", not "light grey", so dark mode redefines the role.
- * The values follow the approved visual design (Sprint 12A): a calm teal accent on cool neutral surfaces.
+ * The values follow the approved visual design (Sprint 12A): a plum accent (#93418b) on cool neutral surfaces.
  */
 :root {
   /* colour roles */
@@ -15,15 +15,17 @@
   --color-border-strong: #c3ccd6;
   --color-text: #15202b;
   --color-text-muted: #5c6b7a;
-  --color-accent: #0b6e67;
-  --color-accent-hover: #095a54;
+  --color-accent: #93418b;
+  --color-accent-hover: #7a3374;
   --color-accent-contrast: #ffffff;
-  --color-accent-soft: #e3f1ef;
+  --color-accent-soft: #f6eef8;
   --color-success: #17693a;
   --color-success-surface: #e2f4e8;
   --color-danger: #a62323;
   --color-danger-surface: #fbe6e6;
-  --color-focus-ring: #0b6e67;
+  --color-focus-ring: #93418b;
+  /* the half of the sign-in screen that holds the logo (FA6D) */
+  --color-brand-panel: #f6eef8;
 
   /* spacing scale (4px base, plus the three half steps the design uses) */
   --space-0-5: 0.125rem;
@@ -81,6 +83,10 @@
   --sheet-grid-height: 30rem;
   --sheet-input-min-width: 4rem;
   --sheet-mark-size: 0.25rem;
+  --flow-column-width: 17rem;
+  --flow-dot-size: 0.75rem;
+  --flow-line-width: 2px;
+  --sign-in-logo-width: 7.3125rem;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -92,15 +98,16 @@
     --color-border-strong: #34455a;
     --color-text: #e4eaf0;
     --color-text-muted: #8a9db0;
-    --color-accent: #2dd4bf;
-    --color-accent-hover: #5eead4;
-    --color-accent-contrast: #061a18;
-    --color-accent-soft: #0e2e2c;
+    --color-accent: #d68fcf;
+    --color-accent-hover: #e8b0e2;
+    --color-accent-contrast: #1c0f1b;
+    --color-accent-soft: #2b1a2c;
     --color-success: #5fd08a;
     --color-success-surface: #14301f;
     --color-danger: #ff8b8b;
     --color-danger-surface: #3a1818;
-    --color-focus-ring: #2dd4bf;
+    --color-focus-ring: #d68fcf;
+    --color-brand-panel: #1a1220;
     --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
     --shadow-2: 0 10px 30px rgb(0 0 0 / 50%);
     --color-overlay: rgb(0 0 0 / 60%);

@@ -69,8 +69,11 @@ class SheetFillController {
     @Operation(
             operationId = "saveSheetFillCells",
             summary = "Save the cells of a fill-in",
-            description = "The body is the cells document itself (formatVersion and rows, each row with an id and "
-                    + "its cells keyed by the identifier of the column), as JSON, and nothing else; the row version "
+            description = "The body is the cells document itself: formatVersion 1 or 2 and rows with an id and "
+                    + "cells keyed by column identifier. Version 2 also accepts sparse styles keyed by column: "
+                    + "bold/italic/underline booleans, fontSize SMALL, NORMAL, LARGE or TITLE, alignment "
+                    + "LEFT/CENTER/RIGHT and colour DEFAULT/ACCENT/SUCCESS/DANGER, only on input cells. "
+                    + "Old version 1 documents retain their canonical bytes. The row version "
                     + "that was read goes in the version parameter. The size is checked before anything is parsed, "
                     + "from the length the client announces and again on the bytes read: PAYLOAD_TOO_LARGE above "
                     + "the limit. Then the cells are checked in a fixed order and the first stage with a problem "

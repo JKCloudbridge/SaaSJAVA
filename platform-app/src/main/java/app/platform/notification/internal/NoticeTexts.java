@@ -185,8 +185,13 @@ class NoticeTexts {
                 // notice, checked at creation to be only letters, digits and a few marks. Without them: the record.
                 String application = row.facts().get("application");
                 String entry = row.facts().get("entry");
+                // A notice that names its request and the tab that lists requests leads to that tab of the record with
+                // the request open (FA6E); an older one leads to the record, as it was made to.
+                String request = row.facts().get("request");
+                String tab = row.facts().get("tab");
                 if (application != null && entry != null) {
-                    return "/apps/" + application + "/" + entry + "?open=" + row.recordId();
+                    String path = "/apps/" + application + "/" + entry + "?open=" + row.recordId();
+                    return request != null && tab != null ? path + "&tab=" + tab + "&request=" + request : path;
                 }
             }
             if (row.objectApiName() != null && row.recordId() != null) {

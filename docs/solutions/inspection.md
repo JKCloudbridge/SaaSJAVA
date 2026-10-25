@@ -152,8 +152,128 @@ The application is in `platform-app/src/main/resources/solutions/inspection/solu
 The decision is in [ADR-0196](../adr/0196-the-identity-pair-at-the-first-approval-level-and-document-the-department-of-a-request-and-submit-without-a-process.md), the administrator's view in [../metadata-guide.md](../metadata-guide.md) section 34.
 
 - **Fields:** `InspectionTemplate.level` (controlling) and `documentType` (dependent), organization-owned lists with a short placeholder start, no number. The numbering pair keeps its API names `category` and `subCategory`; on screen they are "Identity category" and "Identity sub-category".
-- **Policies:** Author edits `name`, `level`, `documentType`; Approver edits all, and holds `field-values.add` besides `approvals.override-lock`, `sheets.publish`, `sheets.retire`. The read lists of every policy include the new fields (a field a policy does not list does not exist for the person).
+- **Policies:** Author edits `name`, `level`, `documentType`; Approver edits all, and holds `field-values.add` besides `approvals.override-lock` (publish and retire belong to Publisher, FA6E). The read lists of every policy include the new fields (a field a policy does not list does not exist for the person).
 - **Hook:** the numbering checks are in `TemplateApprovalHooks.beforeApprove`, asked only while the template has no number; `onSubmit` keeps the retired check and the sheet's own.
 - **Change requests:** `requester_department` (V072), written once by `ChangeRequests.create` from `DepartmentAudiences.departmentsOf`; shown as `requesterDepartment`.
 - **Fill-ins:** `POST /api/v1/fill-ins/{id}/submit` (`REVIEW_NEEDED` or `SUBMITTED`); `FillSubmission`, `ApprovalApplicability`; the screen's Submit and Cancel are in `FillInDetail` and `FillWorkspace`.
 - **Tests:** no database: `TemplateApprovalHooksTest`, `SolutionLoaderTest`, `StandardMetadataLoaderTest`; real PostgreSQL: `TemplateIdentityIT`, `FillInSubmitIT`, `ChangeRequestDepartmentIT`, `ChangeRequestFlowsLogsAreCleanIT`, `ShippedPoliciesIT`, `TemplateNumberingIT`, `TemplateLifecycleIT`. Frontend: `PublishDialog`, `FillInsPage`, `ChangeRequestsSection`, `TemplatesPage` tests.
+
+## Numbering in Setup (FA6B)
+
+The administrator opens **Setup -> Numbering** with `numbering.manage`, chooses a category or default, previews and saves a format for this organization. Formats are settings, not a code release. The precedence is the organization's category format, the shipped category format, the organization's applicable default and the shipped applicable default. The two defaults cover a category with or without its optional sub-category and start without zero padding. Existing category-specific formats, including the four typed-part formats without a count, are preserved.
+
+FA6C moves normal allocation to the permitted identity Save; the first-approval hook remains a backstop for an unnumbered template. Preview observes but never consumes or reserves the next number. A saved format affects future allocations. The same fields continue the counter even if reordered; a different field set counts separately. An administrator may explicitly raise the next count of a category's current scope, never lower it. Fixed numbers are not rewritten. Fill-in and Report screens show the stored number where ordinary record and field permissions allow it; they never reconstruct it from today's format.
+
+Implementation: `data/internal/NumberingController`, `NumberingManagement`, `NumberingFormats`, `NumberingStore`; V073 `numbering_format`; the shared-kernel series defaults and `NumberingLoader`; `NumberingPanel.tsx`; `TemplateNumbers` for a bounded read on fill-in/report pages. No new module edge. Decision: [ADR-0197](../adr/0197-organization-number-formats-previews-and-counter-continuity.md). Verification and pending checks are recorded in `Sprint FA6B.md`.
+
+## Rehearsal fixes (FA6C)
+
+[ADR-0198](../adr/0198-save-time-template-numbers-and-compatible-fill-formatting.md) amends allocation at first approval.
+`TemplateIdentityWrites` contributes the number to the ordinary record pipeline. A permitted Save with complete inputs
+returns its number at once. Before first Approve, changing numbering inputs allocates again; unchanged inputs retain it.
+`NumberAssignments` retains earlier spellings in V074, even after rejection. Switching A -> B -> A uses A's next count.
+First Approve fixes the identity and number; later rejection cannot undo it. Legacy issued numbers remain fixed.
+`ObjectForms` describes fixed identity fields as read-only. Every write still enforces the rule on the server.
+
+QSP's omission of a newly selected sub-category was reproduced through the normal API against a fresh jar. The saved
+record retained the selected code. Setup reported a shipped format that ignored it; changing the picklist never changes
+that format. Shipped formats are retained. The administrator guide lists the current category groups and the override
+needed for separate pair counts. Add value already selects the normalized returned code and persists `controllingValues`.
+
+The new-sheet screen defaults to dimension 2 and has two centred start buttons. Dimension controls the starting template
+shape; the published rows mode independently controls filler-added rows. Only the template is currently a shipped sheet
+owner; backend dimension-1 support remains.
+
+Fill-in v2 adds sparse per-input-cell styles, with old v1 bytes and hashes preserved. Reports still project only values;
+archives retain the full canonical document. Bold, Italic, Underline, four sizes, Left/Centre/Right alignment,
+Default/Accent/Green/Red text colour, reset and undo/redo work on editable inputs and template fixed text.
+Structural tools stay visible and disabled. Draft/returned autosave uses a two-second debounce and one versioned queue;
+refusals keep data and stop retries, and conflicts offer reload/reapply. The existing no-process Submit path is unchanged;
+the acceptance check remains `FillInSubmitIT#withNoProcessSubmitChecksTheCellsThenEndsTheFillInAsSubmittedAndReadOnly`.
+
+The bell opens a searchable/orderable shared table. Opening a notice uses its owned facts and normal record access,
+then opens the canonical Templates tab; other targets remain on the list with an explanation. Success messages share
+three-second expiry; errors persist. The sprint/manual documents record verification and the required jar restart.
+
+## The popup, the approval flow, the product colour and the sign-in halves (FA6D)
+
+Frontend only: no migration, no endpoint, no change to who may ask for a change or to the approval engine.
+
+**Ask for a change is a popup.** `AskForChange` draws a button in the sheet toolbar (the row of the tabs) while the version in
+use is open and the API says the person may ask (`canRequest`). The shared `Modal` covers the page, so the person stands on a
+place in the grid first and the popup names it (cell, row, column or the whole template); Enter on a cell opens it too.
+`AnnotatePanel` is only the content of the popup. What was written lives in `useAnnotateDraft`, held by `AskForChange`, so
+closing the popup never drops it: with something unsent, a close (the x, Escape) asks "Keep writing / Close and keep my words /
+Discard my words". A send closes the popup and shows a three-second notice; a refusal stays inside the popup in the API's words.
+`ChangeRequestsSection` is unchanged.
+
+**The approval flow** is drawn beside the details on the Details tab (below them on a screen narrower than 56 rem) and only when
+the template has had a request. `lib/approvals/flow.ts` (pure) turns the API's `RecordApprovalView.current` into lines: the person
+who submitted, then one line per step with its state and one short line (who decided; "Waiting for N people"). A step that needs any
+one shows the person who decided it. The dot is green on the step where the request stands (the first step not finished; the last
+for an approved request; the last reached one for any other ending), red on a rejected step, grey for a step not reached or skipped.
+`ApprovalFlow` is an `ol` with the state in text and `aria-current="step"`. The card keeps the decisions and the history
+(`ApprovalCard steps={false}` leaves out its own list on this tab); the "History" link opens the card's history. The API carries no
+group for the person who submitted, so the first line says "Submitted"; it sends only the latest request.
+
+**The accent** is `#93418b` (hover `#7a3374`, soft `#f6eef8`; dark mode `#d68fcf`, hover `#e8b0e2`, soft `#2b1a2c`, text on the
+accent `#1c0f1b`). Only `styles/tokens.css` holds colours; `tokens.test.ts` keeps the old green out and checks WCAG AA (4.5 to 1)
+for every pair of accent and background in both themes. The success and danger colours are unchanged: an approved tag and the
+flow's green dot are status colours, not the brand.
+
+**The sign-in screens** (the welcome page for a signed-out visitor and `/sign-in`, on the platform's address and an
+organization's alike) share `SignInLayout`: the form centred in the left half, the product's mark (`public/logo.png`, drawn at its
+own size) centred on `--color-brand-panel` in the right half; under 48 rem the mark goes above the form. The product's name stays
+`lib/brand.ts`; the alt text is generic.
+
+Tests: `AskForChange.test.tsx`, `AnnotatePanel.test.tsx`, `flow.test.ts`, `ApprovalFlow.test.tsx`, `SignInLayout.test.tsx`,
+`tokens.test.ts`, and the FA6D cases in `TemplatesPage.test.tsx`.
+
+## Change requests through an approval, the tab, the asterisk and who publishes (FA6E)
+
+Decisions in ADR-0199. One migration (V075), one new object, one new ability, one new entry; no new table.
+
+**A request has a review of its own.** Raising a request also makes a small private record of the object **Change request**
+(`InspectionChangeRequest`, kept for good, three fields only the platform writes) and starts the organization's process for that
+object, as the person who asked. The request itself stays in its two tables (`header_id` links it to the record). When the process
+ends approved the request is **accepted**; rejected, it is **declined for good** (the person raises a new one); withdrawn, it
+stays open. Only an accepted request can be turned into a version. The process is data made in Setup, Approval processes, on the
+object **Change request**: Plant QMS (step 1), Corporate QMS (step 2, "skip when nobody"). **The groups are shared with the
+template process; the steps are edited on each process separately.** An organization without such a process answers requests the
+old way (whoever may change the template). `scripts/demo-setup.mjs` makes the process "Change request review" in `tenant-a`.
+
+**The tab.** The application has an entry **Change requests** beside Fill-ins (page key `change-requests`, reads the object
+Change request, so it is listed for Author, Reader, Filler and Approver). `ChangeRequestsPage` lists the requests of every
+template the person may see: the template (name, number, the title under it), who asked, department, version, date and status; one
+search box (title or the name of the person who asked), a click on Version, Date or Status orders the whole result on the server,
+"Show more" continues from a cursor. A row opens `ChangeRequestPage`: at the top left the template and number and the version
+read, in one row who asked and the department, the first comment, the changes requested place by place, and at the top right
+**Accept** and **Decline** (the buttons of the request's approval, shown to the people who hold a task in it; declining asks for a
+reason) or, for a request answered directly, the old flags. A reviewer sees **Turn into a new version** once it is accepted. The
+section on the template page stays, with a link to the request page. The address is `/apps/inspection/s-change-requests?open=<id>`.
+
+**The tab on the template.** The template page has a fourth tab, Change requests, after Fill-ins (`TemplateDetail`, `ChangeRequestsList` with `templateId`): the requests of that template through the same query, and the request page opens inside the tab (`?open=<template>&tab=change-requests&request=<id>`). The bell rows about a request (the `CHANGE_REQUEST` notice and the approval notices of the review record) lead to that address (`RequestRecords.pathOf`).
+
+**The asterisk.** A template with at least one request that is **open or accepted** (and not yet made into a version) has a small
+asterisk in the accent colour at the right of its row in the Templates list and at the right of its page's title band
+(`OpenRequestsMark`, role `img`, "Has open change requests"). The number is `openChangeRequests` on the list row and on the
+lifecycle view, counted as far as the person may see the requests.
+
+**Who publishes.** The abilities `sheets.publish` (publish and take back) and `sheets.retire` belong to the shipped policy
+**Publisher**, not to the Approver. An administrator gives Publisher to the group Corporate QMS, and to Plant QMS in a flow with no
+Corporate step (and takes it away again). The lifecycle view's `canPublish` and the acts ask the ability, so a hidden button is not the
+rule; nothing reads the approval's record. The Organization administrator holds every ability and always publishes.
+
+**The history on the Details tab.** `TemplateApprovals` replaces the single flow with an accordion by date (`ApprovalHistoryList`,
+each entry the same `ApprovalFlowView` as the card): "New template" (the approval of version 1), "New version N", and "Change
+requested" for each change request that went through an approval, newest first, the newest open. It calls
+`POST /api/v1/objects/{object}/records/approval-history` twice (the template, and the review records of its newest change requests).
+
+**Told by the bell.** The engine's task notices tell Plant QMS when a request is raised and Corporate QMS when the first step
+accepts; the `CHANGE_REQUEST` notice (now with the fact `request`) tells the owner of the template and the person who asked of the
+answer; a bell row opens the request page. No mail.
+
+**Tests.** No database: `ApprovalHistoryList.test.tsx`, `OpenRequestsMark.test.tsx`, `ChangeRequestsPage.test.tsx`,
+`ChangeRequestPage.test.tsx`. Real PostgreSQL: `ChangeRequestReviewIT`, `ChangeRequestListIT`, `TemplateOpenRequestsIT`,
+`TemplatePublishAuthorityIT`, `ApprovalHistoryIT`, `ChangeRequestReviewLogsAreCleanIT`, and the updated `ShippedPoliciesIT`,
+`RetainedObjectsIT`, `SolutionLoaderTest`, `StandardMetadataLoaderTest`, `ChangeRequestsIT`.

@@ -66,6 +66,12 @@ Image names and versions are in [docker-compose.yml](docker-compose.yml) (the on
 
 ## Connecting the application
 
+On Windows, from the repository root, use `./scripts/rebuild-local.ps1` to rebuild and restart the local backend.
+It stops only a Java process running this checkout's absolute jar path, packages the application, starts it hidden,
+and waits for readiness. Logs are in `platform-app/target/local-backend-out.log` and `local-backend-err.log`.
+A running jar is locked on Windows: a separate `./mvnw -DskipTests package` can fail with **Unable to rename**.
+Stop an IDE-launched backend yourself if it uses a relative path; the script deliberately does not guess its checkout.
+
 Since Sprint 1 the application uses PostgreSQL (and exports traces to the trace viewer); since Sprint 2 it connects as its
 own role (`APP_DB_USER` in `.env`, created by `./init-app-role.ps1`) and runs the outbox relay; since Sprint 3 it also uses Redis
 (sign-in rate limits shared across instances: `REDIS_PORT` and `REDIS_PASSWORD` in `.env`) and signs users in; since Sprint 4 it sends

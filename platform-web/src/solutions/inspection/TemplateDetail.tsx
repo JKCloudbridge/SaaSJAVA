@@ -1,5 +1,7 @@
 "use client";
 
+import { ActionNotice } from "@/components/ui/ActionNotice";
+
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
@@ -22,12 +24,15 @@ import type { AnnotateContext, Place, SheetAnnotate } from "@/lib/sheets/annotat
 import { DetailGrid, DetailItem, DetailPage, DetailSection, MissingDetail } from "@/components/ui/lists/DetailPage";
 import { Tag } from "@/components/ui/lists/Tag";
 import { retireTemplate, unpublishTemplate, useLifecycle, type TemplateLifecycleView } from "./api";
-import { AnnotatePanel } from "./AnnotatePanel";
+import { AskForChange } from "./AskForChange";
 import { marksFromRequests, useChangeRequests } from "./changeRequests";
+import { ChangeRequestsList } from "./ChangeRequestsPage";
 import { ChangeRequestsSection } from "./ChangeRequestsSection";
 import { FillInsList } from "./FillInsPage";
 import { lifecycleText, stateTag } from "./lifecycle";
+import { OpenRequestsMark } from "./OpenRequestsMark";
 import { PublishDialog } from "./PublishDialog";
+import { TemplateApprovals } from "./TemplateApprovals";
 import { TEMPLATE_OBJECT, text } from "./template";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
@@ -36,6 +41,7 @@ const TABS = [
   { id: "details", label: "Details" },
   { id: "sheet", label: "Sheet" },
   { id: "fill-ins", label: "Fill-ins" },
+  { id: "change-requests", label: "Change requests" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -64,7 +70,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
   const { state: form } = useObjectForm(TEMPLATE_OBJECT, undefined, id);
   const { state: lifecycle, reload } = useLifecycle(id, refresh);
   const { state: requests, reload: reloadRequests } = useChangeRequests(id, refresh);
-  // A place a comment in the list asked to be shown: the panel under the grid stands the grid on it and clears this.
+  // A place a comment in the list asked to be shown: the way in to asking (`AskForChange`) stands the grid on it and clears this.
   const [show, setShow] = useState<Place | null>(null);
   const [approval, setApproval] = useState<ApprovalState>({ locked: false, mayOverride: false, mayApprove: false });
   const [editing, setEditing] = useState(false);
@@ -143,6 +149,8 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
   const objectForm = form.status === "ready" ? form.form : undefined;
   const mayEdit = objectForm?.actions.update === true;
   const lockedForMe = approval.locked && !approval.mayOverride;
+  // The approvals sit beside the details, one entry for each by date, once the template has had a request (FA6E).
+  const flowShown = decisions.panel?.available === true && decisions.panel.current !== undefined;
 
   // Annotate mode (FA5): the version in use can be pointed at by anyone the API says may ask for a change.
   const annotate: SheetAnnotate | undefined =
@@ -151,13 +159,14 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
           versionNo: view.lifecycle.activeVersion,
           marks: marksFromRequests(requestsView),
           panel: (context: AnnotateContext) => (
-            <AnnotatePanel
+            <AskForChange
               templateId={id}
               context={context}
               view={requestsView}
               show={show}
               onShown={() => setShow(null)}
               onSent={changed}
+              toolbarSlot={toolbarSlot}
             />
           ),
         }
@@ -200,6 +209,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
     </>
   ) : (
     <>
+      <OpenRequestsMark count={view?.openChangeRequests ?? 0} />
       {tab === "details" && mayEdit ? (
         <button
           type="button"
@@ -242,9 +252,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
       notices={
         <>
           {notice ? (
-            <p className={notice.error ? "form-message" : "hint"} role={notice.error ? "alert" : "status"}>
-              {notice.text}
-            </p>
+            <ActionNotice key={notice.text} text={notice.text} error={notice.error} className="hint" occurrence={notice} />
           ) : null}
           {lifecycle.status === "failed" ? (
             <p className="form-message" role="alert">
@@ -280,71 +288,76 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
 
       <div role="tabpanel" id={`template-panel-${tab}`} aria-labelledby={`template-tab-${tab}`} className="stack">
         {tab === "details" ? (
-          <>
-            {editing && objectForm ? (
-              <RecordForm
-                formId={FORM_ID}
-                hideActions
-                objectApiName={TEMPLATE_OBJECT}
-                form={objectForm}
-                record={record.record}
-                recordHref={recordHref}
-                onRecordTypeChange={() => undefined}
-                onSaved={() => {
-                  setEditing(false);
-                  changed();
-                }}
-                onCancel={() => setEditing(false)}
-              />
-            ) : objectForm ? (
-              <RecordDetails objectApiName={TEMPLATE_OBJECT} form={objectForm} record={record.record} recordHref={recordHref} />
-            ) : (
-              <DetailGrid>
-                <DetailItem label="Level">{text(fields.level) || "None"}</DetailItem>
-                <DetailItem label="Document">{text(fields.documentType) || "None"}</DetailItem>
-                <DetailItem label="Identity category">{text(fields.category) || "None"}</DetailItem>
-                <DetailItem label="Identity sub-category">{text(fields.subCategory) || "None"}</DetailItem>
-              </DetailGrid>
-            )}
-            {!editing ? (
-              <>
-                {approval.mayApprove && view?.numberPreview ? (
-                  <DetailGrid>
-                    <DetailItem label="Number when approved" tone="mono">
-                      <span data-testid="number-note">
-                        {view.numberPreviewComplete ? view.numberPreview : `${view.numberPreview}…`}
-                      </span>
-                    </DetailItem>
-                  </DetailGrid>
-                ) : null}
-                <DetailSection title="Published to" stack>
-                  {view && view.audience.length > 0 ? (
-                    <ul aria-label="Published to" className="stack" data-testid="audience">
-                      {view.audience.map((entry) => (
-                        <li key={`${entry.location}/${entry.department}`}>
-                          {entry.locationLabel} · {entry.departmentLabel}{" "}
-                          <span className="hint">
-                            version {entry.versionNo}
-                            {entry.groupAvailable ? "" : ", its group no longer exists"}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="hint" data-testid="audience-none">
-                      Not published to any department.
+          <div className={flowShown ? "detail-with-flow detail-has-flow" : "detail-with-flow"}>
+            <div className="stack">
+              {editing && objectForm ? (
+                <RecordForm
+                  formId={FORM_ID}
+                  hideActions
+                  objectApiName={TEMPLATE_OBJECT}
+                  form={objectForm}
+                  record={record.record}
+                  recordHref={recordHref}
+                  onRecordTypeChange={() => undefined}
+                  onSaved={() => {
+                    setEditing(false);
+                    changed();
+                  }}
+                  onCancel={() => setEditing(false)}
+                />
+              ) : objectForm ? (
+                <RecordDetails objectApiName={TEMPLATE_OBJECT} form={objectForm} record={record.record} recordHref={recordHref} />
+              ) : (
+                <DetailGrid>
+                  <DetailItem label="Level">{text(fields.level) || "None"}</DetailItem>
+                  <DetailItem label="Document">{text(fields.documentType) || "None"}</DetailItem>
+                  <DetailItem label="Identity category">{text(fields.category) || "None"}</DetailItem>
+                  <DetailItem label="Identity sub-category">{text(fields.subCategory) || "None"}</DetailItem>
+                </DetailGrid>
+              )}
+              {!editing ? (
+                <>
+                  {approval.mayApprove && view?.numberPreview ? (
+                    <DetailGrid>
+                      <DetailItem label="Number when approved" tone="mono">
+                        <span data-testid="number-note">
+                          {view.numberPreviewComplete ? view.numberPreview : `${view.numberPreview}…`}
+                        </span>
+                      </DetailItem>
+                    </DetailGrid>
+                  ) : null}
+                  <DetailSection title="Published to" stack>
+                    {view && view.audience.length > 0 ? (
+                      <ul aria-label="Published to" className="stack" data-testid="audience">
+                        {view.audience.map((entry) => (
+                          <li key={`${entry.location}/${entry.department}`}>
+                            {entry.locationLabel} · {entry.departmentLabel}{" "}
+                            <span className="hint">
+                              version {entry.versionNo}
+                              {entry.groupAvailable ? "" : ", its group no longer exists"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="hint" data-testid="audience-none">
+                        Not published to any department.
+                      </p>
+                    )}
+                  </DetailSection>
+                  <ApprovalCard approval={decisions} recordVersion={record.record.version} actions={false} steps={false} />
+                  {decisions.panel && !decisions.panel.available && mayAdminister ? (
+                    <p className="hint" data-testid="no-approval-note">
+                      No approval process is set up for templates yet.
                     </p>
-                  )}
-                </DetailSection>
-                <ApprovalCard approval={decisions} recordVersion={record.record.version} actions={false} />
-                {decisions.panel && !decisions.panel.available && mayAdminister ? (
-                  <p className="hint" data-testid="no-approval-note">
-                    No approval process is set up for templates yet.
-                  </p>
-                ) : null}
-              </>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+            {flowShown ? (
+              <TemplateApprovals templateId={id} lifecycle={view} requests={requestsView} refresh={refresh} />
             ) : null}
-          </>
+          </div>
         ) : null}
 
         {tab === "sheet" ? (
@@ -370,6 +383,16 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
         ) : null}
 
         {tab === "fill-ins" ? <FillInsList templateId={id} embedded /> : null}
+
+        {tab === "change-requests" ? (
+          <ChangeRequestsList
+            templateId={id}
+            openId={params?.get("request")}
+            onOpen={(request) => router.replace(`${pathname}?open=${id}&tab=change-requests&request=${request}`)}
+            onClose={() => router.replace(`${pathname}?open=${id}&tab=change-requests`)}
+            onChanged={changed}
+          />
+        ) : null}
       </div>
 
       {publishing && view ? (

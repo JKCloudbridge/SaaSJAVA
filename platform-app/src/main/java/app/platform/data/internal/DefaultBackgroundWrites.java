@@ -73,6 +73,7 @@ class DefaultBackgroundWrites implements BackgroundWrites {
         } catch (UniqueValueTakenException taken) {
             throw new BackgroundWriteException(Reason.UNIQUE_CLASH);
         }
+        pipeline.stored(null, created);
         links.sync(object, created.id(), plan.set(), plan.clear(), PLATFORM);
         searchIndex.index(object, created, null, PLATFORM);
         changes.createdByWorkflow(source, created.objectApiName(), created.id(), created.version(), plan.names());
@@ -111,6 +112,7 @@ class DefaultBackgroundWrites implements BackgroundWrites {
             throw new BackgroundWriteException(now == null ? Reason.RECORD_GONE
                     : now.deleted() ? Reason.RECORD_IN_BIN : Reason.CONCURRENT_MODIFICATION);
         }
+        pipeline.stored(current, updated);
         links.sync(object, updated.id(), plan.set(), plan.clear(), PLATFORM);
         searchIndex.index(object, updated, plan.names(), PLATFORM);
         changes.updatedByWorkflow(source, updated.objectApiName(), updated.id(), updated.version(), plan.names());

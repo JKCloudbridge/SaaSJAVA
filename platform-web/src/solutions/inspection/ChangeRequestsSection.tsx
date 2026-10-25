@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useId, useState } from "react";
 import { Tag } from "@/components/ui/lists/Tag";
 import { formatInstant } from "@/lib/records/fieldValue";
@@ -7,6 +8,7 @@ import {
   addChangeComment,
   answerChangeRequest,
   becameWords,
+  changeRequestsHref,
   placeOf,
   placeWords,
   statusWords,
@@ -117,7 +119,7 @@ export function ChangeRequestsSection({
         <p className="empty-state" role="status">
           {view.canReview
             ? "Nobody has asked for a change to this template."
-            : "You have not asked for a change to this template. To ask for one, stand on a place in the sheet and write a comment under it."}
+            : "You have not asked for a change to this template. To ask for one, stand on a place in the sheet and press Ask for a change."}
         </p>
       ) : (
         <>
@@ -236,6 +238,12 @@ function RequestCard({
         {request.placesTotal > 0
           ? ` ${request.placesTotal} place${request.placesTotal === 1 ? "" : "s"} named${gone > 0 ? `, ${gone} no longer in the version in use` : ""}.`
           : ""}
+      </p>
+      <p>
+        <Link href={changeRequestsHref(templateId, request.id)} className="link-button" data-testid="request-open">
+          Open the request
+        </Link>
+        {request.reviewId && request.status === "OPEN" ? <span className="hint"> It is waiting for its approval.</span> : null}
       </p>
       <p className="hint" data-testid="request-department">
         Department when asked: {request.requesterDepartment ?? "—"}

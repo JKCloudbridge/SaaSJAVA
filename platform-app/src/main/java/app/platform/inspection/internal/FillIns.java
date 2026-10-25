@@ -86,10 +86,12 @@ class FillIns {
     private final AuditRecorder audit;
     private final TenantContexts contexts;
     private final MeterRegistry meters;
+    private final TemplateNumbers templateNumbers;
 
     FillIns(TemplateAccess access, BackgroundRecords background, Records records, SheetLifecycle sheets,
             FillLifecycle fills, FillHeaders headers, FillSubmission submission, ApprovalApplicability approvals,
-            List<ReferenceLabels> labels, AuditRecorder audit, TenantContexts contexts, MeterRegistry meters) {
+            List<ReferenceLabels> labels, AuditRecorder audit, TenantContexts contexts, MeterRegistry meters,
+            TemplateNumbers templateNumbers) {
         this.access = access;
         this.background = background;
         this.records = records;
@@ -102,6 +104,7 @@ class FillIns {
         this.audit = audit;
         this.contexts = contexts;
         this.meters = meters;
+        this.templateNumbers = templateNumbers;
     }
 
     /** Whether the caller may start a fill-in on this template, for a screen to offer or hide the button. */
@@ -266,6 +269,7 @@ class FillIns {
             }
         });
         Map<UUID, SheetLifecycle.Summary> versions = sheets.summaries(Templates.OBJECT, templates);
+        Map<UUID, String> numbers = templateNumbers.of(templates);
         Map<UUID, String> people = people(visible);
         List<FillInRow> rows = new ArrayList<>();
         for (QueriedRecord found : visible) {
@@ -279,7 +283,7 @@ class FillIns {
             rows.add(new FillInRow(header.id(), template, text(header, Fills.NAME), summary.status().name(),
                     summary.versionNo(), inUse != null && inUse.active() == summary.versionNo(), summary.rowCount(),
                     people.get(header.ownerId()), summary.createdAt(), summary.updatedAt(), summary.submittedAt(),
-                    summary.archivedAt()));
+                    summary.archivedAt(), numbers.get(template)));
         }
         return rows;
     }

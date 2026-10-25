@@ -73,10 +73,12 @@ class TemplatePublishing {
     private final TenantContexts contexts;
     private final MeterRegistry meters;
     private final NumberSeries numbers;
+    private final ChangeRequestCounts requestCounts;
 
     TemplatePublishing(TemplateAccess access, PublicationStore store, SheetLifecycle sheets, RecordShares shares,
             DepartmentAudiences audiences, BackgroundRecords records, BackgroundWrites writes, GroupMembers groups,
-            AuditRecorder audit, TenantContexts contexts, MeterRegistry meters, NumberSeries numbers) {
+            AuditRecorder audit, TenantContexts contexts, MeterRegistry meters, NumberSeries numbers,
+            ChangeRequestCounts requestCounts) {
         this.access = access;
         this.store = store;
         this.sheets = sheets;
@@ -89,6 +91,7 @@ class TemplatePublishing {
         this.contexts = contexts;
         this.meters = meters;
         this.numbers = numbers;
+        this.requestCounts = requestCounts;
     }
 
     /** The lifecycle of one template with what a screen may offer the caller. */
@@ -273,6 +276,8 @@ class TemplatePublishing {
         boolean mayPublish = access.has(caller, Ability.SHEETS_PUBLISH);
         boolean mayRetire = access.has(caller, Ability.SHEETS_RETIRE);
         boolean somethingToPublish = summary.approved() > 0 || summary.active() > 0;
+        boolean mayPublishNow = mayPublish && somethingToPublish;
+        int waiting = requestCounts.waiting(caller, List.of(templateId)).getOrDefault(templateId, 0);
         Optional<String> whole = Optional.empty();
         Optional<String> start = Optional.empty();
         if (Templates.isBlank(header.fields().get(Templates.NUMBER)) && !retired) {
@@ -280,8 +285,14 @@ class TemplatePublishing {
             start = whole.isPresent() ? whole : numbers.prefix(Templates.SERIES, header.fields());
         }
         return new TemplateLifecycleView(templateId, retired, lifecycle(summary, retired), audience,
-                mayPublish && !retired && somethingToPublish, mayPublish && summary.active() > 0,
-                mayRetire && !retired, start.orElse(null), whole.isPresent());
+                mayPublishNow && !retired, mayPublish && summary.active() > 0,
+                mayRetire && !retired, start.orElse(null), whole.isPresent(), waiting, reviews(templateId));
+    }
+
+    private List<TemplateViews.VersionReview> reviews(UUID templateId) {
+        return sheets.reviewRequests(Templates.OBJECT, templateId).entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> new TemplateViews.VersionReview(entry.getKey(), entry.getValue())).toList();
     }
 
     static TemplateLifecycle lifecycle(SheetLifecycle.Summary summary, boolean retired) {

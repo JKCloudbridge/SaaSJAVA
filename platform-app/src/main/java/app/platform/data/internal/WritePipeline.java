@@ -113,11 +113,14 @@ class WritePipeline {
     private final RecordVisibility visibility;
     private final BeforeSave beforeSave;
     private final DependentValues dependentValues;
+    private final RecordWriteRules writeRules;
 
     WritePipeline(RecordValues shape, RecordTypeCheck recordTypes, FieldSecurity security,
             Calculations calculations, AutoNumbers autoNumbers, StorageStrategy storage, Metadata metadata,
             RecordSlots slots, RecordLinks recordLinks, List<ReferenceDirectory> directories,
-            RecordVisibility visibility, BeforeSave beforeSave, DependentValues dependentValues) {
+            RecordVisibility visibility, BeforeSave beforeSave, DependentValues dependentValues,
+            RecordWriteRules writeRules) {
+        this.writeRules = writeRules;
         this.dependentValues = dependentValues;
         this.beforeSave = beforeSave;
         this.visibility = visibility;
@@ -185,6 +188,10 @@ class WritePipeline {
         recordTypes.checkOffered(type, object, allowed.stream().filter(checked.set()::containsKey).toList(),
                 permission);
         throwIfAny("field permission", permission, refused);
+        refusing("field permission", refused, () -> {
+            writeRules.checkLocked(object, current, checked.set(), checked.clear());
+            return Boolean.TRUE;
+        });
 
         Map<String, Object> values = new LinkedHashMap<>(checked.set());
         List<String> cleared = new ArrayList<>(checked.clear());
@@ -257,12 +264,33 @@ class WritePipeline {
         dependentValues.check(object, access, merged, typed, cleared, held, pairs);
         throwIfAny("dependent", pairs, refused);
 
+        // Trusted domain contributions use this same pipeline; member input was checked before this seam.
+        var contribution = refusing("rule", refused, () -> writeRules.prepare(object, current, merged,
+                access.editableFields(), passed.byPlatform()));
+        contribution.set().forEach((field, value) -> {
+            var outcome = FieldValue.check(object.field(field).orElseThrow(), value, held.get(field));
+            if (!outcome.valid()) {
+                throw ApiException.validation(field, outcome.problem());
+            }
+            typed.put(field, outcome.value());
+            merged.put(field, outcome.value());
+            cleared.remove(field);
+        });
+        contribution.clear().forEach(field -> {
+            typed.remove(field);
+            merged.remove(field);
+            if (!cleared.contains(field)) {
+                cleared.add(field);
+            }
+        });
+
         // 7. unique (the database refuses a duplicate that slips past this, and the answer is the same)
         Findings unique = new Findings();
         UUID self = current == null ? null : current.id();
         for (RecordSlots.Probe probe : slots.probes(active, object, merged, held)) {
             if (storage.valueTaken(object.apiName(), probe.bit(), probe.values(), self)) {
-                unique.add(FieldSecurity.place(access, probe.place()), probe.pair() ? PAIR_TAKEN : VALUE_TAKEN);
+                unique.add(FieldSecurity.place(access, probe.place()), probe.pair() ? PAIR_TAKEN
+                        : uniqueWords(object.apiName(), probe.place(), VALUE_TAKEN));
             }
         }
         throwIfAny("unique", unique, refused);
@@ -308,6 +336,14 @@ class WritePipeline {
         });
         SlotCopy copies = slots.copyIndexed(active, object, after);
         return new Plan(typeName, toStore, toClear, copies);
+    }
+
+    void stored(DataRecord before, DataRecord after) {
+        writeRules.stored(before, after);
+    }
+
+    String uniqueWords(String object, String field, String fallback) {
+        return writeRules.uniqueWords(object, field, fallback);
     }
 
     // ---- reporting which stage refused ----

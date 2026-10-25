@@ -18,6 +18,12 @@ class AbilityTest {
     private static final String KEY_SHAPE = "[a-z][a-z0-9.-]{0,59}";
 
     @Test
+    void numberingManagementHasItsOwnAbilityRatherThanMetadataManagement() {
+        assertThat(Ability.fromKey("numbering.manage")).contains(Ability.NUMBERING_MANAGE);
+        assertThat(Ability.NUMBERING_MANAGE).isNotEqualTo(Ability.METADATA_MANAGE);
+    }
+
+    @Test
     void everyKeyIsUniqueDocumentedAndHasTheShapeTheDatabaseAccepts() {
         List<String> keys = Arrays.stream(Ability.values()).map(Ability::key).toList();
 

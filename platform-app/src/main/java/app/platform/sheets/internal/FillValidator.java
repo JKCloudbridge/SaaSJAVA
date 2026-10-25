@@ -94,7 +94,7 @@ final class FillValidator {
     }
 
     /** A row as it arrived, before the sheet is asked about it. */
-    private record RawRow(String id, Map<String, Object> cells) {
+    private record RawRow(String id, Map<String, Object> cells, Map<String, Map<String, Object>> styles) {
     }
 
     private final FillProperties properties;
@@ -139,7 +139,7 @@ final class FillValidator {
                 return capped(stage);
             }
         }
-        FillDoc normal = normalize(rows, structure);
+        FillDoc normal = normalize(rows, structure, document.path("formatVersion").asInt());
         String canonical = write(normal);
         byte[] bytes = canonical.getBytes(StandardCharsets.UTF_8);
         if (bytes.length > properties.maxBytes()) {
@@ -162,20 +162,25 @@ final class FillValidator {
                 cells.put(cell.getKey(), cell.getValue().isBoolean() ? (Object) cell.getValue().asBoolean()
                         : cell.getValue().asString());
             }
-            rows.add(new FillDoc.Row(row.path("id").asString(), cells));
+            rows.add(new FillDoc.Row(row.path("id").asString(), cells, styles(row.path("styles"), "", null)));
         }
-        return new FillDoc(rows);
+        return new FillDoc(root.path("formatVersion").asInt(), rows);
     }
 
     /** The canonical text of a document. */
     static String write(FillDoc doc) {
         Map<String, Object> root = new TreeMap<>();
-        root.put("formatVersion", FillDoc.FORMAT_VERSION);
+        root.put("formatVersion", doc.formatVersion());
         List<Object> rows = new ArrayList<>();
         for (FillDoc.Row row : doc.rows()) {
             Map<String, Object> one = new TreeMap<>();
             one.put("id", row.id());
             one.put("cells", new TreeMap<>(row.cells()));
+            if (doc.formatVersion() == 2 && !row.styles().isEmpty()) {
+                Map<String, Object> styles = new TreeMap<>();
+                row.styles().forEach((column, style) -> styles.put(column, new TreeMap<>(style)));
+                one.put("styles", styles);
+            }
             rows.add(one);
         }
         root.put("rows", rows);
@@ -238,7 +243,7 @@ final class FillValidator {
             }
         }
         JsonNode format = root.path("formatVersion");
-        if (!format.isInt() || format.asInt() != FillDoc.FORMAT_VERSION) {
+        if (!format.isInt() || (format.asInt() != 1 && format.asInt() != 2)) {
             out.add(new Problem("format", ROOT + ".formatVersion", "The format of the fill-in is not supported."));
         }
         JsonNode list = root.path("rows");
@@ -247,19 +252,20 @@ final class FillValidator {
             return rows;
         }
         for (int i = 0; i < list.size(); i++) {
-            shapeOfRow(list.get(i), i, rows, out);
+            shapeOfRow(list.get(i), i, rows, out, format.asInt());
         }
         return rows;
     }
 
-    private void shapeOfRow(JsonNode row, int index, List<RawRow> rows, List<Problem> out) {
+    private void shapeOfRow(JsonNode row, int index, List<RawRow> rows, List<Problem> out, int version) {
         String place = ROOT + ".rows[" + index + "]";
         if (!row.isObject()) {
             out.add(new Problem("shape", place, "This has the wrong kind of value."));
             return;
         }
         for (Map.Entry<String, JsonNode> entry : row.properties()) {
-            if (!"id".equals(entry.getKey()) && !"cells".equals(entry.getKey())) {
+            if (!"id".equals(entry.getKey()) && !"cells".equals(entry.getKey())
+                    && !(version == 2 && "styles".equals(entry.getKey()))) {
                 out.add(new Problem("shape", place + ".…", "This is not allowed here."));
             }
         }
@@ -290,8 +296,53 @@ final class FillValidator {
             }
         }
         if (id.isString()) {
-            rows.add(new RawRow(id.asString(), values));
+            rows.add(new RawRow(id.asString(), values, styles(row.path("styles"), place + ".styles", out)));
         }
+    }
+
+    /** Closed, non-executable style language. Unknown keys and their contents never enter a refusal. */
+    private static Map<String, Map<String, Object>> styles(JsonNode node, String place, List<Problem> out) {
+        Map<String, Map<String, Object>> result = new LinkedHashMap<>();
+        if (node.isMissingNode()) {
+            return result;
+        }
+        if (!node.isObject()) {
+            if (out != null) {
+                out.add(new Problem("style_shape", place, "A cell style has the wrong kind of value."));
+            }
+            return result;
+        }
+        for (var cell : node.properties()) {
+            if (!ID.matcher(cell.getKey()).matches() || !cell.getValue().isObject()) {
+                if (out != null) {
+                    out.add(new Problem("style_shape", place, "A cell style has the wrong kind of value."));
+                }
+                continue;
+            }
+            Map<String, Object> style = new LinkedHashMap<>();
+            for (var part : cell.getValue().properties()) {
+                String key = part.getKey();
+                JsonNode value = part.getValue();
+                if (Set.of("bold", "italic", "underline").contains(key) && value.isBoolean()) {
+                    style.put(key, value.asBoolean());
+                } else if (key.equals("fontSize") && value.isString()
+                        && Set.of("SMALL", "NORMAL", "LARGE", "TITLE").contains(value.asString())) {
+                    style.put(key, value.asString());
+                } else if (key.equals("alignment") && value.isString()
+                        && Set.of("LEFT", "CENTER", "RIGHT").contains(value.asString())) {
+                    style.put(key, value.asString());
+                } else if (key.equals("colour") && value.isString()
+                        && Set.of("DEFAULT", "ACCENT", "SUCCESS", "DANGER").contains(value.asString())) {
+                    style.put(key, value.asString());
+                } else if (out != null) {
+                    out.add(new Problem("style_shape", place, "This style is not supported."));
+                }
+            }
+            if (!style.isEmpty()) {
+                result.put(cell.getKey(), style);
+            }
+        }
+        return result;
     }
 
     // ---- limits and text ----
@@ -352,6 +403,12 @@ final class FillValidator {
         List<Problem> out = new ArrayList<>();
         for (int i = 0; i < rows.size(); i++) {
             RawRow row = rows.get(i);
+            for (String column : row.styles().keySet()) {
+                if (structure.column(column) == null || !structure.isInput(row.id(), column)) {
+                    out.add(new Problem("style_not_input", ROOT + ".rows[" + i + "].styles",
+                            "Only an input cell can be formatted in a fill-in."));
+                }
+            }
             for (Map.Entry<String, Object> cell : row.cells().entrySet()) {
                 String place = cellPlace(i, cell.getKey());
                 Column column = structure.column(cell.getKey());
@@ -377,7 +434,7 @@ final class FillValidator {
 
     // ---- canonical form ----
 
-    private static FillDoc normalize(List<RawRow> rows, FillStructure structure) {
+    private static FillDoc normalize(List<RawRow> rows, FillStructure structure, int version) {
         Map<String, FillDoc.Row> named = new LinkedHashMap<>();
         List<FillDoc.Row> added = new ArrayList<>();
         for (RawRow row : rows) {
@@ -387,7 +444,7 @@ final class FillValidator {
                     cells.put(column, value);
                 }
             });
-            FillDoc.Row one = new FillDoc.Row(row.id(), cells);
+            FillDoc.Row one = new FillDoc.Row(row.id(), cells, row.styles());
             if (structure.isNamedRow(row.id())) {
                 named.put(row.id(), one);
             } else {
@@ -397,12 +454,12 @@ final class FillValidator {
         List<FillDoc.Row> ordered = new ArrayList<>();
         for (String id : structure.namedRows()) {
             FillDoc.Row row = named.get(id);
-            if (row != null && !row.cells().isEmpty()) {
+            if (row != null && (!row.cells().isEmpty() || !row.styles().isEmpty())) {
                 ordered.add(row);
             }
         }
         ordered.addAll(added);
-        return new FillDoc(ordered);
+        return new FillDoc(version, ordered);
     }
 
     private static Result rejected(Problem problem) {

@@ -3,6 +3,7 @@ package app.platform.data.internal;
 import app.platform.data.NumberSeries;
 import app.platform.data.NumberSeriesException;
 import app.platform.data.NumberSeriesException.Reason;
+import app.platform.data.StorageStrategy;
 import app.platform.sharedkernel.ActorId;
 import app.platform.tenant.TenantContexts;
 import java.util.ArrayList;
@@ -35,16 +36,22 @@ class DefaultNumberSeries implements NumberSeries {
             + "on conflict (tenant_id, series_key, scope_key) where deleted_at is null "
             + "do update set next_value = number_series_counter.next_value + 1, "
             + "version = number_series_counter.version + 1, updated_by = :actor "
+            + "where number_series_counter.next_value <= 999999999999 "
             + "returning next_value - 1";
 
     private final NumberSeriesCatalogue catalogue;
+    private final NumberingFormats formats;
     private final JdbcClient jdbc;
     private final TenantContexts contexts;
+    private final StorageStrategy storage;
 
-    DefaultNumberSeries(NumberSeriesCatalogue catalogue, JdbcClient jdbc, TenantContexts contexts) {
+    DefaultNumberSeries(NumberSeriesCatalogue catalogue, JdbcClient jdbc, TenantContexts contexts,
+            NumberingFormats formats, StorageStrategy storage) {
+        this.storage = storage;
         this.catalogue = catalogue;
         this.jdbc = jdbc;
         this.contexts = contexts;
+        this.formats = formats;
     }
 
     @Override
@@ -56,7 +63,7 @@ class DefaultNumberSeries implements NumberSeries {
     public Optional<String> prefix(String seriesKey, Map<String, Object> values) {
         NumberSeriesCatalogue.Series series = series(seriesKey);
         try {
-            NumberFormat format = format(series, values);
+            NumberFormat format = formats.resolve(series, values);
             return Optional.of(format.prefix(values));
         } catch (NumberSeriesException unavailable) {
             if (unavailable.reason() == Reason.UNKNOWN_SERIES) {
@@ -73,12 +80,14 @@ class DefaultNumberSeries implements NumberSeries {
         if (!(choice instanceof String code) || (!series.selector().isEmpty() && code.isEmpty())) {
             return Optional.empty();
         }
-        Optional<NumberFormat> format = series.formatFor(code);
-        if (format.isEmpty()) {
+        NumberFormat format;
+        try {
+            format = formats.resolve(series, values);
+        } catch (NumberSeriesException unavailable) {
             return Optional.empty();
         }
         List<String> missing = new ArrayList<>();
-        for (String name : format.get().fields()) {
+        for (String name : format.fields()) {
             Object value = values.get(name);
             if (!(value instanceof String text) || !NumberFormat.CODE.matcher(text).matches()) {
                 missing.add(name);
@@ -91,7 +100,7 @@ class DefaultNumberSeries implements NumberSeries {
     public Optional<String> known(String seriesKey, Map<String, Object> values) {
         NumberSeriesCatalogue.Series series = series(seriesKey);
         try {
-            NumberFormat format = format(series, values);
+            NumberFormat format = formats.resolve(series, values);
             return format.hasCounter() ? Optional.empty() : Optional.of(format.render(values, 0));
         } catch (NumberSeriesException unavailable) {
             if (unavailable.reason() == Reason.UNKNOWN_SERIES) {
@@ -107,18 +116,31 @@ class DefaultNumberSeries implements NumberSeries {
             throw new IllegalStateException("A number is taken inside a transaction");
         }
         NumberSeriesCatalogue.Series series = series(seriesKey);
-        NumberFormat format = format(series, values);
+        NumberFormat format = formats.resolve(series, values);
         // Every part is checked before the counter moves: a record that cannot be numbered must not use a number.
         format.render(values, 1);
         if (!format.hasCounter()) {
             // Nothing to count: the number is the values themselves and the unique index of the field is the backstop.
             return format.render(values, 0);
         }
-        String scope = String.join("/", scopeOf(series, format, values));
-        long counter = jdbc.sql(NEXT).param("tenant", contexts.require().tenantId().value())
-                .param("series", series.key()).param("scope", scope).param("actor", ActorId.SYSTEM.value())
-                .query(Long.class).single();
-        return format.render(values, counter);
+        String scope = NumberingFormats.scope(series, format, values);
+        // A format change may produce a spelling issued by another scope. Never recycle a reserved spelling.
+        for (int attempt = 0; attempt < 1000; attempt++) {
+            long counter = jdbc.sql(NEXT).param("tenant", contexts.require().tenantId().value())
+                    .param("series", series.key()).param("scope", scope).param("actor", ActorId.SYSTEM.value())
+                    .query(Long.class).optional()
+                    .orElseThrow(() -> new NumberSeriesException(Reason.COUNTER_EXHAUSTED));
+            String candidate = format.render(values, counter);
+            boolean used = jdbc.sql("select exists(select 1 from number_series_reservation "
+                    + "where tenant_id = :tenant and series_key = :series and number_value = :number)")
+                    .param("tenant", contexts.require().tenantId().value()).param("series", series.key())
+                    .param("number", candidate).query(Boolean.class).single()
+                    || storage.holdsText(series.object(), series.field(), candidate, null);
+            if (!used) {
+                return candidate;
+            }
+        }
+        throw new NumberSeriesException(Reason.COUNTER_EXHAUSTED);
     }
 
     // ---- helpers ----
@@ -127,18 +149,4 @@ class DefaultNumberSeries implements NumberSeries {
         return catalogue.series(key).orElseThrow(() -> new NumberSeriesException(Reason.UNKNOWN_SERIES));
     }
 
-    private static NumberFormat format(NumberSeriesCatalogue.Series series, Map<String, Object> values) {
-        String choice = series.selector().isEmpty() ? "" : NumberFormat.codeOf(values.get(series.selector()));
-        return series.formatFor(choice).orElseThrow(() -> new NumberSeriesException(Reason.NO_FORMAT));
-    }
-
-    private static List<String> scopeOf(NumberSeriesCatalogue.Series series, NumberFormat format,
-            Map<String, Object> values) {
-        List<String> scope = new ArrayList<>();
-        if (!series.selector().isEmpty()) {
-            scope.add(NumberFormat.codeOf(values.get(series.selector())));
-        }
-        scope.addAll(format.scopeParts(values));
-        return scope;
-    }
 }

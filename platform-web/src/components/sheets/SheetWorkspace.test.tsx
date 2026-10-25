@@ -49,6 +49,34 @@ function draw() {
 const bodyOf = (calls: Call[], key: string) => JSON.parse(calls.filter((c) => c.key === key).at(-1)?.body ?? "null") as unknown;
 
 describe("a sheet with a draft", () => {
+  it("saves and reopens underline, alignment and theme text colour from the template toolbar", async () => {
+    const calls = fakeApi({
+      [`GET ${BASE}`]: list([summary(1, "DRAFT", 7)]),
+      [`GET ${BASE}/1`]: one(1, "DRAFT", 7),
+      [`PUT ${BASE}/1/grid`]: () => json({ data: summary(1, "DRAFT", 8) }),
+    });
+    const first = draw();
+    await screen.findByRole("grid");
+    fireEvent.click(screen.getByRole("button", { name: "Underline" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Alignment" }), { target: { value: "RIGHT" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Text colour" }), { target: { value: "SUCCESS" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("All changes are saved.");
+    const stored = bodyOf(calls, `PUT ${BASE}/1/grid`);
+    expect(stored).toMatchObject({ cells: { "h1:c1": { style: {
+      bold: true, fontSize: "TITLE", underline: true, alignment: "RIGHT", colour: "SUCCESS",
+    } } } });
+    first.unmount();
+    fakeApi({
+      [`GET ${BASE}`]: list([summary(1, "DRAFT", 8)]),
+      [`GET ${BASE}/1`]: () => json({ data: { version: summary(1, "DRAFT", 8), grid: stored } }),
+    });
+    const reopened = draw();
+    await screen.findByRole("grid");
+    expect(reopened.container.querySelector('[data-r="0"][data-c="0"]'))
+      .toHaveClass("sheet-underline", "sheet-align-right", "sheet-colour-success");
+    expect(screen.getByRole("button", { name: "Underline" })).toHaveAttribute("aria-pressed", "true");
+  });
   it("lists the versions with their tags and opens the draft in the grid view", async () => {
     fakeApi({
       [`GET ${BASE}`]: list([summary(2, "DRAFT", 3), summary(1, "ACTIVE", 5)]),
@@ -176,18 +204,19 @@ describe("a sheet with a draft", () => {
 });
 
 describe("a sheet with no version", () => {
-  it("lets a person who may change it start the first version and choose the shape", async () => {
+  it("offers only the two start choices and defaults to named rows", async () => {
     const calls = fakeApi({
       [`GET ${BASE}`]: list([]),
       [`POST ${BASE}`]: () => json({ data: summary(1, "DRAFT", 0) }, 201),
     });
     draw();
 
-    fireEvent.click(await screen.findByRole("radio", { name: "The filler adds the rows" }));
-    fireEvent.click(screen.getByRole("button", { name: "Start the first version" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start first version" }));
+    expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.queryByText(/There is no version yet/)).toBeNull();
 
     await waitFor(() => expect(calls.some((c) => c.key === `POST ${BASE}`)).toBe(true));
-    expect(bodyOf(calls, `POST ${BASE}`)).toEqual({ dimension: 1 });
+    expect(bodyOf(calls, `POST ${BASE}`)).toEqual({ dimension: 2 });
   });
 
   it("shows the API's words when the first version cannot be started", async () => {
@@ -197,7 +226,7 @@ describe("a sheet with no version", () => {
     });
     draw();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Start the first version" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start first version" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("You are not allowed to perform this action.");
   });
@@ -207,7 +236,7 @@ describe("a sheet with no version", () => {
     draw();
 
     expect(await screen.findByText("No version is in use yet.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Start the first version" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Start first version" })).toBeNull();
   });
 });
 
@@ -535,7 +564,7 @@ describe("a version made from a spreadsheet file", () => {
       },
     });
     draw();
-    await screen.findByRole("button", { name: "Start the first version" });
+    await screen.findByRole("button", { name: "Start first version" });
 
     fireEvent.click(screen.getByRole("button", { name: "Start from a spreadsheet" }));
     choose("Fire checks.xlsx");

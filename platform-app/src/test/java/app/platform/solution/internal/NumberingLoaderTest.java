@@ -57,6 +57,9 @@ class NumberingLoaderTest {
         assertThat(series.object()).isEqualTo("InspectionTemplate");
         assertThat(series.field()).isEqualTo("number");
         assertThat(series.selector()).isEqualTo("category");
+        assertThat(series.defaults()).containsEntry("optionalField", "subCategory")
+                .containsEntry("format", "{field:category}/{field:subCategory}/{seq:1}")
+                .containsEntry("withoutOptional", "{field:category}/{seq:1}");
         assertThat(series.formats()).containsEntry("WI", "WI/{field:subCategory}/{seq:2}")
                 .containsEntry("IMS", "IMS/{seq:2}").hasSize(16);
         // The categories whose last part the author types have a format without a counter (FA4, ADR-0188).

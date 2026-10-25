@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { SignInForm } from "@/components/auth/SignInForm";
+import { SignInLayout } from "@/components/auth/SignInLayout";
 import { usePlatformAddress } from "@/lib/account/usePlatformAddress";
 import { useApplications } from "@/lib/applications/ApplicationsProvider";
 import { PLATFORM_BRAND_NAME } from "@/lib/brand";
@@ -71,12 +72,11 @@ function useJustSignedIn(): boolean | undefined {
 
 function Welcome() {
   return (
-    <>
-      <h1>Welcome to {PLATFORM_BRAND_NAME}</h1>
+    <SignInLayout title={`Welcome to ${PLATFORM_BRAND_NAME}`}>
       <div className="card">
         <SignInForm returnTo={returnPathAfterSignIn("/")} />
       </div>
-    </>
+    </SignInLayout>
   );
 }
 

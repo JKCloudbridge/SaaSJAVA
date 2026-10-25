@@ -7,6 +7,8 @@ import app.platformapi.ApiPageResponse;
 import app.platformapi.Cursors;
 import app.platformapi.NotificationSummaryView;
 import app.platformapi.NotificationView;
+import app.platformapi.NotificationOpenView;
+import app.platform.sharedkernel.notice.NoticeDestination;
 import app.platformapi.Pagination;
 import java.time.Instant;
 import java.util.List;
@@ -27,12 +29,15 @@ class NotificationService {
     private final NoticeTexts texts;
     private final NoticeProperties properties;
     private final TenantContexts contexts;
+    private final org.springframework.beans.factory.ObjectProvider<NoticeDestination> destinations;
 
-    NotificationService(NoticeStore store, NoticeTexts texts, NoticeProperties properties, TenantContexts contexts) {
+    NotificationService(NoticeStore store, NoticeTexts texts, NoticeProperties properties, TenantContexts contexts,
+            org.springframework.beans.factory.ObjectProvider<NoticeDestination> destinations) {
         this.store = store;
         this.texts = texts;
         this.properties = properties;
         this.contexts = contexts;
+        this.destinations = destinations;
     }
 
     /** The member who asks, or "not found" on the platform host or without a member. */
@@ -84,6 +89,19 @@ class NotificationService {
     @Transactional
     int markAllRead(UUID member) {
         return store.markAllRead(member, member);
+    }
+
+    @Transactional
+    NotificationOpenView open(UUID member, UUID id) {
+        NoticeStore.Row row = store.find(member, id)
+                .orElseThrow(() -> ApiException.notFound("This notice does not exist."));
+        store.markRead(member, id, member);
+        String path = destinations.orderedStream().filter(target -> target.object().equals(row.objectApiName()))
+                .map(target -> target.readablePath(row.recordId(), row.facts())).flatMap(java.util.Optional::stream)
+                .findFirst().orElse(null);
+        return path == null ? new NotificationOpenView("/notifications",
+                "This notice has no record you can open here. It has been marked as read.")
+                : new NotificationOpenView(path, null);
     }
 
     private static NotificationView view(NoticeStore.Row row, NoticeTexts.Context words) {

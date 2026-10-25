@@ -1,5 +1,7 @@
 "use client";
 
+import { TextStyleControls } from "./TextStyleControls";
+
 import type { AnnotationMarks } from "@/lib/sheets/annotate";
 import type { FontSize } from "@/lib/sheets/types";
 import { SheetGrid } from "./SheetGrid";
@@ -69,6 +71,8 @@ export function GridView({ editor, readOnly, readOnlyReason, label, annotation }
               ))}
             </select>
           </label>
+          <TextStyleControls underline={state.underline} alignment={state.alignment} colour={state.colour}
+            onUnderline={editor.underline} onAlignment={editor.alignment} onColour={editor.colour} />
           <span className="sheet-toolbar-gap" aria-hidden="true" />
           <button type="button" className="button button-secondary" onClick={editor.merge} disabled={!state.canMerge}>
             Merge

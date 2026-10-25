@@ -75,7 +75,7 @@ function FillField({
         rows={2}
         value={draft}
         aria-invalid={words.length > 0}
-        onChange={(event) => setDraft(event.target.value)}
+        onChange={(event) => { setDraft(event.target.value); apply(event.target.value); }}
         onBlur={() => apply(draft)}
       />
     );
@@ -89,7 +89,7 @@ function FillField({
         value={draft}
         aria-label={undefined}
         aria-invalid={words.length > 0}
-        onChange={(event) => setDraft(event.target.value)}
+        onChange={(event) => { setDraft(event.target.value); apply(event.target.value); }}
         onBlur={() => apply(draft)}
         data-name={name}
       />

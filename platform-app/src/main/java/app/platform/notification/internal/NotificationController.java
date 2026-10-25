@@ -6,6 +6,7 @@ import app.platformapi.ApiResponse;
 import app.platformapi.NotificationPreferencesView;
 import app.platformapi.NotificationSummaryView;
 import app.platformapi.NotificationView;
+import app.platformapi.NotificationOpenView;
 import app.platformapi.UpdateNotificationPreferencesRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -84,6 +85,14 @@ class NotificationController {
     ResponseEntity<Void> markAllRead() {
         service.markAllRead(service.member());
         return ResponseEntity.noContent().header(HttpHeaders.CACHE_CONTROL, "no-store").build();
+    }
+
+    @PostMapping(NOTIFICATIONS + "/{id}/open")
+    @Operation(operationId = "openNotification", summary = "Read a notice and resolve its readable record",
+            description = "Only the caller's own notice. A missing or unsupported target stays on the notices list "
+                    + "with fixed words. Target access is checked through the ordinary record read gate.")
+    ApiResponse<NotificationOpenView> open(@PathVariable UUID id) {
+        return ApiResponse.of(service.open(service.member(), id));
     }
 
     @GetMapping(PREFERENCES)

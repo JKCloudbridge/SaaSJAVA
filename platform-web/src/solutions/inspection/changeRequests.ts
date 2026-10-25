@@ -207,3 +207,86 @@ export function becameWords(request: ChangeRequestView): string | null {
                     : null;
   return what ? `Version ${request.resultingVersion} (${what})` : `Version ${request.resultingVersion}`;
 }
+
+// ---- the list across templates and one request on its own (FA6E, ADR-0199) ----
+
+export type ChangeRequestRow = components["schemas"]["ChangeRequestRow"];
+export type ChangeRequestPage = components["schemas"]["ChangeRequestPage"];
+
+/** What the list across templates is asked: the words of the server's own query, never a rule of the screen. */
+export interface ChangeRequestListRequest {
+  search: string;
+  sort: "date" | "version" | "status";
+  descending: boolean;
+  /** Only the requests about this template; the server still judges each one. */
+  templateId?: string;
+}
+
+/** The address of a template's Change requests tab, with one request open when an identifier is given. */
+export function changeRequestsHref(templateId: string, open?: string): string {
+  const tab = `/apps/inspection/s-templates?open=${templateId}&tab=change-requests`;
+  return open ? `${tab}&request=${open}` : tab;
+}
+
+/** One page of the requests the member may see, in the order asked; `cursor` continues the same question. */
+export function queryChangeRequests(
+  request: ChangeRequestListRequest,
+  cursor?: string,
+): Promise<Outcome<ChangeRequestPage>> {
+  return unwrap(
+    call(() =>
+      api.POST("/api/v1/change-requests/query", {
+        body: {
+          search: request.search === "" ? undefined : request.search,
+          sort: request.sort,
+          descending: request.descending,
+          templateId: request.templateId,
+          cursor,
+        },
+      }),
+    ),
+  );
+}
+
+/** One request by its own identifier, for a page that was given the request and not its template. */
+export function getChangeRequestById(requestId: string): Promise<Outcome<ChangeRequestView>> {
+  return unwrap(call(() => api.GET("/api/v1/change-requests/{requestId}", { params: { path: { requestId } } })));
+}
+
+export type ChangeRequestState =
+  | { status: "loading" }
+  | { status: "ready"; request: ChangeRequestView }
+  | { status: "failed"; failure: ApiFailure };
+
+/** One request, read again whenever `refresh` changes (it was answered, or its approval moved). */
+export function useChangeRequest(id: string, refresh: number): { state: ChangeRequestState; reload: () => void } {
+  const [attempt, setAttempt] = useState(0);
+  const [loaded, setLoaded] = useState<{ id: string; outcome: Outcome<ChangeRequestView> } | null>(null);
+  const key = `${id}|${refresh}|${attempt}`;
+
+  useEffect(() => {
+    let live = true;
+    void getChangeRequestById(id).then((outcome) => {
+      if (live) {
+        setLoaded({ id, outcome });
+      }
+    });
+    return () => {
+      live = false;
+    };
+    // The key carries the refresh and the attempt: a new key reads the request again.
+  }, [id, key]);
+
+  const reload = useCallback(() => setAttempt((value) => value + 1), []);
+  // The request already on the screen stays there while the next reading is on the way, so an answer does not tear the page
+  // down (and with it the notice that says what was done); another request starts from "loading".
+  if (!loaded || loaded.id !== id) {
+    return { state: { status: "loading" }, reload };
+  }
+  return {
+    state: loaded.outcome.ok
+      ? { status: "ready", request: loaded.outcome.data }
+      : { status: "failed", failure: loaded.outcome.failure },
+    reload,
+  };
+}

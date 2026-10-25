@@ -13,13 +13,17 @@ import java.util.Map;
  * @param rows the rows in order: the rows the sheet names (in its order) and then the rows the filler added (in the
  *        order the filler gave)
  */
-record FillDoc(List<Row> rows) {
+record FillDoc(int formatVersion, List<Row> rows) {
 
-    /** The format number this release reads and writes. */
+    /** The original value-only format, retained byte-for-byte; formatted documents explicitly use version 2. */
     static final int FORMAT_VERSION = 1;
 
     FillDoc {
         rows = List.copyOf(rows);
+    }
+
+    FillDoc(List<Row> rows) {
+        this(FORMAT_VERSION, rows);
     }
 
     /**
@@ -28,10 +32,17 @@ record FillDoc(List<Row> rows) {
      * @param id the identifier: that of a row the sheet names, or one the browser generated for a row the filler added
      * @param cells the values by column identifier: a string or a boolean, never null or an empty text
      */
-    record Row(String id, Map<String, Object> cells) {
+    record Row(String id, Map<String, Object> cells, Map<String, Map<String, Object>> styles) {
 
         Row {
             cells = Collections.unmodifiableMap(new LinkedHashMap<>(cells));
+            var copy = new LinkedHashMap<String, Map<String, Object>>();
+            styles.forEach((column, style) -> copy.put(column, Map.copyOf(style)));
+            styles = Map.copyOf(copy);
+        }
+
+        Row(String id, Map<String, Object> cells) {
+            this(id, cells, Map.of());
         }
 
         @Override

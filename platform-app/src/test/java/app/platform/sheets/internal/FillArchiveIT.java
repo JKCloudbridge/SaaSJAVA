@@ -54,6 +54,31 @@ class FillArchiveIT extends FillSupport {
     }
 
     @Test
+    void aStyledFillArchivesWithItsStylesAndFingerprintUnchanged() throws Exception {
+        World world = world();
+        String fill = started(world.filler().browser(), world.template());
+        String styled = """
+                {"formatVersion":2,"rows":[{"id":"r1","cells":{"t":"Checked"},
+                "styles":{"t":{"bold":true,"italic":false,"fontSize":"LARGE",
+                "underline":true,"alignment":"RIGHT","colour":"DANGER"}}},
+                {"id":"r2","cells":{"t":"Checked"}}]}
+                """;
+        saved(world.filler().browser(), fill, styled);
+        Response before = fillView(world.filler().browser(), fill);
+        String request = sent(world.filler().browser(), fill, world.process());
+        assertThat(approve(world.approver().browser(), request).status()).isEqualTo(200);
+        age(world, fill);
+        job.runOnce();
+        Response after = fillView(world.filler().browser(), fill);
+        assertThat(after.status()).as(after.body()).isEqualTo(200);
+        assertThat(JsonPath.<Object>read(after.body(), "$.data.cells"))
+                .isEqualTo(JsonPath.<Object>read(before.body(), "$.data.cells"));
+        assertThat(JsonPath.<String>read(after.body(), "$.data.fill.cellsHash"))
+                .isEqualTo(JsonPath.<String>read(before.body(), "$.data.fill.cellsHash"));
+        assertThat(archivedRows(world, fill)).isEqualTo(1);
+    }
+
+    @Test
     void anOldApprovedFillInIsMovedAndReadBackIdenticalAndReadOnly() throws Exception {
         World world = world();
         String fill = oldApprovedFill(world);

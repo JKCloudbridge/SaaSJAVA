@@ -134,6 +134,15 @@ class ApprovalStore {
                 .optional();
     }
 
+    /** The requests of the record, pending or ended, newest first, at most {@code limit}. */
+    List<InstanceRow> historyFor(String objectApiName, UUID recordId, int limit) {
+        return jdbc.sql("select " + INSTANCE_COLUMNS + " from approval_instance i where i.object_api_name = :object "
+                        + "and i.record_id = :record and i.deleted_at is null "
+                        + "order by i.started_at desc, i.id desc limit :limit")
+                .param("object", objectApiName).param("record", recordId).param("limit", limit)
+                .query(ApprovalStore::instanceRow).list();
+    }
+
     /** Moves the request on when it still has the version the caller read; false when it does not. */
     boolean updateInstance(UUID id, long version, String status, Integer currentStep, String attention,
             String outcomeFailure, boolean finished, UUID actor) {

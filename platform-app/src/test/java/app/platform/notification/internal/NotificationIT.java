@@ -32,6 +32,22 @@ class NotificationIT extends NotificationSupport {
     }
 
     @Test
+    void anUnsupportedNoticeOpensTheListAndMarksReadButCannotBeOpenedByAnotherMember() {
+        Organization organization = organization();
+        Member person = member(organization);
+        TestBrowser browser = browser(organization, person);
+        workflowNotice(organization, person, key());
+        String id = JsonPath.read(browser.get(NOTIFICATIONS).body(), "$.data[0].id");
+        TestBrowser another = browser(organization, member(organization));
+        assertThat(another.postJson(NOTIFICATIONS + "/" + id + "/open", "{}").status()).isEqualTo(404);
+        Response opened = browser.postJson(NOTIFICATIONS + "/" + id + "/open", "{}");
+        assertThat(opened.status()).as(opened.body()).isEqualTo(200);
+        assertThat(JsonPath.<String>read(opened.body(), "$.data.href")).isEqualTo("/notifications");
+        assertThat(JsonPath.<String>read(opened.body(), "$.data.explanation")).contains("no record you can open");
+        assertThat(unread(browser)).isZero();
+    }
+
+    @Test
     void aNoticeIsMadeForAnActiveMemberAndReadByThemWithTheWordsOfItsKind() {
         Organization organization = organization();
         Member person = member(organization);

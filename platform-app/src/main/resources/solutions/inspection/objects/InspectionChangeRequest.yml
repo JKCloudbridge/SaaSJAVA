@@ -1,0 +1,48 @@
+# Shipped object: InspectionChangeRequest, the record that gives a change request of the Audit maintenance application to
+# the approval engine (FA6E, ADR-0199). The request itself, its places and its comments stay in the cluster's own tables
+# (ADR-0191); this record exists only so that the engine has a record to review, to lock and to show in the approval
+# inbox, in the way the header of a fill-in does for a fill-in (ADR-0192). It is made by the platform in the step that
+# raises the request, and it waits for nothing: a request nobody answers keeps its record.
+#
+# Every field is one only the platform writes: a member never creates or changes one (no shipped policy gives a create
+# right or a field to edit). The name is that of the template when the request was raised, so the inbox says what the
+# request is about; what the person typed stays in the request and is never copied here.
+#
+# requiresFeature: an organization without the plan feature does not have this object at all.
+# retainRecords:   no record of this object is ever deleted, restored over or purged, by anyone.
+# extensible:      an organization cannot add fields of its own to a shipped object.
+# sharingDefault:  PRIVATE, fixed by the platform: a record is reached by its owner (the person who asked), the people
+#                  who may view every record of the object (the approvers) and the people it is shared with (the owner
+#                  of the template). The role hierarchy adds nothing and no administrator can change it.
+# platformWritten: nobody writes this field through the API, a bulk change or an import; the platform does.
+apiName: InspectionChangeRequest
+label: Change request
+pluralLabel: Change requests
+description: The record that sends a change request of the Audit maintenance application through its approval. Its records are kept for good.
+extensible: false
+requiresFeature: inspection
+retainRecords: true
+sharingDefault: PRIVATE
+fields:
+  - apiName: name
+    label: Change request name
+    description: "The name the request is shown by in the approval inbox: that of the template when it was asked."
+    type: TEXT
+    platformWritten: true
+    settings: { maxLength: 160 }
+
+  - apiName: templateId
+    label: Template
+    description: The template the request is about, as the text of its identifier. It never changes.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 36 }
+
+  - apiName: status
+    label: Status
+    description: Open, accepted, declined or done. A copy that follows the request; the request itself decides.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 20 }

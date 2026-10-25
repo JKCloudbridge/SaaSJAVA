@@ -780,6 +780,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/change-requests/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The change requests of every template that the caller may see
+         * @description One page for the tab of change requests: search (a text matched against the title and the name of the person who asked), an order (date, version or status, with date newest first by default), a narrowing to one template or status, and a cursor. A person sees their own requests, and every request of the templates they may change; they reach a template's requests only while they can read the template, and the platform host and another organization's requests are never in the answer. A page may be short and still have a cursor because requests the caller may not see are skipped; only a missing cursor is the end. A post, because the text does not belong in an address. Nothing typed is logged.
+         */
+        post: operations["queryChangeRequests"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/change-requests/{requestId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One change request by its identifier
+         * @description For a page that was given the request and not its template (the bell, the approval inbox). reviewId names the record whose approval panel decides it, when it is decided by an approval. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
+         */
+        get: operations["getChangeRequestById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/data-access/mine": {
         parameters: {
             query?: never;
@@ -2996,6 +3036,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications/{id}/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read a notice and resolve its readable record
+         * @description Only the caller's own notice. A missing or unsupported target stays on the notices list with fixed words. Target access is checked through the ordinary record read gate.
+         */
+        post: operations["openNotification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications/{id}/read": {
         parameters: {
             query?: never;
@@ -3010,6 +3070,106 @@ export interface paths {
          * @description NOT_FOUND for a notice that is not the caller's, exactly like one that does not exist. Marking a read notice again changes nothing.
          */
         post: operations["markNotificationRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/numbering": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The organization's numbering settings
+         * @description Needs numbering.manage. Lists shipped and organization formats and switched-off categories.
+         */
+        get: operations["listNumberingSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/numbering/{seriesKey}/counter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Raise a pair's next count
+         * @description Needs numbering.manage. Uses the current effective format; never lowers a counter. Serialized against allocations and format changes. Numbers already given are unchanged.
+         */
+        post: operations["advanceNumberingCounter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/numbering/{seriesKey}/formats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save a number format for this organization
+         * @description Needs numbering.manage and the version read. Changes future numbers only; never resets a counter. The closed format is checked on the server. Audited by series, setting and count.
+         */
+        put: operations["saveNumberingFormat"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/numbering/{seriesKey}/formats/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Go back to the platform's format
+         * @description Needs numbering.manage and the version read. Ends this organization's override of one setting; future numbers use the platform's format again. Counters and numbers given are unchanged.
+         */
+        post: operations["resetNumberingFormat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/numbering/{seriesKey}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview a number without reserving it
+         * @description Needs numbering.manage. A candidate format is optional; without one, uses the current effective format. Reads the count without advancing it. No format, code or number is logged.
+         */
+        post: operations["previewNumbering"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3262,6 +3422,26 @@ export interface paths {
          * @description The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the record type (it exists, is in use and offers the fields written), the field permission (every field written must be one the caller may edit; a field the caller may not read is answered like a field that does not exist), the type of each value, the required fields (judged on the record as it will be), the linked records, the unique fields (no other live record may hold the same value; a record in the recycle bin does not count, and a text is compared exactly), the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. Before any of this, a change of an existing record is judged like a read of it: NOT_FOUND when the caller cannot read the record, FORBIDDEN when they can read it but may not change it (the default of the object, the role hierarchy, sharing rules, shares, modify-all). A link is accepted only to a record the caller can read. A refusal of a duplicate says that the value is in use and never whose record holds it. NOT_FOUND for an object that does not exist, that a platform module owns (a user, a profile ...) or that the caller may not read: all three answer alike. FORBIDDEN for a caller who may read the object but not create in it. The caller owns the record. The answer leaves out the fields the caller may not read. Audited and announced by object, identifier, version and field names, never by values.
          */
         post: operations["createRecord"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/objects/{objectApiName}/records/approval-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Every approval request of a few records, newest first
+         * @description For a screen that draws the story of a record: up to 20 records of one object, and for each up to perRecord requests (5 when left out, at most 10) with their steps and, for a caller who may see it, their history. A record the caller cannot read is left out as if it did not exist. A post only because the list of records does not belong in an address. Nothing a person typed is logged.
+         */
+        post: operations["getRecordApprovalHistory"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4486,7 +4666,7 @@ export interface paths {
         get?: never;
         /**
          * Save the cells of a fill-in
-         * @description The body is the cells document itself (formatVersion and rows, each row with an id and its cells keyed by the identifier of the column), as JSON, and nothing else; the row version that was read goes in the version parameter. The size is checked before anything is parsed, from the length the client announces and again on the bytes read: PAYLOAD_TOO_LARGE above the limit. Then the cells are checked in a fixed order and the first stage with a problem answers alone, with every place of that stage under cells: VALIDATION_ERROR. Only input cells accept a value, each value must fit the type of its column, and rows can be added only where the sheet allows it. A draft may be saved half done. CONCURRENT_MODIFICATION (409) when the fill-in has changed since it was read, and nothing changes. A fill-in that was sent for review can be changed only as a counted correction by a caller who may correct it (FORBIDDEN otherwise), and stays complete. CONFLICT when the sheet was retired. Audited by the size, the hash and counts, never by content. NOT_FOUND for an object that has no fill-ins, for a fill-in that does not exist and for a header record the caller may not read (all three answer alike). A fill-in has no permission of its own: reading it needs the right to read the header record and changing it the right to update the header record.
+         * @description The body is the cells document itself: formatVersion 1 or 2 and rows with an id and cells keyed by column identifier. Version 2 also accepts sparse styles keyed by column: bold/italic/underline booleans, fontSize SMALL, NORMAL, LARGE or TITLE, alignment LEFT/CENTER/RIGHT and colour DEFAULT/ACCENT/SUCCESS/DANGER, only on input cells. Old version 1 documents retain their canonical bytes. The row version that was read goes in the version parameter. The size is checked before anything is parsed, from the length the client announces and again on the bytes read: PAYLOAD_TOO_LARGE above the limit. Then the cells are checked in a fixed order and the first stage with a problem answers alone, with every place of that stage under cells: VALIDATION_ERROR. Only input cells accept a value, each value must fit the type of its column, and rows can be added only where the sheet allows it. A draft may be saved half done. CONCURRENT_MODIFICATION (409) when the fill-in has changed since it was read, and nothing changes. A fill-in that was sent for review can be changed only as a counted correction by a caller who may correct it (FORBIDDEN otherwise), and stays complete. CONFLICT when the sheet was retired. Audited by the size, the hash and counts, never by content. NOT_FOUND for an object that has no fill-ins, for a fill-in that does not exist and for a header record the caller may not read (all three answer alike). A fill-in has no permission of its own: reading it needs the right to read the header record and changing it the right to update the header record.
          */
         put: operations["saveSheetFillCells"];
         post?: never;
@@ -5183,6 +5363,13 @@ export interface components {
             label: string;
             value: string;
         };
+        AdvanceNumberingCounterRequest: {
+            /** Format: int64 */
+            nextValue: number;
+            values: {
+                [key: string]: string;
+            };
+        };
         AnswerChangeRequest: {
             action: string;
             note?: string;
@@ -5277,6 +5464,9 @@ export interface components {
         };
         ApiResponseCatalogueItem: {
             data: components["schemas"]["CatalogueItem"];
+        };
+        ApiResponseChangeRequestPage: {
+            data: components["schemas"]["ChangeRequestPage"];
         };
         ApiResponseChangeRequestView: {
             data: components["schemas"]["ChangeRequestView"];
@@ -5452,6 +5642,9 @@ export interface components {
         ApiResponseListProfileView: {
             data: components["schemas"]["ProfileView"][];
         };
+        ApiResponseListRecordApprovalHistoryView: {
+            data: components["schemas"]["RecordApprovalHistoryView"][];
+        };
         ApiResponseListRecordFileView: {
             data: components["schemas"]["RecordFileView"][];
         };
@@ -5506,6 +5699,9 @@ export interface components {
         ApiResponseMemberAccessView: {
             data: components["schemas"]["MemberAccessView"];
         };
+        ApiResponseNotificationOpenView: {
+            data: components["schemas"]["NotificationOpenView"];
+        };
         ApiResponseNotificationPreferencesView: {
             data: components["schemas"]["NotificationPreferencesView"];
         };
@@ -5520,6 +5716,15 @@ export interface components {
         };
         ApiResponseNotificationTemplatesView: {
             data: components["schemas"]["NotificationTemplatesView"];
+        };
+        ApiResponseNumberingPreviewView: {
+            data: components["schemas"]["NumberingPreviewView"];
+        };
+        ApiResponseNumberingSettingView: {
+            data: components["schemas"]["NumberingSettingView"];
+        };
+        ApiResponseNumberingSettingsView: {
+            data: components["schemas"]["NumberingSettingsView"];
         };
         ApiResponseObjectFormView: {
             data: components["schemas"]["ObjectFormView"];
@@ -5743,6 +5948,11 @@ export interface components {
         ApprovalFieldSpec: {
             field: string;
             value: string;
+        };
+        ApprovalHistoryRequest: {
+            /** Format: int32 */
+            perRecord?: number;
+            recordIds: string[];
         };
         ApprovalHistoryView: {
             actor?: components["schemas"]["ApprovalPersonView"];
@@ -6114,6 +6324,38 @@ export interface components {
             updateValidationRule?: components["schemas"]["UpdateValidationRuleRequest"];
             updateWorkflow?: components["schemas"]["UpdateWorkflowRequest"];
         };
+        ChangeRequestPage: {
+            nextCursor?: string;
+            rows: components["schemas"]["ChangeRequestRow"][];
+        };
+        ChangeRequestQuery: {
+            cursor?: string;
+            descending?: boolean;
+            search?: string;
+            /** Format: int32 */
+            size?: number;
+            sort?: string;
+            status?: string;
+            /** Format: uuid */
+            templateId?: string;
+        };
+        ChangeRequestRow: {
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            id: string;
+            mine: boolean;
+            requesterDepartment?: string;
+            requesterName?: string;
+            status: string;
+            /** Format: uuid */
+            templateId: string;
+            templateName?: string;
+            templateNumber?: string;
+            title: string;
+            /** Format: int32 */
+            versionNo: number;
+        };
         ChangeRequestView: {
             /** Format: date-time */
             answeredAt?: string;
@@ -6138,7 +6380,13 @@ export interface components {
             /** Format: int32 */
             resultingVersion?: number;
             resultingVersionStatus?: string;
+            /** Format: uuid */
+            reviewId?: string;
             status: string;
+            /** Format: uuid */
+            templateId: string;
+            templateName?: string;
+            templateNumber?: string;
             title: string;
             /** Format: int32 */
             versionNo: number;
@@ -6621,6 +6869,7 @@ export interface components {
             submittedAt?: string;
             /** Format: uuid */
             templateId: string;
+            templateNumber?: string;
             /** Format: date-time */
             updatedAt: string;
             versionInUse: boolean;
@@ -7051,6 +7300,10 @@ export interface components {
             dimension?: number;
             rowsMode?: string;
         };
+        NotificationOpenView: {
+            explanation?: string;
+            href: string;
+        };
         NotificationPlaceholderView: {
             help: string;
             name: string;
@@ -7100,6 +7353,46 @@ export interface components {
             kind: string;
             read: boolean;
             title: string;
+        };
+        NumberingFieldView: {
+            apiName: string;
+            label: string;
+            values: components["schemas"]["PicklistOption"][];
+        };
+        NumberingPreviewView: {
+            example?: string;
+            fields: string[];
+            message: string;
+            missingFields: string[];
+            /** Format: int64 */
+            nextValue?: number;
+            /** Format: int32 */
+            width: number;
+        };
+        NumberingSeriesView: {
+            fields: components["schemas"]["NumberingFieldView"][];
+            key: string;
+            label: string;
+            objectApiName: string;
+            optionalField: string;
+            selector: string;
+            settings: components["schemas"]["NumberingSettingView"][];
+        };
+        NumberingSettingView: {
+            active: boolean;
+            format: string;
+            /** @enum {string} */
+            kind: "CATEGORY" | "DEFAULT" | "WITHOUT_OPTIONAL";
+            label: string;
+            selectorValue: string;
+            source: string;
+            /** Format: int64 */
+            version: number;
+            /** Format: int32 */
+            width: number;
+        };
+        NumberingSettingsView: {
+            series: components["schemas"]["NumberingSeriesView"][];
         };
         ObjectFormView: {
             actions: components["schemas"]["FormActionsView"];
@@ -7312,6 +7605,15 @@ export interface components {
             enabled: boolean;
             locked: boolean;
         };
+        PreviewNumberingRequest: {
+            format?: string;
+            /** @enum {string} */
+            kind: "CATEGORY" | "DEFAULT" | "WITHOUT_OPTIONAL";
+            selectorValue: string;
+            values: {
+                [key: string]: string;
+            };
+        };
         ProblemView: {
             dependent?: string;
             fields: string[];
@@ -7377,6 +7679,11 @@ export interface components {
         };
         ReasonRequest: {
             reason: string;
+        };
+        RecordApprovalHistoryView: {
+            /** Format: uuid */
+            recordId: string;
+            requests: components["schemas"]["ApprovalInstanceView"][];
         };
         RecordApprovalView: {
             actions: components["schemas"]["ApprovalActionsView"];
@@ -7570,6 +7877,13 @@ export interface components {
         RequestAccepted: {
             message: string;
         };
+        ResetNumberingFormatRequest: {
+            /** @enum {string} */
+            kind: "CATEGORY" | "DEFAULT" | "WITHOUT_OPTIONAL";
+            selectorValue: string;
+            /** Format: int64 */
+            version: number;
+        };
         ResetPasswordRequest: {
             newPassword: string;
             token: string;
@@ -7615,6 +7929,14 @@ export interface components {
         SaveGroupRequest: {
             description?: string;
             name: string;
+        };
+        SaveNumberingFormatRequest: {
+            format: string;
+            /** @enum {string} */
+            kind: "CATEGORY" | "DEFAULT" | "WITHOUT_OPTIONAL";
+            selectorValue: string;
+            /** Format: int64 */
+            version: number;
         };
         SaveObjectSharingRequest: {
             defaultAccess: string;
@@ -7728,10 +8050,18 @@ export interface components {
         SheetCellRef: string;
         /** @description Only a fixed cell may carry a style. The size is one of four names and never a number: the page decides what each name looks like. */
         SheetCellStyle: {
+            /** @enum {string} */
+            alignment?: "LEFT" | "CENTER" | "RIGHT";
             bold?: boolean;
+            /**
+             * @description A named text colour from the theme palette; never arbitrary CSS.
+             * @enum {string}
+             */
+            colour?: "DEFAULT" | "ACCENT" | "SUCCESS" | "DANGER";
             /** @enum {string} */
             fontSize?: "SMALL" | "NORMAL" | "LARGE" | "TITLE";
             italic?: boolean;
+            underline?: boolean;
         };
         SheetColumn: {
             /** @description The value a new row starts with. It must fit the column type. */
@@ -8037,7 +8367,10 @@ export interface components {
             lifecycle: components["schemas"]["TemplateLifecycle"];
             numberPreview?: string;
             numberPreviewComplete: boolean;
+            /** Format: int32 */
+            openChangeRequests: number;
             retired: boolean;
+            versionReviews: components["schemas"]["VersionReview"][];
         };
         TemplatePage: {
             canCreate: boolean;
@@ -8063,6 +8396,8 @@ export interface components {
             lifecycle: components["schemas"]["TemplateLifecycle"];
             name?: string;
             number?: string;
+            /** Format: int32 */
+            openChangeRequests: number;
             retired: boolean;
             subCategory?: string;
         };
@@ -8255,6 +8590,12 @@ export interface components {
             objectApiName: string;
             /** Format: int64 */
             version: number;
+        };
+        VersionReview: {
+            /** Format: uuid */
+            requestId: string;
+            /** Format: int32 */
+            versionNo: number;
         };
         /** @description A condition, or a group of conditions combined with all (AND) or any (OR). */
         VisibilityInner: ({
@@ -9757,6 +10098,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseAutomationHealthView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    queryChangeRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeRequestQuery"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeRequestPage"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getChangeRequestById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                requestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeRequestView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -14569,6 +14974,37 @@ export interface operations {
             };
         };
     };
+    openNotification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNotificationOpenView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     markNotificationRead: {
         parameters: {
             query?: never;
@@ -14586,6 +15022,175 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listNumberingSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNumberingSettingsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    advanceNumberingCounter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                seriesKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdvanceNumberingCounterRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNumberingPreviewView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    saveNumberingFormat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                seriesKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveNumberingFormatRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNumberingSettingView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    resetNumberingFormat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                seriesKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetNumberingFormatRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNumberingSettingsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    previewNumbering: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                seriesKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewNumberingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNumberingPreviewView"];
+                };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {
@@ -15086,6 +15691,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseRecordView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getRecordApprovalHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                objectApiName: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalHistoryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListRecordApprovalHistoryView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

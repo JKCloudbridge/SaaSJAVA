@@ -7,6 +7,7 @@ import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
 import app.platformapi.ApprovalChoicesView;
 import app.platformapi.ApprovalDecisionRequest;
+import app.platformapi.ApprovalHistoryRequest;
 import app.platformapi.ApprovalDelegationView;
 import app.platformapi.ApprovalInboxSummaryView;
 import app.platformapi.ApprovalInstanceSummaryView;
@@ -17,6 +18,7 @@ import app.platformapi.ApprovalReassignRequest;
 import app.platformapi.ApprovalResolutionView;
 import app.platformapi.ApprovalTaskView;
 import app.platformapi.CreateApprovalDelegationRequest;
+import app.platformapi.RecordApprovalHistoryView;
 import app.platformapi.RecordApprovalView;
 import app.platformapi.ResolveApprovalRequest;
 import app.platformapi.SubmitApprovalRequest;
@@ -234,6 +236,20 @@ class ApprovalController {
                     + "never shown, and neither is any value of the record.")
     ApiResponse<RecordApprovalView> record(@PathVariable String objectApiName, @PathVariable UUID id) {
         return ApiResponse.of(views.record(callers.require(), objectApiName, id));
+    }
+
+    @PostMapping(ApiPaths.OBJECTS + "/{objectApiName}/records/approval-history")
+    @Operation(
+            operationId = "getRecordApprovalHistory",
+            summary = "Every approval request of a few records, newest first",
+            description = "For a screen that draws the story of a record: up to 20 records of one object, and for each "
+                    + "up to perRecord requests (5 when left out, at most 10) with their steps and, for a caller "
+                    + "who may see it, their history. A record the caller cannot read is left out as if it did not "
+                    + "exist. A post only because the list of records does not belong in an address. Nothing a "
+                    + "person typed is logged.")
+    ApiResponse<List<RecordApprovalHistoryView>> history(@PathVariable String objectApiName,
+            @Valid @RequestBody ApprovalHistoryRequest body) {
+        return ApiResponse.of(views.history(callers.require(), objectApiName, body.recordIds(), body.perRecord()));
     }
 
     @PostMapping(RECORD)

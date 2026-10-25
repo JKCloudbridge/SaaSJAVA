@@ -86,6 +86,12 @@ public interface SheetLifecycle {
     record Started(int versionNo, boolean created) {
     }
 
+    /**
+     * The approval request of every version that was sent for review, by version number, so a screen can say which
+     * approval belongs to which version (FA6E, ADR-0199). Reads no grid; empty when none was sent.
+     */
+    Map<Integer, UUID> reviewRequests(String ownerObject, UUID ownerId);
+
     /** The status of one version, or empty when the sheet has no such version. Reads no grid. */
     Optional<SheetStatus> statusOf(String ownerObject, UUID ownerId, int versionNo);
 

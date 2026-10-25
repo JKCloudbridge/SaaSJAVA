@@ -119,6 +119,12 @@ describe("the Home rail", () => {
 });
 
 describe("the console rail", () => {
+  it("offers Numbering only through its separate ability", () => {
+    expect(linksOf(homeRail(["numbering.manage"]))).toContainEqual(
+      expect.objectContaining({ href: "/setup/numbering", ability: "numbering.manage" }),
+    );
+    expect(linksOf(homeRail(["metadata.manage"])).some((entry) => entry.href === "/setup/numbering")).toBe(false);
+  });
   it("lists the seven sections of the console with the same addresses as before", () => {
     expect(consoleRail().map((entry) => [entry.label, entry.kind === "link" ? entry.href : ""])).toEqual([
       ["Organizations", "/console"],

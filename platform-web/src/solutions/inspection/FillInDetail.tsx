@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   ApprovalCard,
   ApprovalDialogs,
@@ -36,6 +36,8 @@ const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped:
  * drawn, and the decision is made in the inbox.
  */
 export function FillInDetail({ id, onBack }: { id: string; onBack: () => void }) {
+  const beforeLeave = useRef<(next: () => void) => Promise<void>>(async (next) => next());
+  const registerLeave = useCallback((leave: (next: () => void) => Promise<void>) => { beforeLeave.current = leave; }, []);
   const [refresh, setRefresh] = useState(0);
   const record = useRecord(FILL_OBJECT, id, refresh);
   const [approval, setApproval] = useState<ApprovalState>({ locked: false, mayOverride: false, mayApprove: false });
@@ -86,7 +88,7 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
   return (
     <DetailPage
       listLabel="Fill-ins"
-      onBack={onBack}
+      onBack={() => void beforeLeave.current(onBack)}
       noBreadcrumb
       title={name}
       actions={header ? <ApprovalHeaderActions approval={decisions} submitButton={false} /> : undefined}
@@ -106,6 +108,7 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
             <DetailItem label="Status">
               {tag ? <Tag tone={TONES[tag.tone]}>{tag.text}</Tag> : "Not available"}
             </DetailItem>
+            {templateId ? <TemplateNumber id={templateId} refresh={refresh} /> : null}
           </DetailGrid>
           {approval.locked ? (
             <p className="hint" role="note">
@@ -131,7 +134,7 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
       <DetailSection title="Fill-in" stack>
         {dirty ? (
           <p className="form-message" role="note" data-testid="unsaved-note">
-            There are changes that are not saved. Submit saves them first; Cancel leaves without them.
+            There are changes that are not saved. They save after a short pause; Submit and Cancel save them first.
           </p>
         ) : null}
         <FillWorkspace
@@ -142,8 +145,15 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
           onLoaded={onLoaded}
           submit={header && sendable ? submit : undefined}
           onCancel={sendable ? onBack : undefined}
+          registerLeave={registerLeave}
         />
       </DetailSection>
     </DetailPage>
   );
+}
+
+/** The ordinary record read supplies the stored number only while the caller may read it. */
+function TemplateNumber({ id, refresh }: { id: string; refresh: number }) {
+  const template = useRecord("InspectionTemplate", id, refresh);
+  return <DetailItem label="Template number">{template.status === "ready" ? text(template.record.fields.number) || "—" : "—"}</DetailItem>;
 }

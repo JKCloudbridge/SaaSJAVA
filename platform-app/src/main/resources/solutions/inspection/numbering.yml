@@ -17,6 +17,10 @@ series:
     object: InspectionTemplate
     field: number
     selector: category
+    defaults:
+      format: "{field:category}/{field:subCategory}/{seq:1}"
+      withoutOptional: "{field:category}/{seq:1}"
+      optionalField: subCategory
     formats:
       IMS: "IMS/{seq:2}"
       QSP: "QSP-{seq:2}"

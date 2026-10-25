@@ -260,6 +260,9 @@ public final class ApiPaths {
     /** The public keys that verify ID tokens. */
     public static final String OAUTH2_JWKS = OAUTH2 + "/jwks";
 
+    /** Organization-specific number formats, previews and starting counts (FA6B). */
+    public static final String NUMBERING = V1 + "/numbering";
+
     private ApiPaths() {
     }
 }

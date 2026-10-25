@@ -99,7 +99,6 @@ export function SheetWorkspace({
   const [refresh, setRefresh] = useState(0);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [starting, setStarting] = useState(false);
-  const [dimension, setDimension] = useState<1 | 2>(2);
   const [opened, setOpened] = useState(!listFirst);
   const heading = useId();
 
@@ -238,31 +237,16 @@ export function SheetWorkspace({
 
       {versions.length === 0 ? (
         canChange ? (
-          <>
+          <div className="sheet-start-actions">
           <form
-            className="form stack"
             onSubmit={(event) => {
               event.preventDefault();
-              void start({ dimension });
+              void start({ dimension: 2 });
             }}
           >
-            <p>There is no version yet. Choose how the rows of this sheet come about, then start the first version.</p>
-            <fieldset className="field">
-              <legend>Who adds the rows</legend>
-              <label className="sheet-check">
-                <input type="radio" name="dimension" checked={dimension === 2} onChange={() => setDimension(2)} />
-                <span>The sheet names the rows</span>
-              </label>
-              <label className="sheet-check">
-                <input type="radio" name="dimension" checked={dimension === 1} onChange={() => setDimension(1)} />
-                <span>The filler adds the rows</span>
-              </label>
-            </fieldset>
-            <div>
               <button type="submit" className="button" disabled={starting}>
-                Start the first version
+                Start first version
               </button>
-            </div>
           </form>
           <div>
             <UploadSheet
@@ -274,7 +258,7 @@ export function SheetWorkspace({
               onSaved={(created) => afterNewDraft(created.versionNo)}
             />
           </div>
-          </>
+          </div>
         ) : (
           <p className="empty-state" role="status">
             No version is in use yet.
@@ -392,7 +376,7 @@ function VersionEditor({
   const readOnly = !canChange || !(draft || correcting);
   const tag = statusTag(summary.status);
   const readOnlyReason = annotating
-    ? `You are reading version ${summary.versionNo}, which is in use and cannot be changed here. To ask for a change, stand on a place in the grid and write a comment under it.`
+    ? `You are reading version ${summary.versionNo}, which is in use and cannot be changed here. To ask for a change, stand on a place in the grid and press Ask for a change.`
     : !(draft || correcting)
     ? inReview
       ? `Version ${summary.versionNo} is in review. Only the people who approve it can correct it; everyone else reads it.`

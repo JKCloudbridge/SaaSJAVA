@@ -6,7 +6,9 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -176,6 +178,19 @@ class SheetVersionStore {
                         + " order by (status = 'ACTIVE') desc, version_no desc limit 1")
                 .param("tenant", tenant()).param("object", object).param("owner", owner).query(Integer.class)
                 .optional();
+    }
+
+    /** The approval request of each version that was sent for review, by version number. Reads no grid. */
+    Map<Integer, UUID> reviewRequests(String object, UUID owner) {
+        Map<Integer, UUID> found = new TreeMap<>();
+        jdbc.sql("select version_no, approval_request_id from sheet_version where " + WHERE_OWNER
+                        + " and approval_request_id is not null order by version_no")
+                .param("tenant", tenant()).param("object", object).param("owner", owner)
+                .query((rs, row) -> {
+                    found.put(rs.getInt("version_no"), rs.getObject("approval_request_id", UUID.class));
+                    return 0;
+                }).list();
+        return found;
     }
 
     /** The shape the first version gave the sheet, or empty when there is no version yet. */

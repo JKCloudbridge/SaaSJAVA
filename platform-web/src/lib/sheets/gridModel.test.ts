@@ -16,6 +16,8 @@ import {
   setCellKind,
   setCellText,
   setFontSize,
+  setAlignment,
+  setTextColour,
   setShape,
   STYLE_NEEDS_TEXT,
   tidyCell,
@@ -128,6 +130,17 @@ describe("typing into a cell", () => {
 });
 
 describe("styles", () => {
+  it("keeps underline, alignment and colour and removes their defaults", () => {
+    const keys = ["r1:c1"];
+    const underlined = doc(toggleStyle(sampleDoc(), keys, "underline"));
+    const centred = doc(setAlignment(underlined, keys, "CENTER"));
+    const coloured = doc(setTextColour(centred, keys, "ACCENT"));
+    expect(coloured.cells["r1:c1"]?.style).toEqual({ underline: true, alignment: "CENTER", colour: "ACCENT" });
+    const plain = doc(setTextColour(doc(setAlignment(doc(toggleStyle(coloured, keys, "underline")), keys, "LEFT")), keys, "DEFAULT"));
+    expect(plain.cells["r1:c1"]).toEqual(sampleDoc().cells["r1:c1"]);
+    expect(refusal(setAlignment(sampleDoc(), ["r1:c2"], "RIGHT"))).toBe(STYLE_NEEDS_TEXT);
+    expect(refusal(setTextColour(sampleDoc(), ["r1:c2"], "DANGER"))).toBe(STYLE_NEEDS_TEXT);
+  });
   it("turns bold on for fixed cells and off again when all of them have it", () => {
     const start = sampleDoc();
     const keys = ["r1:c1", "r2:c1"];

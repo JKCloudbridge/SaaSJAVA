@@ -9,6 +9,7 @@ import { Tag } from "@/components/ui/lists/Tag";
 import { useListRoute } from "@/components/ui/lists/useListRoute";
 import { queryTemplates, type TemplateRow } from "./api";
 import { lifecycleText, stateTag } from "./lifecycle";
+import { OpenRequestsMark } from "./OpenRequestsMark";
 import { TemplateDetail } from "./TemplateDetail";
 import { TEMPLATE_OBJECT, text } from "./template";
 
@@ -162,7 +163,12 @@ function TemplatesScreen() {
             header: "Status",
             cell: (row) => {
               const tag = stateTag(row.lifecycle.state);
-              return <Tag tone={TONES[tag.tone]}>{tag.text}</Tag>;
+              return (
+                <>
+                  <Tag tone={TONES[tag.tone]}>{tag.text}</Tag>
+                  <OpenRequestsMark count={row.openChangeRequests} />
+                </>
+              );
             },
             kind: "tag",
           },

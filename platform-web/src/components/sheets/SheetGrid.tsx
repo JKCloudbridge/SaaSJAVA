@@ -32,6 +32,9 @@ function shown(value: GridCell["value"]): string {
 
 /** The class that gives a cell its size, one of the four names. */
 const SIZE_CLASS = { SMALL: "sheet-size-small", NORMAL: "", LARGE: "sheet-size-large", TITLE: "sheet-size-title" } as const;
+const ALIGN_CLASS = { LEFT: "sheet-align-left", CENTER: "sheet-align-center", RIGHT: "sheet-align-right" } as const;
+const COLOUR_CLASS = { DEFAULT: "sheet-colour-default", ACCENT: "sheet-colour-accent",
+  SUCCESS: "sheet-colour-success", DANGER: "sheet-colour-danger" } as const;
 
 interface Editing {
   row: number;
@@ -40,6 +43,8 @@ interface Editing {
 }
 
 export interface SheetGridProps {
+  /** Fill-ins commit valid input as it is typed, so the draft debounce includes the active cell. */
+  liveInput?: boolean;
   editor: SheetGridEditor;
   /** True when the grid may be looked at and copied from but not changed. */
   readOnly: boolean;
@@ -95,6 +100,7 @@ function notesWords(count: number | undefined): string {
  * model; the grid only turns a key, a click or a paste into one of them.
  */
 export function SheetGrid({
+  liveInput = false,
   editor,
   readOnly,
   canEditCell,
@@ -377,6 +383,10 @@ export function SheetGrid({
       event.preventDefault();
       return editor.italic();
     }
+    if (modifier && key === "u") {
+      event.preventDefault();
+      return editor.underline();
+    }
     if (!modifier && !event.altKey && event.key.length === 1) {
       event.preventDefault();
       startEdit(selection.fr, selection.fc, event.key);
@@ -558,6 +568,9 @@ export function SheetGrid({
                     row.zone === "blank" ? "sheet-cell-blank" : "",
                     cell?.style?.bold ? "sheet-bold" : "",
                     cell?.style?.italic ? "sheet-italic" : "",
+                    cell?.style?.underline ? "sheet-underline" : "",
+                    ALIGN_CLASS[cell?.style?.alignment ?? "LEFT"],
+                    COLOUR_CLASS[cell?.style?.colour ?? "DEFAULT"],
                     SIZE_CLASS[cell?.style?.fontSize ?? "NORMAL"],
                     inRect ? "sheet-selected" : "",
                     active ? "sheet-active" : "",
@@ -592,6 +605,10 @@ export function SheetGrid({
                           spellCheck={false}
                           aria-label={`${column.label}, ${row.label || `row ${i + 1}`}`}
                           defaultValue={editing.initial}
+                          onChange={liveInput ? (event) => {
+                            const problem = editor.setText(row.id, column.id, event.target.value);
+                            if (problem) editor.say(problem, true);
+                          } : undefined}
                           onKeyDown={(event) => {
                             if (event.nativeEvent.isComposing) {
                               return;

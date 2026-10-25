@@ -714,6 +714,14 @@ class JsonbRecordStorage implements StorageStrategy {
     }
 
     @Override
+    public boolean holdsText(String objectApiName, String fieldApiName, String value, UUID except) {
+        return jdbc.sql("select exists(select 1 from object_record where tenant_id = :tenant "
+                + "and object_api_name = :object and payload ->> :field = :value and id is distinct from :except)")
+                .param("tenant", tenant()).param("object", objectApiName).param("field", fieldApiName)
+                .param("value", value).param("except", except == null ? NIL : except).query(Boolean.class).single();
+    }
+
+    @Override
     public Filled maskUnique(String objectApiName, int constraint, UUID after, int limit) {
         UniqueKey key = constraint(constraint);
         try {

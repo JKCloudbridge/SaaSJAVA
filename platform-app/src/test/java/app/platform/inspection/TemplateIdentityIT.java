@@ -91,6 +91,7 @@ class TemplateIdentityIT extends TemplateSupport {
         Response set = patch(run.plant().browser(), template, "{\"category\":\"WI\",\"subCategory\":\"PRD\"}");
         assertThat(set.status()).as("an approver changes the header of a template in review: " + set.body())
                 .isEqualTo(200);
+        assertThat(JsonPath.<String>read(set.body(), "$.data.fields.number")).isEqualTo("WI/PRD/01");
         assertThat(approve(run.plant().browser(), request).status()).isEqualTo(200);
 
         assertThat(number(run.setting().admin(), template)).isEqualTo("WI/PRD/01");
