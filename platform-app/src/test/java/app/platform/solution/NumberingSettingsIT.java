@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.platform.data.NumberSeries;
-import app.platform.data.NumberSeriesException;
 import app.platform.identity.PlatformRole;
 import app.platform.tenant.TenantContext;
 import app.platform.tenant.TenantContexts;

@@ -15,4 +15,9 @@ import java.util.UUID;
  */
 public record ApprovalHistoryRequest(@NotNull @Size(min = 1, max = 20) List<@NotNull UUID> recordIds,
         Integer perRecord) {
+
+    /** Copies the list, so the request cannot be changed from outside. */
+    public ApprovalHistoryRequest {
+        recordIds = recordIds == null ? null : List.copyOf(recordIds);
+    }
 }

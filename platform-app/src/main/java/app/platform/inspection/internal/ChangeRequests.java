@@ -61,8 +61,9 @@ class ChangeRequests {
     private static final String NO_REQUEST = "This change request does not exist.";
     private static final String RETIRED_WORDS = "This template is retired, so no change can be asked for.";
     private static final String RACE_WORDS = "This request was answered by someone else just now. Reload the page.";
-    private static final String NO_PROCESS_WORDS = "A change request is decided by an approval, and this organization has "
-            + "not set one up. Ask your administrator to make the approval process for change requests in Setup.";
+    private static final String NO_PROCESS_WORDS = "A change request is decided by an approval, and this "
+            + "organization has not set one up. Ask your administrator to make the approval process for "
+            + "change requests in Setup.";
     private static final String NOT_ACCEPTED_WORDS = "This request has not been accepted yet, so it cannot be turned "
             + "into a version.";
     private static final int NAME_LIMIT = 160;
@@ -141,7 +142,7 @@ class ChangeRequests {
         return get(row.templateId(), requestId);
     }
 
-    /** The page of the request a review record belongs to, for a bell row that names the record; nothing is checked here. */
+    /** The page of the request a review record belongs to, for a bell row that names the record; nothing checked. */
     @Transactional(readOnly = true)
     Optional<String> pathOfReview(UUID reviewId) {
         return store.findByHeader(reviewId).map(row -> RequestRecords.pathOf(row.templateId(), row.id()));

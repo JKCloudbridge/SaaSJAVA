@@ -15,7 +15,8 @@ import java.util.List;
  * @param comment the comment
  * @param choices the choice a step that asks for one needs (FA6G, ADR-0200): a short list of key and value pairs of
  *        codes, handed to the hook of the object's module and read by nothing else; left out or empty when the step
- *        asks for none. The engine does not read it; the module's hook judges it and refuses a choice it does not accept
+ *        asks for none. The engine does not read it; the module's hook judges it and refuses a choice it does not
+ *        accept
  */
 public record ApprovalDecisionRequest(@NotNull Long version, @Size(max = 2000) String comment,
         @Size(max = 50) List<@NotNull @Valid DecisionChoice> choices) {

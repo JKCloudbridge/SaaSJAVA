@@ -69,7 +69,7 @@ class ChangeRequestReviewLogsAreCleanIT extends ChangeRequestReviewSupport {
 
         List<Response> refusals = new ArrayList<>();
         refusals.add(ask(review.world().reader().browser(), template, "<b>" + markup + "</b>", 1));
-        // The web framework logs a value it cannot parse at debug level, so these two send a fixed word, not typed text.
+        // The web framework logs a value it cannot parse at debug level, so these two send a fixed word.
         refusals.add(queryRequests(review.world().approver().browser(), "{\"sort\":\"sideways\"}"));
         refusals.add(queryRequests(review.world().approver().browser(), "{\"cursor\":\"" + markup + "\"}"));
         refusals.add(reopen(review.world().author().browser(), template, firstId));

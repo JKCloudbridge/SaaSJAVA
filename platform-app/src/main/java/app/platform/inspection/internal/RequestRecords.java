@@ -23,7 +23,7 @@ final class RequestRecords {
     static final String TAB = "change-requests";
 
     /**
-     * Where a person goes to read one request: the template's own page, on its Change requests tab, with the request open.
+     * Where a person goes to read one request: the template's own page, on its Change requests tab, request open.
      * The bell and the approval inbox lead here; the page decides again what the person may see.
      */
     static String pathOf(java.util.UUID templateId, java.util.UUID requestId) {

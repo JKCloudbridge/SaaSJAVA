@@ -20,7 +20,8 @@ import java.util.List;
  *        was tried (FA4A, ADR-0187); left out or null means false, which is what every process made before the flag
  *        existed means
  * @param asksForChoice whether the person who approves this step must also make the choice the object's module asks
- *        for (FA6G, ADR-0200); the engine only carries the flag and the choice to the module's hook, it knows nothing of
+ *        for (FA6G, ADR-0200); the engine only carries the flag and the choice to the module's hook, it knows
+ *        nothing of
  *        what is chosen. Left out or null means false
  */
 public record ApprovalStepSpec(@NotBlank @Size(max = 60) String name, @NotBlank @Size(max = 80) String label,

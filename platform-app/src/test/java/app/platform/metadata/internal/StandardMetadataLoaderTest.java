@@ -38,7 +38,8 @@ class StandardMetadataLoaderTest {
 
         assertThat(standard.objects()).extracting(ObjectDefinition::apiName).containsExactlyInAnyOrder(
                 "Account", "AccessPolicy", "AccessPolicyAssignment", "Case", "Contact", "DepartmentGroup", "Group",
-                "InspectionChangeRequest", "InspectionFill", "InspectionTemplate", "LicenceType", "Opportunity", "Profile",
+                "InspectionChangeRequest", "InspectionFill", "InspectionTemplate", "LicenceType", "Opportunity",
+                "Profile",
                 "RecordType", "Role", "User")
                 .doesNotHaveDuplicates();
         assertThat(standard.objects()).allSatisfy(object -> {

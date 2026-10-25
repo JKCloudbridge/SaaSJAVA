@@ -253,7 +253,8 @@ class AudienceSuggestionIT extends ChangeRequestReviewSupport {
         org.junit.jupiter.api.Assertions.assertThrows(SQLException.class,
                 () -> TenantFixtures.asTenant(flow.setting().organization().id(), connection -> TenantFixtures.update(
                         connection, "insert into inspection_audience_suggestion (tenant_id, request_id, template_id, "
-                                + "step_position, location, created_by, updated_by) values (?, ?, ?, 2, 'PLANT1', ?, ?)",
+                                + "step_position, location, created_by, updated_by) "
+                                + "values (?, ?, ?, 2, 'PLANT1', ?, ?)",
                         flow.setting().organization().id().value(), UUID.randomUUID(), template,
                         app.platform.sharedkernel.ActorId.SYSTEM.value(),
                         app.platform.sharedkernel.ActorId.SYSTEM.value())));
