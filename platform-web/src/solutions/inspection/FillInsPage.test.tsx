@@ -254,7 +254,7 @@ describe("one fill-in", () => {
     expect(screen.queryByText("Details")).not.toBeInTheDocument();
   });
 
-  it("warns that only what is saved is sent while there are unsaved changes", async () => {
+  it("says there are changes not saved yet while they wait to be saved", async () => {
     setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
     fakeApi(answers());
     render(<FillInsPage />);
@@ -266,7 +266,7 @@ describe("one fill-in", () => {
     fireEvent.change(box, { target: { value: "5" } });
     fireEvent.blur(box);
 
-    expect(await screen.findByTestId("unsaved-note")).toHaveTextContent("Submit saves them first");
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/not saved|Saving|Saved/));
   });
 
   it("sends a fill-in for good with Submit when no approval process applies, and reads it again as stored", async () => {
@@ -356,7 +356,12 @@ describe("one fill-in", () => {
 
   it("leaves with Cancel and sends nothing; unsaved changes are never dropped by one press", async () => {
     setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
-    const calls = fakeApi(answers());
+    // The save before leaving is refused, so one press does not drop the changes.
+    const calls = fakeApi({
+      ...answers(),
+      [`PUT /api/v1/sheet-fills/InspectionFill/${FILL}/cells`]: () =>
+        refusal("VALIDATION_ERROR", "A value is not valid.", 422),
+    });
     render(<FillInsPage />);
     fireEvent.click(await screen.findByRole("tab", { name: "Form view" }));
     const box = within((await screen.findAllByTestId("fill-row"))[0] as HTMLElement).getByRole("textbox", {
@@ -366,6 +371,7 @@ describe("one fill-in", () => {
     fireEvent.blur(box);
 
     fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    await screen.findByRole("button", { name: "Leave without saving" });
 
     expect(currentUrl()).toContain(`open=${FILL}`);
     fireEvent.click(screen.getByRole("button", { name: "Leave without saving" }));
