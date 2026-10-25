@@ -64,10 +64,12 @@ class TemplateDownloads {
     private final AuditRecorder audit;
     private final TenantContexts contexts;
     private final MeterRegistry meters;
+    private final TemplateRevisions revisions;
 
     TemplateDownloads(TemplateAccess access, TemplateOptionStore options, SheetLifecycle lifecycle,
             SheetExports exports, BackgroundRecords records, AuditRecorder audit, TenantContexts contexts,
-            MeterRegistry meters) {
+            MeterRegistry meters, TemplateRevisions revisions) {
+        this.revisions = revisions;
         this.access = access;
         this.options = options;
         this.lifecycle = lifecycle;
@@ -88,7 +90,12 @@ class TemplateDownloads {
     Download download(UUID templateId, Integer versionNo) {
         Caller caller = access.visible(templateId);
         Options set = options.find(templateId);
-        if (!set.allowDownload() && !access.has(caller, Ability.SHEETS_PUBLISH)) {
+        boolean heldCopy = versionNo != null && lifecycle.heldDraft(Templates.OBJECT, templateId)
+                .filter(held -> held.versionNo() == versionNo).isPresent();
+        // The revised copy of a change request may be downloaded by the people who can read it (the sheet rule asks
+        // again):
+        // they are making the changes, whatever the option says.
+        if (!set.allowDownload() && !heldCopy && !access.has(caller, Ability.SHEETS_PUBLISH)) {
             meters.counter("platform.inspection.template", "act", "download", "result", "not_allowed").increment();
             throw new ApiException(ErrorCode.FORBIDDEN, NOT_ALLOWED);
         }
@@ -102,7 +109,7 @@ class TemplateDownloads {
                 .orElseThrow(() -> ApiException.notFound("This template does not exist."));
         Object number = header.fields().get(Templates.NUMBER);
         String numberText = number == null ? null : number.toString();
-        int shown = summary.active() > 0 ? summary.active() : wanted;
+        int shown = revisions.of(templateId, summary.active() > 0 ? summary.active() : wanted);
         byte[] bytes = exports.xlsx(Templates.OBJECT, templateId, wanted,
                 TemplateSheetTexts.footer(numberText, shown));
         audit.record(AuditRecord.of("inspection.template.downloaded", AuditOutcome.SUCCESS).forUser(caller.userId())

@@ -346,9 +346,11 @@ async function ensureProcess(admin, groupIds) {
   say("made", "approval process Template review (step 1 Plant QMS, step 2 Corporate QMS asks for a location and is skipped when empty, step 3 Publish)");
 }
 
-// The second process (FA6E, ADR-0199): a change request goes through its own review, on the small record the platform makes
-// for each request. It names the same two groups as the template review, but its steps are its own: changing one process in
-// Setup, Approval processes, changes nothing in the other.
+// The second process (FA6E, ADR-0199; FA8, ADR-0202): a change request goes through its own review, on the small record the
+// platform makes for each request. The person who asks is the department person; the steps are Plant QMS, Corporate QMS (which
+// suggests where the revised sheet is published) and Plant QMS again, whose confirmation is the last approval and publishes the
+// revised sheet as the next revision. The last step cannot be skipped. It names the same groups as the template review, but its
+// steps are its own: changing one process in Setup, Approval processes, changes nothing in the other.
 async function ensureRequestProcess(admin, groupIds) {
   const existing = must(await admin.get("/api/v1/metadata/approvals?object=InspectionChangeRequest"), "reading approval processes");
   if (existing.length > 0) return say("ok", `approval process for change requests: ${existing.map((p) => p.label).join(", ")} (left as it is)`);
@@ -357,17 +359,18 @@ async function ensureRequestProcess(admin, groupIds) {
     await admin.post("/api/v1/metadata/approvals/InspectionChangeRequest", {
       name: "ChangeRequestReview",
       label: "Change request review",
-      description: "Plant QMS accepts or declines the request; then Corporate QMS does. Corporate QMS is skipped when its group is empty.",
+      description: "Plant QMS reviews the request and makes the revised copy; Corporate QMS approves and suggests where it is published; Plant QMS confirms the last step, which publishes the revised sheet as the next revision.",
       active: true,
       allowSelfApproval: false,
       steps: [
-        { name: "PlantQms", label: "Plant QMS", completion: "ANY", skipWhenNobody: false, approvers: [{ kind: "GROUP", value: groupIds["Plant QMS"] }] },
-        { name: "CorporateQms", label: "Corporate QMS", completion: "ANY", skipWhenNobody: true, approvers: [{ kind: "GROUP", value: groupIds["Corporate QMS"] }] },
+        { name: "PlantQms", label: "Plant QMS", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "GROUP", value: groupIds["Plant QMS"] }] },
+        { name: "CorporateQms", label: "Corporate QMS", completion: "ANY", skipWhenNobody: true, asksForChoice: true, approvers: [{ kind: "GROUP", value: groupIds["Corporate QMS"] }] },
+        { name: "PublishStep", label: "Plant QMS publishes", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "GROUP", value: groupIds["Plant QMS"] }] },
       ],
     }),
     "making the approval process for change requests",
   );
-  say("made", "approval process Change request review (step 1 Plant QMS, step 2 Corporate QMS, skipped when empty)");
+  say("made", "approval process Change request review (step 1 Plant QMS, step 2 Corporate QMS asks for a location, step 3 Plant QMS publishes)");
 }
 
 async function main() {

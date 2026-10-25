@@ -6,8 +6,13 @@ import app.platform.sheets.Revisions;
 import org.junit.jupiter.api.Test;
 
 /**
- * The revision as people read it, the footer text and the file name (FA7, ADR-0201), with no database. The same cases
- * are checked on the browser's side ({@code revision.test.ts}) so the screen and the file always agree.
+ * The revision as people read it, the footer text and the file name (FA7, ADR-0201; FA8, ADR-0202), with no database.
+ * The
+ * same cases are checked on the browser's side ({@code revision.test.ts}) so the screen and the file always agree.
+ * Since FA8
+ * the footer and the file name take the revision number itself (the database numbers a revision when it first becomes
+ * the
+ * one in use), and a version stored before that is read as its stored number minus one.
  */
 class TemplateSheetTextsTest {
 
@@ -23,30 +28,57 @@ class TemplateSheetTextsTest {
     }
 
     @Test
+    void aRevisionNumberIsWrittenWithTwoDigits() {
+        assertThat(TemplateRevisions.show(0)).isEqualTo("00");
+        assertThat(TemplateRevisions.show(1)).isEqualTo("01");
+        assertThat(TemplateRevisions.show(12)).isEqualTo("12");
+        assertThat(TemplateRevisions.show(100)).as("more than two digits only when it must").isEqualTo("100");
+        assertThat(TemplateRevisions.show(-3)).as("never negative").isEqualTo("00");
+    }
+
+    @Test
     void theFooterIsTheNumberTwoSpacesAndTheRevisionInSingleQuotes() {
-        assertThat(TemplateSheetTexts.footer("F/MR/16", 2)).isEqualTo("F/MR/16  Rev No.'01'");
-        assertThat(TemplateSheetTexts.footer("  F/MR/16 ", 1)).isEqualTo("F/MR/16  Rev No.'00'");
+        assertThat(TemplateSheetTexts.footer("F/MR/16", 1)).isEqualTo("F/MR/16  Rev No.'01'");
+        assertThat(TemplateSheetTexts.footer("  F/MR/16 ", 0)).isEqualTo("F/MR/16  Rev No.'00'");
     }
 
     @Test
     void theFooterIsBlankUntilTheTemplateHasANumber() {
-        assertThat(TemplateSheetTexts.footer(null, 1)).isEmpty();
-        assertThat(TemplateSheetTexts.footer("", 1)).isEmpty();
-        assertThat(TemplateSheetTexts.footer("   ", 3)).isEmpty();
+        assertThat(TemplateSheetTexts.footer(null, 0)).isEmpty();
+        assertThat(TemplateSheetTexts.footer("", 0)).isEmpty();
+        assertThat(TemplateSheetTexts.footer("   ", 2)).isEmpty();
     }
 
     @Test
     void theFileNameIsTheNumberWithHyphensAndTheRevision() {
-        assertThat(TemplateSheetTexts.fileName("F/MR/16", 1)).isEqualTo("F-MR-16_Rev00.xlsx");
-        assertThat(TemplateSheetTexts.fileName("CP/PRD/A-12", 3)).isEqualTo("CP-PRD-A-12_Rev02.xlsx");
-        assertThat(TemplateSheetTexts.fileName(null, 1)).isEqualTo("Template_Rev00.xlsx");
+        assertThat(TemplateSheetTexts.fileName("F/MR/16", 0)).isEqualTo("F-MR-16_Rev00.xlsx");
+        assertThat(TemplateSheetTexts.fileName("CP/PRD/A-12", 2)).isEqualTo("CP-PRD-A-12_Rev02.xlsx");
+        assertThat(TemplateSheetTexts.fileName(null, 0)).isEqualTo("Template_Rev00.xlsx");
     }
 
     @Test
     void aNumberCanNeverMakeAPathOrAHeaderBreakInTheFileName() {
-        String name = TemplateSheetTexts.fileName("../../x\r\nSet-Cookie: a=b/\"q\"", 1);
+        String name = TemplateSheetTexts.fileName("../../x\r\nSet-Cookie: a=b/\"q\"", 0);
 
         assertThat(name).doesNotContain("/").doesNotContain("\\").doesNotContain("\r").doesNotContain("\n")
                 .doesNotContain("\"").doesNotContain(" ").endsWith("_Rev00.xlsx");
+    }
+
+    @Test
+    void theRevisionOfATemplateIsTheSavedOneOrTheStoredNumberMinusOne() {
+        assertThat(Templates.revisionShown(java.util.Map.of("revision", "03"), 9)).as("the saved one wins")
+                .isEqualTo("03");
+        assertThat(Templates.revisionShown(java.util.Map.of(), 2)).as("published before it was saved")
+                .isEqualTo("01");
+        assertThat(Templates.revisionShown(java.util.Map.of("revision", " "), 1)).isEqualTo("00");
+        assertThat(Templates.revisionShown(java.util.Map.of(), 0)).as("never published").isNull();
+    }
+
+    @Test
+    void theMomentOfTheLastRevisionIsReadFromTheRecordOrIsNothing() {
+        assertThat(Templates.lastRevisedAt(java.util.Map.of("lastRevisedAt", "2026-10-25T10:15:30Z")))
+                .isEqualTo(java.time.Instant.parse("2026-10-25T10:15:30Z"));
+        assertThat(Templates.lastRevisedAt(java.util.Map.of("lastRevisedAt", "not a time"))).isNull();
+        assertThat(Templates.lastRevisedAt(java.util.Map.of())).isNull();
     }
 }

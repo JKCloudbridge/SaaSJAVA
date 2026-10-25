@@ -52,7 +52,8 @@ public final class ChangeRequestViews {
      *
      * @param id its identifier
      * @param title what it is called
-     * @param status {@code OPEN}, {@code ACCEPTED}, {@code DECLINED} or {@code DONE}
+     * @param status {@code OPEN} (in progress), {@code DECLINED} or {@code DONE} (published); {@code ACCEPTED} only for
+     *        a request left from the earlier way of working
      * @param versionNo the version the person read
      * @param requesterName who asked, or null for a person who has left
      * @param requesterDepartment the department of the person when they asked (kept as it was then), or null when they
@@ -60,34 +61,52 @@ public final class ChangeRequestViews {
      * @param mine whether the caller asked
      * @param createdAt when it was made
      * @param answeredAt when it was last answered, or null while it is open
-     * @param resultingVersion the version it was turned into, or null
+     * @param resultingVersion the revised copy of the sheet while it is being prepared, and the version this request
+     *        published once it is done; null before a copy is made (a stored version number)
      * @param resultingVersionStatus the status of that version now, or null
      * @param placesTotal how many places its comments point at (a comment on the whole template points at none)
      * @param placesInActive how many of those places are still in the version in use
      * @param canComment whether the caller may add a comment now
-     * @param canTurn whether the caller may turn it into a new version now
-     * @param canReopen whether the caller may reopen it (its version was not used)
+     * @param canCreateCopy whether the caller may make the revised copy of the sheet now (FA8)
+     * @param canChangeCopy whether the caller may change the revised copy now (FA8)
      * @param comments its comments, oldest first
      * @param templateId the template it is about
      * @param templateName the template's name, or null when the caller may not read it
      * @param templateNumber the template's number, or null when it has none or the caller may not read it
      * @param reviewId the record the approval engine reviews for this request (the address of its approval panel), or
      *        null for a request made before every request had an approval (FA6E, ADR-0199)
+     * @param resultingRevision the revision number of that version once it has been the revision in use, or null
+     * @param publishPrefill what the window of the last approval starts from, for a caller who may publish while the
+     *        request is open; null otherwise
      */
     public record ChangeRequestView(@NotNull UUID id, @NotNull String title, @NotNull String status,
             @NotNull Integer versionNo, String requesterName, String requesterDepartment, @NotNull Boolean mine,
             @NotNull Instant createdAt,
             Instant answeredAt, Integer resultingVersion, String resultingVersionStatus,
             @NotNull Integer placesTotal, @NotNull Integer placesInActive, @NotNull Boolean canComment,
-            @NotNull Boolean canTurn,
-            @NotNull Boolean canReopen, @NotNull List<ChangeCommentView> comments, @NotNull UUID templateId,
-            String templateName, String templateNumber, UUID reviewId) {
+            @NotNull Boolean canCreateCopy,
+            @NotNull Boolean canChangeCopy, @NotNull List<ChangeCommentView> comments, @NotNull UUID templateId,
+            String templateName, String templateNumber, UUID reviewId, Integer resultingRevision,
+            PublishPrefill publishPrefill) {
 
         /** Prints a marker only: the text in it is the organization's and never reaches a log. */
         @Override
         public String toString() {
             return "ChangeRequestView[redacted]";
         }
+    }
+
+    /**
+     * What the window of the last approval starts from (FA8, ADR-0202): the audience the step that asks for a choice
+     * suggested, and the two options the template has now.
+     *
+     * @param suggested the places Corporate QMS suggested, with the places the lists no longer offer left out
+     * @param suggestionDropped how many suggested places were left out for that reason
+     * @param viewOnly the "view only" option now
+     * @param allowDownload the "allow download" option now
+     */
+    public record PublishPrefill(@NotNull List<TemplateViews.SuggestedAudience> suggested,
+            @NotNull Integer suggestionDropped, @NotNull Boolean viewOnly, @NotNull Boolean allowDownload) {
     }
 
     /**
@@ -100,11 +119,12 @@ public final class ChangeRequestViews {
      *        retired)
      * @param activeVersion the version in use, or 0
      * @param draftVersion the draft, or 0
-     * @param openCount how many of the requests are open
+     * @param openCount how many of the requests are in progress on the template (at most one)
+     * @param inProgress whether a change is in progress on the template, so another request cannot be raised now
      */
     public record ChangeRequestsView(@NotNull List<ChangeRequestView> requests, @NotNull Boolean canReview,
             @NotNull Boolean canRequest, @NotNull Integer activeVersion, @NotNull Integer draftVersion,
-            @NotNull Integer openCount) {
+            @NotNull Integer openCount, @NotNull Boolean inProgress) {
     }
 
     /**
@@ -185,13 +205,14 @@ public final class ChangeRequestViews {
     }
 
     /**
-     * A request to make.
+     * A request to make (FA8, ADR-0202): the register form the person fills, the version they read and, if they like,
+     * the places on the sheet they mean. The request is called by the first line of what is asked.
      *
-     * @param title what to call it
      * @param versionNo the version that was read
-     * @param comments the comments it starts with
+     * @param register what the person types in the register form
+     * @param comments the places on the sheet it points at, each with a note
      */
-    public record CreateChangeRequest(@NotNull @Size(max = 1000) String title, @NotNull Integer versionNo,
+    public record CreateChangeRequest(@NotNull Integer versionNo, @NotNull @Valid RegisterViews.RegisterInput register,
             @Valid List<@Valid NewChangeComment> comments) {
 
         /** Prints a marker only: the text in it is the organization's and never reaches a log. */
@@ -199,24 +220,5 @@ public final class ChangeRequestViews {
         public String toString() {
             return "CreateChangeRequest[redacted]";
         }
-    }
-
-    /**
-     * Requests to turn into a version of the template.
-     *
-     * @param requestIds the requests, which must be open or accepted
-     */
-    public record TurnIntoVersionRequest(@NotNull @Size(min = 1, max = 200) List<@NotNull UUID> requestIds) {
-    }
-
-    /**
-     * What turning requests into a version did.
-     *
-     * @param versionNo the draft they are now linked to
-     * @param created true when the draft was made now, false when a draft already existed and the requests were linked
-     *        to it as it is
-     * @param requests how many requests were linked
-     */
-    public record TurnedView(@NotNull Integer versionNo, @NotNull Boolean created, @NotNull Integer requests) {
     }
 }

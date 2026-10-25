@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import type { AnnotateContext, Place } from "@/lib/sheets/annotate";
 import { createChangeRequest, type ChangeRequestsView, type NewChangeComment } from "./changeRequests";
+import { RegisterRaisePanel } from "./RegisterPanel";
+import { EMPTY_REGISTER_INPUT, type RegisterInput } from "./register";
 
 interface Drafted {
   place: Place | null;
@@ -12,7 +14,7 @@ interface Drafted {
 
 const MOST_COMMENTS = 10;
 
-/** The target of the comment being written: one of the places the active cell stands on, or the whole template. */
+/** The target of the note being written: one of the places the active cell stands on, or the whole template. */
 type Target = "cell" | "row" | "column" | "template";
 
 /**
@@ -26,18 +28,29 @@ export interface AnnotateDraft {
   setText(text: string): void;
   drafted: Drafted[];
   setDrafted(update: (now: Drafted[]) => Drafted[]): void;
-  title: string;
-  setTitle(title: string): void;
+  /** The boxes of the register form that the person types. */
+  register: RegisterInput;
+  setRegister(register: RegisterInput): void;
   /** Something has been written that was not sent. */
   dirty: boolean;
   clear(): void;
 }
 
+const typed = (register: RegisterInput): boolean =>
+  [
+    register.requestNo,
+    register.changeRequested,
+    register.basisForChange,
+    register.horizontalDeployment,
+    register.obsoletedFormat,
+    register.obsoletedEffectiveOn,
+  ].some((box) => (box ?? "").trim() !== "");
+
 export function useAnnotateDraft(): AnnotateDraft {
   const [target, setTarget] = useState<Target>("cell");
   const [text, setText] = useState("");
   const [drafted, setDrafted] = useState<Drafted[]>([]);
-  const [title, setTitle] = useState("");
+  const [register, setRegister] = useState<RegisterInput>(EMPTY_REGISTER_INPUT);
   return {
     target,
     setTarget,
@@ -45,24 +58,24 @@ export function useAnnotateDraft(): AnnotateDraft {
     setText,
     drafted,
     setDrafted,
-    title,
-    setTitle,
-    dirty: text.trim() !== "" || title.trim() !== "" || drafted.length > 0,
+    register,
+    setRegister,
+    dirty: text.trim() !== "" || typed(register) || drafted.length > 0,
     clear: () => {
       setTarget("cell");
       setText("");
       setDrafted(() => []);
-      setTitle("");
+      setRegister(EMPTY_REGISTER_INPUT);
     },
   };
 }
 
 /**
- * The content of the "Ask for a change" popup (Functional track FA5, ADR-0191; a popup since FA6D). The person chose a
- * place in the grid before opening it; here they choose what the comment is about (that cell, its row, its column or the
- * whole template), write it, add it to the request they are making and send the request with a title. Nothing here
- * decides: the server checks that the person may read the template, that the version is one that is or was in use and
- * that every place is in it, and it answers in its own words, which are shown with the place that is wrong.
+ * The content of the "Ask for a change" popup (Functional track FA5, ADR-0191; a popup since FA6D; the register form since
+ * FA8, ADR-0202). The person fills in the register (as a form, or in Excel and uploaded), may point at the places on the
+ * sheet they mean, and sends the request. Nothing here decides: the server checks that the person may read the template,
+ * that the revision is one that is or was in use, that no other change is in progress and that every box and place is
+ * valid, and it answers in its own words, which are shown with the place that is wrong.
  */
 export function AnnotatePanel({
   templateId,
@@ -81,20 +94,17 @@ export function AnnotatePanel({
   const ids = useId();
   const box = useRef<HTMLTextAreaElement>(null);
   const own = useAnnotateDraft();
-  const { target, setTarget, text, setText, drafted, setDrafted, title, setTitle, clear } = draft ?? own;
+  const { target, setTarget, text, setText, drafted, setDrafted, register, setRegister, clear } = draft ?? own;
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
 
-  // The popup opens on the box for the comment. In a microtask so that it runs after the popup has put focus on its own first control.
-  useEffect(() => {
-    void Promise.resolve().then(() => box.current?.focus());
-  }, []);
-
   if (view && !view.canRequest) {
     return (
       <p className="hint" role="note" data-testid="annotate-unavailable">
-        Nobody can ask for a change to this template right now.
+        {view.inProgress
+          ? "A change is already in progress on this template. You can ask for another when it has been published or declined."
+          : "Nobody can ask for a change to this template right now."}
       </p>
     );
   }
@@ -108,11 +118,11 @@ export function AnnotatePanel({
   const add = () => {
     const words = text.trim();
     if (words === "") {
-      setMessage({ text: "Write the comment first.", error: true });
+      setMessage({ text: "Write the note first.", error: true });
       return;
     }
     if (drafted.length >= MOST_COMMENTS) {
-      setMessage({ text: `A request starts with at most ${MOST_COMMENTS} comments. Send it, then add more to it.`, error: true });
+      setMessage({ text: `A request starts with at most ${MOST_COMMENTS} places. Send it, then add more to it.`, error: true });
       return;
     }
     setDrafted((now) => [...now, { place: chosenPlace, words: chosenWords, text: words }]);
@@ -122,12 +132,12 @@ export function AnnotatePanel({
   };
 
   const send = async () => {
-    if (title.trim() === "") {
-      setMessage({ text: "Say what the request is about, in the title.", error: true });
+    if (register.requestNo.trim() === "") {
+      setMessage({ text: "Write the request number.", error: true });
       return;
     }
-    if (drafted.length === 0) {
-      setMessage({ text: "Add at least one comment to the request.", error: true });
+    if (register.changeRequested.trim() === "") {
+      setMessage({ text: "Write what change you ask for.", error: true });
       return;
     }
     setSending(true);
@@ -138,7 +148,7 @@ export function AnnotatePanel({
       columnId: one.place?.columnId ?? undefined,
       text: one.text,
     }));
-    const outcome = await createChangeRequest(templateId, { title: title.trim(), versionNo: context.versionNo, comments });
+    const outcome = await createChangeRequest(templateId, { versionNo: context.versionNo, register, comments });
     setSending(false);
     if (!outcome.ok) {
       setMessage({ text: outcome.failure.message, error: true });
@@ -151,68 +161,68 @@ export function AnnotatePanel({
   };
 
   const choices: { which: Target; label: string }[] = [
-    { which: "cell", label: "Comment on this cell" },
-    { which: "row", label: "Comment on this row" },
-    { which: "column", label: "Comment on this column" },
-    { which: "template", label: "Comment on the whole template" },
+    { which: "cell", label: "This cell" },
+    { which: "row", label: "This row" },
+    { which: "column", label: "This column" },
+    { which: "template", label: "The whole template" },
   ];
 
   return (
     <div className="stack" data-testid="annotate-panel">
       <p className="hint">
-        You cannot change this revision. Say what you would change and send it as a request. The people who look after the
-        template see it, and nobody else.
+        You cannot change this revision. Fill in the register and send it as a request. The people who look after the
+        template decide it, and nobody else sees it.
       </p>
-      <div className="split" role="group" aria-label="What the comment is about">
-        {choices.map((choice) => (
-          <button
-            key={choice.which}
-            type="button"
-            className={chosen === choice.which ? "button" : "button button-secondary"}
-            aria-pressed={chosen === choice.which}
-            disabled={!available(choice.which)}
-            onClick={() => {
-              setTarget(choice.which);
-              box.current?.focus();
-            }}
-          >
-            {choice.label}
-          </button>
-        ))}
-      </div>
-      <div className="field">
-        <label htmlFor={`${ids}-text`}>Your comment — {chosenWords}</label>
-        <textarea id={`${ids}-text`} ref={box} rows={3} value={text} onChange={(event) => setText(event.target.value)} />
-      </div>
-      <div>
-        <button type="button" className="button button-secondary" onClick={add}>
-          Add to my request
-        </button>
-      </div>
+      <RegisterRaisePanel templateId={templateId} value={register} onChange={setRegister} />
 
-      {drafted.length > 0 ? (
-        <ul aria-label="Comments in my request" className="stack" data-testid="drafted">
-          {drafted.map((one, index) => (
-            <li key={`${one.words}-${index}`}>
-              <strong>{one.words}</strong>: <span className="comment-text">{one.text}</span>{" "}
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => setDrafted((now) => now.filter((_, at) => at !== index))}
-              >
-                Remove<span className="visually-hidden"> the comment on {one.words}</span>
-              </button>
-            </li>
+      <fieldset className="stack">
+        <legend>Where on the sheet (optional)</legend>
+        <div className="split" role="group" aria-label="What the note is about">
+          {choices.map((choice) => (
+            <button
+              key={choice.which}
+              type="button"
+              className={chosen === choice.which ? "button" : "button button-secondary"}
+              aria-pressed={chosen === choice.which}
+              disabled={!available(choice.which)}
+              onClick={() => {
+                setTarget(choice.which);
+                box.current?.focus();
+              }}
+            >
+              {choice.label}
+            </button>
           ))}
-        </ul>
-      ) : null}
+        </div>
+        <div className="field">
+          <label htmlFor={`${ids}-text`}>Your note — {chosenWords}</label>
+          <textarea id={`${ids}-text`} ref={box} rows={2} value={text} onChange={(event) => setText(event.target.value)} />
+        </div>
+        <div>
+          <button type="button" className="button button-secondary" onClick={add}>
+            Add the place to my request
+          </button>
+        </div>
+        {drafted.length > 0 ? (
+          <ul aria-label="Places in my request" className="stack" data-testid="drafted">
+            {drafted.map((one, index) => (
+              <li key={`${one.words}-${index}`}>
+                <strong>{one.words}</strong>: <span className="comment-text">{one.text}</span>{" "}
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => setDrafted((now) => now.filter((_, at) => at !== index))}
+                >
+                  Remove<span className="visually-hidden"> the note on {one.words}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </fieldset>
 
-      <div className="field">
-        <label htmlFor={`${ids}-title`}>What is the request about?</label>
-        <input id={`${ids}-title`} type="text" value={title} onChange={(event) => setTitle(event.target.value)} />
-      </div>
       <div>
-        <button type="button" className="button" onClick={() => void send()} disabled={sending}>
+        <button type="button" className="button" onClick={() => void send()} disabled={sending} data-testid="send-request">
           {sending ? "Sending…" : "Send the request"}
         </button>
       </div>

@@ -85,9 +85,6 @@ class TemplateListIT extends TemplateSupport {
         assertThat(approve(run.approver().browser(), submitted(run.authorA().browser(), active, run.process()))
                 .status()).isEqualTo(200);
         assertThat(publish(run.approver().browser(), active, null, "PLANT1/PRD").status()).isEqualTo(200);
-        int two = newVersion(run.authorA().browser(), active);
-        fill(run.authorA().browser(), active, two);
-        submitted(run.authorA().browser(), active, run.process());
         String retired = named(run.authorA(), "Retired one", "SOP", "PRD");
         approve(run.approver().browser(), submitted(run.authorA().browser(), retired, run.process()));
         assertThat(retire(run.approver().browser(), retired).status()).isEqualTo(200);
@@ -100,8 +97,6 @@ class TemplateListIT extends TemplateSupport {
         int at = ids.indexOf(active);
         assertThat(JsonPath.<String>read(page.body(), "$.data.rows[" + at + "].lifecycle.state")).isEqualTo("ACTIVE");
         assertThat(JsonPath.<Integer>read(page.body(), "$.data.rows[" + at + "].lifecycle.activeVersion")).isEqualTo(1);
-        assertThat(JsonPath.<Integer>read(page.body(), "$.data.rows[" + at + "].lifecycle.inReviewVersion"))
-                .isEqualTo(2);
         assertThat(JsonPath.<String>read(page.body(), "$.data.rows[" + ids.indexOf(retired) + "].lifecycle.state"))
                 .isEqualTo("RETIRED");
         assertThat(JsonPath.<Boolean>read(page.body(), "$.data.rows[" + ids.indexOf(retired) + "].retired")).isTrue();

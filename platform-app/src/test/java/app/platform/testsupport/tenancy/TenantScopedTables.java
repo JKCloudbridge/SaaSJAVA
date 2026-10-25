@@ -821,6 +821,20 @@ public final class TenantScopedTables {
                             + "updated_by) select ?, ?, ?, ? from allowed",
                     tenant, UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
 
+    /**
+     * The register forms of change requests (FA8). The guard lets a row in only when the transaction setting is on,
+     * which the probe raises in the same statement.
+     */
+    public static final TenantScopedTable INSPECTION_CHANGE_REGISTER = new TenantScopedTable(
+            "inspection_change_register",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "with allowed as (select set_config('platform.change_register_write', 'on', true)) "
+                            + "insert into inspection_change_register (tenant_id, request_id, template_id, "
+                            + "request_no, change_requested, document_name, rev_no, created_by, updated_by) "
+                            + "select ?, ?, ?, 'PROBE', 'Probe', 'Probe', '00', ?, ? from allowed",
+                    tenant, UUID.randomUUID(), UUID.randomUUID(), ActorId.SYSTEM.value(),
+                    ActorId.SYSTEM.value()));
+
     /** The change requests on templates (FA5). Each probe row is a request on a template of its own. */
     public static final TenantScopedTable INSPECTION_CHANGE_REQUEST = new TenantScopedTable(
             "inspection_change_request",
@@ -873,7 +887,7 @@ public final class TenantScopedTables {
             SHEET_VERSION, SHEET_FILL,
             SHEET_FILL_VALUE,
             INSPECTION_PUBLICATION, INSPECTION_CHANGE_REQUEST, INSPECTION_CHANGE_COMMENT,
-            INSPECTION_AUDIENCE_SUGGESTION, INSPECTION_TEMPLATE_OPTION);
+            INSPECTION_AUDIENCE_SUGGESTION, INSPECTION_TEMPLATE_OPTION, INSPECTION_CHANGE_REGISTER);
 
     private TenantScopedTables() {
     }

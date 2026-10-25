@@ -42,10 +42,12 @@ class SheetVersionStore {
      * @param reviewEdits how many times an approver changed the grid while it was in review
      * @param approvalRequestId the approval request that reviews it or reviewed it, or null
      * @param updatedBy who last changed it (the base column), or null
+     * @param revisionNo the revision number people read, set by the database when the version first became the one
+     *        in use (FA8, ADR-0202), or null for a version that never was, or that became so before numbers were stored
      */
     record Row(int versionNo, String status, int dimension, String rowsMode, long gridBytes, String gridHash,
             long version, Instant createdAt, Instant updatedAt, Instant submittedAt, Instant decidedAt,
-            int reviewEdits, UUID approvalRequestId, UUID updatedBy) {
+            int reviewEdits, UUID approvalRequestId, UUID updatedBy, Integer revisionNo) {
     }
 
     /** A version with its grid as the JSON text the database holds. The grid is the organization's text. */
@@ -68,7 +70,7 @@ class SheetVersionStore {
 
     private static final String COLUMNS = "version_no, status, dimension, rows_mode, grid_bytes, "
             + "encode(grid_hash, 'hex') as grid_hash, version, created_at, updated_at, submitted_at, decided_at, "
-            + "review_edits, approval_request_id, updated_by";
+            + "review_edits, approval_request_id, updated_by, revision_no";
 
     private static final String WHERE_OWNER = "tenant_id = :tenant and owner_object = :object and owner_id = :owner "
             + "and deleted_at is null";
@@ -83,6 +85,15 @@ class SheetVersionStore {
             + "version_no, dimension, rows_mode, grid, grid_hash, grid_bytes, created_by, updated_by) select "
             + "tenant_id, owner_object, owner_id, :no, dimension, rows_mode, grid, grid_hash, grid_bytes, :actor, "
             + ":actor from sheet_version where " + WHERE_OWNER + " and version_no = :base returning " + COLUMNS;
+
+    // The copy of a draft that belongs to an approval request from the day it is made (FA8, ADR-0202): the request id
+    // is
+    // on the row while it is a draft, so the people asked to decide that request can be told apart from everybody else.
+    private static final String INSERT_COPY_HELD = "insert into sheet_version (tenant_id, owner_object, owner_id, "
+            + "version_no, dimension, rows_mode, grid, grid_hash, grid_bytes, approval_request_id, created_by, "
+            + "updated_by) select tenant_id, owner_object, owner_id, :no, dimension, rows_mode, grid, grid_hash, "
+            + "grid_bytes, :request, :actor, :actor from sheet_version where " + WHERE_OWNER
+            + " and version_no = :base returning " + COLUMNS;
 
     // The version in the where clause is the optimistic check: nothing changes when it is stale. The status in it
     // keeps a version that has left draft from being written, whatever the caller believed.
@@ -140,13 +151,42 @@ class SheetVersionStore {
                 .param("key", "sheet:" + tenant() + ":" + object + ":" + owner).query().listOfRows();
     }
 
-    /** The versions, highest number first, without their grids; all of them, or only those readers may read. */
-    List<Row> list(String object, UUID owner, boolean all) {
+    /**
+     * The versions, highest number first, without their grids: all of them, the ones that are or were in use (for the
+     * people who keep the history), or only the one in use and the one that ended with the owner (what a reader sees).
+     */
+    List<Row> list(String object, UUID owner, boolean all, boolean history) {
         return jdbc.sql("select " + COLUMNS + " from sheet_version where " + WHERE_OWNER
-                        + " and (cast(:all as boolean) or status in ('ACTIVE', 'SUPERSEDED', 'RETIRED')) "
+                        + " and (cast(:all as boolean) or status in ('ACTIVE', 'RETIRED') "
+                        + "or (cast(:history as boolean) and status = 'SUPERSEDED')) "
                         + "order by version_no desc")
                 .param("tenant", tenant()).param("object", object).param("owner", owner).param("all", all)
-                .query(SheetVersionStore::map).list();
+                .param("history", history).query(SheetVersionStore::map).list();
+    }
+
+    /** The draft that belongs to an approval request, or empty when the draft (if any) is nobody's in particular. */
+    Optional<Row> heldDraft(String object, UUID owner) {
+        return jdbc.sql("select " + COLUMNS + " from sheet_version where " + WHERE_OWNER
+                        + " and status = 'DRAFT' and approval_request_id is not null")
+                .param("tenant", tenant()).param("object", object).param("owner", owner)
+                .query(SheetVersionStore::map).optional();
+    }
+
+    /** The draft held for a request is pointed at another approval request. */
+    boolean retargetHeld(String object, UUID owner, UUID requestId, UUID actor) {
+        return jdbc.sql("update sheet_version set approval_request_id = :request, version = version + 1, "
+                        + "updated_by = :actor where " + WHERE_OWNER + " and status = 'DRAFT' "
+                        + "and approval_request_id is not null")
+                .param("request", requestId).param("actor", actor).param("tenant", tenant())
+                .param("object", object).param("owner", owner).update() == 1;
+    }
+
+    /** Whether a version of the sheet ever was the one in use. */
+    boolean everPublished(String object, UUID owner) {
+        return jdbc.sql("select exists (select 1 from sheet_version where " + WHERE_OWNER
+                        + " and (revision_no is not null or status in ('ACTIVE', 'SUPERSEDED', 'RETIRED')))")
+                .param("tenant", tenant()).param("object", object).param("owner", owner).query(Boolean.class)
+                .single();
     }
 
     Optional<Row> find(String object, UUID owner, int versionNo) {
@@ -214,6 +254,13 @@ class SheetVersionStore {
         return jdbc.sql(INSERT_COPY).param("tenant", tenant()).param("object", object).param("owner", owner)
                 .param("no", versionNo).param("base", base).param("actor", actor).query(SheetVersionStore::map)
                 .optional();
+    }
+
+    /** The new draft made as a copy of another version and held for an approval request. */
+    Optional<Row> insertHeldCopy(String object, UUID owner, int versionNo, int base, UUID requestId, UUID actor) {
+        return jdbc.sql(INSERT_COPY_HELD).param("tenant", tenant()).param("object", object).param("owner", owner)
+                .param("no", versionNo).param("base", base).param("request", requestId).param("actor", actor)
+                .query(SheetVersionStore::map).optional();
     }
 
     /** The draft after the change, or empty when the version is not a draft or was changed since it was read. */
@@ -295,7 +342,8 @@ class SheetVersionStore {
                 rs.getString("rows_mode"), rs.getLong("grid_bytes"), rs.getString("grid_hash"), rs.getLong("version"),
                 instant(rs, "created_at"), instant(rs, "updated_at"), instant(rs, "submitted_at"),
                 instant(rs, "decided_at"), rs.getInt("review_edits"),
-                rs.getObject("approval_request_id", UUID.class), rs.getObject("updated_by", UUID.class));
+                rs.getObject("approval_request_id", UUID.class), rs.getObject("updated_by", UUID.class),
+                rs.getObject("revision_no", Integer.class));
     }
 
     private static Instant instant(ResultSet rs, String column) throws SQLException {

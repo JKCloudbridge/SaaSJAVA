@@ -108,6 +108,17 @@ class ApprovalHookCalls {
      */
     void beforeApprove(InstanceRow instance, StepRow step, UUID approver, boolean asksForChoice,
             List<ApprovalDecisionRequest.DecisionChoice> choices) {
+        beforeApprove(instance, step, approver, asksForChoice, choices, false);
+    }
+
+    /**
+     * As above; {@code endsRequest} says that this approval decides the last open task of the last step, so the request
+     * ends approved with it (FA8, ADR-0202).
+     *
+     * @throws ApprovalHookRefusal when the hook refuses
+     */
+    void beforeApprove(InstanceRow instance, StepRow step, UUID approver, boolean asksForChoice,
+            List<ApprovalDecisionRequest.DecisionChoice> choices, boolean endsRequest) {
         Optional<ApprovalHooks> hook = registry.of(instance.objectApiName());
         if (hook.isEmpty()) {
             return;
@@ -118,9 +129,9 @@ class ApprovalHookCalls {
                 instance.recordId(), hook.get().writes());
         DecisionContext context = new DecisionContext(instance.id(), instance.objectApiName(), instance.recordId(),
                 instance.processApiName(), instance.processVersionNumber(), instance.version(), step.position(),
-                step.name(), approver, asksForChoice, asksForChoice
+                step.name(), approver, asksForChoice, asksForChoice || endsRequest
                         ? choices.stream().map(one -> new ApprovalHooks.Choice(one.key(), one.value())).toList()
-                        : List.of());
+                        : List.of(), endsRequest);
         try {
             call(BEFORE_APPROVE, instance.objectApiName(), instance.recordId(), instance.id(),
                     instance.processApiName(), approver, true, () -> hook.get().beforeApprove(context, writer));

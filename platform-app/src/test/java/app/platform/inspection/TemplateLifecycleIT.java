@@ -116,7 +116,7 @@ class TemplateLifecycleIT extends TemplateSupport {
     }
 
     @Test
-    void theSecondVersionOfATemplateKeepsItsNumberAndTakesNoNewOne() {
+    void theNextRevisionOfATemplateKeepsItsNumberAndTakesNoNewOne() {
         Run run = run();
         String template = templateWithSheet(run.author().browser(), "SOP", "PRD");
         String first = submitted(run.author().browser(), template, run.process());
@@ -124,75 +124,13 @@ class TemplateLifecycleIT extends TemplateSupport {
         assertThat(approve(run.second().browser(), first).status()).isEqualTo(200);
         assertThat(publish(run.second().browser(), template, null, "PLANT1/PRD").status()).isEqualTo(200);
         assertThat(number(run.setting().admin(), template)).isEqualTo("SOP/PRD/01");
-        long headerVersion = JsonPath.<Number>read(run.setting().admin().get(RECORDS + "/" + template).body(),
-                "$.data.version").longValue();
 
-        int next = newVersion(run.author().browser(), template);
-        assertThat(fill(run.author().browser(), template, next).status()).isEqualTo(200);
-        String again = submitted(run.author().browser(), template, run.process());
-        assertThat(approve(run.first().browser(), again).status()).isEqualTo(200);
+        int next = NextRevision.inUse(run.setting(), run.author().browser(), run.second(), template,
+                gridOf(version(run.second().browser(), template, 1)));
 
+        assertThat(next).isEqualTo(2);
         assertThat(number(run.setting().admin(), template)).isEqualTo("SOP/PRD/01");
-        assertThat(JsonPath.<Number>read(run.setting().admin().get(RECORDS + "/" + template).body(), "$.data.version")
-                .longValue()).isEqualTo(headerVersion);
-    }
-
-    // ---- a second review while the first version is in use ----
-
-    @Test
-    void whileANewVersionIsInReviewTheVersionInUseStaysReadableAndPublishingReplacesItAtOnce() {
-        Run run = run();
-        String template = templateWithSheet(run.author().browser(), "WI", "PRD");
-        String first = submitted(run.author().browser(), template, run.process());
-        approve(run.first().browser(), first);
-        approve(run.second().browser(), first);
-        assertThat(publish(run.second().browser(), template, null, "PLANT1/PRD").status()).isEqualTo(200);
-
-        int two = newVersion(run.author().browser(), template);
-        assertThat(fill(run.author().browser(), template, two).status()).isEqualTo(200);
-        String request = submitted(run.author().browser(), template, run.process());
-
-        // The reader still reads version 1 while version 2 is in review; the draft and the review are not theirs.
-        assertThat(statuses(run.author().browser(), template)).containsExactly("IN_REVIEW", "ACTIVE");
-        assertThat(version(run.reader().browser(), template, 1).status()).isEqualTo(200);
-        assertThat(version(run.reader().browser(), template, 2).status()).isEqualTo(404);
-        Response readerList = run.reader().browser().get(versions(template));
-        assertThat(JsonPath.<List<String>>read(readerList.body(), "$.data.versions[*].status"))
-                .containsExactly("ACTIVE");
-        assertThat(state(run.second().browser(), template)).isEqualTo("ACTIVE");
-
-        // Approving does not publish: version 1 stays in use until an approver publishes version 2.
-        approve(run.first().browser(), request);
-        approve(run.second().browser(), request);
-        assertThat(statuses(run.author().browser(), template)).containsExactly("APPROVED", "ACTIVE");
-        assertThat(version(run.reader().browser(), template, 2).status()).isEqualTo(404);
-        assertThat(JsonPath.<String>read(lifecycle(run.second().browser(), template).body(),
-                "$.data.lifecycle.state")).isEqualTo("ACTIVE");
-
-        Response again = publish(run.second().browser(), template, null, "PLANT1/PRD");
-        assertThat(again.status()).as(again.body()).isEqualTo(200);
         assertThat(statuses(run.author().browser(), template)).containsExactly("ACTIVE", "SUPERSEDED");
-        assertThat(version(run.reader().browser(), template, 2).status()).isEqualTo(200);
-        assertThat(version(run.reader().browser(), template, 1).status()).as("history stays readable").isEqualTo(200);
-        assertThat(publications(run.setting().organization(), template, true)).isEqualTo(1);
-    }
-
-    @Test
-    void anApproverCanPublishWhileAnotherVersionIsInReview() {
-        Run run = run();
-        String template = templateWithSheet(run.author().browser(), "WI", "PRD");
-        String first = submitted(run.author().browser(), template, run.process());
-        approve(run.first().browser(), first);
-        approve(run.second().browser(), first);
-        int two = newVersion(run.author().browser(), template);
-        fill(run.author().browser(), template, two);
-        submitted(run.author().browser(), template, run.process());
-
-        Response published = publish(run.second().browser(), template, 1, "PLANT1/PRD");
-
-        assertThat(published.status()).as("shares are allowed on a locked record: " + published.body()).isEqualTo(200);
-        assertThat(statuses(run.author().browser(), template)).containsExactly("IN_REVIEW", "ACTIVE");
-        assertThat(listed(run.reader().browser())).contains(template);
     }
 
     @Test
@@ -218,27 +156,20 @@ class TemplateLifecycleIT extends TemplateSupport {
     // ---- an ended review leaves the version in use alone ----
 
     @Test
-    void aWithdrawnRequestAndACancelledOneLeaveThePreviousVersionInUse() {
+    void aWithdrawnRequestAndACancelledOneLeaveTheNumberAsItWas() {
         Run run = run();
         String template = templateWithSheet(run.author().browser(), "WI", "PRD");
-        String first = submitted(run.author().browser(), template, run.process());
-        approve(run.first().browser(), first);
-        approve(run.second().browser(), first);
-        publish(run.second().browser(), template, null, "PLANT1/PRD");
+        String recalled = submitted(run.author().browser(), template, run.process());
+        assertThat(recall(run.author().browser(), recalled).status()).isEqualTo(200);
+        assertThat(statuses(run.author().browser(), template)).containsExactly("WITHDRAWN");
 
         int two = newVersion(run.author().browser(), template);
         fill(run.author().browser(), template, two);
-        String recalled = submitted(run.author().browser(), template, run.process());
-        assertThat(recall(run.author().browser(), recalled).status()).isEqualTo(200);
-        assertThat(statuses(run.author().browser(), template)).containsExactly("WITHDRAWN", "ACTIVE");
-
-        int three = newVersion(run.author().browser(), template);
-        fill(run.author().browser(), template, three);
         String cancelled = submitted(run.author().browser(), template, run.process());
         assertThat(cancel(run.setting().admin(), cancelled).status()).isEqualTo(200);
 
-        assertThat(statuses(run.author().browser(), template)).containsExactly("WITHDRAWN", "WITHDRAWN", "ACTIVE");
-        assertThat(version(run.reader().browser(), template, 1).status()).isEqualTo(200);
+        assertThat(statuses(run.author().browser(), template)).containsExactly("WITHDRAWN", "WITHDRAWN");
+        assertThat(version(run.reader().browser(), template, 1).status()).as("never published").isEqualTo(404);
         assertThat(number(run.setting().admin(), template)).isEqualTo("WI/PRD/01");
     }
 

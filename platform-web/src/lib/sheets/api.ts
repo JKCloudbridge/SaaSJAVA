@@ -103,6 +103,11 @@ export interface ImportOptions {
   firstRowLabels: boolean;
   /** True to ask what the file would give and save nothing. */
   preview: boolean;
+  /**
+   * True to put the grid of the file in the draft that is held for a change request, in place, instead of making a draft
+   * (FA8): only the people asked to decide that request may.
+   */
+  replace?: boolean;
 }
 
 /**
@@ -113,7 +118,8 @@ export interface ImportOptions {
 export function importSpreadsheet(owner: SheetOwner, file: Blob, options: ImportOptions): Promise<Outcome<ImportResult>> {
   const address =
     `/api/v1/sheets/${encodeURIComponent(owner.object)}/${encodeURIComponent(owner.id)}/versions/import` +
-    `?format=${options.format}&firstRowLabels=${options.firstRowLabels}&preview=${options.preview}`;
+    `?format=${options.format}&firstRowLabels=${options.firstRowLabels}&preview=${options.preview}` +
+    (options.replace ? "&replace=true" : "");
   return unwrap(
     call(async () => {
       const token = readCookie(FORGERY_COOKIE);

@@ -37,6 +37,9 @@ final class RawSheet {
     record Width(int first, int last, int pixels) {
     }
 
+    private static final java.util.regex.Pattern FOOTER = java.util.regex.Pattern.compile(
+            "Rev No\\.'[0-9]{2,}'$");
+
     final TreeMap<Integer, TreeMap<Integer, Cell>> rows = new TreeMap<>();
     final Map<Integer, Integer> heights = new HashMap<>();
     final List<Width> widths = new ArrayList<>();
@@ -45,6 +48,29 @@ final class RawSheet {
 
     void put(int row, int column, Cell cell) {
         rows.computeIfAbsent(row, key -> new TreeMap<>()).put(column, cell);
+    }
+
+    /**
+     * The footer row the platform adds when it shows or downloads a sheet (FA7, FA8): a single text at the right of the
+     * last row that ends with {@code Rev No.} and a number in single quotes. It is not part of the sheet, so a file
+     * that
+     * was downloaded and sent back does not bring it in as a row; it is left out and counted.
+     */
+    void dropFooter() {
+        if (rows.isEmpty()) {
+            return;
+        }
+        int last = rows.lastKey();
+        TreeMap<Integer, Cell> cells = rows.get(last);
+        if (cells.size() != 1) {
+            return;
+        }
+        String text = cells.firstEntry().getValue().text();
+        if (text != null && FOOTER.matcher(text.strip()).find()) {
+            rows.remove(last);
+            heights.remove(last);
+            notes.add(ImportNote.FOOTER_ROW);
+        }
     }
 
     boolean isEmpty() {

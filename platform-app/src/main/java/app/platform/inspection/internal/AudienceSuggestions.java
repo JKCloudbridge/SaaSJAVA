@@ -48,9 +48,10 @@ class AudienceSuggestions {
      * request's step that asks writes the suggestion; a later one (a step that needs everybody) is judged the same way
      * and leaves what was written untouched, so a suggestion is never changed after it is made.
      *
+     * @param templateId the template the request is about (for a change request the record under review is not it)
      * @throws ApprovalHookRefusal when no location was chosen or a chosen place is not offered
      */
-    void accept(DecisionContext context) {
+    void accept(DecisionContext context, UUID templateId) {
         List<Place> places = AudienceChoices.parse(context.choices());
         Map<String, List<String>> offered = audiences.offered();
         for (Place place : places) {
@@ -62,10 +63,10 @@ class AudienceSuggestions {
         if (store.exists(context.requestId())) {
             return;
         }
-        store.insert(context.requestId(), context.recordId(), context.stepPosition(), places, context.approver());
+        store.insert(context.requestId(), templateId, context.stepPosition(), places, context.approver());
         audit.record(AuditRecord.of("inspection.audience.suggested", AuditOutcome.SUCCESS)
                 .forUser(context.approver()).inTenant(contexts.require().tenantId())
-                .onObject(Templates.OBJECT, context.recordId().toString())
+                .onObject(Templates.OBJECT, templateId.toString())
                 .with("places", Integer.toString(places.size())));
         meters.counter("platform.inspection.audience.suggestion", "result", "ok").increment();
     }

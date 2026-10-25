@@ -1022,7 +1022,9 @@ list with an explanation. Success messages disappear after three quiet seconds; 
 
 ## 37. Change requests, the second process and who publishes (FA6E)
 
-For the organization's administrator. The decisions are in ADR-0199.
+For the organization's administrator. The decisions are in ADR-0199. **Section 40 (FA8) replaces the accepting, turning into a version and
+asterisk-on-the-row parts of this section: a request is now one controlled change decided by one chain of steps, and the last step
+publishes. The groups and Publisher parts still hold.**
 
 **Two approval processes, one set of groups.** A template is approved by the process on **Template**. A change request is approved by
 a second process, on **Change request** (Setup, Approval processes, choose the object **Change request**). Both name the same
@@ -1103,3 +1105,61 @@ revision in it is the sheet's active revision.
 
 **Revision instead of Version.** Wherever you read the word for a sheet or a template it is now **Revision**, written with two digits:
 the first version of a sheet is **Revision 00**, the next **01**. Nothing stored was changed or renumbered; only what you read.
+
+## 40. A change request is one controlled change: the register, the revised copy and the next Revision (FA8)
+
+For the organization's administrator. The decision is in ADR-0202. The app ships **no approval process**: you make the one for change
+requests in Setup, and what follows works only with it.
+
+**What a change request is now.** A person who can read a template presses **Ask for a change** and fills in the **Document Change
+Register**: the request number (typed by hand, up to 30 characters, the way it is kept on paper today), the change requested, the basis for
+change, the horizontal deployment and, if there is one, the format or document that stops being used and from which day. The platform writes
+the rest of the top itself: the document name and number, the Revision in use, who asks and from which department. The person may also
+point at rows, columns or cells of the sheet. Only **one change is in progress on a template** at a time; the next can be asked for when the
+first is published or declined.
+
+**Form and Excel.** The register is shown as a **form** and as an **Excel page**, one click apart. They are the same values: the Excel page is
+a drawing of the form and cannot be edited in its cells. While asking, the person can download the empty (or half-filled) register as an Excel
+file, fill it there and **upload** it to fill the form. After the request is sent, values are changed in the form only.
+
+**What you set up, once.** In Setup, Approval processes, make a process on the object **Change request**, for example *Change request
+review*, with three steps:
+1. **Plant QMS** (the group). An ordinary step.
+2. **Corporate QMS** (the group). Tick **Ask the approver for a choice**: this step suggests where the template will be published. Tick
+   **Skip this step when nobody can decide it** if the group may be empty.
+3. **Plant QMS** again. This is the last step and it publishes. **Do not tick Skip on it**: a process whose last step can be skipped is
+   refused when someone raises a request.
+Make the process active. Create the groups (Setup, Groups; making a group needs the ability to manage access) and give the access policy
+**Publisher** to the group that holds the last step, because the last approval is refused for a person who does not have it. The
+Organization administrator holds every ability. A request cannot be raised while there is no such process, and the words say so.
+
+**What the approvers do.**
+- Each person who holds an open task of the request sees the request page. **Create revised copy** (a button on that page, for the people
+  with an open task and for the Organization administrator) makes a copy of the Revision in use. It is a draft held for the request: the
+  people who only read the template never see it. The reviewer changes it in the grid, or **replaces it from an Excel file**; the Revision in
+  use is never edited.
+- The people with an open task may complete the **bottom of the register**: department, approved by, signature, effective date, the format
+  obsoleted and its day, and the two Yes/No answers. Open the **Form** view and press **Save the register**. What nobody fills in is
+  filled in by the platform at the publish: the effective date is the day of the publish (UTC), both answers are **Yes**, *Approved by*
+  lists the real approvers with the days, and the signature box reads *Approved electronically on* that day.
+- At the **last step** the approval opens the **Publish window** (Location, Departments, and the options *View only* and *Allow download*),
+  filled in from what Corporate QMS suggested. Confirming it is the last approval **and** the publish: the copy becomes the next Revision and
+  the people of the chosen departments see it. If there is no revised copy yet, or the person does not hold the Publisher policy, the approval
+  is refused in plain words and nothing changes.
+- A step may **reject** the request (a reason is required). The request ends for good, the copy is closed, the Revision in use stays as it was
+  and the person may ask again.
+
+**Revisions.** The new Revision gets the next number, **without gaps**: a copy that was rejected never uses a number. The *New Rev. No.* and
+*New Revision date* of the register are written by the platform when the request is published and nobody can type them. The template shows
+**Revision** and **Last revised on** on its Details tab; the footer row of the sheet, the file name and the list use the same Revision.
+
+**What readers see.** A person who can only read a template sees the Revision in use and nothing else. Nobody starts a new draft of a published
+template by hand any more: the old button on the template page is gone; a new Revision is made only from a change request. The first draft of a
+brand-new template is not affected.
+
+**The asterisk** is on the **Change requests tab** of a template while a change is in progress (open and not yet published or declined). It is no
+longer on the rows of the list; the list has a **Revision** column.
+
+**Limits to know.** Requests that were started before this release cannot be finished and should be declined. The Excel page of the register is
+read-only. Fill-in and report screens still show the Revision as the stored number minus one, which can be off by the number of rejected
+copies.

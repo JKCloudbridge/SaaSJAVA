@@ -57,7 +57,7 @@ class AudienceSuggestionIT extends ChangeRequestReviewSupport {
         return new Flow(setting, author, plant, corporate, reader, template, request);
     }
 
-    private static Response approveWith(TestBrowser browser, String request, String choices) {
+    private static Response approveChoosing(TestBrowser browser, String request, String choices) {
         return browser.postJson(INSTANCES + "/" + request + "/approve", "{\"version\":"
                 + instanceVersion(browser, request) + ",\"comment\":null"
                 + (choices == null ? "" : ",\"choices\":" + choices) + "}");
@@ -66,7 +66,7 @@ class AudienceSuggestionIT extends ChangeRequestReviewSupport {
     private static void finish(Flow flow, String choices) {
         assertThat(approve(flow.plant().browser(), flow.request()).status()).isEqualTo(200);
         if (choices != null) {
-            assertThat(approveWith(flow.corporate().browser(), flow.request(), choices).status()).isEqualTo(200);
+            assertThat(approveChoosing(flow.corporate().browser(), flow.request(), choices).status()).isEqualTo(200);
         }
         assertThat(approve(flow.plant().browser(), flow.request()).status()).isEqualTo(200);
         assertThat(statusOf(flow.plant().browser(), flow.request())).isEqualTo("APPROVED");
@@ -97,7 +97,7 @@ class AudienceSuggestionIT extends ChangeRequestReviewSupport {
         Flow flow = flow(true);
         assertThat(approve(flow.plant().browser(), flow.request()).status()).isEqualTo(200);
 
-        Response approved = approveWith(flow.corporate().browser(), flow.request(), LOCATION_ONLY);
+        Response approved = approveChoosing(flow.corporate().browser(), flow.request(), LOCATION_ONLY);
 
         assertThat(approved.status()).as(approved.body()).isEqualTo(200);
         assertThat(suggestionRows(flow)).isEqualTo(1);
@@ -111,11 +111,11 @@ class AudienceSuggestionIT extends ChangeRequestReviewSupport {
         Flow flow = flow(true);
         assertThat(approve(flow.plant().browser(), flow.request()).status()).isEqualTo(200);
 
-        Response plain = approveWith(flow.corporate().browser(), flow.request(), null);
-        Response empty = approveWith(flow.corporate().browser(), flow.request(), "[]");
-        Response departmentOnly = approveWith(flow.corporate().browser(), flow.request(),
+        Response plain = approveChoosing(flow.corporate().browser(), flow.request(), null);
+        Response empty = approveChoosing(flow.corporate().browser(), flow.request(), "[]");
+        Response departmentOnly = approveChoosing(flow.corporate().browser(), flow.request(),
                 "[{\"key\":\"department\",\"value\":\"PLANT1/PRD\"}]");
-        Response unknown = approveWith(flow.corporate().browser(), flow.request(),
+        Response unknown = approveChoosing(flow.corporate().browser(), flow.request(),
                 "[{\"key\":\"location\",\"value\":\"NOWHERE\"}]");
 
         for (Response refused : List.of(plain, empty, departmentOnly, unknown)) {
@@ -125,7 +125,7 @@ class AudienceSuggestionIT extends ChangeRequestReviewSupport {
         assertThat(message(unknown)).doesNotContain("NOWHERE");
         assertThat(statusOf(flow.plant().browser(), flow.request())).isEqualTo("PENDING");
         assertThat(suggestionRows(flow)).isZero();
-        assertThat(approveWith(flow.corporate().browser(), flow.request(), LOCATION_ONLY).status())
+        assertThat(approveChoosing(flow.corporate().browser(), flow.request(), LOCATION_ONLY).status())
                 .as("the task is still open").isEqualTo(200);
     }
 
@@ -135,7 +135,7 @@ class AudienceSuggestionIT extends ChangeRequestReviewSupport {
     void aStepThatDoesNotAskIgnoresAChoiceSentByMistake() {
         Flow flow = flow(true);
 
-        Response early = approveWith(flow.plant().browser(), flow.request(), LOCATION_ONLY);
+        Response early = approveChoosing(flow.plant().browser(), flow.request(), LOCATION_ONLY);
 
         assertThat(early.status()).as(early.body()).isEqualTo(200);
         assertThat(suggestionRows(flow)).as("only a step that asks keeps a choice").isZero();
@@ -147,7 +147,8 @@ class AudienceSuggestionIT extends ChangeRequestReviewSupport {
     void aDepartmentPersonSeesNothingUntilTheRealPublish() {
         Flow flow = flow(true);
         assertThat(approve(flow.plant().browser(), flow.request()).status()).isEqualTo(200);
-        assertThat(approveWith(flow.corporate().browser(), flow.request(), WITH_DEPARTMENT).status()).isEqualTo(200);
+        assertThat(approveChoosing(flow.corporate().browser(), flow.request(), WITH_DEPARTMENT).status())
+                .isEqualTo(200);
         assertThat(approve(flow.plant().browser(), flow.request()).status()).isEqualTo(200);
 
         assertThat(listed(flow.reader().browser())).as("approved and suggested, not published")
@@ -247,7 +248,7 @@ class AudienceSuggestionIT extends ChangeRequestReviewSupport {
     void theDatabaseWritesASuggestionOnlyForTheStepAndNeverChangesIt() throws SQLException {
         Flow flow = flow(true);
         assertThat(approve(flow.plant().browser(), flow.request()).status()).isEqualTo(200);
-        assertThat(approveWith(flow.corporate().browser(), flow.request(), LOCATION_ONLY).status()).isEqualTo(200);
+        assertThat(approveChoosing(flow.corporate().browser(), flow.request(), LOCATION_ONLY).status()).isEqualTo(200);
         UUID template = UUID.fromString(flow.template());
 
         org.junit.jupiter.api.Assertions.assertThrows(SQLException.class,

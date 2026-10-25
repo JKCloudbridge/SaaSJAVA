@@ -6,7 +6,7 @@ describe("the asterisk of a template with open change requests (FA6E)", () => {
   it("is a mark with a text alternative that says how many", () => {
     render(<OpenRequestsMark count={2} />);
 
-    expect(screen.getByRole("img", { name: "Has open change requests" })).toHaveAttribute("title", "2 open change requests");
+    expect(screen.getByRole("img", { name: "Open requests" })).toHaveAttribute("title", "2 open change requests");
   });
 
   it("says one in the singular", () => {

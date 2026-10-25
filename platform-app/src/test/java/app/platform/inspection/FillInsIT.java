@@ -58,6 +58,26 @@ class FillInsIT extends FillSupport {
     }
 
     @Test
+    void aFillInOnTheOlderRevisionStillOpensIsSavedSentApprovedAndListedAfterTheNextRevisionIsPublished() {
+        World world = world();
+        String fill = started(world.filler().browser(), world.template());
+        int second = nextVersionInUse(world);
+        assertThat(second).isEqualTo(2);
+
+        saved(world.filler().browser(), fill, complete());
+        String request = sent(world.filler().browser(), fill, world.process());
+
+        assertThat(fillStatus(world.filler().browser(), fill)).isEqualTo("SUBMITTED");
+        assertThat(approve(world.approver().browser(), request).status()).isEqualTo(200);
+        assertThat(fillStatus(world.filler().browser(), fill)).isEqualTo("APPROVED");
+        assertThat(listedFills(world.approver().browser(), "")).contains(fill);
+        Response view = fillView(world.filler().browser(), fill);
+        assertThat(JsonPath.<Integer>read(view.body(), "$.data.fill.versionNo")).as("still the revision it was made on")
+                .isEqualTo(1);
+        assertThat(JsonPath.<String>read(view.body(), "$.data.grid.columns[0].label")).isEqualTo("Finding");
+    }
+
+    @Test
     void nothingIsStartedWhereNoVersionIsInUse() {
         World world = world();
         Person both = approver(world.setting());

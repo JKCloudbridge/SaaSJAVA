@@ -141,6 +141,64 @@ class DefaultSheetLifecycle implements SheetLifecycle {
     }
 
     @Override
+    public Started startHeldDraft(String ownerObject, UUID ownerId, int basedOn, UUID requestId, UUID actor) {
+        store.lock(ownerObject, ownerId);
+        SheetVersionStore.State state = store.state(ownerObject, ownerId);
+        if (state.draft() != null) {
+            throw refused("start_held", Reason.DRAFT_EXISTS);
+        }
+        if (state.count() >= properties.limits().maxVersionsPerOwner()) {
+            throw refused("start_held", Reason.TOO_MANY_VERSIONS);
+        }
+        SheetVersionStore.Row row = store.insertHeldCopy(ownerObject, ownerId, state.highest() + 1, basedOn, requestId,
+                actor).orElseThrow(() -> refused("start_held", Reason.NO_VERSION));
+        changes.created(actor, ownerObject, ownerId, row.versionNo(), basedOn, row.dimension());
+        return new Started(row.versionNo(), true);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<HeldDraft> heldDraft(String ownerObject, UUID ownerId) {
+        return store.heldDraft(ownerObject, ownerId)
+                .map(row -> new HeldDraft(row.versionNo(), row.approvalRequestId()));
+    }
+
+    @Override
+    public boolean retargetHeldDraft(String ownerObject, UUID ownerId, UUID requestId, UUID actor) {
+        store.lock(ownerObject, ownerId);
+        return store.retargetHeld(ownerObject, ownerId, requestId, actor);
+    }
+
+    @Override
+    public int closeHeldDraft(String ownerObject, UUID ownerId, UUID requestId, SheetStatus result, UUID actor) {
+        if (result != SheetStatus.REJECTED && result != SheetStatus.WITHDRAWN) {
+            throw new IllegalArgumentException("A draft that was never used ends as rejected or withdrawn");
+        }
+        store.lock(ownerObject, ownerId);
+        Optional<SheetVersionStore.Row> held = store.heldDraft(ownerObject, ownerId);
+        if (held.isEmpty()) {
+            return 0;
+        }
+        store.submit(ownerObject, ownerId, requestId, actor).orElseThrow(() -> refused("close_held", Reason.NO_DRAFT));
+        store.end(ownerObject, ownerId, requestId, result.name(), actor).orElseThrow(
+                () -> refused("close_held", Reason.NO_DRAFT));
+        changes.reviewed(actor, ownerObject, ownerId, held.get().versionNo(), result.name());
+        return held.get().versionNo();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Integer> revisionOf(String ownerObject, UUID ownerId, int versionNo) {
+        return store.find(ownerObject, ownerId, versionNo).map(SheetVersionStore.Row::revisionNo);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean everPublished(String ownerObject, UUID ownerId) {
+        return store.everPublished(ownerObject, ownerId);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public Map<Integer, UUID> reviewRequests(String ownerObject, UUID ownerId) {
         return Map.copyOf(store.reviewRequests(ownerObject, ownerId));

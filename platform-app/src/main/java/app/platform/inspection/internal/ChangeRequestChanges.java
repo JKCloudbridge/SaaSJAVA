@@ -5,6 +5,7 @@ import app.platform.sharedkernel.audit.AuditRecord;
 import app.platform.sharedkernel.audit.AuditRecorder;
 import app.platform.tenant.TenantContexts;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
@@ -52,12 +53,41 @@ class ChangeRequestChanges {
         count(act, "ok");
     }
 
-    /** Requests were turned into a version; {@code created} is false when they joined a draft that existed. */
-    void turned(UUID actor, UUID template, int versionNo, boolean created, int requests) {
-        audit.record(base("inspection.changerequest.turned", actor, template)
-                .with("version_no", Integer.toString(versionNo)).with("created", Boolean.toString(created))
-                .with("requests", Integer.toString(requests)));
-        count("turn", "ok");
+    /** The revised copy of the sheet was made for a request (FA8, ADR-0202). */
+    void copied(UUID actor, UUID template, UUID request, int versionNo) {
+        audit.record(base("inspection.changerequest.copied", actor, template).with("request", request.toString())
+                .with("version_no", Integer.toString(versionNo)));
+        count("copy", "ok");
+    }
+
+    /** The revised copy of the sheet was put in place of its grid by an uploaded file. */
+    void copyReplaced(UUID actor, UUID template, UUID request) {
+        audit.record(base("inspection.changerequest.copy.replaced", actor, template)
+                .with("request", request.toString()));
+        count("copy_replace", "ok");
+    }
+
+    /** The approvers completed the register; the names of the boxes changed, never what was written in them. */
+    void registerCompleted(UUID actor, UUID template, UUID request, List<String> fields) {
+        audit.record(base("inspection.changerequest.register.completed", actor, template)
+                .with("request", request.toString()).with("fields", String.join(",", fields)));
+        count("register", "ok");
+    }
+
+    /** The request was published: the revised sheet became the revision in use. */
+    void published(UUID actor, UUID template, UUID request, int versionNo, int revision, int audiences) {
+        audit.record(base("inspection.changerequest.published", actor, template).with("request", request.toString())
+                .with("version_no", Integer.toString(versionNo)).with("revision", Integer.toString(revision))
+                .with("audiences", Integer.toString(audiences)));
+        count("publish", "ok");
+    }
+
+    /** The revised copy was thrown away because the request ended without being published. */
+    void copyDiscarded(UUID actor, UUID template, UUID request, int versionNo, String how) {
+        audit.record(base("inspection.changerequest.copy.discarded", actor, template)
+                .with("request", request.toString()).with("version_no", Integer.toString(versionNo))
+                .with("how", how));
+        count("discard", "ok");
     }
 
     /** A request was refused; {@code reason} is one of a few fixed words. */

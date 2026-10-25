@@ -23,9 +23,14 @@ import java.time.Instant;
  * @param reviewEdits how many times an approver changed the grid while it was in review (FA4); each change is audited
  * @param updatedBy the display name of the person who last changed the version (UI3B), or absent when that person
  *        has left or the platform did it: never an identifier
+ * @param revisionNo the revision number people read (0 for the first), set by the database when the version first
+ *        became the one in use (FA8, ADR-0202); absent for a version that never was, and for one that became so before
+ *        numbers were stored (a screen then reads the version number minus one)
+ * @param held whether this draft belongs to an approval request (FA8): only the people asked to decide that request,
+ *        and those who manage access, change it, and a person cannot start another draft beside it
  */
 public record SheetVersionSummaryView(@NotNull Integer versionNo, @NotNull String status, @NotNull Integer dimension,
         @NotNull String rowsMode, @NotNull Long gridBytes, @NotNull String gridHash, @NotNull Long version,
         @NotNull Instant createdAt, @NotNull Instant updatedAt, Instant submittedAt, Instant decidedAt,
-        @NotNull Integer reviewEdits, String updatedBy) {
+        @NotNull Integer reviewEdits, String updatedBy, Integer revisionNo, @NotNull Boolean held) {
 }

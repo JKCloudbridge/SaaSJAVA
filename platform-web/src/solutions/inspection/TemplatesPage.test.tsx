@@ -176,7 +176,7 @@ describe("the master list", () => {
 
     expect(await screen.findByText("Fire exit check")).toBeInTheDocument();
     expect(screen.getByText("WI/PRD/01")).toBeInTheDocument();
-    expect(screen.getByText("Active Rev 02, Rev 03 in review")).toBeInTheDocument();
+    expect(screen.getByText("Active Rev 02, In review")).toBeInTheDocument();
     expect(within(screen.getByTestId("templates-list")).getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("Not numbered yet")).toBeInTheDocument();
     expect(screen.getByText("Retired, Rev 01 was the last in use")).toBeInTheDocument();
@@ -304,7 +304,7 @@ describe("one template", () => {
     expect(currentUrl()).toBe(OPEN);
     const detail = await screen.findByTestId("template-detail");
     expect(within(detail).getByRole("heading", { name: "Fire exit check" })).toBeInTheDocument();
-    expect(await within(detail).findByTestId("lifecycle-text")).toHaveTextContent("Active Rev 02, Rev 03 in review");
+    expect(await within(detail).findByTestId("lifecycle-text")).toHaveTextContent("Active Rev 02, In review");
     expect(within(detail).getByRole("tab", { name: "Details", selected: true })).toBeInTheDocument();
     expect(within(detail).queryByRole("button", { name: "Templates" })).toBeNull();
     expect(within(detail).queryByRole("link", { name: "Edit the details" })).toBeNull();
@@ -349,6 +349,68 @@ describe("one template", () => {
 
     expect(currentUrl()).toBe(`${OPEN}&tab=fill-ins`.replace("fill-ins", "sheet"));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Edit" })).toBeNull());
+  });
+
+  it("shows the revision the platform saved on the Details tab, and the day it was last revised (FA8)", async () => {
+    setUrl(OPEN);
+    fakeApi({
+      ...listAnswers(),
+      [`GET /api/v1/templates/${ID}/lifecycle`]: () =>
+        json(
+          lifecycleOf(
+            { revision: "01", lastRevisedAt: "2026-10-26T08:00:00Z" },
+            { ...NONE, state: "ACTIVE", activeVersion: 4, highestVersion: 4 },
+          ),
+        ),
+    });
+    render(<TemplatesPage />);
+
+    expect(await screen.findByTestId("template-revision")).toHaveTextContent("01");
+    expect(screen.getByText("Last revised on")).toBeInTheDocument();
+    expect(await screen.findByTestId("lifecycle-text")).toHaveTextContent("Active Rev 01");
+  });
+
+  it("marks the Change requests tab, not the row of the list, when a change is in progress (FA8)", async () => {
+    setUrl(OPEN);
+    fakeApi({
+      ...listAnswers(),
+      [`GET /api/v1/templates/${ID}/lifecycle`]: () =>
+        json(
+          lifecycleOf(
+            { revision: "00", openChangeRequests: 1 },
+            { ...NONE, state: "ACTIVE", activeVersion: 1, highestVersion: 1 },
+          ),
+        ),
+    });
+    render(<TemplatesPage />);
+
+    const mark = await screen.findByTestId("open-requests-mark");
+    expect(screen.getByRole("tab", { name: /Change requests/ })).toContainElement(mark);
+    expect(screen.getByRole("tab", { name: /Details/ })).not.toContainElement(mark);
+  });
+
+  it("has no asterisk on the row of the list, and a Revision column of the platform's own number (FA8)", async () => {
+    fakeApi({
+      ...listAnswers(),
+      "POST /api/v1/templates/query": () =>
+        json(
+          pageOf([
+            templateRow(
+              ID,
+              "Fire exit check",
+              { number: "WI/PRD/01", category: "WI", revision: "01", openChangeRequests: 2 },
+              { ...NONE, state: "ACTIVE", activeVersion: 4, highestVersion: 4 },
+            ),
+          ]),
+        ),
+    });
+    render(<TemplatesPage />);
+
+    const list = await screen.findByTestId("templates-list");
+    await within(list).findByText("Fire exit check");
+    expect(within(list).getByRole("columnheader", { name: /^Revision($|,)/ })).toBeInTheDocument();
+    expect(within(list).getByText("01")).toBeInTheDocument();
+    expect(screen.queryByTestId("open-requests-mark")).toBeNull();
   });
 
   it("edits the details in place: Save and Cancel replace Edit, and nothing else opens", async () => {

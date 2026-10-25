@@ -39,27 +39,32 @@ class ApprovalHistoryIT extends ChangeRequestReviewSupport {
     @Test
     void theRequestsOfATemplateComeBackNewestFirstForThosewhoCanReadIt() {
         World world = world();
-        int draft = newVersion(world.author().browser(), world.template());
+        // A template that was never published may be sent again after a rejection; a published one is changed only
+        // through a change request (FA8), so the second request here is of a template of its own.
+        String template = templateWithSheet(world.author().browser(), "WI", "PRD");
+        String first = submitted(world.author().browser(), template, world.process());
+        assertThat(reject(world.approver().browser(), first).status()).isEqualTo(200);
+        int draft = newVersion(world.author().browser(), template);
         assertThat(draft).isEqualTo(2);
-        String second = editAndSend(world, draft);
+        assertThat(fill(world.author().browser(), template, draft).status()).isEqualTo(200);
+        String second = submitted(world.author().browser(), template, world.process());
         assertThat(approve(world.approver().browser(), second).status()).isEqualTo(200);
 
-        Response answer = world.approver().browser().postJson(history(OBJECT), ids(world.template()));
+        Response answer = world.approver().browser().postJson(history(OBJECT), ids(template));
 
         assertThat(answer.status()).as(answer.body()).isEqualTo(200);
         assertThat(JsonPath.<List<String>>read(answer.body(), "$.data[0].requests[*].summary.id")).hasSize(2)
                 .first().isEqualTo(second);
-        assertThat(JsonPath.<String>read(answer.body(), "$.data[0].recordId")).isEqualTo(world.template());
+        assertThat(JsonPath.<String>read(answer.body(), "$.data[0].recordId")).isEqualTo(template);
         assertThat(JsonPath.<List<String>>read(answer.body(), "$.data[0].requests[*].summary.status"))
-                .containsOnly("APPROVED");
+                .containsExactly("APPROVED", "REJECTED");
     }
 
     @Test
     void theApprovalOfAChangeRequestIsInTheHistoryOfItsReviewRecord() {
         Review review = review();
-        String request = JsonPath.read(raised(review.world().reader().browser(), review.world().template(),
-                "Walkway").body(), "$.data.id");
-        String reviewId = reviewIdOf(one(review.world().reader().browser(), review.world().template(), request));
+        String reviewId = reviewIdOf(raised(review.world().reader().browser(), review.world().template(),
+                "Walkway"));
 
         Response answer = review.world().approver().browser().postJson(history(REQUEST_OBJECT), ids(reviewId));
 
@@ -67,7 +72,7 @@ class ApprovalHistoryIT extends ChangeRequestReviewSupport {
         assertThat(JsonPath.<List<String>>read(answer.body(), "$.data[0].requests[*].summary.status"))
                 .containsExactly("PENDING");
         assertThat(JsonPath.<List<String>>read(answer.body(), "$.data[0].requests[0].steps[*].label"))
-                .containsExactly("Plant", "Corporate");
+                .containsExactly("Plant", "Corporate", "Publish");
     }
 
     @Test

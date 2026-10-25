@@ -29,17 +29,11 @@ class FillReportIT extends FillSupport {
 
     /** A new version of the template in which the number, list and yes or no columns are reportable, in use. */
     private static int reportableVersion(World world) {
-        int draft = newVersion(world.author().browser(), world.template());
         String grid = sheet(2, "FIXED_AND_REPEATABLE")
                 .replace("\"type\":\"number\"", "\"type\":\"number\",\"reportable\":true")
                 .replace("\"type\":\"boolean\"", "\"type\":\"boolean\",\"reportable\":true")
                 .replace("\"type\":\"picklist\"", "\"type\":\"picklist\",\"reportable\":true");
-        saveSheet(world.author().browser(), world.template(), draft, grid);
-        String request = submitted(world.author().browser(), world.template(), world.templateProcess());
-        assertThat(approve(world.approver().browser(), request).status()).isEqualTo(200);
-        assertThat(publish(world.approver().browser(), world.template(), null, "PLANT1/PRD").status())
-                .isEqualTo(200);
-        return draft;
+        return NextRevision.inUse(world.setting(), world.author().browser(), world.approver(), world.template(), grid);
     }
 
     private static Response report(TestBrowser browser, World world, String column, String operator, String body) {

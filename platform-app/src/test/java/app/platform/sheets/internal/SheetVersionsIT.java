@@ -214,7 +214,7 @@ class SheetVersionsIT extends SheetSupport {
 
         assertThat(again.status()).as(again.body()).isEqualTo(409);
         assertThat(JsonPath.<String>read(again.body(), "$.error.code")).isEqualTo("CONFLICT");
-        assertThat(JsonPath.<String>read(again.body(), "$.error.message")).contains("version 1");
+        assertThat(JsonPath.<String>read(again.body(), "$.error.message")).contains("Revision 00");
         assertThat(countRows(setting.organization(), owner)).isEqualTo(1);
     }
 

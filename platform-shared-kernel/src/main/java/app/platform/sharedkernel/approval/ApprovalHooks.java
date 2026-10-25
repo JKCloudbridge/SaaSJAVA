@@ -81,9 +81,17 @@ public interface ApprovalHooks {
      * @param process the API name of the process
      * @param processVersion the number of the definition the request is pinned to
      * @param submitter the person who submits, or null when the platform submits (a workflow)
+     * @param lastStepSkippable whether the last step of the process is marked "skip when nobody can decide it" (FA8,
+     *        ADR-0202): a hook that acts at the last approval can refuse a process whose last step may vanish
      */
     record SubmitContext(UUID requestId, String object, UUID recordId, String process, int processVersion,
-            UUID submitter) {
+            UUID submitter, boolean lastStepSkippable) {
+
+        /** A submit of a process whose last step is not skippable (the shape before FA8). */
+        public SubmitContext(UUID requestId, String object, UUID recordId, String process, int processVersion,
+                UUID submitter) {
+            this(requestId, object, recordId, process, processVersion, submitter, false);
+        }
     }
 
     /**
@@ -105,11 +113,19 @@ public interface ApprovalHooks {
      */
     record DecisionContext(UUID requestId, String object, UUID recordId, String process, int processVersion,
             long requestVersion, int stepPosition, String stepName, UUID approver, boolean asksForChoice,
-            List<Choice> choices) {
+            List<Choice> choices, boolean endsRequest) {
 
         /** Copies the list. */
         public DecisionContext {
             choices = List.copyOf(choices);
+        }
+
+        /** A decision that does not end the request (the shape before FA8). */
+        public DecisionContext(UUID requestId, String object, UUID recordId, String process, int processVersion,
+                long requestVersion, int stepPosition, String stepName, UUID approver, boolean asksForChoice,
+                List<Choice> choices) {
+            this(requestId, object, recordId, process, processVersion, requestVersion, stepPosition, stepName,
+                    approver, asksForChoice, choices, false);
         }
 
         /** A decision at a step that asks for no choice (the shape before FA6G). */

@@ -55,24 +55,26 @@ class ChangeRequestReviewLogsAreCleanIT extends ChangeRequestReviewSupport {
 
         Response first = raised(review.world().reader().browser(), template, title,
                 comment("r1", null, firstComment));
-        Response second = raised(review.world().colleague().browser(), template, otherTitle);
         String firstId = JsonPath.read(first.body(), "$.data.id");
         String firstReview = reviewIdOf(first);
-        String secondReview = reviewIdOf(second);
         Response listed = queryRequests(review.world().approver().browser(), "{\"search\":\"" + search + "\"}");
         Response matched = queryRequests(review.world().approver().browser(), "{\"search\":\"" + title + "\"}");
-        String approval = approvalOf(review.plant().browser(), firstReview);
+        Response rejected = reject(review.plant().browser(), approvalOf(review.plant().browser(), firstReview));
+        Response second = raised(review.world().colleague().browser(), template, otherTitle);
+        String secondReview = reviewIdOf(second);
+        String approval = approvalOf(review.plant().browser(), secondReview);
         Response plantApproved = approve(review.plant().browser(), approval);
-        Response corporateApproved = approve(review.corporate().browser(), approval);
-        Response rejected = reject(review.plant().browser(), approvalOf(review.plant().browser(), secondReview));
-        Response turned = turn(review.world().author().browser(), template, firstId);
+        Response corporateApproved = approveWith(review.corporate().browser(), approval,
+                choices("location=PLANT1", "department=PLANT1/PRD"));
+        Response copied = createCopy(review.plant().browser(), template, JsonPath.read(second.body(), "$.data.id"));
+        Response published = approveWith(review.plant().browser(), approval, PUBLISH_CHOICE);
 
         List<Response> refusals = new ArrayList<>();
-        refusals.add(ask(review.world().reader().browser(), template, "<b>" + markup + "</b>", 1));
+        refusals.add(ask(review.world().reader().browser(), template, "<b>" + markup + "</b>", 2));
         // The web framework logs a value it cannot parse at debug level, so these two send a fixed word.
         refusals.add(queryRequests(review.world().approver().browser(), "{\"sort\":\"sideways\"}"));
         refusals.add(queryRequests(review.world().approver().browser(), "{\"cursor\":\"" + markup + "\"}"));
-        refusals.add(reopen(review.world().author().browser(), template, firstId));
+        refusals.add(createCopy(review.world().reader().browser(), template, firstId));
         refusals.add(requestById(review.world().outsider().browser(), firstId));
         refusals.add(review.world().approver().browser().postJson(
                 "/api/v1/objects/" + REQUEST_OBJECT + "/records/approval-history", "{\"recordIds\":[\"not-an-id\"]}"));
@@ -83,7 +85,7 @@ class ChangeRequestReviewLogsAreCleanIT extends ChangeRequestReviewSupport {
 
         assertThat(listed.status()).isEqualTo(200);
         assertThat(matched.status()).isEqualTo(200);
-        for (Response ok : List.of(plantApproved, corporateApproved, rejected, turned)) {
+        for (Response ok : List.of(plantApproved, corporateApproved, rejected, copied, published)) {
             assertThat(ok.status()).as(ok.body()).isEqualTo(200);
         }
         assertThat(log).as("the log has content to check").contains("platform.http");
@@ -98,13 +100,13 @@ class ChangeRequestReviewLogsAreCleanIT extends ChangeRequestReviewSupport {
             }
         }
         assertThat(JsonPath.<List<String>>read(trail, "$.data[*].type")).as("the trail shows what changed")
-                .contains("inspection.changerequest.created", "inspection.changerequest.accepted",
-                        "inspection.changerequest.declined", "inspection.changerequest.turned");
+                .contains("inspection.changerequest.created", "inspection.changerequest.declined",
+                        "inspection.changerequest.copied", "inspection.changerequest.published");
         String events = String.join(" ", owner("select payload::text from outbox_event where tenant_id = ?",
                 review.world().setting().organization().id().value()));
         String notices = String.join(" ", owner("select facts::text from notification where tenant_id = ?",
                 review.world().setting().organization().id().value()));
-        assertThat(notices).as("the notices carry facts, which exist").contains("accepted").contains("request");
+        assertThat(notices).as("the notices carry facts, which exist").contains("declined").contains("request");
         for (String text : secrets) {
             assertThat(events).as("not in an event: " + text).doesNotContain(text);
             assertThat(notices).as("not in a notice: " + text).doesNotContain(text);

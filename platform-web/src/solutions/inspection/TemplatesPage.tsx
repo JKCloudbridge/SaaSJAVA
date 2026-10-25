@@ -9,7 +9,6 @@ import { Tag } from "@/components/ui/lists/Tag";
 import { useListRoute } from "@/components/ui/lists/useListRoute";
 import { queryTemplates, type TemplateRow } from "./api";
 import { lifecycleText, stateTag } from "./lifecycle";
-import { OpenRequestsMark } from "./OpenRequestsMark";
 import { TemplateDetail } from "./TemplateDetail";
 import { TEMPLATE_OBJECT, text } from "./template";
 
@@ -157,18 +156,14 @@ function TemplatesScreen() {
         primary={(row) => text(row.name) || "Untitled template"}
         columns={[
           ...chosen,
-          { key: "lifecycle", header: "Revisions", cell: (row) => lifecycleText(row.lifecycle), kind: "muted" },
+          { key: "revision", header: "Revision", cell: (row) => row.revision ?? "—", kind: "muted" },
+          { key: "lifecycle", header: "Revisions", cell: (row) => lifecycleText(row.lifecycle, row.revision), kind: "muted" },
           {
             key: "state",
             header: "Status",
             cell: (row) => {
               const tag = stateTag(row.lifecycle.state);
-              return (
-                <>
-                  <Tag tone={TONES[tag.tone]}>{tag.text}</Tag>
-                  <OpenRequestsMark count={row.openChangeRequests} />
-                </>
-              );
+              return <Tag tone={TONES[tag.tone]}>{tag.text}</Tag>;
             },
             kind: "tag",
           },

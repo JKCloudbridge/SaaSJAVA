@@ -19,4 +19,6 @@ export interface ChoiceFormProps {
   recordId: string;
   /** Called with the choice, or with null while it is not complete enough to send. */
   onChange: (choices: Choice[] | null) => void;
+  /** Whether the step being approved is the last one of the process (FA8): the last approval may ask for its own choice. */
+  lastStep?: boolean;
 }

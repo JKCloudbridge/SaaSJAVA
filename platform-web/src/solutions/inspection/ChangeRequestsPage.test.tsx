@@ -27,7 +27,7 @@ function row(id: string, extra: Record<string, unknown> = {}) {
   };
 }
 
-function answers(rows = [row(ONE), row(TWO, { status: "ACCEPTED", versionNo: 2, requesterName: "Reader B" })]): Record<string, Handler> {
+function answers(rows = [row(ONE), row(TWO, { status: "DECLINED", versionNo: 2, requesterName: "Reader B" })]): Record<string, Handler> {
   return { "POST /api/v1/change-requests/query": () => json({ data: { rows } }) };
 }
 
@@ -36,7 +36,7 @@ beforeEach(() => {
 });
 
 describe("the list of change requests (FA6E)", () => {
-  it("shows the template with its number, who asked, the department, the revision, the date and the status", async () => {
+  it("shows the template with its number, who asked, the department, the date and the status, and no version column", async () => {
     fakeApi(answers());
 
     render(<ChangeRequestsPage />);
@@ -44,14 +44,14 @@ describe("the list of change requests (FA6E)", () => {
     const list = await screen.findByTestId("change-requests-list");
     expect(within(list).getAllByText("Fire exit template")).toHaveLength(2);
     expect(within(list).getAllByText(/WI\/PRD\/03/)).toHaveLength(2);
-    for (const header of ["Template", "Change requested by", "Department", "Revision", "Date", "Status"]) {
+    for (const header of ["Template", "Change requested by", "Department", "Date", "Status"]) {
       expect(within(list).getByRole("columnheader", { name: new RegExp(header) })).toBeInTheDocument();
     }
+    expect(within(list).queryByRole("columnheader", { name: /Revision|Version/ })).toBeNull();
     expect(within(list).getByText("Reader A")).toBeInTheDocument();
     expect(within(list).getAllByText("Plant 1 · Production")).toHaveLength(2);
-    expect(within(list).getByText("Rev 02")).toBeInTheDocument();
-    expect(within(list).getByText("Open")).toBeInTheDocument();
-    expect(within(list).getByText("Accepted")).toBeInTheDocument();
+    expect(within(list).getByText("In progress")).toBeInTheDocument();
+    expect(within(list).getByText("Declined")).toBeInTheDocument();
   });
 
   it("asks newest first, and sends the search text and the chosen order to the server", async () => {
@@ -64,10 +64,10 @@ describe("the list of change requests (FA6E)", () => {
       descending: true,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /^Revision, not ordered/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Status, not ordered/ }));
     await waitFor(() => {
       const bodies = calls.filter((one) => one.key === "POST /api/v1/change-requests/query").map((one) => JSON.parse(one.body));
-      expect(bodies.at(-1)).toMatchObject({ sort: "version", descending: true });
+      expect(bodies.at(-1)).toMatchObject({ sort: "status", descending: true });
     });
 
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "walkway" } });

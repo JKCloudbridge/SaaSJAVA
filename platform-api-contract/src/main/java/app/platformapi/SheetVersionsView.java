@@ -14,9 +14,12 @@ import java.util.List;
  * @param canChange whether the caller may start and change drafts: a hint for the screen, which offers the buttons
  *        only when it is true; every request that follows is decided again
  * @param limits what a grid may hold, so that the screen can say so before the person tries
+ * @param canChangeHeld whether the caller may change the draft that is held for an approval request, if there is one
+ *        (FA8): the people asked to decide that request and the people who manage access, whatever they may do to the
+ *        record; a hint for the screen, decided again by the server
  */
 public record SheetVersionsView(@NotNull List<SheetVersionSummaryView> versions, @NotNull Boolean canChange,
-        @NotNull SheetLimitsView limits) {
+        @NotNull SheetLimitsView limits, @NotNull Boolean canChangeHeld) {
 
     /** Copies the list, so that it cannot be changed from outside. */
     public SheetVersionsView {

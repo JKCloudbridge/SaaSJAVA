@@ -58,8 +58,10 @@ class SheetOwners {
      * @param object the owner object
      * @param id the owner record
      * @param canChange whether the member may change the record, and so its sheet
+     * @param history whether the member sees the versions that were in use and were replaced, besides the one in use:
+     *        they may change the record, publish, or pass the lock of an approval (FA8, ADR-0202)
      */
-    record Reach(UUID userId, UUID membershipId, String object, UUID id, boolean canChange) {
+    record Reach(UUID userId, UUID membershipId, String object, UUID id, boolean canChange, boolean history) {
     }
 
     /**
@@ -117,7 +119,9 @@ class SheetOwners {
             return Optional.empty();
         }
         boolean change = decisions.can(caller.membershipId(), ownerObject, ObjectAction.UPDATE, record).allowed();
-        return Optional.of(new Reach(caller.userId(), caller.membershipId(), ownerObject, ownerId, change));
+        boolean history = change || permissions.has(caller.membershipId(), Ability.SHEETS_PUBLISH)
+                || permissions.has(caller.membershipId(), Ability.APPROVALS_OVERRIDE_LOCK);
+        return Optional.of(new Reach(caller.userId(), caller.membershipId(), ownerObject, ownerId, change, history));
     }
 
     /** The member's reach to the sheet of the record, for a change: refused with "forbidden" when they may not. */
@@ -127,6 +131,42 @@ class SheetOwners {
             throw new ApiException(ErrorCode.FORBIDDEN);
         }
         return reach;
+    }
+
+    /**
+     * The member's reach to change one draft. A plain draft is changed by whoever may change the record. A draft held
+     * for an approval request (FA8, ADR-0202) is changed only by the people who hold an open task of that request and
+     * by
+     * the people who manage access, whatever else they may do to the record; and such a person needs no right to read
+     * the
+     * record, for an approval grants no access to it (ADR-0146) and this opens that one draft and nothing else.
+     *
+     * @throws ApiException {@code NOT_FOUND} or {@code FORBIDDEN}
+     */
+    Reach reachForDraft(String ownerObject, UUID ownerId, SheetVersionStore.Row draft) {
+        if (draft.approvalRequestId() == null) {
+            return reachForChange(ownerObject, ownerId);
+        }
+        Caller caller = caller(ownerObject);
+        if (holdsOpenTask(draft.approvalRequestId(), caller.userId())
+                || permissions.has(caller.membershipId(), Ability.ACCESS_MANAGE)) {
+            return new Reach(caller.userId(), caller.membershipId(), ownerObject, ownerId, true, true);
+        }
+        if (reachIfReadable(ownerObject, ownerId).isEmpty()) {
+            throw ApiException.notFound(NO_SHEET);
+        }
+        throw new ApiException(ErrorCode.FORBIDDEN, "This revision is being prepared for a change request. Only the "
+                + "people asked to decide the request can change it.");
+    }
+
+    /**
+     * Whether the member may read a draft held for an approval request: they hold an open task of the request or manage
+     * access (FA8). Besides the people who may read the record, who see every draft they may change.
+     */
+    boolean mayReadHeld(Caller caller, SheetVersionStore.Row draft) {
+        return draft.approvalRequestId() != null
+                && (holdsOpenTask(draft.approvalRequestId(), caller.userId())
+                        || permissions.has(caller.membershipId(), Ability.ACCESS_MANAGE));
     }
 
     /**

@@ -14,25 +14,32 @@ const none: LifecycleNumbers = {
 describe("lifecycleText", () => {
   it("says the revision in use first and what waits behind it", () => {
     expect(lifecycleText({ ...none, state: "ACTIVE", activeVersion: 3, inReviewVersion: 4, highestVersion: 4 })).toBe(
-      "Active Rev 02, Rev 03 in review",
+      "Active Rev 02, In review",
     );
     expect(
       lifecycleText({ ...none, state: "ACTIVE", activeVersion: 3, inReviewVersion: 4, draftVersion: 5, highestVersion: 5 }),
-    ).toBe("Active Rev 02, Rev 03 in review, Rev 04 draft");
+    ).toBe("Active Rev 02, In review, Draft");
   });
 
   it("says that an approved version is not yet published", () => {
     expect(lifecycleText({ ...none, state: "APPROVED", approvedVersion: 2, highestVersion: 2 })).toBe(
-      "Rev 01 approved, not published",
+      "Approved, not published",
     );
     expect(lifecycleText({ ...none, state: "ACTIVE", activeVersion: 2, approvedVersion: 3, highestVersion: 3 })).toBe(
-      "Active Rev 01, Rev 02 approved, not published",
+      "Active Rev 01, Approved, not published",
     );
   });
 
   it("does not mention a number that is zero, and says so when there is nothing", () => {
-    expect(lifecycleText({ ...none, state: "DRAFT", draftVersion: 1, highestVersion: 1 })).toBe("Rev 00 draft");
+    expect(lifecycleText({ ...none, state: "DRAFT", draftVersion: 1, highestVersion: 1 })).toBe("Draft");
     expect(lifecycleText(none)).toBe("No revision yet");
+  });
+
+  it("uses the revision number the platform saved on the template, which has no gaps (FA8)", () => {
+    expect(lifecycleText({ ...none, state: "ACTIVE", activeVersion: 4, highestVersion: 4 }, "01")).toBe("Active Rev 01");
+    expect(lifecycleText({ ...none, state: "RETIRED", retiredVersion: 4, highestVersion: 4 }, "01")).toBe(
+      "Retired, Rev 01 was the last in use",
+    );
   });
 
   it("says a retired template is retired and which version was last in use", () => {

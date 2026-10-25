@@ -277,33 +277,12 @@ class TemplatePublishingIT extends TemplateSupport {
         assertThat(shares(run.setting().organization(), template)).isEqualTo(1);
         assertThat(retire(run.second().browser(), template).status()).isEqualTo(409);
         assertThat(publish(run.second().browser(), template, 1, "PLANT1/PRD").status()).isEqualTo(409);
-        // A retired template cannot be sent for approval again, and the next one is numbered after it.
-        int next = newVersion(run.author().browser(), template);
-        fill(run.author().browser(), template, next);
-        Response again = submit(run.author().browser(), template, run.process());
-        assertThat(again.status()).isEqualTo(409);
-        assertThat(message(again)).contains("retired");
+        // No draft is started by hand for it (FA8), and the next template is numbered after it.
+        Response draft = run.author().browser().postJson(versions(template), "{}");
+        assertThat(draft.status()).isEqualTo(409);
+        assertThat(message(draft)).contains("change request");
         String other = approved(run, "WI", "PRD");
         assertThat(number(run.setting().admin(), other)).isEqualTo("WI/PRD/02");
-    }
-
-    @Test
-    void retireIsRefusedWhileAVersionIsWaitingForApprovalAndTheTemplateIsLeftAsItWas() {
-        Run run = run();
-        String template = approved(run, "WI", "PRD");
-        publish(run.second().browser(), template, null, "PLANT1/PRD");
-        int two = newVersion(run.author().browser(), template);
-        fill(run.author().browser(), template, two);
-        String request = submitted(run.author().browser(), template, run.process());
-
-        Response refused = retire(run.second().browser(), template);
-
-        assertThat(refused.status()).isEqualTo(409);
-        assertThat(message(refused)).contains("waiting for approval");
-        assertThat(field(run.setting().admin(), template, "retired")).isNull();
-        assertThat(statuses(run.author().browser(), template)).containsExactly("IN_REVIEW", "ACTIVE");
-        assertThat(recall(run.author().browser(), request).status()).isEqualTo(200);
-        assertThat(retire(run.second().browser(), template).status()).isEqualTo(200);
     }
 
     @Test

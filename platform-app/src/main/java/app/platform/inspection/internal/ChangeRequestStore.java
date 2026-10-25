@@ -297,9 +297,10 @@ class ChangeRequestStore {
         return count("select count(*) from inspection_change_request where " + OF_TEMPLATE, templateId);
     }
 
-    int countOpen(UUID templateId) {
-        return count("select count(*) from inspection_change_request where " + OF_TEMPLATE + " and status = 'OPEN'",
-                templateId);
+    /** How many requests are in progress on the template: open (or left accepted by the earlier way of working). */
+    int countInProgress(UUID templateId) {
+        return count("select count(*) from inspection_change_request where " + OF_TEMPLATE
+                + " and status in ('OPEN', 'ACCEPTED')", templateId);
     }
 
     int countOpenBy(UUID templateId, UUID person) {
@@ -327,17 +328,6 @@ class ChangeRequestStore {
                         + "and status = :from and deleted_at is null")
                 .param("to", to.name()).param("note", note).param("actor", actor).param("result", resultingVersion)
                 .param("tenant", tenant()).param("id", requestId).param("from", from.name()).update() == 1;
-    }
-
-    /**
-     * A request that was done and was reviewed goes back to accepted (its version was not used): the review already
-     * happened, so it can be turned into a version again. The answer of the review is kept.
-     */
-    boolean reopenAccepted(UUID requestId, UUID actor) {
-        return jdbc.sql("update inspection_change_request set status = 'ACCEPTED', resulting_version = null, "
-                        + "version = version + 1, updated_by = :actor where tenant_id = :tenant and id = :id "
-                        + "and status = 'DONE' and header_id is not null and deleted_at is null")
-                .param("actor", actor).param("tenant", tenant()).param("id", requestId).update() == 1;
     }
 
     private int count(String sql, UUID templateId) {

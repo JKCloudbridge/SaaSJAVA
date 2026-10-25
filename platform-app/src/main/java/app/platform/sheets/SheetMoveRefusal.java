@@ -29,7 +29,9 @@ public final class SheetMoveRefusal extends RuntimeException {
         /** The version a draft was to be copied from does not exist. */
         NO_VERSION("There is no such revision to start from."),
         /** The sheet has the most versions it can have. */
-        TOO_MANY_VERSIONS("This sheet has the most revisions it can have.");
+        TOO_MANY_VERSIONS("This sheet has the most revisions it can have."),
+        /** A draft already exists, so another cannot be made beside it. */
+        DRAFT_EXISTS("A draft of this sheet already exists.");
 
         private final String words;
 

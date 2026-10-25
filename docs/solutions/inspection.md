@@ -235,6 +235,8 @@ Tests: `AskForChange.test.tsx`, `AnnotatePanel.test.tsx`, `flow.test.ts`, `Appro
 
 ## Change requests through an approval, the tab, the asterisk and who publishes (FA6E)
 
+**Partly replaced by FA8 (last section): there is no accept, turn or reopen, and the asterisk is on the tab.**
+
 Decisions in ADR-0199. One migration (V075), one new object, one new ability, one new entry; no new table.
 
 **A request has a review of its own.** Raising a request also makes a small private record of the object **Change request**
@@ -337,3 +339,52 @@ administrator's view is [metadata-guide.md](../metadata-guide.md) section 39.
   `TemplateSheetOptionsIT` (the options, who may change them, view only, download allowed and refused, another organization, the footer, the
   clean trail); the isolation harness lists the table. Frontend: `revision.test.ts`, `print.test.ts`, `SheetPrintView.test.tsx`,
   `SheetGridFooter.test.tsx`, `SheetWorkspaceView.test.tsx`, `SheetOptionsDialog.test.tsx`, `PublishDialog.test.tsx`.
+
+## A change request is one controlled change (FA8)
+
+Short form; the decision is [ADR-0202](../adr/0202-a-change-request-is-one-controlled-change-register-revised-copy-and-gapless-revisions.md),
+the administrator's view is [metadata-guide.md](../metadata-guide.md) section 40. One migration (V080).
+
+- **The register** is the table `inspection_change_register` (V080), one row for each request, made by `RegisterStore` only (the write
+  settings `platform.change_register_write` and `platform.change_register_result` are raised in the statement itself). The pure rules are
+  `RegisterRules` (what the requester types, what the approvers complete; the words name the box, never the text) and `RegisterLayout`
+  (the page of the register, 2 columns and 14 rows, merged boxes); `RegisterValues` is the record of the values, `RegisterFacts` the facts
+  the platform writes at raising, `RegisterViews` the endpoint records, `ChangeRequestRegisters` the acts (draft view, file out, file in,
+  complete, stamp). The page is drawn by the generic `SheetPages` of the module `sheets` (page of cells to grid, to `.xlsx` and back).
+- **The request** is `ChangeRequests.create` (the register is part of the body: `CreateChangeRequest`; the title is the first line of
+  what is asked; one change in progress, checked under the template's change lock; the process must exist and its last step must not be
+  skippable). `createCopy` makes the revised copy; `getByReview` finds a request from its review record. `ChangeRequestTasks` answers
+  "does this person hold an open task of this request" through the shared-kernel contract `ApprovalTasks` and the new
+  `ApprovalDecisions` (pending request, approvals with their days).
+- **The revised copy** is a held draft: `SheetLifecycle.startHeldDraft`, `heldDraft`, `closeHeldDraft`, `retargetHeldDraft`. `SheetOwners`
+  has `reachForDraft` and `mayReadHeld`; `SheetVersions` lists the Revision in use to readers, the history only to those who change,
+  publish or override the lock, and saves a held draft for the people asked to decide (`canChangeHeld`). `SheetImports` takes
+  `replace=true` to replace the grid of the held draft in place.
+- **No draft by hand** for a published template: the shared-kernel seam `SheetDraftRules`, implemented by `TemplateDraftRules`.
+- **The last approval publishes**: `ChangeRequestApprovalHooks.beforeApprove` when `DecisionContext.endsRequest` (needs `sheets.publish`,
+  the held copy and a choice parsed by `AudienceChoices.parsePublish`); submit, reviewed as approved, `TemplatePublishing.publishRevised`
+  (shares to the audience, keeps the options), `ChangeRequestRegisters.stamp`, request done. `onEnded` follows the record and closes the
+  copy on a rejection or recall. `onSubmit` refuses a process whose last step may be skipped (`SubmitContext.lastStepSkippable`) and
+  retargets the held draft. `ChangeRequestHeaders` stays the cluster's third use of `BackgroundWrites`.
+- **Revisions**: `sheet_version.revision_no` is set once by the guard when a version first becomes the one in use; `TemplateRevisions` is
+  the pure helper, the template fields `revision` and `lastRevisedAt` are platform-written (`TemplatePublishing.stampRevision`, skipped when
+  the record is locked). `TemplateSheetTexts` and `TemplateDownloads` use the real Revision.
+- **Endpoints**: `POST .../change-requests` (with the register), `POST .../{id}/revised-copy`, `GET`/`PUT .../{id}/register`,
+  `GET .../{id}/register/file`, `POST .../change-requests/register/page|file|read` (the blank form drawn, taken as a file, read from a file),
+  `GET /api/v1/change-requests/by-review/{reviewId}`. Gone: accept, decline (the approval declines), turn, reopen.
+- **Frontend**: `register.ts` (calls), `RegisterForm` (the raise form and the form of a request), `RegisterExcelView` (a read-only
+  drawing over the generic `GridView`), `RegisterPanel` (the toggle, download and upload), `AnnotatePanel` (the popup: register first, then
+  the optional places), `ChangeRequestPage` (the register, the link "Current revision", Create revised copy, the revised sheet in the
+  generic `SheetWorkspace` with `allowNewDraft={false}` and `focusVersion`), `PublishChoiceForm` and `ChangeRequestChoiceForm` (the window
+  of the last approval; `choices.ts` has `choiceNeeded`), `OpenRequestsMark` on the tab of `TemplateDetail`.
+- **Tests.** No database: `RegisterLayoutTest`, `RegisterRulesTest`, `AudienceChoicesPublishTest`, `ChangeRequestApprovalHooksTest`,
+  `ChangeRequestStatusTest`, `DefaultSheetPagesTest`, `TemplateSheetTextsTest`, `InspectionArchitectureTest`. Real PostgreSQL:
+  `ChangeRegisterGuardIT`, `SheetRevisionNumberIT`, `ChangeRequestReviewIT` (the whole chain, rejection at each step, gapless numbers,
+  who may make and change the copy, the register), `ChangeRequestsIT`, `ChangeRequestsAccessIT`, `ChangeRequestListIT`,
+  `ChangeRequestRacesIT`, `ChangeRequestFlowsLogsAreCleanIT` (the register values never reach a log, the audit, an event or a notice),
+  `ChangeRequestReviewLogsAreCleanIT`, `TemplateOpenRequestsIT`, `FillInsIT` (a fill-in on an older Revision). A test that needs a second
+  Revision in use calls `NextRevision.inUse` (a change request, the copy, the last approval); a test cannot start a draft of a published
+  template by hand. The isolation harness lists `inspection_change_register`. Frontend: `register.test.ts`, `RegisterForm.test.tsx`,
+  `RegisterPanel.test.tsx`, `PublishChoiceForm.test.tsx`, `ChangeRequestPage.test.tsx`, `ChangeRequestsSection.test.tsx`,
+  `AnnotatePanel.test.tsx`, `AskForChange.test.tsx`, `ChangeRequestsPage.test.tsx`, `TemplatesPage.test.tsx`, `revision.test.ts`,
+  `choices.test.ts`, `ApprovalActionFormChoice.test.tsx`, `SheetWorkspace.test.tsx`.

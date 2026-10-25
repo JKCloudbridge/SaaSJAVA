@@ -4,7 +4,8 @@ import type { ApiFailure } from "@/lib/api/errors";
 import type { components } from "@/lib/api/generated/schema";
 import { call, type Outcome } from "@/lib/records/call";
 import { marksOf, type AnnotationMarks, type Place } from "@/lib/sheets/annotate";
-import { revisionWords } from "@/lib/sheets/revision";
+import { revisionWords, versionTitle } from "@/lib/sheets/revision";
+import type { RegisterInput } from "./register";
 
 /**
  * The calls of the change requests on a template (Functional track FA5, ADR-0191) and how a request is written on a screen.
@@ -16,7 +17,7 @@ export type ChangeRequestsView = components["schemas"]["ChangeRequestsView"];
 export type ChangeRequestView = components["schemas"]["ChangeRequestView"];
 export type ChangeCommentView = components["schemas"]["ChangeCommentView"];
 export type NewChangeComment = components["schemas"]["NewChangeComment"];
-export type TurnedView = components["schemas"]["TurnedView"];
+export type PublishPrefill = components["schemas"]["PublishPrefill"];
 
 const UNREADABLE: ApiFailure = {
   code: "UNREADABLE_RESPONSE",
@@ -40,7 +41,7 @@ export function getChangeRequests(templateId: string): Promise<Outcome<ChangeReq
 
 export function createChangeRequest(
   templateId: string,
-  body: { title: string; versionNo: number; comments: NewChangeComment[] },
+  body: { versionNo: number; register: RegisterInput; comments: NewChangeComment[] },
 ): Promise<Outcome<ChangeRequestView>> {
   return unwrap(
     call(() => api.POST("/api/v1/templates/{templateId}/change-requests", { params: { path: { templateId } }, body })),
@@ -62,23 +63,15 @@ export function addChangeComment(
   );
 }
 
-/** Puts a request back to accepted when the version it became was rejected or withdrawn. Accepting and declining are the approval's. */
-export function reopenChangeRequest(templateId: string, requestId: string): Promise<Outcome<ChangeRequestView>> {
+/**
+ * Makes the revised copy of the sheet for a request (FA8): a copy of the revision in use, held for the request. Only the
+ * people asked to decide the request now (and the administrator) may; the server decides.
+ */
+export function createRevisedCopy(templateId: string, requestId: string): Promise<Outcome<ChangeRequestView>> {
   return unwrap(
     call(() =>
-      api.POST("/api/v1/templates/{templateId}/change-requests/{requestId}/reopen", {
+      api.POST("/api/v1/templates/{templateId}/change-requests/{requestId}/revised-copy", {
         params: { path: { templateId, requestId } },
-      }),
-    ),
-  );
-}
-
-export function turnIntoVersion(templateId: string, requestIds: string[]): Promise<Outcome<TurnedView>> {
-  return unwrap(
-    call(() =>
-      api.POST("/api/v1/templates/{templateId}/change-requests/turn-into-version", {
-        params: { path: { templateId } },
-        body: { requestIds },
       }),
     ),
   );
@@ -125,10 +118,10 @@ export function useChangeRequests(id: string, refresh: number): { state: ChangeR
 // ---- how a request is written ----
 
 export const STATUS_WORDS: Record<string, { text: string; tone: "quiet" | "on" | "ok" | "error" }> = {
-  OPEN: { text: "Open", tone: "on" },
-  ACCEPTED: { text: "Accepted", tone: "ok" },
+  OPEN: { text: "In progress", tone: "on" },
+  ACCEPTED: { text: "In progress", tone: "on" },
   DECLINED: { text: "Declined", tone: "error" },
-  DONE: { text: "Done", tone: "quiet" },
+  DONE: { text: "Published", tone: "ok" },
 };
 
 export function statusWords(status: string): { text: string; tone: "quiet" | "on" | "ok" | "error" } {
@@ -175,31 +168,32 @@ export function marksFromRequests(view: ChangeRequestsView | undefined): Annotat
   return marksOf(places);
 }
 
-/** The words for the revision a request became: "Revision 02 (a draft)". */
+/**
+ * The words for the revised sheet of a request: the copy while it is prepared ("the revised copy, a draft"), the revision
+ * it became once it is published ("Revision 02, in use"), or what became of a copy that was not used.
+ */
 export function becameWords(request: ChangeRequestView): string | null {
   if (request.resultingVersion === undefined || request.resultingVersion === null) {
     return null;
   }
-  const status = request.resultingVersionStatus;
+  const status = request.resultingVersionStatus ?? "";
+  if (request.status === "DONE" && request.resultingRevision !== undefined && request.resultingRevision !== null) {
+    const name = versionTitle({ versionNo: request.resultingVersion, status, revisionNo: request.resultingRevision });
+    return status === "ACTIVE" ? `${name}, in use` : status === "SUPERSEDED" ? `${name}, replaced since` : name;
+  }
   const what =
     status === "DRAFT"
-      ? "a draft"
+      ? "the revised copy, being prepared"
       : status === "IN_REVIEW"
         ? "in review"
         : status === "APPROVED"
           ? "approved, not published"
-          : status === "ACTIVE"
-            ? "in use"
-            : status === "SUPERSEDED"
-              ? "replaced"
-              : status === "REJECTED"
-                ? "rejected"
-                : status === "WITHDRAWN"
-                  ? "withdrawn"
-                  : status === "RETIRED"
-                    ? "retired"
-                    : null;
-  return what ? `${revisionWords(request.resultingVersion)} (${what})` : revisionWords(request.resultingVersion);
+          : status === "REJECTED"
+            ? "the revised copy, rejected"
+            : status === "WITHDRAWN"
+              ? "the revised copy, withdrawn"
+              : null;
+  return what ? `The revised sheet (${what})` : revisionWords(request.resultingVersion);
 }
 
 // ---- the list across templates and one request on its own (FA6E, ADR-0199) ----
@@ -239,6 +233,13 @@ export function queryChangeRequests(
         },
       }),
     ),
+  );
+}
+
+/** One request by the identifier of the record its approval reviews (the choice of a step knows only that). */
+export function getChangeRequestByReview(reviewId: string): Promise<Outcome<ChangeRequestView>> {
+  return unwrap(
+    call(() => api.GET("/api/v1/change-requests/by-review/{reviewId}", { params: { path: { reviewId } } })),
   );
 }
 

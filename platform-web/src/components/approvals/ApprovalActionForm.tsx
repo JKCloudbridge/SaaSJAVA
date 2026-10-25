@@ -4,7 +4,7 @@ import { useCallback, useId, useState } from "react";
 import { api } from "@/lib/api/client";
 import type { Choice } from "@/lib/approvals/choiceForm";
 import { call } from "@/lib/records/call";
-import { choiceFormElement } from "@/solutions/choices";
+import { choiceFormElement, choiceNeeded } from "@/solutions/choices";
 import { PersonPicker } from "./PersonPicker";
 
 /** What a person can do with a request; the server says which of these are open to them (`actions`). */
@@ -29,6 +29,8 @@ const ASKS: Record<ApprovalActionKind, { comment: "required" | "optional"; perso
  * @param explain a sentence saying what will happen if the person goes on, written by the screen from what it shows
  * @param asksForChoice whether the active step needs a choice with the approval (the process says so, FA6G); the form of
  *        the object's module is shown and the approval is not sent without what it gives. The server insists as well
+ * @param lastStep whether the active step is the last of the process; the last approval of some objects asks for a choice
+ *        of its own (FA8)
  * @param objectApiName the object of the record, to find the form that asks for the choice
  * @param recordId the record the approval is about
  */
@@ -39,6 +41,7 @@ export function ApprovalActionForm({
   explain,
   labels,
   asksForChoice = false,
+  lastStep = false,
   objectApiName,
   recordId,
   onDone,
@@ -51,6 +54,7 @@ export function ApprovalActionForm({
   /** Other words for the button of an action (a change request is accepted or declined, not approved or rejected). */
   labels?: Partial<Record<ApprovalActionKind, string>>;
   asksForChoice?: boolean;
+  lastStep?: boolean;
   objectApiName?: string;
   recordId?: string;
   onDone: (text: string) => void;
@@ -66,9 +70,11 @@ export function ApprovalActionForm({
   const [choices, setChoices] = useState<Choice[] | null>(null);
   const onChoices = useCallback((next: Choice[] | null) => setChoices(next), []);
   // Only an approval carries the choice; rejecting at the same step asks for none.
-  const needsChoice = kind === "approve" && asksForChoice;
+  const needsChoice = kind === "approve" && choiceNeeded(objectApiName, asksForChoice, lastStep);
   const choiceForm =
-    needsChoice && objectApiName && recordId ? choiceFormElement(objectApiName, { recordId, onChange: onChoices }) : undefined;
+    needsChoice && objectApiName && recordId
+      ? choiceFormElement(objectApiName, { recordId, onChange: onChoices, lastStep })
+      : undefined;
   const missing =
     (ask.comment === "required" && comment.trim() === "") ||
     (ask.person && person === "") ||
