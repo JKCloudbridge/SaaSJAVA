@@ -5,6 +5,7 @@ import {
   addFillRow,
   clearFillCells,
   displayDoc,
+  formatFillCells,
   gridDisplayRows,
   isInputCell,
   pasteFill,
@@ -12,7 +13,7 @@ import {
   sameFill,
   setFillValue,
 } from "@/lib/sheets/fillModel";
-import type { FillDoc, FillLimits, FillOp } from "@/lib/sheets/fillTypes";
+import type { FillDoc, FillLimits, FillOp, FillStyle } from "@/lib/sheets/fillTypes";
 import { normalized } from "@/lib/sheets/geometry";
 import * as hist from "@/lib/sheets/history";
 import type { GridDoc, Selection } from "@/lib/sheets/types";
@@ -85,6 +86,8 @@ export interface FillEditor extends SheetGridEditor {
   reset(fill: FillDoc): void;
   /** The cells in the editor are what is stored now: nothing is unsaved. */
   markSaved(fill: FillDoc): void;
+  reapply(fill: FillDoc): void;
+  format(style: FillStyle | null): void;
 }
 
 /**
@@ -115,6 +118,14 @@ export function useFillEditor(grid: GridDoc, initial: FillDoc, limits: FillLimit
   }, [state.selection, rows.length, grid.columns.length]);
   const rect = useMemo(() => normalized(selection), [selection]);
   const dirty = useMemo(() => !sameFill(grid, fill, state.saved), [grid, fill, state.saved]);
+  const format = (style: FillStyle | null) => {
+    const ids = rows.slice(rect.r0, rect.r1 + 1).filter((row) => row.zone === "body").map((row) => row.id);
+    const columns = grid.columns.slice(rect.c0, rect.c1 + 1).map((column) => column.id);
+    dispatch({ type: "run", op: (current) => formatFillCells(grid, current, ids, columns, style, limits) });
+  };
+  const focus = rows[selection.fr];
+  const column = doc.columns[selection.fc];
+  const focusedStyle = focus && column ? doc.cells[`${focus.id}:${column.id}`]?.style : undefined;
 
   return {
     grid,
@@ -154,13 +165,15 @@ export function useFillEditor(grid: GridDoc, initial: FillDoc, limits: FillLimit
           return { fill: pasted.fill, message: { text: said, error: pasted.problems.length > 0 } };
         },
       }),
-    // A filler formats nothing: the keys that format in the author's grid do nothing here.
-    bold: () => undefined,
-    italic: () => undefined,
+    format,
+    bold: () => format({ bold: !focusedStyle?.bold }),
+    italic: () => format({ italic: !focusedStyle?.italic }),
+    underline: () => format({ underline: !focusedStyle?.underline }),
     addRow: () => dispatch({ type: "run", op: (current) => addFillRow(grid, current, limits), success: "Row added." }),
     removeRow: (rowId) =>
       dispatch({ type: "run", op: (current) => removeFillRow(grid, current, rowId), success: "Row removed." }),
     reset: (next) => dispatch({ type: "reset", fill: next }),
     markSaved: (next) => dispatch({ type: "saved", fill: next }),
+    reapply: (next) => dispatch({ type: "run", op: () => ({ ok: true, fill: next }) }),
   };
 }

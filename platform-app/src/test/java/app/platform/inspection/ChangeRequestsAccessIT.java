@@ -32,7 +32,7 @@ class ChangeRequestsAccessIT extends ChangeRequestSupport {
         answers.put("get", one(browser, template, request));
         answers.put("create", ask(browser, template, "Another", 1));
         answers.put("comment", add(browser, template, request, comment(null, null, "A note")));
-        answers.put("answer", answerRequest(browser, template, request, "ACCEPT", null));
+        answers.put("reopen", reopen(browser, template, request));
         answers.put("turn", turn(browser, template, request));
         return answers;
     }
@@ -48,7 +48,7 @@ class ChangeRequestsAccessIT extends ChangeRequestSupport {
         assertThat(reader.get("get").status()).isEqualTo(200);
         assertThat(reader.get("create").status()).isEqualTo(201);
         assertThat(reader.get("comment").status()).isEqualTo(200);
-        assertThat(reader.get("answer").status()).as("answering is for those who may change the template")
+        assertThat(reader.get("reopen").status()).as("reopening is for those who may change the template")
                 .isEqualTo(403);
         assertThat(reader.get("turn").status()).isEqualTo(403);
         assertThat(requestStatus(world.reader().browser(), world.template(), request)).isEqualTo("OPEN");
@@ -66,7 +66,7 @@ class ChangeRequestsAccessIT extends ChangeRequestSupport {
         assertThat(colleague.get("create").status()).isEqualTo(201);
         assertThat(colleague.get("get").status()).isEqualTo(404);
         assertThat(colleague.get("comment").status()).isEqualTo(404);
-        assertThat(colleague.get("answer").status()).isEqualTo(404);
+        assertThat(colleague.get("reopen").status()).isEqualTo(404);
         assertThat(colleague.get("turn").status()).as("not even to learn that it exists").isEqualTo(403);
         assertThat(requestStatus(world.reader().browser(), world.template(), request)).isEqualTo("OPEN");
     }
@@ -76,6 +76,8 @@ class ChangeRequestsAccessIT extends ChangeRequestSupport {
         World world = world();
         String first = asked(world.reader().browser(), world.template(), "First", 1);
         String second = asked(world.colleague().browser(), world.template(), "Second", 1);
+        assertThat(accept(world, first).status()).isEqualTo(200);
+        assertThat(accept(world, second).status()).isEqualTo(200);
 
         Map<String, Response> author = everything(world.author().browser(), world.template(), first);
         Map<String, Response> approver = everything(world.approver().browser(), world.template(), second);
@@ -85,12 +87,12 @@ class ChangeRequestsAccessIT extends ChangeRequestSupport {
         assertThat(author.get("get").status()).isEqualTo(200);
         assertThat(author.get("create").status()).as("an author may also ask about a template").isEqualTo(201);
         assertThat(author.get("comment").status()).isEqualTo(200);
-        assertThat(author.get("answer").status()).isEqualTo(200);
+        assertThat(author.get("reopen").status()).as("nothing was turned, so nothing to reopen").isEqualTo(409);
         assertThat(author.get("turn").status()).as("an accepted request can be turned").isEqualTo(200);
         assertThat(approver.get("list").status()).isEqualTo(200);
         assertThat(approver.get("get").status()).isEqualTo(200);
         assertThat(approver.get("comment").status()).isEqualTo(200);
-        assertThat(approver.get("answer").status()).isEqualTo(200);
+        assertThat(approver.get("reopen").status()).isEqualTo(409);
         assertThat(approver.get("turn").status()).as("the draft already exists and is joined").isEqualTo(200);
     }
 
@@ -204,7 +206,6 @@ class ChangeRequestsAccessIT extends ChangeRequestSupport {
         Response notAnId = world.reader().browser().get(TEMPLATES + "/not-an-id/change-requests");
         Response noTitle = world.reader().browser().postJson(changes(world.template()), "{\"versionNo\":1}");
         Response noVersion = world.reader().browser().postJson(changes(world.template()), "{\"title\":\"x\"}");
-        Response badAction = answerRequest(world.author().browser(), world.template(), request, "ERASE", null);
         Response badStatus = world.reader().browser().get(changes(world.template()) + "?status=SOMETHING");
         Response noIds = world.author().browser().postJson(changes(world.template()) + "/turn-into-version",
                 "{\"requestIds\":[]}");
@@ -214,7 +215,6 @@ class ChangeRequestsAccessIT extends ChangeRequestSupport {
         assertThat(notAnId.status()).isEqualTo(400);
         assertThat(noTitle.status()).isEqualTo(400);
         assertThat(noVersion.status()).isEqualTo(400);
-        assertThat(badAction.status()).isEqualTo(400);
         assertThat(badStatus.status()).isEqualTo(400);
         assertThat(noIds.status()).isEqualTo(400);
         assertThat(notFound.status()).isEqualTo(404);

@@ -50,10 +50,12 @@ final class NumberSeriesCatalogue {
      * @param selector the picklist whose value chooses the format, or an empty text
      * @param formats the formats by value of the selector (the empty text for a series with one format)
      */
-    record Series(String key, String object, String field, String selector, Map<String, NumberFormat> formats) {
+    record Series(String key, String object, String field, String selector, Map<String, NumberFormat> formats,
+            Map<String, NumberFormat> defaults, String optionalField) {
 
         Series {
             formats = Map.copyOf(formats);
+            defaults = Map.copyOf(defaults);
         }
 
         /** The format for a value of the selector, if the series has one. */
@@ -112,6 +114,17 @@ final class NumberSeriesCatalogue {
                     + "platform writes");
         }
         Map<String, NumberFormat> formats = formats(where, declaration, object);
+        Map<String, NumberFormat> defaults = new LinkedHashMap<>();
+        String optional = declaration.defaults().getOrDefault("optionalField", "");
+        if (!declaration.defaults().isEmpty()) {
+            if (declaration.selector().isEmpty() || optional.isEmpty() || optional.equals(declaration.selector())) {
+                throw new IllegalStateException(where + ": fallback formats need a selector and another code field");
+            }
+            defaults.put("DEFAULT", NumberFormat.parse(declaration.defaults().get("format")));
+            defaults.put("WITHOUT_OPTIONAL", NumberFormat.parse(declaration.defaults().get("withoutOptional")));
+            checkDefault(defaults.get("DEFAULT"), declaration.selector(), optional, true);
+            checkDefault(defaults.get("WITHOUT_OPTIONAL"), declaration.selector(), optional, false);
+        }
         int longest = formats.values().stream().mapToInt(NumberFormat::longestNumber).max().orElse(0);
         if (((TextConfiguration) numberField.configuration()).maxLength() < longest) {
             throw new IllegalStateException(where + ": the field of the number is shorter than the longest number "
@@ -120,8 +133,28 @@ final class NumberSeriesCatalogue {
         for (Map.Entry<String, NumberFormat> entry : formats.entrySet()) {
             checkFields(where, object, numberField, entry.getValue());
         }
+        for (NumberFormat format : defaults.values()) {
+            validateFormat(object, declaration.field(), format);
+        }
         return new Series(declaration.key(), declaration.object(), declaration.field(), declaration.selector(),
-                formats);
+                formats, defaults, optional);
+    }
+
+    /** The same field and length rules for shipped and organization-owned formats. */
+    static void validateFormat(ObjectDefinition object, String field, NumberFormat format) {
+        FieldDefinition number = object.field(field).orElseThrow();
+        checkFields("The numbering format", object, number, format);
+        if (format.longestNumber() > ((TextConfiguration) number.configuration()).maxLength()) {
+            throw new IllegalArgumentException("The number would be longer than its field allows.");
+        }
+    }
+
+    static void checkDefault(NumberFormat format, String selector, String optional, boolean withOptional) {
+        Set<String> wanted = withOptional ? Set.of(selector, optional) : Set.of(selector);
+        if (!format.hasCounter() || !Set.copyOf(format.fields()).equals(wanted)) {
+            throw new IllegalArgumentException("A default reads the category, its optional part when applicable, "
+                    + "and one running count.");
+        }
     }
 
     private static Map<String, NumberFormat> formats(String where, NumberSeriesDeclaration declaration,

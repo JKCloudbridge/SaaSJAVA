@@ -482,6 +482,38 @@ class SheetGridValidatorTest {
     // ---- styles: bold, italic and the four sizes, on fixed cells only ----
 
     @Test
+    void newTextStylesRoundTripAndDefaultStylesKeepOldCanonicalBytes() {
+        Map<String, Object> doc = minimal();
+        cells(doc).put("h1:c1", map("value", "Title", "style", map("bold", true)));
+        String old = check(doc).checked().canonical();
+        cells(doc).put("h1:c1", map("value", "Title", "style", map("bold", true, "underline", false,
+                "alignment", "LEFT", "colour", "DEFAULT")));
+        assertThat(check(doc).checked().canonical()).isEqualTo(old);
+        cells(doc).put("h1:c1", map("value", "Title", "style", map("underline", true,
+                "alignment", "CENTER", "colour", "ACCENT")));
+        Result styled = check(doc);
+        assertThat(styled.problems()).isEmpty();
+        String canonical = styled.checked().canonical();
+        assertThat(canonical).contains("\"alignment\":\"CENTER\",\"colour\":\"ACCENT\",\"underline\":true");
+        assertThat(validator.check(canonical.getBytes(StandardCharsets.UTF_8)).checked().canonical())
+                .isEqualTo(canonical);
+        assertThat(styled.checked().hash()).isNotEqualTo(check(minimal()).checked().hash());
+    }
+
+    @Test
+    void newTextStyleValuesAreClosedAndNeverAcceptCss() {
+        for (Map<String, Object> style : List.of(map("colour", "url(secret-style)"),
+                map("alignment", "secret-style"), map("underline", "secret-style"))) {
+            Map<String, Object> doc = minimal();
+            cells(doc).put("h1:c1", map("value", "Title", "style", style));
+            Result result = check(doc);
+            assertThat(codes(result)).isNotEmpty().containsOnly("shape");
+            assertThat(result.problems()).allSatisfy(problem ->
+                    assertThat(problem.message()).doesNotContain("secret-style"));
+        }
+    }
+
+    @Test
     void aFixedCellMayCarryAnyStyleAndSize() {
         for (String size : List.of("SMALL", "NORMAL", "LARGE", "TITLE")) {
             Map<String, Object> doc = minimal();
@@ -503,7 +535,8 @@ class SheetGridValidatorTest {
 
     @Test
     void anInputCellCarriesNoStyleAtAll() {
-        for (Map<String, Object> style : List.of(map("fontSize", "LARGE"), map("bold", true), map("italic", true))) {
+        for (Map<String, Object> style : List.of(map("fontSize", "LARGE"), map("bold", true), map("italic", true),
+                map("underline", true), map("alignment", "RIGHT"), map("colour", "DANGER"))) {
             Map<String, Object> input = minimal();
             cells(input).put("r1:c2", map("value", "5", "kind", "input", "style", style));
             Map<String, Object> empty = minimal();

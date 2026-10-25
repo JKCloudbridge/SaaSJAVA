@@ -40,8 +40,9 @@ public abstract class SolutionSupport {
     protected static final String RECORDS = "/api/v1/objects/" + OBJECT + "/records";
     protected static final String MEMBERS = "/api/v1/members";
     protected static final String FILL = "InspectionFill";
-    protected static final List<String> SHIPPED_POLICIES = List.of("Author", "Approver", "Reader", "Filler",
-            "Reviewer", "Department setup");
+    protected static final String REQUEST = "InspectionChangeRequest";
+    protected static final List<String> SHIPPED_POLICIES = List.of("Author", "Approver", "Publisher", "Reader",
+            "Filler", "Reviewer", "Department setup");
 
     @LocalServerPort
     protected int port;

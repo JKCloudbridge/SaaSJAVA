@@ -55,12 +55,15 @@ class TemplateList {
     private final Records records;
     private final SheetLifecycle sheets;
     private final Decisions decisions;
+    private final ChangeRequestCounts counts;
 
-    TemplateList(TemplateAccess access, Records records, SheetLifecycle sheets, Decisions decisions) {
+    TemplateList(TemplateAccess access, Records records, SheetLifecycle sheets, Decisions decisions,
+            ChangeRequestCounts counts) {
         this.access = access;
         this.records = records;
         this.sheets = sheets;
         this.decisions = decisions;
+        this.counts = counts;
     }
 
     /**
@@ -110,6 +113,7 @@ class TemplateList {
         QueryResult result = records.query(Templates.OBJECT, query);
         List<UUID> ids = result.records().stream().map(QueriedRecord::record).map(DataRecord::id).toList();
         Map<UUID, SheetLifecycle.Summary> summaries = sheets.summaries(Templates.OBJECT, ids);
+        Map<UUID, Integer> waiting = counts.waiting(caller, ids);
         List<TemplateRow> rows = new ArrayList<>();
         for (QueriedRecord found : result.records()) {
             DataRecord header = found.record();
@@ -120,7 +124,8 @@ class TemplateList {
             if (wantedState == null || wantedState.equals(lifecycle.state())) {
                 rows.add(new TemplateRow(header.id(), text(header, Templates.NAME), text(header, Templates.NUMBER),
                         text(header, Templates.CATEGORY), text(header, Templates.SUB_CATEGORY),
-                        text(header, Templates.LEVEL), text(header, Templates.DOCUMENT_TYPE), isRetired, lifecycle));
+                        text(header, Templates.LEVEL), text(header, Templates.DOCUMENT_TYPE), isRetired, lifecycle,
+                        waiting.getOrDefault(header.id(), 0)));
             }
         }
         boolean canCreate = decisions.can(caller.membershipId(), Templates.OBJECT, ObjectAction.CREATE).allowed();

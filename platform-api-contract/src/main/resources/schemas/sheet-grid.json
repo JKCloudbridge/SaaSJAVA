@@ -210,6 +210,18 @@
         "italic": {
           "type": "boolean"
         },
+        "underline": {
+          "type": "boolean"
+        },
+        "alignment": {
+          "type": "string",
+          "enum": ["LEFT", "CENTER", "RIGHT"]
+        },
+        "colour": {
+          "type": "string",
+          "description": "A named text colour from the theme palette; never arbitrary CSS.",
+          "enum": ["DEFAULT", "ACCENT", "SUCCESS", "DANGER"]
+        },
         "fontSize": {
           "type": "string",
           "enum": [

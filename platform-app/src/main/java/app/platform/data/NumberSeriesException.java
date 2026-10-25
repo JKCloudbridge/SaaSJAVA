@@ -18,7 +18,11 @@ public final class NumberSeriesException extends RuntimeException {
         /** A part the format needs has no value on the record. */
         PART_MISSING("A part of the number is missing on the record."),
         /** A part is not a short code, so it cannot be a part of a number. */
-        PART_NOT_A_CODE("A part of the number is not a short code.");
+        PART_NOT_A_CODE("A part of the number is not a short code."),
+        /** The counter has reached the maximum supported number of digits. */
+        COUNTER_EXHAUSTED("The running count has reached its limit."),
+        /** A previously issued number belongs permanently to another record. */
+        NUMBER_TAKEN("This number has already been issued to another record.");
 
         private final String words;
 

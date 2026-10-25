@@ -80,6 +80,7 @@ class DefaultRecords implements Records {
         } catch (UniqueValueTakenException e) {
             throw taken(e, plan.slots(), access);
         }
+        pipeline.stored(null, created);
         links.sync(passed.object(), created.id(), plan.set(), plan.clear(), passed.userId());
         searchIndex.index(passed.object(), created, null, passed.userId());
         changes.created(passed.userId(), created.objectApiName(), created.id(), created.version(), plan.names());
@@ -127,6 +128,7 @@ class DefaultRecords implements Records {
         if (updated == null) {
             throw whyNotChanged(storage.find(passed.object().apiName(), id));
         }
+        pipeline.stored(current, updated);
         links.sync(passed.object(), updated.id(), plan.set(), plan.clear(), passed.userId());
         searchIndex.index(passed.object(), updated, plan.names(), passed.userId());
         changes.updated(passed.userId(), updated.objectApiName(), updated.id(), updated.version(), plan.names());
@@ -234,11 +236,12 @@ class DefaultRecords implements Records {
      * The answer to a duplicate the pipeline did not see (two writes at the same moment): the same words, at the same
      * place, as the pipeline's own answer. Nothing is stored; the transaction ends with the exception.
      */
-    private static ApiException taken(UniqueValueTakenException refused, SlotCopy copies, ObjectAccess access) {
+    private ApiException taken(UniqueValueTakenException refused, SlotCopy copies, ObjectAccess access) {
         String place = copies.uniquePlaces().get(refused.constraint());
         boolean pair = UniqueKey.ofBit(refused.constraint()).map(UniqueKey::isPair).orElse(false);
         return ApiException.validation(place == null ? RecordValues.PROBLEMS_KEY : FieldSecurity.place(access, place),
-                pair ? WritePipeline.PAIR_TAKEN : WritePipeline.VALUE_TAKEN);
+                pair ? WritePipeline.PAIR_TAKEN
+                        : pipeline.uniqueWords(access.object(), place, WritePipeline.VALUE_TAKEN));
     }
 
     /** What the member may do with the object's fields: one question per request, however many records follow. */

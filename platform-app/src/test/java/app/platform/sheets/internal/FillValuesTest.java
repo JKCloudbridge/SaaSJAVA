@@ -44,6 +44,14 @@ class FillValuesTest {
     }
 
     @Test
+    void formattingDoesNotChangeTheReportableValues() {
+        var plain = new FillDoc(List.of(new FillDoc.Row("r1", Map.of("c1", "Checked", "c2", "12.5"))));
+        var styled = new FillDoc(2, List.of(new FillDoc.Row("r1", plain.rows().getFirst().cells(),
+                Map.of("c1", Map.of("bold", true, "italic", false, "fontSize", "LARGE")))));
+        assertThat(FillValues.of(grid("c1", "c2"), styled)).isEqualTo(FillValues.of(grid("c1", "c2"), plain));
+    }
+
+    @Test
     void aVersionThatFlagsNoColumnCopiesNothing() {
         assertThat(FillValues.reportableColumns(grid())).isEmpty();
         assertThat(FillValues.of(grid(), cells(row("c1", "Door open", "c2", "12.5")))).isEmpty();

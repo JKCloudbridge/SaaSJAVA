@@ -68,6 +68,15 @@ class InspectionArchitectureTest {
     }
 
     @Test
+    void onlyTheClusterGivesASheetAsAFile() {
+        noClasses().that().resideOutsideOfPackages("app.platform.inspection..", "app.platform.sheets..")
+                .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.sheets.SheetExports")
+                .because("whether a file may be given at all is decided by the module that owns what the sheet "
+                        + "belongs to (ADR-0201)")
+                .allowEmptyShould(true).check(platform);
+    }
+
+    @Test
     void onlyTheClusterMovesAFillIn() {
         onlyTheClusterMayMoveAFillIn().check(platform);
     }
@@ -109,13 +118,15 @@ class InspectionArchitectureTest {
     }
 
     @Test
-    void theClusterTakesThePlatformsDoorToRecordsInTwoPlacesOnly() {
+    void theClusterTakesThePlatformsDoorToRecordsInThreePlacesOnly() {
         noClasses().that().resideInAPackage("app.platform.inspection..")
                 .and().haveSimpleNameNotContaining("TemplatePublishing")
                 .and().haveSimpleNameNotContaining("FillHeaders")
+                .and().haveSimpleNameNotContaining("ChangeRequestHeaders")
                 .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.data.BackgroundWrites")
                 .because("the writes the cluster makes as the platform are the retired mark of a template "
-                        + "(ADR-0188) and the header of a fill-in with its status (ADR-0192), each made in one place; "
+                        + "(ADR-0188), the header of a fill-in with its status (ADR-0192) and the review record of "
+                        + "a change request with its status (ADR-0199), each made in one place; "
                         + "the number is written through the engine's narrow writer")
                 .allowEmptyShould(true).check(platform);
     }

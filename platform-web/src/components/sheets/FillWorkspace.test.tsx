@@ -5,6 +5,8 @@ import { fakeApi, json, refusal, type Call } from "@/test/fakeApi";
 import { sizeTheGrid } from "@/test/virtualDom";
 import { FillWorkspace } from "./FillWorkspace";
 
+vi.mock("next/navigation", async () => (await import("@/test/navigation")).navigationMock);
+
 sizeTheGrid();
 configure({ asyncUtilTimeout: 5000 });
 
@@ -57,13 +59,13 @@ const bodyOf = (calls: Call[], key: string) =>
   JSON.parse(calls.filter((call) => call.key === key).at(-1)?.body ?? "null") as unknown;
 
 describe("a fill-in that can be filled in", () => {
-  it("shows the status, the version it is pinned to and the grid of that version", async () => {
+  it("shows the status, the revision it is pinned to and the grid of that revision", async () => {
     fakeApi({ [`GET ${URL_OF}`]: view() });
 
     draw();
 
-    expect(await screen.findByRole("grid", { name: "Fire checks, version 3" })).toBeInTheDocument();
-    expect(screen.getByText(/version 3 of the template/)).toBeInTheDocument();
+    expect(await screen.findByRole("grid", { name: "Fire checks, revision 02" })).toBeInTheDocument();
+    expect(screen.getByText(/revision 02 of the template/)).toBeInTheDocument();
     expect(screen.getByTestId("fill-status-note")).toHaveTextContent("This fill-in is a draft");
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(screen.queryByTestId("fill-version-note")).not.toBeInTheDocument();
@@ -84,7 +86,7 @@ describe("a fill-in that can be filled in", () => {
     expect(screen.getByText("There are changes that are not saved.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await screen.findByText("All changes are saved.");
+    await screen.findByText("Saved");
     const put = calls.find((call) => call.key === `PUT ${URL_OF}/cells`);
     expect(put).toBeDefined();
     expect(bodyOf(calls, `PUT ${URL_OF}/cells`)).toEqual({
@@ -113,7 +115,7 @@ describe("a fill-in that can be filled in", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await screen.findByText("All changes are saved.");
+    await screen.findByText("Saved");
     expect(seen).toEqual(["?version=7"]);
   });
 
@@ -167,6 +169,43 @@ describe("a fill-in that can be filled in", () => {
 });
 
 describe("the grid view", () => {
+  it("shows the complete strip and persists formatting only on selected input cells", async () => {
+    const calls = fakeApi({
+      [`GET ${URL_OF}`]: view(),
+      [`PUT ${URL_OF}/cells`]: () => json({ data: summary({ version: 5 }) }),
+    });
+    const mounted = draw();
+    const { container } = mounted;
+    await screen.findByRole("grid");
+    fireEvent.mouseDown(container.querySelector('[data-r="2"][data-c="1"]') as HTMLElement);
+    fireEvent.mouseUp(window);
+    const bold = screen.getByRole("button", { name: "Bold" });
+    expect(bold).not.toBeDisabled();
+    fireEvent.click(bold);
+    fireEvent.click(screen.getByRole("button", { name: "Underline" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Alignment" }), { target: { value: "CENTER" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Text colour" }), { target: { value: "ACCENT" } });
+    expect(container.querySelector('[data-r="2"][data-c="1"]'))
+      .toHaveClass("sheet-underline", "sheet-align-center", "sheet-colour-accent");
+    expect(screen.getByRole("button", { name: "Merge" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Merge" })).toHaveAttribute("title", "The published template fixes this structure.");
+    expect(screen.getByRole("button", { name: "Fixed text" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add column" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("Saved");
+    expect(bodyOf(calls, `PUT ${URL_OF}/cells`)).toEqual({
+      formatVersion: 2, rows: [{ id: "r1", cells: {}, styles: {
+        c2: { bold: true, underline: true, alignment: "CENTER", colour: "ACCENT" },
+      } }],
+    });
+    const stored = bodyOf(calls, `PUT ${URL_OF}/cells`);
+    mounted.unmount();
+    fakeApi({ [`GET ${URL_OF}`]: view({ cells: stored }) });
+    const reopened = draw();
+    await screen.findByRole("grid");
+    expect(reopened.container.querySelector('[data-r="2"][data-c="1"]'))
+      .toHaveClass("sheet-underline", "sheet-align-center", "sheet-colour-accent");
+  });
   it("does not open a cell the sheet fixes and says why", async () => {
     fakeApi({ [`GET ${URL_OF}`]: view() });
     const { container } = draw();
@@ -219,18 +258,18 @@ describe("the grid view", () => {
     expect(screen.getByText("There are changes that are not saved.")).toBeInTheDocument();
   });
 
-  it("offers no add row where the sheet names its rows", async () => {
+  it("shows a disabled add row where the sheet fixes its rows", async () => {
     fakeApi({ [`GET ${URL_OF}`]: view() });
     draw();
     await screen.findByRole("grid");
 
-    expect(screen.queryByRole("button", { name: "Add row" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add row" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Undo" })).toBeDisabled();
   });
 });
 
 describe("a fill-in that cannot be changed", () => {
-  it("says it was sent for review, draws no Save and no toolbar, and shows the cells", async () => {
+  it("says it was sent for review, draws no Save, disables the toolbar, and shows the cells", async () => {
     fakeApi({
       [`GET ${URL_OF}`]: view(
         { canEdit: false, cells: { formatVersion: 1, rows: [{ id: "r1", cells: { c2: "9" } }] } },
@@ -241,7 +280,8 @@ describe("a fill-in that cannot be changed", () => {
 
     expect(await screen.findByTestId("fill-status-note")).toHaveTextContent("sent for review");
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("toolbar")).not.toBeInTheDocument();
+    expect(screen.getByRole("toolbar")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Bold" })).toBeDisabled();
     expect(screen.getByRole("grid")).toHaveAttribute("aria-readonly", "true");
     fireEvent.click(screen.getByRole("tab", { name: "Form view" }));
     expect(within(screen.getAllByTestId("fill-row")[0] as HTMLElement).getByText("9")).toBeInTheDocument();
@@ -251,8 +291,8 @@ describe("a fill-in that cannot be changed", () => {
     fakeApi({ [`GET ${URL_OF}`]: view({}, { versionStatus: "SUPERSEDED" }) });
     draw();
 
-    expect(await screen.findByTestId("fill-version-note")).toHaveTextContent("A newer version is in use now");
-    expect(screen.getByTestId("fill-version-note")).toHaveTextContent("stays on version 3");
+    expect(await screen.findByTestId("fill-version-note")).toHaveTextContent("A newer revision is in use now");
+    expect(screen.getByTestId("fill-version-note")).toHaveTextContent("stays on revision 02");
   });
 
   it("says that a retired template leaves the fill-in readable but fixed", async () => {

@@ -45,13 +45,13 @@ describe("the form view of a fill-in", () => {
     expect(first.getByText("(required)")).toBeInTheDocument();
   });
 
-  it("keeps what is typed until the box is left, then holds it as the value of the cell", () => {
+  it("holds what is typed as the value of the cell at once, and again when the box is left", () => {
     let seen: FillEditor | undefined;
     render(<Host grid={sampleDoc()} onEditor={(editor) => (seen = editor)} />);
     const box = within(screen.getAllByTestId("fill-row")[0] as HTMLElement).getByRole("textbox", { name: /Amount/ });
 
     fireEvent.change(box, { target: { value: "12.5" } });
-    expect(seen?.fill.rows).toEqual([]);
+    expect(seen?.fill.rows).toEqual([{ id: "r1", cells: { c2: "12.5" } }]);
     fireEvent.blur(box);
 
     expect(seen?.fill.rows).toEqual([{ id: "r1", cells: { c2: "12.5" } }]);

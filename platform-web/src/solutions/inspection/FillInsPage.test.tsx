@@ -88,6 +88,18 @@ function answers(rows = [row(FILL, { filledBy: "Pat Filler" }), row(OTHER, { sta
           updatedAt: "2026-10-23T08:00:00Z",
         },
       }),
+    [`GET /api/v1/objects/InspectionTemplate/records/${TEMPLATE}`]: () =>
+      json({
+        data: {
+          id: TEMPLATE,
+          objectApiName: "InspectionTemplate",
+          ownerId: "0198f5c0-0000-7000-8000-000000000001",
+          fields: { name: "Fire exit template", number: "WI/PRD/03" },
+          version: 1,
+          createdAt: "2026-10-23T08:00:00Z",
+          updatedAt: "2026-10-23T08:00:00Z",
+        },
+      }),
     [`GET ${RECORDS}/${FILL}/approval`]: () => json(NO_APPROVAL),
     [`GET ${RECORDS}/${FILL}/files`]: () => json({ data: [] }),
     [`GET /api/v1/sheet-fills/InspectionFill/${FILL}`]: () =>
@@ -133,8 +145,8 @@ describe("the list of fill-ins", () => {
     expect(screen.getByText("Pat Filler")).toBeInTheDocument();
     expect(within(screen.getByTestId("fill-ins-list")).getByText("Draft")).toBeInTheDocument();
     expect(within(screen.getByTestId("fill-ins-list")).getByText("Approved")).toBeInTheDocument();
-    expect(screen.getByText("v3")).toBeInTheDocument();
-    expect(screen.getByText("v2 (a newer version is in use)")).toBeInTheDocument();
+    expect(screen.getByText("Rev 02")).toBeInTheDocument();
+    expect(screen.getByText("Rev 01 (a newer revision is in use)")).toBeInTheDocument();
     expect(screen.getAllByText("Not sent")).toHaveLength(2);
   });
 
@@ -222,7 +234,7 @@ describe("one fill-in", () => {
 
     expect(currentUrl()).toBe(`/apps/inspection/s-fill-ins?open=${FILL}`);
     expect(await screen.findByTestId("fill-in-detail")).toBeInTheDocument();
-    expect(await screen.findByRole("grid", { name: "Fire exit check, version 3" })).toBeInTheDocument();
+    expect(await screen.findByRole("grid", { name: "Fire exit check, revision 02" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Fire exit check" })).toHaveAttribute(
       "href",
       `/apps/inspection/s-templates?open=${TEMPLATE}`,
@@ -238,11 +250,11 @@ describe("one fill-in", () => {
 
     render(<FillInsPage />);
 
-    expect(await screen.findByRole("grid", { name: /version 3/ })).toBeInTheDocument();
+    expect(await screen.findByRole("grid", { name: /revision 02/ })).toBeInTheDocument();
     expect(screen.queryByText("Details")).not.toBeInTheDocument();
   });
 
-  it("warns that only what is saved is sent while there are unsaved changes", async () => {
+  it("says there are changes not saved yet while they wait to be saved", async () => {
     setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
     fakeApi(answers());
     render(<FillInsPage />);
@@ -254,7 +266,7 @@ describe("one fill-in", () => {
     fireEvent.change(box, { target: { value: "5" } });
     fireEvent.blur(box);
 
-    expect(await screen.findByTestId("unsaved-note")).toHaveTextContent("Submit saves them first");
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/not saved|Saving|Saved/));
   });
 
   it("sends a fill-in for good with Submit when no approval process applies, and reads it again as stored", async () => {
@@ -344,7 +356,12 @@ describe("one fill-in", () => {
 
   it("leaves with Cancel and sends nothing; unsaved changes are never dropped by one press", async () => {
     setUrl(`/apps/inspection/s-fill-ins?open=${FILL}`);
-    const calls = fakeApi(answers());
+    // The save before leaving is refused, so one press does not drop the changes.
+    const calls = fakeApi({
+      ...answers(),
+      [`PUT /api/v1/sheet-fills/InspectionFill/${FILL}/cells`]: () =>
+        refusal("VALIDATION_ERROR", "A value is not valid.", 422),
+    });
     render(<FillInsPage />);
     fireEvent.click(await screen.findByRole("tab", { name: "Form view" }));
     const box = within((await screen.findAllByTestId("fill-row"))[0] as HTMLElement).getByRole("textbox", {
@@ -354,6 +371,7 @@ describe("one fill-in", () => {
     fireEvent.blur(box);
 
     fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    await screen.findByRole("button", { name: "Leave without saving" });
 
     expect(currentUrl()).toContain(`open=${FILL}`);
     fireEvent.click(screen.getByRole("button", { name: "Leave without saving" }));
@@ -380,7 +398,7 @@ describe("one fill-in", () => {
     });
     render(<FillInsPage />);
 
-    await screen.findByRole("grid", { name: /version 3/ });
+    await screen.findByRole("grid", { name: /revision 02/ });
     expect(screen.queryByRole("button", { name: "Submit" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
   });

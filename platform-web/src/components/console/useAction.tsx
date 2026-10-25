@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { ActionNotice } from "@/components/ui/ActionNotice";
 import { COMMON_TEXT } from "@/components/account/messages";
 import { api } from "@/lib/api/client";
 import { failureFromResponse } from "@/lib/api/errors";
@@ -90,9 +91,7 @@ export function ActionMessages({
   return (
     <>
       {notice ? (
-        <p role="status" data-testid={`${testId}-notice`}>
-          {notice}
-        </p>
+        <ActionNotice key={notice} text={notice} testId={`${testId}-notice`} />
       ) : null}
       {problem ? (
         <p className="form-message" role="alert" data-testid={`${testId}-problem`}>

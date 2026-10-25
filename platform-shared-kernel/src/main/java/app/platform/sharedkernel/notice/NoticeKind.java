@@ -31,9 +31,11 @@ public enum NoticeKind {
     /**
      * Something happened to a change request on a record (FA5, ADR-0191). Facts: {@code event} (a stable key: one was
      * made, a comment was added, it was accepted, declined or turned into a new version), and {@code application} and
-     * {@code entry}, the address parts of the page that opens the record. The text is the platform's own.
+     * {@code entry}, the address parts of the page that opens the record, and (FA6E) {@code request}, the request
+     * itself, and {@code tab}, the part of that page that lists requests, which a page that lists requests
+     * opens. The text is the platform's own.
      */
-    CHANGE_REQUEST(Category.REQUESTS, false, false, Set.of("event", "application", "entry"));
+    CHANGE_REQUEST(Category.REQUESTS, false, false, Set.of("event", "application", "entry", "tab", "request"));
 
     /** What a person switches on or off (ADR-0156). */
     public enum Category {

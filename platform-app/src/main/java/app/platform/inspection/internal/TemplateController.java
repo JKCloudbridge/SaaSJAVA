@@ -6,13 +6,23 @@ import app.platform.inspection.internal.TemplateViews.TemplateLifecycleView;
 import app.platform.inspection.internal.TemplateViews.TemplatePage;
 import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
+import app.platform.inspection.internal.TemplateViews.SheetOptionsRequest;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,16 +41,19 @@ import org.springframework.web.bind.annotation.RestController;
 class TemplateController {
 
     private static final String BASE = ApiPaths.V1 + "/templates";
-    private static final String SEES = "NOT_FOUND for a template the caller cannot see, for one that does not exist "
+    private static final String XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    private static final String SEES ="NOT_FOUND for a template the caller cannot see, for one that does not exist "
             + "and on the platform host (all alike). A template is visible by the rules of every record: the object "
             + "permission, the private default of a template, and the shares. ";
 
     private final TemplateList list;
     private final TemplatePublishing publishing;
+    private final TemplateDownloads downloads;
 
-    TemplateController(TemplateList list, TemplatePublishing publishing) {
+    TemplateController(TemplateList list, TemplatePublishing publishing, TemplateDownloads downloads) {
         this.list = list;
         this.publishing = publishing;
+        this.downloads = downloads;
     }
 
     @GetMapping(BASE)
@@ -90,6 +103,17 @@ class TemplateController {
         return ApiResponse.of(publishing.audienceOptions());
     }
 
+    @GetMapping(BASE + "/{templateId}/suggestion-options")
+    @Operation(
+            operationId = "templateSuggestionOptions",
+            summary = "The locations and departments an approver may suggest for a template",
+            description = "The same lists as the publish dialog, for the popup of an approval step that asks for an "
+                    + "audience. Needs only that the caller can see the template (NOT_FOUND otherwise), not the "
+                    + "ability to publish: a suggestion shares nothing. The lists are the organization's own words.")
+    ApiResponse<AudienceOptionsView> suggestionOptions(@PathVariable UUID templateId) {
+        return ApiResponse.of(publishing.suggestionOptions(templateId));
+    }
+
     @GetMapping(BASE + "/{templateId}/lifecycle")
     @Operation(
             operationId = "getTemplateLifecycle",
@@ -117,6 +141,46 @@ class TemplateController {
     ApiResponse<TemplateLifecycleView> publish(@PathVariable UUID templateId,
             @Valid @RequestBody PublishTemplateRequest request) {
         return ApiResponse.of(publishing.publish(templateId, request));
+    }
+
+    @PutMapping(BASE + "/{templateId}/options")
+    @Operation(
+            operationId = "setTemplateSheetOptions",
+            summary = "Set view only and allow download for a template",
+            description = "Needs the ability to publish sheets. viewOnly: nobody can start a fill-in from the template "
+                    + "(the template can still be read). allowDownload: the sheet may be given as an Excel file to "
+                    + "everybody who can read it; the people who may publish can always download. The options belong "
+                    + "to the template, not to a revision, and may be changed while a revision is waiting for "
+                    + "approval. Audited by the template's identifier and the two values, never by a name. " + SEES)
+    ApiResponse<TemplateLifecycleView> setOptions(@PathVariable UUID templateId,
+            @Valid @RequestBody SheetOptionsRequest request) {
+        return ApiResponse.of(publishing.setOptions(templateId, request));
+    }
+
+    @GetMapping(BASE + "/{templateId}/download")
+    @Operation(
+            operationId = "downloadTemplateSheet",
+            summary = "The sheet of a template as an Excel file",
+            description = "The revision in use, or the one named by versionNo (a stored number) when the caller may "
+                    + "read it, as an .xlsx file named after the template number and the revision. The file holds "
+                    + "the sheet as people read it with the input cells empty and a footer row with the template "
+                    + "number and the revision at its right. Every cell is text, never a formula. FORBIDDEN, in fixed "
+                    + "words, when download is not allowed for the template and the caller may not publish: the "
+                    + "option is checked here and a hidden button is not the rule. Audited by the template's "
+                    + "identifier, the revision number and the size. " + SEES)
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "The Excel file",
+            content = @Content(mediaType = XLSX, schema = @Schema(type = "string", format = "binary")))
+    void download(@PathVariable UUID templateId, @RequestParam(required = false) Integer versionNo,
+            HttpServletResponse response) throws IOException {
+        TemplateDownloads.Download file = downloads.download(templateId, versionNo);
+        response.setStatus(HttpStatus.OK.value());
+        response.setContentType(XLSX);
+        response.setContentLength(file.bytes().length);
+        response.setHeader(HttpHeaders.CONTENT_DISPOSITION,
+                ContentDisposition.attachment().filename(file.fileName(), StandardCharsets.UTF_8).build().toString());
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        response.getOutputStream().write(file.bytes());
     }
 
     @PostMapping(BASE + "/{templateId}/unpublish")

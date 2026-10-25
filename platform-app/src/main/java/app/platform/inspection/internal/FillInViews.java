@@ -69,10 +69,12 @@ public final class FillInViews {
      * @param submittedAt when it was last sent for review, or null
      * @param archivedAt when its cells were moved to the archive (FF2, ADR-0193), or null; an archived fill-in is
      *        read-only and its cells are read back on demand
+     * @param templateNumber the stored number when the caller may read it, otherwise null (FA6B)
      */
     public record FillInRow(@NotNull UUID fillId, @NotNull UUID templateId, String name, @NotNull String status,
             @NotNull Integer versionNo, @NotNull Boolean versionInUse, @NotNull Integer rowCount, String filledBy,
-            @NotNull Instant createdAt, @NotNull Instant updatedAt, Instant submittedAt, Instant archivedAt) {
+            @NotNull Instant createdAt, @NotNull Instant updatedAt, Instant submittedAt, Instant archivedAt,
+            String templateNumber) {
     }
 
     /**

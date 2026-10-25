@@ -12,10 +12,14 @@ import app.platform.data.RecordShares;
 import app.platform.inspection.internal.DepartmentAudiences.Resolved;
 import app.platform.inspection.internal.TemplateAccess.Caller;
 import app.platform.inspection.internal.TemplateViews.AudienceOptionsView;
+import app.platform.inspection.internal.TemplateOptionStore.Options;
 import app.platform.inspection.internal.TemplateViews.PublishTemplateRequest;
+import app.platform.inspection.internal.TemplateViews.SheetOptionsRequest;
+import app.platform.inspection.internal.TemplateViews.SuggestedAudience;
 import app.platform.inspection.internal.TemplateViews.TemplateAudience;
 import app.platform.inspection.internal.TemplateViews.TemplateLifecycle;
 import app.platform.inspection.internal.TemplateViews.TemplateLifecycleView;
+import app.platform.inspection.internal.TemplateViews.VersionReview;
 import app.platform.security.Ability;
 import app.platform.security.Grantee;
 import app.platform.security.GroupMembers;
@@ -73,10 +77,16 @@ class TemplatePublishing {
     private final TenantContexts contexts;
     private final MeterRegistry meters;
     private final NumberSeries numbers;
+    private final ChangeRequestCounts requestCounts;
+    private final AudienceSuggestions suggestions;
+    private final TemplateOptionStore optionStore;
 
     TemplatePublishing(TemplateAccess access, PublicationStore store, SheetLifecycle sheets, RecordShares shares,
             DepartmentAudiences audiences, BackgroundRecords records, BackgroundWrites writes, GroupMembers groups,
-            AuditRecorder audit, TenantContexts contexts, MeterRegistry meters, NumberSeries numbers) {
+            AuditRecorder audit, TenantContexts contexts, MeterRegistry meters, NumberSeries numbers,
+            ChangeRequestCounts requestCounts, AudienceSuggestions suggestions, TemplateOptionStore optionStore) {
+        this.suggestions = suggestions;
+        this.optionStore = optionStore;
         this.access = access;
         this.store = store;
         this.sheets = sheets;
@@ -89,6 +99,7 @@ class TemplatePublishing {
         this.contexts = contexts;
         this.meters = meters;
         this.numbers = numbers;
+        this.requestCounts = requestCounts;
     }
 
     /** The lifecycle of one template with what a screen may offer the caller. */
@@ -102,6 +113,17 @@ class TemplatePublishing {
     @Transactional(readOnly = true)
     AudienceOptionsView audienceOptions() {
         access.require(Ability.SHEETS_PUBLISH);
+        return audiences.options();
+    }
+
+    /**
+     * What the popup of an approval step that asks for an audience offers (FA6G, ADR-0200): the same lists as the
+     * publish dialog. The approver needs no ability to publish, only to see the template; the lists are the
+     * organization's own words and nothing about the template or its groups.
+     */
+    @Transactional(readOnly = true)
+    AudienceOptionsView suggestionOptions(UUID templateId) {
+        access.visible(templateId);
         return audiences.options();
     }
 
@@ -126,7 +148,7 @@ class TemplatePublishing {
                 : summary.approved() > 0 ? summary.approved() : summary.active();
         if (wanted <= 0) {
             refuse("publish", "nothing_to_publish");
-            throw new ApiException(ErrorCode.CONFLICT, "There is no approved version of this template to publish.");
+            throw new ApiException(ErrorCode.CONFLICT, "There is no approved revision of this template to publish.");
         }
         List<Resolved> resolved = resolve(request);
         int replaced = 0;
@@ -139,10 +161,13 @@ class TemplatePublishing {
             }
         }
         Counts counts = shareWith(caller, templateId, wanted, resolved);
+        Options options = changedOptions(templateId, request.viewOnly(), request.allowDownload(), caller);
         audit.record(base("inspection.template.published", caller, templateId).with("version_no",
                 Integer.toString(wanted)).with("replaced", Integer.toString(replaced))
                 .with("audiences", Integer.toString(resolved.size())).with("shares_made",
-                        Integer.toString(counts.made())).with("shares_ended", Integer.toString(counts.ended())));
+                        Integer.toString(counts.made())).with("shares_ended", Integer.toString(counts.ended()))
+                .with("view_only", Boolean.toString(options.viewOnly()))
+                .with("allow_download", Boolean.toString(options.allowDownload())));
         meters.counter("platform.inspection.template", "act", "publish", "result", "ok").increment();
         return view(caller, templateId, header);
     }
@@ -174,6 +199,36 @@ class TemplatePublishing {
     }
 
     /**
+     * Sets the two options of the template's sheet without publishing again (FA7, ADR-0201): view only (nobody can
+     * start a fill-in from it) and allow download. The people who hold the right to publish may change them at any
+     * time, also while a revision is waiting for approval, because the options are not part of what is approved.
+     * Audited by the template's identifier and the two yes or no values, never by a name.
+     */
+    TemplateLifecycleView setOptions(UUID templateId, SheetOptionsRequest request) {
+        Caller caller = access.require(templateId, Ability.SHEETS_PUBLISH);
+        store.lock(templateId);
+        DataRecord header = header(templateId);
+        Options options = new Options(request.viewOnly(), request.allowDownload());
+        optionStore.set(templateId, options, caller.userId());
+        audit.record(base("inspection.template.options.changed", caller, templateId)
+                .with("view_only", Boolean.toString(options.viewOnly()))
+                .with("allow_download", Boolean.toString(options.allowDownload())));
+        meters.counter("platform.inspection.template", "act", "options", "result", "ok").increment();
+        return view(caller, templateId, header);
+    }
+
+    /** The options after a publish: the two values the request carries, and the old one for a value it leaves out. */
+    private Options changedOptions(UUID templateId, Boolean viewOnly, Boolean allowDownload, Caller caller) {
+        Options before = optionStore.find(templateId);
+        Options wanted = new Options(viewOnly != null ? viewOnly : before.viewOnly(),
+                allowDownload != null ? allowDownload : before.allowDownload());
+        if (viewOnly != null || allowDownload != null) {
+            optionStore.set(templateId, wanted, caller.userId());
+        }
+        return wanted;
+    }
+
+    /**
      * Retires the template for good: the header is marked, the version in use ends as retired, nothing is deleted, the
      * number stays with it and is never given again, and the people it was published to still read it. Refused while a
      * version is waiting for approval (the header is locked then).
@@ -192,7 +247,7 @@ class TemplatePublishing {
         } catch (BackgroundWriteException refused) {
             refuse("retire", refused.reason().key());
             throw new ApiException(ErrorCode.CONFLICT, refused.reason() == BackgroundWriteException.Reason.RECORD_LOCKED
-                    ? "A version of this template is waiting for approval. Recall it or let the approval finish, "
+                    ? "A revision of this template is waiting for approval. Recall it or let the approval finish, "
                             + "then retire the template."
                     : "The template could not be retired right now.");
         }
@@ -273,15 +328,52 @@ class TemplatePublishing {
         boolean mayPublish = access.has(caller, Ability.SHEETS_PUBLISH);
         boolean mayRetire = access.has(caller, Ability.SHEETS_RETIRE);
         boolean somethingToPublish = summary.approved() > 0 || summary.active() > 0;
+        boolean mayPublishNow = mayPublish && somethingToPublish;
+        int waiting = requestCounts.waiting(caller, List.of(templateId)).getOrDefault(templateId, 0);
         Optional<String> whole = Optional.empty();
         Optional<String> start = Optional.empty();
         if (Templates.isBlank(header.fields().get(Templates.NUMBER)) && !retired) {
             whole = numbers.known(Templates.SERIES, header.fields());
             start = whole.isPresent() ? whole : numbers.prefix(Templates.SERIES, header.fields());
         }
+        List<VersionReview> reviews = reviews(templateId);
+        List<SuggestedAudience> suggested = List.of();
+        int dropped = 0;
+        if (mayPublishNow && !retired) {
+            int next = summary.approved() > 0 ? summary.approved() : summary.active();
+            UUID reviewed = reviews.stream().filter(review -> review.versionNo() == next)
+                    .map(VersionReview::requestId).findFirst().orElse(null);
+            if (reviewed != null) {
+                AudienceSuggestions.Held held = suggestions.held(reviewed);
+                suggested = suggestedViews(held.places());
+                dropped = held.dropped();
+            }
+        }
+        Options options = optionStore.find(templateId);
+        Object number = header.fields().get(Templates.NUMBER);
         return new TemplateLifecycleView(templateId, retired, lifecycle(summary, retired), audience,
-                mayPublish && !retired && somethingToPublish, mayPublish && summary.active() > 0,
-                mayRetire && !retired, start.orElse(null), whole.isPresent());
+                mayPublishNow && !retired, mayPublish && summary.active() > 0,
+                mayRetire && !retired, start.orElse(null), whole.isPresent(), waiting, reviews, suggested, dropped,
+                Templates.isBlank(number) ? null : number.toString(), options.viewOnly(), options.allowDownload(),
+                options.allowDownload() || mayPublish, mayPublish);
+    }
+
+    private List<SuggestedAudience> suggestedViews(List<AudienceChoices.Place> places) {
+        if (places.isEmpty()) {
+            return List.of();
+        }
+        Map<String, String> locationLabels = audiences.labels(Templates.LOCATION);
+        Map<String, String> departmentLabels = audiences.labels(Templates.DEPARTMENT);
+        return places.stream().map(place -> new SuggestedAudience(place.location(),
+                locationLabels.getOrDefault(place.location(), place.location()), place.department(),
+                place.department() == null ? null
+                        : departmentLabels.getOrDefault(place.department(), place.department()))).toList();
+    }
+
+    private List<VersionReview> reviews(UUID templateId) {
+        return sheets.reviewRequests(Templates.OBJECT, templateId).entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> new VersionReview(entry.getKey(), entry.getValue())).toList();
     }
 
     static TemplateLifecycle lifecycle(SheetLifecycle.Summary summary, boolean retired) {

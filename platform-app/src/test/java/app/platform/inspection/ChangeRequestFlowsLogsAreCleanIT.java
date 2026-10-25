@@ -68,10 +68,12 @@ class ChangeRequestFlowsLogsAreCleanIT extends ChangeRequestSupport {
         String request = asked(world.reader().browser(), template, title, 1, comment("r1", null, firstComment));
         Response replied = add(world.author().browser(), template, request, comment("r1", null, reply));
         String other = asked(world.colleague().browser(), template, otherTitle, 1);
-        Response accepted = answerRequest(world.author().browser(), template, request, "ACCEPT", null);
-        Response declined = answerRequest(world.approver().browser(), template, other, "DECLINE", reason);
+        World review = new World(world.setting(), world.author(), world.approver(), world.reader(), world.colleague(),
+                world.outsider(), template, world.process(), world.column());
+        Response accepted = accept(review, request);
+        Response declined = decline(review, other, reason);
         Response turned = turn(world.author().browser(), template, request);
-        Response reopenRefused = answerRequest(world.author().browser(), template, request, "REOPEN", null);
+        Response reopenRefused = reopen(world.author().browser(), template, request);
 
         List<Response> refusals = new ArrayList<>();
         refusals.add(ask(world.reader().browser(), template, "<b>" + markup + "</b>", 1));
@@ -79,8 +81,8 @@ class ChangeRequestFlowsLogsAreCleanIT extends ChangeRequestSupport {
         refusals.add(ask(world.reader().browser(), template, "Fine", 1, comment(markup, null, "Where")));
         refusals.add(ask(world.reader().browser(), template, "Fine", 99));
         refusals.add(add(world.reader().browser(), template, other, comment(null, null, markup)));
-        refusals.add(answerRequest(world.reader().browser(), template, request, "ACCEPT", null));
-        refusals.add(answerRequest(world.author().browser(), template, other, "DECLINE", "<u>" + markup + "</u>"));
+        refusals.add(reopen(world.reader().browser(), template, request));
+        refusals.add(reopen(world.author().browser(), template, other));
         refusals.add(one(world.colleague().browser(), template, request));
         refusals.add(one(world.outsider().browser(), template, request));
         refusals.add(turn(world.reader().browser(), template, request));

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Demo setup for a developer machine (the `local` profile): makes the people, groups, access policies, department
-// groups and the approval process that the Audit maintenance demo needs, in `tenant-a`, through the public API only,
+// groups and the two approval processes (templates, and change requests) that the Audit maintenance demo needs, in `tenant-a`, through the public API only,
 // so everything it makes is ordinary data that can be looked at, changed and removed in Setup.
 //
 //   usage:  node scripts/demo-setup.mjs            (from the repository root; the local services and the app must be up)
@@ -145,10 +145,12 @@ const PEOPLE = [
   { email: "plant2-hr@example.test", name: "Plant 2 HR User", groups: ["Plant 2 HR"] },
   { email: "plant2-accounts@example.test", name: "Plant 2 Accounts User", groups: ["Plant 2 Accounts"] },
 ];
-// group -> the policies it holds ("List editor" is made here: it holds one ability and no right on data)
+// group -> the policies it holds ("List editor" is made here: it holds one ability and no right on data).
+// Publisher is the group with the last word: Plant QMS (FA6G). Corporate QMS approves and suggests where the template is
+// meant to be published; Plant QMS publishes, with that suggestion ready in the popup.
 const GROUP_POLICIES = {
   "Corporate QMS": ["Approver"],
-  "Plant QMS": ["Approver", "List editor"],
+  "Plant QMS": ["Approver", "List editor", "Publisher"],
   "Plant 1 HR": ["Author", "Reader", "Filler"],
   "Plant 1 Accounts": ["Author", "Reader", "Filler"],
   "Plant 2 HR": ["Author", "Reader", "Filler"],
@@ -330,7 +332,32 @@ async function ensureProcess(admin, groupIds) {
     await admin.post("/api/v1/metadata/approvals/InspectionTemplate", {
       name: "TemplateReview",
       label: "Template review",
-      description: "Plant QMS checks and numbers the template; Corporate QMS approves it. Corporate QMS is skipped when its group is empty.",
+      description: "Plant QMS checks and numbers the template; Corporate QMS approves it and suggests where it is published (skipped when its group is empty); Plant QMS approves again and then publishes.",
+      active: true,
+      allowSelfApproval: false,
+      steps: [
+        { name: "PlantQms", label: "Plant QMS", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "GROUP", value: groupIds["Plant QMS"] }] },
+        { name: "CorporateQms", label: "Corporate QMS", completion: "ANY", skipWhenNobody: true, asksForChoice: true, approvers: [{ kind: "GROUP", value: groupIds["Corporate QMS"] }] },
+        { name: "Publish", label: "Publish", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "GROUP", value: groupIds["Plant QMS"] }] },
+      ],
+    }),
+    "making the approval process",
+  );
+  say("made", "approval process Template review (step 1 Plant QMS, step 2 Corporate QMS asks for a location and is skipped when empty, step 3 Publish)");
+}
+
+// The second process (FA6E, ADR-0199): a change request goes through its own review, on the small record the platform makes
+// for each request. It names the same two groups as the template review, but its steps are its own: changing one process in
+// Setup, Approval processes, changes nothing in the other.
+async function ensureRequestProcess(admin, groupIds) {
+  const existing = must(await admin.get("/api/v1/metadata/approvals?object=InspectionChangeRequest"), "reading approval processes");
+  if (existing.length > 0) return say("ok", `approval process for change requests: ${existing.map((p) => p.label).join(", ")} (left as it is)`);
+  if (checkOnly || !groupIds["Plant QMS"] || !groupIds["Corporate QMS"]) return say("missing", "the approval process for change requests");
+  must(
+    await admin.post("/api/v1/metadata/approvals/InspectionChangeRequest", {
+      name: "ChangeRequestReview",
+      label: "Change request review",
+      description: "Plant QMS accepts or declines the request; then Corporate QMS does. Corporate QMS is skipped when its group is empty.",
       active: true,
       allowSelfApproval: false,
       steps: [
@@ -338,9 +365,9 @@ async function ensureProcess(admin, groupIds) {
         { name: "CorporateQms", label: "Corporate QMS", completion: "ANY", skipWhenNobody: true, approvers: [{ kind: "GROUP", value: groupIds["Corporate QMS"] }] },
       ],
     }),
-    "making the approval process",
+    "making the approval process for change requests",
   );
-  say("made", "approval process Template review (step 1 Plant QMS, step 2 Corporate QMS, skipped when empty)");
+  say("made", "approval process Change request review (step 1 Plant QMS, step 2 Corporate QMS, skipped when empty)");
 }
 
 async function main() {
@@ -361,6 +388,7 @@ async function main() {
   await ensureLists(admin);
   await ensureDepartmentGroups(admin, groupIds);
   await ensureProcess(admin, groupIds);
+  await ensureRequestProcess(admin, groupIds);
   const counts = {};
   for (const kind of log) counts[kind] = (counts[kind] ?? 0) + 1;
   console.log(`\nDone: ${JSON.stringify(counts)}`);

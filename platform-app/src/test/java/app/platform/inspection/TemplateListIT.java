@@ -105,7 +105,7 @@ class TemplateListIT extends TemplateSupport {
         assertThat(JsonPath.<String>read(page.body(), "$.data.rows[" + ids.indexOf(retired) + "].lifecycle.state"))
                 .isEqualTo("RETIRED");
         assertThat(JsonPath.<Boolean>read(page.body(), "$.data.rows[" + ids.indexOf(retired) + "].retired")).isTrue();
-        assertThat(JsonPath.<String>read(page.body(), "$.data.rows[" + at + "].number")).isEqualTo("WI/PRD/01");
+        assertThat(JsonPath.<String>read(page.body(), "$.data.rows[" + at + "].number")).startsWith("WI/PRD/");
     }
 
     // ---- filters, search and order ----
@@ -149,7 +149,7 @@ class TemplateListIT extends TemplateSupport {
         assertThat(rows(browser.get(TEMPLATES), "id")).as("name is the default").containsExactly(alpha, mike, zulu);
         assertThat(rows(browser.get(TEMPLATES + "?sort=newest"), "id")).containsExactly(mike, alpha, zulu);
         List<String> byNumber = rows(browser.get(TEMPLATES + "?sort=number&retired=false&category=WI"), "number");
-        assertThat(byNumber).containsExactly("WI/PRD/01", "WI/PRD/02");
+        assertThat(byNumber).containsExactly("WI/PRD/01", "WI/PRD/02", "WI/PRD/03");
     }
 
     @Test

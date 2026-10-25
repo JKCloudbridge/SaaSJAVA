@@ -181,7 +181,12 @@ public enum Ability {
      */
     SHEETS_FILL("sheets.fill", "Start fill-ins of sheets",
             "Start a fill-in of a sheet that is published to you and work on it: type into the cells the sheet marks "
-                    + "as input, add rows where the sheet allows it, and send the fill-in for review.");
+                    + "as input, add rows where the sheet allows it, and send the fill-in for review."),
+
+    /** Change organization-specific numbering formats and raise counters (FA6B, ADR-0197). */
+    NUMBERING_MANAGE("numbering.manage", "Manage numbering",
+            "Set the organization's document number formats, preview a number, and raise a pair's next count. "
+                    + "Numbers already given never change.");
 
     private final String key;
     private final String title;

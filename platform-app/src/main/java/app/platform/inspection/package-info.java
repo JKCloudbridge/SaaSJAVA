@@ -16,11 +16,16 @@
  *   as the platform for the person who starts), the list of fill-ins newest first without their cells, and the hook of
  *   the approval engine for a fill-in (the cells are checked and moved to review on submit; a rejection returns the
  *   fill-in to its filler).</li>
+ *   <li>change requests (FA5, FA6E, ADR-0191, ADR-0199): a person who can read a version in use asks for a change;
+ *   since FA6E the request goes through an approval of its own on a small record (its hook maps the outcome back),
+ *   the list of the requests of every template and the open count of a template are answered here, and the
+ *   Publish act asks the approval, through a shared-kernel question, who gave the last real approval of the
+ *   version.</li>
  * </ul>
  *
  * <p>Nothing here decides who may see a record (the record store and the decision API do, ADR-0115), writes a record
  * other than the number (through the engine's narrow writer), the retired mark and the header of a fill-in with its
- * status (through the platform's own write, in two places only), or reads another module's tables. The words of a
+ * status (through the platform's own write, in three places only), or reads another module's tables. The words of a
  * template, its number, a location, a department, a group and what a person typed into a fill-in never reach a log, an
  * audit record, an event or an error message: they carry identifiers and counts.
  *

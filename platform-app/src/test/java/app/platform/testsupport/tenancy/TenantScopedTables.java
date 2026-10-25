@@ -116,7 +116,8 @@ public final class TenantScopedTables {
     public static final TenantScopedTable ACCESS_POLICY = new TenantScopedTable("access_policy",
             (connection, tenant) -> TenantFixtures.update(connection,
                     "insert into access_policy (tenant_id, name, created_by, updated_by) values (?, ?, ?, ?)",
-                    tenant, "probe-" + UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+                    tenant, "probe-" + UUID.randomUUID().toString().replace("-", ""), ActorId.SYSTEM.value(),
+                    ActorId.SYSTEM.value()));
 
     /** The role hierarchies of organizations (Sprint 7). */
     public static final TenantScopedTable SECURITY_ROLE = new TenantScopedTable("security_role",
@@ -721,6 +722,14 @@ public final class TenantScopedTables {
                         tenant, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
             });
 
+    /** Organization-specific numbering formats (FA6B). Every probe uses its own series key. */
+    public static final TenantScopedTable NUMBERING_FORMAT = new TenantScopedTable("numbering_format",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into numbering_format (tenant_id, series_key, setting_kind, selector_value, "
+                            + "format_text, created_by, updated_by) values (?, ?, 'CATEGORY', 'P', '{seq:1}', ?, ?)",
+                    tenant, "probe-" + UUID.randomUUID().toString().substring(0, 8), ActorId.SYSTEM.value(),
+                    ActorId.SYSTEM.value()));
+
     /** The counters of number series (FA2A). One live row per scope, so each call retires the live one first. */
     public static final TenantScopedTable NUMBER_SERIES_COUNTER = new TenantScopedTable("number_series_counter",
             (connection, tenant) -> {
@@ -786,6 +795,32 @@ public final class TenantScopedTables {
                     tenant, UUID.randomUUID(), UUID.randomUUID(), ActorId.SYSTEM.value(),
                     ActorId.SYSTEM.value()));
 
+    /**
+     * The audience a step suggested for a template (FA6G). The guard lets only the step's approval write, so the probe
+     * raises the transaction setting in the same statement.
+     */
+    public static final TenantScopedTable INSPECTION_AUDIENCE_SUGGESTION = new TenantScopedTable(
+            "inspection_audience_suggestion",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "with allowed as (select set_config('platform.audience_suggestion_write', 'on', true)) "
+                            + "insert into inspection_audience_suggestion (tenant_id, request_id, template_id, "
+                            + "step_position, location, department, created_by, updated_by) "
+                            + "select ?, ?, ?, 1, 'PROBE', 'PROBE', ?, ? from allowed",
+                    tenant, UUID.randomUUID(), UUID.randomUUID(), ActorId.SYSTEM.value(),
+                    ActorId.SYSTEM.value()));
+
+    /**
+     * The two sheet options of a template (FA7). The guard lets a row in only when the transaction setting is on, which
+     * the probe raises in the same statement.
+     */
+    public static final TenantScopedTable INSPECTION_TEMPLATE_OPTION = new TenantScopedTable(
+            "inspection_template_option",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "with allowed as (select set_config('platform.template_option_write', 'on', true)) "
+                            + "insert into inspection_template_option (tenant_id, template_id, created_by, "
+                            + "updated_by) select ?, ?, ?, ? from allowed",
+                    tenant, UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
     /** The change requests on templates (FA5). Each probe row is a request on a template of its own. */
     public static final TenantScopedTable INSPECTION_CHANGE_REQUEST = new TenantScopedTable(
             "inspection_change_request",
@@ -811,6 +846,15 @@ public final class TenantScopedTables {
             });
 
     /** Every tenant-scoped table of the platform. Extend this list in the sprint that adds a table. */
+    public static final TenantScopedTable NUMBER_RESERVATION = new TenantScopedTable("number_series_reservation",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into number_series_reservation "
+                            + "(tenant_id, series_key, object_api_name, record_id, number_value, "
+                            + "created_by, updated_by) "
+                            + "values (?, 'probe', 'Probe', ?, ?, ?, ?)",
+                    tenant, UUID.randomUUID(), UUID.randomUUID().toString(),
+                    ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
     public static final List<TenantScopedTable> ALL = List.of(OUTBOX_EVENT, PROCESSED_EVENT, MEMBERSHIP, INVITATION,
             LICENCE_POOL, LICENCE_ASSIGNMENT, SUPPORT_ACCESS_GRANT, PROFILE, ACCESS_POLICY, SECURITY_ROLE,
             MEMBER_ACCESS, MEMBER_ACCESS_POLICY, MEMBER_GRANT, PUBLIC_GROUP, PUBLIC_GROUP_MEMBER,
@@ -825,8 +869,11 @@ public final class TenantScopedTables {
             WORKFLOW_SCHEDULE, APPROVAL_PROCESS, APPROVAL_PROCESS_VERSION, APPROVAL_INSTANCE,
             APPROVAL_STEP_INSTANCE, APPROVAL_ASSIGNMENT, APPROVAL_HISTORY, APPROVAL_DELEGATION, NOTIFICATION,
             NOTIFICATION_PREFERENCE, NOTIFICATION_TEMPLATE, APPROVAL_STEP_TIMER, APPROVAL_REMINDER,
-            ORGANIZATION_FIELD_VALUES, NUMBER_SERIES_COUNTER, SHEET_VERSION, SHEET_FILL, SHEET_FILL_VALUE,
-            INSPECTION_PUBLICATION, INSPECTION_CHANGE_REQUEST, INSPECTION_CHANGE_COMMENT);
+            ORGANIZATION_FIELD_VALUES, NUMBER_SERIES_COUNTER, NUMBERING_FORMAT, NUMBER_RESERVATION,
+            SHEET_VERSION, SHEET_FILL,
+            SHEET_FILL_VALUE,
+            INSPECTION_PUBLICATION, INSPECTION_CHANGE_REQUEST, INSPECTION_CHANGE_COMMENT,
+            INSPECTION_AUDIENCE_SUGGESTION, INSPECTION_TEMPLATE_OPTION);
 
     private TenantScopedTables() {
     }

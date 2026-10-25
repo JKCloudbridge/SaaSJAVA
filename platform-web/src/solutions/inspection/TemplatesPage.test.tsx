@@ -98,6 +98,8 @@ const lifecycleOf = (extra: Record<string, unknown> = {}, numbers = NONE) => ({
     canUnpublish: false,
     canRetire: false,
     numberPreviewComplete: false,
+    suggestedAudience: [],
+    suggestionDropped: 0,
     ...extra,
   },
 });
@@ -134,6 +136,7 @@ function listAnswers(create = true) {
   return {
     "GET /api/v1/objects/InspectionTemplate/form": formWith(create),
     "GET /api/v1/objects/InspectionTemplate/views": () => json({ data: [] }),
+    [`POST ${RECORDS}/approval-history`]: () => json({ data: [] }),
     "POST /api/v1/templates/query": () => json(pageOf(rows, { canCreate: create })),
     [`GET ${RECORDS}/${ID}`]: () =>
       json({
@@ -166,17 +169,17 @@ beforeEach(() => {
 });
 
 describe("the master list", () => {
-  it("lists the templates with their number, category, versions and status", async () => {
+  it("lists the templates with their number, category, revisions and status", async () => {
     fakeApi(listAnswers());
 
     render(<TemplatesPage />);
 
     expect(await screen.findByText("Fire exit check")).toBeInTheDocument();
     expect(screen.getByText("WI/PRD/01")).toBeInTheDocument();
-    expect(screen.getByText("Active v3, v4 in review")).toBeInTheDocument();
+    expect(screen.getByText("Active Rev 02, Rev 03 in review")).toBeInTheDocument();
     expect(within(screen.getByTestId("templates-list")).getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("Not numbered yet")).toBeInTheDocument();
-    expect(screen.getByText("Retired, v2 was the last in use")).toBeInTheDocument();
+    expect(screen.getByText("Retired, Rev 01 was the last in use")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /All templates/ })).toBeInTheDocument();
   });
 
@@ -301,7 +304,7 @@ describe("one template", () => {
     expect(currentUrl()).toBe(OPEN);
     const detail = await screen.findByTestId("template-detail");
     expect(within(detail).getByRole("heading", { name: "Fire exit check" })).toBeInTheDocument();
-    expect(await within(detail).findByTestId("lifecycle-text")).toHaveTextContent("Active v3, v4 in review");
+    expect(await within(detail).findByTestId("lifecycle-text")).toHaveTextContent("Active Rev 02, Rev 03 in review");
     expect(within(detail).getByRole("tab", { name: "Details", selected: true })).toBeInTheDocument();
     expect(within(detail).queryByRole("button", { name: "Templates" })).toBeNull();
     expect(within(detail).queryByRole("link", { name: "Edit the details" })).toBeNull();
@@ -393,7 +396,7 @@ describe("one template", () => {
     expect(screen.queryByTestId("sheet-workspace")).toBeNull();
   });
 
-  it("lists the versions of the sheet first, and opens one read-only when it is in use", async () => {
+  it("lists the revisions of the sheet first, and opens one read-only when it is in use", async () => {
     setUrl(`${OPEN}&tab=sheet`);
     const summary = {
       versionNo: 1,
@@ -416,19 +419,19 @@ describe("one template", () => {
 
     render(<TemplatesPage />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Open version 1" }));
-    expect(await screen.findByRole("grid", { name: "Fire exit check, version 1" })).toHaveAttribute("aria-readonly", "true");
+    fireEvent.click(await screen.findByRole("button", { name: "Open revision 00" }));
+    expect(await screen.findByRole("grid", { name: "Fire exit check, revision 00" })).toHaveAttribute("aria-readonly", "true");
     // The buttons of the open version are in the row of the tabs, and the old title line is gone.
     const tabsRow = screen.getByRole("tablist", { name: "Parts of the template" }).parentElement as HTMLElement;
-    expect(within(tabsRow).getByRole("button", { name: /Versions/ })).toBeInTheDocument();
+    expect(within(tabsRow).getByRole("button", { name: /Revisions/ })).toBeInTheDocument();
     expect(within(tabsRow).getByRole("tab", { name: "Form view" })).toBeInTheDocument();
     expect(within(tabsRow).getByRole("tab", { name: "Grid view" })).toBeInTheDocument();
     expect(screen.queryByText(/174 bytes|10 bytes/)).toBeNull();
     const asked = calls.map((c) => c.key).filter((k) => k.includes("/sheets/"));
     expect(asked).toEqual([`GET /api/v1/sheets/InspectionTemplate/${ID}/versions`, `GET /api/v1/sheets/InspectionTemplate/${ID}/versions/1`]);
 
-    fireEvent.click(screen.getByRole("button", { name: /Versions/ }));
-    expect(await screen.findByRole("button", { name: "Open version 1" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Revisions/ }));
+    expect(await screen.findByRole("button", { name: "Open revision 00" })).toBeInTheDocument();
   });
 
   it("offers Publish beside Edit, and Unpublish and Retire in the more menu, only as the lifecycle's flags say", async () => {
@@ -641,7 +644,7 @@ describe("change requests on the template page (FA5)", () => {
     };
   }
 
-  it("offers a reader of the version in use the panel to ask for a change under the grid, and lists their requests", async () => {
+  it("offers a reader of the revision in use a button that opens the request as a popup, and lists their requests", async () => {
     setUrl(`${OPEN}&tab=sheet`);
     fakeApi(
       reading(true, [
@@ -678,9 +681,15 @@ describe("change requests on the template page (FA5)", () => {
 
     render(<TemplatesPage />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Open version 3" }));
-    expect(await screen.findByTestId("annotate-panel")).toBeInTheDocument();
-    expect(screen.getByRole("grid", { name: "Fire exit check, version 3" })).toHaveAttribute("aria-readonly", "true");
+    fireEvent.click(await screen.findByRole("button", { name: "Open revision 02" }));
+    const ask = await screen.findByRole("button", { name: "Ask for a change" });
+    expect(screen.queryByTestId("annotate-panel")).toBeNull();
+    expect(screen.getByRole("grid", { name: "Fire exit check, revision 02" })).toHaveAttribute("aria-readonly", "true");
+    fireEvent.click(ask);
+    expect(await screen.findByRole("dialog", { name: "Ask for a change" })).toBeInTheDocument();
+    expect(screen.getByTestId("annotate-panel")).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(await screen.findByRole("heading", { name: "The first row" })).toBeInTheDocument();
     expect(document.querySelector(".sheet-row-noted")).not.toBeNull();
   });
@@ -691,9 +700,10 @@ describe("change requests on the template page (FA5)", () => {
 
     render(<TemplatesPage />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Open version 3" }));
-    expect(await screen.findByRole("grid", { name: "Fire exit check, version 3" })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Open revision 02" }));
+    expect(await screen.findByRole("grid", { name: "Fire exit check, revision 02" })).toBeInTheDocument();
     expect(screen.queryByTestId("annotate-panel")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ask for a change" })).toBeNull();
     expect(await screen.findByText(/You have not asked for a change to this template/)).toBeInTheDocument();
   });
 });
@@ -822,5 +832,73 @@ describe("the New template popup", () => {
     expect(within(document).getAllByRole("option").map((option) => option.getAttribute("value"))).toContain("DOCC");
     expect(within(document).queryByRole("option", { name: "DOCA label" })).toBeNull();
     expect(within(dialog).queryByLabelText(/^Identity category/)).toBeNull();
+  });
+});
+
+describe("the approval flow beside the details (FA6D)", () => {
+  const person = (name: string) => ({ userId: `id-${name}`, name });
+  const request = (status: string) => ({
+    summary: {
+      id: "req-1",
+      version: 1,
+      status,
+      processLabel: "Template approval",
+      submittedBy: person("Department Author"),
+      currentStepLabel: "Corporate QMS",
+    },
+    steps: [
+      {
+        position: 1,
+        name: "plant",
+        label: "Plant QMS",
+        completion: "ANY",
+        status: "APPROVED",
+        assignments: [{ id: "a1", assignee: person("Plant Approver"), via: "RULE", status: "APPROVED", decidedAt: "2026-10-24T09:00:00Z" }],
+      },
+      {
+        position: 2,
+        name: "corporate",
+        label: "Corporate QMS",
+        completion: "ANY",
+        status: "ACTIVE",
+        assignments: [{ id: "a2", assignee: person("Corporate Approver"), via: "RULE", status: "OPEN" }],
+      },
+    ],
+    history: [],
+    historyVisible: true,
+  });
+
+  it("draws one line per step on the Details tab, with who submitted and who decided, and the current step marked", async () => {
+    setUrl(OPEN);
+    fakeApi({
+      ...listAnswers(),
+      [`GET ${RECORDS}/${ID}/approval`]: () => json(approvalWith({}, { current: request("PENDING") })),
+      [`POST ${RECORDS}/approval-history`]: () => json({ data: [{ recordId: ID, requests: [request("PENDING")] }] }),
+    });
+
+    render(<TemplatesPage />);
+
+    const flow = await screen.findByTestId("approval-flow");
+    const lines = within(flow).getAllByRole("listitem");
+    expect(lines.map((line) => line.textContent)).toEqual([
+      "SubmittedDoneDepartment Author",
+      "Plant QMSApprovedPlant Approver",
+      "Corporate QMSPendingWaiting for Corporate Approver",
+    ]);
+    expect(lines[2]).toHaveAttribute("aria-current", "step");
+    // The card no longer repeats the steps on this tab; its history stays.
+    expect(screen.queryByTestId("approval-steps")).toBeNull();
+    expect(screen.getByTestId("approval-history")).toBeInTheDocument();
+  });
+
+  it("draws nothing when the template has never had a request", async () => {
+    setUrl(OPEN);
+    fakeApi({ ...listAnswers(), [`GET ${RECORDS}/${ID}/approval`]: () => json(approvalWith({ canSubmit: true })) });
+
+    render(<TemplatesPage />);
+
+    expect(await screen.findByTestId("template-detail")).toBeInTheDocument();
+    await screen.findByTestId("approval-panel");
+    expect(screen.queryByTestId("approval-flow")).toBeNull();
   });
 });

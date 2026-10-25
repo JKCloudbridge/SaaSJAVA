@@ -68,6 +68,26 @@ class TemplateNumberingIT extends TemplateSupport {
     // ---- the formats that count, and the four that end in a typed part ----
 
     @Test
+    void aNewCategoryGetsItsDefaultNumberAtFirstApprovalAndLaterFormatChangesLeaveOldNumbersAlone() {
+        Run run = run();
+        String fields = "/api/v1/metadata/objects/InspectionTemplate/fields/";
+        assertThat(run.setting().admin().postJson(fields + "category/values", "{\"value\":\"DEMO\"}")
+                .status()).isEqualTo(200);
+        assertThat(run.setting().admin().postJson(fields + "subCategory/values",
+                "{\"value\":\"CHK\",\"controllingValues\":[\"DEMO\"]}").status()).isEqualTo(200);
+        String first = templateWithSheet(run.author().browser(), "DEMO", "CHK");
+        assertThat(approvedNumber(run, first)).isEqualTo("DEMO/CHK/1");
+        Response changed = run.setting().admin().request("PUT", "/api/v1/numbering/document/formats",
+                "{\"kind\":\"CATEGORY\",\"selectorValue\":\"DEMO\",\"version\":0,"
+                        + "\"format\":\"{field:category}-{field:subCategory}-{seq:2}\"}",
+                "Content-Type", "application/json");
+        assertThat(changed.status()).as(changed.body()).isEqualTo(200);
+        String second = templateWithSheet(run.author().browser(), "DEMO", "CHK");
+        assertThat(approvedNumber(run, second)).isEqualTo("DEMO-CHK-02");
+        assertThat(number(run.setting().admin(), first)).isEqualTo("DEMO/CHK/1");
+    }
+
+    @Test
     void everyCategoryOfTheFirstCustomerGetsItsNumberInItsFormat() {
         Run run = run();
         List<String[]> cases = List.of(new String[] {"IMS", null, "IMS/01"}, new String[] {"QSP", null, "QSP-01"},
@@ -111,12 +131,11 @@ class TemplateNumberingIT extends TemplateSupport {
         String badCode = template(run.author().browser(), "{\"name\":\"" + newName()
                 + "\",\"category\":\"CP\",\"subCategory\":\"PRD\",\"partCode\":\"has space\"}");
         fill(run.author().browser(), badCode, firstVersion(run.author().browser(), badCode));
-        String noSub = templateWithSheet(run.author().browser(), "WI", null);
         String noYear = templateWithSheet(run.author().browser(), "BP", null);
-        String badYear = template(run.author().browser(), "{\"name\":\"" + newName()
+        String badYear = unnumberedForBackstop(run, "{\"name\":\"" + newName()
                 + "\",\"category\":\"BP\",\"planYear\":\"26\"}");
         fill(run.author().browser(), badYear, firstVersion(run.author().browser(), badYear));
-        List<String> templates = List.of(noCode, badCode, noSub, noYear, badYear);
+        List<String> templates = List.of(noCode, badCode, noYear, badYear);
         // The author is not asked for the identity: every one of them is sent without a complaint.
         List<String> requests = new ArrayList<>();
         for (String template : templates) {
@@ -130,10 +149,8 @@ class TemplateNumberingIT extends TemplateSupport {
 
         assertThat(message(refusals.get(0))).startsWith("Fill in the part code").contains("then approve again");
         assertThat(message(refusals.get(1))).startsWith("Fill in the part code");
-        assertThat(message(refusals.get(2))).isEqualTo("Fill in the identity sub-category (Edit), then approve again: "
-                + "its number is made from it.");
-        assertThat(message(refusals.get(3))).startsWith("Fill in the plan year");
-        assertThat(message(refusals.get(4))).startsWith("The plan year is four digits");
+        assertThat(message(refusals.get(2))).startsWith("Fill in the plan year");
+        assertThat(message(refusals.get(3))).startsWith("The plan year is four digits");
         for (Response refused : refusals) {
             assertThat(refused.status()).isEqualTo(409);
             assertThat(code(refused)).isEqualTo("CONFLICT");
@@ -147,6 +164,20 @@ class TemplateNumberingIT extends TemplateSupport {
     }
 
     @Test
+    void aTypedPartFormatWithoutItsSubCategoryIsNeverNumberedByTheCountedDefault() {
+        Run run = run();
+        String template = unnumberedForBackstop(run, "{\"name\":\"" + newName()
+                + "\",\"category\":\"CP\",\"partCode\":\"AB-12\"}");
+        fill(run.author().browser(), template, firstVersion(run.author().browser(), template));
+        String request = submitted(run.author().browser(), template, run.process());
+
+        Response refused = approve(run.approver().browser(), request);
+
+        assertThat(refused.status()).isEqualTo(409);
+        assertThat(number(run.setting().admin(), template)).as("no CP/1 from the category default").isNull();
+    }
+
+    @Test
     void theStartOfTheNumberIsShownBeforeTheFirstApprovalNeverTheCounterAndNothingAfterIt() {
         Run run = run();
         String counted = templateWithSheet(run.author().browser(), "WI", "PRD");
@@ -157,10 +188,10 @@ class TemplateNumberingIT extends TemplateSupport {
         Response start = lifecycle(run.author().browser(), counted);
         Response whole = lifecycle(run.author().browser(), typed);
 
-        assertThat(JsonPath.<String>read(start.body(), "$.data.numberPreview")).isEqualTo("WI/PRD/");
-        assertThat(JsonPath.<Boolean>read(start.body(), "$.data.numberPreviewComplete")).isFalse();
-        assertThat(JsonPath.<String>read(whole.body(), "$.data.numberPreview")).isEqualTo("CP/PRD/AB-12");
-        assertThat(JsonPath.<Boolean>read(whole.body(), "$.data.numberPreviewComplete")).isTrue();
+        assertThat(optional(start.body(), "$.data.numberPreview")).isNull();
+        assertThat(optional(whole.body(), "$.data.numberPreview")).isNull();
+        assertThat(number(run.setting().admin(), counted)).isEqualTo("WI/PRD/01");
+        assertThat(number(run.setting().admin(), typed)).isEqualTo("CP/PRD/AB-12");
         assertThat(approvedNumber(run, counted)).isEqualTo("WI/PRD/01");
         assertThat(optional(lifecycle(run.author().browser(), counted).body(), "$.data.numberPreview")).isNull();
         // Looking at the preview took no number: the first one given is still the first.
@@ -178,24 +209,16 @@ class TemplateNumberingIT extends TemplateSupport {
     // ---- a clash ----
 
     @Test
-    void aTypedNumberAnotherTemplateAlreadyHasIsRefusedAtTheFirstApprovalWithWords() {
+    void aTypedNumberAnotherTemplateAlreadyHasIsRefusedAtSaveWithWords() {
         Run run = run();
         String first = template(run.author().browser(), "{\"name\":\"" + newName()
                 + "\",\"category\":\"CP\",\"subCategory\":\"PRD\",\"partCode\":\"SAME\"}");
         fill(run.author().browser(), first, firstVersion(run.author().browser(), first));
-        String second = template(run.author().browser(), "{\"name\":\"" + newName()
-                + "\",\"category\":\"CP\",\"subCategory\":\"PRD\",\"partCode\":\"SAME\"}");
-        fill(run.author().browser(), second, firstVersion(run.author().browser(), second));
         assertThat(approvedNumber(run, first)).isEqualTo("CP/PRD/SAME");
-        String request = submitted(run.author().browser(), second, run.process());
-
-        Response clash = approve(run.approver().browser(), request);
-
-        assertThat(clash.status()).isEqualTo(409);
-        assertThat(message(clash)).startsWith("Another template already has the number this one would get");
+        Response clash = run.author().browser().postJson(RECORDS, "{\"fields\":{\"name\":\"" + newName()
+                + "\",\"category\":\"CP\",\"subCategory\":\"PRD\",\"partCode\":\"SAME\"}}");
+        assertThat(clash.status()).isEqualTo(400);
         assertThat(clash.body()).doesNotContain("SAME");
-        assertThat(statuses(run.author().browser(), second)).containsExactly("IN_REVIEW");
-        assertThat(statusOf(run.approver().browser(), request)).isEqualTo("PENDING");
     }
 
     @Test
@@ -204,7 +227,7 @@ class TemplateNumberingIT extends TemplateSupport {
         String first = template(run.author().browser(), "{\"name\":\"" + newName()
                 + "\",\"category\":\"CP\",\"subCategory\":\"PRD\",\"partCode\":\"SAME\"}");
         fill(run.author().browser(), first, firstVersion(run.author().browser(), first));
-        String second = template(run.author().browser(), "{\"name\":\"" + newName()
+        String second = unnumberedForBackstop(run, "{\"name\":\"" + newName()
                 + "\",\"category\":\"CP\",\"subCategory\":\"PRD\",\"partCode\":\"SAME\"}");
         fill(run.author().browser(), second, firstVersion(run.author().browser(), second));
         // The database enforces uniqueness of the number only once the background work has filled its copy and set the
@@ -215,7 +238,7 @@ class TemplateNumberingIT extends TemplateSupport {
                     .get("/api/v1/objects/InspectionTemplate/index-status").body(), "$.data.uniqueness[*].state");
             return !states.isEmpty() && states.stream().allMatch("ENFORCED"::equals);
         });
-        // Both are on their way before either has its number: the submit cannot see the clash yet.
+        // Simulate an older import with complete parts but no number, to exercise the approval backstop.
         String requestOne = submitted(run.author().browser(), first, run.process());
         String requestTwo = submitted(run.author().browser(), second, run.process());
         assertThat(approve(run.approver().browser(), requestOne).status()).isEqualTo(200);
@@ -257,7 +280,8 @@ class TemplateNumberingIT extends TemplateSupport {
         List<String> templates = new ArrayList<>();
         List<String> requests = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            String template = templateWithSheet(author.browser(), "WI", "PRD");
+            String template = template(author.browser(), "{\"name\":\"" + newName() + "\"}");
+            fill(author.browser(), template, firstVersion(author.browser(), template));
             templates.add(template);
             requests.add(submitted(author.browser(), template, process));
         }
@@ -273,7 +297,15 @@ class TemplateNumberingIT extends TemplateSupport {
             for (int i = 0; i < count; i++) {
                 TestBrowser browser = browsers.get(i);
                 String request = requests.get(i);
-                Callable<Integer> work = () -> approve(browser, request).status();
+                String template = templates.get(i);
+                Callable<Integer> work = () -> {
+                    long version = JsonPath.<Number>read(browser.get(RECORDS + "/" + template).body(),
+                            "$.data.version").longValue();
+                    Response saved = browser.request("PATCH", RECORDS + "/" + template,
+                            "{\"version\":" + version + ",\"fields\":{\"category\":\"WI\",\"subCategory\":\"PRD\"}}");
+                    assertThat(saved.status()).as(saved.body()).isEqualTo(200);
+                    return approve(browser, request).status();
+                };
                 done.add(pool.submit(work));
             }
             for (Future<Integer> one : done) {
@@ -294,5 +326,20 @@ class TemplateNumberingIT extends TemplateSupport {
         assertThat(numbers).containsExactlyElementsOf(expected);
         assertThat(scalar(setting.organization(), "select next_value from number_series_counter "
                 + "where series_key = 'document' and scope_key = 'WI/PRD'")).isEqualTo(count + 1);
+    }
+
+    /** A pre-feature imported header, deliberately bypassing Save to test the documented approval backstop. */
+    private static String unnumberedForBackstop(Run run, String fields) {
+        String id = template(run.author().browser(), "{\"name\":\"" + newName() + "\"}");
+        try {
+            app.platform.testsupport.tenancy.TenantFixtures.asTenant(run.setting().organization().id(), connection ->
+                    app.platform.testsupport.tenancy.TenantFixtures.update(connection,
+                            "update object_record set payload = payload || cast(? as jsonb), "
+                                    + "version = version + 1, updated_by = created_by where id = ?",
+                            fields, java.util.UUID.fromString(id)));
+        } catch (java.sql.SQLException exception) {
+            throw new IllegalStateException("Could not prepare an imported template", exception);
+        }
+        return id;
     }
 }

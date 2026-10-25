@@ -62,7 +62,10 @@ final class SheetGridNormalizer {
     private static Cell cell(Cell cell, boolean header) {
         Object value = cell.value() instanceof String text && text.isEmpty() ? null : cell.value();
         Style style = cell.style() == null || cell.style().isPlain() ? null : new Style(cell.style().bold(),
-                cell.style().italic(), cell.style().fontSize() == FontSize.NORMAL ? null : cell.style().fontSize());
+                cell.style().italic(), cell.style().fontSize() == FontSize.NORMAL ? null : cell.style().fontSize(),
+                cell.style().underline(),
+                cell.style().alignment() == SheetGrid.Alignment.LEFT ? null : cell.style().alignment(),
+                cell.style().colour() == SheetGrid.Colour.DEFAULT ? null : cell.style().colour());
         if (SheetGridValidator.isFixed(cell, header)) {
             if (value != null) {
                 return new Cell(value, style, null);

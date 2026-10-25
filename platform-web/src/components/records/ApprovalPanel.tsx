@@ -1,5 +1,7 @@
 "use client";
 
+import { ActionNotice } from "@/components/ui/ActionNotice";
+
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ApprovalActionForm, type ApprovalActionKind } from "@/components/approvals/ApprovalActionForm";
 import { ActionMenu, type ActionMenuItem } from "@/components/ui/ActionMenu";
@@ -38,6 +40,7 @@ export function useRecordApproval({
   onState,
   onChanged,
   onDecided,
+  labels,
 }: {
   objectApiName: string;
   recordId: string;
@@ -48,10 +51,13 @@ export function useRecordApproval({
   onChanged: () => void;
   /** Told which decision was just made, after `onChanged` (the template page opens Publish after an approval). */
   onDecided?: (kind: ApprovalActionKind) => void;
+  /** Other words for approving and rejecting (Accept and Decline for a change request). */
+  labels?: Partial<Record<ApprovalActionKind, string>>;
 }) {
   const [panel, setPanel] = useState<PanelView | undefined>();
   const [failure, setFailure] = useState<string | undefined>();
   const [notice, setNotice] = useState<string | undefined>();
+  const [noticeKey, setNoticeKey] = useState(0);
   const [acting, setActing] = useState<ApprovalActing>();
   const [process, setProcess] = useState("");
   const [comment, setComment] = useState("");
@@ -95,6 +101,7 @@ export function useRecordApproval({
       setActing(undefined);
       setComment("");
       setNotice("The record was submitted for approval and is locked until the request ends.");
+      setNoticeKey((value) => value + 1);
       await load();
       onChanged();
     } else {
@@ -106,6 +113,7 @@ export function useRecordApproval({
     const kind = acting && acting !== "submit" ? acting : undefined;
     setActing(undefined);
     setNotice(text);
+    setNoticeKey((value) => value + 1);
     void load();
     onChanged();
     if (kind) {
@@ -113,7 +121,8 @@ export function useRecordApproval({
     }
   };
 
-  return { panel, failure, notice, acting, setActing, process, setProcess, comment, setComment, busy, submit, done };
+  return { panel, failure, notice, noticeKey, acting, setActing, process, setProcess, comment, setComment, busy,
+    submit, done, labels };
 }
 
 export type RecordApproval = ReturnType<typeof useRecordApproval>;
@@ -170,10 +179,13 @@ export function ApprovalCard({
   approval,
   recordVersion,
   actions: withActions = true,
+  steps: withSteps = true,
 }: {
   approval: RecordApproval;
   recordVersion: number;
   actions?: boolean;
+  /** Draw the list of steps. The template page leaves it out: its thin flow beside the details says the same, shorter. */
+  steps?: boolean;
 }) {
   const { panel, failure, notice, setActing } = approval;
   if (failure && !panel) {
@@ -204,9 +216,7 @@ export function ApprovalCard({
         </p>
       ) : null}
       {notice ? (
-        <p role="status" data-testid="approval-notice">
-          {notice}
-        </p>
+        <ActionNotice key={notice} text={notice} testId="approval-notice" occurrence={approval.noticeKey} />
       ) : null}
       {failure ? (
         <p className="form-message" role="alert" data-testid="approval-panel-problem">
@@ -232,23 +242,25 @@ export function ApprovalCard({
             {summary.currentStepLabel ? ` · waiting at ${summary.currentStepLabel}` : ""} · submitted by{" "}
             {personText(summary.submittedBy)}
           </p>
-          <ol className="stack" data-testid="approval-steps">
-            {current.steps.map((step) => (
-              <li key={step.position}>
-                <strong>{step.label}</strong> <span className="badge">{humanize(step.status)}</span>
-                {step.assignments.length > 0 ? (
-                  <ul>
-                    {step.assignments.map((task) => (
-                      <li key={task.id}>
-                        {personText(task.assignee)}
-                        {task.forPerson ? ` (for ${personText(task.forPerson)})` : ""} — {humanize(task.status).toLowerCase()}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </li>
-            ))}
-          </ol>
+          {withSteps ? (
+            <ol className="stack" data-testid="approval-steps">
+              {current.steps.map((step) => (
+                <li key={step.position}>
+                  <strong>{step.label}</strong> <span className="badge">{humanize(step.status)}</span>
+                  {step.assignments.length > 0 ? (
+                    <ul>
+                      {step.assignments.map((task) => (
+                        <li key={task.id}>
+                          {personText(task.assignee)}
+                          {task.forPerson ? ` (for ${personText(task.forPerson)})` : ""} — {humanize(task.status).toLowerCase()}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          ) : null}
         </>
       ) : null}
 
@@ -301,7 +313,7 @@ export function ApprovalCard({
       ) : null}
 
       {current?.historyVisible ? (
-        <details data-testid="approval-history">
+        <details id="approval-history" data-testid="approval-history">
           <summary>History</summary>
           <ol className="stack">
             {current.history.map((line) => (
@@ -384,6 +396,10 @@ function ApprovalForms({ approval, recordVersion }: { approval: RecordApproval; 
           requestId={summary.id}
           version={summary.version}
           explain={explain(acting)}
+          labels={approval.labels}
+          asksForChoice={summary.currentStepAsksForChoice}
+          objectApiName={summary.objectApiName}
+          recordId={summary.recordId}
           onClose={() => setActing(undefined)}
           onDone={done}
         />
@@ -431,12 +447,12 @@ export function ApprovalHeaderActions({
       ) : null}
       {actions?.canApprove ? (
         <button type="button" className="button" onClick={() => setActing("approve")} data-testid="approval-approve">
-          Approve
+          {approval.labels?.approve ?? "Approve"}
         </button>
       ) : null}
       {actions?.canReject ? (
         <button type="button" className="button button-danger" onClick={() => setActing("reject")}>
-          Reject
+          {approval.labels?.reject ?? "Reject"}
         </button>
       ) : null}
       {children}
@@ -461,9 +477,7 @@ export function ApprovalDialogs({ approval, recordVersion }: { approval: RecordA
   return (
     <>
       {notice ? (
-        <p role="status" className="hint" data-testid="approval-notice">
-          {notice}
-        </p>
+        <ActionNotice key={notice} text={notice} className="hint" testId="approval-notice" occurrence={approval.noticeKey} />
       ) : null}
       {failure ? (
         <p className="form-message" role="alert" data-testid="approval-panel-problem">
@@ -471,7 +485,7 @@ export function ApprovalDialogs({ approval, recordVersion }: { approval: RecordA
         </p>
       ) : null}
       {acting ? (
-        <Modal title={DIALOG_TITLES[acting]} onClose={() => setActing(undefined)}>
+        <Modal title={(acting !== "submit" ? approval.labels?.[acting] : undefined) ?? DIALOG_TITLES[acting]} onClose={() => setActing(undefined)}>
           <ApprovalForms approval={approval} recordVersion={recordVersion} />
         </Modal>
       ) : null}

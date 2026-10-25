@@ -89,7 +89,7 @@ class SheetVersionsIT extends SheetSupport {
         list(grid, "rows").add(GridDocs.map("id", "r1", "label", "First"));
         String c1 = (String) list(grid, "columns").get(0).get("id");
         cells(grid).put("h1:" + c1, GridDocs.map("value", "Inspection", "style", GridDocs.map("bold", true, "fontSize",
-                "TITLE")));
+                "TITLE", "underline", true, "alignment", "CENTER", "colour", "ACCENT")));
         cells(grid).put("r1:c2", GridDocs.map("value", "12.5", "kind", "input"));
 
         Response saved = save(setting.admin(), owner, 1, 0, json(grid));
@@ -99,6 +99,12 @@ class SheetVersionsIT extends SheetSupport {
         Response opened = read(setting.admin(), owner, 1);
         assertThat(JsonPath.<String>read(opened.body(), "$.data.grid.cells['h1:" + c1 + "'].style.fontSize"))
                 .isEqualTo("TITLE");
+        assertThat(JsonPath.<Boolean>read(opened.body(), "$.data.grid.cells['h1:" + c1 + "'].style.underline"))
+                .isTrue();
+        assertThat(JsonPath.<String>read(opened.body(), "$.data.grid.cells['h1:" + c1 + "'].style.alignment"))
+                .isEqualTo("CENTER");
+        assertThat(JsonPath.<String>read(opened.body(), "$.data.grid.cells['h1:" + c1 + "'].style.colour"))
+                .isEqualTo("ACCENT");
         assertThat(JsonPath.<String>read(opened.body(), "$.data.grid.cells['r1:c2'].value")).isEqualTo("12.5");
         assertThat(JsonPath.<List<?>>read(opened.body(), "$.data.grid.columns"))
                 .as("the ten it started with and one more").hasSize(11);

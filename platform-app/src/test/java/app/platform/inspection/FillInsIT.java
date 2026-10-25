@@ -70,7 +70,7 @@ class FillInsIT extends FillSupport {
         assertThat(options.status()).isEqualTo(200);
         assertThat(JsonPath.<Boolean>read(options.body(), "$.data.canStart")).isFalse();
         assertThat(JsonPath.<Integer>read(options.body(), "$.data.activeVersion")).isZero();
-        assertThat(JsonPath.<String>read(options.body(), "$.data.reason")).contains("no version in use");
+        assertThat(JsonPath.<String>read(options.body(), "$.data.reason")).contains("no revision in use");
         assertThat(start.status()).isEqualTo(409);
         assertThat(listedFills(both.browser(), "")).isEmpty();
     }

@@ -1,7 +1,8 @@
-import type { FillDisplayRow, FillDoc, FillLimits, FillOp, FillRow, FillValue } from "./fillTypes";
+import type { FillDisplayRow, FillDoc, FillLimits, FillOp, FillRow, FillStyle, FillValue } from "./fillTypes";
 import { at, cellKey, cellKind, DEFAULT_ROW_HEIGHT, indexesOf, mergeRects, splitKey } from "./geometry";
 import { newId } from "./ids";
 import type { DisplayRow, GridCell, GridColumn, GridDoc, GridLine } from "./types";
+import { ALIGNMENTS, TEXT_COLOURS } from "./types";
 import { TEXT_UNSAFE, unsafeText, valueProblem } from "./values";
 
 /**
@@ -72,9 +73,9 @@ export function isInputCell(grid: GridDoc, rowId: string, columnId: string): boo
 /** Reads an answer of the API into a fill-in: every part present, nothing unknown kept. */
 export function fromApiFill(raw: unknown): FillDoc {
   const rows: FillRow[] = [];
-  const source = typeof raw === "object" && raw !== null ? (raw as { rows?: unknown }) : {};
+  const source = typeof raw === "object" && raw !== null ? (raw as { rows?: unknown; formatVersion?: unknown }) : {};
   for (const item of Array.isArray(source.rows) ? source.rows : []) {
-    const row = typeof item === "object" && item !== null ? (item as { id?: unknown; cells?: unknown }) : {};
+    const row = typeof item === "object" && item !== null ? (item as { id?: unknown; cells?: unknown; styles?: unknown }) : {};
     if (typeof row.id !== "string") {
       continue;
     }
@@ -85,9 +86,24 @@ export function fromApiFill(raw: unknown): FillDoc {
         cells[columnId] = value;
       }
     }
-    rows.push({ id: row.id, cells });
+    const styles: Record<string, FillStyle> = {};
+    if (source.formatVersion === 2 && row.styles && typeof row.styles === "object") {
+      for (const [column, rawStyle] of Object.entries(row.styles)) {
+        if (!rawStyle || typeof rawStyle !== "object") continue;
+        const style = rawStyle as FillStyle;
+        const kept: FillStyle = {};
+        if (typeof style.bold === "boolean") kept.bold = style.bold;
+        if (typeof style.italic === "boolean") kept.italic = style.italic;
+        if (typeof style.underline === "boolean") kept.underline = style.underline;
+        if (ALIGNMENTS.includes(style.alignment!)) kept.alignment = style.alignment;
+        if (TEXT_COLOURS.includes(style.colour!)) kept.colour = style.colour;
+        if (["SMALL", "NORMAL", "LARGE", "TITLE"].includes(style.fontSize ?? "")) kept.fontSize = style.fontSize;
+        if (Object.keys(kept).length) styles[column] = kept;
+      }
+    }
+    rows.push({ id: row.id, cells, ...(Object.keys(styles).length ? { styles } : {}) });
   }
-  return { formatVersion: 1, rows };
+  return { formatVersion: source.formatVersion === 2 ? 2 : 1, rows };
 }
 
 /**
@@ -98,9 +114,12 @@ export function fromApiFill(raw: unknown): FillDoc {
 export function toApiFill(grid: GridDoc, fill: FillDoc): FillDoc {
   const named = grid.rows
     .map((line) => fill.rows.find((row) => row.id === line.id))
-    .filter((row): row is FillRow => row !== undefined && Object.keys(row.cells).length > 0);
+    .filter((row): row is FillRow => row !== undefined && (Object.keys(row.cells).length > 0 || Object.keys(row.styles ?? {}).length > 0));
   const added = fill.rows.filter((row) => !isNamedRow(grid, row.id));
-  return { formatVersion: 1, rows: [...named, ...added].map((row) => ({ id: row.id, cells: { ...row.cells } })) };
+  return { formatVersion: fill.formatVersion, rows: [...named, ...added].map((row) => ({
+    id: row.id, cells: { ...row.cells },
+    ...(fill.formatVersion === 2 && Object.keys(row.styles ?? {}).length ? { styles: row.styles } : {}),
+  })) };
 }
 
 function sorted(value: unknown): unknown {
@@ -125,6 +144,43 @@ export function canonicalFillText(grid: GridDoc, fill: FillDoc): string {
 /** Whether two fill-ins mean the same thing. */
 export function sameFill(grid: GridDoc, a: FillDoc, b: FillDoc): boolean {
   return a === b || canonicalFillText(grid, a) === canonicalFillText(grid, b);
+}
+
+/** Reapply only local changes to the latest server document, keeping unrelated remote edits. */
+export function reapplyFill(base: FillDoc, local: FillDoc, remote: FillDoc, grid?: GridDoc): FillDoc {
+  const rows = new Map(remote.rows.map((row) => [row.id, structuredClone(row)]));
+  const edits = [...local.rows];
+  for (const before of base.rows) {
+    if (!local.rows.some((row) => row.id === before.id)) {
+      if (grid && isNamedRow(grid, before.id)) edits.push({ id: before.id, cells: {} });
+      else rows.delete(before.id);
+    }
+  }
+  for (const edited of edits) {
+    const before = base.rows.find((row) => row.id === edited.id);
+    if (!before) { rows.set(edited.id, structuredClone(edited)); continue; }
+    const target = rows.get(edited.id) ?? { id: edited.id, cells: {} };
+    for (const key of new Set([...Object.keys(before.cells), ...Object.keys(edited.cells)])) {
+      if (before.cells[key] === edited.cells[key]) continue;
+      if (edited.cells[key] === undefined) delete target.cells[key];
+      else target.cells[key] = edited.cells[key];
+    }
+    const styles = { ...target.styles };
+    for (const key of new Set([...Object.keys(before.styles ?? {}), ...Object.keys(edited.styles ?? {})])) {
+      if (JSON.stringify(sorted(before.styles?.[key])) === JSON.stringify(sorted(edited.styles?.[key]))) continue;
+      const nextStyle = { ...styles[key] };
+      for (const part of ["bold", "italic", "underline", "fontSize", "alignment", "colour"] as const) {
+        if (before.styles?.[key]?.[part] === edited.styles?.[key]?.[part]) continue;
+        const value = edited.styles?.[key]?.[part];
+        if (value === undefined) delete nextStyle[part];
+        else Object.assign(nextStyle, { [part]: value });
+      }
+      if (Object.keys(nextStyle).length) styles[key] = nextStyle;
+      else delete styles[key];
+    }
+    rows.set(edited.id, { ...target, ...(Object.keys(styles).length ? { styles } : { styles: undefined }) });
+  }
+  return { formatVersion: local.formatVersion === 2 || remote.formatVersion === 2 ? 2 : 1, rows: [...rows.values()] };
 }
 
 /** The rows as they are drawn below the header rows: the rows the sheet names, then the rows the filler added. */
@@ -160,11 +216,22 @@ export function displayDoc(grid: GridDoc, fill: FillDoc): GridDoc {
     const [rowId] = splitKey(key);
     if (!named.has(rowId) || cellKind("body", cell) === "fixed") {
       cells[key] = cell;
+    } else {
+      cells[key] = { ...cell, value: undefined };
     }
   }
   for (const row of fill.rows) {
     for (const [columnId, value] of Object.entries(row.cells)) {
-      cells[cellKey(row.id, columnId)] = { value, kind: "input" };
+      if (isInputCell(grid, row.id, columnId)) {
+        const key = cellKey(row.id, columnId);
+        cells[key] = { ...cells[key], value, kind: "input" };
+      }
+    }
+    for (const [columnId, style] of Object.entries(row.styles ?? {})) {
+      if (isInputCell(grid, row.id, columnId)) {
+        const key = cellKey(row.id, columnId);
+        cells[key] = { ...cells[key], kind: "input", style: { ...cells[key]?.style, ...style } };
+      }
     }
   }
   return { ...grid, rows: [...grid.rows, ...added], cells };
@@ -229,9 +296,32 @@ function withValue(fill: FillDoc, grid: GridDoc, rowId: string, columnId: string
   } else {
     cells[columnId] = value;
   }
-  const keep = Object.keys(cells).length > 0 || !isNamedRow(grid, rowId);
+  const keep = Object.keys(cells).length > 0 || Object.keys(existing.styles ?? {}).length > 0 || !isNamedRow(grid, rowId);
   const rows = fill.rows.flatMap((row) => (row.id !== rowId ? [row] : keep ? [{ ...row, cells }] : []));
   return { ...fill, rows };
+}
+
+/** Apply a bounded style override to input cells only; null resets to the published template's style. */
+export function formatFillCells(grid: GridDoc, fill: FillDoc, rowIds: readonly string[], columns: readonly string[],
+  patch: FillStyle | null, limits: FillLimits): FillOp {
+  let next = fill;
+  for (const rowId of rowIds) {
+    if (!isNamedRow(grid, rowId) && !fill.rows.some((row) => row.id === rowId)) continue;
+    for (const column of columns) {
+      if (!isInputCell(grid, rowId, column)) continue;
+      const held = next.rows.find((row) => row.id === rowId) ?? { id: rowId, cells: {} };
+      const styles = { ...held.styles };
+      if (patch === null) delete styles[column];
+      else styles[column] = { ...styles[column], ...patch };
+      const changed = { ...held, styles };
+      next = { formatVersion: 2, rows: next.rows.some((row) => row.id === rowId)
+        ? next.rows.map((row) => row.id === rowId ? changed : row) : [...next.rows, changed] };
+    }
+  }
+  if (new TextEncoder().encode(canonicalFillText(grid, next)).length > limits.maxBytes) {
+    return { ok: false, error: `The fill-in is larger than the allowed size of ${limits.maxBytes} bytes.` };
+  }
+  return { ok: true, fill: next };
 }
 
 /** Types text into a cell. The cell must be an input cell of a row that exists; text that means nothing clears it. */

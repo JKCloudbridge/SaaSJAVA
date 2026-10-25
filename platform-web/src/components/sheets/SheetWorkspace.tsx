@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/Modal";
 import { fromApi } from "@/lib/sheets/adapter";
@@ -21,10 +21,12 @@ import {
 } from "@/lib/sheets/api";
 import { explainPlace, hintsFor, problemsFromFields } from "@/lib/sheets/hints";
 import { defaultVersion, useVersion, useVersions } from "@/lib/sheets/hooks";
+import { revisionWords } from "@/lib/sheets/revision";
 import { isDraft, statusTag } from "@/lib/sheets/tags";
 import type { GridDoc, Problem, SheetLimits } from "@/lib/sheets/types";
 import { FormView } from "./FormView";
 import { GridView } from "./GridView";
+import { SheetPrintView } from "./SheetPrintView";
 import { useNarrowScreen } from "./useNarrowScreen";
 import { useSheetEditor } from "./useSheetEditor";
 import { UploadSheet } from "./UploadSheet";
@@ -65,6 +67,14 @@ export interface SheetWorkspaceProps {
    * the row is drawn above the grid.
    */
   toolbarSlot?: HTMLElement | null;
+  /**
+   * The footer row (FA7, ADR-0201): the text at the right of the last row of the sheet in the grid and in the view, empty
+   * for a blank row. The caller says what it reads (a number and a revision); the workspace knows no business word and the
+   * row is never part of the stored grid.
+   */
+  footer?: string | ((versionNo: number) => string);
+  /** Extra buttons beside View for the revision that is open (a download, for a caller that offers one). */
+  actions?: (open: { versionNo: number }) => ReactNode;
 }
 
 interface Notice {
@@ -90,6 +100,8 @@ export function SheetWorkspace({
   annotate,
   listFirst = false,
   toolbarSlot,
+  footer,
+  actions,
 }: SheetWorkspaceProps) {
   const owner = useMemo<SheetOwner>(() => ({ object: given.object, id: given.id }), [given.object, given.id]);
   const { state, reload } = useVersions(owner);
@@ -99,7 +111,6 @@ export function SheetWorkspace({
   const [refresh, setRefresh] = useState(0);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [starting, setStarting] = useState(false);
-  const [dimension, setDimension] = useState<1 | 2>(2);
   const [opened, setOpened] = useState(!listFirst);
   const heading = useId();
 
@@ -176,7 +187,7 @@ export function SheetWorkspace({
   if (state.status === "loading") {
     return (
       <p role="status" className="hint">
-        Loading the versions…
+        Loading the revisions…
       </p>
     );
   }
@@ -197,7 +208,7 @@ export function SheetWorkspace({
   return (
     <section className="stack sheet-workspace" aria-labelledby={heading} data-testid="sheet-workspace">
       <h2 id={heading} className={listFirst ? "visually-hidden" : undefined}>
-        Versions
+        Revisions
       </h2>
       {notice ? (
         <p className={notice.error ? "form-message" : "hint"} role={notice.error ? "alert" : "status"}>
@@ -209,8 +220,8 @@ export function SheetWorkspace({
           <div role="alertdialog" aria-label="Unsaved changes" className="stack">
             <p>
               {pending === 0
-                ? "You have changes that are not saved. Go back to the versions and lose them?"
-                : `You have changes that are not saved. Open version ${pending} and lose them?`}
+                ? "You have changes that are not saved. Go back to the revisions and lose them?"
+                : `You have changes that are not saved. Open ${revisionWords(pending).toLowerCase()} and lose them?`}
             </p>
             <div className="split">
               <button
@@ -238,31 +249,16 @@ export function SheetWorkspace({
 
       {versions.length === 0 ? (
         canChange ? (
-          <>
+          <div className="sheet-start-actions">
           <form
-            className="form stack"
             onSubmit={(event) => {
               event.preventDefault();
-              void start({ dimension });
+              void start({ dimension: 2 });
             }}
           >
-            <p>There is no version yet. Choose how the rows of this sheet come about, then start the first version.</p>
-            <fieldset className="field">
-              <legend>Who adds the rows</legend>
-              <label className="sheet-check">
-                <input type="radio" name="dimension" checked={dimension === 2} onChange={() => setDimension(2)} />
-                <span>The sheet names the rows</span>
-              </label>
-              <label className="sheet-check">
-                <input type="radio" name="dimension" checked={dimension === 1} onChange={() => setDimension(1)} />
-                <span>The filler adds the rows</span>
-              </label>
-            </fieldset>
-            <div>
               <button type="submit" className="button" disabled={starting}>
-                Start the first version
+                Start first revision
               </button>
-            </div>
           </form>
           <div>
             <UploadSheet
@@ -274,10 +270,10 @@ export function SheetWorkspace({
               onSaved={(created) => afterNewDraft(created.versionNo)}
             />
           </div>
-          </>
+          </div>
         ) : (
           <p className="empty-state" role="status">
-            No version is in use yet.
+            No revision is in use yet.
           </p>
         )
       ) : listFirst && opened ? null : (
@@ -290,13 +286,13 @@ export function SheetWorkspace({
           />
           {canChange && draft ? (
             <p className="hint">
-              Version {draft.versionNo} is a draft. Only one draft can exist at a time: continue with it, or save it first.
+              {revisionWords(draft.versionNo)} is a draft. Only one draft can exist at a time: continue with it, or save it first.
             </p>
           ) : null}
           {canChange && !draft ? (
             <div className="split">
               <button type="button" className="button button-secondary" onClick={() => void start({})} disabled={starting}>
-                {startLabel ?? (versions.some((entry) => entry.status === "ACTIVE") ? "Start a new version from the active one" : "Start a new version")}
+                {startLabel ?? (versions.some((entry) => entry.status === "ACTIVE") ? "Start a new revision from the active one" : "Start a new revision")}
               </button>
               <UploadSheet
                 owner={owner}
@@ -312,7 +308,7 @@ export function SheetWorkspace({
 
       {listFirst && !opened ? null : version.status === "loading" ? (
         <p role="status" className="hint">
-          Opening version {current}…
+          Opening {revisionWords(current).toLowerCase()}…
         </p>
       ) : null}
       {opened && version.status === "failed" ? (
@@ -336,6 +332,8 @@ export function SheetWorkspace({
           onDirty={setDirty}
           onSaved={reload}
           onReload={() => setRefresh((n) => n + 1)}
+          footer={footer}
+          actions={actions}
         />
       ) : null}
     </section>
@@ -356,6 +354,8 @@ function VersionEditor({
   onDirty,
   onSaved,
   onReload,
+  footer,
+  actions,
 }: {
   owner: SheetOwner;
   label: string;
@@ -370,6 +370,8 @@ function VersionEditor({
   onDirty(dirty: boolean): void;
   onSaved(): void;
   onReload(): void;
+  footer?: string | ((versionNo: number) => string);
+  actions?: (open: { versionNo: number }) => ReactNode;
 }) {
   const editor = useSheetEditor(initial, limits);
   const narrow = useNarrowScreen();
@@ -382,6 +384,8 @@ function VersionEditor({
   const [saving, setSaving] = useState(false);
   const [refused, setRefused] = useState<{ doc: GridDoc; problems: Problem[]; message: string; stale: boolean } | null>(null);
   const [saved, setSaved] = useState(false);
+  const [viewing, setViewing] = useState(false);
+  const footerText = typeof footer === "function" ? footer(first.versionNo) : footer;
   const tabs = useId();
 
   const draft = isDraft(summary.status);
@@ -392,11 +396,11 @@ function VersionEditor({
   const readOnly = !canChange || !(draft || correcting);
   const tag = statusTag(summary.status);
   const readOnlyReason = annotating
-    ? `You are reading version ${summary.versionNo}, which is in use and cannot be changed here. To ask for a change, stand on a place in the grid and write a comment under it.`
+    ? `You are reading ${revisionWords(summary.versionNo).toLowerCase()}, which is in use and cannot be changed here. To ask for a change, stand on a place in the grid and press Ask for a change.`
     : !(draft || correcting)
     ? inReview
-      ? `Version ${summary.versionNo} is in review. Only the people who approve it can correct it; everyone else reads it.`
-      : `Version ${summary.versionNo} is ${tag.text.toLowerCase()} and cannot be changed. Start a new version from it to make changes.`
+      ? `${revisionWords(summary.versionNo)} is in review. Only the people who approve it can correct it; everyone else reads it.`
+      : `${revisionWords(summary.versionNo)} is ${tag.text.toLowerCase()} and cannot be changed. Start a new revision from it to make changes.`
     : !canChange
       ? "You can read this sheet but not change it."
       : narrow
@@ -477,7 +481,7 @@ function VersionEditor({
     <div className="sheet-bar">
       {onBack ? (
         <button type="button" className="link-button" onClick={onBack}>
-          ‹ Versions
+          ‹ Revisions
         </button>
       ) : null}
       <div role="tablist" aria-label="Views of the sheet" className="sheet-tabs">
@@ -506,6 +510,12 @@ function VersionEditor({
           Grid
         </button>
       </div>
+      <div className="sheet-bar-actions">
+        <button type="button" className="button button-secondary" onClick={() => setViewing(true)} data-testid="sheet-view">
+          View
+        </button>
+        {actions ? actions({ versionNo: summary.versionNo }) : null}
+      </div>
       {readOnly ? null : (
         <div className="sheet-bar-actions">
           <button type="button" className="button" onClick={() => void save()} disabled={saving || !dirty}>
@@ -524,7 +534,7 @@ function VersionEditor({
       {toolbarSlot === undefined ? bar : toolbarSlot ? createPortal(bar, toolbarSlot) : null}
       {summary.reviewEdits > 0 ? (
         <p className="hint">
-          This version was corrected {summary.reviewEdits === 1 ? "once" : `${summary.reviewEdits} times`} while in review.
+          This revision was corrected {summary.reviewEdits === 1 ? "once" : `${summary.reviewEdits} times`} while in review.
         </p>
       ) : null}
       {readOnly && readOnlyReason ? (
@@ -534,7 +544,7 @@ function VersionEditor({
       ) : null}
       {correcting ? (
         <p className="hint" role="note" data-testid="review-edit-note">
-          This version is in review. You can correct it because you approve it. Every correction is recorded in the audit
+          This revision is in review. You can correct it because you approve it. Every correction is recorded in the audit
           trail, with its size and a fingerprint, never its content.
         </p>
       ) : null}
@@ -553,7 +563,7 @@ function VersionEditor({
           {refused.stale ? (
             <p>
               <button type="button" className="button button-secondary" onClick={onReload}>
-                Reload this version
+                Reload this revision
               </button>{" "}
               <span className="hint">Your unsaved changes are lost when you reload.</span>
             </p>
@@ -568,6 +578,7 @@ function VersionEditor({
             readOnly={readOnly}
             problems={problems}
             canChangeShape={summary.versionNo === 1 && draft}
+            footer={footerText}
           />
         </div>
       ) : (
@@ -576,7 +587,8 @@ function VersionEditor({
             editor={editor}
             readOnly={gridReadOnly}
             readOnlyReason={!readOnly && narrow ? readOnlyReason : undefined}
-            label={`${label}, version ${summary.versionNo}`}
+            label={`${label}, ${revisionWords(summary.versionNo).toLowerCase()}`}
+            footer={footerText}
             annotation={
               annotating && annotate ? { marks: annotate.marks, onActivate: () => setActivations((n) => n + 1) } : undefined
             }
@@ -584,6 +596,14 @@ function VersionEditor({
           {annotating && annotate && annotateContext ? annotate.panel(annotateContext) : null}
         </div>
       )}
+      {viewing ? (
+        <SheetPrintView
+          doc={editor.doc}
+          footer={footerText ?? ""}
+          label={`${label}, ${revisionWords(summary.versionNo).toLowerCase()}`}
+          onClose={() => setViewing(false)}
+        />
+      ) : null}
     </div>
   );
 }

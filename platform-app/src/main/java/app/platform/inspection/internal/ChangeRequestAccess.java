@@ -49,9 +49,26 @@ class ChangeRequestAccess {
     /** The member's reach, for a template they can read; "not found" otherwise. */
     Reach reach(UUID templateId) {
         TemplateAccess.Caller caller = access.visible(templateId);
-        boolean review = decisions.can(caller.membershipId(), Templates.OBJECT, ObjectAction.UPDATE,
-                new RecordRef(templateId)).allowed();
-        return new Reach(caller.userId(), caller.membershipId(), templateId, review);
+        return new Reach(caller.userId(), caller.membershipId(), templateId,
+                canReview(caller.membershipId(), templateId));
+    }
+
+    /**
+     * Whether the member may change the template, so answer its requests and see all of them. The same question as
+     * {@link #reach} asks, without reading the template again: for a list that judges many templates in one go.
+     */
+    boolean canReview(UUID membershipId, UUID templateId) {
+        return decisions.can(membershipId, Templates.OBJECT, ObjectAction.UPDATE, new RecordRef(templateId)).allowed();
+    }
+
+    /** Whether the member may change any template at all (the object right), a cheap first question. */
+    boolean mayReviewSome(UUID membershipId) {
+        return decisions.can(membershipId, Templates.OBJECT, ObjectAction.UPDATE).allowed();
+    }
+
+    /** The member behind the request, for a list that is not about one template; "not found" on the platform host. */
+    TemplateAccess.Caller member() {
+        return access.member();
     }
 
     /** Whether the member may see the request: their own, or any when they may review. */

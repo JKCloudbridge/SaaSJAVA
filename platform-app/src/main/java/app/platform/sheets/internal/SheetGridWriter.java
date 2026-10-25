@@ -124,6 +124,15 @@ final class SheetGridWriter {
             if (cell.style().italic()) {
                 style.put("italic", true);
             }
+            if (cell.style().underline()) {
+                style.put("underline", true);
+            }
+            if (cell.style().alignment() != null && cell.style().alignment() != SheetGrid.Alignment.LEFT) {
+                style.put("alignment", cell.style().alignment().name());
+            }
+            if (cell.style().colour() != null && cell.style().colour() != SheetGrid.Colour.DEFAULT) {
+                style.put("colour", cell.style().colour().name());
+            }
             FontSize size = cell.style().fontSize();
             if (size != null && size != FontSize.NORMAL) {
                 style.put("fontSize", size.name());

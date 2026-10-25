@@ -130,7 +130,9 @@ class NumberSeriesIT extends SolutionSupport {
                 .contains(List.of("partCode"));
         assertThat(here(organization, () -> series.missingParts(SERIES, record("WI", "PRD")))).contains(List.of());
         assertThat(here(organization, () -> series.missingParts(SERIES, record("WI", null))))
-                .contains(List.of("subCategory"));
+                .as("the sub-category is optional for a counted format").contains(List.of());
+        assertThat(here(organization, () -> series.missingParts(SERIES, record("CP", null))))
+                .as("a typed-part format still needs it").contains(List.of("subCategory", "partCode"));
         assertThat(here(organization, () -> series.missingParts(SERIES, record("ZZ", "PRD")))).as("no format at all")
                 .isEmpty();
         assertThat(here(organization, () -> series.missingParts(SERIES, Map.of()))).as("no category").isEmpty();
@@ -183,7 +185,7 @@ class NumberSeriesIT extends SolutionSupport {
         Organization organization = organizationWithFeature();
         assertThat(next(organization, "WI", "PRD")).isEqualTo("WI/PRD/01");
 
-        for (Map<String, Object> bad : List.of(record("WI", null), record("WI", ""), record("WI", "has space"),
+        for (Map<String, Object> bad : List.of(record("WI", "has space"),
                 record("WI", "toolongvalue"), record("WI", "<b>"), Map.<String, Object>of("subCategory", "PRD"),
                 record("CP", "PRD"), record("UNKNOWN", "PRD"))) {
             assertThatThrownBy(() -> here(organization, () -> series.next(SERIES, bad)))
@@ -209,9 +211,8 @@ class NumberSeriesIT extends SolutionSupport {
                 .isInstanceOfSatisfying(NumberSeriesException.class,
                         refusal -> assertThat(refusal.reason()).as("a typed part is missing")
                                 .isEqualTo(Reason.PART_MISSING));
-        assertThatThrownBy(() -> here(organization, () -> series.next(SERIES, record("WI", null))))
-                .isInstanceOfSatisfying(NumberSeriesException.class,
-                        refusal -> assertThat(refusal.reason()).isEqualTo(Reason.PART_MISSING));
+        assertThat(here(organization, () -> series.next(SERIES, record("WI", null))))
+                .as("a blank optional sub-category uses the category count").isEqualTo("WI/1");
         assertThatThrownBy(() -> here(organization, () -> series.next(SERIES, record("WI", "a b"))))
                 .isInstanceOfSatisfying(NumberSeriesException.class,
                         refusal -> assertThat(refusal.reason()).isEqualTo(Reason.PART_NOT_A_CODE));
@@ -226,7 +227,7 @@ class NumberSeriesIT extends SolutionSupport {
         String preview = here(organization, () -> series.prefix(SERIES, record("WI", "PRD")).orElseThrow());
 
         assertThat(preview).isEqualTo("WI/PRD/");
-        assertThat(here(organization, () -> series.prefix(SERIES, record("WI", null)))).isEmpty();
+        assertThat(here(organization, () -> series.prefix(SERIES, record("WI", null)))).contains("WI/");
         assertThat(here(organization, () -> series.prefix(SERIES, record("CP", "PRD")))).isEmpty();
         assertThat(next(organization, "WI", "PRD")).as("the preview used nothing").isEqualTo("WI/PRD/01");
     }

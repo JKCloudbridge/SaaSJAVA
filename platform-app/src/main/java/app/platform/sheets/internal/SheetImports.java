@@ -1,5 +1,6 @@
 package app.platform.sheets.internal;
 
+import app.platform.sheets.Revisions;
 import app.platform.sheets.internal.SheetGrid.RowsMode;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
@@ -103,12 +104,12 @@ class SheetImports {
     private Plan check(SheetOwners.Reach reach, SheetVersionStore.State state) {
         if (state.draft() != null) {
             changes.refused("import", "draft_exists");
-            throw new ApiException(ErrorCode.CONFLICT, "A draft already exists: it is version " + state.draft()
+            throw new ApiException(ErrorCode.CONFLICT, "A draft already exists: it is " + Revisions.words(state.draft())
                     + ". Continue with it, or send it for approval first.");
         }
         if (state.count() >= properties.limits().maxVersionsPerOwner()) {
             changes.refused("import", "most_versions");
-            throw new ApiException(ErrorCode.CONFLICT, "This sheet has the most versions it can have ("
+            throw new ApiException(ErrorCode.CONFLICT, "This sheet has the most revisions it can have ("
                     + properties.limits().maxVersionsPerOwner() + ").");
         }
         if (state.count() == 0) {

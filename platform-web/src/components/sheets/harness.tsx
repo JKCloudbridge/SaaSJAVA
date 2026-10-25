@@ -14,6 +14,7 @@ export function GridHost({
   toolbar = false,
   limits = LIMITS,
   annotation,
+  footer,
   onEditor,
 }: {
   initial?: GridDoc;
@@ -21,6 +22,7 @@ export function GridHost({
   toolbar?: boolean;
   limits?: SheetLimits;
   annotation?: { marks: AnnotationMarks; onActivate(): void };
+  footer?: string;
   onEditor?: (editor: SheetEditor) => void;
 }) {
   const editor = useSheetEditor(initial, limits);
@@ -28,8 +30,8 @@ export function GridHost({
     onEditor?.(editor);
   });
   return toolbar ? (
-    <GridView editor={editor} readOnly={readOnly} label="Test sheet" annotation={annotation} />
+    <GridView editor={editor} readOnly={readOnly} label="Test sheet" annotation={annotation} footer={footer} />
   ) : (
-    <SheetGrid editor={editor} readOnly={readOnly} label="Test sheet" annotation={annotation} />
+    <SheetGrid editor={editor} readOnly={readOnly} label="Test sheet" annotation={annotation} footer={footer} />
   );
 }

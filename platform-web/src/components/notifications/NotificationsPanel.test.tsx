@@ -3,6 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi, json, refusal } from "@/test/fakeApi";
 import { NOTIFICATIONS_CHANGED } from "@/lib/notifications/model";
 import { NotificationsPanel } from "./NotificationsPanel";
+import { fakeRouter } from "@/test/navigation";
+
+vi.mock("next/navigation", async () => (await import("@/test/navigation")).navigationMock);
 
 vi.mock("next/link", () => ({
   default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
@@ -39,6 +42,18 @@ function notice(id: string, extra: Record<string, unknown> = {}) {
 }
 
 describe("the notices of the member", () => {
+  it("keeps an unavailable notice on the list with its explanation", async () => {
+    fakeApi({
+      [LIST]: () => json({ data: [notice("n-1")], pagination: LAST }),
+      "POST /api/v1/notifications/n-1/open": () => json({ data: {
+        href: "/notifications", explanation: "This notice has no record you can open here.",
+      } }),
+    });
+    render(<NotificationsPanel />);
+    fireEvent.click(await screen.findByTestId("notice"));
+    expect(await screen.findByText("This notice has no record you can open here.")).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+  });
   it("draws the words the API built, how long ago, and where each leads", async () => {
     fakeApi({ [LIST]: () => json({ data: [notice("n-1"), notice("n-2", { href: null, read: true })], pagination: LAST }) });
 
@@ -49,10 +64,9 @@ describe("the notices of the member", () => {
     expect(rows[0]).toHaveTextContent("A record needs your decision");
     expect(rows[0]).toHaveTextContent("waits for your decision in the approval Large expense");
     expect(rows[0]).toHaveTextContent("5 minutes ago");
-    expect(within(rows[0]!).getByRole("link", { name: "Open" })).toHaveAttribute("href", "/approvals");
-    expect(rows[0]).toHaveAttribute("data-unread", "true");
-    expect(rows[1]).toHaveAttribute("data-unread", "false");
-    expect(within(rows[1]!).queryByRole("link", { name: "Open" })).not.toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "Search notifications" })).toBeInTheDocument();
+    expect(within(rows[0]!).getByText("New")).toBeInTheDocument();
+    expect(within(rows[1]!).queryByText("New")).not.toBeInTheDocument();
   });
 
   it("follows no address that leaves the organization's own pages", async () => {
@@ -70,17 +84,18 @@ describe("the notices of the member", () => {
   it("marks one notice read and tells the bell", async () => {
     const calls = fakeApi({
       [LIST]: () => json({ data: [notice("n-1")], pagination: LAST }),
-      "POST /api/v1/notifications/n-1/read": () => new Response(null, { status: 204 }),
+      "POST /api/v1/notifications/n-1/open": () => json({ data: { href: "/apps/inspection/s-templates?open=record-1" } }),
     });
     const changed = vi.fn();
     window.addEventListener(NOTIFICATIONS_CHANGED, changed);
 
     render(<NotificationsPanel />);
     const row = await screen.findByTestId("notice");
-    fireEvent.click(within(row).getByRole("button", { name: "Mark as read" }));
+    fireEvent.click(row);
 
-    await waitFor(() => expect(row).toHaveAttribute("data-unread", "false"));
-    expect(calls.some((one) => one.key === "POST /api/v1/notifications/n-1/read")).toBe(true);
+    await waitFor(() => expect(within(row).queryByText("New")).not.toBeInTheDocument());
+    expect(calls.some((one) => one.key === "POST /api/v1/notifications/n-1/open")).toBe(true);
+    expect(fakeRouter.push).toHaveBeenCalledWith("/apps/inspection/s-templates?open=record-1");
     expect(changed).toHaveBeenCalled();
     window.removeEventListener(NOTIFICATIONS_CHANGED, changed);
   });
@@ -95,7 +110,7 @@ describe("the notices of the member", () => {
     await screen.findAllByTestId("notice");
     fireEvent.click(screen.getByRole("button", { name: "Mark all as read" }));
 
-    await waitFor(() => expect(screen.getAllByTestId("notice").every((one) => one.dataset.unread === "false")).toBe(true));
+    await waitFor(() => expect(screen.queryAllByText("New")).toHaveLength(0));
     expect(calls.some((one) => one.key === "POST /api/v1/notifications/read-all")).toBe(true);
     expect(screen.getByRole("button", { name: "Mark all as read" })).toBeDisabled();
   });
@@ -125,7 +140,7 @@ describe("the notices of the member", () => {
   it("says so when there is nothing, and shows the API's words for a refusal", async () => {
     fakeApi({ [LIST]: () => json({ data: [], pagination: LAST }) });
     const first = render(<NotificationsPanel />);
-    expect(await screen.findByTestId("notifications-empty")).toHaveTextContent("Nothing yet");
+    expect(await screen.findByText(/Nothing yet/)).toBeInTheDocument();
     first.unmount();
 
     fakeApi({ [LIST]: () => refusal("NOT_FOUND", "This does not exist.", 404) });

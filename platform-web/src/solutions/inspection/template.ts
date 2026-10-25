@@ -5,3 +5,6 @@ export const TEMPLATE_OBJECT = "InspectionTemplate";
 export function text(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
+
+/** The record the approval engine reviews for a change request (the shipped object of the application, FA6E). */
+export const REQUEST_OBJECT = "InspectionChangeRequest";

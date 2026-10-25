@@ -10,6 +10,7 @@ import app.platform.data.BackgroundRecords;
 import app.platform.data.DataRecord;
 import app.platform.data.RecordTitles;
 import app.platform.licensing.Entitlements;
+import app.platform.metadata.ApprovalProcessDefinition;
 import app.platform.metadata.CompiledApprovalProcess;
 import app.platform.metadata.ConditionOutcome;
 import app.platform.metadata.Metadata;
@@ -32,6 +33,7 @@ import app.platformapi.ApprovalStepView;
 import app.platformapi.ApprovalTaskView;
 import app.platformapi.Cursors;
 import app.platformapi.Pagination;
+import app.platformapi.RecordApprovalHistoryView;
 import app.platformapi.RecordApprovalView;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -62,6 +64,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional(readOnly = true)
 class ApprovalViews {
+
+    private static final int MOST_HISTORY_RECORDS = 20;
+    private static final int DEFAULT_PER_RECORD = 5;
+    private static final int MOST_PER_RECORD = 10;
 
     private final ApprovalStore store;
     private final ApproverResolver resolver;
@@ -121,13 +127,16 @@ class ApprovalViews {
         });
         Map<UUID, String> names = resolver.names(people);
         List<ApprovalStepView> stepViews = new ArrayList<>();
+        List<ApprovalProcessDefinition.Step> defined = definitions.approvalProcessVersion(instance.processVersionId())
+                .map(pinned -> pinned.process().definition().steps()).orElse(List.of());
         for (StepRow step : steps) {
+            boolean asks = step.position() <= defined.size() && defined.get(step.position() - 1).asksForChoice();
             List<ApprovalAssignmentView> taskViews = tasks.stream().filter(task -> task.stepId().equals(step.id()))
                     .map(task -> new ApprovalAssignmentView(task.id(), person(task.assigneeId(), names), task.via(),
                             task.forUserId() == null ? null : person(task.forUserId(), names), task.status(),
                             task.decidedAt())).toList();
             stepViews.add(new ApprovalStepView(step.position(), step.name(), step.label(), step.completion(),
-                    step.status(), step.activatedAt(), step.finishedAt(), taskViews));
+                    step.status(), step.activatedAt(), step.finishedAt(), taskViews, asks));
         }
         List<ApprovalHistoryView> lines = history.stream().map(line -> new ApprovalHistoryView(line.id(),
                 line.stepPosition(), line.kind(), line.actorId() == null ? null : person(line.actorId(), names),
@@ -301,6 +310,32 @@ class ApprovalViews {
                 merged);
     }
 
+    /**
+     * The requests of a few records of one object, newest first. A record the caller cannot read is left out as if it
+     * did not exist, so nothing is learned about it; each request is drawn as in the panel of a record.
+     */
+    List<RecordApprovalHistoryView> history(Member member, String objectApiName, List<UUID> recordIds,
+            Integer perRecord) {
+        List<UUID> wanted = recordIds.stream().distinct().toList();
+        if (wanted.isEmpty() || wanted.size() > MOST_HISTORY_RECORDS) {
+            throw ApiException.validation("recordIds", "Ask for between 1 and " + MOST_HISTORY_RECORDS + " records.");
+        }
+        int each = perRecord == null || perRecord <= 0 ? DEFAULT_PER_RECORD : Math.min(perRecord, MOST_PER_RECORD);
+        Set<UUID> readable = titles.titlesOf(objectApiName, wanted).keySet();
+        List<RecordApprovalHistoryView> result = new ArrayList<>();
+        for (UUID recordId : wanted) {
+            if (!readable.contains(recordId)) {
+                continue;
+            }
+            List<ApprovalInstanceView> requests = new ArrayList<>();
+            for (InstanceRow instance : store.historyFor(objectApiName, recordId, each)) {
+                requests.add(full(member, instance, seen(member, instance)));
+            }
+            result.add(new RecordApprovalHistoryView(recordId, requests));
+        }
+        return result;
+    }
+
     // ---- building blocks ----
 
     ApprovalInstanceSummaryView summary(InstanceRow instance, List<StepRow> steps, Map<UUID, String> names) {
@@ -312,7 +347,16 @@ class ApprovalViews {
                 instance.currentStep(), currentLabel, steps.size(), instance.attention(),
                 instance.outcomeFailure(), instance.submittedBy() == null ? null
                         : person(instance.submittedBy(), names), instance.startedAt(), instance.finishedAt(),
-                instance.version());
+                instance.version(), instance.currentStep() != null && "PENDING".equals(instance.status())
+                        && asksForChoice(instance, instance.currentStep()));
+    }
+
+    /** Whether the pinned definition says the step at this position needs a choice with its approval (FA6G). */
+    private boolean asksForChoice(InstanceRow instance, int position) {
+        return definitions.approvalProcessVersion(instance.processVersionId())
+                .map(pinned -> pinned.process().definition().steps())
+                .filter(steps -> position >= 1 && position <= steps.size())
+                .map(steps -> steps.get(position - 1).asksForChoice()).orElse(false);
     }
 
     private ApprovalActionsView actions(Member member, InstanceRow instance, List<AssignmentRow> tasks) {

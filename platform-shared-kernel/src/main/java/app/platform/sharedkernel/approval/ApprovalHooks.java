@@ -21,7 +21,8 @@ import java.util.UUID;
  * tells the person nothing (it reaches the error tracking as a failure without the exception's message).
  *
  * <p><strong>Facts only.</strong> A hook is handed identifiers, the object, the process and its version, the step's
- * position and name, the person and the outcome. It is handed no comment and no value of the record: it reads the
+ * position and name, the person and the outcome, and, at a step that asks for one (FA6G), the codes of the choice the
+ * person sent. It is handed no comment and no value of the record: it reads the
  * record itself through the record store, and it writes only through the narrow writer of
  * {@link ApprovalHookWriter}.
  *
@@ -97,9 +98,41 @@ public interface ApprovalHooks {
      * @param stepPosition the position of the active step, from 1
      * @param stepName the name of the active step
      * @param approver the person who approves (the person holding the task, a delegate included)
+     * @param asksForChoice whether the process says this step needs a choice from the person (FA6G, ADR-0200)
+     * @param choices the choice the person sent with the approval: pairs of codes, empty when none; only meaningful
+     *        when {@code asksForChoice} is true. The engine neither reads nor judges them, never logs them, and a
+     *        hook must not either
      */
     record DecisionContext(UUID requestId, String object, UUID recordId, String process, int processVersion,
-            long requestVersion, int stepPosition, String stepName, UUID approver) {
+            long requestVersion, int stepPosition, String stepName, UUID approver, boolean asksForChoice,
+            List<Choice> choices) {
+
+        /** Copies the list. */
+        public DecisionContext {
+            choices = List.copyOf(choices);
+        }
+
+        /** A decision at a step that asks for no choice (the shape before FA6G). */
+        public DecisionContext(UUID requestId, String object, UUID recordId, String process, int processVersion,
+                long requestVersion, int stepPosition, String stepName, UUID approver) {
+            this(requestId, object, recordId, process, processVersion, requestVersion, stepPosition, stepName,
+                    approver, false, List.of());
+        }
+    }
+
+    /**
+     * One pair of a choice sent with an approval. The values are codes of the organization's own lists, so they print
+     * as redacted.
+     *
+     * @param key what the pair is about
+     * @param value the code chosen
+     */
+    record Choice(String key, String value) {
+
+        @Override
+        public String toString() {
+            return "Choice[redacted]";
+        }
     }
 
     /**

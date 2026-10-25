@@ -100,9 +100,28 @@ public abstract class TemplateSupport extends SolutionSupport {
         return "{\"key\":\"" + OBJECT + "." + field + "\",\"actions\":[\"edit\"]}";
     }
 
-    /** An approver holds the Approver policy and a licence, because a person who decides must be licensed. */
+    /**
+     * An approver who also publishes: the Approver and the Publisher policies and a licence, because a person who
+     * decides must be licensed. Most tests need one person to approve and publish; the real Approver, with no more, is
+     * {@link #plainApprover}.
+     */
     protected Person approver(Setting setting) {
+        Person person = plainApprover(setting);
+        give(setting.admin(), person.member(), policyId(setting.admin(), "Publisher"));
+        return person;
+    }
+
+    /** The Approver policy and a licence and nothing else: the person decides and cannot publish or retire. */
+    protected Person plainApprover(Setting setting) {
         Person person = holding(setting, "Approver");
+        app.platform.testsupport.TestMembers.giveLicence(setting.organization().id(), person.member().membership(),
+                "user");
+        return person;
+    }
+
+    /** The Publisher policy and a licence and nothing else: the person publishes and retires, and decides nothing. */
+    protected Person publisher(Setting setting) {
+        Person person = holding(setting, "Publisher");
         app.platform.testsupport.TestMembers.giveLicence(setting.organization().id(), person.member().membership(),
                 "user");
         return person;

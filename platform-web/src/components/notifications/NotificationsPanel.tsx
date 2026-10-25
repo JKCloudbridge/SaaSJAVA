@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
 import { ageText } from "@/lib/approvals/words";
 import { announceChange, safePath } from "@/lib/notifications/model";
 import { call } from "@/lib/records/call";
+import { ListPage } from "@/components/ui/lists/ListPage";
 
 type Notice = components["schemas"]["NotificationView"];
 
@@ -25,11 +27,14 @@ function whenText(since: string): string {
  * API's own words for a refusal.
  */
 export function NotificationsPanel() {
+  const router = useRouter();
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [notices, setNotices] = useState<Notice[] | undefined>();
   const [next, setNext] = useState<string | undefined>();
   const [failure, setFailure] = useState<string | undefined>();
   const [problem, setProblem] = useState<string | undefined>();
+  const [explanation, setExplanation] = useState<string | undefined>();
+  const [opening, setOpening] = useState(false);
 
   const load = useCallback(
     async (cursor?: string) => {
@@ -51,17 +56,24 @@ export function NotificationsPanel() {
     void Promise.resolve().then(() => load());
   }, [load]);
 
-  async function markRead(notice: Notice) {
+  async function open(notice: Notice) {
+    if (opening) return;
+    setOpening(true);
     setProblem(undefined);
     const outcome = await call(() =>
-      api.POST("/api/v1/notifications/{id}/read", { params: { path: { id: notice.id } } }),
+      api.POST("/api/v1/notifications/{id}/open", { params: { path: { id: notice.id } } }),
     );
+    setOpening(false);
     if (!outcome.ok) {
       setProblem(outcome.failure.message);
       return;
     }
     setNotices((known) => known?.map((one) => (one.id === notice.id ? { ...one, read: true } : one)));
     announceChange();
+    const target = outcome.data?.data;
+    const path = safePath(target?.href);
+    if (path && path !== "/notifications") router.push(path);
+    else setExplanation(target?.explanation ?? "This notice has no record you can open here.");
   }
 
   async function markAllRead() {
@@ -84,14 +96,23 @@ export function NotificationsPanel() {
   }
   const anyUnread = notices?.some((one) => !one.read) ?? false;
   return (
-    <section aria-labelledby="notifications-heading" className="stack" data-testid="notifications">
-      <div className="list-head">
-        <h1 id="notifications-heading">Notifications</h1>
+    <ListPage<Notice>
+      title="Notifications" items={notices} rowKey={(notice) => notice.id}
+      primaryHeader="Notice" primary={(notice) => notice.title} sortPrimary
+      primaryExtra={(notice) => notice.read ? null : <span className="badge">New</span>}
+      searchText={(notice) => `${notice.title} ${notice.body}`}
+      onOpen={(notice) => void open(notice)}
+      columns={[
+        { key: "body", header: "Details", cell: (notice) => notice.body, sort: (notice) => notice.body },
+        { key: "created", header: "Received", cell: (notice) => whenText(notice.createdAt), sort: (notice) => notice.createdAt },
+        { key: "read", header: "Read", cell: (notice) => notice.read ? "Yes" : "No", sort: (notice) => Number(notice.read) },
+      ]}
+      tools={
         <Link className="button button-secondary" href="/notifications/preferences">
           Preferences
         </Link>
-      </div>
-      <div className="filters">
+      }
+      above={<div className="filters">
         <label>
           <input type="checkbox" checked={unreadOnly} onChange={(event) => setUnreadOnly(event.target.checked)} /> Only
           the unread
@@ -99,51 +120,22 @@ export function NotificationsPanel() {
         <button type="button" className="button button-secondary" disabled={!anyUnread} onClick={() => void markAllRead()}>
           Mark all as read
         </button>
-      </div>
-      {problem ? (
+      </div>}
+      notices={<>
+        {explanation ? <p className="hint" role="status">{explanation}</p> : null}
+        {opening ? <p className="hint" role="status">Opening the notice…</p> : null}
+        {problem ? (
         <p className="form-message" role="alert" data-testid="notifications-problem">
           {problem}
         </p>
-      ) : null}
-      {notices === undefined ? <p aria-live="polite">Loading…</p> : null}
-      {notices !== undefined && notices.length === 0 ? (
-        <p className="empty-state" data-testid="notifications-empty">
-          {unreadOnly ? "Nothing unread." : "Nothing yet. When something needs you, it appears here."}
-        </p>
-      ) : null}
-      {notices !== undefined && notices.length > 0 ? (
-        <ul className="stack" aria-label="Notifications">
-          {notices.map((notice) => {
-            const path = safePath(notice.href);
-            return (
-              <li key={notice.id} className="card" data-testid="notice" data-unread={notice.read ? "false" : "true"}>
-                <p>
-                  <strong>{notice.title}</strong> {notice.read ? null : <span className="badge">New</span>}
-                </p>
-                <p>{notice.body}</p>
-                <p className="hint">{whenText(notice.createdAt)}</p>
-                <div className="filters-actions" role="group" aria-label="Notification actions">
-                  {path ? (
-                    <Link className="button button-secondary" href={path} onClick={() => void markRead(notice)}>
-                      Open
-                    </Link>
-                  ) : null}
-                  {notice.read ? null : (
-                    <button type="button" className="link-button" onClick={() => void markRead(notice)}>
-                      Mark as read
-                    </button>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
-      {next ? (
+      ) : null}</>}
+      below={next ? (
         <button type="button" className="button button-secondary" onClick={() => void load(next)}>
           Show older
         </button>
       ) : null}
-    </section>
+      emptyText={unreadOnly ? "Nothing unread." : "Nothing yet. When something needs you, it appears here."}
+      testId="notifications" rowTestId="notice"
+    />
   );
 }

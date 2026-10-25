@@ -1,4 +1,4 @@
-import { configure, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { configure, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { describePlace, placesOfSelection, type AnnotateContext } from "@/lib/sheets/annotate";
 import { sampleDoc, oneDimension } from "@/lib/sheets/fixtures";
@@ -42,9 +42,8 @@ function context(row: number, column: number, doc: GridDoc = sampleDoc(), extra:
 
 function draw(ctx = context(2, 1), view: ChangeRequestsView | undefined = VIEW) {
   const onSent = vi.fn();
-  const onShown = vi.fn();
-  const utils = render(<AnnotatePanel templateId={ID} context={ctx} view={view} show={null} onShown={onShown} onSent={onSent} />);
-  return { onSent, onShown, ...utils };
+  const utils = render(<AnnotatePanel templateId={ID} context={ctx} view={view} onSent={onSent} />);
+  return { onSent, ...utils };
 }
 
 const write = (text: string) => fireEvent.change(screen.getByRole("textbox", { name: /Your comment/ }), { target: { value: text } });
@@ -52,7 +51,7 @@ const add = () => fireEvent.click(screen.getByRole("button", { name: "Add to my 
 const title = (text: string) => fireEvent.change(screen.getByRole("textbox", { name: "What is the request about?" }), { target: { value: text } });
 const send = () => fireEvent.click(screen.getByRole("button", { name: "Send the request" }));
 
-describe("asking for a change under the grid (FA5)", () => {
+describe("the request written in the popup (FA5, FA6D)", () => {
   it("names the place the comment is about and lets the person choose another", () => {
     draw();
 
@@ -77,7 +76,7 @@ describe("asking for a change under the grid (FA5)", () => {
     expect(screen.getByRole("textbox", { name: /Column “Amount”/ })).toBeInTheDocument();
   });
 
-  it("collects comments, shows them, lets one go, and sends the rest with the version that was read", async () => {
+  it("collects comments, shows them, lets one go, and sends the rest with the revision that was read", async () => {
     const calls = fakeApi({
       [`POST ${PATH}`]: () => json({ data: { id: "x" } }, 201),
     });
@@ -132,7 +131,7 @@ describe("asking for a change under the grid (FA5)", () => {
   it("shows the API's words and the places that are wrong, and keeps the person's work", async () => {
     fakeApi({
       [`POST ${PATH}`]: () =>
-        json({ error: { code: "VALIDATION_ERROR", message: "The request is not valid.", fields: { "comments[0].place": ["That row or column is not in the version you read."] } } }, 400),
+        json({ error: { code: "VALIDATION_ERROR", message: "The request is not valid.", fields: { "comments[0].place": ["That row or column is not in the revision you read."] } } }, 400),
     });
     const { onSent } = draw();
     write("Where?");
@@ -142,7 +141,7 @@ describe("asking for a change under the grid (FA5)", () => {
     send();
 
     expect(await screen.findByText("The request is not valid.")).toBeInTheDocument();
-    expect(screen.getByText("That row or column is not in the version you read.")).toBeInTheDocument();
+    expect(screen.getByText("That row or column is not in the revision you read.")).toBeInTheDocument();
     expect(onSent).not.toHaveBeenCalled();
     expect(screen.getByTestId("drafted")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "What is the request about?" })).toHaveValue("Lost");
@@ -179,34 +178,5 @@ describe("asking for a change under the grid (FA5)", () => {
 
     expect(screen.getByTestId("annotate-unavailable")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Send the request" })).toBeNull();
-  });
-
-  it("moves to the box of the comment, standing on the cell, when Enter is pressed in the grid", async () => {
-    const first = context(2, 1, sampleDoc(), { activations: 0 });
-    const { rerender } = draw(first);
-    fireEvent.click(screen.getByRole("button", { name: "Comment on the whole template" }));
-
-    rerender(
-      <AnnotatePanel templateId={ID} context={{ ...first, activations: 1 }} view={VIEW} show={null} onShown={vi.fn()} onSent={vi.fn()} />,
-    );
-
-    const box = screen.getByRole("textbox", { name: /Your comment/ });
-    await waitFor(() => expect(box).toHaveFocus());
-    await waitFor(() => expect(box).toHaveAccessibleName("Your comment — Cell: column “Amount”, row “First”"));
-  });
-
-  it("stands the grid on a place a comment in the list asked to be shown, then says it is done", async () => {
-    const ctx = context(2, 1);
-    const onShown = vi.fn();
-    const { rerender } = render(
-      <AnnotatePanel templateId={ID} context={ctx} view={VIEW} show={null} onShown={onShown} onSent={vi.fn()} />,
-    );
-
-    rerender(
-      <AnnotatePanel templateId={ID} context={ctx} view={VIEW} show={{ rowId: "r2", columnId: null }} onShown={onShown} onSent={vi.fn()} />,
-    );
-
-    await waitFor(() => expect(onShown).toHaveBeenCalledTimes(1));
-    expect(ctx.select).toHaveBeenCalledWith({ rowId: "r2", columnId: null });
   });
 });

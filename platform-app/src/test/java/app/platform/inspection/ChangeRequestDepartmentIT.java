@@ -43,9 +43,9 @@ class ChangeRequestDepartmentIT extends ChangeRequestSupport {
     void aPersonInNoDepartmentGroupHasNone() {
         World world = world();
 
-        String request = asked(world.approver().browser(), world.template(), "From an approver", 1);
+        String request = asked(world.author().browser(), world.template(), "From an author", 1);
 
-        assertThat(department(one(world.approver().browser(), world.template(), request))).isNull();
+        assertThat(department(one(world.author().browser(), world.template(), request))).isNull();
     }
 
     @Test

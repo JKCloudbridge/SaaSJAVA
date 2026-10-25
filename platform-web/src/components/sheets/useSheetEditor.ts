@@ -17,6 +17,8 @@ import {
   setCellKind,
   setCellText,
   setFontSize,
+  setAlignment,
+  setTextColour,
   setShape,
   toggleStyle,
   unmergeAt,
@@ -26,6 +28,7 @@ import {
   type SelectionState,
 } from "@/lib/sheets/gridModel";
 import * as hist from "@/lib/sheets/history";
+import type { Alignment, TextColour } from "@/lib/sheets/types";
 import type { CellKind, DisplayRow, FontSize, GridDoc, GridLine, OpResult, Rect, RowsMode, Selection, SheetLimits } from "@/lib/sheets/types";
 
 /** The sentence under the grid: what the last action did, or why it was refused. */
@@ -117,6 +120,9 @@ export interface SheetEditor {
   paste(row: number, column: number, matrix: string[][]): void;
   bold(): void;
   italic(): void;
+  underline(): void;
+  alignment(alignment: Alignment): void;
+  colour(colour: TextColour): void;
   size(size: FontSize): void;
   kind(rowId: string, columnId: string, kind: CellKind): void;
   merge(): void;
@@ -157,6 +163,7 @@ export type SheetGridEditor = Pick<
   | "redo"
   | "bold"
   | "italic"
+  | "underline"
 >;
 
 /**
@@ -217,6 +224,9 @@ export function useSheetEditor(initial: GridDoc, limits: SheetLimits): SheetEdit
     paste: (row, column, matrix) => dispatch({ type: "paste", row, column, matrix, limits }),
     bold: () => run((d) => toggleStyle(d, keys, "bold")),
     italic: () => run((d) => toggleStyle(d, keys, "italic")),
+    underline: () => run((d) => toggleStyle(d, keys, "underline")),
+    alignment: (next) => run((d) => setAlignment(d, keys, next)),
+    colour: (next) => run((d) => setTextColour(d, keys, next)),
     size: (next) => run((d) => setFontSize(d, keys, next)),
     kind: (rowId, columnId, next) => run((d) => setCellKind(d, rowId, columnId, next)),
     merge: () => run((d) => mergeRect(d, displayRows(d), rect, limits), "Merged."),

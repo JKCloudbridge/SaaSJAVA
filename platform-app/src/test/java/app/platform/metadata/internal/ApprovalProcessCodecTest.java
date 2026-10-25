@@ -50,6 +50,20 @@ class ApprovalProcessCodecTest {
     }
 
     @Test
+    void theChoiceFlagSurvivesTheStoredFormAndReachesTheDefinitionAndAnOldVersionMeansFalse() {
+        ApprovalStepSpec asking = new ApprovalStepSpec("Second", "Second", "ANY", List.of(
+                new app.platformapi.ApprovalApproverSpec("OWNER", null)), false, true);
+
+        List<ApprovalStepSpec> read = codec.readSteps(codec.writeSteps(List.of(asking)));
+
+        assertThat(read.get(0).asksForChoice()).isTrue();
+        assertThat(read.get(0).skipWhenNobody()).isFalse();
+        assertThat(ApprovalProcessCodec.step(read.get(0)).asksForChoice()).isTrue();
+        assertThat(codec.readSteps(BEFORE_THE_FLAG).get(0).asksForChoice()).isFalse();
+        assertThat(new ApprovalStepSpec("S", "S", "ANY", List.of(), null, null).asksForChoice()).isFalse();
+    }
+
+    @Test
     void aMissingOrNullFlagInARequestMeansFalse() {
         assertThat(new ApprovalStepSpec("S", "S", "ANY", List.of(), null).skipWhenNobody()).isFalse();
         assertThat(new ApprovalStepSpec("S", "S", "ANY", List.of(), false).skipWhenNobody()).isFalse();

@@ -60,25 +60,28 @@ public final class ChangeRequestViews {
      * @param mine whether the caller asked
      * @param createdAt when it was made
      * @param answeredAt when it was last answered, or null while it is open
-     * @param decisionNote the reason it was declined, or null
      * @param resultingVersion the version it was turned into, or null
      * @param resultingVersionStatus the status of that version now, or null
      * @param placesTotal how many places its comments point at (a comment on the whole template points at none)
      * @param placesInActive how many of those places are still in the version in use
      * @param canComment whether the caller may add a comment now
-     * @param canAccept whether the caller may accept it now
-     * @param canDecline whether the caller may decline it now
      * @param canTurn whether the caller may turn it into a new version now
      * @param canReopen whether the caller may reopen it (its version was not used)
      * @param comments its comments, oldest first
+     * @param templateId the template it is about
+     * @param templateName the template's name, or null when the caller may not read it
+     * @param templateNumber the template's number, or null when it has none or the caller may not read it
+     * @param reviewId the record the approval engine reviews for this request (the address of its approval panel), or
+     *        null for a request made before every request had an approval (FA6E, ADR-0199)
      */
     public record ChangeRequestView(@NotNull UUID id, @NotNull String title, @NotNull String status,
             @NotNull Integer versionNo, String requesterName, String requesterDepartment, @NotNull Boolean mine,
             @NotNull Instant createdAt,
-            Instant answeredAt, String decisionNote, Integer resultingVersion, String resultingVersionStatus,
+            Instant answeredAt, Integer resultingVersion, String resultingVersionStatus,
             @NotNull Integer placesTotal, @NotNull Integer placesInActive, @NotNull Boolean canComment,
-            @NotNull Boolean canAccept, @NotNull Boolean canDecline, @NotNull Boolean canTurn,
-            @NotNull Boolean canReopen, @NotNull List<ChangeCommentView> comments) {
+            @NotNull Boolean canTurn,
+            @NotNull Boolean canReopen, @NotNull List<ChangeCommentView> comments, @NotNull UUID templateId,
+            String templateName, String templateNumber, UUID reviewId) {
 
         /** Prints a marker only: the text in it is the organization's and never reaches a log. */
         @Override
@@ -102,6 +105,66 @@ public final class ChangeRequestViews {
     public record ChangeRequestsView(@NotNull List<ChangeRequestView> requests, @NotNull Boolean canReview,
             @NotNull Boolean canRequest, @NotNull Integer activeVersion, @NotNull Integer draftVersion,
             @NotNull Integer openCount) {
+    }
+
+    /**
+     * One request in the list across templates (FA6E, ADR-0199): what the person needs to know what it is about and to
+     * open it, without its comments.
+     *
+     * @param id its identifier
+     * @param templateId the template it is about
+     * @param templateName the template's name, or null when the caller may not read it
+     * @param templateNumber the template's number, or null
+     * @param title what the request is called
+     * @param status {@code OPEN}, {@code ACCEPTED}, {@code DECLINED} or {@code DONE}
+     * @param versionNo the version the person read
+     * @param requesterName who asked, or null for a person who has left
+     * @param requesterDepartment the department of the person when they asked, or null
+     * @param mine whether the caller asked
+     * @param createdAt when it was made
+     */
+    public record ChangeRequestRow(@NotNull UUID id, @NotNull UUID templateId, String templateName,
+            String templateNumber, @NotNull String title, @NotNull String status, @NotNull Integer versionNo,
+            String requesterName, String requesterDepartment, @NotNull Boolean mine, @NotNull Instant createdAt) {
+
+        /** Prints a marker only: the text in it is the organization's and never reaches a log. */
+        @Override
+        public String toString() {
+            return "ChangeRequestRow[redacted]";
+        }
+    }
+
+    /**
+     * One page of the list across templates, paged by the key of the last row seen.
+     *
+     * @param rows the requests the caller may see
+     * @param nextCursor the cursor of the next page of the same question, or null at the end; a page may be short and
+     *        still have a cursor, because requests the caller may not see are skipped
+     */
+    public record ChangeRequestPage(@NotNull List<ChangeRequestRow> rows, String nextCursor) {
+    }
+
+    /**
+     * The question the list across templates is asked.
+     *
+     * @param search a text matched against the title and the requester's name
+     * @param sort {@code date} (the default), {@code version} or {@code status}
+     * @param descending whether to order from the highest; null is newest first for date, ascending otherwise
+     * @param templateId only the requests about this template, or null
+     * @param status only this status, or null
+     * @param size the page size, at most 200; null is 50
+     * @param cursor the cursor of the previous page of the same question, or null
+     */
+    public record ChangeRequestQuery(@Size(max = 80) String search,
+            @Pattern(regexp = "date|version|status") String sort, Boolean descending, UUID templateId,
+            @Pattern(regexp = "OPEN|ACCEPTED|DECLINED|DONE") String status, Integer size,
+            @Size(max = 600) String cursor) {
+
+        /** Prints a marker only: a typed text is in it. */
+        @Override
+        public String toString() {
+            return "ChangeRequestQuery[redacted]";
+        }
     }
 
     /**
@@ -135,22 +198,6 @@ public final class ChangeRequestViews {
         @Override
         public String toString() {
             return "CreateChangeRequest[redacted]";
-        }
-    }
-
-    /**
-     * An answer to a request.
-     *
-     * @param action {@code ACCEPT}, {@code DECLINE} (a reason is needed) or {@code REOPEN}
-     * @param note the reason for declining
-     */
-    public record AnswerChangeRequest(@NotNull @Pattern(regexp = "ACCEPT|DECLINE|REOPEN") String action,
-            @Size(max = 4000) String note) {
-
-        /** Prints a marker only: the text in it is the organization's and never reaches a log. */
-        @Override
-        public String toString() {
-            return "AnswerChangeRequest[redacted]";
         }
     }
 

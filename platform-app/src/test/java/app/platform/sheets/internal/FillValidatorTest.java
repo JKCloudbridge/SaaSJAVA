@@ -59,6 +59,73 @@ class FillValidatorTest {
         return grid;
     }
 
+    @Test
+    void formattingIsCanonicalAndOldDocumentsKeepTheirBytes() {
+        String old = check(named(), doc(row("r1", "\"c1\":\"value\""))).checked().canonical();
+        assertThat(FillValidator.write(VALIDATOR.read(old))).isEqualTo(old);
+        String styled = """
+                {"formatVersion":2,"rows":[{"id":"r1","cells":{"c1":"value"},
+                "styles":{"c1":{"italic":false,"fontSize":"LARGE","bold":true}}}]}
+                """;
+        var result = check(named(), styled);
+        assertThat(result.problems()).isEmpty();
+        assertThat(result.checked().canonical()).contains("\"bold\":true,\"fontSize\":\"LARGE\",\"italic\":false");
+        assertThat(FillValidator.write(VALIDATOR.read(result.checked().canonical())))
+                .isEqualTo(result.checked().canonical());
+        assertThat(result.checked().hash()).isNotEqualTo(check(named(), old).checked().hash());
+    }
+
+    @Test
+    void stylesAreClosedInputOnlyAndDoNotSatisfyARequiredValue() {
+        var grid = named();
+        GridDocs.list(grid, "columns").getFirst().put("required", true);
+        String styled = """
+                {"formatVersion":2,"rows":[{"id":"r1","cells":{},"styles":{"c1":{"bold":true}}}]}
+                """;
+        var result = check(grid, styled);
+        assertThat(result.problems()).isEmpty();
+        assertThat(VALIDATOR.completeness(structure(grid), result.checked().doc())).isNotEmpty();
+        assertThat(check(grid, styled.replace("\"bold\":true", "\"colour\":\"" + SECRET + "\""))
+                .problems()).allSatisfy(problem -> assertThat(problem.message()).doesNotContain(SECRET));
+        assertThat(codes(check(grid, styled.replace("\"bold\":true", "\"bold\":\"yes\""))))
+                .containsExactly("style_shape");
+        GridDocs.cells(grid).put("r1:c1", GridDocs.map("kind", "fixed", "value", "Fixed"));
+        assertThat(codes(check(grid, styled))).containsExactly("style_not_input");
+        assertThat(codes(check(named(), styled.replace("\"c1\":{\"bold\"", "\"unknown\":{\"bold\""))))
+                .containsExactly("style_not_input");
+    }
+
+    @Test
+    void underlineAlignmentAndThemeColourRoundTripIncludingExplicitDefaults() {
+        for (String alignment : List.of("LEFT", "CENTER", "RIGHT")) {
+            for (String colour : List.of("DEFAULT", "ACCENT", "SUCCESS", "DANGER")) {
+                String body = "{\"formatVersion\":2,\"rows\":[{\"id\":\"r1\",\"cells\":{},"
+                        + "\"styles\":{\"c1\":{\"underline\":false,\"alignment\":\"" + alignment
+                        + "\",\"colour\":\"" + colour + "\"}}}]}";
+                var result = check(named(), body);
+                assertThat(result.problems()).isEmpty();
+                assertThat(FillValidator.write(VALIDATOR.read(result.checked().canonical())))
+                        .isEqualTo(result.checked().canonical());
+                assertThat(result.checked().canonical()).contains("\"underline\":false",
+                        "\"alignment\":\"" + alignment + "\"", "\"colour\":\"" + colour + "\"");
+                assertThat(codes(check(named(), body.replace(colour, "url(secret-style)"))))
+                        .containsExactly("style_shape");
+            }
+        }
+    }
+
+    @Test
+    void styledDocumentsUseTheSameRawSizeDepthAndDuplicateKeyGuards() {
+        var small = new FillValidator(new FillProperties(1000, 1000, 6), LIMITS);
+        var tooLarge = small.check(("{\"formatVersion\":2,\"rows\":[],\"styles\":\"" + "x".repeat(1000) + "\"}")
+                .getBytes(StandardCharsets.UTF_8), structure(named()));
+        assertThat(codes(tooLarge)).containsExactly("too_large");
+        assertThat(codes(check(named(), "{\"formatVersion\":2,\"rows\":[],\"rows\":[]}")))
+                .containsExactly("not_json");
+        assertThat(codes(check(named(), "{\"formatVersion\":2,\"rows\":[[[[[[[[]]]]]]]]}")))
+                .containsExactly("too_deep");
+    }
+
     // ---- what is accepted ----
 
     @Test
@@ -249,7 +316,7 @@ class FillValidatorTest {
     @Test
     void anUnknownPartAndAnotherFormatAreRefused() {
         assertThat(codes(check(named(), "{\"formatVersion\":1,\"rows\":[],\"extra\":1}"))).containsExactly("shape");
-        assertThat(codes(check(named(), "{\"formatVersion\":2,\"rows\":[]}"))).containsExactly("format");
+        assertThat(codes(check(named(), "{\"formatVersion\":3,\"rows\":[]}"))).containsExactly("format");
         assertThat(codes(check(named(), "{\"rows\":[]}"))).containsExactly("format");
         assertThat(codes(check(named(), "{\"formatVersion\":1}"))).containsExactly("shape");
         assertThat(codes(check(named(), "[]"))).containsExactly("shape");

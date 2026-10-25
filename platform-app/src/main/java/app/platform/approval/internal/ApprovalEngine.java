@@ -36,7 +36,10 @@ import app.platform.sharedkernel.approval.ApprovalApplicability;
 import app.platform.sharedkernel.approval.ApprovalHookRefusal;
 import app.platform.sharedkernel.approval.ApprovalHooks.SubmitContext;
 import app.platform.sharedkernel.approval.ApprovalOutcome;
+import app.platform.sharedkernel.approval.ApprovalStartRefusal;
+import app.platform.sharedkernel.approval.ApprovalStarter;
 import app.platformapi.ApiException;
+import app.platformapi.ApprovalDecisionRequest;
 import app.platformapi.ErrorCode;
 import java.time.Clock;
 import java.time.Instant;
@@ -72,7 +75,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 @Transactional
-class ApprovalEngine implements Approvals, ApprovalApplicability {
+class ApprovalEngine implements Approvals, ApprovalApplicability, ApprovalStarter {
 
     static final String FEATURE = "approvals";
 
@@ -135,6 +138,36 @@ class ApprovalEngine implements Approvals, ApprovalApplicability {
         }
         return definitions.approvalProcesses(objectApiName).stream()
                 .anyMatch(process -> judge(process, record) != ConditionOutcome.FALSE);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean available(String objectApiName) {
+        return entitlements.enabled(FEATURE) && !definitions.approvalProcesses(objectApiName).isEmpty();
+    }
+
+    /** A module that owns the object starts the review of a record for a person (FA6E, ADR-0199). */
+    @Override
+    public UUID startForPerson(String objectApiName, UUID recordId, UUID submitter) {
+        if (!entitlements.enabled(FEATURE)) {
+            throw new ApprovalStartRefusal("feature_off", words(Reason.FEATURE_OFF));
+        }
+        DataRecord record = records.findAndHold(objectApiName, recordId).filter(found -> !found.deleted())
+                .orElseThrow(() -> new ApprovalStartRefusal("record_gone", words(Reason.RECORD_GONE)));
+        List<CompiledApprovalProcess> fitting = definitions.approvalProcesses(objectApiName).stream()
+                .filter(process -> judge(process, record) == ConditionOutcome.TRUE).toList();
+        if (fitting.size() != 1) {
+            throw new ApprovalStartRefusal(fitting.isEmpty() ? "no_process" : "several_processes",
+                    fitting.isEmpty() ? "No approval process applies to this request."
+                            : "More than one approval process applies to this request. Ask your administrator.");
+        }
+        try {
+            return begin(submitter, record, fitting.get(0), null, null).id();
+        } catch (ApprovalStartException refused) {
+            throw new ApprovalStartRefusal(refused.reason().key(), words(refused.reason()));
+        } catch (ApprovalHookRefusal refusal) {
+            throw new ApprovalStartRefusal(refusal.reason(), refusal.words());
+        }
     }
 
     /** A member submits a record. */
@@ -387,8 +420,9 @@ class ApprovalEngine implements Approvals, ApprovalApplicability {
     // ---- deciding ----
 
     /** A person approves their task. */
-    InstanceRow approve(Member member, UUID id, long version, String comment) {
-        return decide(member, id, version, comment(comment), true);
+    InstanceRow approve(Member member, UUID id, long version, String comment,
+            List<ApprovalDecisionRequest.DecisionChoice> choices) {
+        return decide(member, id, version, comment(comment), true, choices);
     }
 
     /** A person rejects their task; the comment is required. */
@@ -397,10 +431,11 @@ class ApprovalEngine implements Approvals, ApprovalApplicability {
         if (note == null) {
             throw ApiException.validation("comment", "Say why you reject it.");
         }
-        return decide(member, id, version, note, false);
+        return decide(member, id, version, note, false, List.of());
     }
 
-    private InstanceRow decide(Member member, UUID id, long version, String note, boolean approve) {
+    private InstanceRow decide(Member member, UUID id, long version, String note, boolean approve,
+            List<ApprovalDecisionRequest.DecisionChoice> choices) {
         InstanceRow instance = hold(id);
         List<AssignmentRow> tasks = store.assignmentsOf(id);
         List<AssignmentRow> mine = tasks.stream().filter(task -> task.assigneeId().equals(member.userId())).toList();
@@ -424,7 +459,9 @@ class ApprovalEngine implements Approvals, ApprovalApplicability {
         if (approve) {
             // After the person's standing, task and the machine's answer, before anything is written (ADR-0187).
             try {
-                hooks.beforeApprove(instance, step, member.userId());
+                boolean asks = pinned(instance).process().definition().steps().get(step.position() - 1)
+                        .asksForChoice();
+                hooks.beforeApprove(instance, step, member.userId(), asks, choices);
             } catch (ApprovalHookRefusal refusal) {
                 throw new ApiException(ErrorCode.CONFLICT, refusal.words());
             }

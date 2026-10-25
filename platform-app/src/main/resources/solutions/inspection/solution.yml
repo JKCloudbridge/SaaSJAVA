@@ -6,7 +6,8 @@
 # shipped (so an administrator can assign them but not change them), the way the system profiles are made.
 #
 # The rights of the policies (FA4, ADR-0189): the rights on the objects and the abilities that go with each job. Authoring
-# is the ordinary right to change a template; passing the lock of an approval, publishing and retiring are abilities
+# is the ordinary right to change a template; passing the lock of an approval is an ability of the Approver, and publishing
+# and retiring are abilities of the Publisher, a policy apart so that an administrator decides which group has the last word
 # (a template is never given a delete right: its records are kept). Licence, access policy and plan feature stay three
 # mechanisms: these policies are not bound to a licence, and the plan feature decides whether any of this exists.
 key: inspection
@@ -30,6 +31,10 @@ application:
       pageKey: fill-ins
       readsObject: InspectionFill
     - type: PLATFORM
+      label: Change requests
+      pageKey: change-requests
+      readsObject: InspectionChangeRequest
+    - type: PLATFORM
       label: Report
       pageKey: fill-in-report
       readsObject: InspectionFill
@@ -38,6 +43,7 @@ application:
 objects:
   - InspectionTemplate
   - InspectionFill
+  - InspectionChangeRequest
   - DepartmentGroup
 # The records of these objects own a sheet: the grid of the template, kept in versions (FA3, ADR-0186).
 sheetOwners:
@@ -48,50 +54,72 @@ accessPolicies:
     description: Writes templates and sends them for approval. Comes with the Audit maintenance application and cannot be changed.
     objects:
       InspectionTemplate: [create, read, update]
+      InspectionChangeRequest: [read]
     fields:
       InspectionTemplate:
         edit: [name, level, documentType]
-        read: [category, subCategory, partCode, planYear, number, retired, createdAt, updatedAt, ownerId,
+        read: [id, category, subCategory, partCode, planYear, number, retired, createdAt, updatedAt, ownerId,
                 createdById, updatedById]
+      InspectionChangeRequest:
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: approver
     name: Approver
-    description: Sees every template, changes one that is in review, publishes and retires. Comes with the Audit maintenance application and cannot be changed.
+    description: Sees every template and change request, and changes a template that is in review. Does not publish or retire; that is the Publisher policy. Comes with the Audit maintenance application and cannot be changed.
     objects:
       InspectionTemplate: [read, update, view-all, modify-all]
       InspectionFill: [read, update, view-all, modify-all]
+      InspectionChangeRequest: [read, update, view-all, modify-all]
     abilities:
       - approvals.override-lock
-      - sheets.publish
-      - sheets.retire
       - field-values.add
     fields:
       InspectionTemplate:
         edit: [name, level, documentType, category, subCategory, partCode, planYear]
-        read: [number, retired, createdAt, updatedAt, ownerId, createdById, updatedById]
+        read: [id, number, retired, createdAt, updatedAt, ownerId, createdById, updatedById]
       InspectionFill:
         read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+      InspectionChangeRequest:
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+  - key: publisher
+    name: Publisher
+    description: Publishes an approved template to departments, takes it back and retires it. Give it to the group that has the last word, for example Corporate QMS, or to Plant QMS in a flow with no Corporate step. Comes with the Audit maintenance application and cannot be changed.
+    objects:
+      InspectionTemplate: [read, view-all]
+    abilities:
+      - sheets.publish
+      - sheets.retire
+    fields:
+      InspectionTemplate:
+        read: [id, name, number, level, documentType, category, subCategory, partCode, planYear, retired, createdAt, updatedAt, ownerId,
+                createdById, updatedById]
   - key: reader
     name: Reader
     description: Reads the templates published to them. Comes with the Audit maintenance application and cannot be changed.
     objects:
       InspectionTemplate: [read]
+      InspectionChangeRequest: [read]
     fields:
       InspectionTemplate:
-        read: [name, number, level, documentType, category, subCategory, partCode, planYear, retired, createdAt, updatedAt, ownerId,
+        read: [id, name, number, level, documentType, category, subCategory, partCode, planYear, retired, createdAt, updatedAt, ownerId,
                 createdById, updatedById]
+      InspectionChangeRequest:
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: filler
     name: Filler
     description: Fills in published templates. Comes with the Audit maintenance application and cannot be changed.
     objects:
       InspectionTemplate: [read]
       InspectionFill: [read, update]
+      InspectionChangeRequest: [read]
     abilities:
       - sheets.fill
     fields:
       InspectionTemplate:
-        read: [name, number, level, documentType, category, subCategory, partCode, planYear, retired, createdAt, updatedAt, ownerId,
+        read: [id, name, number, level, documentType, category, subCategory, partCode, planYear, retired, createdAt, updatedAt, ownerId,
                 createdById, updatedById]
       InspectionFill:
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+      InspectionChangeRequest:
         read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: reviewer
     name: Reviewer

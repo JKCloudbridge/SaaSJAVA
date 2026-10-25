@@ -60,7 +60,10 @@ describe("the bell", () => {
 
     memberApi(() => json({ data: { unread: 250 } }));
     renderBell();
-    expect(await screen.findByTestId("notification-count")).toHaveTextContent("99+");
+    const count = await screen.findByTestId("notification-count");
+    expect(count).toHaveTextContent("99+");
+    expect(count).toHaveClass("bell-count");
+    expect(count.parentElement).toBe(screen.getByTestId("notification-bell"));
   });
 
   it("shows the bell with no number and no error when it cannot ask", async () => {

@@ -156,6 +156,11 @@ class TemplateApprovalHooksTest {
         }
 
         @Override
+        public Map<Integer, UUID> reviewRequests(String ownerObject, UUID ownerId) {
+            return Map.of();
+        }
+
+        @Override
         public Optional<SheetStatus> statusOf(String ownerObject, UUID ownerId, int versionNo) {
             throw new UnsupportedOperationException();
         }
@@ -183,7 +188,10 @@ class TemplateApprovalHooksTest {
     }
 
     private static TemplateApprovalHooks hooks(Fakes fakes) {
-        return new TemplateApprovalHooks(fakes, fakes, fakes);
+        var assignments = org.mockito.Mockito.mock(app.platform.data.NumberAssignments.class);
+        org.mockito.Mockito.when(assignments.fixed(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
+        return new TemplateApprovalHooks(fakes, fakes, fakes, assignments, null);
     }
 
     private static Fakes withTemplate() {
@@ -267,7 +275,7 @@ class TemplateApprovalHooksTest {
 
         assertThat(refused.reason()).isEqualTo("category_needed");
         assertThat(refused.words())
-                .isEqualTo("Choose the identity category and sub-category (Edit), then approve again.");
+                .isEqualTo("Choose the identity category (Edit), then approve again.");
         assertThat(fakes.calls).isEmpty();
         fakes.fields.put("category", "WI");
         hooks(fakes).beforeApprove(decision(), fakes);

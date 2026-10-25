@@ -267,7 +267,7 @@ describe("what the grid draws", () => {
     expect(doc.cells["r1:c2"]).toEqual({ value: "5", kind: "input" });
     expect(doc.cells["add:c1"]).toEqual({ value: "mine", kind: "input" });
     expect(doc.cells["r1:c1"]).toEqual({ value: "Fire exit" });
-    expect(doc.cells["r3:c2"]).toBeUndefined();
+    expect(doc.cells["r3:c2"]).toEqual({ value: undefined, kind: "input" });
     expect(doc.cells["h1:c1"]).toBeDefined();
   });
 

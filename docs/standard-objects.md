@@ -149,6 +149,20 @@ A set of people that access policies and shares can name.
 |----------|-------|------|----------|--------|---------|
 | `name` | Group name | TEXT | yes | yes | up to 80 characters |
 
+## InspectionChangeRequest
+
+The record that sends a change request of the Audit maintenance application through its approval. Its records are kept for good.
+
+- Label: Change request / Change requests
+- Records managed by: the organization (ordinary data)
+- Own fields: no
+
+| API name | Label | Type | Required | Unique | Details |
+|----------|-------|------|----------|--------|---------|
+| `name` | Change request name | TEXT |  |  | up to 160 characters; written by the platform only |
+| `templateId` | Template | TEXT |  |  | up to 36 characters; written by the platform only |
+| `status` | Status | TEXT |  |  | up to 20 characters; written by the platform only |
+
 ## InspectionFill
 
 A fill-in of a template of the Audit maintenance application. Its records are kept for good.

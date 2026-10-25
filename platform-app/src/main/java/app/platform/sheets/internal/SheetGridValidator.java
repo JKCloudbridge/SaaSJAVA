@@ -411,7 +411,7 @@ final class SheetGridValidator {
                 }
                 if (!fixed && cell.style() != null && !cell.style().isPlain()) {
                     out.add(new Problem("style_on_input", place,
-                            "Only fixed text can be bold, italic or a size. Type the text first."));
+                            "Only fixed text can be formatted. Type the text first."));
                 }
             }
             return out;

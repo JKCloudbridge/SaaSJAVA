@@ -3,6 +3,7 @@
 import type { VersionSummary } from "@/lib/sheets/api";
 import { statusTag } from "@/lib/sheets/tags";
 import { Tag, type TagTone } from "@/components/ui/lists/Tag";
+import { revisionWords } from "@/lib/sheets/revision";
 
 const TONES: Record<ReturnType<typeof statusTag>["tone"], TagTone> = {
   active: "ok",
@@ -36,13 +37,13 @@ export interface VersionListProps {
  */
 export function VersionList({ versions, current, onOpen, onStartFrom }: VersionListProps) {
   if (versions.length === 0) {
-    return <p className="hint">There is no version yet.</p>;
+    return <p className="hint">There is no revision yet.</p>;
   }
   return (
-    <table className="table" aria-label="Versions">
+    <table className="table" aria-label="Revisions">
       <thead>
         <tr>
-          <th scope="col">Version</th>
+          <th scope="col">Revision</th>
           <th scope="col">Status</th>
           <th scope="col">Size</th>
           <th scope="col">Last changed</th>
@@ -66,7 +67,7 @@ export function VersionList({ versions, current, onOpen, onStartFrom }: VersionL
                 }
               }}
             >
-              <th scope="row">Version {version.versionNo}</th>
+              <th scope="row">{revisionWords(version.versionNo)}</th>
               <td>
                 <Tag tone={TONES[tag.tone]}>{tag.text}</Tag>
               </td>
@@ -77,11 +78,13 @@ export function VersionList({ versions, current, onOpen, onStartFrom }: VersionL
               <td>{version.updatedBy ? version.updatedBy : <span aria-label="Nobody to name">—</span>}</td>
               <td>
                 <button type="button" className="link-button" onClick={() => onOpen(version.versionNo)}>
-                  {version.versionNo === current ? `Version ${version.versionNo} is open` : `Open version ${version.versionNo}`}
+                  {version.versionNo === current
+                    ? `${revisionWords(version.versionNo)} is open`
+                    : `Open ${revisionWords(version.versionNo).toLowerCase()}`}
                 </button>
                 {onStartFrom ? (
                   <button type="button" className="link-button" onClick={() => onStartFrom(version.versionNo)}>
-                    New version from version {version.versionNo}
+                    New revision from {revisionWords(version.versionNo).toLowerCase()}
                   </button>
                 ) : null}
               </td>

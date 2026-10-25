@@ -11,9 +11,11 @@ import app.platform.sharedkernel.approval.ApprovalHooks.DecisionContext;
 import app.platform.sharedkernel.approval.ApprovalHooks.EndContext;
 import app.platform.sharedkernel.approval.ApprovalHooks.SubmitContext;
 import app.platform.sharedkernel.approval.ApprovalOutcome;
+import app.platformapi.ApprovalDecisionRequest;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -96,6 +98,16 @@ class ApprovalHookCalls {
      * @throws ApprovalHookRefusal when the hook refuses
      */
     void beforeApprove(InstanceRow instance, StepRow step, UUID approver) {
+        beforeApprove(instance, step, approver, false, List.of());
+    }
+
+    /**
+     * A person is about to approve a step; when the step asks for a choice the hook is handed what was sent.
+     *
+     * @throws ApprovalHookRefusal when the hook refuses
+     */
+    void beforeApprove(InstanceRow instance, StepRow step, UUID approver, boolean asksForChoice,
+            List<ApprovalDecisionRequest.DecisionChoice> choices) {
         Optional<ApprovalHooks> hook = registry.of(instance.objectApiName());
         if (hook.isEmpty()) {
             return;
@@ -106,7 +118,9 @@ class ApprovalHookCalls {
                 instance.recordId(), hook.get().writes());
         DecisionContext context = new DecisionContext(instance.id(), instance.objectApiName(), instance.recordId(),
                 instance.processApiName(), instance.processVersionNumber(), instance.version(), step.position(),
-                step.name(), approver);
+                step.name(), approver, asksForChoice, asksForChoice
+                        ? choices.stream().map(one -> new ApprovalHooks.Choice(one.key(), one.value())).toList()
+                        : List.of());
         try {
             call(BEFORE_APPROVE, instance.objectApiName(), instance.recordId(), instance.id(),
                     instance.processApiName(), approver, true, () -> hook.get().beforeApprove(context, writer));

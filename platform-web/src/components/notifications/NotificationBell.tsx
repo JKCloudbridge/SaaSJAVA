@@ -59,7 +59,7 @@ export function NotificationBell() {
     >
       <Icon name="bell" className="nav-icon" />
       {badge === "" ? null : (
-        <span className="badge" data-testid="notification-count">
+        <span className="badge bell-count" data-testid="notification-count">
           {badge}
         </span>
       )}

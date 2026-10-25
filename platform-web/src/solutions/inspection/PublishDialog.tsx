@@ -9,6 +9,7 @@ import {
   type AudiencePick,
   type TemplateLifecycleView,
 } from "./api";
+import { revisionWords } from "@/lib/sheets/revision";
 
 type Options = { status: "loading" } | { status: "ready"; options: AudienceOptions } | { status: "failed"; message: string };
 
@@ -18,7 +19,10 @@ type Options = { status: "loading" } | { status: "ready"; options: AudienceOptio
  * location and tick again if needed, and publish. The
  * people of each department are a group an administrator keeps; the server finds the group, so this dialog names none.
  *
- * <p>It shows the audience the template already has and keeps it unless the approver changes it. It offers every department
+ * <p>When a step of the review suggested where the template is meant to be published (FA6G, ADR-0200) the dialog starts from
+ * that suggestion, which the person may change: the departments suggested are listed ready, and a location suggested
+ * without a department is already chosen, waiting for its departments. A suggestion shares nothing; only Publish does.
+ * Otherwise it shows the audience the template already has and keeps it unless the approver changes it. It offers every department
  * of the organization's list, marking those without a group, because the server is the one that says "no group is set up
  * for this department yet" in its own words; a refusal names the pair it is about. Nothing here decides a permission.
  */
@@ -38,13 +42,25 @@ export function PublishDialog({
 }) {
   const heading = useId();
   const [options, setOptions] = useState<Options>({ status: "loading" });
+  const suggested = lifecycle.suggestedAudience;
   const [chosen, setChosen] = useState<AudiencePick[]>(() =>
-    lifecycle.audience.map((audience) => ({ location: audience.location, department: audience.department })),
+    suggested.length > 0
+      ? suggested.flatMap((place) =>
+          place.department ? [{ location: place.location, department: place.department }] : [],
+        )
+      : lifecycle.audience.map((audience) => ({ location: audience.location, department: audience.department })),
   );
-  const [location, setLocation] = useState("");
+  // The first suggested location is chosen already, so its suggested departments show ticked and the person only has to
+  // add what is missing (a location suggested alone waits for its departments).
+  const [location, setLocation] = useState(
+    () => (suggested.find((place) => !place.department) ?? suggested[0])?.location ?? "",
+  );
   const [ticks, setTicks] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<ApiFailure | undefined>();
+  // The two options of the sheet (FA7): both start unticked on a template that never had them set.
+  const [viewOnly, setViewOnly] = useState(lifecycle.viewOnly);
+  const [allowDownload, setAllowDownload] = useState(lifecycle.allowDownload);
 
   useEffect(() => {
     let live = true;
@@ -94,7 +110,7 @@ export function PublishDialog({
   const submit = async () => {
     setBusy(true);
     setRefusal(undefined);
-    const outcome = await publishTemplate(templateId, { versionNo, audiences: chosen });
+    const outcome = await publishTemplate(templateId, { versionNo, audiences: chosen, viewOnly, allowDownload });
     setBusy(false);
     if (outcome.ok) {
       onDone(outcome.data);
@@ -120,10 +136,24 @@ export function PublishDialog({
       {inModal ? null : <h3 id={heading}>Publish this template</h3>}
       <p>
         {changesVersion
-          ? `Version ${versionNo} becomes the one in use and replaces ${numbers.activeVersion > 0 ? `version ${numbers.activeVersion}` : "nothing yet"}.`
-          : `Version ${versionNo} stays in use. Only who it is published to changes.`}{" "}
+          ? `${revisionWords(versionNo)} becomes the one in use and replaces ${numbers.activeVersion > 0 ? revisionWords(numbers.activeVersion).toLowerCase() : "nothing yet"}.`
+          : `${revisionWords(versionNo)} stays in use. Only who it is published to changes.`}{" "}
         The people of the departments you choose will see it in the Templates list, and nobody else will.
       </p>
+
+      {suggested.length > 0 ? (
+        <p className="hint" data-testid="publish-suggested">
+          Filled in from the places suggested when this template was approved. Change them if they are not right; nobody
+          sees the template until you publish.
+        </p>
+      ) : null}
+      {lifecycle.suggestionDropped > 0 ? (
+        <p className="hint" data-testid="publish-suggestion-dropped">
+          {lifecycle.suggestionDropped === 1
+            ? "One suggested place is no longer offered and was left out."
+            : `${lifecycle.suggestionDropped} suggested places are no longer offered and were left out.`}
+        </p>
+      ) : null}
 
       {options.status === "loading" ? (
         <p role="status" className="hint">
@@ -203,6 +233,20 @@ export function PublishDialog({
           )}
         </>
       ) : null}
+
+      <div className="sheet-options-row" role="group" aria-label="Sheet options" data-testid="publish-sheet-options">
+        <label>
+          <input type="checkbox" checked={viewOnly} onChange={(event) => setViewOnly(event.target.checked)} /> View only
+        </label>
+        <label>
+          <input type="checkbox" checked={allowDownload} onChange={(event) => setAllowDownload(event.target.checked)} /> Allow
+          download
+        </label>
+      </div>
+      <p className="hint">
+        View only: the template is a reference and nobody can start a fill-in from it. Allow download: everybody who can read
+        the template can download its sheet as an Excel file. You can change both later from Sheet options.
+      </p>
 
       {refusal ? (
         <div role="alert" className="form-message" data-testid="publish-refused">

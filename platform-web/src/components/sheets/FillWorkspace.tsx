@@ -2,8 +2,8 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { fromApi } from "@/lib/sheets/adapter";
-import { saveFillCells, useFill, type FillOwner, type FillSummary, type FillView } from "@/lib/sheets/fillApi";
-import { explainFillPlace, fromApiFill, problemsByCell } from "@/lib/sheets/fillModel";
+import { getFill, useFill, type FillOwner, type FillSummary, type FillView } from "@/lib/sheets/fillApi";
+import { explainFillPlace, fromApiFill, problemsByCell, reapplyFill } from "@/lib/sheets/fillModel";
 import { fillStatusTag, fillStatusWords, versionWords } from "@/lib/sheets/fillTags";
 import type { FillDoc } from "@/lib/sheets/fillTypes";
 import { problemsFromFields } from "@/lib/sheets/hints";
@@ -12,6 +12,10 @@ import { FillForm } from "./FillForm";
 import { SheetGrid } from "./SheetGrid";
 import { useFillEditor } from "./useFillEditor";
 import { useNarrowScreen } from "./useNarrowScreen";
+import { FillToolbar } from "./FillToolbar";
+import { useFillAutosave } from "./useFillAutosave";
+import { useSaveBeforeLeave } from "./useSaveBeforeLeave";
+import { revisionWords } from "@/lib/sheets/revision";
 
 export interface FillWorkspaceProps {
   /** The header record the fill-in belongs to. */
@@ -34,8 +38,9 @@ export interface FillWorkspaceProps {
    * when they cannot be; then the page's call runs and answers with words to show, and whether it worked.
    */
   submit?(): Promise<{ ok: boolean; message?: string }>;
-  /** The page's Cancel: leaves without sending. Unsaved changes are never dropped silently (it asks to be pressed twice). */
+  /** Cancel saves a draft before leaving. A refusal requires an explicit second click to discard. */
   onCancel?(): void;
+  registerLeave?(leave: (next: () => void) => Promise<void>): void;
 }
 
 /**
@@ -56,6 +61,7 @@ export function FillWorkspace({
   onLoaded,
   submit,
   onCancel,
+  registerLeave,
 }: FillWorkspaceProps) {
   const owner = useMemo<FillOwner>(() => ({ object: given.object, id: given.id }), [given.object, given.id]);
   const [dirty, setDirty] = useState(false);
@@ -99,7 +105,7 @@ export function FillWorkspace({
   }
   return (
     <FillPane
-      key={`${state.view.fill.fillId}-${refresh}-${seen}`}
+      key={`${state.view.fill.fillId}-${refresh}`}
       owner={owner}
       label={label}
       view={state.view}
@@ -108,6 +114,7 @@ export function FillWorkspace({
       onLoaded={onLoaded}
       submit={submit}
       onCancel={onCancel}
+      registerLeave={registerLeave}
       onReload={() => setRefresh((n) => n + 1)}
     />
   );
@@ -123,6 +130,7 @@ function FillPane({
   submit,
   onCancel,
   onReload,
+  registerLeave,
 }: {
   owner: FillOwner;
   label: string;
@@ -133,6 +141,7 @@ function FillPane({
   submit: FillWorkspaceProps["submit"];
   onCancel: FillWorkspaceProps["onCancel"];
   onReload(): void;
+  registerLeave: FillWorkspaceProps["registerLeave"];
 }) {
   const grid = useMemo<GridDoc>(() => fromApi(view.grid), [view.grid]);
   const initial = useMemo<FillDoc>(() => fromApiFill(view.cells), [view.cells]);
@@ -140,8 +149,6 @@ function FillPane({
   const narrow = useNarrowScreen();
   const [tab, setTab] = useState<"form" | "grid">(narrow ? "form" : "grid");
   const [summary, setSummary] = useState(view.fill);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendNote, setSendNote] = useState<{ error: boolean; text: string } | null>(null);
   const [leaving, setLeaving] = useState(false);
@@ -172,33 +179,52 @@ function FillPane({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
-  const showing = refused && refused.sent === editor.fill ? refused : null;
+  const showing = refused;
   const targets = useMemo(
     () => (showing ? problemsByCell(grid, showing.sent, showing.problems) : null),
     [grid, showing],
   );
 
-  const save = async (): Promise<boolean> => {
-    setSaving(true);
-    setSaved(false);
-    const sent = editor.fill;
-    const outcome = await saveFillCells(owner, summary.version, grid, sent);
-    setSaving(false);
-    if (outcome.ok) {
-      setSummary(outcome.data);
+  const autosave = useFillAutosave({
+    owner, grid, fill: editor.fill, initial, version: summary.version, dirty,
+    enabled: !readOnly && !summary.archivedAt && (summary.status === "DRAFT" || summary.status === "RETURNED"),
+    accepted: (sent, result) => {
+      setSummary(result);
       editor.markSaved(sent);
       setRefused(null);
-      setSaved(true);
-      onSaved?.(outcome.data);
-      return true;
-    }
-    setRefused({
+      onSaved?.(result);
+    },
+    refused: (sent, failure) => setRefused({
       sent,
-      problems: problemsFromFields(outcome.failure.fields),
-      message: outcome.failure.message,
-      stale: outcome.failure.code === "CONCURRENT_MODIFICATION" || outcome.failure.code === "CONFLICT",
-    });
-    return false;
+      problems: problemsFromFields(failure.fields), message: failure.message,
+      stale: failure.code === "CONCURRENT_MODIFICATION" || failure.code === "CONFLICT",
+    }),
+  });
+  const { saving, saved } = autosave;
+  const save = () => autosave.flush(true);
+  const leave = async (next: () => void) => {
+    if (!dirty || await autosave.flush()) next();
+  };
+  useSaveBeforeLeave(dirty, () => autosave.flush());
+  useEffect(() => { registerLeave?.(leave); });
+
+  const reloadAndReapply = async () => {
+    const answer = await getFill(owner);
+    if (!answer.ok) {
+      setRefused((held) => held && { ...held, message: answer.failure.message });
+      return;
+    }
+    if (!answer.data.canEdit || answer.data.fill.archivedAt || !["DRAFT", "RETURNED"].includes(answer.data.fill.status)) {
+      setRefused((held) => held && { ...held, message: "This fill-in can no longer be edited. Your changes are kept here." });
+      return;
+    }
+    const remote = fromApiFill(answer.data.cells);
+    const reapplied = reapplyFill(autosave.baseline.current, editor.fill, remote, grid);
+    autosave.rebase(remote, answer.data.fill.version);
+    editor.reset(remote);
+    editor.reapply(reapplied);
+    setSummary(answer.data.fill);
+    setRefused(null);
   };
 
   // Submit saves what was typed, then sends it. Nothing is sent when the save is refused, and what was typed stays.
@@ -218,7 +244,11 @@ function FillPane({
     setSendNote(answer.message ? { error: !answer.ok, text: answer.message } : null);
   };
 
-  const cancel = () => {
+  const cancel = async () => {
+    if (dirty && !leaving && await autosave.flush()) {
+      onCancel?.();
+      return;
+    }
     if (dirty && !leaving) {
       setLeaving(true);
       return;
@@ -232,7 +262,7 @@ function FillPane({
     <div className="stack sheet-editor" data-testid="fill-editor">
       <div className="sheet-bar">
         <p className="sheet-bar-title">
-          <strong>{tag.text}</strong> · version {summary.versionNo} of the template · {summary.rowCount}{" "}
+          <strong>{tag.text}</strong> · {revisionWords(summary.versionNo).toLowerCase()} of the template · {summary.rowCount}{" "}
           {summary.rowCount === 1 ? "row" : "rows"}
           {summary.corrections > 0
             ? ` · corrected ${summary.corrections === 1 ? "once" : `${summary.corrections} times`} after it was sent`
@@ -254,12 +284,12 @@ function FillPane({
               </button>
             ) : null}
             {onCancel ? (
-              <button type="button" className="button button-secondary" onClick={cancel} disabled={sending}>
+              <button type="button" className="button button-secondary" onClick={() => void cancel()} disabled={sending || saving}>
                 {leaving ? "Leave without saving" : "Cancel"}
               </button>
             ) : null}
             <span className="hint" role="status">
-              {saved && !dirty ? "All changes are saved." : dirty ? "There are changes that are not saved." : ""}
+              {saving ? "Saving…" : saved && !dirty ? "Saved" : dirty ? "There are changes that are not saved." : ""}
             </span>
           </div>
         )}
@@ -275,7 +305,7 @@ function FillPane({
       ) : null}
       {leaving ? (
         <p className="hint" role="note">
-          There are changes that are not saved. Press the button again to leave without them, or press Save.
+          The changes could not be saved. Press Cancel again to leave without them, or press Save to try again.
         </p>
       ) : null}
       <p className="hint" role="note" data-testid="fill-status-note">
@@ -313,6 +343,9 @@ function FillPane({
             <p>
               <button type="button" className="button button-secondary" onClick={onReload}>
                 Reload this fill-in
+              </button>{" "}
+              <button type="button" className="button button-secondary" onClick={() => void reloadAndReapply()}>
+                Reload and reapply my changes
               </button>{" "}
               <span className="hint">Your unsaved changes are lost when you reload.</span>
             </p>
@@ -356,42 +389,13 @@ function FillPane({
                 {narrowNote}
               </p>
             ) : null}
-            {readOnly || narrow ? null : (
-              <div className="sheet-toolbar" role="toolbar" aria-label="Fill-in">
-                <button type="button" className="button button-secondary" onClick={editor.undo} disabled={!editor.canUndo}>
-                  Undo
-                </button>
-                <button type="button" className="button button-secondary" onClick={editor.redo} disabled={!editor.canRedo}>
-                  Redo
-                </button>
-                {grid.rowsMode === "FIXED" ? null : (
-                  <>
-                    <span className="sheet-toolbar-gap" aria-hidden="true" />
-                    <button type="button" className="button button-secondary" onClick={editor.addRow}>
-                      Add row
-                    </button>
-                    <button
-                      type="button"
-                      className="button button-secondary"
-                      disabled={!editor.rows[editor.selection.fr] || editor.rows[editor.selection.fr]?.zone !== "body"}
-                      onClick={() => {
-                        const row = editor.rows[editor.selection.fr];
-                        if (row) {
-                          editor.removeRow(row.id);
-                        }
-                      }}
-                    >
-                      Remove row
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
+            <FillToolbar editor={editor} readOnly={readOnly || narrow} />
             <SheetGrid
+              liveInput
               editor={editor}
               readOnly={readOnly || narrow}
               canEditCell={editor.canEditCell}
-              label={`${label}, version ${summary.versionNo}`}
+              label={`${label}, ${revisionWords(summary.versionNo).toLowerCase()}`}
             />
             <p className="hint">
               {readOnly

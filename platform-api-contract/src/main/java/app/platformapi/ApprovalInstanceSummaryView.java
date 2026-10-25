@@ -27,13 +27,15 @@ import java.util.UUID;
  * @param startedAt when
  * @param finishedAt when it ended, or null
  * @param version the version to send back when deciding
+ * @param currentStepAsksForChoice whether approving the active step needs the choice the object's module asks for
+ *        (FA6G, ADR-0200); false once ended
  */
 public record ApprovalInstanceSummaryView(@NotNull UUID id, @NotNull String processApiName,
         @NotNull String processLabel,
         @NotNull Integer processVersion, @NotNull String objectApiName, @NotNull UUID recordId, @NotNull String status,
         Integer currentStep, String currentStepLabel, @NotNull Integer stepCount, String attention,
         String outcomeFailure, ApprovalPersonView submittedBy, @NotNull Instant startedAt, Instant finishedAt,
-        @NotNull Long version) {
+        @NotNull Long version, @NotNull Boolean currentStepAsksForChoice) {
 
     @Override
     public String toString() {

@@ -77,7 +77,7 @@ class ReviewEditIT extends TemplateSupport {
         Response author = correct(run.author(), run.template(), "By the author");
 
         assertThat(author.status()).isEqualTo(403);
-        assertThat(message(author)).isEqualTo("A version that is in review can be changed only by the people who "
+        assertThat(message(author)).isEqualTo("A revision that is in review can be changed only by the people who "
                 + "approve it.");
         assertThat(JsonPath.<String>read(version(run.approver().browser(), run.template(), 1).body(),
                 "$.data.version.gridHash")).isEqualTo(hash);

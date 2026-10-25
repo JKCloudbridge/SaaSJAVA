@@ -113,7 +113,7 @@ class ApprovalResolveService {
             approvers.add(approver(spec.approvers().get(j), place + ".approvers[" + j + "]"));
         }
         return new ApprovalProcessDefinition.Step(spec.name(), spec.label(), completion, approvers,
-                Boolean.TRUE.equals(spec.skipWhenNobody()));
+                Boolean.TRUE.equals(spec.skipWhenNobody()), Boolean.TRUE.equals(spec.asksForChoice()));
     }
 
     private static Approver approver(ApprovalApproverSpec spec, String place) {

@@ -101,6 +101,24 @@ class MetadataWarmingIT {
                 parameters));
     }
 
+    private static String notDelivered(Organization organization) {
+        try {
+            return TenantFixtures.asTenant(organization.id(), connection -> {
+                StringBuilder found = new StringBuilder();
+                try (var statement = connection.prepareStatement("select status, count(*) from outbox_event "
+                        + "where event_type = 'metadata.published' and status <> 'DELIVERED' group by status");
+                        var rows = statement.executeQuery()) {
+                    while (rows.next()) {
+                        found.append(rows.getString(1)).append('=').append(rows.getLong(2)).append(' ');
+                    }
+                }
+                return found.toString();
+            });
+        } catch (SQLException e) {
+            return "unreadable";
+        }
+    }
+
     @Test
     void everyEventIsHandledExactlyOnceByOneInstanceAndEveryInstanceIsRightOnItsNextQuestion() throws SQLException {
         Organization organization = TestOrganizations.create(users);
@@ -126,10 +144,11 @@ class MetadataWarmingIT {
         long events = count(organization, "select count(*) from outbox_event where event_type = ?",
                 "metadata.published");
         assertThat(events).as("one event for every release").isGreaterThanOrEqualTo(5);
-        Awaitility.await().atMost(Duration.ofSeconds(90)).pollInterval(Duration.ofMillis(200)).untilAsserted(() ->
+        // Three instances share one runner in CI; the relay may need longer than a laptop does.
+        Awaitility.await().atMost(Duration.ofSeconds(240)).pollInterval(Duration.ofMillis(200)).untilAsserted(() ->
                 assertThat(count(organization, "select count(*) from outbox_event where event_type = ? "
-                        + "and status <> 'DELIVERED'", "metadata.published")).as("every event was delivered")
-                        .isZero());
+                        + "and status <> 'DELIVERED'", "metadata.published")).as("every event was delivered; "
+                        + "not yet delivered by status: " + notDelivered(organization)).isZero());
 
         assertThat(count(organization, "select count(*) from processed_event where consumer = ?", CONSUMER))
                 .as("every event was handled once in all, by whichever instance claimed it").isEqualTo(events);

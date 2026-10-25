@@ -780,6 +780,10 @@ The code takes a number with `NumberSeries.next(seriesKey, values)` inside a tra
 
 ## 27. Sheets, versions and the template page (Functional track FA3)
 
+> **Since FA7 the screens say *Revision*, written with two digits starting at 00.** Where sections 27 to 38 of this guide say "version" of a sheet
+> or a template, read *Revision*: the first one is Revision 00, the next 01 (see section 39). The numbers the guide gives for the stored
+> versions and the API are unchanged.
+
 Decisions: [ADR-0186](adr/0186-the-sheets-module-versions-the-owner-seam-and-the-request-size.md), [ADR-0172](adr/0172-the-grid-component-and-the-adapter.md), [ADR-0173](adr/0173-the-canonical-grid-json-and-its-limits.md), [ADR-0174](adr/0174-template-versions-and-approval-together.md). For the administrator of an organization that has the Audit maintenance feature, and for the contributor who adds another sheet owner.
 
 ### 27.1 What a sheet is (for administrators)
@@ -849,12 +853,13 @@ For the organization's administrator. The decisions are in ADR-0188 and ADR-0189
 | Policy | What it allows |
 |---|---|
 | **Author** | make templates, choose their Level and Document, change their own, build the sheet of a draft, send it for approval (the identity category and sub-category are the approvers') |
-| **Approver** | see every template; set the identity category, sub-category, part code and plan year, and correct a template or its sheet, while it is in review (recorded in the audit trail); add a value to a picklist from the form; publish, unpublish and retire; start a draft |
+| **Approver** | see every template; set the identity category, sub-category, part code and plan year, and correct a template or its sheet, while it is in review (recorded in the audit trail); add a value to a picklist from the form; start a draft. It does **not** publish, unpublish or retire (the Publisher policy does) |
+| **Publisher** | read every template; publish an approved version to departments, take it back, retire it (give it to the group that has the last word, see section 37) |
 | **Reader** | read the templates published to them |
 | **Filler** | read the templates published to them (fill-ins come later) |
 | **Department setup** | keep the list of Department groups |
 
-Give **Author** to the people (or a group of them) who write templates and **Approver** to the people or groups who approve and publish. A person who is only to read needs **Reader**, and must be in a department's group to be published to.
+Give **Author** to the people (or a group of them) who write templates and **Approver** to the people or groups who approve, and **Publisher** to the people or groups who publish (section 37). A person who is only to read needs **Reader**, and must be in a department's group to be published to.
 
 **3. The number.** The number is made when the first approver approves: `IMS/01`, `QSP-01`, `WI/PRD/01` and so on, by the category (the formats are in `numbering.yml`, section 26.4). Four categories end in what the author types: a **control plan**, a **process flow chart** and a **failure mode analysis** end in the **part code** (`CP/PRD/AB-12`), a **business plan** in the **plan year** (`BP/2026`). The author does not fill these in: the people who approve first decide the **identity category and sub-category** (and the part code or plan year where the number needs one) while the template is in review, and the first approval says in words what is still missing (section 34). The category, sub-category, part code and plan year of a template that already has its number are not locked by the platform: do not change them, because the number does not follow.
 
@@ -933,11 +938,11 @@ For the organization's administrator. The decision is in [ADR-0196](adr/0196-the
 
 **Level and Document (what the author chooses).** A template has two fields the person who writes it chooses: **Level** and, depending on it, **Document**. They carry **no number**: they only say what kind of document it is. You keep the lists and which documents go with which level in Setup, in Object settings, Template, Fields, the same way as for the other pairs: open the field, **Edit the values**, and for the Document field map each level to its documents (Level 1 → Document A, Document B; Level 2 → Document C). The platform ships a short list of placeholders (two levels, four documents) for you to replace. A person who picks Level 2 sees only the documents you mapped to it. A template that already exists with no level is simply unchanged.
 
-**The identity pair (what the approvers decide).** The two fields that make the number are called **Identity category** and **Identity sub-category** on screen. The author does not choose them. They are set by the people who approve first (for example the plant's quality team) while the template is in review: they open the template, press **Edit**, choose the identity category and sub-category (and the part code or the plan year for the categories whose number ends in it), and approve. The first approval gives the number. **If they approve with the pair empty, the approval is refused in words** ("Choose the identity category and sub-category (Edit), then approve again.") and the template stays in review; nothing is lost. An unnumbered template is not hidden: it shows "Not numbered yet" until the first approval.
+**The identity pair (what the approvers decide).** The fields are **Identity category** and **Identity sub-category**. The author does not choose them. The people who approve open **Edit**, choose the pair and any typed parts the format needs, then **Save**. From FA6C, that Save gives the real number at once. They may change the identity and save again until the first **Approve**, which fixes it. An incomplete identity can stay unnumbered; approval with missing parts is refused in words and the review stays open. See section 36 for counters and rejection.
 
 **Why an approver can edit a template in review.** A pending approval locks the template for everyone. The Approver policy holds the ability *Change a record while it is being approved* (`approvals.override-lock`), which passes the lock; every such change is recorded in the audit trail and in the history of the request. The limit to know about: the ability works for any template in review, not only the one a person was asked about. The author does not hold it, so they cannot change the template while it is in review; if it is rejected it goes back to them and they can change what their policy allows.
 
-**Any number of steps.** The number is given at the first approval of whatever step comes first. You can change the approval process in Setup (more steps, other people, a step that is skipped when nobody can decide it) and nothing in the platform has to change.
+**Any number of steps.** Save normally gives the number. The first actual Approve fixes it, whichever step comes first. If another route left complete identity fields without a number, that approval still gives one as a backstop. More steps, different people and skipped steps do not require a code change.
 
 **Adding a missing sub-category.** The Approver policy holds *Add values to picklists* (`field-values.add`): a person who approves can press "Add a value" in the form for the identity sub-category (or any list the organization owns), and the value lands in the same list as Setup shows. (A demo organization that made its own policy only for that ability can remove it.)
 
@@ -948,3 +953,153 @@ For the organization's administrator. The decision is in [ADR-0196](adr/0196-the
 **Submit on a fill-in.** The person who fills in presses **Submit** (it saves what was typed first, then sends it) or **Cancel** (nothing is sent; what was saved stays a draft in their list). If the organization has an approval process on **Fill-in**, Submit opens the usual "Submit for approval" popup and the fill-in is reviewed as before. If it has none, Submit checks the fill-in (every required value, and a row where the sheet needs one) and stores it with the status **Submitted**; it is then read-only for everyone except the counted correction. **A fill-in submitted before a process existed stays final**: making a process later does not review it.
 
 **For a contributor.** `ApprovalApplicability` (shared kernel) says whether a process applies to a record; `FillSubmission` (sheets) sends a fill-in with no review behind it and only the cluster may call it (an architecture test); the numbering checks are in `TemplateApprovalHooks.beforeApprove`; the snapshot is `DepartmentAudiences.departmentsOf` and the column `inspection_change_request.requester_department` (V072). Test fixtures: `TemplateSupport.author` gives the test person the identity fields too, `plainAuthor` is the real Author policy.
+
+## 35. Numbering set up by the organization (FA6B)
+
+Open **Setup -> Numbering** as the organization administrator, or as a member explicitly given **Manage numbering** (`numbering.manage`). Managing objects and fields alone does not grant this ability. The list shows the categories, their formats, the source of a format and its minimum digit width. Switched-off categories remain listed and their earlier numbers are retained.
+
+Sub-category is optional, including when choices exist. If a format reads it and it is blank, Save and Approve use the without-sub-category default (shipped as category/count). Choosing a value uses the normal category format; clearing it before first approval takes the next category-only number. Existing issued numbers stay reserved. **Use the platform's format** ends your own format for later allocations; fixed numbers and existing counters are retained.
+
+Open a row, edit the format and use **Preview**. Choose the parts the server asks for and preview again, then **Save format**. Fixed text, field parts such as `{field:category}` and `{field:subCategory}`, and a count such as `{seq:1}` form the closed language. `{seq:2}` writes 5 as 05; a count that grows beyond the minimum width is never cut. The four shipped formats made of typed parts without a counter still work.
+
+The two default rows start as category/sub-category/count and category/count when the optional sub-category is absent, with width 1. The organization may change these defaults. A category-specific organization format wins over its shipped format; shipped category formats win over defaults. Exception: when that format reads a blank sub-category, the without-sub-category default applies. Adding a valid new category or sub-category in Setup or through the permitted form control needs no release to obtain a default number.
+
+**A format change affects future allocations only.** Fixed numbers are never rewritten. The same fields continue their counter even when fixed text, field order or width changes. Different fields count separately; returning to an earlier field set resumes its counter. A spelling already issued to another record is never reused; counting skips retained spellings and typed collisions are refused. Before first Approve, a template's identity edit may replace its provisional number as explained below.
+
+**A preview does not reserve a number.** Another Save or approval backstop may take the observed count. To continue from an earlier system, preview a category's saved format and raise **Next count**, for example to 37. The next available allocation starts there. A count can only go up, never down; a format without a counter has no count to raise.
+
+For contributors: the file `numbering.yml` defines the platform's starting formats and generic defaults. An administrator's format changes are data in `numbering_format` (V073), not edits to the shipped file or a new release. `NumberingFormats` resolves settings afresh under a shared transaction lock; saves and advances take the lock exclusively. `NumberSeries.next` remains the only allocation door. Audit carries the action, series, setting kind and number of parts, never the format, codes or number. Decision: [ADR-0197](adr/0197-organization-number-formats-previews-and-counter-continuity.md).
+
+## 36. Numbering at Save and fill-in changes (FA6C)
+
+**Save, then Approve.** A person allowed to set the identity gets a real number when they save complete numbering parts.
+An author leaving those fields empty gets none. Before the first Approve, changing a part the current format reads
+takes another number; changing only the name or an unused part keeps the number. If required parts are cleared, the
+provisional number disappears from the header until they are complete again. Earlier numbers stay used.
+
+**Switching back does not recycle a count.** If you save WI + PRD, change to WI + QLT, then return to PRD, an otherwise
+unused set of counters gives WI/PRD/01, WI/QLT/01, then WI/PRD/02. The earlier PRD/01 belongs permanently to that template
+and nobody else can receive it. A typed number without a running count can be reused by the same template. Another
+template is refused. Gaps are expected and a next count is never lowered.
+
+**First Approve fixes it.** Category, sub-category, part code and plan year then become read-only. A rejected template
+keeps its number. Rejection before any approval leaves its identity editable by whoever has the relevant rights;
+rejection after one approval keeps it fixed. Numbers issued before FA6C are also fixed.
+
+**Why a selected sub-category may not be printed.** Adding a value changes the organization's list, not the numbering
+format. The current shipped formats, also observed in the local organization's Setup before this change, divide as follows:
+
+| Categories | Printed parts and count |
+|---|---|
+| IMS, QSP, CORPQSP, ESSP | One count per category. Sub-category is not printed and does not split the counter. |
+| WI, SOP, F, FEHS, CSF, PPT, L, LEHS | The selected sub-category is printed; each category/sub-category pair counts separately. |
+| CP, PFC, FMEA | Sub-category and typed part code; no running count. |
+| BP | Typed plan year; no running count. |
+
+An administrator can override a category in **Setup -> Numbering**. For QSP/HERO/1 then QSP/HERO/2, save the category
+format `{field:category}/{field:subCategory}/{seq:1}`. This is an example to choose deliberately, not an automatic
+change made by FA6C. Organization overrides may change the table above; inspect the effective format and its source.
+The platform stores short codes in uppercase, so a label such as Hero can print as HERO.
+
+**A value stays available.** Add value selects the returned code. In Setup -> Objects -> Template -> sub-category ->
+Edit the values, the value remains ticked against the category sent in `controllingValues`. Other permitted people see
+it on their next form, and the next template using that pair continues its counter when the format reads it. Adding the
+same code twice reuses the value and creates no second counter.
+
+**Fill-ins save after a short pause.** Draft and returned fill-ins autosave about two seconds after the last valid edit.
+Save stays available; the title band shows Saving/Saved. A refused save keeps the work and stops automatic retries.
+Read the explanation, then use Save, or for a conflict **Reload and reapply my changes**. Review that merged result.
+Submitted, approved and archived fill-ins never autosave. Submit still ends a fill-in without review when no applicable
+fill-in approval process exists.
+
+Bold, Italic, Underline, four text sizes, Left/Centre/Right alignment and Default/Accent/Green/Red text colour apply
+to editable input cells. The same controls work on fixed text in template drafts. Reset formatting returns to the published template's style.
+The rest of the strip stays visible; a disabled structural tool explains that the published template owns it. Old fill-ins
+remain readable. Formatting travels with the saved fill-in and archive, and does not change report values.
+
+The bell opens a searchable table. A notice opens its readable template in Templates; unavailable targets stay on the
+list with an explanation. Success messages disappear after three quiet seconds; errors remain.
+
+## 37. Change requests, the second process and who publishes (FA6E)
+
+For the organization's administrator. The decisions are in ADR-0199.
+
+**Two approval processes, one set of groups.** A template is approved by the process on **Template**. A change request is approved by
+a second process, on **Change request** (Setup, Approval processes, choose the object **Change request**). Both name the same
+groups (for example Plant QMS, then Corporate QMS), but **each process has its own steps**: adding, removing or changing a step in
+one changes nothing in the other. If you want the same people in both, name the same groups in both. Nothing needs a code change.
+
+**How to make it.** Setup, Approval processes, New: object **Change request**, name it (for example Change request review), add step 1
+(approver: the group Plant QMS), add step 2 (approver: the group Corporate QMS) and tick **Skip this step when nobody can decide it**, make it
+active. **Without such a process nobody can raise a change request**: the person is told that an administrator must make it. With it, the person who
+raises a request cannot be a decider of their own request (the process does not allow self-approval), Plant QMS accept or decline first,
+then Corporate QMS. A declined request is final; the person raises a new one. An accepted request is turned into a new version by the owner
+of the template (or an approver), and that version goes through the **Template** process like any other.
+
+**Who publishes.** Publishing, taking a template back and retiring belong to the access policy **Publisher**, which you give to a group in
+Setup, Groups (or to a person). Approving does not give it. Give **Publisher** to the group that has the last word, **Corporate QMS**. In a
+flow that has **no Corporate step**, give **Publisher** to **Plant QMS** for as long as that is so, and take it away again when the Corporate
+step comes back; nobody checks this for you, so do it whenever you change who is in the flow. Without Publisher a person cannot publish,
+take back or retire, whatever they approved. The **Organization administrator** holds every ability and can always publish. A change of
+the policy applies at the next question, to every version, approved before or after.
+
+**The tab and the asterisk.** Everyone with Author, Reader, Filler or Approver sees the tab **Change requests** and, in it, their own
+requests; people who may change a template (its owner, Approver) see all the requests of it. A template with a request that is open or
+accepted shows an asterisk at the right of its row and of its page.
+
+## 38. The step that asks where a template is published (FA6G)
+
+**What it is for.** In the template review, **Corporate QMS** knows where a template is meant to be used and **Plant QMS** publishes it.
+You can make the Corporate QMS step ask for that when its people approve. It is only a **suggestion**: nobody sees the template because of
+it, and nothing is shared. When Plant QMS publishes, the Publish window starts from the suggestion and Plant QMS may change it.
+
+**Set it up (Setup, Approval processes, the process "Template review").** Open the step of Corporate QMS and tick **Ask the approver for a
+choice**, then save the process (a new version of the process; requests already under way keep the old one). The process then has, in this
+order: Plant QMS (checks and numbers), Corporate QMS (ticked; tick **Skip this step when nobody can decide it** as well if the group may be
+empty), and a last step of Plant QMS. Give the access policy **Publisher** to the group **Plant QMS** only, as it holds the last word.
+
+**What the approver sees.** At the ticked step, **Approve** opens a window with the locations of your lists. They must tick at least one
+location. Under each ticked location they may tick departments, or none. Without a location the approval is refused, from the template
+page and from the approvals inbox alike, and the task stays open. When the step is skipped (an empty group) there is no suggestion.
+
+**What Plant QMS sees.** After the last approval, **Publish** opens with the suggested departments listed and a suggested location already
+chosen. They may change all of it. Publish still needs a location **and at least one department** that has a group set up, and the
+Publisher policy; department people see the template only after that Publish. A suggested place that your lists no longer offer is left
+out, and the window says so.
+
+**Nothing is written down but the fact.** The suggestion cannot be changed after the approval, by the approver or by anybody else. The audit
+trail says that a suggestion was made and how many places it holds, never which.
+
+## 39. View, Download, Sheet options, the footer row and Revisions (FA7)
+
+**View.** On the **Sheet** tab of a template, once a revision is open, the button **View** shows the sheet the way Ctrl+P shows it in a
+spreadsheet program: pages, the column labels and header rows repeated on every page, merged cells, column widths, row heights, bold,
+italic and the sizes as the sheet has them. The cells a person fills in are shown empty. **Print** opens the browser's print dialog, which
+also saves a PDF. The paper is A4, landscape when the sheet is wide, and the sheet is fitted to the page width. **Everybody who can read
+the template sees View.**
+
+**Download.** The button **Download** gives the sheet as an Excel file named after the template number and the revision, for example
+`F-MR-16_Rev00.xlsx`. It is shown only when download is allowed for the template; the server checks the same setting when the file is
+asked for, so a hidden button is not the rule. The people who hold the **Publisher** policy (and the Organization administrator) can always
+download, so they can check their work. Everything in the file is plain text, never a formula, so a text that starts with `=` does not run
+in a spreadsheet program.
+
+**The two tick boxes.** When Plant QMS publishes, the Publish window has one row with **View only** and **Allow download**, both
+unticked at first.
+- **View only** means the template is a reference: nobody can start a fill-in from it (the control is not offered and the server refuses it
+  in fixed words). The template can still be read, View still shows, and a fill-in that was already started can be finished and sent.
+- **Allow download** shows Download to everybody who can read the template.
+
+They belong to the **template**, not to one revision. People with the Publisher policy change them later without publishing again with
+**Sheet options** on the template page (the same two boxes). The change is recorded by the template's identifier and the two answers.
+Templates made before this release have both unticked: tick them in Sheet options if people should download them or if they should be
+view only.
+
+**The footer row.** Every template sheet ends with one more row, across the full width and bordered like the rest. At its right it reads
+the template number and the revision, for example `F/MR/16  Rev No.'01'`. Until Plant QMS has numbered the template (the first approval)
+the row is there and blank; when the template is numbered the number appears at once. The row is made when the sheet is shown, printed or
+downloaded; it is **not** part of what the author writes, so the author cannot change it and the number is always the current one. The
+revision in it is the sheet's active revision.
+
+**Revision instead of Version.** Wherever you read the word for a sheet or a template it is now **Revision**, written with two digits:
+the first version of a sheet is **Revision 00**, the next **01**. Nothing stored was changed or renumbered; only what you read.

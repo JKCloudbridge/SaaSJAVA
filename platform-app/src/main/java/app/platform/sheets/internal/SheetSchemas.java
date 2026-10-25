@@ -37,7 +37,8 @@ final class SheetSchemas {
     /** The property names of the schema: the only words, besides positions and identifiers, a place may contain. */
     private static final Set<String> NAMES = Set.of("formatVersion", "dimension", "rowsMode", "columns", "headerRows",
             "rows", "cells", "merges", "id", "label", "type", "required", "default", "picklist", "values", "width",
-            "height", "value", "style", "kind", "bold", "italic", "fontSize", "from", "to");
+            "height", "value", "style", "kind", "bold", "italic", "fontSize", "underline", "alignment", "colour",
+            "from", "to");
     private static final Pattern CELL = Pattern.compile("[A-Za-z0-9_-]{1,40}:[A-Za-z0-9_-]{1,40}");
 
     /**

@@ -33,7 +33,8 @@ final class NumberingLoader {
     private static final Pattern KEY = Pattern.compile("[a-z][a-z0-9-]{0,39}");
     private static final Pattern NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_]{0,59}");
     private static final Set<String> FILE_KEYS = Set.of("series");
-    private static final Set<String> SERIES_KEYS = Set.of("key", "object", "field", "selector", "format", "formats");
+    private static final Set<String> SERIES_KEYS = Set.of("key", "object", "field", "selector", "format", "formats",
+            "defaults");
 
     /**
      * A declaration with the solution whose folder it came from.
@@ -88,7 +89,7 @@ final class NumberingLoader {
                 throw new IllegalStateException(part + ": 'object' and 'field' are API names");
             }
             loaded.add(new Loaded(solution, new NumberSeriesDeclaration(key, object, field, selector(one, part),
-                    formats(one, part))));
+                    formats(one, part), defaults(one, part))));
         }
         return loaded;
     }
@@ -102,6 +103,19 @@ final class NumberingLoader {
             throw new IllegalStateException(part + ": 'selector' is an API name");
         }
         return name;
+    }
+
+    private static Map<String, String> defaults(Map<?, ?> one, String part) {
+        if (one.get("defaults") == null) {
+            return Map.of();
+        }
+        Set<String> keys = Set.of("format", "withoutOptional", "optionalField");
+        Map<?, ?> values = mapping(one.get("defaults"), part + ": defaults", keys);
+        Map<String, String> result = new LinkedHashMap<>();
+        for (String key : keys) {
+            result.put(key, text(values, key, part + ": defaults"));
+        }
+        return Map.copyOf(result);
     }
 
     private static Map<String, String> formats(Map<?, ?> one, String part) {

@@ -136,6 +136,25 @@ final class NumberFormat {
         return parts;
     }
 
+    /** The closed declaration, for the authorized settings screen only. Never logged. */
+    String text() {
+        StringBuilder text = new StringBuilder();
+        for (Part part : parts) {
+            text.append(switch (part) {
+                case Literal literal -> literal.text();
+                case Field field -> "{field:" + field.apiName() + "}";
+                case Sequence sequence -> "{seq:" + sequence.width() + "}";
+            });
+        }
+        return text.toString();
+    }
+
+    /** The minimum digit width, or zero for a number without a counter. */
+    int width() {
+        return parts.stream().filter(Sequence.class::isInstance).map(Sequence.class::cast)
+                .mapToInt(Sequence::width).findFirst().orElse(0);
+    }
+
     /** Whether the format has a counter; one without is made of the record's values alone. */
     boolean hasCounter() {
         return parts.stream().anyMatch(Sequence.class::isInstance);

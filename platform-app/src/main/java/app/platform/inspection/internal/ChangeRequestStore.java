@@ -6,7 +6,9 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -40,13 +42,20 @@ class ChangeRequestStore {
      * @param createdAt when it was made
      * @param createdBy who asked
      * @param requesterDepartment the department of the person when they asked, in the words of the lists then, or null
+     * @param headerId the record the approval engine reviews for this request (FA6E, ADR-0199), or null when the
+     *        request is answered directly
      */
     record RequestRow(UUID id, UUID templateId, int versionNo, String title, String status, String decisionNote,
             Instant decidedAt, UUID decidedBy, Integer resultingVersion, long version, Instant createdAt,
-            UUID createdBy, String requesterDepartment) {
+            UUID createdBy, String requesterDepartment, UUID headerId) {
 
         ChangeRequestStatus state() {
             return ChangeRequestStatus.of(status).orElseThrow();
+        }
+
+        /** Whether the request is decided by an approval (it has its review record) and not by one answer. */
+        boolean reviewed() {
+            return headerId != null;
         }
 
         /** Prints the identity only: the title and the reason are the organization's text. */
@@ -83,7 +92,8 @@ class ChangeRequestStore {
     }
 
     private static final String REQUEST_COLUMNS = "id, template_id, version_no, title, status, decision_note, "
-            + "decided_at, decided_by, resulting_version, version, created_at, created_by, requester_department";
+            + "decided_at, decided_by, resulting_version, version, created_at, created_by, requester_department, "
+            + "header_id";
 
     private static final String COMMENT_COLUMNS = "id, request_id, row_id, column_id, anchor_label, body, created_at, "
             + "created_by";
@@ -108,13 +118,141 @@ class ChangeRequestStore {
                 .param("key", "change-requests:" + tenant() + ":" + templateId).query().listOfRows();
     }
 
-    RequestRow insertRequest(UUID templateId, int versionNo, String title, UUID actor, String department) {
+    RequestRow insertRequest(UUID templateId, int versionNo, String title, UUID actor, String department,
+            UUID headerId) {
         return jdbc.sql("insert into inspection_change_request (tenant_id, template_id, version_no, title, "
-                        + "created_by, updated_by, requester_department) values (:tenant, :template, :version, "
-                        + ":title, :actor, :actor, cast(:department as text)) returning " + REQUEST_COLUMNS)
+                        + "created_by, updated_by, requester_department, header_id) values (:tenant, :template, "
+                        + ":version, :title, :actor, :actor, cast(:department as text), cast(:header as uuid)) "
+                        + "returning " + REQUEST_COLUMNS)
                 .param("tenant", tenant()).param("template", templateId).param("version", versionNo)
                 .param("title", title).param("actor", actor).param("department", department)
-                .query(ChangeRequestStore::request).single();
+                .param("header", headerId).query(ChangeRequestStore::request).single();
+    }
+
+    /** One request by its identifier, whatever template it is about. */
+    Optional<RequestRow> findById(UUID requestId) {
+        return jdbc.sql("select " + REQUEST_COLUMNS + " from inspection_change_request where tenant_id = :tenant "
+                        + "and id = :id and deleted_at is null")
+                .param("tenant", tenant()).param("id", requestId).query(ChangeRequestStore::request).optional();
+    }
+
+    /** The request a review record belongs to. */
+    Optional<RequestRow> findByHeader(UUID headerId) {
+        return jdbc.sql("select " + REQUEST_COLUMNS + " from inspection_change_request where tenant_id = :tenant "
+                        + "and header_id = :header and deleted_at is null")
+                .param("tenant", tenant()).param("header", headerId).query(ChangeRequestStore::request).optional();
+    }
+
+    /** How the cross-template list is ordered. The column is chosen here and never taken from a request. */
+    enum Order {
+        DATE("created_at", "timestamptz"), VERSION("version_no", "integer"), STATUS("status", "text");
+
+        private final String column;
+        private final String type;
+
+        Order(String column, String type) {
+            this.column = column;
+            this.type = type;
+        }
+    }
+
+    /**
+     * What the cross-template list asks of the store.
+     *
+     * @param requester only this person's requests, or null for every request
+     * @param titleLike a text to find in the title, already made a like pattern with {@code !} as the escape, or null
+     * @param requesters people whose requests also match the search (the requester's name matched), or empty
+     * @param status only this status, or null
+     * @param template only this template, or null
+     * @param order the column to order by
+     * @param descending whether the order is descending
+     * @param afterValue the value of the ordered column in the last row seen, as text, or null for the first batch
+     * @param afterId the identifier of the last row seen, or null
+     */
+    record ListFilter(UUID requester, String titleLike, Collection<UUID> requesters, String status, UUID template,
+            Order order, boolean descending, String afterValue, UUID afterId) {
+    }
+
+    /** The value of a row in the column the list is ordered by, as the text the cursor holds. */
+    static String orderValue(RequestRow row, Order order) {
+        return switch (order) {
+            case DATE -> row.createdAt().toString();
+            case VERSION -> Integer.toString(row.versionNo());
+            case STATUS -> row.status();
+            default -> throw new IllegalStateException("Unreachable: every order is handled above");
+        };
+    }
+
+    /**
+     * A batch of requests of every template, in the order asked, after the key given. Who may see each is decided by
+     * the caller; this only narrows by what the screen asked for. The search matches the title, or a person among
+     * {@code requesters}.
+     */
+    List<RequestRow> page(ListFilter filter, int limit) {
+        StringBuilder sql = new StringBuilder("select " + REQUEST_COLUMNS
+                + " from inspection_change_request where tenant_id = :tenant and deleted_at is null");
+        String direction = filter.descending() ? "desc" : "asc";
+        String compare = filter.descending() ? "<" : ">";
+        sql.append(" and (cast(:requester as uuid) is null or created_by = cast(:requester as uuid))");
+        sql.append(" and (cast(:status as text) is null or status = cast(:status as text))");
+        sql.append(" and (cast(:template as uuid) is null or template_id = cast(:template as uuid))");
+        boolean search = filter.titleLike() != null;
+        if (search) {
+            sql.append(" and (title ilike :like escape '!'");
+            if (!filter.requesters().isEmpty()) {
+                sql.append(" or created_by in (:people)");
+            }
+            sql.append(')');
+        }
+        boolean after = filter.afterValue() != null && filter.afterId() != null;
+        if (after) {
+            sql.append(" and (").append(filter.order().column).append(", id) ").append(compare)
+                    .append(" (cast(:afterValue as ").append(filter.order().type).append("), :afterId)");
+        }
+        sql.append(" order by ").append(filter.order().column).append(' ').append(direction).append(", id ")
+                .append(direction).append(" limit :limit");
+        JdbcClient.StatementSpec spec = jdbc.sql(sql.toString()).param("tenant", tenant())
+                .param("requester", filter.requester()).param("status", filter.status())
+                .param("template", filter.template()).param("limit", limit);
+        if (search) {
+            spec = spec.param("like", filter.titleLike());
+            if (!filter.requesters().isEmpty()) {
+                spec = spec.param("people", List.copyOf(filter.requesters()));
+            }
+        }
+        if (after) {
+            spec = spec.param("afterValue", filter.afterValue()).param("afterId", filter.afterId());
+        }
+        return spec.query(ChangeRequestStore::request).list();
+    }
+
+    /** The people who made requests (every request, or the caller's own), for matching a name in a search. */
+    List<UUID> requesters(UUID only, int most) {
+        return jdbc.sql("select distinct created_by from inspection_change_request where tenant_id = :tenant "
+                        + "and deleted_at is null "
+                        + "and (cast(:only as uuid) is null or created_by = cast(:only as uuid)) limit :most")
+                .param("tenant", tenant()).param("only", only).param("most", most).query(UUID.class).list();
+    }
+
+    /**
+     * How many requests of each of these templates still wait for someone (open or accepted); of one person only when
+     * {@code requester} is given. A template without any is not in the map.
+     */
+    Map<UUID, Integer> toActCounts(Collection<UUID> templateIds, UUID requester) {
+        if (templateIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, Integer> counts = new HashMap<>();
+        jdbc.sql("select template_id, count(*) as total from inspection_change_request where tenant_id = :tenant "
+                        + "and template_id in (:templates) and status in ('OPEN', 'ACCEPTED') and deleted_at is null "
+                        + "and (cast(:requester as uuid) is null or created_by = cast(:requester as uuid)) "
+                        + "group by template_id")
+                .param("tenant", tenant()).param("templates", List.copyOf(templateIds)).param("requester", requester)
+                .query((rs, row) -> {
+                    counts.put(rs.getObject("template_id", UUID.class), rs.getInt("total"));
+                    return 0;
+                }).list();
+        return counts;
     }
 
     CommentRow insertComment(UUID requestId, UUID templateId, ChangeAnchor anchor, String label, String body,
@@ -191,12 +329,14 @@ class ChangeRequestStore {
                 .param("tenant", tenant()).param("id", requestId).param("from", from.name()).update() == 1;
     }
 
-    /** A request that was done goes back to open (its version was not used); the answer is cleared. */
-    boolean reopen(UUID requestId, UUID actor) {
-        return jdbc.sql("update inspection_change_request set status = 'OPEN', decision_note = null, "
-                        + "decided_at = null, decided_by = null, resulting_version = null, version = version + 1, "
-                        + "updated_by = :actor where tenant_id = :tenant and id = :id and status = 'DONE' "
-                        + "and deleted_at is null")
+    /**
+     * A request that was done and was reviewed goes back to accepted (its version was not used): the review already
+     * happened, so it can be turned into a version again. The answer of the review is kept.
+     */
+    boolean reopenAccepted(UUID requestId, UUID actor) {
+        return jdbc.sql("update inspection_change_request set status = 'ACCEPTED', resulting_version = null, "
+                        + "version = version + 1, updated_by = :actor where tenant_id = :tenant and id = :id "
+                        + "and status = 'DONE' and header_id is not null and deleted_at is null")
                 .param("actor", actor).param("tenant", tenant()).param("id", requestId).update() == 1;
     }
 
@@ -213,7 +353,8 @@ class ChangeRequestStore {
                 rs.getInt("version_no"), rs.getString("title"), rs.getString("status"),
                 rs.getString("decision_note"), instant(rs, "decided_at"), rs.getObject("decided_by", UUID.class),
                 rs.getObject("resulting_version", Integer.class), rs.getLong("version"), instant(rs, "created_at"),
-                rs.getObject("created_by", UUID.class), rs.getString("requester_department"));
+                rs.getObject("created_by", UUID.class), rs.getString("requester_department"),
+                rs.getObject("header_id", UUID.class));
     }
 
     private static CommentRow comment(ResultSet rs, int row) throws SQLException {

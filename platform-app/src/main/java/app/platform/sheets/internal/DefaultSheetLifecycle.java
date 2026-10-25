@@ -142,6 +142,12 @@ class DefaultSheetLifecycle implements SheetLifecycle {
 
     @Override
     @Transactional(readOnly = true)
+    public Map<Integer, UUID> reviewRequests(String ownerObject, UUID ownerId) {
+        return Map.copyOf(store.reviewRequests(ownerObject, ownerId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Optional<SheetStatus> statusOf(String ownerObject, UUID ownerId, int versionNo) {
         return store.find(ownerObject, ownerId, versionNo).map(row -> SheetStatus.valueOf(row.status()));
     }

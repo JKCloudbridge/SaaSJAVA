@@ -106,6 +106,8 @@ export interface FormViewProps {
   problems: readonly Problem[];
   /** Whether the shape of the sheet (who adds the rows) may still be chosen: the API's rule, shown only when it allows it. */
   canChangeShape: boolean;
+  /** The text of the footer row (FA7), shown as a closing line; nothing is drawn while it is empty. */
+  footer?: string;
 }
 
 /**
@@ -114,7 +116,7 @@ export interface FormViewProps {
  * and for a person who does not use a pointer. Every field is one of the model's operations; a field commits when the
  * person leaves it. It draws what the model holds and decides nothing; the server checks every rule again.
  */
-export function FormView({ editor, readOnly, problems, canChangeShape }: FormViewProps) {
+export function FormView({ editor, readOnly, problems, canChangeShape, footer }: FormViewProps) {
   const { doc, limits } = editor;
   const base = useId();
   return (
@@ -151,7 +153,7 @@ export function FormView({ editor, readOnly, problems, canChangeShape }: FormVie
               : doc.rowsMode === "FIXED"
                 ? "The sheet names the rows; the filler adds none."
                 : "The sheet names the rows, and the filler may add more."}{" "}
-            <span className="hint">The shape is chosen with the first version and does not change.</span>
+            <span className="hint">The shape is chosen with the first revision and does not change.</span>
           </p>
         )}
       </section>
@@ -202,6 +204,11 @@ export function FormView({ editor, readOnly, problems, canChangeShape }: FormVie
           <p className="hint">The filler adds the rows, so the sheet names none. The grid view shows a few blank rows as a sample.</p>
         </section>
       )}
+      {footer ? (
+        <p className="hint sheet-footer-note" data-testid="form-footer">
+          {footer}
+        </p>
+      ) : null}
     </div>
   );
 }

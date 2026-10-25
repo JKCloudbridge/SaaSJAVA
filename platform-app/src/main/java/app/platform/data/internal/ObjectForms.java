@@ -96,9 +96,11 @@ class ObjectForms {
     private final MemberAccess members;
     private final Records records;
     private final Permissions permissions;
+    private final RecordWriteRules writeRules;
 
     ObjectForms(RecordGate gate, FieldSecurity security, Metadata metadata, MemberAccess members, Records records,
-            Permissions permissions) {
+            Permissions permissions, RecordWriteRules writeRules) {
+        this.writeRules = writeRules;
         this.permissions = permissions;
         this.gate = gate;
         this.security = security;
@@ -134,7 +136,9 @@ class ObjectForms {
 
         List<RecordType> all = metadata.recordTypes(object.apiName());
         List<RecordType> usable = all.isEmpty() ? List.of() : metadata.recordTypesFor(object.apiName(), profile);
-        String held = recordId == null ? null : records.get(object.apiName(), recordId).recordType();
+        var current = recordId == null ? null : records.get(object.apiName(), recordId);
+        String held = current == null ? null : current.recordType();
+        Set<String> locked = writeRules.locked(current);
         RecordType selected = select(object, all, usable, profile, requestedType, held);
         String selectedName = selected == null ? null : selected.apiName();
 
@@ -152,7 +156,8 @@ class ObjectForms {
         for (FieldDefinition field : object.fields()) {
             if (access.readableFields().contains(field.apiName()) && !field.retired() && shown(field)
                     && RecordTypeCheck.offers(selected, field)) {
-                fields.add(describe(object, field, access, behaviours.get(field.apiName()), selected,
+                fields.add(describe(object, field, access,
+                        locked.contains(field.apiName()) ? READ_ONLY : behaviours.get(field.apiName()), selected,
                         mayAddValues));
             }
         }

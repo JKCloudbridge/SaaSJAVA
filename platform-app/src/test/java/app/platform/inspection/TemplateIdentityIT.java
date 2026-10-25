@@ -83,7 +83,7 @@ class TemplateIdentityIT extends TemplateSupport {
 
         assertThat(refused.status()).isEqualTo(409);
         assertThat(message(refused))
-                .isEqualTo("Choose the identity category and sub-category (Edit), then approve again.");
+                .isEqualTo("Choose the identity category (Edit), then approve again.");
         assertThat(statusOf(run.plant().browser(), request)).isEqualTo("PENDING");
         assertThat(statuses(run.author().browser(), template)).containsExactly("IN_REVIEW");
         assertThat(number(run.setting().admin(), template)).isNull();
@@ -91,6 +91,7 @@ class TemplateIdentityIT extends TemplateSupport {
         Response set = patch(run.plant().browser(), template, "{\"category\":\"WI\",\"subCategory\":\"PRD\"}");
         assertThat(set.status()).as("an approver changes the header of a template in review: " + set.body())
                 .isEqualTo(200);
+        assertThat(JsonPath.<String>read(set.body(), "$.data.fields.number")).isEqualTo("WI/PRD/01");
         assertThat(approve(run.plant().browser(), request).status()).isEqualTo(200);
 
         assertThat(number(run.setting().admin(), template)).isEqualTo("WI/PRD/01");

@@ -83,14 +83,12 @@ class TemplateFlowsLogsAreCleanIT extends TemplateSupport {
         fill(author.browser(), typedOne, firstVersion(author.browser(), typedOne));
         approve(approver.browser(), submitted(author.browser(), typedOne, process));
         String typedNumber = number(setting.admin(), typedOne);
-        String typedTwo = template(author.browser(), "{\"name\":\"" + clashName + "\",\"category\":\"CP\","
-                + "\"subCategory\":\"PRD\",\"partCode\":\"" + partCode + "\"}");
-        fill(author.browser(), typedTwo, firstVersion(author.browser(), typedTwo));
 
         // Refusals of every kind.
         List<Response> refusals = new ArrayList<>();
-        // The clash is found at the first approval now (FA6A), not at Submit.
-        refusals.add(approve(approver.browser(), submitted(author.browser(), typedTwo, process)));
+        // The clash is found when the second template is saved (FA6C): its number is taken at Save.
+        refusals.add(author.browser().postJson(RECORDS, "{\"fields\":{\"name\":\"" + clashName
+                + "\",\"category\":\"CP\",\"subCategory\":\"PRD\",\"partCode\":\"" + partCode + "\"}}"));
         refusals.add(publish(approver.browser(), typedOne, null, "PLANT1/QLT"));
         refusals.add(publish(approver.browser(), typedOne, null, "HEAD/HR"));
         refusals.add(publish(author.browser(), typedOne, null, "PLANT1/PRD"));

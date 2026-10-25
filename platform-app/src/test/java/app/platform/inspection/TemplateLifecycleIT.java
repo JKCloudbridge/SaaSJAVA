@@ -52,7 +52,7 @@ class TemplateLifecycleIT extends TemplateSupport {
 
         String request = submitted(run.author().browser(), template, run.process());
         assertThat(statuses(run.author().browser(), template)).containsExactly("IN_REVIEW");
-        assertThat(number(run.setting().admin(), template)).as("no number before an approval").isNull();
+        assertThat(number(run.setting().admin(), template)).as("identity was complete at Save").isEqualTo("WI/PRD/01");
 
         // The first approver's own Approve gives the number, once.
         assertThat(approve(run.first().browser(), request).status()).isEqualTo(200);
@@ -90,14 +90,14 @@ class TemplateLifecycleIT extends TemplateSupport {
     // ---- the number ----
 
     @Test
-    void aTemplateRejectedAtTheFirstStepTakesNoNumberButOneRejectedLaterKeepsIt() {
+    void rejectionAtEitherStepKeepsTheNumberTakenAtSave() {
         Run run = run();
         String early = templateWithSheet(run.author().browser(), "WI", "PRD");
         String requestEarly = submitted(run.author().browser(), early, run.process());
 
         assertThat(reject(run.first().browser(), requestEarly).status()).isEqualTo(200);
 
-        assertThat(number(run.setting().admin(), early)).isNull();
+        assertThat(number(run.setting().admin(), early)).isEqualTo("WI/PRD/01");
         assertThat(statuses(run.author().browser(), early)).containsExactly("REJECTED");
 
         String late = templateWithSheet(run.author().browser(), "WI", "PRD");
@@ -105,14 +105,14 @@ class TemplateLifecycleIT extends TemplateSupport {
         assertThat(approve(run.first().browser(), requestLate).status()).isEqualTo(200);
         assertThat(reject(run.second().browser(), requestLate).status()).isEqualTo(200);
 
-        assertThat(number(run.setting().admin(), late)).as("the first rejection took no number, so this is the first")
-                .isEqualTo("WI/PRD/01");
+        assertThat(number(run.setting().admin(), late)).as("a rejected template keeps its allocation")
+                .isEqualTo("WI/PRD/02");
         assertThat(statuses(run.author().browser(), late)).containsExactly("REJECTED");
         // The next template goes on from it: a number is never given twice.
         String next = templateWithSheet(run.author().browser(), "WI", "PRD");
         String requestNext = submitted(run.author().browser(), next, run.process());
         assertThat(approve(run.first().browser(), requestNext).status()).isEqualTo(200);
-        assertThat(number(run.setting().admin(), next)).isEqualTo("WI/PRD/02");
+        assertThat(number(run.setting().admin(), next)).isEqualTo("WI/PRD/03");
     }
 
     @Test
@@ -124,6 +124,8 @@ class TemplateLifecycleIT extends TemplateSupport {
         assertThat(approve(run.second().browser(), first).status()).isEqualTo(200);
         assertThat(publish(run.second().browser(), template, null, "PLANT1/PRD").status()).isEqualTo(200);
         assertThat(number(run.setting().admin(), template)).isEqualTo("SOP/PRD/01");
+        long headerVersion = JsonPath.<Number>read(run.setting().admin().get(RECORDS + "/" + template).body(),
+                "$.data.version").longValue();
 
         int next = newVersion(run.author().browser(), template);
         assertThat(fill(run.author().browser(), template, next).status()).isEqualTo(200);
@@ -132,7 +134,7 @@ class TemplateLifecycleIT extends TemplateSupport {
 
         assertThat(number(run.setting().admin(), template)).isEqualTo("SOP/PRD/01");
         assertThat(JsonPath.<Number>read(run.setting().admin().get(RECORDS + "/" + template).body(), "$.data.version")
-                .longValue()).isPositive();
+                .longValue()).isEqualTo(headerVersion);
     }
 
     // ---- a second review while the first version is in use ----
@@ -261,7 +263,7 @@ class TemplateLifecycleIT extends TemplateSupport {
         Response uncategorised = approve(run.first().browser(), request);
 
         assertThat(uncategorised.status()).isEqualTo(409);
-        assertThat(message(uncategorised)).contains("Choose the identity category and sub-category (Edit)");
+        assertThat(message(uncategorised)).contains("Choose the identity category (Edit)");
         assertThat(statuses(run.author().browser(), noCategory)).containsExactly("IN_REVIEW");
         assertThat(statusOf(run.first().browser(), request)).isEqualTo("PENDING");
         assertThat(number(run.setting().admin(), noCategory)).isNull();

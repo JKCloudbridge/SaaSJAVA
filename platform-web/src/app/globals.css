@@ -229,7 +229,7 @@ ol {
   font-size: var(--font-size-sm);
 }
 
-/* The bell in the header (Sprint 25): the icon and, when something is unread, the number beside it. */
+/* The bell in the header: unread count is placed inside its top-right corner. */
 .bell {
   display: inline-flex;
   align-items: center;
@@ -2677,6 +2677,36 @@ form + .detail-section {
   font-style: italic;
 }
 
+.sheet-underline {
+  text-decoration-line: underline;
+}
+
+.sheet-align-left {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.sheet-align-center {
+  justify-content: center;
+  text-align: center;
+}
+
+.sheet-align-right {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.sheet-colour-default { color: var(--color-text); }
+.sheet-colour-accent { color: var(--color-accent); }
+.sheet-colour-success { color: var(--color-success); }
+.sheet-colour-danger { color: var(--color-danger); }
+
+.sheet-cell .sheet-input {
+  color: inherit;
+  text-align: inherit;
+  text-decoration: inherit;
+}
+
 .sheet-size-small {
   font-size: var(--font-size-xs);
 }
@@ -2688,6 +2718,152 @@ form + .detail-section {
 .sheet-size-title {
   font-size: var(--font-size-xl);
   font-weight: 600;
+}
+
+/* The footer row of a sheet (FA7): one row across the full width, bordered like the rest, with the number and the revision
+   at its right. Made when the sheet is shown; it is not part of the stored grid. */
+.sheet-footer {
+  position: absolute;
+  left: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 var(--space-2);
+  background: var(--color-surface-sunken);
+  border-right: var(--border-width) solid var(--color-border);
+  border-bottom: var(--border-width) solid var(--color-border);
+  font-weight: 600;
+  white-space: pre;
+  cursor: default;
+}
+
+.sheet-options-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.sheet-footer-note {
+  margin: 0;
+  text-align: right;
+  white-space: pre;
+}
+
+/* The print view (FA7): paper is white in both themes. On screen it is a page over the rest; printing shows only it. */
+.sheet-print-root {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: auto;
+  padding: var(--space-4);
+  background: var(--color-surface-sunken);
+}
+
+.sheet-print-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.sheet-print-page {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: var(--space-4);
+  box-sizing: border-box;
+  background: var(--color-print-paper);
+  color: var(--color-print-ink);
+  box-shadow: var(--shadow-2);
+  overflow-x: auto;
+}
+
+.sheet-print-portrait {
+  width: var(--sheet-page-portrait-width);
+}
+
+.sheet-print-landscape {
+  width: var(--sheet-page-landscape-width);
+}
+
+.sheet-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height);
+}
+
+.sheet-print-table thead {
+  display: table-header-group;
+}
+
+.sheet-print-table tr {
+  break-inside: avoid;
+}
+
+.sheet-print-cell {
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--color-print-line);
+  vertical-align: middle;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-weight: 400;
+}
+
+.sheet-print-header {
+  font-weight: 600;
+}
+
+.sheet-print-left {
+  text-align: left;
+}
+
+.sheet-print-center {
+  text-align: center;
+}
+
+.sheet-print-right {
+  text-align: right;
+}
+
+.sheet-print-footer {
+  font-weight: 600;
+  white-space: pre;
+}
+
+.sheet-print-page .sheet-bold {
+  font-weight: 700;
+}
+
+.sheet-print-page .sheet-colour-accent { color: var(--color-print-accent); }
+.sheet-print-page .sheet-colour-success { color: var(--color-print-success); }
+.sheet-print-page .sheet-colour-danger { color: var(--color-print-danger); }
+
+@media print {
+  body.sheet-printing > *:not(.sheet-print-root) {
+    display: none !important;
+  }
+
+  .sheet-print-root {
+    position: static;
+    overflow: visible;
+    padding: 0;
+    background: var(--color-print-paper);
+  }
+
+  .sheet-print-bar {
+    display: none;
+  }
+
+  .sheet-print-page {
+    width: auto;
+    padding: 0;
+    box-shadow: none;
+    overflow: visible;
+  }
 }
 
 .sheet-merged {
@@ -3075,4 +3251,279 @@ form + .detail-section {
     flex-direction: row;
     flex-wrap: wrap;
   }
+}
+/* The count stays within the bell's own box. */
+.bell { position: relative; min-width: 2.5rem; min-height: 2.5rem; justify-content: center; }
+.bell .bell-count { position: absolute; top: 0; right: 0; min-width: 1rem; padding: 0 0.2rem; font-size: 0.65rem; }
+.sheet-start-actions { display: flex; justify-content: center; align-items: start; gap: var(--space-3, 0.75rem); flex-wrap: wrap; }
+
+/* The thin flow of an approval beside the details of a record (FA6D): one line per step, a dot where the request stands. */
+.detail-with-flow.detail-has-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--flow-column-width);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.approval-flow-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.approval-flow-title {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+}
+
+.approval-flow-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.approval-flow-step {
+  position: relative;
+  display: flex;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+}
+
+.approval-flow-step:last-child {
+  padding-bottom: 0;
+}
+
+/* The thin line runs from under this step's dot to the next step's dot. */
+.approval-flow-step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--space-1-5) + var(--flow-dot-size));
+  bottom: calc(-1 * var(--space-1-5));
+  left: calc((var(--flow-dot-size) - var(--flow-line-width)) / 2);
+  width: var(--flow-line-width);
+  background: var(--color-border);
+}
+
+.approval-flow-dot {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: var(--flow-dot-size);
+  height: var(--flow-dot-size);
+  margin-top: var(--space-1-5);
+  border: var(--flow-line-width) solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+}
+
+.approval-flow-done .approval-flow-dot,
+.approval-flow-current .approval-flow-dot {
+  border-color: var(--color-success);
+  background: var(--color-success);
+}
+
+.approval-flow-rejected .approval-flow-dot {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+}
+
+/* Where the request stands: a soft ring around the dot, in the colour of its state. */
+.approval-flow-now .approval-flow-dot {
+  box-shadow: 0 0 0 var(--space-1) var(--color-surface-sunken);
+}
+
+.approval-flow-now.approval-flow-done .approval-flow-dot,
+.approval-flow-now.approval-flow-current .approval-flow-dot {
+  box-shadow: 0 0 0 var(--space-1) var(--color-success-surface);
+}
+
+.approval-flow-now.approval-flow-rejected .approval-flow-dot {
+  box-shadow: 0 0 0 var(--space-1) var(--color-danger-surface);
+}
+
+.approval-flow-body {
+  min-width: 0;
+}
+
+.approval-flow-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.approval-flow-label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.approval-flow-muted .approval-flow-label {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.approval-flow-person {
+  margin: var(--space-0-5) 0 0;
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 56rem) {
+  .detail-with-flow.detail-has-flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The sign-in screens in two halves (FA6D): the form on the left, the product's mark on a soft panel on the right. */
+.shell-main:has(> .sign-in-split) {
+  max-width: none;
+  padding: 0;
+}
+
+.sign-in-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-height: calc(100vh - var(--shell-header-height));
+}
+
+.sign-in-form-half {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: var(--space-6) var(--space-5);
+}
+
+.sign-in-form-inner {
+  width: min(100%, 26rem);
+}
+
+.sign-in-form-inner .card {
+  max-width: none;
+}
+
+.sign-in-brand-half {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: var(--space-6) var(--space-5);
+  background: var(--color-brand-panel);
+}
+
+.sign-in-logo {
+  display: block;
+  width: var(--sign-in-logo-width);
+  max-width: 100%;
+  height: auto;
+}
+
+/* Narrow screens: the mark goes above the form, in a short band; the form keeps the whole width. */
+@media (max-width: 48rem) {
+  .sign-in-split {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .sign-in-brand-half {
+    order: -1;
+    padding: var(--space-4);
+  }
+
+  .sign-in-form-half {
+    align-items: flex-start;
+    padding: var(--space-5) var(--space-4);
+  }
+}
+
+/* The mark of a template that has change requests waiting for someone (FA6E): a reading aid in the accent colour. */
+.open-requests-mark {
+  display: inline-block;
+  margin-inline-start: var(--space-1-5);
+  color: var(--color-accent);
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+/* The approvals of a template, one entry for each, newest first (FA6E): an entry opens to the same flow as the card. */
+.approval-history {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.approval-history-entry {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.approval-history-heading {
+  margin: 0;
+  font-size: var(--font-size-md);
+}
+
+.approval-history-toggle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+}
+
+.approval-history-toggle:hover {
+  background: var(--color-surface-sunken);
+}
+
+.approval-history-date {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.approval-history-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.approval-history-body {
+  padding: var(--space-1) var(--space-4) var(--space-4);
+}
+
+@media (max-width: 40rem) {
+  .approval-history-toggle {
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+}
+
+/* The top row of a change request: who asked and from which department (FA6E). */
+.request-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+}
+
+.request-place-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
 }

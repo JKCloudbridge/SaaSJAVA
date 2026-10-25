@@ -43,7 +43,8 @@ class NotificationAccessIT extends NotificationSupport {
             new Call("POST", NOTIFICATIONS + "/" + ID + "/read", null),
             new Call("POST", NOTIFICATIONS + "/read-all", null),
             new Call("GET", PREFERENCES, null),
-            new Call("PUT", PREFERENCES, SWITCH));
+            new Call("PUT", PREFERENCES, SWITCH),
+            new Call("POST", NOTIFICATIONS + "/" + ID + "/open", null));
 
     /** What setup does: decided by abilities. */
     private static final List<Call> SETUP = List.of(

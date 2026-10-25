@@ -1,5 +1,7 @@
 "use client";
 
+import { TextStyleControls } from "./TextStyleControls";
+
 import type { AnnotationMarks } from "@/lib/sheets/annotate";
 import type { FontSize } from "@/lib/sheets/types";
 import { SheetGrid } from "./SheetGrid";
@@ -21,6 +23,8 @@ export interface GridViewProps {
   label: string;
   /** Annotate mode (FA5): the places with notes are marked and Enter on a cell asks for a note on it. */
   annotation?: { marks: AnnotationMarks; onActivate(): void };
+  /** The footer row (FA7): the text at its right, empty for a blank row, absent for no row. */
+  footer?: string;
 }
 
 /**
@@ -29,7 +33,7 @@ export interface GridViewProps {
  * model's operations on the selection, and a refusal is shown in its words under the grid. A button that the model would
  * refuse is not hidden, it is tried, so the person is told why.
  */
-export function GridView({ editor, readOnly, readOnlyReason, label, annotation }: GridViewProps) {
+export function GridView({ editor, readOnly, readOnlyReason, label, annotation, footer }: GridViewProps) {
   const { state, selection, rows, doc } = editor;
   const focusRow = rows[selection.fr];
   const focusColumn = doc.columns[selection.fc];
@@ -69,6 +73,8 @@ export function GridView({ editor, readOnly, readOnlyReason, label, annotation }
               ))}
             </select>
           </label>
+          <TextStyleControls underline={state.underline} alignment={state.alignment} colour={state.colour}
+            onUnderline={editor.underline} onAlignment={editor.alignment} onColour={editor.colour} />
           <span className="sheet-toolbar-gap" aria-hidden="true" />
           <button type="button" className="button button-secondary" onClick={editor.merge} disabled={!state.canMerge}>
             Merge
@@ -125,6 +131,7 @@ export function GridView({ editor, readOnly, readOnlyReason, label, annotation }
         readOnly={readOnly}
         label={label}
         annotation={annotation}
+        footer={footer}
         onResizeColumn={readOnly || annotation ? undefined : (id, width) => editor.updateColumn(id, { width })}
         onResizeRow={readOnly || annotation ? undefined : (id, height) => editor.updateRow(id, { height })}
       />

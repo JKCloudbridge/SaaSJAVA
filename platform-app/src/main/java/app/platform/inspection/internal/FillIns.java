@@ -72,6 +72,8 @@ class FillIns {
     private static final int MOST = 200;
     private static final Set<String> STATUSES = Set.of("DRAFT", "SUBMITTED", "RETURNED", "APPROVED");
     private static final List<String> FIELDS = List.of(Fills.NAME, Fills.TEMPLATE_ID, Fills.STATUS);
+    /** The words of the refusal to start a fill-in on a template that is only a reference (FA7, ADR-0201). */
+    static final String VIEW_ONLY = "This template is view only, so no fill-in can be started from it.";
     private static final String CHANGED = "The template changed while you started. Try again.";
 
     private final TemplateAccess access;
@@ -86,10 +88,14 @@ class FillIns {
     private final AuditRecorder audit;
     private final TenantContexts contexts;
     private final MeterRegistry meters;
+    private final TemplateNumbers templateNumbers;
+    private final TemplateOptionStore templateOptions;
 
     FillIns(TemplateAccess access, BackgroundRecords background, Records records, SheetLifecycle sheets,
             FillLifecycle fills, FillHeaders headers, FillSubmission submission, ApprovalApplicability approvals,
-            List<ReferenceLabels> labels, AuditRecorder audit, TenantContexts contexts, MeterRegistry meters) {
+            List<ReferenceLabels> labels, AuditRecorder audit, TenantContexts contexts, MeterRegistry meters,
+            TemplateNumbers templateNumbers, TemplateOptionStore templateOptions) {
+        this.templateOptions = templateOptions;
         this.access = access;
         this.background = background;
         this.records = records;
@@ -102,6 +108,7 @@ class FillIns {
         this.audit = audit;
         this.contexts = contexts;
         this.meters = meters;
+        this.templateNumbers = templateNumbers;
     }
 
     /** Whether the caller may start a fill-in on this template, for a screen to offer or hide the button. */
@@ -110,7 +117,7 @@ class FillIns {
         Caller caller = access.visible(templateId);
         DataRecord template = template(templateId);
         int active = activeVersion(templateId);
-        String reason = why(caller, template, active);
+        String reason = why(caller, template, templateId, active);
         return new FillInOptionsView(reason == null, active, reason);
     }
 
@@ -128,9 +135,10 @@ class FillIns {
             throw new ApiException(ErrorCode.FORBIDDEN);
         }
         int active = activeVersion(templateId);
-        String reason = why(caller, template, active);
+        String reason = why(caller, template, templateId, active);
         if (reason != null) {
-            refuse("start", Boolean.TRUE.equals(template.fields().get(Templates.RETIRED)) ? "retired" : "not_in_use");
+            refuse("start", Boolean.TRUE.equals(template.fields().get(Templates.RETIRED)) ? "retired"
+                    : templateOptions.find(templateId).viewOnly() ? "view_only" : "not_in_use");
             throw new ApiException(ErrorCode.CONFLICT, reason);
         }
         DataRecord header;
@@ -266,6 +274,7 @@ class FillIns {
             }
         });
         Map<UUID, SheetLifecycle.Summary> versions = sheets.summaries(Templates.OBJECT, templates);
+        Map<UUID, String> numbers = templateNumbers.of(templates);
         Map<UUID, String> people = people(visible);
         List<FillInRow> rows = new ArrayList<>();
         for (QueriedRecord found : visible) {
@@ -279,7 +288,7 @@ class FillIns {
             rows.add(new FillInRow(header.id(), template, text(header, Fills.NAME), summary.status().name(),
                     summary.versionNo(), inUse != null && inUse.active() == summary.versionNo(), summary.rowCount(),
                     people.get(header.ownerId()), summary.createdAt(), summary.updatedAt(), summary.submittedAt(),
-                    summary.archivedAt()));
+                    summary.archivedAt(), numbers.get(template)));
         }
         return rows;
     }
@@ -287,15 +296,18 @@ class FillIns {
     // ---- helpers ----
 
     /** The words that say why a fill-in cannot be started, or null when it can. */
-    private String why(Caller caller, DataRecord template, int active) {
+    private String why(Caller caller, DataRecord template, UUID templateId, int active) {
         if (!access.has(caller, Ability.SHEETS_FILL)) {
             return "You do not have the right to fill in templates.";
         }
         if (Boolean.TRUE.equals(template.fields().get(Templates.RETIRED))) {
             return "This template is retired, so no new fill-in can be started on it.";
         }
+        if (templateOptions.find(templateId).viewOnly()) {
+            return VIEW_ONLY;
+        }
         if (active == 0) {
-            return "This template has no version in use, so a fill-in cannot be started on it.";
+            return "This template has no revision in use, so a fill-in cannot be started on it.";
         }
         return null;
     }

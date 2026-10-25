@@ -9,6 +9,7 @@ import { useListRoute } from "@/components/ui/lists/useListRoute";
 import { fillStatusTag } from "@/lib/sheets/fillTags";
 import { FillInDetail } from "./FillInDetail";
 import { fillInsHref, queryFillIns, startFillIn, useFillInOptions, type FillInRow } from "./fillIns";
+import { revisionNumber } from "@/lib/sheets/revision";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
 
@@ -152,10 +153,14 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
       primaryExtra={(row) => (row.filledBy ? <span className="hint">{row.filledBy}</span> : null)}
       menu={views.menu}
       columns={[
+        { key: "number", header: "Template number", cell: (row) => row.templateNumber || "—" },
         {
           key: "version",
-          header: "Version",
-          cell: (row) => (row.versionInUse ? `v${row.versionNo}` : `v${row.versionNo} (a newer version is in use)`),
+          header: "Revision",
+          cell: (row) =>
+            row.versionInUse
+              ? `Rev ${revisionNumber(row.versionNo)}`
+              : `Rev ${revisionNumber(row.versionNo)} (a newer revision is in use)`,
           kind: "muted",
         },
         { key: "rows", header: "Rows", cell: (row) => String(row.rowCount), kind: "muted" },

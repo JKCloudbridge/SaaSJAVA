@@ -67,17 +67,23 @@ class SolutionLoaderTest {
         assertThat(bundle.application().apiName()).isEqualTo("inspection");
         assertThat(bundle.application().entries()).extracting(SolutionBundle.Entry::kind)
                 .containsExactly(ShippedEntryView.Kind.PLATFORM, ShippedEntryView.Kind.PLATFORM,
-                        ShippedEntryView.Kind.PLATFORM, ShippedEntryView.Kind.OBJECT);
-        assertThat(bundle.objects()).containsExactly("InspectionTemplate", "InspectionFill", "DepartmentGroup");
+                        ShippedEntryView.Kind.PLATFORM, ShippedEntryView.Kind.PLATFORM, ShippedEntryView.Kind.OBJECT);
+        assertThat(bundle.objects()).containsExactly("InspectionTemplate", "InspectionFill", "InspectionChangeRequest",
+                "DepartmentGroup");
         assertThat(bundle.sheetOwners()).containsExactly("InspectionTemplate");
         assertThat(bundle.policies()).extracting(SolutionBundle.Policy::name)
-                .containsExactly("Author", "Approver", "Reader", "Filler", "Reviewer", "Department setup");
+                .containsExactly("Author", "Approver", "Publisher", "Reader", "Filler", "Reviewer",
+                        "Department setup");
         assertThat(policy(bundle, "author").objects().get("InspectionTemplate")).containsExactlyInAnyOrder(
                 ObjectAction.CREATE, ObjectAction.READ, ObjectAction.UPDATE);
         assertThat(policy(bundle, "author").abilities()).isEmpty();
-        // Only an approver passes the lock of an approval, publishes and retires (ADR-0189).
+        // Only an approver passes the lock of an approval; only a publisher publishes and retires (ADR-0189, ADR-0199).
         assertThat(policy(bundle, "approver").abilities()).containsExactlyInAnyOrder("approvals.override-lock",
-                "sheets.publish", "sheets.retire", "field-values.add");
+                "field-values.add");
+        assertThat(policy(bundle, "publisher").abilities()).containsExactlyInAnyOrder("sheets.publish",
+                "sheets.retire");
+        assertThat(policy(bundle, "publisher").objects().get("InspectionTemplate")).containsExactlyInAnyOrder(
+                ObjectAction.READ, ObjectAction.VIEW_ALL);
         // FA6A: the author edits the name, level and document; the identity pair is the approver's to set.
         assertThat(policy(bundle, "author").fields()).containsEntry("InspectionTemplate.level",
                 java.util.Set.of(app.platform.security.FieldAction.EDIT)).containsEntry(

@@ -369,6 +369,14 @@ public interface StorageStrategy {
     boolean valueTaken(String objectApiName, int constraint, List<String> values, UUID except);
 
     /**
+     * Whether any record of the object other than {@code except}, live or in the recycle bin, holds this text in the
+     * field. Used to keep an issued number from being given twice; the unique index of the field stays the backstop.
+     *
+     * @param except the record being numbered, or null for one that does not exist yet
+     */
+    boolean holdsText(String objectApiName, String fieldApiName, String value, UUID except);
+
+    /**
      * Switches the constraint on for up to {@code limit} live records of the object after the identifier, in
      * identifier order, that have a copy in each of its columns. The version and the time of last change of a record do
      * not change.

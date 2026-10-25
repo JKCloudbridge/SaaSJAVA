@@ -73,7 +73,11 @@ final class SheetGridReader {
         JsonNode styleNode = node.path("style");
         if (styleNode.isObject()) {
             style = new Style(styleNode.path("bold").asBoolean(false), styleNode.path("italic").asBoolean(false),
-                    styleNode.has("fontSize") ? FontSize.valueOf(styleNode.path("fontSize").asString()) : null);
+                    styleNode.has("fontSize") ? FontSize.valueOf(styleNode.path("fontSize").asString()) : null,
+                    styleNode.path("underline").asBoolean(false),
+                    styleNode.has("alignment")
+                            ? SheetGrid.Alignment.valueOf(styleNode.path("alignment").asString()) : null,
+                    styleNode.has("colour") ? SheetGrid.Colour.valueOf(styleNode.path("colour").asString()) : null);
         }
         Kind kind = node.has("kind") ? Kind.valueOf(node.path("kind").asString().toUpperCase(java.util.Locale.ROOT))
                 : null;
