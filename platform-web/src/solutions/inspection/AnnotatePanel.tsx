@@ -160,7 +160,7 @@ export function AnnotatePanel({
   return (
     <div className="stack" data-testid="annotate-panel">
       <p className="hint">
-        You cannot change this version. Say what you would change and send it as a request. The people who look after the
+        You cannot change this revision. Say what you would change and send it as a request. The people who look after the
         template see it, and nobody else.
       </p>
       <div className="split" role="group" aria-label="What the comment is about">

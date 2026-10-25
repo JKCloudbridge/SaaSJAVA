@@ -15,7 +15,7 @@ public final class FillRefusal extends RuntimeException {
     /** Why a move was refused. */
     public enum Reason {
         /** The version asked for is not the one in use, or does not exist. */
-        NOT_IN_USE("A fill-in can be started only on the version that is in use."),
+        NOT_IN_USE("A fill-in can be started only on the revision that is in use."),
         /** The header already has a fill-in row. */
         ALREADY_STARTED("This fill-in was already started."),
         /** There is no such fill-in. */

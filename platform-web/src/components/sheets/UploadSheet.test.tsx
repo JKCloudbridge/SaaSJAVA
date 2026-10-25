@@ -123,7 +123,7 @@ describe("the upload of a spreadsheet", () => {
       [IMPORT]: (request) =>
         new URL(request.url).searchParams.get("preview") === "true"
           ? json({ data: { saved: false, report: REPORT } })
-          : refusal("CONFLICT", "A draft already exists: it is version 2. Continue with it.", 409),
+          : refusal("CONFLICT", "A draft already exists: it is Revision 01. Continue with it.", 409),
     });
     const onSaved = draw();
     pick("a.xlsx");
@@ -131,7 +131,7 @@ describe("the upload of a spreadsheet", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save as a new draft" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("A draft already exists: it is version 2.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("A draft already exists: it is Revision 01.");
     expect(onSaved).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("alert")).toBeNull();
@@ -150,7 +150,7 @@ describe("the upload of a spreadsheet", () => {
     expect(calls.filter((call) => call.key === IMPORT)).toHaveLength(0);
   });
 
-  it("tells a person who starts the first version that the sheet will name its rows", async () => {
+  it("tells a person who starts the first revision that the sheet will name its rows", async () => {
     fakeApi({ [IMPORT]: () => json({ data: { saved: false, report: REPORT } }) });
     draw({ firstVersion: true, label: "Start from a spreadsheet" });
 

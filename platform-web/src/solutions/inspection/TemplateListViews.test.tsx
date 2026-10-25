@@ -305,6 +305,6 @@ describe("search and order on the server", () => {
     await screen.findByText("Fire exit check");
 
     expect(screen.queryByRole("button", { name: /^Status/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /^Versions/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Revisions/ })).toBeNull();
   });
 });

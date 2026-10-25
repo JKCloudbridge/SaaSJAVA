@@ -49,7 +49,7 @@ class NoticeTexts {
             "commented", "a comment was added",
             "accepted", "it was accepted",
             "declined", "it was declined",
-            "done", "it was turned into a new version");
+            "done", "it was turned into a new revision");
     private static final Map<String, String> TRIAL = Map.of(
             "first", "The trial of {organization} is ending. When the grace period is over, the organization is "
                     + "suspended: nothing is deleted, and a platform administrator can open it again once a plan is "

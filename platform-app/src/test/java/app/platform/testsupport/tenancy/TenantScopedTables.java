@@ -809,6 +809,18 @@ public final class TenantScopedTables {
                     tenant, UUID.randomUUID(), UUID.randomUUID(), ActorId.SYSTEM.value(),
                     ActorId.SYSTEM.value()));
 
+    /**
+     * The two sheet options of a template (FA7). The guard lets a row in only when the transaction setting is on, which
+     * the probe raises in the same statement.
+     */
+    public static final TenantScopedTable INSPECTION_TEMPLATE_OPTION = new TenantScopedTable(
+            "inspection_template_option",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "with allowed as (select set_config('platform.template_option_write', 'on', true)) "
+                            + "insert into inspection_template_option (tenant_id, template_id, created_by, "
+                            + "updated_by) select ?, ?, ?, ? from allowed",
+                    tenant, UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
     /** The change requests on templates (FA5). Each probe row is a request on a template of its own. */
     public static final TenantScopedTable INSPECTION_CHANGE_REQUEST = new TenantScopedTable(
             "inspection_change_request",
@@ -861,7 +873,7 @@ public final class TenantScopedTables {
             SHEET_VERSION, SHEET_FILL,
             SHEET_FILL_VALUE,
             INSPECTION_PUBLICATION, INSPECTION_CHANGE_REQUEST, INSPECTION_CHANGE_COMMENT,
-            INSPECTION_AUDIENCE_SUGGESTION);
+            INSPECTION_AUDIENCE_SUGGESTION, INSPECTION_TEMPLATE_OPTION);
 
     private TenantScopedTables() {
     }

@@ -11,6 +11,7 @@ import {
   type ChangeRequestListRequest,
   type ChangeRequestRow,
 } from "./changeRequests";
+import { revisionNumber, revisionWords } from "@/lib/sheets/revision";
 
 /**
  * The list of change requests, for the whole application (the entry "Change requests") or for one template (its tab of the
@@ -122,7 +123,7 @@ export function ChangeRequestsList({
   const columns: ListColumn<ChangeRequestRow>[] = [
     { key: "by", header: "Change requested by", cell: (row) => (row.mine ? "You" : (row.requesterName ?? "Someone who has left")) },
     { key: "department", header: "Department", cell: (row) => row.requesterDepartment ?? "—", kind: "muted" },
-    { key: "version", header: "Version", cell: (row) => `v${row.versionNo}`, kind: "muted", sort: (row) => row.versionNo },
+    { key: "version", header: "Revision", cell: (row) => `Rev ${revisionNumber(row.versionNo)}`, kind: "muted", sort: (row) => row.versionNo },
     { key: "date", header: "Date", cell: (row) => when(row.createdAt), kind: "muted", sort: (row) => row.createdAt },
     {
       key: "status",

@@ -9,6 +9,7 @@ import {
   cellKind,
   contains,
   DEFAULT_COLUMN_WIDTH,
+  FOOTER_HEIGHT,
   indexesOf,
   LABEL_BAND_HEIGHT,
   mergeRects,
@@ -73,6 +74,13 @@ export interface SheetGridProps {
    * filler, and the sample rows of a sheet whose filler adds the rows, which have no height of their own).
    */
   onResizeRow?: (rowId: string, height: number | undefined) => void;
+  /**
+   * The footer row (FA7, ADR-0201): one row at the bottom, across the full width and bordered like the rest, with this text
+   * at its right. An empty text leaves the row blank; without the property there is no row (a fill-in, a draft the author is
+   * building). It is made when the sheet is shown, never part of the document, and the person cannot move onto it or type
+   * into it.
+   */
+  footer?: string;
 }
 
 /** The narrowest and the widest a column may be: the same bounds as the schema of the sheet. */
@@ -108,6 +116,7 @@ export function SheetGrid({
   annotation,
   onResizeColumn,
   onResizeRow,
+  footer,
 }: SheetGridProps) {
   const { doc, rows, selection, rect } = editor;
   const gridId = useId();
@@ -150,6 +159,7 @@ export function SheetGrid({
     return [...doc.columns.map((column) => { const left = x; x += live && live.id === column.id ? live.width : (column.width ?? DEFAULT_COLUMN_WIDTH); return left; }), x];
   }, [doc.columns, live]);
   const totalHeight = at(rowTop, rows.length);
+  const footerHeight = footer === undefined ? 0 : FOOTER_HEIGHT;
   const totalWidth = at(colLeft, doc.columns.length);
 
   // eslint-disable-next-line react-hooks/incompatible-library -- the compiler skips this component; nothing here is memoized by hand
@@ -467,7 +477,7 @@ export function SheetGrid({
         role="grid"
         tabIndex={0}
         aria-label={label}
-        aria-rowcount={rows.length + 1}
+        aria-rowcount={rows.length + 1 + (footer === undefined ? 0 : 1)}
         aria-colcount={doc.columns.length}
         aria-multiselectable="true"
         aria-readonly={readOnly}
@@ -490,7 +500,7 @@ export function SheetGrid({
           }
         }}
       >
-        <div className="sheet-canvas" style={{ width: totalWidth, height: LABEL_BAND_HEIGHT + totalHeight }}>
+        <div className="sheet-canvas" style={{ width: totalWidth, height: LABEL_BAND_HEIGHT + totalHeight + footerHeight }}>
           <div role="row" aria-rowindex={1} className="sheet-labels" style={{ height: LABEL_BAND_HEIGHT, width: totalWidth }}>
             {visibleColumns.map((j) => {
               const column = at(doc.columns, j);
@@ -655,6 +665,19 @@ export function SheetGrid({
               </div>
             );
           })}
+          {footer === undefined ? null : (
+            <div
+              role="row"
+              aria-rowindex={rows.length + 2}
+              className="sheet-footer"
+              style={{ top: LABEL_BAND_HEIGHT + totalHeight, height: FOOTER_HEIGHT, width: totalWidth }}
+              data-testid="sheet-footer"
+            >
+              <span role="gridcell" aria-readonly="true" aria-colindex={doc.columns.length}>
+                {footer}
+              </span>
+            </div>
+          )}
         </div>
       </div>
       <p

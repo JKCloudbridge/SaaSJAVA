@@ -61,14 +61,14 @@ function annotate(versionNo: number, extra: Partial<SheetAnnotate> = {}): SheetA
 }
 
 describe("annotate mode in the workspace (FA5)", () => {
-  it("draws the caller's panel under the grid of the version in use, read-only, for a person who may only read", async () => {
+  it("draws the caller's panel under the grid of the revision in use, read-only, for a person who may only read", async () => {
     serve([summary(1, "ACTIVE")], false);
 
     render(<SheetWorkspace owner={OWNER} label="Fire checks" annotate={annotate(1)} />);
 
     expect(await screen.findByTestId("panel")).toBeInTheDocument();
-    expect(screen.getByRole("grid", { name: "Fire checks, version 1" })).toHaveAttribute("aria-readonly", "true");
-    expect(screen.getByText(/You are reading version 1, which is in use/)).toBeInTheDocument();
+    expect(screen.getByRole("grid", { name: "Fire checks, revision 00" })).toHaveAttribute("aria-readonly", "true");
+    expect(screen.getByText(/You are reading revision 00, which is in use/)).toBeInTheDocument();
     expect(screen.getByTestId("cell")).toHaveTextContent("Cell: column “Item”, row number 1");
     expect(screen.getByTestId("column")).toHaveTextContent("Column “Item”");
   });
@@ -82,14 +82,14 @@ describe("annotate mode in the workspace (FA5)", () => {
 
     render(<SheetWorkspace owner={OWNER} label="Fire checks" annotate={annotate(1)} />);
 
-    expect(await screen.findByRole("grid", { name: "Fire checks, version 1" })).toBeInTheDocument();
+    expect(await screen.findByRole("grid", { name: "Fire checks, revision 00" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Grid view" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("stands on the place the active cell is on as the person moves", async () => {
     serve([summary(1, "ACTIVE")], false);
     render(<SheetWorkspace owner={OWNER} label="Fire checks" annotate={annotate(1)} />);
-    const grid = await screen.findByRole("grid", { name: "Fire checks, version 1" });
+    const grid = await screen.findByRole("grid", { name: "Fire checks, revision 00" });
 
     fireEvent.keyDown(grid, { key: "ArrowDown" });
     fireEvent.keyDown(grid, { key: "ArrowDown" });
@@ -101,7 +101,7 @@ describe("annotate mode in the workspace (FA5)", () => {
   it("lets the panel stand the grid on a place, and counts the presses of Enter", async () => {
     serve([summary(1, "ACTIVE")], false);
     render(<SheetWorkspace owner={OWNER} label="Fire checks" annotate={annotate(1)} />);
-    const grid = await screen.findByRole("grid", { name: "Fire checks, version 1" });
+    const grid = await screen.findByRole("grid", { name: "Fire checks, revision 00" });
 
     fireEvent.click(screen.getByRole("button", { name: "Go to the third row" }));
     expect(screen.getByTestId("cell")).toHaveTextContent("Cell: column “Amount”, row “Third”");
@@ -126,7 +126,7 @@ describe("annotate mode in the workspace (FA5)", () => {
     // The caller named version 1, but version 2 is the one in use and opens first.
     render(<SheetWorkspace owner={OWNER} label="Fire checks" annotate={annotate(1)} />);
 
-    await screen.findByRole("grid", { name: "Fire checks, version 2" });
+    await screen.findByRole("grid", { name: "Fire checks, revision 01" });
     expect(screen.queryByTestId("panel")).toBeNull();
   });
 
@@ -135,7 +135,7 @@ describe("annotate mode in the workspace (FA5)", () => {
 
     render(<SheetWorkspace owner={OWNER} label="Fire checks" annotate={annotate(1)} />);
 
-    await screen.findByRole("grid", { name: "Fire checks, version 1" });
+    await screen.findByRole("grid", { name: "Fire checks, revision 00" });
     expect(screen.queryByTestId("panel")).toBeNull();
   });
 });

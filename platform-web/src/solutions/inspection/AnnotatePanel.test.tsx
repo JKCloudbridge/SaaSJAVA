@@ -76,7 +76,7 @@ describe("the request written in the popup (FA5, FA6D)", () => {
     expect(screen.getByRole("textbox", { name: /Column “Amount”/ })).toBeInTheDocument();
   });
 
-  it("collects comments, shows them, lets one go, and sends the rest with the version that was read", async () => {
+  it("collects comments, shows them, lets one go, and sends the rest with the revision that was read", async () => {
     const calls = fakeApi({
       [`POST ${PATH}`]: () => json({ data: { id: "x" } }, 201),
     });
@@ -131,7 +131,7 @@ describe("the request written in the popup (FA5, FA6D)", () => {
   it("shows the API's words and the places that are wrong, and keeps the person's work", async () => {
     fakeApi({
       [`POST ${PATH}`]: () =>
-        json({ error: { code: "VALIDATION_ERROR", message: "The request is not valid.", fields: { "comments[0].place": ["That row or column is not in the version you read."] } } }, 400),
+        json({ error: { code: "VALIDATION_ERROR", message: "The request is not valid.", fields: { "comments[0].place": ["That row or column is not in the revision you read."] } } }, 400),
     });
     const { onSent } = draw();
     write("Where?");
@@ -141,7 +141,7 @@ describe("the request written in the popup (FA5, FA6D)", () => {
     send();
 
     expect(await screen.findByText("The request is not valid.")).toBeInTheDocument();
-    expect(screen.getByText("That row or column is not in the version you read.")).toBeInTheDocument();
+    expect(screen.getByText("That row or column is not in the revision you read.")).toBeInTheDocument();
     expect(onSent).not.toHaveBeenCalled();
     expect(screen.getByTestId("drafted")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "What is the request about?" })).toHaveValue("Lost");

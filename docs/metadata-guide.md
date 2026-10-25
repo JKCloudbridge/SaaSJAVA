@@ -780,6 +780,10 @@ The code takes a number with `NumberSeries.next(seriesKey, values)` inside a tra
 
 ## 27. Sheets, versions and the template page (Functional track FA3)
 
+> **Since FA7 the screens say *Revision*, written with two digits starting at 00.** Where sections 27 to 38 of this guide say "version" of a sheet
+> or a template, read *Revision*: the first one is Revision 00, the next 01 (see section 39). The numbers the guide gives for the stored
+> versions and the API are unchanged.
+
 Decisions: [ADR-0186](adr/0186-the-sheets-module-versions-the-owner-seam-and-the-request-size.md), [ADR-0172](adr/0172-the-grid-component-and-the-adapter.md), [ADR-0173](adr/0173-the-canonical-grid-json-and-its-limits.md), [ADR-0174](adr/0174-template-versions-and-approval-together.md). For the administrator of an organization that has the Audit maintenance feature, and for the contributor who adds another sheet owner.
 
 ### 27.1 What a sheet is (for administrators)
@@ -1065,3 +1069,37 @@ out, and the window says so.
 
 **Nothing is written down but the fact.** The suggestion cannot be changed after the approval, by the approver or by anybody else. The audit
 trail says that a suggestion was made and how many places it holds, never which.
+
+## 39. View, Download, Sheet options, the footer row and Revisions (FA7)
+
+**View.** On the **Sheet** tab of a template, once a revision is open, the button **View** shows the sheet the way Ctrl+P shows it in a
+spreadsheet program: pages, the column labels and header rows repeated on every page, merged cells, column widths, row heights, bold,
+italic and the sizes as the sheet has them. The cells a person fills in are shown empty. **Print** opens the browser's print dialog, which
+also saves a PDF. The paper is A4, landscape when the sheet is wide, and the sheet is fitted to the page width. **Everybody who can read
+the template sees View.**
+
+**Download.** The button **Download** gives the sheet as an Excel file named after the template number and the revision, for example
+`F-MR-16_Rev00.xlsx`. It is shown only when download is allowed for the template; the server checks the same setting when the file is
+asked for, so a hidden button is not the rule. The people who hold the **Publisher** policy (and the Organization administrator) can always
+download, so they can check their work. Everything in the file is plain text, never a formula, so a text that starts with `=` does not run
+in a spreadsheet program.
+
+**The two tick boxes.** When Plant QMS publishes, the Publish window has one row with **View only** and **Allow download**, both
+unticked at first.
+- **View only** means the template is a reference: nobody can start a fill-in from it (the control is not offered and the server refuses it
+  in fixed words). The template can still be read, View still shows, and a fill-in that was already started can be finished and sent.
+- **Allow download** shows Download to everybody who can read the template.
+
+They belong to the **template**, not to one revision. People with the Publisher policy change them later without publishing again with
+**Sheet options** on the template page (the same two boxes). The change is recorded by the template's identifier and the two answers.
+Templates made before this release have both unticked: tick them in Sheet options if people should download them or if they should be
+view only.
+
+**The footer row.** Every template sheet ends with one more row, across the full width and bordered like the rest. At its right it reads
+the template number and the revision, for example `F/MR/16  Rev No.'01'`. Until Plant QMS has numbered the template (the first approval)
+the row is there and blank; when the template is numbered the number appears at once. The row is made when the sheet is shown, printed or
+downloaded; it is **not** part of what the author writes, so the author cannot change it and the number is always the current one. The
+revision in it is the sheet's active revision.
+
+**Revision instead of Version.** Wherever you read the word for a sheet or a template it is now **Revision**, written with two digits:
+the first version of a sheet is **Revision 00**, the next **01**. Nothing stored was changed or renumbered; only what you read.

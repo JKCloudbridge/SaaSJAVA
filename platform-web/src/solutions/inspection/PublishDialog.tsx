@@ -9,6 +9,7 @@ import {
   type AudiencePick,
   type TemplateLifecycleView,
 } from "./api";
+import { revisionWords } from "@/lib/sheets/revision";
 
 type Options = { status: "loading" } | { status: "ready"; options: AudienceOptions } | { status: "failed"; message: string };
 
@@ -57,6 +58,9 @@ export function PublishDialog({
   const [ticks, setTicks] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<ApiFailure | undefined>();
+  // The two options of the sheet (FA7): both start unticked on a template that never had them set.
+  const [viewOnly, setViewOnly] = useState(lifecycle.viewOnly);
+  const [allowDownload, setAllowDownload] = useState(lifecycle.allowDownload);
 
   useEffect(() => {
     let live = true;
@@ -106,7 +110,7 @@ export function PublishDialog({
   const submit = async () => {
     setBusy(true);
     setRefusal(undefined);
-    const outcome = await publishTemplate(templateId, { versionNo, audiences: chosen });
+    const outcome = await publishTemplate(templateId, { versionNo, audiences: chosen, viewOnly, allowDownload });
     setBusy(false);
     if (outcome.ok) {
       onDone(outcome.data);
@@ -132,8 +136,8 @@ export function PublishDialog({
       {inModal ? null : <h3 id={heading}>Publish this template</h3>}
       <p>
         {changesVersion
-          ? `Version ${versionNo} becomes the one in use and replaces ${numbers.activeVersion > 0 ? `version ${numbers.activeVersion}` : "nothing yet"}.`
-          : `Version ${versionNo} stays in use. Only who it is published to changes.`}{" "}
+          ? `${revisionWords(versionNo)} becomes the one in use and replaces ${numbers.activeVersion > 0 ? revisionWords(numbers.activeVersion).toLowerCase() : "nothing yet"}.`
+          : `${revisionWords(versionNo)} stays in use. Only who it is published to changes.`}{" "}
         The people of the departments you choose will see it in the Templates list, and nobody else will.
       </p>
 
@@ -229,6 +233,20 @@ export function PublishDialog({
           )}
         </>
       ) : null}
+
+      <div className="sheet-options-row" role="group" aria-label="Sheet options" data-testid="publish-sheet-options">
+        <label>
+          <input type="checkbox" checked={viewOnly} onChange={(event) => setViewOnly(event.target.checked)} /> View only
+        </label>
+        <label>
+          <input type="checkbox" checked={allowDownload} onChange={(event) => setAllowDownload(event.target.checked)} /> Allow
+          download
+        </label>
+      </div>
+      <p className="hint">
+        View only: the template is a reference and nobody can start a fill-in from it. Allow download: everybody who can read
+        the template can download its sheet as an Excel file. You can change both later from Sheet options.
+      </p>
 
       {refusal ? (
         <div role="alert" className="form-message" data-testid="publish-refused">

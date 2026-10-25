@@ -181,7 +181,7 @@ describe("the form view", () => {
 
     expect(screen.queryByRole("combobox", { name: "Rows" })).toBeNull();
     expect(screen.getByText(/The sheet names the rows; the filler adds none\./)).toBeInTheDocument();
-    expect(screen.getByText(/chosen with the first version/)).toBeInTheDocument();
+    expect(screen.getByText(/chosen with the first revision/)).toBeInTheDocument();
   });
 
   it("shows the words and the place of a refusal next to the field", () => {

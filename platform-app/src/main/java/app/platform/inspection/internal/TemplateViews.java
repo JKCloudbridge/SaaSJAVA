@@ -132,13 +132,20 @@ public final class TemplateViews {
      *        step was skipped (FA6G). A suggestion shares nothing
      * @param suggestionDropped how many suggested places are no longer offered by the organization's lists and were
      *        left out of {@code suggestedAudience}
+     * @param number the template's number, or null before the first approval (FA7: the sheet's footer row reads it)
+     * @param viewOnly the template is only a reference: nobody can start a fill-in from it (FA7, ADR-0201)
+     * @param allowDownload the sheet may be given as a file to everybody who can read it
+     * @param canDownload whether to offer Download: the option is on, or the caller holds the right to publish, and a
+     *        revision exists that the caller can read
+     * @param canSetOptions whether to offer the "Sheet options" control (the right to publish)
      */
     public record TemplateLifecycleView(@NotNull UUID id, @NotNull Boolean retired,
             @NotNull TemplateLifecycle lifecycle, @NotNull List<TemplateAudience> audience,
             @NotNull Boolean canPublish, @NotNull Boolean canUnpublish, @NotNull Boolean canRetire,
             String numberPreview, @NotNull Boolean numberPreviewComplete, @NotNull Integer openChangeRequests,
             @NotNull List<VersionReview> versionReviews, @NotNull List<SuggestedAudience> suggestedAudience,
-            @NotNull Integer suggestionDropped) {
+            @NotNull Integer suggestionDropped, String number, @NotNull Boolean viewOnly,
+            @NotNull Boolean allowDownload, @NotNull Boolean canDownload, @NotNull Boolean canSetOptions) {
     }
 
     /**
@@ -209,8 +216,20 @@ public final class TemplateViews {
      *        already in use, only the audience changes)
      * @param audiences the locations and departments to publish to, at least one and at most 20; a group that is
      *        already published to and is not listed here is taken back
+     * @param viewOnly the "view only" option (FA7); left out keeps what the template has
+     * @param allowDownload the "allow download" option (FA7); left out keeps what the template has
      */
     public record PublishTemplateRequest(Integer versionNo,
-            @NotNull @Size(min = 1, max = 20) List<@NotNull @Valid AudiencePick> audiences) {
+            @NotNull @Size(min = 1, max = 20) List<@NotNull @Valid AudiencePick> audiences, Boolean viewOnly,
+            Boolean allowDownload) {
+    }
+
+    /**
+     * The two options of a template's sheet, set again without publishing (FA7, ADR-0201).
+     *
+     * @param viewOnly nobody can start a fill-in from the template
+     * @param allowDownload the sheet may be given as a file to everybody who can read it
+     */
+    public record SheetOptionsRequest(@NotNull Boolean viewOnly, @NotNull Boolean allowDownload) {
     }
 }

@@ -59,13 +59,13 @@ const bodyOf = (calls: Call[], key: string) =>
   JSON.parse(calls.filter((call) => call.key === key).at(-1)?.body ?? "null") as unknown;
 
 describe("a fill-in that can be filled in", () => {
-  it("shows the status, the version it is pinned to and the grid of that version", async () => {
+  it("shows the status, the revision it is pinned to and the grid of that revision", async () => {
     fakeApi({ [`GET ${URL_OF}`]: view() });
 
     draw();
 
-    expect(await screen.findByRole("grid", { name: "Fire checks, version 3" })).toBeInTheDocument();
-    expect(screen.getByText(/version 3 of the template/)).toBeInTheDocument();
+    expect(await screen.findByRole("grid", { name: "Fire checks, revision 02" })).toBeInTheDocument();
+    expect(screen.getByText(/revision 02 of the template/)).toBeInTheDocument();
     expect(screen.getByTestId("fill-status-note")).toHaveTextContent("This fill-in is a draft");
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(screen.queryByTestId("fill-version-note")).not.toBeInTheDocument();
@@ -292,7 +292,7 @@ describe("a fill-in that cannot be changed", () => {
     draw();
 
     expect(await screen.findByTestId("fill-version-note")).toHaveTextContent("A newer version is in use now");
-    expect(screen.getByTestId("fill-version-note")).toHaveTextContent("stays on version 3");
+    expect(screen.getByTestId("fill-version-note")).toHaveTextContent("stays on revision 02");
   });
 
   it("says that a retired template leaves the fill-in readable but fixed", async () => {

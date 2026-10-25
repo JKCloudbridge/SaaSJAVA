@@ -5,6 +5,7 @@ import { useApprovalHistory } from "@/lib/approvals/history";
 import { becameWords, type ChangeRequestsView } from "./changeRequests";
 import type { TemplateLifecycleView } from "./api";
 import { REQUEST_OBJECT, TEMPLATE_OBJECT } from "./template";
+import { revisionNumber, revisionWords } from "@/lib/sheets/revision";
 
 /** The most change requests whose approval is drawn; the newest are the ones people look for. */
 const MOST_REQUESTS = 20;
@@ -40,9 +41,9 @@ export function TemplateApprovals({
     entries.push({
       key: instance.summary.id,
       at: instance.summary.startedAt,
-      title: version === undefined ? "Approval" : version === 1 ? "New template" : `New version ${version}`,
+      title: version === undefined ? "Approval" : version === 1 ? "New template" : `New revision ${revisionNumber(version)}`,
       instance,
-      note: version === undefined || version === 1 ? undefined : `Version ${version}`,
+      note: version === undefined || version === 1 ? undefined : revisionWords(version),
     });
   }
   for (const request of reviewed) {

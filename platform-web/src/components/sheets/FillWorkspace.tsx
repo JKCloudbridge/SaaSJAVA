@@ -15,6 +15,7 @@ import { useNarrowScreen } from "./useNarrowScreen";
 import { FillToolbar } from "./FillToolbar";
 import { useFillAutosave } from "./useFillAutosave";
 import { useSaveBeforeLeave } from "./useSaveBeforeLeave";
+import { revisionWords } from "@/lib/sheets/revision";
 
 export interface FillWorkspaceProps {
   /** The header record the fill-in belongs to. */
@@ -261,7 +262,7 @@ function FillPane({
     <div className="stack sheet-editor" data-testid="fill-editor">
       <div className="sheet-bar">
         <p className="sheet-bar-title">
-          <strong>{tag.text}</strong> · version {summary.versionNo} of the template · {summary.rowCount}{" "}
+          <strong>{tag.text}</strong> · {revisionWords(summary.versionNo).toLowerCase()} of the template · {summary.rowCount}{" "}
           {summary.rowCount === 1 ? "row" : "rows"}
           {summary.corrections > 0
             ? ` · corrected ${summary.corrections === 1 ? "once" : `${summary.corrections} times`} after it was sent`
@@ -394,7 +395,7 @@ function FillPane({
               editor={editor}
               readOnly={readOnly || narrow}
               canEditCell={editor.canEditCell}
-              label={`${label}, version ${summary.versionNo}`}
+              label={`${label}, ${revisionWords(summary.versionNo).toLowerCase()}`}
             />
             <p className="hint">
               {readOnly

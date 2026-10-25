@@ -1,4 +1,4 @@
-import { configure, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { configure, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { fakeApi, json, refusal } from "@/test/fakeApi";
 import type { TemplateLifecycleView } from "./api";
@@ -46,9 +46,16 @@ function view(extra: Partial<TemplateLifecycleView> = {}): TemplateLifecycleView
     versionReviews: [],
     suggestedAudience: [],
     suggestionDropped: 0,
+    viewOnly: false,
+    allowDownload: false,
+    canDownload: false,
+    canSetOptions: true,
     ...extra,
   };
 }
+
+/** The tick boxes of the departments of the chosen location, not the two sheet options. */
+const departmentBoxes = () => within(screen.getByRole("group", { name: "Departments" })).queryAllByRole("checkbox");
 
 function draw(lifecycle = view()) {
   const onDone = vi.fn();
@@ -72,17 +79,17 @@ describe("the publish dialog", () => {
     draw();
 
     await screen.findByLabelText("Location");
-    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(departmentBoxes()).toHaveLength(0);
     expect(screen.getByText("Choose a location first.")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Location"), { target: { value: "PLANT1" } });
-    expect(screen.getAllByRole("checkbox").map((box) => box.parentElement?.textContent?.trim())).toEqual([
+    expect(departmentBoxes().map((box) => box.parentElement?.textContent?.trim())).toEqual([
       "Production",
       "Quality (no group set up yet)",
     ]);
 
     fireEvent.change(screen.getByLabelText("Location"), { target: { value: "HEAD" } });
-    expect(screen.getAllByRole("checkbox").map((box) => box.parentElement?.textContent?.trim())).toEqual([
+    expect(departmentBoxes().map((box) => box.parentElement?.textContent?.trim())).toEqual([
       "Human resources",
     ]);
   });
@@ -104,6 +111,8 @@ describe("the publish dialog", () => {
     const sent = JSON.parse(calls.filter((call) => call.key.endsWith("/publish")).at(-1)?.body ?? "null") as unknown;
     expect(sent).toEqual({
       versionNo: 2,
+      viewOnly: false,
+      allowDownload: false,
       audiences: [
         { location: "PLANT1", department: "PRD" },
         { location: "PLANT1", department: "QLT" },
@@ -155,7 +164,7 @@ describe("the publish dialog", () => {
     expect(screen.getByText("Plant 1 · Quality")).toBeInTheDocument();
   });
 
-  it("starts from the audience the template already has, and says the version stays when only the audience changes", async () => {
+  it("starts from the audience the template already has, and says the revision stays when only the audience changes", async () => {
     fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
     draw(
       view({
@@ -183,7 +192,7 @@ describe("the publish dialog", () => {
     );
 
     expect(await screen.findByText("Plant 1 · Production")).toBeInTheDocument();
-    expect(screen.getByText(/Version 3 stays in use/)).toBeInTheDocument();
+    expect(screen.getByText(/Revision 02 stays in use/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Remove Plant 1 · Production" }));
     expect(screen.queryByText("Plant 1 · Production")).toBeNull();
     expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
@@ -205,7 +214,7 @@ describe("the publish dialog", () => {
       }),
     );
 
-    expect(await screen.findByText(/Version 4 becomes the one in use and replaces version 3/)).toBeInTheDocument();
+    expect(await screen.findByText(/Revision 03 becomes the one in use and replaces revision 02/)).toBeInTheDocument();
   });
 
   it("says in the API's words when the choices cannot be loaded", async () => {
@@ -225,6 +234,49 @@ describe("the publish dialog", () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(calls.some((call) => call.key.endsWith("/publish"))).toBe(false);
+  });
+});
+
+describe("the sheet options of the publish dialog (FA7)", () => {
+  it("shows View only and Allow download in one row, both unticked on a template that never had them set", async () => {
+    fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
+    draw();
+
+    const row = await screen.findByTestId("publish-sheet-options");
+    const boxes = within(row).getAllByRole("checkbox");
+    expect(boxes.map((box) => box.parentElement?.textContent?.trim())).toEqual(["View only", "Allow download"]);
+    expect(boxes.every((box) => !(box as HTMLInputElement).checked)).toBe(true);
+  });
+
+  it("sends what was ticked together with the departments", async () => {
+    const calls = fakeApi({
+      "GET /api/v1/templates/audience-options": () => json(OPTIONS),
+      [`POST /api/v1/templates/${ID}/publish`]: () => json({ data: view() }),
+    });
+    const { onDone } = draw();
+
+    await choose("PLANT1", "Production");
+    fireEvent.click(screen.getByRole("checkbox", { name: "View only" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Allow download" }));
+    fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    const sent = JSON.parse(calls.filter((call) => call.key.endsWith("/publish")).at(-1)?.body ?? "null") as unknown;
+    expect(sent).toEqual({
+      versionNo: 2,
+      viewOnly: true,
+      allowDownload: true,
+      audiences: [{ location: "PLANT1", department: "PRD" }],
+    });
+  });
+
+  it("starts from the options the template already has", async () => {
+    fakeApi({ "GET /api/v1/templates/audience-options": () => json(OPTIONS) });
+    draw(view({ viewOnly: true, allowDownload: false }));
+
+    await screen.findByTestId("publish-sheet-options");
+    expect(screen.getByRole("checkbox", { name: "View only" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Allow download" })).not.toBeChecked();
   });
 });
 
@@ -251,6 +303,8 @@ describe("the publish dialog with a suggestion made at approval", () => {
     const sent = JSON.parse(calls.filter((call) => call.key.endsWith("/publish")).at(-1)?.body ?? "null") as unknown;
     expect(sent).toEqual({
       versionNo: 2,
+      viewOnly: false,
+      allowDownload: false,
       audiences: [
         { location: "PLANT1", department: "PRD" },
         { location: "PLANT1", department: "QLT" },

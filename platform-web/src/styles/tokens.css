@@ -83,6 +83,15 @@
   --sheet-grid-height: 30rem;
   --sheet-input-min-width: 4rem;
   --sheet-mark-size: 0.25rem;
+  --sheet-page-portrait-width: 210mm;
+  --sheet-page-landscape-width: 297mm;
+  /* The sheet on paper (FA7): the same in both themes, because paper is white. */
+  --color-print-paper: #ffffff;
+  --color-print-ink: #111111;
+  --color-print-line: #444444;
+  --color-print-accent: #7a2f73;
+  --color-print-success: #17693a;
+  --color-print-danger: #a62323;
   --flow-column-width: 17rem;
   --flow-dot-size: 0.75rem;
   --flow-line-width: 2px;

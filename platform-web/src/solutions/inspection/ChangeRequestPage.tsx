@@ -26,6 +26,7 @@ import {
   type ChangeRequestView,
 } from "./changeRequests";
 import { REQUEST_OBJECT } from "./template";
+import { revisionWords } from "@/lib/sheets/revision";
 
 const LABELS = { approve: "Accept", reject: "Decline" } as const;
 
@@ -151,7 +152,7 @@ function Body({
   const reopen = () =>
     run(async () => {
       const outcome = await reopenChangeRequest(request.templateId, request.id);
-      return outcome.ok ? { ok: true, text: "The request is accepted again and can be turned into a version." } : { ok: false, text: outcome.failure.message };
+      return outcome.ok ? { ok: true, text: "The request is accepted again and can be turned into a revision." } : { ok: false, text: outcome.failure.message };
     });
   const turn = () =>
     run(async () => {
@@ -159,7 +160,7 @@ function Body({
       return outcome.ok
         ? {
             ok: true,
-            text: `Version ${outcome.data.versionNo} ${outcome.data.created ? "was started as a copy of the version in use" : "already existed, so this request is linked to it"}. Edit it on the Sheet tab of the template, then send it for approval like any other version.`,
+            text: `${revisionWords(outcome.data.versionNo)} ${outcome.data.created ? "was started as a copy of the revision in use" : "already existed, so this request is linked to it"}. Edit it on the Sheet tab of the template, then send it for approval like any other revision.`,
           }
         : { ok: false, text: outcome.failure.message };
     });
@@ -178,7 +179,7 @@ function Body({
       {approval ? <ApprovalHeaderActions approval={approval} submitButton={false} /> : null}
       {request.canTurn ? (
         <button type="button" className="button button-secondary" disabled={busy} onClick={() => void turn()} data-testid="request-turn">
-          Turn into a new version
+          Turn into a new revision
         </button>
       ) : null}
       {request.canReopen ? (
@@ -199,7 +200,7 @@ function Body({
         <>
           <Tag tone={tag.tone}>{tag.text}</Tag>
           <span className="hint" data-testid="request-version">
-            Version {request.versionNo} read
+            {revisionWords(request.versionNo)} read
           </span>
         </>
       }
@@ -261,7 +262,7 @@ function Body({
                   return (
                     <li key={item.id}>
                       <strong>{placeWords(item)}</strong>
-                      {place && !item.inActiveVersion ? <Tag tone="error">no longer in this version</Tag> : null}
+                      {place && !item.inActiveVersion ? <Tag tone="error">no longer in this revision</Tag> : null}
                       <br />
                       <span className="comment-text">{item.text}</span>
                       <br />

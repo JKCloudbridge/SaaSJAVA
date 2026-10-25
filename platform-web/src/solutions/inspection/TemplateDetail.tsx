@@ -23,7 +23,13 @@ import { canSetUp } from "@/lib/shell/areas";
 import type { AnnotateContext, Place, SheetAnnotate } from "@/lib/sheets/annotate";
 import { DetailGrid, DetailItem, DetailPage, DetailSection, MissingDetail } from "@/components/ui/lists/DetailPage";
 import { Tag } from "@/components/ui/lists/Tag";
-import { retireTemplate, unpublishTemplate, useLifecycle, type TemplateLifecycleView } from "./api";
+import {
+  downloadTemplateSheet,
+  retireTemplate,
+  unpublishTemplate,
+  useLifecycle,
+  type TemplateLifecycleView,
+} from "./api";
 import { AskForChange } from "./AskForChange";
 import { marksFromRequests, useChangeRequests } from "./changeRequests";
 import { ChangeRequestsList } from "./ChangeRequestsPage";
@@ -32,8 +38,10 @@ import { FillInsList } from "./FillInsPage";
 import { lifecycleText, stateTag } from "./lifecycle";
 import { OpenRequestsMark } from "./OpenRequestsMark";
 import { PublishDialog } from "./PublishDialog";
+import { SheetOptionsDialog } from "./SheetOptionsDialog";
 import { TemplateApprovals } from "./TemplateApprovals";
 import { TEMPLATE_OBJECT, text } from "./template";
+import { downloadName, footerText, revisionWords } from "@/lib/sheets/revision";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
 const FORM_ID = "template-details-form";
@@ -75,6 +83,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
   const [approval, setApproval] = useState<ApprovalState>({ locked: false, mayOverride: false, mayApprove: false });
   const [editing, setEditing] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const [publishAfterApproval, setPublishAfterApproval] = useState(false);
   const [notice, setNotice] = useState<{ text: string; error: boolean } | undefined>();
   const [busy, setBusy] = useState(false);
@@ -186,6 +195,26 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
     setNotice({ text: outcome.failure.message, error: true });
   };
 
+  // The footer row of the sheet (FA7): the number and the revision in use; the revision shown when none is in use yet.
+  const footerRevision = (shown: number) => (view && view.lifecycle.activeVersion > 0 ? view.lifecycle.activeVersion : shown);
+  const footerFor = (shown: number) => footerText(view?.number, footerRevision(shown));
+
+  // Download of the revision that is open: the server decides again whether it is allowed and whether it may be read.
+  const download = async (shown: number) => {
+    setNotice(undefined);
+    const outcome = await downloadTemplateSheet(id, shown);
+    if (!outcome.ok) {
+      setNotice({ text: outcome.failure.message, error: true });
+      return;
+    }
+    const url = URL.createObjectURL(outcome.data);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = downloadName(view?.number, footerRevision(shown));
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const more: ActionMenuItem[] = [
     ...(view?.canUnpublish
       ? [
@@ -223,6 +252,17 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
         </button>
       ) : null}
       <ApprovalHeaderActions approval={decisions} extra={more}>
+        {view?.canSetOptions ? (
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={() => setOptionsOpen(true)}
+            disabled={busy}
+            data-testid="template-sheet-options"
+          >
+            Sheet options
+          </button>
+        ) : null}
         {view?.canPublish ? (
           <button type="button" className="button" onClick={() => setPublishing(true)} disabled={busy} data-testid="template-publish">
             {view.audience.length > 0 ? "Change publishing" : "Publish"}
@@ -242,6 +282,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
         tag && view ? (
           <>
             <Tag tone={TONES[tag.tone]}>{tag.text}</Tag>
+            {view.viewOnly ? <Tag tone="quiet">View only</Tag> : null}
             <span className="hint" data-testid="lifecycle-text">
               {lifecycleText(view.lifecycle)}
             </span>
@@ -333,7 +374,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
                           <li key={`${entry.location}/${entry.department}`}>
                             {entry.locationLabel} · {entry.departmentLabel}{" "}
                             <span className="hint">
-                              version {entry.versionNo}
+                              {revisionWords(entry.versionNo).toLowerCase()}
                               {entry.groupAvailable ? "" : ", its group no longer exists"}
                             </span>
                           </li>
@@ -370,6 +411,21 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
               annotate={annotate}
               listFirst
               toolbarSlot={toolbarSlot}
+              footer={view ? footerFor : undefined}
+              actions={
+                view?.canDownload
+                  ? (open) => (
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        onClick={() => void download(open.versionNo)}
+                        data-testid="sheet-download"
+                      >
+                        Download
+                      </button>
+                    )
+                  : undefined
+              }
             />
             <DetailSection title="Change requests" stack>
               <ChangeRequestsSection
@@ -405,6 +461,20 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
             onDone={() => {
               setPublishing(false);
               setNotice({ text: "The template is published to the people of the departments you chose.", error: false });
+              changed();
+            }}
+          />
+        </Modal>
+      ) : null}
+      {optionsOpen && view ? (
+        <Modal title="Sheet options" onClose={() => setOptionsOpen(false)}>
+          <SheetOptionsDialog
+            templateId={id}
+            lifecycle={view}
+            onClose={() => setOptionsOpen(false)}
+            onDone={() => {
+              setOptionsOpen(false);
+              setNotice({ text: "The sheet options are saved.", error: false });
               changed();
             }}
           />

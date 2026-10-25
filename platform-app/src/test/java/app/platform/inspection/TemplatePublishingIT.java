@@ -208,9 +208,9 @@ class TemplatePublishingIT extends TemplateSupport {
         Response notPublished = unpublish(run.second().browser(), draft);
 
         assertThat(nothing.status()).isEqualTo(409);
-        assertThat(message(nothing)).contains("no approved version");
+        assertThat(message(nothing)).contains("no approved revision");
         assertThat(notApproved.status()).isEqualTo(409);
-        assertThat(message(notApproved)).contains("Only an approved version");
+        assertThat(message(notApproved)).contains("Only an approved revision");
         assertThat(notPublished.status()).isEqualTo(409);
         assertThat(message(notPublished)).contains("not published");
         assertThat(statuses(run.author().browser(), draft)).containsExactly("DRAFT");

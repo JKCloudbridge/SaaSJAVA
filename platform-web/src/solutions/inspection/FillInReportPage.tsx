@@ -8,6 +8,7 @@ import { fillStatusTag } from "@/lib/sheets/fillTags";
 import { listTemplates, NO_FILTERS, type TemplateRow } from "./api";
 import { fillInsHref, getReportColumns, runReport, type FillInRow, type ReportColumn } from "./fillIns";
 import { OPERATOR_WORDS, operatorsFor, toRequest, type ColumnType, type Operator } from "./report";
+import { revisionNumber, revisionWords } from "@/lib/sheets/revision";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
 
@@ -232,7 +233,7 @@ export function FillInReportPage() {
       {choices && choices.list.length === 0 ? (
         <p className="hint" role="note">
           No column of this template can be used in a report yet. An author marks a column “Can be used in a report” in a new
-          version.
+          revision.
         </p>
       ) : null}
       {choices && choices.list.length > 0 ? (
@@ -315,7 +316,7 @@ export function FillInReportPage() {
       primaryExtra={(row) => (row.filledBy ? <span className="hint">{row.filledBy}</span> : null)}
       columns={[
         { key: "number", header: "Template number", cell: (row) => row.templateNumber || "—" },
-        { key: "version", header: "Version", cell: (row) => `v${row.versionNo}`, kind: "muted" },
+        { key: "version", header: "Revision", cell: (row) => `Rev ${revisionNumber(row.versionNo)}`, kind: "muted" },
         { key: "started", header: "Started", cell: (row) => when(row.createdAt), kind: "muted" },
         {
           key: "status",

@@ -2,6 +2,7 @@ package app.platform.sheets.internal;
 
 import app.platform.sharedkernel.approval.RecordLocks;
 import app.platform.sharedkernel.directory.ReferenceLabels;
+import app.platform.sheets.Revisions;
 import app.platform.sheets.SheetStatus;
 import app.platform.sheets.internal.SheetGrid.RowsMode;
 import app.platformapi.ApiException;
@@ -47,7 +48,7 @@ class SheetVersions {
 
     private static final UUID PLATFORM_ACTOR = new UUID(0L, 0L);
     private static final String NO_SHEET = "This sheet does not exist.";
-    private static final String NO_VERSION = "This version does not exist.";
+    private static final String NO_VERSION = "This revision does not exist.";
     private static final TypeReference<Map<String, Object>> GRID = new TypeReference<>() {
     };
 
@@ -107,13 +108,24 @@ class SheetVersions {
     /** One version with its grid. */
     @Transactional(readOnly = true)
     SheetVersionView get(String ownerObject, UUID ownerId, int versionNo) {
+        SheetVersionStore.WithGrid found = readable(ownerObject, ownerId, versionNo);
+        return new SheetVersionView(summaryOf(found.row()), json.readValue(found.grid(), GRID));
+    }
+
+    /**
+     * One version with its grid as the member may see it: the one rule of who reads a version, used by the read of
+     * the screen and by the file a template is downloaded as (FA7), so there is never a second rule.
+     *
+     * @throws ApiException {@code NOT_FOUND} for a version that does not exist and for one the member may not see
+     */
+    @Transactional(readOnly = true)
+    SheetVersionStore.WithGrid readable(String ownerObject, UUID ownerId, int versionNo) {
         Optional<SheetOwners.Reach> reach = owners.reachIfReadable(ownerObject, ownerId);
         SheetOwners.Caller caller = owners.caller(ownerObject);
-        SheetVersionStore.WithGrid found = store.findGrid(ownerObject, ownerId, versionNo)
+        return store.findGrid(ownerObject, ownerId, versionNo)
                 .filter(version -> reach.map(r -> visible(r, version.row())).orElse(false)
                         || underReviewOf(caller, version.row()))
                 .orElseThrow(() -> ApiException.notFound(NO_VERSION));
-        return new SheetVersionView(summaryOf(found.row()), json.readValue(found.grid(), GRID));
     }
 
     /**
@@ -128,12 +140,12 @@ class SheetVersions {
         SheetVersionStore.State state = store.state(reach.object(), reach.id());
         if (state.draft() != null) {
             changes.refused("create", "draft_exists");
-            throw new ApiException(ErrorCode.CONFLICT, "A draft already exists: it is version " + state.draft()
+            throw new ApiException(ErrorCode.CONFLICT, "A draft already exists: it is " + Revisions.words(state.draft())
                     + ". Continue with it.");
         }
         if (state.count() >= properties.limits().maxVersionsPerOwner()) {
             changes.refused("create", "most_versions");
-            throw new ApiException(ErrorCode.CONFLICT, "This sheet has the most versions it can have ("
+            throw new ApiException(ErrorCode.CONFLICT, "This sheet has the most revisions it can have ("
                     + properties.limits().maxVersionsPerOwner() + ").");
         }
         int versionNo = state.highest() + 1;
@@ -145,7 +157,7 @@ class SheetVersions {
             } else {
                 basedOn = baseOf(reach, request);
                 row = store.insertCopy(reach.object(), reach.id(), versionNo, basedOn, reach.userId())
-                        .orElseThrow(() -> ApiException.validation("basedOn", "There is no such version to copy."));
+                        .orElseThrow(() -> ApiException.validation("basedOn", "There is no such revision to copy."));
             }
         } catch (DuplicateKeyException e) {
             // The lock makes this unreachable through this class; the database's indexes are the backstop.
@@ -177,7 +189,7 @@ class SheetVersions {
             // it, audited. The creator who submitted it may not.
             if (!owners.mayCorrectInReview(reach)) {
                 changes.refused("save", "in_review");
-                throw new ApiException(ErrorCode.FORBIDDEN, "A version that is in review can be changed only by the "
+                throw new ApiException(ErrorCode.FORBIDDEN, "A revision that is in review can be changed only by the "
                         + "people who approve it.");
             }
         } else if (!SheetStatus.DRAFT.name().equals(current.status())) {
@@ -194,7 +206,7 @@ class SheetVersions {
                 && current.rowsMode().equals(checked.grid().rowsMode().name());
         if (!sameShape && (versionNo != 1 || inReview)) {
             changes.refused("save", "shape");
-            throw ApiException.validation("grid.dimension", "The shape of a sheet is chosen with its first version "
+            throw ApiException.validation("grid.dimension", "The shape of a sheet is chosen with its first revision "
                     + "and cannot change.");
         }
         if (inReview && SheetGridWriter.hex(checked.hash()).equals(current.gridHash())
@@ -239,7 +251,7 @@ class SheetVersions {
     /** The first version is blank and names its shape. */
     private SheetVersionStore.Row firstVersion(SheetOwners.Reach reach, NewSheetVersionRequest request, int number) {
         if (request.basedOn() != null) {
-            throw ApiException.validation("basedOn", "There is no version to copy yet.");
+            throw ApiException.validation("basedOn", "There is no revision to copy yet.");
         }
         if (request.dimension() == null) {
             throw ApiException.validation("dimension", "Choose 1 (the filler adds the rows) or 2 (the sheet names "
@@ -261,11 +273,11 @@ class SheetVersions {
     private int baseOf(SheetOwners.Reach reach, NewSheetVersionRequest request) {
         SheetVersionStore.Row first = store.first(reach.object(), reach.id()).orElseThrow();
         if (request.dimension() != null && request.dimension() != first.dimension()) {
-            throw ApiException.validation("dimension", "The shape of a sheet is chosen with its first version and "
+            throw ApiException.validation("dimension", "The shape of a sheet is chosen with its first revision and "
                     + "cannot change.");
         }
         if (request.rowsMode() != null && !request.rowsMode().equals(first.rowsMode())) {
-            throw ApiException.validation("rowsMode", "The shape of a sheet is chosen with its first version and "
+            throw ApiException.validation("rowsMode", "The shape of a sheet is chosen with its first revision and "
                     + "cannot change.");
         }
         if (request.basedOn() != null) {
@@ -285,8 +297,8 @@ class SheetVersions {
     }
 
     private static ApiException notADraft() {
-        return new ApiException(ErrorCode.CONFLICT, "This version is no longer a draft and cannot be changed. "
-                + "Start a new version from it.");
+        return new ApiException(ErrorCode.CONFLICT, "This revision is no longer a draft and cannot be changed. "
+                + "Start a new revision from it.");
     }
 
     /** The problems of the first stage that found any, as places with the words for each. */

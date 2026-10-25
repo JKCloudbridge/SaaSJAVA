@@ -128,7 +128,7 @@ export function UploadSheet({ owner, label, firstVersion = false, maxBytes, onSa
         onChange={(event) => choose(event.target.files?.[0])}
       />
       {file ? (
-        <Modal title="Make a version from a spreadsheet" onClose={close} testId="upload-sheet">
+        <Modal title="Make a revision from a spreadsheet" onClose={close} testId="upload-sheet">
           <div className="stack">
             <p>
               <strong>{file.blob.name}</strong> ({sizeWords(file.blob.size)})

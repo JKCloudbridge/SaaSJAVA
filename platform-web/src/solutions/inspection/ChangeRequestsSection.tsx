@@ -17,6 +17,7 @@ import {
   type ChangeRequestsState,
 } from "./changeRequests";
 import type { Place } from "@/lib/sheets/annotate";
+import { revisionWords } from "@/lib/sheets/revision";
 
 const FILTERS = [
   { value: "", label: "All" },
@@ -102,8 +103,8 @@ export function ChangeRequestsSection({
       return {
         ok: true as const,
         text: outcome.data.created
-          ? `Version ${outcome.data.versionNo} was started as a copy of the version in use, and ${outcome.data.requests} request${outcome.data.requests === 1 ? " is" : "s are"} linked to it. Edit it in the sheet below, then send it for approval like any other version.`
-          : `A draft already existed, so ${outcome.data.requests} request${outcome.data.requests === 1 ? " is" : "s are"} linked to version ${outcome.data.versionNo} as it is. Edit it in the sheet below.`,
+          ? `${revisionWords(outcome.data.versionNo)} was started as a copy of the revision in use, and ${outcome.data.requests} request${outcome.data.requests === 1 ? " is" : "s are"} linked to it. Edit it in the sheet below, then send it for approval like any other revision.`
+          : `A draft already existed, so ${outcome.data.requests} request${outcome.data.requests === 1 ? " is" : "s are"} linked to ${revisionWords(outcome.data.versionNo).toLowerCase()} as it is. Edit it in the sheet below.`,
       };
     });
 
@@ -136,15 +137,15 @@ export function ChangeRequestsSection({
             {view.canReview ? (
               <div>
                 <button type="button" className="button" disabled={busy || picked.size === 0} onClick={() => void turn()}>
-                  Turn the chosen requests into a new version
+                  Turn the chosen requests into a new revision
                 </button>
               </div>
             ) : null}
           </div>
           {view.canReview ? (
             <p className="hint">
-              Choose the open or accepted requests to include, then turn them into a new version. The new version is a draft
-              that starts as a copy of the version in use (version {view.activeVersion}), so nothing already approved is lost.
+              Choose the open or accepted requests to include, then turn them into a new revision. The new revision is a draft
+              that starts as a copy of the revision in use ({revisionWords(view.activeVersion).toLowerCase()}), so nothing already approved is lost.
               It goes through approval like any other.
             </p>
           ) : null}
@@ -205,7 +206,7 @@ function RequestCard({
     run(async () => {
       const outcome = await reopenChangeRequest(templateId, request.id);
       return outcome.ok
-        ? { ok: true as const, text: "The request is accepted again and can be turned into a version." }
+        ? { ok: true as const, text: "The request is accepted again and can be turned into a revision." }
         : { ok: false as const, text: outcome.failure.message };
     });
 
@@ -225,7 +226,7 @@ function RequestCard({
         {canReview && request.canTurn ? (
           <label className="sheet-check">
             <input type="checkbox" checked={chosen} onChange={onChoose} />
-            <span className="visually-hidden">Include “{request.title}” in the new version</span>
+            <span className="visually-hidden">Include “{request.title}” in the new revision</span>
           </label>
         ) : null}
         <h4 id={`${ids}-title`}>{request.title}</h4>
@@ -233,10 +234,10 @@ function RequestCard({
       </header>
       <p className="hint">
         {request.mine ? "You asked" : `${request.requesterName ?? "Someone who has left"} asked`} on{" "}
-        {formatInstant(request.createdAt)}, reading version {request.versionNo}
-        {request.versionNo !== activeVersion && activeVersion > 0 ? `; version ${activeVersion} is in use now` : ""}.
+        {formatInstant(request.createdAt)}, reading {revisionWords(request.versionNo).toLowerCase()}
+        {request.versionNo !== activeVersion && activeVersion > 0 ? `; ${revisionWords(activeVersion).toLowerCase()} is in use now` : ""}.
         {request.placesTotal > 0
-          ? ` ${request.placesTotal} place${request.placesTotal === 1 ? "" : "s"} named${gone > 0 ? `, ${gone} no longer in the version in use` : ""}.`
+          ? ` ${request.placesTotal} place${request.placesTotal === 1 ? "" : "s"} named${gone > 0 ? `, ${gone} no longer in the revision in use` : ""}.`
           : ""}
       </p>
       <p>
@@ -256,7 +257,7 @@ function RequestCard({
           return (
             <li key={comment.id}>
               <strong>{placeWords(comment)}</strong>
-              {place && !comment.inActiveVersion ? <Tag tone="error">no longer in this version</Tag> : null}
+              {place && !comment.inActiveVersion ? <Tag tone="error">no longer in this revision</Tag> : null}
               {place && comment.inActiveVersion && onShow ? (
                 <>
                   {" "}

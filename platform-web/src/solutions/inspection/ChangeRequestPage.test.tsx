@@ -115,13 +115,13 @@ beforeEach(() => {
 });
 
 describe("one change request (FA6E)", () => {
-  it("shows the template and the version at the top left, who asked and from which department in one row", async () => {
+  it("shows the template and the revision at the top left, who asked and from which department in one row", async () => {
     fakeApi(answers(request(), {}));
 
     render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
 
     expect(await screen.findByRole("heading", { name: "Fire exit template · WI/PRD/03" })).toBeInTheDocument();
-    expect(screen.getByTestId("request-version")).toHaveTextContent("Version 3 read");
+    expect(screen.getByTestId("request-version")).toHaveTextContent("Revision 02 read");
     expect(screen.getByTestId("request-by")).toHaveTextContent("Reader A");
     expect(screen.getByTestId("request-department")).toHaveTextContent("Plant 1 · Production");
   });
@@ -200,7 +200,7 @@ describe("one change request (FA6E)", () => {
     expect(await screen.findByTestId("request-declined-reason")).toHaveTextContent("Already covered by the policy.");
   });
 
-  it("turns an accepted request into a version only when the server says it can", async () => {
+  it("turns an accepted request into a revision only when the server says it can", async () => {
     const calls = fakeApi({
       ...answers(request({ status: "ACCEPTED", canTurn: true }), {}),
       [`POST /api/v1/templates/${TEMPLATE}/change-requests/turn-into-version`]: () =>
@@ -210,7 +210,7 @@ describe("one change request (FA6E)", () => {
     render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
     fireEvent.click(await screen.findByTestId("request-turn"));
 
-    expect(await screen.findByText(/Version 4 was started as a copy of the version in use/)).toBeInTheDocument();
+    expect(await screen.findByText(/Revision 03 was started as a copy of the revision in use/)).toBeInTheDocument();
     expect(JSON.parse(calls.find((one) => one.key.endsWith("/turn-into-version"))?.body ?? "{}")).toEqual({
       requestIds: [REQUEST],
     });

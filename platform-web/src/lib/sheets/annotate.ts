@@ -83,13 +83,13 @@ export function selectionOfPlace(doc: GridDoc, rows: readonly DisplayRow[], plac
 function rowName(doc: GridDoc, rows: readonly DisplayRow[], rowId: string): string {
   const position = rows.findIndex((row) => row.id === rowId);
   const label = [...doc.headerRows, ...doc.rows].find((line) => line.id === rowId)?.label;
-  return label && label.trim() !== "" ? `“${label}”` : position >= 0 ? `number ${position + 1}` : "that is not in this version";
+  return label && label.trim() !== "" ? `“${label}”` : position >= 0 ? `number ${position + 1}` : "that is not in this revision";
 }
 
 function columnName(doc: GridDoc, columnId: string): string {
   const position = doc.columns.findIndex((column) => column.id === columnId);
   const label = doc.columns[position]?.label;
-  return label && label.trim() !== "" ? `“${label}”` : position >= 0 ? `number ${position + 1}` : "that is not in this version";
+  return label && label.trim() !== "" ? `“${label}”` : position >= 0 ? `number ${position + 1}` : "that is not in this revision";
 }
 
 /** A place in words, as it is in this document. */

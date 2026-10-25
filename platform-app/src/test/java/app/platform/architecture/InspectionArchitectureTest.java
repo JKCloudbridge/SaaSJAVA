@@ -68,6 +68,15 @@ class InspectionArchitectureTest {
     }
 
     @Test
+    void onlyTheClusterGivesASheetAsAFile() {
+        noClasses().that().resideOutsideOfPackages("app.platform.inspection..", "app.platform.sheets..")
+                .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.sheets.SheetExports")
+                .because("whether a file may be given at all is decided by the module that owns what the sheet "
+                        + "belongs to (ADR-0201)")
+                .allowEmptyShould(true).check(platform);
+    }
+
+    @Test
     void onlyTheClusterMovesAFillIn() {
         onlyTheClusterMayMoveAFillIn().check(platform);
     }

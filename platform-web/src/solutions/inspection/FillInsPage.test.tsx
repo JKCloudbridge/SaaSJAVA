@@ -145,8 +145,8 @@ describe("the list of fill-ins", () => {
     expect(screen.getByText("Pat Filler")).toBeInTheDocument();
     expect(within(screen.getByTestId("fill-ins-list")).getByText("Draft")).toBeInTheDocument();
     expect(within(screen.getByTestId("fill-ins-list")).getByText("Approved")).toBeInTheDocument();
-    expect(screen.getByText("v3")).toBeInTheDocument();
-    expect(screen.getByText("v2 (a newer version is in use)")).toBeInTheDocument();
+    expect(screen.getByText("Rev 02")).toBeInTheDocument();
+    expect(screen.getByText("Rev 01 (a newer revision is in use)")).toBeInTheDocument();
     expect(screen.getAllByText("Not sent")).toHaveLength(2);
   });
 
@@ -234,7 +234,7 @@ describe("one fill-in", () => {
 
     expect(currentUrl()).toBe(`/apps/inspection/s-fill-ins?open=${FILL}`);
     expect(await screen.findByTestId("fill-in-detail")).toBeInTheDocument();
-    expect(await screen.findByRole("grid", { name: "Fire exit check, version 3" })).toBeInTheDocument();
+    expect(await screen.findByRole("grid", { name: "Fire exit check, revision 02" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Fire exit check" })).toHaveAttribute(
       "href",
       `/apps/inspection/s-templates?open=${TEMPLATE}`,
@@ -250,7 +250,7 @@ describe("one fill-in", () => {
 
     render(<FillInsPage />);
 
-    expect(await screen.findByRole("grid", { name: /version 3/ })).toBeInTheDocument();
+    expect(await screen.findByRole("grid", { name: /revision 02/ })).toBeInTheDocument();
     expect(screen.queryByText("Details")).not.toBeInTheDocument();
   });
 
@@ -398,7 +398,7 @@ describe("one fill-in", () => {
     });
     render(<FillInsPage />);
 
-    await screen.findByRole("grid", { name: /version 3/ });
+    await screen.findByRole("grid", { name: /revision 02/ });
     expect(screen.queryByRole("button", { name: "Submit" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
   });

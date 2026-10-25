@@ -157,7 +157,7 @@ function TemplatesScreen() {
         primary={(row) => text(row.name) || "Untitled template"}
         columns={[
           ...chosen,
-          { key: "lifecycle", header: "Versions", cell: (row) => lifecycleText(row.lifecycle), kind: "muted" },
+          { key: "lifecycle", header: "Revisions", cell: (row) => lifecycleText(row.lifecycle), kind: "muted" },
           {
             key: "state",
             header: "Status",

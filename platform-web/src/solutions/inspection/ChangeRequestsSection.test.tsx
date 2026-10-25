@@ -122,11 +122,11 @@ describe("a request and its comments", () => {
     expect(within(card).getByRole("heading", { name: "The first row" })).toBeInTheDocument();
     expect(within(card).getByText("Open")).toBeInTheDocument();
     expect(card).toHaveTextContent("Reader A asked on");
-    expect(card).toHaveTextContent("reading version 1; version 3 is in use now");
-    expect(card).toHaveTextContent("2 places named, 1 no longer in the version in use");
+    expect(card).toHaveTextContent("reading revision 00; revision 02 is in use now");
+    expect(card).toHaveTextContent("2 places named, 1 no longer in the revision in use");
     expect(within(card).getByText("Row “First”")).toBeInTheDocument();
     expect(within(card).getByText("Column “Torque”")).toBeInTheDocument();
-    expect(within(card).getAllByText("no longer in this version")).toHaveLength(1);
+    expect(within(card).getAllByText("no longer in this revision")).toHaveLength(1);
     expect(within(card).getByText("The whole template")).toBeInTheDocument();
     expect(card).toHaveTextContent("You, ");
   });
@@ -177,7 +177,7 @@ describe("a request and its comments", () => {
     );
 
     const cards = screen.getAllByTestId("change-request");
-    expect(screen.getByText("Turned into Version 3 (in review).")).toBeInTheDocument();
+    expect(screen.getByText("Turned into Revision 02 (in review).")).toBeInTheDocument();
     expect(within(cards[1] as HTMLElement).getByText("Declined")).toBeInTheDocument();
     expect(within(cards[0] as HTMLElement).getByText("Done")).toBeInTheDocument();
   });
@@ -258,11 +258,11 @@ describe("the people who may change the template", () => {
     expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
 
-    await screen.findByText("The request is accepted again and can be turned into a version.");
+    await screen.findByText("The request is accepted again and can be turned into a revision.");
     expect(calls.some((one) => one.key === `POST ${BASE}/q-1/reopen`)).toBe(true);
   });
 
-  it("turns the chosen requests into a version and says it is a copy of the one in use", async () => {
+  it("turns the chosen requests into a revision and says it is a copy of the one in use", async () => {
     const calls = fakeApi({
       [`POST ${BASE}/turn-into-version`]: () => json({ data: { versionNo: 4, created: true, requests: 2 } }),
     });
@@ -278,18 +278,18 @@ describe("the people who may change the template", () => {
         ),
       ),
     );
-    const turn = screen.getByRole("button", { name: "Turn the chosen requests into a new version" });
+    const turn = screen.getByRole("button", { name: "Turn the chosen requests into a new revision" });
     expect(turn).toBeDisabled();
     expect(screen.getAllByRole("checkbox")).toHaveLength(2);
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "Include “First” in the new version" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Include “Second” in the new version" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Include “First” in the new revision" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Include “Second” in the new revision" }));
     fireEvent.click(turn);
 
-    expect(await screen.findByText(/Version 4 was started as a copy of the version in use, and 2 requests are linked/)).toBeInTheDocument();
+    expect(await screen.findByText(/Revision 03 was started as a copy of the revision in use, and 2 requests are linked/)).toBeInTheDocument();
     expect(bodyOf(calls, `POST ${BASE}/turn-into-version`)).toEqual({ requestIds: ["q-1", "q-2"] });
     expect(onChanged).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: "Turn the chosen requests into a new version" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Turn the chosen requests into a new revision" })).toBeDisabled();
   });
 
   it("says when the requests joined a draft that already existed", async () => {
@@ -297,9 +297,9 @@ describe("the people who may change the template", () => {
     draw(ready(view([request({ canTurn: true })], REVIEW)));
 
     fireEvent.click(screen.getByRole("checkbox"));
-    fireEvent.click(screen.getByRole("button", { name: "Turn the chosen requests into a new version" }));
+    fireEvent.click(screen.getByRole("button", { name: "Turn the chosen requests into a new revision" }));
 
-    expect(await screen.findByText(/A draft already existed, so 1 request is linked to version 5 as it is/)).toBeInTheDocument();
+    expect(await screen.findByText(/A draft already existed, so 1 request is linked to revision 04 as it is/)).toBeInTheDocument();
   });
 
   it("shows the API's words when a request cannot be reopened and changes nothing", async () => {

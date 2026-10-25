@@ -36,7 +36,7 @@ beforeEach(() => {
 });
 
 describe("the list of change requests (FA6E)", () => {
-  it("shows the template with its number, who asked, the department, the version, the date and the status", async () => {
+  it("shows the template with its number, who asked, the department, the revision, the date and the status", async () => {
     fakeApi(answers());
 
     render(<ChangeRequestsPage />);
@@ -44,12 +44,12 @@ describe("the list of change requests (FA6E)", () => {
     const list = await screen.findByTestId("change-requests-list");
     expect(within(list).getAllByText("Fire exit template")).toHaveLength(2);
     expect(within(list).getAllByText(/WI\/PRD\/03/)).toHaveLength(2);
-    for (const header of ["Template", "Change requested by", "Department", "Version", "Date", "Status"]) {
+    for (const header of ["Template", "Change requested by", "Department", "Revision", "Date", "Status"]) {
       expect(within(list).getByRole("columnheader", { name: new RegExp(header) })).toBeInTheDocument();
     }
     expect(within(list).getByText("Reader A")).toBeInTheDocument();
     expect(within(list).getAllByText("Plant 1 · Production")).toHaveLength(2);
-    expect(within(list).getByText("v3")).toBeInTheDocument();
+    expect(within(list).getByText("Rev 02")).toBeInTheDocument();
     expect(within(list).getByText("Open")).toBeInTheDocument();
     expect(within(list).getByText("Accepted")).toBeInTheDocument();
   });
@@ -64,7 +64,7 @@ describe("the list of change requests (FA6E)", () => {
       descending: true,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /^Version, not ordered/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Revision, not ordered/ }));
     await waitFor(() => {
       const bodies = calls.filter((one) => one.key === "POST /api/v1/change-requests/query").map((one) => JSON.parse(one.body));
       expect(bodies.at(-1)).toMatchObject({ sort: "version", descending: true });

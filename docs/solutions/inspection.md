@@ -1,5 +1,9 @@
 # The Audit maintenance solution (key `inspection`)
 
+> **Since FA7 the screens say *Revision*, written with two digits starting at 00** (the stored number minus one). Where this page says
+> "version" of a sheet or a template, read *Revision*; the stored numbers, the API and the code keep the word "version". See the last section.
+
+
 The first platform-shipped solution (Functional track). This page is for two readers: the **platform administrator and organization administrator** who switch it on and use it (section 1), and the **contributor** who extends it in the next sprints (section 2). The framework behind it is in [ADR-0181](../adr/0181-the-solution-framework.md); the decisions about the cluster itself are ADR-0172 to ADR-0180. The word "audit" in code still means the audit trail: the cluster is called `inspection` in code and "Audit maintenance" for people (ADR-0180).
 
 ## 1. For administrators
@@ -299,3 +303,37 @@ them as a suggestion for the person who publishes.
   `AudienceSuggestionIT` (the flows, the refusals, who sees what, another organization, the database guard, the clean trail); the isolation
   harness lists the table. Frontend: `ApprovalActionFormChoice.test.tsx`, `PublishDialog.test.tsx`, `choices.test.ts`,
   `approvalModel.test.ts`, `ApprovalBuilder.test.tsx`.
+
+## View, Download, Sheet options and the footer row (FA7)
+
+Short form; the decision is [ADR-0201](../adr/0201-view-and-download-of-a-template-sheet-view-only-the-footer-row-and-revisions.md), the
+administrator's view is [metadata-guide.md](../metadata-guide.md) section 39.
+
+- **The options** are the table `inspection_template_option` (V079): `view_only` and `allow_download`, one live row for a template that had
+  them set, none for a template that did not (both off). The database lets a row in or change it only when `platform.template_option_write`
+  is on, which only `TemplateOptionStore.set` raises in its own statement; no delete, no move to another template. It is a table and not
+  two fields of the header because the header is locked during an approval. `TemplatePublishing.publish` saves them (a value left out
+  keeps what the template has) and `setOptions` (`PUT /api/v1/templates/{id}/options`) changes them; both need `sheets.publish`.
+  `TemplateLifecycleView` carries `number`, `viewOnly`, `allowDownload`, `canDownload` (the option, or the ability) and `canSetOptions`.
+- **View only** is judged in `FillIns.why` (so `fill-in-options` and `start` agree): the words are `FillIns.VIEW_ONLY`, the metric result is
+  `view_only`. A fill-in that exists is not touched.
+- **Download** is `TemplateDownloads` (visible, then allowed, then the revision) behind `GET /api/v1/templates/{id}/download`; the file comes
+  from `SheetExports.xlsx` (module `sheets`, cluster only, an architecture test names it) which asks `SheetVersions.readable`, the rule of
+  the Sheet tab. The footer text and the file name are `TemplateSheetTexts` (pure). The audit record is `inspection.template.downloaded`
+  (template identifier, revision number, bytes); never the number or the file name.
+- **The file** is `XlsxWriter` in `sheets` (no library): inline strings only, the quote prefix on a text that starts with `=`, `+`, `-` or
+  `@`, no formula element, six parts, a bound of 5,000,000 bytes, the input cells empty, landscape when the columns add up to more than
+  720 pixels. A new rule about what the file holds is a case in `XlsxWriterTest`, which also reads the file back with the reader of ADR-0195.
+- **The footer row** is not in the stored grid. `SheetGrid` takes a `footer` text (absent: no row; empty: a blank row) and draws one more row;
+  `SheetWorkspace` takes `footer` (a text, or a function of the revision that is open) and `actions` (extra buttons beside View);
+  `TemplateDetail` builds the text with `footerText(number, activeRevision)` from `lib/sheets/revision.ts`, the same rule as
+  `TemplateSheetTexts.footer` on the server (the same cases are tested on both).
+- **View** is `components/sheets/SheetPrintView.tsx` over `lib/sheets/print.ts` (a pure model: head rows repeat, merged cells, percentages
+  of the page width, the orientation by `PORTRAIT_WIDTH`). Style it with the `sheet-print-*` classes and the `--color-print-*` and
+  `--sheet-page-*` tokens; the page is white in both themes. It is in the generic sheets components and knows no business word.
+- **Revision**: `Revisions` (server) and `revision.ts` (browser) are the only places that turn a stored number into what people read. Do not
+  write `version` followed by a number in any sentence a person reads.
+- **Tests.** No database: `XlsxWriterTest`, `TemplateSheetTextsTest`, `InspectionArchitectureTest`, `SolutionBoundaryTest`. Real PostgreSQL:
+  `TemplateSheetOptionsIT` (the options, who may change them, view only, download allowed and refused, another organization, the footer, the
+  clean trail); the isolation harness lists the table. Frontend: `revision.test.ts`, `print.test.ts`, `SheetPrintView.test.tsx`,
+  `SheetGridFooter.test.tsx`, `SheetWorkspaceView.test.tsx`, `SheetOptionsDialog.test.tsx`, `PublishDialog.test.tsx`.

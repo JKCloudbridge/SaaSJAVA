@@ -107,11 +107,34 @@ export function getSuggestionOptions(id: string): Promise<Outcome<AudienceOption
 
 export function publishTemplate(
   id: string,
-  body: { versionNo?: number; audiences: AudiencePick[] },
+  body: { versionNo?: number; audiences: AudiencePick[]; viewOnly?: boolean; allowDownload?: boolean },
 ): Promise<Outcome<TemplateLifecycleView>> {
   return unwrap(
     call(() => api.POST("/api/v1/templates/{templateId}/publish", { params: { path: { templateId: id } }, body })),
   );
+}
+
+/** Sets view only and allow download without publishing again (FA7); the server asks the right to publish. */
+export function setSheetOptions(
+  id: string,
+  body: { viewOnly: boolean; allowDownload: boolean },
+): Promise<Outcome<TemplateLifecycleView>> {
+  return unwrap(
+    call(() => api.PUT("/api/v1/templates/{templateId}/options", { params: { path: { templateId: id } }, body })),
+  );
+}
+
+/**
+ * The sheet of a template as an Excel file (FA7). The server decides again whether download is allowed and whether the
+ * caller may read that revision; a refusal comes back in its own words.
+ */
+export function downloadTemplateSheet(id: string, versionNo: number): Promise<Outcome<Blob>> {
+  return call(() =>
+    api.GET("/api/v1/templates/{templateId}/download", {
+      params: { path: { templateId: id }, query: { versionNo } },
+      parseAs: "blob",
+    }),
+  ).then((outcome): Outcome<Blob> => (outcome.ok ? { ok: true, data: outcome.data as unknown as Blob } : outcome));
 }
 
 export function unpublishTemplate(id: string): Promise<Outcome<TemplateLifecycleView>> {

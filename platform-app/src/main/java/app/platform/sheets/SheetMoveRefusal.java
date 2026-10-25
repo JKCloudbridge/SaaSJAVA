@@ -15,21 +15,21 @@ public final class SheetMoveRefusal extends RuntimeException {
     /** Why a move was refused. */
     public enum Reason {
         /** There is no draft to send for approval. */
-        NO_DRAFT("There is no draft to send for approval. Start a new version first."),
+        NO_DRAFT("There is no draft to send for approval. Start a new revision first."),
         /** The draft has nothing in it yet. */
         EMPTY("The draft is still empty. Add content to it before sending it for approval."),
         /** The grid does not pass the checks of a sheet; the words and the place follow. */
         INVALID("The draft is not valid."),
         /** Another version of the sheet is already being reviewed. */
-        ALREADY_IN_REVIEW("Another version of this sheet is already being reviewed."),
+        ALREADY_IN_REVIEW("Another revision of this sheet is already being reviewed."),
         /** The version asked for is not an approved version. */
-        NOT_APPROVED("Only an approved version can be published."),
+        NOT_APPROVED("Only an approved revision can be published."),
         /** No version of the sheet is in use. */
-        NOTHING_ACTIVE("No version of this sheet is in use."),
+        NOTHING_ACTIVE("No revision of this sheet is in use."),
         /** The version a draft was to be copied from does not exist. */
-        NO_VERSION("There is no such version to start from."),
+        NO_VERSION("There is no such revision to start from."),
         /** The sheet has the most versions it can have. */
-        TOO_MANY_VERSIONS("This sheet has the most versions it can have.");
+        TOO_MANY_VERSIONS("This sheet has the most revisions it can have.");
 
         private final String words;
 

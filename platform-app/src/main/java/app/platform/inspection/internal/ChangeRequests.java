@@ -65,7 +65,7 @@ class ChangeRequests {
             + "organization has not set one up. Ask your administrator to make the approval process for "
             + "change requests in Setup.";
     private static final String NOT_ACCEPTED_WORDS = "This request has not been accepted yet, so it cannot be turned "
-            + "into a version.";
+            + "into a revision.";
     private static final int NAME_LIMIT = 160;
 
     private final ChangeRequestAccess access;
@@ -165,7 +165,7 @@ class ChangeRequests {
         SheetLifecycle.Summary summary = summary(templateId);
         if (summary.active() <= 0) {
             refuse("create", "nothing_in_use");
-            throw new ApiException(ErrorCode.CONFLICT, "This template has no version in use, so nothing can be asked "
+            throw new ApiException(ErrorCode.CONFLICT, "This template has no revision in use, so nothing can be asked "
                     + "about yet.");
         }
         Map<String, List<String>> problems = new LinkedHashMap<>();
@@ -287,7 +287,7 @@ class ChangeRequests {
                 : sheets.statusOf(Templates.OBJECT, templateId, row.resultingVersion());
         if (ended.isEmpty() || (ended.get() != SheetStatus.REJECTED && ended.get() != SheetStatus.WITHDRAWN)) {
             refuse("reopen", "version_used");
-            throw new ApiException(ErrorCode.CONFLICT, "The version this request became was not rejected or "
+            throw new ApiException(ErrorCode.CONFLICT, "The revision this request became was not rejected or "
                     + "withdrawn, so the request cannot be reopened.");
         }
         if (row.headerId() == null || !store.reopenAccepted(requestId, reach.userId())) {
@@ -312,7 +312,7 @@ class ChangeRequests {
         Set<UUID> ids = new LinkedHashSet<>(request.requestIds());
         if (ids.size() > properties.maxTurnedAtOnce()) {
             throw ApiException.validation("requestIds", "Turn at most " + properties.maxTurnedAtOnce()
-                    + " requests into a version at once.");
+                    + " requests into a revision at once.");
         }
         store.lock(templateId);
         DataRecord header = header(templateId);
@@ -324,7 +324,7 @@ class ChangeRequests {
         int base = summary.active() > 0 ? summary.active() : summary.approved();
         if (base <= 0) {
             refuse("turn", "nothing_in_use");
-            throw new ApiException(ErrorCode.CONFLICT, "This template has no version in use to start from.");
+            throw new ApiException(ErrorCode.CONFLICT, "This template has no revision in use to start from.");
         }
         List<RequestRow> rows = new ArrayList<>();
         for (UUID id : ids) {
@@ -332,7 +332,7 @@ class ChangeRequests {
             if (!row.state().canBeTurned()) {
                 refuse("turn", "not_open");
                 throw new ApiException(ErrorCode.CONFLICT, "A request that is already answered or turned into a "
-                        + "version cannot be turned into another. Reload the page.");
+                        + "revision cannot be turned into another. Reload the page.");
             }
             if (row.state() != ChangeRequestStatus.ACCEPTED) {
                 // Its review has not ended approved: turning it now would be a way round the process (ADR-0199).
@@ -421,7 +421,7 @@ class ChangeRequests {
         if (shape.isPresent()) {
             problems.put(at + "place", List.of(shape.get()));
         } else if (!anchor.presentIn(layout) && !problems.containsKey("versionNo")) {
-            problems.put(at + "place", List.of("That row or column is not in the version you read."));
+            problems.put(at + "place", List.of("That row or column is not in the revision you read."));
         }
         return anchor;
     }

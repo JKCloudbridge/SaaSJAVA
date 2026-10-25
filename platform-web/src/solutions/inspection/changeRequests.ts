@@ -4,6 +4,7 @@ import type { ApiFailure } from "@/lib/api/errors";
 import type { components } from "@/lib/api/generated/schema";
 import { call, type Outcome } from "@/lib/records/call";
 import { marksOf, type AnnotationMarks, type Place } from "@/lib/sheets/annotate";
+import { revisionWords } from "@/lib/sheets/revision";
 
 /**
  * The calls of the change requests on a template (Functional track FA5, ADR-0191) and how a request is written on a screen.
@@ -174,7 +175,7 @@ export function marksFromRequests(view: ChangeRequestsView | undefined): Annotat
   return marksOf(places);
 }
 
-/** The words for the version a request became: "Version 3 (a draft)". */
+/** The words for the revision a request became: "Revision 02 (a draft)". */
 export function becameWords(request: ChangeRequestView): string | null {
   if (request.resultingVersion === undefined || request.resultingVersion === null) {
     return null;
@@ -198,7 +199,7 @@ export function becameWords(request: ChangeRequestView): string | null {
                   : status === "RETIRED"
                     ? "retired"
                     : null;
-  return what ? `Version ${request.resultingVersion} (${what})` : `Version ${request.resultingVersion}`;
+  return what ? `${revisionWords(request.resultingVersion)} (${what})` : revisionWords(request.resultingVersion);
 }
 
 // ---- the list across templates and one request on its own (FA6E, ADR-0199) ----

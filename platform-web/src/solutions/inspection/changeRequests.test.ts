@@ -49,7 +49,7 @@ function view(requests: ChangeRequestView[]): ChangeRequestsView {
 }
 
 describe("what the grid marks", () => {
-  it("marks the places of open and accepted requests that are still in the version in use", () => {
+  it("marks the places of open and accepted requests that are still in the revision in use", () => {
     const marks = marksFromRequests(
       view([
         request({ comments: [comment(), comment({ kind: "COLUMN", rowId: undefined, columnId: "c2" })] }),
@@ -111,9 +111,9 @@ describe("the words of a request", () => {
 
   it("says which version a request became and what it is now", () => {
     expect(becameWords(request())).toBeNull();
-    expect(becameWords(request({ resultingVersion: 3 }))).toBe("Version 3");
-    expect(becameWords(request({ resultingVersion: 3, resultingVersionStatus: "DRAFT" }))).toBe("Version 3 (a draft)");
-    expect(becameWords(request({ resultingVersion: 3, resultingVersionStatus: "REJECTED" }))).toBe("Version 3 (rejected)");
-    expect(becameWords(request({ resultingVersion: 3, resultingVersionStatus: "ACTIVE" }))).toBe("Version 3 (in use)");
+    expect(becameWords(request({ resultingVersion: 3 }))).toBe("Revision 02");
+    expect(becameWords(request({ resultingVersion: 3, resultingVersionStatus: "DRAFT" }))).toBe("Revision 02 (a draft)");
+    expect(becameWords(request({ resultingVersion: 3, resultingVersionStatus: "REJECTED" }))).toBe("Revision 02 (rejected)");
+    expect(becameWords(request({ resultingVersion: 3, resultingVersionStatus: "ACTIVE" }))).toBe("Revision 02 (in use)");
   });
 });

@@ -10,6 +10,8 @@ import type { CellKind, DisplayRow, GridCell, GridDoc, Rect, Selection, Zone } f
 export const DEFAULT_ROW_HEIGHT = 24;
 /** The width of a column that states none, in pixels. */
 export const DEFAULT_COLUMN_WIDTH = 120;
+/** The height of the footer row at the bottom of a sheet that has one (FA7), in pixels. */
+export const FOOTER_HEIGHT = 24;
 /** The height of the band of column labels above the first row, in pixels. */
 export const LABEL_BAND_HEIGHT = 28;
 /** How many blank sample rows a grid whose filler adds the rows shows. */

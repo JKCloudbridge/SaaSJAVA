@@ -1,4 +1,5 @@
 import type { VersionTone } from "./tags";
+import { revisionWords } from "@/lib/sheets/revision";
 
 /**
  * The words people read for the status of a fill-in (ADR-0192) and for what became of the version of the sheet it was
@@ -40,11 +41,11 @@ export function fillStatusWords(status: string): string {
 export function versionWords(versionNo: number, versionStatus: string | null | undefined): string {
   switch (versionStatus) {
     case "SUPERSEDED":
-      return `This fill-in was made on version ${versionNo} of the template. A newer version is in use now; this fill-in stays on version ${versionNo}.`;
+      return `This fill-in was made on ${revisionWords(versionNo).toLowerCase()} of the template. A newer revision is in use now; this fill-in stays on ${revisionWords(versionNo).toLowerCase()}.`;
     case "APPROVED":
-      return `This fill-in was made on version ${versionNo}. The template is taken back from the people at the moment, and this fill-in stays on that version.`;
+      return `This fill-in was made on ${revisionWords(versionNo).toLowerCase()}. The template is taken back from the people at the moment, and this fill-in stays on that revision.`;
     case "RETIRED":
-      return `The template this fill-in was made for is retired. The fill-in stays readable on version ${versionNo}, but it can no longer be changed or sent.`;
+      return `The template this fill-in was made for is retired. The fill-in stays readable on ${revisionWords(versionNo).toLowerCase()}, but it can no longer be changed or sent.`;
     default:
       return "";
   }

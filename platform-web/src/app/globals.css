@@ -2720,6 +2720,152 @@ form + .detail-section {
   font-weight: 600;
 }
 
+/* The footer row of a sheet (FA7): one row across the full width, bordered like the rest, with the number and the revision
+   at its right. Made when the sheet is shown; it is not part of the stored grid. */
+.sheet-footer {
+  position: absolute;
+  left: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 var(--space-2);
+  background: var(--color-surface-sunken);
+  border-right: var(--border-width) solid var(--color-border);
+  border-bottom: var(--border-width) solid var(--color-border);
+  font-weight: 600;
+  white-space: pre;
+  cursor: default;
+}
+
+.sheet-options-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.sheet-footer-note {
+  margin: 0;
+  text-align: right;
+  white-space: pre;
+}
+
+/* The print view (FA7): paper is white in both themes. On screen it is a page over the rest; printing shows only it. */
+.sheet-print-root {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: auto;
+  padding: var(--space-4);
+  background: var(--color-surface-sunken);
+}
+
+.sheet-print-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.sheet-print-page {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: var(--space-4);
+  box-sizing: border-box;
+  background: var(--color-print-paper);
+  color: var(--color-print-ink);
+  box-shadow: var(--shadow-2);
+  overflow-x: auto;
+}
+
+.sheet-print-portrait {
+  width: var(--sheet-page-portrait-width);
+}
+
+.sheet-print-landscape {
+  width: var(--sheet-page-landscape-width);
+}
+
+.sheet-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height);
+}
+
+.sheet-print-table thead {
+  display: table-header-group;
+}
+
+.sheet-print-table tr {
+  break-inside: avoid;
+}
+
+.sheet-print-cell {
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--color-print-line);
+  vertical-align: middle;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-weight: 400;
+}
+
+.sheet-print-header {
+  font-weight: 600;
+}
+
+.sheet-print-left {
+  text-align: left;
+}
+
+.sheet-print-center {
+  text-align: center;
+}
+
+.sheet-print-right {
+  text-align: right;
+}
+
+.sheet-print-footer {
+  font-weight: 600;
+  white-space: pre;
+}
+
+.sheet-print-page .sheet-bold {
+  font-weight: 700;
+}
+
+.sheet-print-page .sheet-colour-accent { color: var(--color-print-accent); }
+.sheet-print-page .sheet-colour-success { color: var(--color-print-success); }
+.sheet-print-page .sheet-colour-danger { color: var(--color-print-danger); }
+
+@media print {
+  body.sheet-printing > *:not(.sheet-print-root) {
+    display: none !important;
+  }
+
+  .sheet-print-root {
+    position: static;
+    overflow: visible;
+    padding: 0;
+    background: var(--color-print-paper);
+  }
+
+  .sheet-print-bar {
+    display: none;
+  }
+
+  .sheet-print-page {
+    width: auto;
+    padding: 0;
+    box-shadow: none;
+    overflow: visible;
+  }
+}
+
 .sheet-merged {
   align-items: flex-start;
   padding-top: var(--space-1);

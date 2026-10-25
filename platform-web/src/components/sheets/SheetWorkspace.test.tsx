@@ -77,7 +77,7 @@ describe("a sheet with a draft", () => {
       .toHaveClass("sheet-underline", "sheet-align-right", "sheet-colour-success");
     expect(screen.getByRole("button", { name: "Underline" })).toHaveAttribute("aria-pressed", "true");
   });
-  it("lists the versions with their tags and opens the draft in the grid view", async () => {
+  it("lists the revisions with their tags and opens the draft in the grid view", async () => {
     fakeApi({
       [`GET ${BASE}`]: list([summary(2, "DRAFT", 3), summary(1, "ACTIVE", 5)]),
       [`GET ${BASE}/2`]: one(2, "DRAFT", 3),
@@ -89,9 +89,9 @@ describe("a sheet with a draft", () => {
     const rows = screen.getAllByRole("row").slice(1);
     expect(within(rows[0] as HTMLElement).getByText("Draft")).toBeInTheDocument();
     expect(within(rows[1] as HTMLElement).getByText("Active")).toBeInTheDocument();
-    expect(await screen.findByRole("grid", { name: "Fire checks, version 2" })).toBeInTheDocument();
+    expect(await screen.findByRole("grid", { name: "Fire checks, revision 01" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-    expect(screen.getByText(/Version 2 is a draft/)).toBeInTheDocument();
+    expect(screen.getByText(/Revision 01 is a draft/)).toBeInTheDocument();
   });
 
   it("saves the grid with the row version that was read and says so", async () => {
@@ -118,7 +118,7 @@ describe("a sheet with a draft", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
-  it("sends the version it read in the address of the save", async () => {
+  it("sends the revision it read in the address of the save", async () => {
     const seen: string[] = [];
     fakeApi({
       [`GET ${BASE}`]: list([summary(1, "DRAFT", 7)]),
@@ -194,7 +194,7 @@ describe("a sheet with a draft", () => {
     fireEvent.blur(label);
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    const reload = await screen.findByRole("button", { name: "Reload this version" });
+    const reload = await screen.findByRole("button", { name: "Reload this revision" });
     expect(screen.getByTestId("save-refused")).toHaveTextContent("changed by someone else");
     fireEvent.click(reload);
 
@@ -211,7 +211,7 @@ describe("a sheet with no version", () => {
     });
     draw();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Start first version" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start first revision" }));
     expect(screen.queryByRole("radio")).toBeNull();
     expect(screen.queryByText(/There is no version yet/)).toBeNull();
 
@@ -219,14 +219,14 @@ describe("a sheet with no version", () => {
     expect(bodyOf(calls, `POST ${BASE}`)).toEqual({ dimension: 2 });
   });
 
-  it("shows the API's words when the first version cannot be started", async () => {
+  it("shows the API's words when the first revision cannot be started", async () => {
     fakeApi({
       [`GET ${BASE}`]: list([]),
       [`POST ${BASE}`]: () => refusal("FORBIDDEN", "You are not allowed to perform this action.", 403),
     });
     draw();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Start first version" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start first revision" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("You are not allowed to perform this action.");
   });
@@ -235,13 +235,13 @@ describe("a sheet with no version", () => {
     fakeApi({ [`GET ${BASE}`]: list([], false) });
     draw();
 
-    expect(await screen.findByText("No version is in use yet.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Start first version" })).toBeNull();
+    expect(await screen.findByText("No revision is in use yet.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start first revision" })).toBeNull();
   });
 });
 
-describe("a version that is not a draft", () => {
-  it("is read-only, says why, and offers a new version from it", async () => {
+describe("a revision that is not a draft", () => {
+  it("is read-only, says why, and offers a new revision from it", async () => {
     const calls = fakeApi({
       [`GET ${BASE}`]: list([summary(1, "ACTIVE", 5)]),
       [`GET ${BASE}/1`]: one(1, "ACTIVE", 5),
@@ -249,16 +249,16 @@ describe("a version that is not a draft", () => {
     });
     draw();
 
-    expect(await screen.findByText(/Version 1 is active and cannot be changed/)).toBeInTheDocument();
+    expect(await screen.findByText(/Revision 00 is active and cannot be changed/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
     expect(screen.queryByRole("toolbar")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "New version from version 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "New revision from revision 00" }));
 
     await waitFor(() => expect(calls.some((c) => c.key === `POST ${BASE}`)).toBe(true));
     expect(bodyOf(calls, `POST ${BASE}`)).toEqual({ basedOn: 1 });
   });
 
-  it("offers no new version while a draft exists, and says where the draft is", async () => {
+  it("offers no new revision while a draft exists, and says where the draft is", async () => {
     fakeApi({
       [`GET ${BASE}`]: list([summary(2, "DRAFT"), summary(1, "ACTIVE")]),
       [`GET ${BASE}/2`]: one(2, "DRAFT"),
@@ -266,7 +266,7 @@ describe("a version that is not a draft", () => {
     draw();
 
     await screen.findByRole("grid");
-    expect(screen.queryByRole("button", { name: /New version from/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /New revision from/ })).toBeNull();
     expect(screen.getByText(/Only one draft can exist at a time/)).toBeInTheDocument();
   });
 });
@@ -281,7 +281,7 @@ describe("a person who may only read", () => {
 
     expect(await screen.findByRole("grid")).toHaveAttribute("aria-readonly", "true");
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /New version from/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /New revision from/ })).toBeNull();
     fireEvent.click(screen.getByRole("tab", { name: "Form view" }));
     expect(screen.getByRole("textbox", { name: "Label of column 1" })).toBeDisabled();
   });
@@ -305,11 +305,11 @@ describe("opening another version", () => {
       [`GET ${BASE}/1`]: one(1, "ACTIVE"),
     });
     draw();
-    await screen.findByRole("grid", { name: "Fire checks, version 2" });
+    await screen.findByRole("grid", { name: "Fire checks, revision 01" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Open version 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open revision 00" }));
 
-    expect(await screen.findByRole("grid", { name: "Fire checks, version 1" })).toBeInTheDocument();
+    expect(await screen.findByRole("grid", { name: "Fire checks, revision 00" })).toBeInTheDocument();
   });
 
   it("asks first when there are changes that are not saved, and keeps them if the person says so", async () => {
@@ -324,16 +324,16 @@ describe("opening another version", () => {
     fireEvent.change(label, { target: { value: "Unsaved" } });
     fireEvent.blur(label);
 
-    fireEvent.click(screen.getByRole("button", { name: "Open version 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open revision 00" }));
 
     const ask = screen.getByRole("alertdialog", { name: "Unsaved changes" });
-    expect(ask).toHaveTextContent("Open version 1 and lose them?");
+    expect(ask).toHaveTextContent("Open revision 00 and lose them?");
     fireEvent.click(within(ask).getByRole("button", { name: "Keep editing" }));
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(screen.getByRole("textbox", { name: "Label of column 1" })).toHaveValue("Unsaved");
-    fireEvent.click(screen.getByRole("button", { name: "Open version 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open revision 00" }));
     fireEvent.click(screen.getByRole("button", { name: "Discard the changes and open it" }));
-    expect(await screen.findByRole("note")).toHaveTextContent("Version 1 is active");
+    expect(await screen.findByRole("note")).toHaveTextContent("Revision 00 is active");
   });
 });
 
@@ -350,7 +350,7 @@ describe("when the sheet cannot be read", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("This sheet does not exist.");
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(await screen.findByText("No version is in use yet.", {}, { timeout: 2000 }).catch(() => null)).toBeDefined();
+    expect(await screen.findByText("No revision is in use yet.", {}, { timeout: 2000 }).catch(() => null)).toBeDefined();
     expect(tries).toBe(2);
   });
 });
@@ -375,8 +375,8 @@ describe("a narrow screen", () => {
   });
 });
 
-describe("a new version from the active one (FA4)", () => {
-  it("offers one button that starts it from the version in use, while no draft exists", async () => {
+describe("a new revision from the active one (FA4)", () => {
+  it("offers one button that starts it from the revision in use, while no draft exists", async () => {
     const calls = fakeApi({
       [`GET ${BASE}`]: list([summary(3, "ACTIVE", 5), summary(2, "SUPERSEDED", 1)]),
       [`GET ${BASE}/3`]: one(3, "ACTIVE", 5),
@@ -384,7 +384,7 @@ describe("a new version from the active one (FA4)", () => {
     });
     draw();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Start a new version from the active one" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start a new revision from the active one" }));
 
     await waitFor(() => expect(calls.some((c) => c.key === `POST ${BASE}`)).toBe(true));
     expect(bodyOf(calls, `POST ${BASE}`)).toEqual({});
@@ -397,7 +397,7 @@ describe("a new version from the active one (FA4)", () => {
     });
     const { unmount } = draw();
     await screen.findByRole("grid");
-    expect(screen.queryByRole("button", { name: /Start a new version/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Start a new revision/ })).toBeNull();
     unmount();
 
     fakeApi({
@@ -406,11 +406,11 @@ describe("a new version from the active one (FA4)", () => {
     });
     draw();
     await screen.findByRole("grid");
-    expect(screen.queryByRole("button", { name: /Start a new version/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Start a new revision/ })).toBeNull();
   });
 });
 
-describe("a version in review (FA4)", () => {
+describe("a revision in review (FA4)", () => {
   it("is read-only for a person who may change the sheet but does not approve it, and says why", async () => {
     fakeApi({
       [`GET ${BASE}`]: list([summary(2, "IN_REVIEW", 4)]),
@@ -418,7 +418,7 @@ describe("a version in review (FA4)", () => {
     });
     render(<SheetWorkspace owner={OWNER} label="Fire checks" correctInReview={false} />);
 
-    expect(await screen.findByText(/Version 2 is in review. Only the people who approve it can correct it/)).toBeInTheDocument();
+    expect(await screen.findByText(/Revision 01 is in review. Only the people who approve it can correct it/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
     expect(screen.queryByTestId("review-edit-note")).toBeNull();
   });
@@ -465,20 +465,20 @@ describe("a version in review (FA4)", () => {
     expect(label).toHaveValue("Kept");
   });
 
-  it("is never made editable for the draft it replaces: a version in use stays read-only for an approver", async () => {
+  it("is never made editable for the draft it replaces: a revision in use stays read-only for an approver", async () => {
     fakeApi({
       [`GET ${BASE}`]: list([summary(1, "ACTIVE", 5)]),
       [`GET ${BASE}/1`]: one(1, "ACTIVE", 5),
     });
     render(<SheetWorkspace owner={OWNER} label="Fire checks" correctInReview />);
 
-    expect(await screen.findByText(/Version 1 is active and cannot be changed/)).toBeInTheDocument();
+    expect(await screen.findByText(/Revision 00 is active and cannot be changed/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
   });
 });
 
 describe("a change outside the sheet (FA4)", () => {
-  it("reads the versions again when the screen raises the token and nothing is unsaved", async () => {
+  it("reads the revisions again when the screen raises the token and nothing is unsaved", async () => {
     let reads = 0;
     fakeApi({
       [`GET ${BASE}`]: () => {
@@ -519,14 +519,14 @@ describe("a change outside the sheet (FA4)", () => {
   });
 });
 
-describe("a version made from a spreadsheet file", () => {
+describe("a revision made from a spreadsheet file", () => {
   const REPORT = { columns: 3, rows: 2, mergedAreas: 0, notes: [] };
   const choose = (name: string) =>
     fireEvent.change(screen.getByLabelText("Choose a spreadsheet file"), {
       target: { files: [new File([new Uint8Array(10)], name)] },
     });
 
-  it("is offered beside the new version button to a person who may change the sheet and no draft exists", async () => {
+  it("is offered beside the new revision button to a person who may change the sheet and no draft exists", async () => {
     fakeApi({ [`GET ${BASE}`]: list([summary(1, "ACTIVE", 5)]), [`GET ${BASE}/1`]: one(1, "ACTIVE", 5) });
 
     draw();
@@ -540,7 +540,7 @@ describe("a version made from a spreadsheet file", () => {
       [`GET ${BASE}/2`]: one(2, "DRAFT", 3),
     });
     const withDraft = draw();
-    await screen.findByText(/Version 2 is a draft/);
+    await screen.findByText(/Revision 01 is a draft/);
     expect(screen.queryByRole("button", { name: "Upload a spreadsheet" })).toBeNull();
     withDraft.unmount();
 
@@ -550,7 +550,7 @@ describe("a version made from a spreadsheet file", () => {
     expect(screen.queryByRole("button", { name: "Upload a spreadsheet" })).toBeNull();
   });
 
-  it("starts the first version from a file and opens the new draft once it is saved", async () => {
+  it("starts the first revision from a file and opens the new draft once it is saved", async () => {
     let made = false;
     const calls = fakeApi({
       [`GET ${BASE}`]: () => json({ data: { versions: made ? [summary(1, "DRAFT", 0)] : [], canChange: true, limits: LIMITS } }),
@@ -564,21 +564,21 @@ describe("a version made from a spreadsheet file", () => {
       },
     });
     draw();
-    await screen.findByRole("button", { name: "Start first version" });
+    await screen.findByRole("button", { name: "Start first revision" });
 
     fireEvent.click(screen.getByRole("button", { name: "Start from a spreadsheet" }));
     choose("Fire checks.xlsx");
     await screen.findByText(/The file gives/);
     fireEvent.click(screen.getByRole("button", { name: "Save as a new draft" }));
 
-    expect(await screen.findByRole("grid", { name: "Fire checks, version 1" })).toBeInTheDocument();
+    expect(await screen.findByRole("grid", { name: "Fire checks, revision 00" })).toBeInTheDocument();
     expect(calls.filter((call) => call.key === `POST ${BASE}/import`)).toHaveLength(2);
     expect(calls.some((call) => call.key === `POST ${BASE}`)).toBe(false);
   }, 20_000);
 });
 
-describe("who last changed a version", () => {
-  it("is named in the list, and a version nobody can be named for shows a dash", async () => {
+describe("who last changed a revision", () => {
+  it("is named in the list, and a revision nobody can be named for shows a dash", async () => {
     fakeApi({
       [`GET ${BASE}`]: list([summary(2, "ACTIVE", 3, { updatedBy: "User One" }), summary(1, "SUPERSEDED", 5)]),
       [`GET ${BASE}/2`]: one(2, "ACTIVE", 3),
