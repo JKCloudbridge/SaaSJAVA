@@ -100,7 +100,8 @@ class SheetVersionsAccessIT extends SheetSupport {
         Response list = reader.get(versions(owner));
 
         assertThat(JsonPath.<List<Integer>>read(list.body(), "$.data.versions[*].versionNo"))
-                .as("replaced and retired only: not approved, rejected, withdrawn or draft").containsExactly(2, 1);
+                .as("the one in use or ended with the owner: not replaced, approved, rejected, withdrawn or draft")
+                .containsExactly(2);
         for (int number : List.of(3, 4, 5, 6)) {
             assertThat(read(reader, owner, number).status()).as("version " + number).isEqualTo(404);
         }

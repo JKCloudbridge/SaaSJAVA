@@ -199,6 +199,7 @@ class SheetVersions {
      *         {@code CONCURRENT_MODIFICATION}
      */
     SheetVersionSummaryView save(String ownerObject, UUID ownerId, int versionNo, long version, byte[] raw) {
+        owners.caller(ownerObject);
         Optional<SheetVersionStore.Row> looked = store.find(ownerObject, ownerId, versionNo);
         // A draft held for an approval request is changed by the people asked to decide it (FA8, ADR-0202); any other
         // by whoever may change the record.
