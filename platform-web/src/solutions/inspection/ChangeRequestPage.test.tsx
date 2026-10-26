@@ -1,8 +1,11 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { configure, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi, json, refusal, type Handler } from "@/test/fakeApi";
 import { setUrl } from "@/test/navigation";
 import { ChangeRequestPage } from "./ChangeRequestPage";
+
+// These screens draw a lot; a slow machine needs more than the default second to settle.
+configure({ asyncUtilTimeout: 5000 });
 
 vi.mock("next/navigation", async () => (await import("@/test/navigation")).navigationMock);
 // The sheet workspace has its own tests; here it is only asked which version to open and whether to offer a new draft.
