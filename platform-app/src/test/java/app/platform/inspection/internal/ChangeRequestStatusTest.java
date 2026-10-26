@@ -8,19 +8,23 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
- * The statuses of a change request and the moves between them (FA5, ADR-0191), with no database. The table here is the
- * same one the database enforces (V067, {@code ChangeRequestGuardIT}): a move the lifecycle lacks is a move nobody can
- * write.
+ * The statuses of a change request and the moves between them (FA5, ADR-0191; FA8, ADR-0202), with no database. The
+ * table
+ * here is a part of the one the database enforces (V067, V075, {@code ChangeRequestGuardIT}): a move the lifecycle
+ * lacks is
+ * a move nobody can write. Since FA8 a request is published (done) or declined by its approval and nothing else; the
+ * status
+ * accepted is only what the earlier way of working left behind.
  */
 class ChangeRequestStatusTest {
 
     @Test
     void theMovesAreExactlyTheOnesTheLifecycleAllows() {
-        assertThat(movesFrom(ChangeRequestStatus.OPEN)).containsExactlyInAnyOrder(ChangeRequestStatus.ACCEPTED,
-                ChangeRequestStatus.DECLINED, ChangeRequestStatus.DONE);
+        assertThat(movesFrom(ChangeRequestStatus.OPEN)).containsExactlyInAnyOrder(ChangeRequestStatus.DECLINED,
+                ChangeRequestStatus.DONE);
         assertThat(movesFrom(ChangeRequestStatus.ACCEPTED)).containsExactlyInAnyOrder(ChangeRequestStatus.DECLINED,
                 ChangeRequestStatus.DONE);
-        assertThat(movesFrom(ChangeRequestStatus.DONE)).containsExactly(ChangeRequestStatus.OPEN);
+        assertThat(movesFrom(ChangeRequestStatus.DONE)).as("published is final").isEmpty();
         assertThat(movesFrom(ChangeRequestStatus.DECLINED)).as("declined is final").isEmpty();
     }
 
@@ -32,11 +36,11 @@ class ChangeRequestStatusTest {
     }
 
     @Test
-    void onlyAnOpenOrAcceptedRequestTakesCommentsOrIsTurnedIntoAVersion() {
+    void onlyARequestInProgressTakesCommentsAndBlocksAnother() {
         for (ChangeRequestStatus status : ChangeRequestStatus.values()) {
             boolean live = status == ChangeRequestStatus.OPEN || status == ChangeRequestStatus.ACCEPTED;
             assertThat(status.takesComments()).as(status.name()).isEqualTo(live);
-            assertThat(status.canBeTurned()).as(status.name()).isEqualTo(live);
+            assertThat(status.inProgress()).as(status.name()).isEqualTo(live);
         }
     }
 

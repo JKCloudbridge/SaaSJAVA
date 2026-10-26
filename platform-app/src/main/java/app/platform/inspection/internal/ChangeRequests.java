@@ -1,7 +1,6 @@
 package app.platform.inspection.internal;
 
 import app.platform.data.BackgroundRecords;
-import app.platform.data.BackgroundWriteException;
 import app.platform.data.DataRecord;
 import app.platform.inspection.internal.ChangeRequestAccess.Reach;
 import app.platform.inspection.internal.ChangeRequestStore.CommentRow;
@@ -11,8 +10,13 @@ import app.platform.inspection.internal.ChangeRequestViews.ChangeRequestView;
 import app.platform.inspection.internal.ChangeRequestViews.ChangeRequestsView;
 import app.platform.inspection.internal.ChangeRequestViews.CreateChangeRequest;
 import app.platform.inspection.internal.ChangeRequestViews.NewChangeComment;
-import app.platform.inspection.internal.ChangeRequestViews.TurnIntoVersionRequest;
-import app.platform.inspection.internal.ChangeRequestViews.TurnedView;
+import app.platform.inspection.internal.ChangeRequestViews.PublishPrefill;
+import app.platform.inspection.internal.RegisterRules.Checked;
+import app.platform.inspection.internal.RegisterRules.Raised;
+import app.platform.inspection.internal.RegisterStore.Facts;
+import app.platform.inspection.internal.TemplateViews.SuggestedAudience;
+import app.platform.security.Ability;
+import app.platform.security.Permissions;
 import app.platform.sharedkernel.approval.ApprovalStartRefusal;
 import app.platform.sharedkernel.approval.ApprovalStarter;
 import app.platform.sharedkernel.directory.ReferenceLabels;
@@ -26,7 +30,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -36,23 +39,23 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Change requests on a published template (FA5, ADR-0191): a person who can read a version in use asks for a change and
- * points at the places they mean; the people who may change the template answer; and when agreed, the requests are
- * turned into a new draft version that goes through approval like any other.
+ * Change requests on a published template (FA5, ADR-0191), as one controlled change (FA8, ADR-0202). A person who can
+ * read a revision in use fills the register form, optionally points at the places on the sheet they mean, and asks. The
+ * organization's approval process decides the request, step by step; the people asked to decide it make the revised
+ * copy of the sheet and change it; and the last approval publishes it as the next revision.
  *
- * <p><strong>A request changes nothing.</strong> It is a record of its own beside the template. It never touches the
- * header, the active version or any other version; the only version it can cause is a draft that the owner's own
- * act (turning requests into a version) makes, and a draft is not read by anyone who may only read the template.
- * The version a request read stays what it was, and the comments stay with the request whatever happens to that
- * version, which is how a rejected version keeps its comments.
+ * <p><strong>A request changes nothing until it is published.</strong> It is a record of its own beside the template.
+ * The revised copy is a draft of the sheet held for the request: it is not read by anyone who only reads the template,
+ * and the revision in use stays what it was until the last approval makes the copy the one in use. Only one change is
+ * in
+ * progress on a template at a time.
  *
- * <p><strong>Who sees what</strong> is {@link ChangeRequestAccess}'s answer, asked each time.
- * <strong>The places</strong> are checked against the version that was read (ids of rows and columns, ADR-0173); a
- * later version is asked "is it still there?" and a comment whose place is gone says so.
- * <strong>The text</strong> is the organization's: it is stored, shown to the people who may see the request, and
- * never written to a log, an audit record, an event or an error.
+ * <p><strong>Who sees what</strong> is {@link ChangeRequestAccess}'s answer, asked each time; <strong>who is asked to
+ * decide it</strong> is {@link ChangeRequestTasks}'s. <strong>The places</strong> are checked against the version that
+ * was read (ids of rows and columns, ADR-0173). <strong>The text</strong> is the organization's: it is stored, shown to
+ * the people who may see the request, and never written to a log, an audit record, an event or an error.
  *
- * <p>Every change takes the template's lock first, then (for turning) the sheet's own lock, always in that order.
+ * <p>Every change takes the template's lock first, then (for the copy) the sheet's own lock, always in that order.
  */
 @Service
 @Transactional
@@ -60,12 +63,11 @@ class ChangeRequests {
 
     private static final String NO_REQUEST = "This change request does not exist.";
     private static final String RETIRED_WORDS = "This template is retired, so no change can be asked for.";
-    private static final String RACE_WORDS = "This request was answered by someone else just now. Reload the page.";
     private static final String NO_PROCESS_WORDS = "A change request is decided by an approval, and this "
             + "organization has not set one up. Ask your administrator to make the approval process for "
             + "change requests in Setup.";
-    private static final String NOT_ACCEPTED_WORDS = "This request has not been accepted yet, so it cannot be turned "
-            + "into a revision.";
+    private static final String IN_PROGRESS_WORDS = "A change is already in progress on this template. You can ask for "
+            + "another when it has been published or declined.";
     private static final int NAME_LIMIT = 160;
 
     private final ChangeRequestAccess access;
@@ -79,11 +81,20 @@ class ChangeRequests {
     private final DepartmentAudiences departments;
     private final ChangeRequestHeaders headers;
     private final ApprovalStarter starter;
+    private final ChangeRequestTasks tasks;
+    private final RegisterStore registers;
+    private final RegisterFacts facts;
+    private final AudienceSuggestions suggestions;
+    private final TemplateOptionStore optionStore;
+    private final Permissions permissions;
+    private final TemplateRevisions revisions;
 
     ChangeRequests(ChangeRequestAccess access, ChangeRequestStore store, ChangeRequestProperties properties,
             ChangeRequestChanges changes, SheetLifecycle sheets, BackgroundRecords records,
             ChangeRequestNotices notices, List<ReferenceLabels> labels, DepartmentAudiences departments,
-            ChangeRequestHeaders headers, ApprovalStarter starter) {
+            ChangeRequestHeaders headers, ApprovalStarter starter, ChangeRequestTasks tasks, RegisterStore registers,
+            RegisterFacts facts, AudienceSuggestions suggestions, TemplateOptionStore optionStore,
+            Permissions permissions, TemplateRevisions revisions) {
         this.access = access;
         this.store = store;
         this.properties = properties;
@@ -95,6 +106,13 @@ class ChangeRequests {
         this.departments = departments;
         this.headers = headers;
         this.starter = starter;
+        this.tasks = tasks;
+        this.registers = registers;
+        this.facts = facts;
+        this.suggestions = suggestions;
+        this.optionStore = optionStore;
+        this.permissions = permissions;
+        this.revisions = revisions;
     }
 
     // ---- reading ----
@@ -106,27 +124,26 @@ class ChangeRequests {
         Optional<ChangeRequestStatus> wanted = Optional.empty();
         if (status != null && !status.isBlank()) {
             wanted = Optional.of(ChangeRequestStatus.of(status).orElseThrow(() -> ApiException.validation("status",
-                    "Choose OPEN, ACCEPTED, DECLINED or DONE.")));
+                    "Choose OPEN, DECLINED or DONE.")));
         }
         List<RequestRow> rows = store.requests(templateId, reach.canReview() ? null : reach.userId());
-        // Open means still waiting for someone: not yet answered, or accepted and not yet made into a version.
-        int open = (int) rows.stream().filter(row -> row.state() == ChangeRequestStatus.OPEN
-                || row.state() == ChangeRequestStatus.ACCEPTED).count();
+        int open = (int) rows.stream().filter(row -> row.state().inProgress()).count();
+        boolean inProgress = store.countInProgress(templateId) > 0;
         if (wanted.isPresent()) {
             ChangeRequestStatus only = wanted.get();
             rows = rows.stream().filter(row -> row.state() == only).toList();
         }
         Frame frame = frame(reach, rows);
         List<ChangeRequestView> views = rows.stream().map(row -> view(frame, row)).toList();
-        return new ChangeRequestsView(views, reach.canReview(), frame.canRequest, frame.summary.active(),
-                frame.summary.draft(), open);
+        return new ChangeRequestsView(views, reach.canReview(), frame.canRequest && !inProgress,
+                frame.summary.active(), frame.summary.draft(), open, inProgress);
     }
 
     /** One request with its comments. */
     @Transactional(readOnly = true)
     ChangeRequestView get(UUID templateId, UUID requestId) {
         Reach reach = access.reach(templateId);
-        RequestRow row = visibleRequest(reach, requestId);
+        RequestRow row = access.request(reach, requestId);
         return view(frame(reach, List.of(row)), row);
     }
 
@@ -142,6 +159,17 @@ class ChangeRequests {
         return get(row.templateId(), requestId);
     }
 
+    /**
+     * One request by the identifier of its review record, for a screen of the approval (the choice of a step knows the
+     * record under review, not the request). The rest is as {@link #get}.
+     */
+    @Transactional(readOnly = true)
+    ChangeRequestView getByReview(UUID reviewId) {
+        access.member();
+        RequestRow row = store.findByHeader(reviewId).orElseThrow(() -> ApiException.notFound(NO_REQUEST));
+        return get(row.templateId(), row.id());
+    }
+
     /** The page of the request a review record belongs to, for a bell row that names the record; nothing checked. */
     @Transactional(readOnly = true)
     Optional<String> pathOfReview(UUID reviewId) {
@@ -151,8 +179,9 @@ class ChangeRequests {
     // ---- asking ----
 
     /**
-     * Makes a request about a version the caller read, with its first comments. Needs only the right to read the
-     * template. The version must be one that is or was in use, and every place a comment names must be in it.
+     * Makes a request about a version the caller read, with the register form they filled and, if they like, the places
+     * they mean. Needs only the right to read the template. The version must be one that is or was in use, every place
+     * a comment names must be in it, and no other change may be in progress on the template.
      */
     ChangeRequestView create(UUID templateId, CreateChangeRequest request) {
         Reach reach = access.reach(templateId);
@@ -168,14 +197,18 @@ class ChangeRequests {
             throw new ApiException(ErrorCode.CONFLICT, "This template has no revision in use, so nothing can be asked "
                     + "about yet.");
         }
+        if (store.countInProgress(templateId) > 0) {
+            refuse("create", "in_progress");
+            throw new ApiException(ErrorCode.CONFLICT, IN_PROGRESS_WORDS);
+        }
         Map<String, List<String>> problems = new LinkedHashMap<>();
-        ChangeText.problem("title", request.title(), properties.maxTitleChars(), false)
-                .ifPresent(words -> problems.put("title", List.of(words)));
+        Checked<Raised> form = RegisterRules.raise(request.register());
+        form.problems().forEach((field, words) -> problems.put("register." + field, words));
         Layout layout = readLayout(templateId, request.versionNo(), problems);
         List<NewChangeComment> asked = request.comments() == null ? List.of() : request.comments();
         if (asked.size() > properties.maxFirstComments()) {
             problems.put("comments", List.of("A request starts with at most " + properties.maxFirstComments()
-                    + " comments; add the rest after it is made."));
+                    + " places; add the rest after it is made."));
         }
         List<ChangeAnchor> anchors = new ArrayList<>();
         for (int i = 0; i < asked.size(); i++) {
@@ -195,9 +228,12 @@ class ChangeRequests {
             throw new ApiException(ErrorCode.CONFLICT, "You already have " + properties.maxOpenPerPerson()
                     + " open requests on this template. Wait for an answer before asking for more.");
         }
+        Facts platform = facts.of(templateId, reach.userId(), reach.membershipId());
         UUID reviewId = startReview(reach, templateId, header);
-        RequestRow made = store.insertRequest(templateId, request.versionNo(), ChangeText.clean(request.title()),
-                reach.userId(), departments.departmentsOf(reach.membershipId()), reviewId);
+        RequestRow made = store.insertRequest(templateId, request.versionNo(),
+                RegisterRules.titleOf(form.value().changeRequested()), reach.userId(), platform.department(),
+                reviewId);
+        registers.insert(made.id(), templateId, form.value(), platform, reach.userId());
         int places = 0;
         for (int i = 0; i < asked.size(); i++) {
             ChangeAnchor anchor = anchors.get(i);
@@ -239,11 +275,11 @@ class ChangeRequests {
         return review.id();
     }
 
-    /** Adds a comment to a request that is open or accepted: by the person who asked, or by a person who may review. */
+    /** Adds a comment to a request that is open: by the person who asked, or by a person who may review. */
     ChangeRequestView comment(UUID templateId, UUID requestId, NewChangeComment comment) {
         Reach reach = access.reach(templateId);
         store.lock(templateId);
-        RequestRow row = visibleRequest(reach, requestId);
+        RequestRow row = access.request(reach, requestId);
         if (!row.state().takesComments()) {
             refuse("comment", "closed");
             throw new ApiException(ErrorCode.CONFLICT, "This request is closed, so it takes no more comments.");
@@ -270,133 +306,55 @@ class ChangeRequests {
         return view(frame(reach, List.of(row)), row);
     }
 
-    // ---- reopening ----
+    // ---- the revised copy ----
 
     /**
-     * Reopens a request whose new version was rejected or withdrawn, so it can be turned into a version again. Whether
-     * a request is accepted or declined is decided by its approval and by nothing else (ADR-0199). Needs the right to
-     * change the template.
+     * Makes the revised copy of the sheet for a request: a draft that is a copy of the revision in use now, held for
+     * the
+     * request, which is not read by anyone who only reads the template. Only a person asked to decide the request now
+     * (and the administrator) may; the revision in use is never edited.
+     *
+     * @throws ApiException {@code NOT_FOUND}, {@code FORBIDDEN}, {@code CONFLICT} (the request is not waiting for an
+     *         approval, a copy already exists, no revision is in use, the sheet has the most versions it can have)
      */
-    ChangeRequestView reopen(UUID templateId, UUID requestId) {
+    ChangeRequestView createCopy(UUID templateId, UUID requestId) {
         Reach reach = access.reach(templateId);
         store.lock(templateId);
-        RequestRow row = visibleRequest(reach, requestId);
-        requireReview(reach, "reopen");
-        requireMove(row, ChangeRequestStatus.OPEN);
-        Optional<SheetStatus> ended = row.resultingVersion() == null ? Optional.empty()
-                : sheets.statusOf(Templates.OBJECT, templateId, row.resultingVersion());
-        if (ended.isEmpty() || (ended.get() != SheetStatus.REJECTED && ended.get() != SheetStatus.WITHDRAWN)) {
-            refuse("reopen", "version_used");
-            throw new ApiException(ErrorCode.CONFLICT, "The revision this request became was not rejected or "
-                    + "withdrawn, so the request cannot be reopened.");
+        RequestRow row = access.request(reach, requestId);
+        if (row.state() != ChangeRequestStatus.OPEN) {
+            refuse("copy", "closed");
+            throw new ApiException(ErrorCode.CONFLICT, "This request is answered, so no copy can be made for it.");
         }
-        if (row.headerId() == null || !store.reopenAccepted(requestId, reach.userId())) {
-            refuse("reopen", "raced");
-            throw new ApiException(ErrorCode.CONFLICT, RACE_WORDS);
+        if (!tasks.mayAct(row, reach.userId(), reach.membershipId())) {
+            refuse("copy", "forbidden");
+            throw new ApiException(ErrorCode.FORBIDDEN, "Only the people asked to decide this request can make the "
+                    + "revised copy.");
         }
-        followOnReviewRecord(row, ChangeRequestStatus.ACCEPTED);
-        changes.answered(reach.userId(), templateId, requestId, "reopened");
-        RequestRow now = store.find(templateId, requestId).orElseThrow();
-        return view(frame(reach, List.of(now)), now);
-    }
-
-    /**
-     * Turns requests into the next version of the template: a draft that is a copy of the version in use now (not of
-     * the version each person read, so that nothing already approved is lost; the comments find their places by
-     * id). When a draft already exists the requests are linked to it and it is left as it is. The draft then goes
-     * through approval like any other. Needs the right to change the template.
-     */
-    TurnedView turn(UUID templateId, TurnIntoVersionRequest request) {
-        Reach reach = access.reach(templateId);
-        requireReview(reach, "turn");
-        Set<UUID> ids = new LinkedHashSet<>(request.requestIds());
-        if (ids.size() > properties.maxTurnedAtOnce()) {
-            throw ApiException.validation("requestIds", "Turn at most " + properties.maxTurnedAtOnce()
-                    + " requests into a revision at once.");
-        }
-        store.lock(templateId);
-        DataRecord header = header(templateId);
-        if (retired(header)) {
-            refuse("turn", "retired");
-            throw new ApiException(ErrorCode.CONFLICT, RETIRED_WORDS);
-        }
+        UUID pending = tasks.pending(row).orElseThrow(() -> {
+            refuse("copy", "not_waiting");
+            return new ApiException(ErrorCode.CONFLICT, "This request is not waiting for an approval. Send it for "
+                    + "approval again, then make the copy.");
+        });
         SheetLifecycle.Summary summary = summary(templateId);
-        int base = summary.active() > 0 ? summary.active() : summary.approved();
-        if (base <= 0) {
-            refuse("turn", "nothing_in_use");
-            throw new ApiException(ErrorCode.CONFLICT, "This template has no revision in use to start from.");
-        }
-        List<RequestRow> rows = new ArrayList<>();
-        for (UUID id : ids) {
-            RequestRow row = store.find(templateId, id).orElseThrow(() -> ApiException.notFound(NO_REQUEST));
-            if (!row.state().canBeTurned()) {
-                refuse("turn", "not_open");
-                throw new ApiException(ErrorCode.CONFLICT, "A request that is already answered or turned into a "
-                        + "revision cannot be turned into another. Reload the page.");
-            }
-            if (row.state() != ChangeRequestStatus.ACCEPTED) {
-                // Its review has not ended approved: turning it now would be a way round the process (ADR-0199).
-                refuse("turn", "not_accepted");
-                throw new ApiException(ErrorCode.CONFLICT, NOT_ACCEPTED_WORDS);
-            }
-            rows.add(row);
+        if (summary.active() <= 0 || retired(header(templateId))) {
+            refuse("copy", "nothing_in_use");
+            throw new ApiException(ErrorCode.CONFLICT, "This template has no revision in use to copy.");
         }
         SheetLifecycle.Started started;
         try {
-            started = sheets.startDraft(Templates.OBJECT, templateId, base, reach.userId());
+            started = sheets.startHeldDraft(Templates.OBJECT, templateId, summary.active(), pending, reach.userId());
         } catch (SheetMoveRefusal refusal) {
-            refuse("turn", refusal.reason().name().toLowerCase(java.util.Locale.ROOT));
-            throw new ApiException(ErrorCode.CONFLICT, refusal.getMessage());
+            refuse("copy", refusal.reason().name().toLowerCase(java.util.Locale.ROOT));
+            throw new ApiException(ErrorCode.CONFLICT, refusal.reason() == SheetMoveRefusal.Reason.DRAFT_EXISTS
+                    ? "A draft of this sheet already exists from before. Ask your administrator to finish or "
+                            + "withdraw it first."
+                    : refusal.getMessage());
         }
-        for (RequestRow row : rows) {
-            if (!store.answer(row.id(), row.state(), ChangeRequestStatus.DONE, null, started.versionNo(),
-                    reach.userId())) {
-                refuse("turn", "raced");
-                throw new ApiException(ErrorCode.CONFLICT, RACE_WORDS);
-            }
-            followOnReviewRecord(row, ChangeRequestStatus.DONE);
-            tell(row.createdBy(), reach.userId(), templateId, row.id(), "done", "chg:" + row.id() + ":done");
-        }
-        changes.turned(reach.userId(), templateId, started.versionNo(), started.created(), rows.size());
-        return new TurnedView(started.versionNo(), started.created(), rows.size());
+        changes.copied(reach.userId(), templateId, requestId, started.versionNo());
+        return view(frame(reach, List.of(row)), row);
     }
 
     // ---- rules ----
-
-    /** Keeps the copy of the status on the review record in step; a refusal undoes the act that asked. */
-    private void followOnReviewRecord(RequestRow row, ChangeRequestStatus status) {
-        try {
-            headers.status(row.headerId(), status);
-        } catch (BackgroundWriteException refused) {
-            // The record is the platform's own: a refusal is a fault, not an answer for the person. The reason is a
-            // stable key and never a value.
-            throw new IllegalStateException("The status of a change request could not follow on its review record ("
-                    + refused.reason().key() + ")");
-        }
-    }
-
-    private RequestRow visibleRequest(Reach reach, UUID requestId) {
-        RequestRow row = store.find(reach.templateId(), requestId).orElse(null);
-        if (row == null || !access.sees(reach, row)) {
-            throw ApiException.notFound(NO_REQUEST);
-        }
-        return row;
-    }
-
-    private void requireReview(Reach reach, String act) {
-        if (!reach.canReview()) {
-            refuse(act, "forbidden");
-            throw new ApiException(ErrorCode.FORBIDDEN);
-        }
-    }
-
-    private void requireMove(RequestRow row, ChangeRequestStatus to) {
-        if (!row.state().canMoveTo(to)) {
-            refuse("answer", "bad_move");
-            throw new ApiException(ErrorCode.CONFLICT, "This request is " + row.state().name().toLowerCase(
-                    java.util.Locale.ROOT) + " and cannot be answered that way.");
-        }
-    }
 
     /** The places of the version that was read; a problem is put in the map when it cannot be asked about. */
     private Layout readLayout(UUID templateId, Integer versionNo, Map<String, List<String>> problems) {
@@ -404,7 +362,7 @@ class ChangeRequests {
                 : sheets.layoutOf(Templates.OBJECT, templateId, versionNo);
         // A version that nobody but its authors may read answers like one that does not exist.
         if (layout.isEmpty() || !layout.get().status().readableByReaders()) {
-            problems.put("versionNo", List.of("There is no such version to ask about."));
+            problems.put("versionNo", List.of("There is no such revision to ask about."));
             return new Layout(SheetStatus.DRAFT, Map.of(), Map.of());
         }
         return layout.get();
@@ -441,11 +399,13 @@ class ChangeRequests {
         private final Reach reach;
         private final SheetLifecycle.Summary summary;
         private final boolean canRequest;
+        private final boolean mayPublish;
         private final Map<UUID, List<CommentRow>> comments = new HashMap<>();
         private final Map<UUID, String> names;
         private final Map<Integer, Optional<SheetStatus>> statuses = new HashMap<>();
         private final String templateName;
         private final String templateNumber;
+        private final Optional<SheetLifecycle.HeldDraft> held;
         private Optional<Layout> active;
         private boolean activeRead;
 
@@ -454,6 +414,8 @@ class ChangeRequests {
             this.summary = summary(reach.templateId());
             DataRecord template = header(reach.templateId());
             this.canRequest = summary.active() > 0 && !retired(template);
+            this.mayPublish = permissions.has(reach.membershipId(), Ability.SHEETS_PUBLISH);
+            this.held = sheets.heldDraft(Templates.OBJECT, reach.templateId());
             this.templateName = text(template, Templates.NAME);
             this.templateNumber = text(template, Templates.NUMBER);
             for (CommentRow comment : store.comments(rows.stream().map(RequestRow::id).toList())) {
@@ -507,19 +469,40 @@ class ChangeRequests {
                     comment.createdAt(), frame.names.get(comment.createdBy()),
                     comment.createdBy().equals(frame.reach.userId())));
         }
-        Optional<SheetStatus> became = row.resultingVersion() == null ? Optional.empty()
-                : frame.statusOf(row.resultingVersion());
-        boolean review = frame.reach.canReview();
-        boolean reopenable = review && status == ChangeRequestStatus.DONE && became.isPresent()
-                && (became.get() == SheetStatus.REJECTED || became.get() == SheetStatus.WITHDRAWN);
-        // A request is accepted or declined by the task of the people its approval asked (ADR-0199); it can be turned
-        // into a version only once accepted.
-        boolean turnable = review && status.canBeTurned() && frame.canRequest && status == ChangeRequestStatus.ACCEPTED;
+        boolean open = status == ChangeRequestStatus.OPEN;
+        boolean asked = open && tasks.mayAct(row, frame.reach.userId(), frame.reach.membershipId());
+        // The version this request is about: its revised copy while it is prepared, the version it published once done.
+        Integer resulting = row.resultingVersion();
+        if (resulting == null && open && frame.held.isPresent()) {
+            resulting = frame.held.get().versionNo();
+        }
+        Optional<SheetStatus> became = resulting == null ? Optional.empty() : frame.statusOf(resulting);
+        Integer revision = status == ChangeRequestStatus.DONE && resulting != null
+                ? revisions.of(row.templateId(), resulting) : null;
+        boolean canCreateCopy = asked && frame.canRequest && frame.held.isEmpty();
+        boolean canChangeCopy = asked && frame.held.isPresent();
         return new ChangeRequestView(row.id(), row.title(), status.name(), row.versionNo(),
                 frame.names.get(row.createdBy()), row.requesterDepartment(), mine, row.createdAt(), row.decidedAt(),
-                row.resultingVersion(), became.map(SheetStatus::name).orElse(null), total, there,
-                status.takesComments() && (review || mine), turnable, reopenable, comments,
-                row.templateId(), frame.templateName, frame.templateNumber, row.headerId());
+                resulting, became.map(SheetStatus::name).orElse(null), total, there,
+                status.takesComments() && (frame.reach.canReview() || mine), canCreateCopy, canChangeCopy, comments,
+                row.templateId(), frame.templateName, frame.templateNumber, row.headerId(), revision,
+                open && frame.mayPublish ? prefill(row) : null);
+    }
+
+    /** What the window of the last approval starts from: the suggestion of the step that asked and the options now. */
+    private PublishPrefill prefill(RequestRow row) {
+        AudienceSuggestions.Held held = tasks.pending(row).map(suggestions::held)
+                .orElse(new AudienceSuggestions.Held(List.of(), 0));
+        TemplateOptionStore.Options options = optionStore.find(row.templateId());
+        Map<String, String> locationLabels = held.places().isEmpty() ? Map.of()
+                : departments.labels(Templates.LOCATION);
+        Map<String, String> departmentLabels = held.places().isEmpty() ? Map.of()
+                : departments.labels(Templates.DEPARTMENT);
+        List<SuggestedAudience> places = held.places().stream().map(place -> new SuggestedAudience(place.location(),
+                locationLabels.getOrDefault(place.location(), place.location()), place.department(),
+                place.department() == null ? null
+                        : departmentLabels.getOrDefault(place.department(), place.department()))).toList();
+        return new PublishPrefill(places, held.dropped(), options.viewOnly(), options.allowDownload());
     }
 
     private static String text(DataRecord template, String field) {

@@ -197,6 +197,11 @@ export function Inbox() {
                   version={task.instance.version}
                   explain={explain(task, acting.kind)}
                   asksForChoice={task.instance.currentStepAsksForChoice}
+                  lastStep={
+                    task.instance.currentStep !== undefined &&
+                    task.instance.currentStep !== null &&
+                    task.instance.currentStep === task.instance.stepCount
+                  }
                   objectApiName={task.instance.objectApiName}
                   recordId={task.instance.recordId}
                   onClose={() => setActing(undefined)}

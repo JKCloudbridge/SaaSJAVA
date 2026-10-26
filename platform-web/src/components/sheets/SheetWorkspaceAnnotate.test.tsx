@@ -29,6 +29,7 @@ function summary(versionNo: number, status: string): VersionSummary {
     createdAt: "2026-10-22T08:00:00Z",
     updatedAt: "2026-10-22T09:00:00Z",
     reviewEdits: 0,
+    held: false,
   };
 }
 
@@ -135,7 +136,7 @@ describe("annotate mode in the workspace (FA5)", () => {
 
     render(<SheetWorkspace owner={OWNER} label="Fire checks" annotate={annotate(1)} />);
 
-    await screen.findByRole("grid", { name: "Fire checks, revision 00" });
+    await screen.findByRole("grid", { name: "Fire checks, draft" });
     expect(screen.queryByTestId("panel")).toBeNull();
   });
 });

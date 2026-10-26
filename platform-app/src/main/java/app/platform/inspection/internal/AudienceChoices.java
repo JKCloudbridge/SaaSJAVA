@@ -53,7 +53,62 @@ final class AudienceChoices {
         }
     }
 
+    /** The key of a pair that switches on one of the two options of the sheet (FA8): the value names the option. */
+    static final String OPTION = "option";
+    /** The value of an option pair that makes the template a reference only. */
+    static final String VIEW_ONLY = "viewOnly";
+    /** The value of an option pair that lets everybody who can read the sheet download it. */
+    static final String ALLOW_DOWNLOAD = "allowDownload";
+
+    static final String DEPARTMENT_NEEDED = "Choose at least one department of each location to publish to, then "
+            + "confirm.";
+
+    /**
+     * What the window of the last approval of a change request sends: the places to publish to and the two options.
+     *
+     * @param places the places, each with a department
+     * @param viewOnly whether the template is only a reference
+     * @param allowDownload whether everybody who can read the sheet may download it
+     */
+    record Publish(List<Place> places, boolean viewOnly, boolean allowDownload) {
+
+        /** Prints nothing of the codes: they are the organization's own. */
+        @Override
+        public String toString() {
+            return "Publish[redacted]";
+        }
+    }
+
     private AudienceChoices() {
+    }
+
+    /**
+     * Reads the choice of the last approval (FA8, ADR-0202): the places as for a suggestion, but a department is
+     * required for every location (a template is published to departments), and the two options are pairs of the key
+     * {@code option}.
+     *
+     * @throws ApprovalHookRefusal when the places are not valid, a location has no department, or an option is unknown
+     */
+    static Publish parsePublish(List<Choice> choices) {
+        boolean viewOnly = false;
+        boolean allowDownload = false;
+        List<Choice> places = new ArrayList<>();
+        for (Choice choice : choices) {
+            if (!OPTION.equals(choice.key())) {
+                places.add(choice);
+            } else if (VIEW_ONLY.equals(choice.value())) {
+                viewOnly = true;
+            } else if (ALLOW_DOWNLOAD.equals(choice.value())) {
+                allowDownload = true;
+            } else {
+                throw new ApprovalHookRefusal("choice_invalid", NOT_VALID);
+            }
+        }
+        List<Place> parsed = parse(places);
+        if (parsed.stream().anyMatch(place -> place.department() == null)) {
+            throw new ApprovalHookRefusal("department_needed", DEPARTMENT_NEEDED);
+        }
+        return new Publish(parsed, viewOnly, allowDownload);
     }
 
     /**

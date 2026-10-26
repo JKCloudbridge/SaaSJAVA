@@ -2,6 +2,7 @@ package app.platform.sheets.internal;
 
 import app.platform.sharedkernel.approval.RecordLocks;
 import app.platform.sharedkernel.directory.ReferenceLabels;
+import app.platform.sharedkernel.solution.SheetDraftRules;
 import app.platform.sheets.Revisions;
 import app.platform.sheets.SheetStatus;
 import app.platform.sheets.internal.SheetGrid.RowsMode;
@@ -21,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,11 +62,13 @@ class SheetVersions {
     private final ImportProperties importProperties;
     private final RecordLocks locks;
     private final List<ReferenceLabels> directories;
+    private final ObjectProvider<SheetDraftRules> draftRules;
     private final JsonMapper json = JsonMapper.builder().build();
 
     SheetVersions(SheetOwners owners, SheetVersionStore store, SheetGridValidator validator, SheetChanges changes,
             SheetProperties properties, ImportProperties importProperties, RecordLocks locks,
-            List<ReferenceLabels> directories) {
+            List<ReferenceLabels> directories, ObjectProvider<SheetDraftRules> draftRules) {
+        this.draftRules = draftRules;
         this.owners = owners;
         this.store = store;
         this.validator = validator;
@@ -84,17 +88,29 @@ class SheetVersions {
         Optional<SheetOwners.Reach> reach = owners.reachIfReadable(ownerObject, ownerId);
         List<SheetVersionStore.Row> rows;
         boolean canChange;
+        boolean canChangeHeld = false;
         if (reach.isPresent()) {
-            rows = store.list(ownerObject, ownerId, reach.get().canChange());
+            rows = store.list(ownerObject, ownerId, reach.get().canChange(), reach.get().history());
             canChange = reach.get().canChange();
+            SheetOwners.Caller caller = owners.caller(ownerObject);
+            Optional<SheetVersionStore.Row> held = store.heldDraft(ownerObject, ownerId)
+                    .filter(draft -> owners.mayReadHeld(caller, draft));
+            canChangeHeld = held.isPresent();
+            if (!canChange && held.isPresent()) {
+                // A person asked to decide the request a draft was made for sees that draft, whatever else they read.
+                List<SheetVersionStore.Row> shown = new ArrayList<>(rows);
+                shown.add(0, held.get());
+                rows = shown;
+            }
         } else {
             SheetOwners.Caller caller = owners.caller(ownerObject);
-            rows = store.list(ownerObject, ownerId, true).stream()
+            rows = store.list(ownerObject, ownerId, true, true).stream()
                     .filter(row -> underReviewOf(caller, row)).toList();
             if (rows.isEmpty()) {
                 throw ApiException.notFound(NO_SHEET);
             }
             canChange = false;
+            canChangeHeld = rows.stream().anyMatch(row -> SheetStatus.DRAFT.name().equals(row.status()));
         }
         Map<UUID, String> names = names(rows.stream().map(SheetVersionStore.Row::updatedBy).toList());
         List<SheetVersionSummaryView> versions = rows.stream().map(row -> summary(row, names)).toList();
@@ -102,7 +118,7 @@ class SheetVersions {
         return new SheetVersionsView(versions, canChange, new SheetLimitsView(limits.maxBytes(),
                 limits.maxRows(), limits.maxColumns(), limits.maxHeaderRows(), limits.maxCellChars(),
                 limits.maxLabelChars(), limits.maxPicklistValues(), limits.maxMerges(),
-                importProperties.maxFileBytes()));
+                importProperties.maxFileBytes()), canChangeHeld);
     }
 
     /** One version with its grid. */
@@ -138,6 +154,11 @@ class SheetVersions {
         SheetOwners.Reach reach = owners.reachForChange(ownerObject, ownerId);
         store.lock(reach.object(), reach.id());
         SheetVersionStore.State state = store.state(reach.object(), reach.id());
+        String against = refusedByOwner(reach.object(), reach.id());
+        if (against != null) {
+            changes.refused("create", "owner_rule");
+            throw new ApiException(ErrorCode.CONFLICT, against);
+        }
         if (state.draft() != null) {
             changes.refused("create", "draft_exists");
             throw new ApiException(ErrorCode.CONFLICT, "A draft already exists: it is " + Revisions.words(state.draft())
@@ -178,7 +199,14 @@ class SheetVersions {
      *         {@code CONCURRENT_MODIFICATION}
      */
     SheetVersionSummaryView save(String ownerObject, UUID ownerId, int versionNo, long version, byte[] raw) {
-        SheetOwners.Reach reach = owners.reachForChange(ownerObject, ownerId);
+        owners.caller(ownerObject);
+        Optional<SheetVersionStore.Row> looked = store.find(ownerObject, ownerId, versionNo);
+        // A draft held for an approval request is changed by the people asked to decide it (FA8, ADR-0202); any other
+        // by whoever may change the record.
+        SheetOwners.Reach reach = looked.filter(row -> SheetStatus.DRAFT.name().equals(row.status())
+                && row.approvalRequestId() != null).isPresent()
+                ? owners.reachForDraft(ownerObject, ownerId, looked.get())
+                : owners.reachForChange(ownerObject, ownerId);
         // The cheap questions first: a version that does not exist or is no longer a draft is answered before a grid
         // is parsed for it.
         SheetVersionStore.Row current = store.find(reach.object(), reach.id(), versionNo)
@@ -286,14 +314,36 @@ class SheetVersions {
         return store.defaultBase(reach.object(), reach.id()).orElseThrow();
     }
 
+    /**
+     * What a member who may read the record sees (FA8, ADR-0202): the version in use, and the one that ended with the
+     * owner; the versions that were replaced only for the people who keep the history. A member who may change the
+     * record sees all of them.
+     */
     private static boolean visible(SheetOwners.Reach reach, SheetVersionStore.Row row) {
-        return reach.canChange() || SheetStatus.valueOf(row.status()).readableByReaders();
+        if (reach.canChange()) {
+            return true;
+        }
+        SheetStatus status = SheetStatus.valueOf(row.status());
+        return status == SheetStatus.ACTIVE || status == SheetStatus.RETIRED
+                || (status == SheetStatus.SUPERSEDED && reach.history());
     }
 
-    /** Whether the person is asked to decide the request that reviews this version, which is still in review. */
+    /**
+     * Whether the person is asked to decide the request that reviews this version (still in review), or the request a
+     * draft was made for.
+     */
     private boolean underReviewOf(SheetOwners.Caller caller, SheetVersionStore.Row row) {
+        if (SheetStatus.DRAFT.name().equals(row.status())) {
+            return owners.mayReadHeld(caller, row);
+        }
         return SheetStatus.IN_REVIEW.name().equals(row.status())
                 && owners.holdsOpenTask(row.approvalRequestId(), caller.userId());
+    }
+
+    /** The fixed words of the first rule of the owner's module that is against a new draft, or null. */
+    String refusedByOwner(String ownerObject, UUID ownerId) {
+        return draftRules.orderedStream().map(rule -> rule.refuseNewDraft(ownerObject, ownerId))
+                .flatMap(Optional::stream).findFirst().orElse(null);
     }
 
     private static ApiException notADraft() {
@@ -317,7 +367,8 @@ class SheetVersions {
     private static SheetVersionSummaryView summary(SheetVersionStore.Row row, Map<UUID, String> names) {
         return new SheetVersionSummaryView(row.versionNo(), row.status(), row.dimension(), row.rowsMode(),
                 row.gridBytes(), row.gridHash(), row.version(), row.createdAt(), row.updatedAt(), row.submittedAt(),
-                row.decidedAt(), row.reviewEdits(), row.updatedBy() == null ? null : names.get(row.updatedBy()));
+                row.decidedAt(), row.reviewEdits(), row.updatedBy() == null ? null : names.get(row.updatedBy()),
+                row.revisionNo(), SheetStatus.DRAFT.name().equals(row.status()) && row.approvalRequestId() != null);
     }
 
     /**

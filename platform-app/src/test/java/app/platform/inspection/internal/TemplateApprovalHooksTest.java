@@ -170,6 +170,36 @@ class TemplateApprovalHooksTest {
             throw new UnsupportedOperationException();
         }
 
+        @Override
+        public Started startHeldDraft(String ownerObject, UUID ownerId, int basedOn, UUID requestId, UUID actor) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<HeldDraft> heldDraft(String ownerObject, UUID ownerId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean retargetHeldDraft(String ownerObject, UUID ownerId, UUID requestId, UUID actor) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int closeHeldDraft(String ownerObject, UUID ownerId, UUID requestId, SheetStatus result, UUID actor) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<Integer> revisionOf(String ownerObject, UUID ownerId, int versionNo) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean everPublished(String ownerObject, UUID ownerId) {
+            throw new UnsupportedOperationException();
+        }
+
         // ---- ApprovalHookWriter ----
 
         @Override

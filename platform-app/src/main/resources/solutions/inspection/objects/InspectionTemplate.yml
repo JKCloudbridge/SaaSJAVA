@@ -154,3 +154,17 @@ fields:
     unique: true
     platformWritten: true
     settings: { maxLength: 40 }
+
+  - apiName: revision
+    label: Revision
+    description: The revision now in use, written with two digits (00 is the first). The platform sets it when a revision is published; nobody types it.
+    type: TEXT
+    platformWritten: true
+    settings: { maxLength: 10 }
+
+  - apiName: lastRevisedAt
+    label: Last revised on
+    description: When the revision now in use was published. The platform sets it at that moment; nobody types it.
+    type: TEXT
+    platformWritten: true
+    settings: { maxLength: 40 }

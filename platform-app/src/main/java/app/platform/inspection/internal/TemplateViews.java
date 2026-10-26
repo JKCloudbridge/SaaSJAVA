@@ -53,10 +53,12 @@ public final class TemplateViews {
      * @param lifecycle what its versions add up to
      * @param openChangeRequests how many change requests of it still wait for someone (open or accepted) among those
      *        the caller may see; 0 for a caller who may see none (FA6E)
+     * @param revision the revision in use, written with two digits (00 is the first), or null when none was ever
+     *        published (FA8)
      */
     public record TemplateRow(@NotNull UUID id, String name, String number, String category, String subCategory,
             String level, String documentType, @NotNull Boolean retired, @NotNull TemplateLifecycle lifecycle,
-            @NotNull Integer openChangeRequests) {
+            @NotNull Integer openChangeRequests, String revision) {
     }
 
     /**
@@ -138,6 +140,9 @@ public final class TemplateViews {
      * @param canDownload whether to offer Download: the option is on, or the caller holds the right to publish, and a
      *        revision exists that the caller can read
      * @param canSetOptions whether to offer the "Sheet options" control (the right to publish)
+     * @param revision the revision in use, written with two digits (00 is the first), or null when none was ever
+     *        published; the platform saves it on the template when a revision is published (FA8)
+     * @param lastRevisedAt when the revision in use was published, or null
      */
     public record TemplateLifecycleView(@NotNull UUID id, @NotNull Boolean retired,
             @NotNull TemplateLifecycle lifecycle, @NotNull List<TemplateAudience> audience,
@@ -145,7 +150,8 @@ public final class TemplateViews {
             String numberPreview, @NotNull Boolean numberPreviewComplete, @NotNull Integer openChangeRequests,
             @NotNull List<VersionReview> versionReviews, @NotNull List<SuggestedAudience> suggestedAudience,
             @NotNull Integer suggestionDropped, String number, @NotNull Boolean viewOnly,
-            @NotNull Boolean allowDownload, @NotNull Boolean canDownload, @NotNull Boolean canSetOptions) {
+            @NotNull Boolean allowDownload, @NotNull Boolean canDownload, @NotNull Boolean canSetOptions,
+            String revision, Instant lastRevisedAt) {
     }
 
     /**

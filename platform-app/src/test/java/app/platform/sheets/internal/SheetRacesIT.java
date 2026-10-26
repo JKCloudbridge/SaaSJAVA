@@ -36,7 +36,7 @@ class SheetRacesIT extends SheetSupport {
 
     @BeforeAll
     static void startTheOtherInstance() {
-        instanceB = TestApplication.start();
+        instanceB = TestApplication.start("platform.inspection.hold-published-templates=false");
     }
 
     @AfterAll
@@ -107,7 +107,7 @@ class SheetRacesIT extends SheetSupport {
         assertThat(statuses.stream().filter(status -> status == 409)).as("everyone else is told a draft exists")
                 .hasSize(REQUESTS - 1);
         for (Response refused : answers.stream().filter(answer -> answer.status() == 409).toList()) {
-            assertThat(JsonPath.<String>read(refused.body(), "$.error.message")).contains("version 2");
+            assertThat(JsonPath.<String>read(refused.body(), "$.error.message")).contains("Revision 01");
         }
         assertThat(countRows(setting.organization(), owner)).as("one active version and one draft").isEqualTo(2);
     }

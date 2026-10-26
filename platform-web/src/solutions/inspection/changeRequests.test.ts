@@ -36,8 +36,8 @@ function request(extra: Partial<ChangeRequestView> = {}): ChangeRequestView {
     placesTotal: 1,
     placesInActive: 1,
     canComment: false,
-    canTurn: false,
-    canReopen: false,
+    canCreateCopy: false,
+    canChangeCopy: false,
     comments: [comment()],
     templateId: "t-1",
     ...extra,
@@ -45,11 +45,11 @@ function request(extra: Partial<ChangeRequestView> = {}): ChangeRequestView {
 }
 
 function view(requests: ChangeRequestView[]): ChangeRequestsView {
-  return { requests, canReview: true, canRequest: true, activeVersion: 1, draftVersion: 0, openCount: 0 };
+  return { requests, canReview: true, canRequest: true, activeVersion: 1, draftVersion: 0, openCount: 0, inProgress: false };
 }
 
 describe("what the grid marks", () => {
-  it("marks the places of open and accepted requests that are still in the revision in use", () => {
+  it("marks the places of requests in progress that are still in the revision in use", () => {
     const marks = marksFromRequests(
       view([
         request({ comments: [comment(), comment({ kind: "COLUMN", rowId: undefined, columnId: "c2" })] }),
@@ -104,16 +104,30 @@ describe("a comment's place", () => {
 
 describe("the words of a request", () => {
   it("gives every status a word and a tone, and a status it does not know is shown as it is", () => {
-    expect(statusWords("OPEN")).toEqual({ text: "Open", tone: "on" });
+    expect(statusWords("OPEN")).toEqual({ text: "In progress", tone: "on" });
+    expect(statusWords("DONE")).toEqual({ text: "Published", tone: "ok" });
     expect(statusWords("DECLINED").tone).toBe("error");
     expect(statusWords("SOMETHING")).toEqual({ text: "SOMETHING", tone: "quiet" });
   });
 
-  it("says which version a request became and what it is now", () => {
+  it("says what the revised sheet of a request is while it is prepared and once it is published", () => {
     expect(becameWords(request())).toBeNull();
     expect(becameWords(request({ resultingVersion: 3 }))).toBe("Revision 02");
-    expect(becameWords(request({ resultingVersion: 3, resultingVersionStatus: "DRAFT" }))).toBe("Revision 02 (a draft)");
-    expect(becameWords(request({ resultingVersion: 3, resultingVersionStatus: "REJECTED" }))).toBe("Revision 02 (rejected)");
-    expect(becameWords(request({ resultingVersion: 3, resultingVersionStatus: "ACTIVE" }))).toBe("Revision 02 (in use)");
+    expect(becameWords(request({ resultingVersion: 3, resultingVersionStatus: "DRAFT" }))).toBe(
+      "The revised sheet (the revised copy, being prepared)",
+    );
+    expect(becameWords(request({ resultingVersion: 3, resultingVersionStatus: "REJECTED" }))).toBe(
+      "The revised sheet (the revised copy, rejected)",
+    );
+    expect(
+      becameWords(
+        request({ status: "DONE", resultingVersion: 4, resultingRevision: 1, resultingVersionStatus: "ACTIVE" }),
+      ),
+    ).toBe("Revision 01, in use");
+    expect(
+      becameWords(
+        request({ status: "DONE", resultingVersion: 4, resultingRevision: 1, resultingVersionStatus: "SUPERSEDED" }),
+      ),
+    ).toBe("Revision 01, replaced since");
   });
 });

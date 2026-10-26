@@ -1,7 +1,8 @@
 /**
- * The asterisk of a template that has change requests waiting for someone (Functional track FA6E, ADR-0199): a small mark in
- * the accent colour with a text alternative. It is a reading aid made from the number the API sent and decides nothing; it
- * draws nothing when the number is zero.
+ * The asterisk of a template that has a change in progress (Functional track FA6E, ADR-0199; FA8, ADR-0202): a small mark
+ * in the accent colour at the top right corner of the Change requests tab, with a text for screen readers. It is a reading
+ * aid made from the number the API sent and decides nothing; it draws nothing when the number is zero, and the number is
+ * zero once the request is published or declined.
  */
 export function OpenRequestsMark({ count }: { count: number }) {
   if (!(count > 0)) {
@@ -11,7 +12,7 @@ export function OpenRequestsMark({ count }: { count: number }) {
     <span
       className="open-requests-mark"
       role="img"
-      aria-label="Has open change requests"
+      aria-label="Open requests"
       title={count === 1 ? "1 open change request" : `${count} open change requests`}
       data-testid="open-requests-mark"
     >

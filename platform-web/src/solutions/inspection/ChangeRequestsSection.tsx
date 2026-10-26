@@ -9,22 +9,18 @@ import {
   becameWords,
   changeRequestsHref,
   placeOf,
-  reopenChangeRequest,
   placeWords,
   statusWords,
-  turnIntoVersion,
   type ChangeRequestView,
   type ChangeRequestsState,
 } from "./changeRequests";
 import type { Place } from "@/lib/sheets/annotate";
-import { revisionWords } from "@/lib/sheets/revision";
 
 const FILTERS = [
   { value: "", label: "All" },
-  { value: "OPEN", label: "Open" },
-  { value: "ACCEPTED", label: "Accepted" },
+  { value: "OPEN", label: "In progress" },
   { value: "DECLINED", label: "Declined" },
-  { value: "DONE", label: "Done" },
+  { value: "DONE", label: "Published" },
 ];
 
 interface Notice {
@@ -33,10 +29,10 @@ interface Notice {
 }
 
 /**
- * The change requests of a template (Functional track FA5, ADR-0191): the requests the member may see with their comments,
- * where each comment points and whether that place is still in the version in use, and, for a person who may change the
- * template, accepting, declining with a reason, reopening and turning requests into the next version. It draws what the API
- * answers and decides nothing: the buttons follow the flags of each request, and a refusal is shown in the API's words.
+ * The change requests of a template under its sheet (Functional track FA5, ADR-0191; FA8, ADR-0202): the requests the member
+ * may see, the places each points at and whether that place is still in the revision in use, with a way to the request's own
+ * page where the register, the revised sheet and the approval are. A request is decided by its approval and published by the
+ * last step, so there is nothing to accept, turn or reopen here. It draws what the API answers and decides nothing.
  */
 export function ChangeRequestsSection({
   templateId,
@@ -47,11 +43,10 @@ export function ChangeRequestsSection({
   templateId: string;
   state: ChangeRequestsState;
   onChanged(): void;
-  /** Stands the grid on the place of a comment (the sheet under this section), when it can. */
+  /** Stands the grid on the place of a note (the sheet under this section), when it can. */
   onShow?(place: Place): void;
 }) {
   const [filter, setFilter] = useState("");
-  const [picked, setPicked] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState(false);
   const filterId = useId();
@@ -84,30 +79,6 @@ export function ChangeRequestsSection({
     }
   };
 
-  const toggle = (id: string) =>
-    setPicked((now) => {
-      const next = new Set(now);
-      if (!next.delete(id)) {
-        next.add(id);
-      }
-      return next;
-    });
-
-  const turn = () =>
-    run(async () => {
-      const outcome = await turnIntoVersion(templateId, [...picked]);
-      if (!outcome.ok) {
-        return { ok: false as const, text: outcome.failure.message };
-      }
-      setPicked(new Set());
-      return {
-        ok: true as const,
-        text: outcome.data.created
-          ? `${revisionWords(outcome.data.versionNo)} was started as a copy of the revision in use, and ${outcome.data.requests} request${outcome.data.requests === 1 ? " is" : "s are"} linked to it. Edit it in the sheet below, then send it for approval like any other revision.`
-          : `A draft already existed, so ${outcome.data.requests} request${outcome.data.requests === 1 ? " is" : "s are"} linked to ${revisionWords(outcome.data.versionNo).toLowerCase()} as it is. Edit it in the sheet below.`,
-      };
-    });
-
   return (
     <div className="stack" data-testid="change-requests">
       {notice ? (
@@ -119,36 +90,20 @@ export function ChangeRequestsSection({
         <p className="empty-state" role="status">
           {view.canReview
             ? "Nobody has asked for a change to this template."
-            : "You have not asked for a change to this template. To ask for one, stand on a place in the sheet and press Ask for a change."}
+            : "You have not asked for a change to this template. To ask for one, press Ask for a change."}
         </p>
       ) : (
         <>
-          <div className="split">
-            <div className="field">
-              <label htmlFor={filterId}>Show</label>
-              <select id={filterId} value={filter} onChange={(event) => setFilter(event.target.value)}>
-                {FILTERS.map((one) => (
-                  <option key={one.value} value={one.value}>
-                    {one.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {view.canReview ? (
-              <div>
-                <button type="button" className="button" disabled={busy || picked.size === 0} onClick={() => void turn()}>
-                  Turn the chosen requests into a new revision
-                </button>
-              </div>
-            ) : null}
+          <div className="field">
+            <label htmlFor={filterId}>Show</label>
+            <select id={filterId} value={filter} onChange={(event) => setFilter(event.target.value)}>
+              {FILTERS.map((one) => (
+                <option key={one.value} value={one.value}>
+                  {one.label}
+                </option>
+              ))}
+            </select>
           </div>
-          {view.canReview ? (
-            <p className="hint">
-              Choose the open or accepted requests to include, then turn them into a new revision. The new revision is a draft
-              that starts as a copy of the revision in use ({revisionWords(view.activeVersion).toLowerCase()}), so nothing already approved is lost.
-              It goes through approval like any other.
-            </p>
-          ) : null}
           {shown.length === 0 ? <p className="empty-state">No request matches.</p> : null}
           <ul className="stack" aria-label="Change requests">
             {shown.map((request) => (
@@ -156,11 +111,7 @@ export function ChangeRequestsSection({
                 <RequestCard
                   templateId={templateId}
                   request={request}
-                  activeVersion={view.activeVersion}
-                  canReview={view.canReview}
-                  chosen={picked.has(request.id)}
                   busy={busy}
-                  onChoose={() => toggle(request.id)}
                   run={run}
                   onShow={onShow}
                 />
@@ -178,21 +129,13 @@ type Run = (act: () => Promise<{ ok: true; text: string } | { ok: false; text: s
 function RequestCard({
   templateId,
   request,
-  activeVersion,
-  canReview,
-  chosen,
   busy,
-  onChoose,
   run,
   onShow,
 }: {
   templateId: string;
   request: ChangeRequestView;
-  activeVersion: number;
-  canReview: boolean;
-  chosen: boolean;
   busy: boolean;
-  onChoose(): void;
   run: Run;
   onShow?(place: Place): void;
 }) {
@@ -201,14 +144,6 @@ function RequestCard({
   const tag = statusWords(request.status);
   const became = becameWords(request);
   const gone = request.placesTotal - request.placesInActive;
-
-  const reopen = () =>
-    run(async () => {
-      const outcome = await reopenChangeRequest(templateId, request.id);
-      return outcome.ok
-        ? { ok: true as const, text: "The request is accepted again and can be turned into a revision." }
-        : { ok: false as const, text: outcome.failure.message };
-    });
 
   const comment = () =>
     run(async () => {
@@ -223,19 +158,12 @@ function RequestCard({
   return (
     <article className="card stack" aria-labelledby={`${ids}-title`} data-testid="change-request">
       <header className="split">
-        {canReview && request.canTurn ? (
-          <label className="sheet-check">
-            <input type="checkbox" checked={chosen} onChange={onChoose} />
-            <span className="visually-hidden">Include “{request.title}” in the new revision</span>
-          </label>
-        ) : null}
         <h4 id={`${ids}-title`}>{request.title}</h4>
         <Tag tone={tag.tone}>{tag.text}</Tag>
       </header>
       <p className="hint">
         {request.mine ? "You asked" : `${request.requesterName ?? "Someone who has left"} asked`} on{" "}
-        {formatInstant(request.createdAt)}, reading {revisionWords(request.versionNo).toLowerCase()}
-        {request.versionNo !== activeVersion && activeVersion > 0 ? `; ${revisionWords(activeVersion).toLowerCase()} is in use now` : ""}.
+        {formatInstant(request.createdAt)}.
         {request.placesTotal > 0
           ? ` ${request.placesTotal} place${request.placesTotal === 1 ? "" : "s"} named${gone > 0 ? `, ${gone} no longer in the revision in use` : ""}.`
           : ""}
@@ -249,33 +177,35 @@ function RequestCard({
       <p className="hint" data-testid="request-department">
         Department when asked: {request.requesterDepartment ?? "—"}
       </p>
-      {became ? <p>Turned into {became}.</p> : null}
+      {became ? <p>{became}.</p> : null}
 
-      <ul className="stack" aria-label="Comments">
-        {request.comments.map((comment) => {
-          const place = placeOf(comment);
-          return (
-            <li key={comment.id}>
-              <strong>{placeWords(comment)}</strong>
-              {place && !comment.inActiveVersion ? <Tag tone="error">no longer in this revision</Tag> : null}
-              {place && comment.inActiveVersion && onShow ? (
-                <>
-                  {" "}
-                  <button type="button" className="link-button" onClick={() => onShow(place)}>
-                    Show in the sheet<span className="visually-hidden">: {placeWords(comment)}</span>
-                  </button>
-                </>
-              ) : null}
-              <br />
-              <span className="comment-text">{comment.text}</span>
-              <br />
-              <span className="hint">
-                {comment.mine ? "You" : (comment.authorName ?? "Someone who has left")}, {formatInstant(comment.createdAt)}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+      {request.comments.length > 0 ? (
+        <ul className="stack" aria-label="Places">
+          {request.comments.map((item) => {
+            const place = placeOf(item);
+            return (
+              <li key={item.id}>
+                <strong>{placeWords(item)}</strong>
+                {place && !item.inActiveVersion ? <Tag tone="error">no longer in this revision</Tag> : null}
+                {place && item.inActiveVersion && onShow ? (
+                  <>
+                    {" "}
+                    <button type="button" className="link-button" onClick={() => onShow(place)}>
+                      Show in the sheet<span className="visually-hidden">: {placeWords(item)}</span>
+                    </button>
+                  </>
+                ) : null}
+                <br />
+                <span className="comment-text">{item.text}</span>
+                <br />
+                <span className="hint">
+                  {item.mine ? "You" : (item.authorName ?? "Someone who has left")}, {formatInstant(item.createdAt)}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
 
       {request.canComment ? (
         <div className="field">
@@ -286,14 +216,6 @@ function RequestCard({
               Add comment
             </button>
           </div>
-        </div>
-      ) : null}
-
-      {request.canReopen ? (
-        <div className="split">
-          <button type="button" className="button button-secondary" disabled={busy} onClick={() => void reopen()}>
-            Reopen
-          </button>
         </div>
       ) : null}
     </article>

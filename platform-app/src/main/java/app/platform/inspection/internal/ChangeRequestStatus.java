@@ -3,15 +3,17 @@ package app.platform.inspection.internal;
 import java.util.Optional;
 
 /**
- * The status of a change request and the moves between them (FA5, ADR-0191). The database enforces the same table
- * (V067), so a mistake here cannot write a move the lifecycle lacks.
+ * The status of a change request and the moves between them (FA5, ADR-0191; changed by FA8, ADR-0202). The database
+ * enforces the same table (V067, V075), so a mistake here cannot write a move the lifecycle lacks.
  *
  * <ul>
- *   <li>{@code OPEN}: asked, nobody has answered. It can be accepted, declined or turned into a version.</li>
- *   <li>{@code ACCEPTED}: the owner agreed and it waits to be made. It can be declined or turned into a version.</li>
- *   <li>{@code DECLINED}: the owner said no, with a reason. Final.</li>
- *   <li>{@code DONE}: turned into a draft version. It can go back to open when that version was rejected or withdrawn,
- *   so that the comments are not lost with it.</li>
+ *   <li>{@code OPEN}: asked and in progress. Its approval is deciding it; it is published when the last step ends well,
+ *   and declined when any step rejects it. Only one request is open on a template at a time.</li>
+ *   <li>{@code DECLINED}: a step of the approval rejected it, or an administrator cancelled it. Final.</li>
+ *   <li>{@code DONE}: published. The revised sheet is the revision in use. Final.</li>
+ *   <li>{@code ACCEPTED}: left from the earlier way of working, where an accepted request waited to be turned into a
+ *   version. Nothing moves a request into it any more; a request that is in it is read as still waiting and can only
+ *   be declined or published.</li>
  * </ul>
  */
 enum ChangeRequestStatus {
@@ -23,18 +25,17 @@ enum ChangeRequestStatus {
         return this == OPEN || this == ACCEPTED;
     }
 
-    /** Whether the request may be turned into a new version from this status. */
-    boolean canBeTurned() {
+    /** Whether the request is still in progress: it is counted as waiting and blocks another one. */
+    boolean inProgress() {
         return this == OPEN || this == ACCEPTED;
     }
 
     /** Whether the request may move to the other status. */
     boolean canMoveTo(ChangeRequestStatus to) {
         return switch (this) {
-            case OPEN -> to == ACCEPTED || to == DECLINED || to == DONE;
+            case OPEN -> to == DECLINED || to == DONE;
             case ACCEPTED -> to == DECLINED || to == DONE;
-            case DONE -> to == OPEN;
-            case DECLINED -> false;
+            case DONE, DECLINED -> false;
         };
     }
 

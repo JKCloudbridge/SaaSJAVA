@@ -38,12 +38,30 @@ class ChangeRequestAccess {
     record Reach(UUID userId, UUID membershipId, UUID templateId, boolean canReview) {
     }
 
+    private static final String NO_REQUEST = "This change request does not exist.";
+
     private final TemplateAccess access;
     private final Decisions decisions;
+    private final ChangeRequestStore store;
 
-    ChangeRequestAccess(TemplateAccess access, Decisions decisions) {
+    ChangeRequestAccess(TemplateAccess access, Decisions decisions, ChangeRequestStore store) {
         this.access = access;
         this.decisions = decisions;
+        this.store = store;
+    }
+
+    /**
+     * The request, when the member may see it: the same answer for a request that does not exist and one they may not
+     * see.
+     *
+     * @throws app.platformapi.ApiException {@code NOT_FOUND}
+     */
+    RequestRow request(Reach reach, UUID requestId) {
+        RequestRow row = store.find(reach.templateId(), requestId).orElse(null);
+        if (row == null || !sees(reach, row)) {
+            throw app.platformapi.ApiException.notFound(NO_REQUEST);
+        }
+        return row;
     }
 
     /** The member's reach, for a template they can read; "not found" otherwise. */

@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { downloadName, footerText, revisionNumber, revisionWords } from "./revision";
+import {
+  downloadName,
+  downloadNameFor,
+  footerText,
+  footerTextFor,
+  revisionNumber,
+  revisionOf,
+  revisionWords,
+  revisionWordsOf,
+  versionTitle,
+} from "./revision";
 
 // The same cases are checked on the server's side (TemplateSheetTextsTest), so the screen and the file always agree.
 describe("the revision as people read it", () => {
@@ -46,5 +56,46 @@ describe("the name a downloaded sheet is saved under", () => {
     const name = downloadName('../../x\r\nSet-Cookie: a=b/"q"', 1);
     expect(name).not.toMatch(/[/\\\r\n" ]/);
     expect(name.endsWith("_Rev00.xlsx")).toBe(true);
+  });
+});
+
+// FA8 (ADR-0202): the server gives a version its revision number when it first becomes the one in use, so a copy that was
+// rejected never uses one and the numbers have no gaps. A version in use before numbers were stored reads as its stored
+// number minus one.
+describe("the revision number the server stored", () => {
+  it("is used when there is one, and the stored version minus one when there is not", () => {
+    expect(revisionOf({ versionNo: 4, revisionNo: 1 })).toBe("01");
+    expect(revisionOf({ versionNo: 4 })).toBe("03");
+    expect(revisionOf({ versionNo: 4, revisionNo: null })).toBe("03");
+    expect(revisionWordsOf({ versionNo: 4, revisionNo: 1 })).toBe("Revision 01");
+  });
+
+  it("is never negative", () => {
+    expect(revisionOf({ versionNo: 1, revisionNo: -2 })).toBe("00");
+  });
+});
+
+describe("what a version is called in a list", () => {
+  it("is its revision once it was in use, whatever it is now", () => {
+    expect(versionTitle({ versionNo: 4, status: "ACTIVE", revisionNo: 1 })).toBe("Revision 01");
+    expect(versionTitle({ versionNo: 2, status: "SUPERSEDED", revisionNo: 0 })).toBe("Revision 00");
+    expect(versionTitle({ versionNo: 5, status: "APPROVED", revisionNo: 2 })).toBe("Revision 02");
+    expect(versionTitle({ versionNo: 3, status: "RETIRED" })).toBe("Revision 02");
+  });
+
+  it("is what it is before it was ever in use, because a copy is not a revision until it is published", () => {
+    expect(versionTitle({ versionNo: 2, status: "DRAFT" })).toBe("Draft");
+    expect(versionTitle({ versionNo: 2, status: "IN_REVIEW" })).toBe("In review");
+    expect(versionTitle({ versionNo: 2, status: "APPROVED" })).toBe("Approved, not published");
+    expect(versionTitle({ versionNo: 2, status: "REJECTED" })).toBe("Rejected copy");
+    expect(versionTitle({ versionNo: 2, status: "WITHDRAWN" })).toBe("Withdrawn copy");
+  });
+});
+
+describe("the file and the footer for a revision written with its digits", () => {
+  it("use the revision the server gave", () => {
+    expect(downloadNameFor("F/MR/16", "01")).toBe("F-MR-16_Rev01.xlsx");
+    expect(footerTextFor("F/MR/16", "01")).toBe("F/MR/16  Rev No.'01'");
+    expect(footerTextFor(null, "01")).toBe("");
   });
 });

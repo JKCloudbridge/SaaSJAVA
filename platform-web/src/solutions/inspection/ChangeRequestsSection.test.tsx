@@ -1,6 +1,6 @@
 import { configure, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fakeApi, json, refusal, type Call } from "@/test/fakeApi";
+import { fakeApi, json, type Call } from "@/test/fakeApi";
 import type { ChangeCommentView, ChangeRequestView, ChangeRequestsState, ChangeRequestsView } from "./changeRequests";
 import { ChangeRequestsSection } from "./ChangeRequestsSection";
 
@@ -41,8 +41,8 @@ function request(extra: Partial<ChangeRequestView> = {}): ChangeRequestView {
     placesTotal: 1,
     placesInActive: 1,
     canComment: false,
-    canTurn: false,
-    canReopen: false,
+    canCreateCopy: false,
+    canChangeCopy: false,
     comments: [comment()],
     templateId: "t-1",
     ...extra,
@@ -57,6 +57,7 @@ function view(requests: ChangeRequestView[], extra: Partial<ChangeRequestsView> 
     activeVersion: 1,
     draftVersion: 0,
     openCount: requests.filter((one) => one.status === "OPEN").length,
+    inProgress: requests.some((one) => one.status === "OPEN"),
     ...extra,
   };
 }
@@ -88,7 +89,7 @@ describe("the states of the section", () => {
 
   it("tells a person who may only read how to ask, and tells the owner that nobody has", () => {
     const { unmount } = render(<ChangeRequestsSection templateId={ID} state={ready(view([]))} onChanged={vi.fn()} />);
-    expect(screen.getByText(/stand on a place in the sheet/)).toBeInTheDocument();
+    expect(screen.getByText(/To ask for one, press Ask for a change/)).toBeInTheDocument();
     unmount();
 
     render(<ChangeRequestsSection templateId={ID} state={ready(view([], { canReview: true }))} onChanged={vi.fn()} />);
@@ -97,38 +98,39 @@ describe("the states of the section", () => {
 });
 
 describe("a request and its comments", () => {
-  it("writes who asked, what they read, where each comment points and that a place has gone", () => {
+  it("writes who asked, where each comment points, that a place has gone, and the way to the request", () => {
     draw(
       ready(
-        view(
-          [
-            request({
-              placesTotal: 2,
-              placesInActive: 1,
-              versionNo: 1,
-              comments: [
-                comment(),
-                comment({ id: "c-2", kind: "COLUMN", rowId: undefined, columnId: "c1", label: "Torque", inActiveVersion: false, text: "Too narrow" }),
-                comment({ id: "c-3", kind: "TEMPLATE", rowId: undefined, label: "", text: "In general", mine: true }),
-              ],
-            }),
-          ],
-          { activeVersion: 3 },
-        ),
+        view([
+          request({
+            placesTotal: 2,
+            placesInActive: 1,
+            reviewId: "rv-1",
+            comments: [
+              comment(),
+              comment({ id: "c-2", kind: "COLUMN", rowId: undefined, columnId: "c1", label: "Torque", inActiveVersion: false, text: "Too narrow" }),
+              comment({ id: "c-3", kind: "TEMPLATE", rowId: undefined, label: "", text: "In general", mine: true }),
+            ],
+          }),
+        ]),
       ),
     );
 
     const card = screen.getByTestId("change-request");
     expect(within(card).getByRole("heading", { name: "The first row" })).toBeInTheDocument();
-    expect(within(card).getByText("Open")).toBeInTheDocument();
+    expect(within(card).getByText("In progress")).toBeInTheDocument();
     expect(card).toHaveTextContent("Reader A asked on");
-    expect(card).toHaveTextContent("reading revision 00; revision 02 is in use now");
     expect(card).toHaveTextContent("2 places named, 1 no longer in the revision in use");
+    expect(card).toHaveTextContent("It is waiting for its approval.");
     expect(within(card).getByText("Row “First”")).toBeInTheDocument();
     expect(within(card).getByText("Column “Torque”")).toBeInTheDocument();
     expect(within(card).getAllByText("no longer in this revision")).toHaveLength(1);
     expect(within(card).getByText("The whole template")).toBeInTheDocument();
     expect(card).toHaveTextContent("You, ");
+    expect(within(card).getByTestId("request-open")).toHaveAttribute(
+      "href",
+      `/apps/inspection/s-templates?open=${ID}&tab=change-requests&request=q-1`,
+    );
   });
 
   it("keeps the line breaks of a typed text and never reads it as markup", () => {
@@ -151,9 +153,14 @@ describe("a request and its comments", () => {
     draw(
       ready(
         view([
-          request({ id: "q-1", title: "One", requesterDepartment: "Plant 1 · Production" }),
-          request({ id: "q-2", title: "Two", requesterDepartment: undefined }),
-          request({ id: "q-3", title: "Three", requesterDepartment: "Plant 1 · Production; Head office · Quality" }),
+          request({ id: "q-1", title: "One", requesterDepartment: "Plant 1 · Production", status: "DECLINED" }),
+          request({ id: "q-2", title: "Two", requesterDepartment: undefined, status: "DECLINED" }),
+          request({
+            id: "q-3",
+            title: "Three",
+            requesterDepartment: "Plant 1 · Production; Head office · Quality",
+            status: "DECLINED",
+          }),
         ]),
       ),
     );
@@ -166,20 +173,27 @@ describe("a request and its comments", () => {
     ]);
   });
 
-  it("says which version a request became", () => {
+  it("says which revision a published request made and that a declined one made none", () => {
     draw(
       ready(
         view([
-          request({ id: "q-2", status: "DONE", resultingVersion: 3, resultingVersionStatus: "IN_REVIEW", title: "Done one" }),
+          request({
+            id: "q-2",
+            status: "DONE",
+            resultingVersion: 3,
+            resultingVersionStatus: "ACTIVE",
+            resultingRevision: 1,
+            title: "Done one",
+          }),
           request({ id: "q-3", status: "DECLINED", title: "Declined one" }),
         ]),
       ),
     );
 
     const cards = screen.getAllByTestId("change-request");
-    expect(screen.getByText("Turned into Revision 02 (in review).")).toBeInTheDocument();
+    expect(screen.getByText("Revision 01, in use.")).toBeInTheDocument();
+    expect(within(cards[0] as HTMLElement).getByText("Published")).toBeInTheDocument();
     expect(within(cards[1] as HTMLElement).getByText("Declined")).toBeInTheDocument();
-    expect(within(cards[0] as HTMLElement).getByText("Done")).toBeInTheDocument();
   });
 
   it("offers a comment to show in the sheet only when the sheet can show it", () => {
@@ -212,17 +226,22 @@ describe("a request and its comments", () => {
     fireEvent.change(screen.getByLabelText("Show"), { target: { value: "DONE" } });
     expect(screen.getByText("No request matches.")).toBeInTheDocument();
   });
+
+  it("has nothing to accept, turn or reopen: a request is decided by its approval", () => {
+    draw(ready(view([request({ canComment: true })], { canReview: true })));
+
+    for (const name of [/Accept/, /Decline/, /Turn the chosen/, /Reopen/, /Create revised copy/]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+    expect(screen.queryByRole("checkbox")).toBeNull();
+  });
 });
 
 describe("the person who asked", () => {
-  it("adds a comment to their open request and offers nothing to answer or turn it", async () => {
+  it("adds a comment to their open request", async () => {
     const calls = fakeApi({ [`POST ${BASE}/q-1/comments`]: () => json({ data: request() }) });
     const { onChanged } = draw(ready(view([request({ mine: true, canComment: true })])));
 
-    expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Decline" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Turn the chosen requests/ })).toBeNull();
-    expect(screen.queryByRole("checkbox")).toBeNull();
     const button = screen.getByRole("button", { name: "Add comment" });
     expect(button).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Add a comment"), { target: { value: "One more thing" } });
@@ -238,82 +257,5 @@ describe("the person who asked", () => {
     draw(ready(view([request({ mine: true, status: "DECLINED", canComment: false })])));
 
     expect(screen.queryByLabelText("Add a comment")).toBeNull();
-  });
-});
-
-describe("the people who may change the template", () => {
-  const REVIEW = { canReview: true };
-
-  it("reopens a request whose version was not used", async () => {
-    const calls = fakeApi({ [`POST ${BASE}/q-1/reopen`]: () => json({ data: request() }) });
-    draw(
-      ready(
-        view(
-          [request({ status: "DONE", resultingVersion: 2, resultingVersionStatus: "REJECTED", canReopen: true })],
-          REVIEW,
-        ),
-      ),
-    );
-
-    expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
-
-    await screen.findByText("The request is accepted again and can be turned into a revision.");
-    expect(calls.some((one) => one.key === `POST ${BASE}/q-1/reopen`)).toBe(true);
-  });
-
-  it("turns the chosen requests into a revision and says it is a copy of the one in use", async () => {
-    const calls = fakeApi({
-      [`POST ${BASE}/turn-into-version`]: () => json({ data: { versionNo: 4, created: true, requests: 2 } }),
-    });
-    const { onChanged } = draw(
-      ready(
-        view(
-          [
-            request({ id: "q-1", title: "First", canTurn: true }),
-            request({ id: "q-2", title: "Second", canTurn: true }),
-            request({ id: "q-3", title: "Third", status: "DECLINED" }),
-          ],
-          { ...REVIEW, activeVersion: 3 },
-        ),
-      ),
-    );
-    const turn = screen.getByRole("button", { name: "Turn the chosen requests into a new revision" });
-    expect(turn).toBeDisabled();
-    expect(screen.getAllByRole("checkbox")).toHaveLength(2);
-
-    fireEvent.click(screen.getByRole("checkbox", { name: "Include “First” in the new revision" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Include “Second” in the new revision" }));
-    fireEvent.click(turn);
-
-    expect(await screen.findByText(/Revision 03 was started as a copy of the revision in use, and 2 requests are linked/)).toBeInTheDocument();
-    expect(bodyOf(calls, `POST ${BASE}/turn-into-version`)).toEqual({ requestIds: ["q-1", "q-2"] });
-    expect(onChanged).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: "Turn the chosen requests into a new revision" })).toBeDisabled();
-  });
-
-  it("says when the requests joined a draft that already existed", async () => {
-    fakeApi({ [`POST ${BASE}/turn-into-version`]: () => json({ data: { versionNo: 5, created: false, requests: 1 } }) });
-    draw(ready(view([request({ canTurn: true })], REVIEW)));
-
-    fireEvent.click(screen.getByRole("checkbox"));
-    fireEvent.click(screen.getByRole("button", { name: "Turn the chosen requests into a new revision" }));
-
-    expect(await screen.findByText(/A draft already existed, so 1 request is linked to revision 04 as it is/)).toBeInTheDocument();
-  });
-
-  it("shows the API's words when a request cannot be reopened and changes nothing", async () => {
-    fakeApi({
-      [`POST ${BASE}/q-1/reopen`]: () =>
-        refusal("CONFLICT", "This request was answered by someone else just now. Reload the page.", 409),
-    });
-    const { onChanged } = draw(
-      ready(view([request({ status: "DONE", resultingVersion: 2, resultingVersionStatus: "REJECTED", canReopen: true })], REVIEW)),
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("answered by someone else just now");
-    expect(onChanged).not.toHaveBeenCalled();
   });
 });

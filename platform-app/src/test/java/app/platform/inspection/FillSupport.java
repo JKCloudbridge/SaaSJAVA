@@ -216,17 +216,12 @@ public abstract class FillSupport extends TemplateSupport {
     // ---- a second version of the template ----
 
     /**
-     * Makes a new version the one in use and returns its number: a draft copied from the one in use, the label of the
-     * first column changed so that the two differ, approved and published to the same department.
+     * Makes a new version the one in use and returns its number: a change request, the revised copy with the label of
+     * the first column changed so that the two differ, and the last approval, which publishes it to the same
+     * department (FA8: a published template changes in no other way).
      */
     protected static int nextVersionInUse(World world) {
-        int draft = newVersion(world.author().browser(), world.template());
-        saveSheet(world.author().browser(), world.template(), draft,
+        return NextRevision.inUse(world.setting(), world.author().browser(), world.approver(), world.template(),
                 sheet(2, "FIXED_AND_REPEATABLE").replace("Finding", "Observation"));
-        String request = submitted(world.author().browser(), world.template(), world.templateProcess());
-        assertThat(approve(world.approver().browser(), request).status()).isEqualTo(200);
-        assertThat(publish(world.approver().browser(), world.template(), null, "PLANT1/PRD").status())
-                .isEqualTo(200);
-        return draft;
     }
 }

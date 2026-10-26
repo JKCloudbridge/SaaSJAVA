@@ -23,6 +23,7 @@ import { canSetUp } from "@/lib/shell/areas";
 import type { AnnotateContext, Place, SheetAnnotate } from "@/lib/sheets/annotate";
 import { DetailGrid, DetailItem, DetailPage, DetailSection, MissingDetail } from "@/components/ui/lists/DetailPage";
 import { Tag } from "@/components/ui/lists/Tag";
+import { formatInstant } from "@/lib/records/fieldValue";
 import {
   downloadTemplateSheet,
   retireTemplate,
@@ -41,7 +42,7 @@ import { PublishDialog } from "./PublishDialog";
 import { SheetOptionsDialog } from "./SheetOptionsDialog";
 import { TemplateApprovals } from "./TemplateApprovals";
 import { TEMPLATE_OBJECT, text } from "./template";
-import { downloadName, footerText, revisionWords } from "@/lib/sheets/revision";
+import { downloadNameFor, footerTextFor, revisionNumber, revisionWords } from "@/lib/sheets/revision";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
 const FORM_ID = "template-details-form";
@@ -163,7 +164,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
 
   // Annotate mode (FA5): the version in use can be pointed at by anyone the API says may ask for a change.
   const annotate: SheetAnnotate | undefined =
-    view && view.lifecycle.activeVersion > 0 && requestsView?.canRequest
+    view && view.lifecycle.activeVersion > 0 && (requestsView?.canRequest || requestsView?.inProgress)
       ? {
           versionNo: view.lifecycle.activeVersion,
           marks: marksFromRequests(requestsView),
@@ -196,8 +197,10 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
   };
 
   // The footer row of the sheet (FA7): the number and the revision in use; the revision shown when none is in use yet.
-  const footerRevision = (shown: number) => (view && view.lifecycle.activeVersion > 0 ? view.lifecycle.activeVersion : shown);
-  const footerFor = (shown: number) => footerText(view?.number, footerRevision(shown));
+  // The revision in use is the platform's saved one (gapless, FA8); before any is in use, the revision of the sheet shown.
+  const footerRevision = (shown: number) =>
+    view && view.lifecycle.activeVersion > 0 && view.revision ? view.revision : revisionNumber(shown);
+  const footerFor = (shown: number) => footerTextFor(view?.number, footerRevision(shown));
 
   // Download of the revision that is open: the server decides again whether it is allowed and whether it may be read.
   const download = async (shown: number) => {
@@ -210,7 +213,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
     const url = URL.createObjectURL(outcome.data);
     const link = document.createElement("a");
     link.href = url;
-    link.download = downloadName(view?.number, footerRevision(shown));
+    link.download = downloadNameFor(view?.number, footerRevision(shown));
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -238,7 +241,6 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
     </>
   ) : (
     <>
-      <OpenRequestsMark count={view?.openChangeRequests ?? 0} />
       {tab === "details" && mayEdit ? (
         <button
           type="button"
@@ -284,7 +286,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
             <Tag tone={TONES[tag.tone]}>{tag.text}</Tag>
             {view.viewOnly ? <Tag tone="quiet">View only</Tag> : null}
             <span className="hint" data-testid="lifecycle-text">
-              {lifecycleText(view.lifecycle)}
+              {lifecycleText(view.lifecycle, view.revision)}
             </span>
           </>
         ) : undefined
@@ -321,6 +323,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
               onClick={() => goTo(entry.id)}
             >
               {entry.label}
+              {entry.id === "change-requests" ? <OpenRequestsMark count={view?.openChangeRequests ?? 0} /> : null}
             </button>
           ))}
         </div>
@@ -347,7 +350,13 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
                   onCancel={() => setEditing(false)}
                 />
               ) : objectForm ? (
-                <RecordDetails objectApiName={TEMPLATE_OBJECT} form={objectForm} record={record.record} recordHref={recordHref} />
+                <RecordDetails
+                  objectApiName={TEMPLATE_OBJECT}
+                  form={objectForm}
+                  record={record.record}
+                  recordHref={recordHref}
+                  hide={["revision", "lastRevisedAt"]}
+                />
               ) : (
                 <DetailGrid>
                   <DetailItem label="Level">{text(fields.level) || "None"}</DetailItem>
@@ -358,6 +367,16 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
               )}
               {!editing ? (
                 <>
+                  <DetailGrid>
+                    <DetailItem label="Revision">
+                      <span data-testid="template-revision">{view?.revision ?? "—"}</span>
+                    </DetailItem>
+                    <DetailItem label="Last revised on">
+                      <span data-testid="template-last-revised">
+                        {view?.lastRevisedAt ? formatInstant(view.lastRevisedAt) : "—"}
+                      </span>
+                    </DetailItem>
+                  </DetailGrid>
                   {approval.mayApprove && view?.numberPreview ? (
                     <DetailGrid>
                       <DetailItem label="Number when approved" tone="mono">
@@ -410,6 +429,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
               refreshToken={refresh}
               annotate={annotate}
               listFirst
+              allowNewDraft={!view || (view.lifecycle.activeVersion === 0 && view.lifecycle.retiredVersion === 0)}
               toolbarSlot={toolbarSlot}
               footer={view ? footerFor : undefined}
               actions={

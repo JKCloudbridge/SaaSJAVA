@@ -77,6 +77,31 @@ class InspectionArchitectureTest {
     }
 
     @Test
+    void onlyTheClusterDrawsAPageOfCellsAsASheetOrAFile() {
+        noClasses().that().resideOutsideOfPackages("app.platform.inspection..", "app.platform.sheets..")
+                .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.sheets.SheetPages")
+                .because("which cell of a page holds what is the business of the module that owns the form (ADR-0202)")
+                .allowEmptyShould(true).check(platform);
+    }
+
+    @Test
+    void onlyTheApprovalModuleAnswersWhatWasDecidedOnARequest() {
+        classes().that().implement("app.platform.sharedkernel.approval.ApprovalDecisions")
+                .should().resideInAPackage("app.platform.approval..")
+                .because("the history of a request is the approval module's; others read it through the shared-kernel "
+                        + "contract (ADR-0202)")
+                .allowEmptyShould(true).check(platform);
+    }
+
+    @Test
+    void onlyTheClusterDecidesWhetherAMemberMayStartADraftOfItsOwners() {
+        classes().that().implement("app.platform.sharedkernel.solution.SheetDraftRules")
+                .should().resideInAPackage("app.platform.inspection..")
+                .because("the generic sheets module asks the rules of the owner's module and knows none (ADR-0202)")
+                .allowEmptyShould(true).check(platform);
+    }
+
+    @Test
     void onlyTheClusterMovesAFillIn() {
         onlyTheClusterMayMoveAFillIn().check(platform);
     }

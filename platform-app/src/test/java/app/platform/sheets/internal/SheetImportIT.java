@@ -155,7 +155,7 @@ class SheetImportIT extends SheetSupport {
         BytesResponse refused = xlsx(setting.admin(), owner, workbook());
 
         assertThat(refused.status()).as(refused.text()).isEqualTo(409);
-        assertThat(JsonPath.<String>read(refused.text(), "$.error.message")).contains("version 1");
+        assertThat(JsonPath.<String>read(refused.text(), "$.error.message")).contains("Revision 00");
         assertThat(countRows(setting.organization(), owner)).isEqualTo(1);
     }
 

@@ -13,7 +13,7 @@ const MOST_REQUESTS = 20;
 /**
  * The approvals of a template as a history by date (Functional track FA6E, ADR-0199): one entry for the template's first
  * approval ("New template"), one for each later version ("New version 3"), and one for each change request that went through
- * an approval ("Change requested", with the version it became), newest first, the newest open. Each opens to the same flow
+ * an approval ("Change requested", with the revised sheet it became), newest first, the newest open. Each opens to the same flow
  * the approval card draws. It is made from what the API answered: the approval history of the template, the approval history
  * of the review records of its change requests, and which approval reviewed which version. It decides nothing, and it draws
  * nothing while there is nothing to show.
@@ -55,7 +55,7 @@ export function TemplateApprovals({
         at: latest.summary.startedAt,
         title: "Change requested",
         instance: latest,
-        note: became ? `${request.title}. Turned into ${became}.` : request.title,
+        note: became ? `${request.title}. ${became}.` : request.title,
       });
     }
   }

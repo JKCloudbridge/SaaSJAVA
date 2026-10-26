@@ -3,7 +3,7 @@
 import type { VersionSummary } from "@/lib/sheets/api";
 import { statusTag } from "@/lib/sheets/tags";
 import { Tag, type TagTone } from "@/components/ui/lists/Tag";
-import { revisionWords } from "@/lib/sheets/revision";
+import { versionTitle } from "@/lib/sheets/revision";
 
 const TONES: Record<ReturnType<typeof statusTag>["tone"], TagTone> = {
   active: "ok",
@@ -67,7 +67,7 @@ export function VersionList({ versions, current, onOpen, onStartFrom }: VersionL
                 }
               }}
             >
-              <th scope="row">{revisionWords(version.versionNo)}</th>
+              <th scope="row">{versionTitle(version)}</th>
               <td>
                 <Tag tone={TONES[tag.tone]}>{tag.text}</Tag>
               </td>
@@ -79,12 +79,12 @@ export function VersionList({ versions, current, onOpen, onStartFrom }: VersionL
               <td>
                 <button type="button" className="link-button" onClick={() => onOpen(version.versionNo)}>
                   {version.versionNo === current
-                    ? `${revisionWords(version.versionNo)} is open`
-                    : `Open ${revisionWords(version.versionNo).toLowerCase()}`}
+                    ? `${versionTitle(version)} is open`
+                    : `Open ${versionTitle(version).toLowerCase()}`}
                 </button>
                 {onStartFrom ? (
                   <button type="button" className="link-button" onClick={() => onStartFrom(version.versionNo)}>
-                    New revision from {revisionWords(version.versionNo).toLowerCase()}
+                    New revision from {versionTitle(version).toLowerCase()}
                   </button>
                 ) : null}
               </td>

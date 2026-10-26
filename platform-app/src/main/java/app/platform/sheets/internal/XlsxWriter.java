@@ -94,20 +94,31 @@ final class XlsxWriter {
      * @throws ApiException {@code PAYLOAD_TOO_LARGE} when the file would pass the limit
      */
     byte[] write(SheetGrid grid, String footerRight) {
+        return write(grid, footerRight, false);
+    }
+
+    /**
+     * The workbook for a grid.
+     *
+     * @param plain true writes the rows as a page of their own (FA8): no band of column labels above them and no footer
+     *        row below, so the first row of the grid is the first row of the sheet
+     */
+    byte[] write(SheetGrid grid, String footerRight, boolean plain) {
         fonts.clear();
         formats.clear();
         List<Row> rows = rowsOf(grid);
+        int first = plain ? 1 : 2;
         Map<String, Integer> rowAt = new HashMap<>();
         for (int i = 0; i < rows.size(); i++) {
             if (rows.get(i).id() != null) {
-                rowAt.put(rows.get(i).id(), i + 2); // row 1 is the band of column labels
+                rowAt.put(rows.get(i).id(), i + first); // row 1 is the band of column labels unless the page is plain
             }
         }
         Map<String, Integer> columnAt = new HashMap<>();
         for (int i = 0; i < grid.columns().size(); i++) {
             columnAt.put(grid.columns().get(i).id(), i + 1);
         }
-        String sheet = sheetXml(grid, rows, rowAt, columnAt, footerRight == null ? "" : footerRight);
+        String sheet = sheetXml(grid, rows, rowAt, columnAt, footerRight == null ? "" : footerRight, plain);
         String styles = stylesXml();
         int titleRows = 1 + grid.headerRows().size();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -125,8 +136,9 @@ final class XlsxWriter {
                     + "Target=\"xl/workbook.xml\"/></Relationships>");
             put(zip, "xl/workbook.xml", DECLARATION + "<workbook xmlns=\"" + MAIN + "\" xmlns:r=\"" + OFFICE_RELS
                     + "\"><sheets><sheet name=\"" + SHEET_NAME + "\" sheetId=\"1\" r:id=\"rId1\"/></sheets>"
-                    + "<definedNames><definedName name=\"_xlnm.Print_Titles\" localSheetId=\"0\">" + SHEET_NAME
-                    + "!$1:$" + titleRows + "</definedName></definedNames></workbook>");
+                    + (plain ? "" : "<definedNames><definedName name=\"_xlnm.Print_Titles\" localSheetId=\"0\">"
+                            + SHEET_NAME + "!$1:$" + titleRows + "</definedName></definedNames>")
+                    + "</workbook>");
             put(zip, "xl/_rels/workbook.xml.rels", DECLARATION + "<Relationships xmlns=\"" + RELS + "\">"
                     + "<Relationship Id=\"rId1\" Type=\"" + OFFICE_RELS + "/worksheet\" "
                     + "Target=\"worksheets/sheet1.xml\"/><Relationship Id=\"rId2\" Type=\"" + OFFICE_RELS
@@ -162,9 +174,11 @@ final class XlsxWriter {
     }
 
     private String sheetXml(SheetGrid grid, List<Row> rows, Map<String, Integer> rowAt, Map<String, Integer> columnAt,
-            String footer) {
+            String footer, boolean plain) {
         int columnCount = grid.columns().size();
+        int first = plain ? 1 : 2;
         int footerRow = rows.size() + 2;
+        int lastRow = plain ? rows.size() : footerRow;
         // Where a merged area covers cells: they are written empty (with their border) and the area is listed once.
         Set<Long> covered = new HashSet<>();
         List<String> mergeRefs = new ArrayList<>();
@@ -185,17 +199,19 @@ final class XlsxWriter {
             mergeRefs.add(ref(from[1], from[0]) + ":" + ref(to[1], to[0]));
         }
         StringBuilder data = new StringBuilder();
-        // Row 1: the band of column labels.
-        data.append("<row r=\"1\" ht=\"").append(rowPoints(LABEL_BAND_HEIGHT)).append("\" customHeight=\"1\">");
-        for (int c = 1; c <= columnCount; c++) {
-            String label = grid.columns().get(c - 1).label();
-            data.append(cell(c, 1, label, new Style(true, false, FontSize.NORMAL, false, Alignment.CENTER, null),
-                    true));
+        if (!plain) {
+            // Row 1: the band of column labels.
+            data.append("<row r=\"1\" ht=\"").append(rowPoints(LABEL_BAND_HEIGHT)).append("\" customHeight=\"1\">");
+            for (int c = 1; c <= columnCount; c++) {
+                String label = grid.columns().get(c - 1).label();
+                data.append(cell(c, 1, label, new Style(true, false, FontSize.NORMAL, false, Alignment.CENTER, null),
+                        true));
+            }
+            data.append("</row>");
         }
-        data.append("</row>");
         for (int i = 0; i < rows.size(); i++) {
             Row row = rows.get(i);
-            int r = i + 2;
+            int r = i + first;
             data.append("<row r=\"").append(r).append("\" ht=\"").append(rowPoints(row.height()))
                     .append("\" customHeight=\"1\">");
             for (int c = 1; c <= columnCount; c++) {
@@ -218,18 +234,20 @@ final class XlsxWriter {
             }
             data.append("</row>");
         }
-        data.append("<row r=\"").append(footerRow).append("\" ht=\"").append(rowPoints(DEFAULT_ROW_HEIGHT))
-                .append("\" customHeight=\"1\">");
-        for (int c = 1; c <= columnCount; c++) {
-            boolean last = c == columnCount;
-            data.append(cell(c, footerRow, last && !footer.isEmpty() ? footer : null,
-                    new Style(false, false, FontSize.NORMAL, false, Alignment.RIGHT, null), false));
+        if (!plain) {
+            data.append("<row r=\"").append(footerRow).append("\" ht=\"").append(rowPoints(DEFAULT_ROW_HEIGHT))
+                    .append("\" customHeight=\"1\">");
+            for (int c = 1; c <= columnCount; c++) {
+                boolean last = c == columnCount;
+                data.append(cell(c, footerRow, last && !footer.isEmpty() ? footer : null,
+                        new Style(false, false, FontSize.NORMAL, false, Alignment.RIGHT, null), false));
+            }
+            data.append("</row>");
         }
-        data.append("</row>");
 
         StringBuilder xml = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
         xml.append("<worksheet xmlns=\"").append(MAIN).append("\"><sheetPr><pageSetUpPr fitToPage=\"1\"/></sheetPr>");
-        xml.append("<dimension ref=\"A1:").append(ref(columnCount, footerRow)).append("\"/>");
+        xml.append("<dimension ref=\"A1:").append(ref(columnCount, lastRow)).append("\"/>");
         xml.append("<sheetFormatPr defaultRowHeight=\"18\"/><cols>");
         for (int c = 1; c <= columnCount; c++) {
             Integer width = grid.columns().get(c - 1).width();

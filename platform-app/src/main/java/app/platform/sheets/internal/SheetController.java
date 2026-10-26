@@ -113,18 +113,21 @@ class SheetController {
                     + "text that holds markup; nothing is cut. CONFLICT names the number of the draft when one "
                     + "exists, or when the sheet has the most versions it can have. RATE_LIMITED when other files "
                     + "are being read at the same moment. FORBIDDEN for a caller who may read the record but not "
-                    + "update it. Audited by the format, the sizes and the counts, never by what the file held. "
+                    + "update it. replace=true puts the grid in the draft that is held for a change request, in "
+                    + "place, instead of making a draft: only for the people asked to decide that request. Audited "
+                    + "by the format, the sizes and the counts, never by what the file held. "
                     + UNKNOWN)
     @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(mediaType = "application/octet-stream",
             schema = @Schema(type = "string", format = "binary")))
     ResponseEntity<ApiResponse<SheetImportResultView>> importFile(@PathVariable String ownerObject,
             @PathVariable UUID ownerId, @RequestParam String format,
             @RequestParam(defaultValue = "true") boolean firstRowLabels,
-            @RequestParam(defaultValue = "false") boolean preview, HttpServletRequest request) {
+            @RequestParam(defaultValue = "false") boolean preview,
+            @RequestParam(defaultValue = "false") boolean replace, HttpServletRequest request) {
         SpreadsheetImporter.Format kind = SpreadsheetImporter.Format.of(format)
                 .orElseThrow(() -> ApiException.validation("format", "Choose xlsx or csv."));
         // Before the body is read: who may change the sheet, and whether a draft can be started at all.
-        SheetImports.Plan plan = imports.plan(ownerObject, ownerId);
+        SheetImports.Plan plan = imports.plan(ownerObject, ownerId, replace);
         byte[] file = readBounded(request, importer.maxFileBytes(), true);
         SpreadsheetImporter.Imported imported;
         try {

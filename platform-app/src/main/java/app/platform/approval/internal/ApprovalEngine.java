@@ -342,7 +342,8 @@ class ApprovalEngine implements Approvals, ApprovalApplicability, ApprovalStarte
         }
         UUID requestId = Uuids.v7();
         hooks.submitted(new SubmitContext(requestId, definition.objectApiName(), record.id(), definition.apiName(),
-                definition.definitionVersion(), submitter));
+                definition.definitionVersion(), submitter,
+                definition.steps().get(definition.steps().size() - 1).skipWhenNobody()));
         InstanceRow instance = store.insertInstance(requestId, definition.id(), definition.versionId(),
                 definition.apiName(), definition.label(), definition.definitionVersion(),
                 definition.objectApiName(), record.id(), record.version(), submitter,
@@ -461,7 +462,8 @@ class ApprovalEngine implements Approvals, ApprovalApplicability, ApprovalStarte
             try {
                 boolean asks = pinned(instance).process().definition().steps().get(step.position() - 1)
                         .asksForChoice();
-                hooks.beforeApprove(instance, step, member.userId(), asks, choices);
+                hooks.beforeApprove(instance, step, member.userId(), asks, choices,
+                        done.effect() == Effect.REQUEST_APPROVED);
             } catch (ApprovalHookRefusal refusal) {
                 throw new ApiException(ErrorCode.CONFLICT, refusal.words());
             }

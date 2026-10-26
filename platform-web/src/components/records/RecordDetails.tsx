@@ -22,11 +22,14 @@ export function RecordDetails({
   form,
   record,
   recordHref,
+  hide = [],
 }: {
   objectApiName: string;
   form: ObjectForm;
   record: RecordView;
   recordHref?: (objectApiName: string, id: string) => string;
+  /** Fields the page draws itself, from a better source than the stored value; they are left out here. */
+  hide?: readonly string[];
 }) {
   const byName = useMemo(() => new Map(form.fields.map((field) => [field.apiName, field])), [form.fields]);
   const labelSource = useMemo(() => [record], [record]);
@@ -35,7 +38,7 @@ export function RecordDetails({
   return (
     <div className="record-form" data-testid="record-details">
       {form.layout.sections.map((section, index) => {
-        const names = section.fields.filter((name) => byName.has(name));
+        const names = section.fields.filter((name) => byName.has(name) && !hide.includes(name));
         if (names.length === 0) {
           return null;
         }

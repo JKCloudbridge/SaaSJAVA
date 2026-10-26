@@ -82,6 +82,58 @@ public interface SheetLifecycle {
      */
     Started startDraft(String ownerObject, UUID ownerId, int basedOn, UUID actor);
 
+    /**
+     * Starts the draft of the sheet as a copy of a version and holds it for an approval request (FA8, ADR-0202): the
+     * request is on the row from the start, so the people asked to decide it can be told apart from everybody else.
+     * Unlike {@link #startDraft} it never joins a draft that exists.
+     *
+     * @param basedOn the number of the version to copy
+     * @param requestId the approval request the draft is held for
+     * @param actor the person on whose behalf the module acts
+     * @return the draft
+     * @throws SheetMoveRefusal {@code DRAFT_EXISTS}, {@code NO_VERSION}, {@code TOO_MANY_VERSIONS}
+     */
+    Started startHeldDraft(String ownerObject, UUID ownerId, int basedOn, UUID requestId, UUID actor);
+
+    /** The draft that is held for an approval request, if there is one. Reads no grid. */
+    Optional<HeldDraft> heldDraft(String ownerObject, UUID ownerId);
+
+    /**
+     * A draft held for an approval request.
+     *
+     * @param versionNo its number
+     * @param requestId the approval request it is held for
+     */
+    record HeldDraft(int versionNo, UUID requestId) {
+    }
+
+    /**
+     * Points the draft held for a request at the approval request that now decides it (a request sent again after it
+     * was recalled is a new approval request). Nothing happens when no draft is held.
+     *
+     * @return whether a draft was pointed at the request
+     */
+    boolean retargetHeldDraft(String ownerObject, UUID ownerId, UUID requestId, UUID actor);
+
+    /**
+     * Ends the draft held for a request without it ever being used: it goes to review and straight to the end, so it
+     * ends as rejected or withdrawn and a new draft can be started later (a draft is never deleted). The grid is not
+     * checked again. Nothing happens when no draft is held for this request.
+     *
+     * @param result {@link SheetStatus#REJECTED} or {@link SheetStatus#WITHDRAWN}
+     * @return the number of the version, or 0 when none was held for the request
+     */
+    int closeHeldDraft(String ownerObject, UUID ownerId, UUID requestId, SheetStatus result, UUID actor);
+
+    /**
+     * The revision number people read for a version: set by the database when the version first became the one in use.
+     * Empty when the version never was, when it does not exist, or when it became so before numbers were stored.
+     */
+    Optional<Integer> revisionOf(String ownerObject, UUID ownerId, int versionNo);
+
+    /** Whether a version of the sheet ever was the one in use. */
+    boolean everPublished(String ownerObject, UUID ownerId);
+
     /** The draft a call of {@link #startDraft} made or found. */
     record Started(int versionNo, boolean created) {
     }

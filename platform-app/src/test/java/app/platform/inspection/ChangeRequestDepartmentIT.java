@@ -70,6 +70,7 @@ class ChangeRequestDepartmentIT extends ChangeRequestSupport {
     void aLaterMoveOfThePersonNeverRewritesWhatTheRequestSaid() {
         World world = world();
         String request = asked(world.reader().browser(), world.template(), "Before the move", 1);
+        assertThat(decline(world, request, "Answered").status()).isEqualTo(200);
         String elsewhere = group(world.setting().admin(), "else-" + System.nanoTime(), world.reader());
         department(world.setting().admin(), "PLANT2", "QLT", elsewhere);
 

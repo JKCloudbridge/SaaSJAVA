@@ -30,6 +30,7 @@ function summary(versionNo: number, status: string, version = 0, extra: Partial<
     createdAt: "2026-10-22T08:00:00Z",
     updatedAt: "2026-10-22T09:00:00Z",
     reviewEdits: 0,
+    held: false,
     ...extra,
   };
 }
@@ -87,11 +88,11 @@ describe("a sheet with a draft", () => {
 
     expect(await screen.findByRole("table", { name: "Revisions" })).toBeInTheDocument();
     const rows = screen.getAllByRole("row").slice(1);
-    expect(within(rows[0] as HTMLElement).getByText("Draft")).toBeInTheDocument();
+    expect(within(rows[0] as HTMLElement).getAllByText("Draft").length).toBeGreaterThan(0);
     expect(within(rows[1] as HTMLElement).getByText("Active")).toBeInTheDocument();
-    expect(await screen.findByRole("grid", { name: "Fire checks, revision 01" })).toBeInTheDocument();
+    expect(await screen.findByRole("grid", { name: "Fire checks, draft" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-    expect(screen.getByText(/Revision 01 is a draft/)).toBeInTheDocument();
+    expect(screen.getByText(/This is a draft/)).toBeInTheDocument();
   });
 
   it("saves the grid with the row version that was read and says so", async () => {
@@ -305,7 +306,7 @@ describe("opening another version", () => {
       [`GET ${BASE}/1`]: one(1, "ACTIVE"),
     });
     draw();
-    await screen.findByRole("grid", { name: "Fire checks, revision 01" });
+    await screen.findByRole("grid", { name: "Fire checks, draft" });
 
     fireEvent.click(screen.getByRole("button", { name: "Open revision 00" }));
 
@@ -418,7 +419,7 @@ describe("a revision in review (FA4)", () => {
     });
     render(<SheetWorkspace owner={OWNER} label="Fire checks" correctInReview={false} />);
 
-    expect(await screen.findByText(/Revision 01 is in review. Only the people who approve it can correct it/)).toBeInTheDocument();
+    expect(await screen.findByText(/This copy is in review. Only the people who approve it can correct it/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
     expect(screen.queryByTestId("review-edit-note")).toBeNull();
   });
@@ -540,7 +541,7 @@ describe("a revision made from a spreadsheet file", () => {
       [`GET ${BASE}/2`]: one(2, "DRAFT", 3),
     });
     const withDraft = draw();
-    await screen.findByText(/Revision 01 is a draft/);
+    await screen.findByText(/This is a draft/);
     expect(screen.queryByRole("button", { name: "Upload a spreadsheet" })).toBeNull();
     withDraft.unmount();
 
@@ -571,7 +572,7 @@ describe("a revision made from a spreadsheet file", () => {
     await screen.findByText(/The file gives/);
     fireEvent.click(screen.getByRole("button", { name: "Save as a new draft" }));
 
-    expect(await screen.findByRole("grid", { name: "Fire checks, revision 00" })).toBeInTheDocument();
+    expect(await screen.findByRole("grid", { name: "Fire checks, draft" })).toBeInTheDocument();
     expect(calls.filter((call) => call.key === `POST ${BASE}/import`)).toHaveLength(2);
     expect(calls.some((call) => call.key === `POST ${BASE}`)).toBe(false);
   }, 20_000);
@@ -590,4 +591,89 @@ describe("who last changed a revision", () => {
     expect(screen.getByRole("cell", { name: "User One" })).toBeInTheDocument();
     expect(screen.getByLabelText("Nobody to name")).toBeInTheDocument();
   });
+});
+
+describe("the revised copy of a change request (FA8)", () => {
+  const held = (versionNo: number) => summary(versionNo, "DRAFT", 2, { held: true });
+  const listHeld = (versions: VersionSummary[], canChange: boolean, canChangeHeld: boolean) => () =>
+    json({ data: { versions, canChange, canChangeHeld, limits: LIMITS } });
+
+  it("offers no new draft by hand when the screen says so, even to a person who may change the sheet", async () => {
+    fakeApi({
+      [`GET ${BASE}`]: list([summary(3, "ACTIVE", 5)]),
+      [`GET ${BASE}/3`]: one(3, "ACTIVE", 5),
+    });
+    render(<SheetWorkspace owner={OWNER} label="Fire checks" allowNewDraft={false} />);
+
+    await screen.findByRole("grid");
+
+    expect(screen.queryByRole("button", { name: /Start a new revision/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Upload a spreadsheet" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /New revision from/ })).toBeNull();
+  });
+
+  it("opens the version it is asked to focus, the copy, and not the revision in use", async () => {
+    fakeApi({
+      [`GET ${BASE}`]: listHeld([held(4), summary(3, "ACTIVE", 5)], false, true),
+      [`GET ${BASE}/4`]: () => json({ data: { version: held(4), grid: sampleDoc() } }),
+    });
+    render(<SheetWorkspace owner={OWNER} label="Fire checks" allowNewDraft={false} focusVersion={4} />);
+
+    expect(await screen.findByRole("grid", { name: "Fire checks, draft" })).toBeInTheDocument();
+  });
+
+  it("lets a person asked to decide the request change the copy, though they may not change the template", async () => {
+    fakeApi({
+      [`GET ${BASE}`]: listHeld([held(4), summary(3, "ACTIVE", 5)], false, true),
+      [`GET ${BASE}/4`]: () => json({ data: { version: held(4), grid: sampleDoc() } }),
+    });
+    render(<SheetWorkspace owner={OWNER} label="Fire checks" allowNewDraft={false} focusVersion={4} />);
+
+    await screen.findByRole("grid", { name: "Fire checks, draft" });
+
+    expect(screen.getByRole("grid")).not.toHaveAttribute("aria-readonly", "true");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Replace from a spreadsheet" })).toBeEnabled();
+    expect(screen.getByText(/revised copy of a change request/)).toBeInTheDocument();
+  });
+
+  it("is read only, with the reason, for a person who may change the template but is not asked to decide the request", async () => {
+    fakeApi({
+      [`GET ${BASE}`]: listHeld([held(4), summary(3, "ACTIVE", 5)], true, false),
+      [`GET ${BASE}/4`]: () => json({ data: { version: held(4), grid: sampleDoc() } }),
+    });
+    render(<SheetWorkspace owner={OWNER} label="Fire checks" allowNewDraft={false} focusVersion={4} />);
+
+    await screen.findByRole("grid", { name: "Fire checks, draft" });
+
+    expect(screen.getByRole("grid")).toHaveAttribute("aria-readonly", "true");
+    expect(screen.queryByRole("button", { name: "Replace from a spreadsheet" })).toBeNull();
+    expect(screen.getByText(/Only the people asked to decide the request can change it/)).toBeInTheDocument();
+  });
+
+  it("replaces the copy in place from a file and starts no second draft", async () => {
+    const calls = fakeApi({
+      [`GET ${BASE}`]: listHeld([held(4), summary(3, "ACTIVE", 5)], false, true),
+      [`GET ${BASE}/4`]: () => json({ data: { version: held(4), grid: sampleDoc() } }),
+      [`POST ${BASE}/import`]: (request) => {
+        const query = new URL(request.url).searchParams;
+        return query.get("preview") === "true"
+          ? json({ data: { saved: false, report: { columns: 3, rows: 2, mergedAreas: 0, notes: [] } } })
+          : json({ data: { saved: true, version: held(4), report: { columns: 3, rows: 2, mergedAreas: 0, notes: [] } } }, 201);
+      },
+    });
+    render(<SheetWorkspace owner={OWNER} label="Fire checks" allowNewDraft={false} focusVersion={4} />);
+    await screen.findByRole("grid", { name: "Fire checks, draft" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Replace from a spreadsheet" }));
+    fireEvent.change(screen.getByLabelText("Choose a spreadsheet file"), {
+      target: { files: [new File([new Uint8Array(10)], "copy.xlsx")] },
+    });
+    await screen.findByText(/The file gives/);
+    fireEvent.click(screen.getByRole("button", { name: "Replace the revised copy" }));
+
+    await waitFor(() => expect(calls.filter((call) => call.key === `POST ${BASE}/import`)).toHaveLength(2));
+    expect(calls.filter((call) => call.key === `POST ${BASE}/import`).length).toBe(2);
+    expect(calls.some((call) => call.key === `POST ${BASE}`)).toBe(false);
+  }, 20_000);
 });

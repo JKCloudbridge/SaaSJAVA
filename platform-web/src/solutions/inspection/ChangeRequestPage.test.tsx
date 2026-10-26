@@ -1,10 +1,16 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi, json, refusal, type Handler } from "@/test/fakeApi";
 import { setUrl } from "@/test/navigation";
 import { ChangeRequestPage } from "./ChangeRequestPage";
 
 vi.mock("next/navigation", async () => (await import("@/test/navigation")).navigationMock);
+// The sheet workspace has its own tests; here it is only asked which version to open and whether to offer a new draft.
+vi.mock("@/components/sheets/SheetWorkspace", () => ({
+  SheetWorkspace: ({ focusVersion, allowNewDraft }: { focusVersion?: number; allowNewDraft?: boolean }) => (
+    <div data-testid="revised-workspace" data-focus={focusVersion} data-new-draft={String(allowNewDraft)} />
+  ),
+}));
 
 const REQUEST = "0198f5c0-0000-7000-8000-0000000000a1";
 const REVIEW = "0198f5c0-0000-7000-8000-0000000000b1";
@@ -41,7 +47,7 @@ function request(extra: Record<string, unknown> = {}) {
     id: REQUEST,
     title: "Wording of the walkway",
     status: "OPEN",
-    versionNo: 3,
+    versionNo: 1,
     requesterName: "Reader A",
     requesterDepartment: "Plant 1 · Production",
     mine: false,
@@ -49,16 +55,31 @@ function request(extra: Record<string, unknown> = {}) {
     placesTotal: 1,
     placesInActive: 1,
     canComment: false,
-    canTurn: false,
-    canReopen: false,
+    canCreateCopy: false,
+    canChangeCopy: false,
     comments: [
-      comment("c1"),
-      comment("c2", { kind: "CELL", label: "Row 2, Column B", rowId: "r2", columnId: "cB", text: "Say 3 metres." }),
+      comment("c1", { kind: "CELL", label: "Row 2, Column B", rowId: "r2", columnId: "cB", text: "Say 3 metres." }),
     ],
     templateId: TEMPLATE,
     templateName: "Fire exit template",
     templateNumber: "WI/PRD/03",
     reviewId: REVIEW,
+    ...extra,
+  };
+}
+
+function register(extra: Record<string, unknown> = {}) {
+  return {
+    version: 2,
+    documentName: "Fire exit template",
+    requestNo: "DCN-12",
+    requestedOn: "2026-10-22",
+    documentNo: "WI/PRD/03",
+    revNo: "00",
+    changeRequested: "Make the walkway wider",
+    requestedBy: "Reader A",
+    canComplete: false,
+    grid: {},
     ...extra,
   };
 }
@@ -93,7 +114,7 @@ function panel(actions: Record<string, boolean>, extra: Record<string, unknown> 
           recordId: REVIEW,
           startedAt: "2026-10-22T08:00:00Z",
           status: "PENDING",
-          stepCount: 1,
+          stepCount: 3,
           submittedBy: { userId: "u0", name: "Reader A" },
           version: 4,
         },
@@ -106,6 +127,7 @@ function panel(actions: Record<string, boolean>, extra: Record<string, unknown> 
 function answers(view: Record<string, unknown>, actions: Record<string, boolean>): Record<string, Handler> {
   return {
     [`GET /api/v1/change-requests/${REQUEST}`]: () => json({ data: view }),
+    [`GET /api/v1/templates/${TEMPLATE}/change-requests/${REQUEST}/register`]: () => json({ data: register() }),
     [`GET /api/v1/objects/InspectionChangeRequest/records/${REVIEW}/approval`]: () => json(panel(actions)),
   };
 }
@@ -114,41 +136,159 @@ beforeEach(() => {
   setUrl(`/apps/inspection/s-change-requests?open=${REQUEST}`);
 });
 
-describe("one change request (FA6E)", () => {
-  it("shows the template and the revision at the top left, who asked and from which department in one row", async () => {
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("one change request (FA6E, FA8)", () => {
+  it("shows the template at the top, the revision read from the register, and who asked from which department", async () => {
     fakeApi(answers(request(), {}));
 
     render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
 
     expect(await screen.findByRole("heading", { name: "Fire exit template · WI/PRD/03" })).toBeInTheDocument();
-    expect(screen.getByTestId("request-version")).toHaveTextContent("Revision 02 read");
+    expect(await screen.findByTestId("request-version")).toHaveTextContent("Revision 00 read");
     expect(screen.getByTestId("request-by")).toHaveTextContent("Reader A");
     expect(screen.getByTestId("request-department")).toHaveTextContent("Plant 1 · Production");
+    expect(screen.getByText("In progress")).toBeInTheDocument();
   });
 
-  it("shows the first comment, then the changes requested place by place", async () => {
+  it("shows the register in the form view with the Excel view one click away, and nothing to upload", async () => {
     fakeApi(answers(request(), {}));
 
     render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
 
-    expect(await screen.findByTestId("request-first-comment")).toHaveTextContent("Please make the walkway wording clearer.");
-    const changes = screen.getByRole("list", { name: "Changes requested" });
-    expect(within(changes).getByText(/Cell: Row 2, Column B/)).toBeInTheDocument();
-    expect(within(changes).getByText("Say 3 metres.")).toBeInTheDocument();
+    expect(await screen.findByTestId("register-view-form")).toHaveTextContent("Make the walkway wider");
+    expect(screen.getByTestId("register-tab-form")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("register-tab-excel")).toBeInTheDocument();
+    expect(screen.getByTestId("register-download")).toBeInTheDocument();
+    expect(screen.queryByTestId("register-upload")).toBeNull();
+    expect(screen.queryByTestId("register-save")).toBeNull();
   });
 
-  it("offers Accept and Decline when the approval says the person has a task, and nothing when it does not", async () => {
+  it("links to the revision in use now, to read", async () => {
+    fakeApi(answers(request(), {}));
+
+    render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
+
+    const link = await screen.findByTestId("current-revision-link");
+    expect(link).toHaveTextContent("Current revision");
+    expect(link).toHaveAttribute("href", `/apps/inspection/s-templates?open=${TEMPLATE}&tab=sheet`);
+  });
+
+  it("lists the places the person pointed at, and says so when there are none", async () => {
+    fakeApi(answers(request(), {}));
+    const first = render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
+    const places = await screen.findByRole("list", { name: "Places on the sheet" });
+    expect(within(places).getByText(/Cell: Row 2, Column B/)).toBeInTheDocument();
+    expect(within(places).getByText("Say 3 metres.")).toBeInTheDocument();
+    first.unmount();
+
+    fakeApi(answers(request({ comments: [] }), {}));
+    render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
+    expect(await screen.findByTestId("request-no-changes")).toHaveTextContent("pointed at no place");
+  });
+
+  it("marks a place that is no longer in the revision", async () => {
+    fakeApi(answers(request({ comments: [comment("c1", { kind: "ROW", label: "Old row", rowId: "r9", inActiveVersion: false })] }), {}));
+
+    render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
+
+    expect(await screen.findByText("no longer in this revision")).toBeInTheDocument();
+  });
+});
+
+describe("the revised sheet of a request (FA8)", () => {
+  it("offers Create revised copy to a person asked to decide, and asks the server to make it", async () => {
+    const calls = fakeApi({
+      ...answers(request({ canCreateCopy: true }), { canApprove: true, canReject: true }),
+      [`POST /api/v1/templates/${TEMPLATE}/change-requests/${REQUEST}/revised-copy`]: () =>
+        json({ data: request({ canCreateCopy: false, canChangeCopy: true, resultingVersion: 2, resultingVersionStatus: "DRAFT" }) }),
+    });
+
+    render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
+    fireEvent.click(await screen.findByTestId("create-copy"));
+
+    expect(await screen.findByText(/The revised copy was made/)).toBeInTheDocument();
+    expect(calls.some((one) => one.key.endsWith("/revised-copy"))).toBe(true);
+  });
+
+  it("offers it to nobody else, and says who makes and changes the copy", async () => {
+    fakeApi(answers(request(), {}));
+
+    render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
+
+    expect(await screen.findByTestId("revised-sheet-note")).toHaveTextContent("people asked to decide");
+    expect(screen.queryByTestId("create-copy")).toBeNull();
+    expect(screen.queryByTestId("revised-workspace")).toBeNull();
+  });
+
+  it("opens the revised copy for a person who may change it, on that version, with no way to start another draft", async () => {
+    fakeApi(
+      answers(request({ canChangeCopy: true, resultingVersion: 2, resultingVersionStatus: "DRAFT" }), {
+        canApprove: true,
+        canReject: true,
+      }),
+    );
+
+    render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
+
+    const workspace = await screen.findByTestId("revised-workspace");
+    expect(workspace).toHaveAttribute("data-focus", "2");
+    expect(workspace).toHaveAttribute("data-new-draft", "false");
+    expect(screen.getByTestId("request-became")).toHaveTextContent("The revised sheet (the revised copy, being prepared)");
+  });
+
+  it("says that a published request made the revision in use, and which revision it is", async () => {
+    fakeApi(
+      answers(
+        request({ status: "DONE", resultingVersion: 2, resultingVersionStatus: "ACTIVE", resultingRevision: 1 }),
+        {},
+      ),
+    );
+
+    render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
+
+    expect(await screen.findByTestId("request-became")).toHaveTextContent("Revision 01, in use.");
+    expect(screen.getByTestId("revised-sheet-note")).toHaveTextContent("It is the revision in use");
+    expect(screen.getByText("Published")).toBeInTheDocument();
+  });
+
+  it("says that a declined request left the revision in use as it was", async () => {
+    fakeApi(answers(request({ status: "DECLINED" }), {}));
+
+    render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
+
+    expect(await screen.findByTestId("revised-sheet-note")).toHaveTextContent("revision in use is unchanged");
+  });
+
+  it("shows the server's words when it refuses the copy", async () => {
+    fakeApi({
+      ...answers(request({ canCreateCopy: true }), {}),
+      [`POST /api/v1/templates/${TEMPLATE}/change-requests/${REQUEST}/revised-copy`]: () =>
+        refusal("CONFLICT", "A revised copy has been made for this request already.", 409),
+    });
+
+    render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
+    fireEvent.click(await screen.findByTestId("create-copy"));
+
+    expect(await screen.findByText("A revised copy has been made for this request already.")).toBeInTheDocument();
+  });
+});
+
+describe("the approval of a request (FA6E)", () => {
+  it("offers Approve and Decline when the approval says the person has a task, and nothing when it does not", async () => {
     fakeApi(answers(request(), { canApprove: true, canReject: true }));
     const first = render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
-    expect(await screen.findByRole("button", { name: "Accept" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Approve" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Decline" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
     first.unmount();
 
     fakeApi(answers(request(), {}));
     render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
     await screen.findByTestId("request-by");
-    expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Decline" })).toBeNull();
   });
 
@@ -183,7 +323,7 @@ describe("one change request (FA6E)", () => {
 
   it("shows the reason it was declined, read from the approval history", async () => {
     fakeApi({
-      [`GET /api/v1/change-requests/${REQUEST}`]: () => json({ data: request({ status: "DECLINED" }) }),
+      ...answers(request({ status: "DECLINED" }), {}),
       [`GET /api/v1/objects/InspectionChangeRequest/records/${REVIEW}/approval`]: () =>
         json(
           panel(
@@ -198,22 +338,6 @@ describe("one change request (FA6E)", () => {
     render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
 
     expect(await screen.findByTestId("request-declined-reason")).toHaveTextContent("Already covered by the policy.");
-  });
-
-  it("turns an accepted request into a revision only when the server says it can", async () => {
-    const calls = fakeApi({
-      ...answers(request({ status: "ACCEPTED", canTurn: true }), {}),
-      [`POST /api/v1/templates/${TEMPLATE}/change-requests/turn-into-version`]: () =>
-        json({ data: { versionNo: 4, created: true, requests: 1 } }),
-    });
-
-    render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
-    fireEvent.click(await screen.findByTestId("request-turn"));
-
-    expect(await screen.findByText(/Revision 03 was started as a copy of the revision in use/)).toBeInTheDocument();
-    expect(JSON.parse(calls.find((one) => one.key.endsWith("/turn-into-version"))?.body ?? "{}")).toEqual({
-      requestIds: [REQUEST],
-    });
   });
 
   it("says in the words of the screen when the request is not available", async () => {

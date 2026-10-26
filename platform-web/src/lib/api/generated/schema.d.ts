@@ -780,6 +780,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/change-requests/by-review/{reviewId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One change request by the identifier of the record its approval reviews
+         * @description For the choice a step of the approval asks for, which knows the record under review and not the request or its template. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
+         */
+        get: operations["getChangeRequestByReview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/change-requests/query": {
         parameters: {
             query?: never;
@@ -809,7 +829,7 @@ export interface paths {
         };
         /**
          * One change request by its identifier
-         * @description For a page that was given the request and not its template (the bell, the approval inbox). reviewId names the record whose approval panel decides it, when it is decided by an approval. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
+         * @description For a page that was given the request and not its template (the bell, the approval inbox). reviewId names the record whose approval panel decides it. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
          */
         get: operations["getChangeRequestById"];
         put?: never;
@@ -4711,7 +4731,7 @@ export interface paths {
         put?: never;
         /**
          * Make a new draft version from an uploaded spreadsheet file
-         * @description The body is the file itself (an .xlsx workbook or a UTF-8 text file with comma, semicolon or tab separated values) and nothing else; format says which. The file is read on the server and kept nowhere. The first sheet of a workbook is read; text becomes fixed text of the sheet, a cell with no text is left to be typed into, and column widths, row heights, bold, italic, the four sizes and merged areas come with it. Formulas come in as their last values and dates as text written year-month-day. Images, charts, other sheets and links to other files are left out and counted in the report, which says what was left out in plain words. firstRowLabels (default true) makes the first row with text the names of the columns. A sheet that has no version yet is made in the shape where the sheet names its rows; a sheet that has versions keeps its shape (where the filler adds the rows, only the names of the columns come in). preview=true answers with the report and saves nothing. The size is checked before anything is read, from the announced length and again on the bytes read: PAYLOAD_TOO_LARGE (also for a file that unpacks to more than is allowed). VALIDATION_ERROR for a file that is not what its format says, a workbook with macros, a limit of the sheet that the file goes over (it is named, with the row and column when a cell is the reason) or a text that holds markup; nothing is cut. CONFLICT names the number of the draft when one exists, or when the sheet has the most versions it can have. RATE_LIMITED when other files are being read at the same moment. FORBIDDEN for a caller who may read the record but not update it. Audited by the format, the sizes and the counts, never by what the file held. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record.
+         * @description The body is the file itself (an .xlsx workbook or a UTF-8 text file with comma, semicolon or tab separated values) and nothing else; format says which. The file is read on the server and kept nowhere. The first sheet of a workbook is read; text becomes fixed text of the sheet, a cell with no text is left to be typed into, and column widths, row heights, bold, italic, the four sizes and merged areas come with it. Formulas come in as their last values and dates as text written year-month-day. Images, charts, other sheets and links to other files are left out and counted in the report, which says what was left out in plain words. firstRowLabels (default true) makes the first row with text the names of the columns. A sheet that has no version yet is made in the shape where the sheet names its rows; a sheet that has versions keeps its shape (where the filler adds the rows, only the names of the columns come in). preview=true answers with the report and saves nothing. The size is checked before anything is read, from the announced length and again on the bytes read: PAYLOAD_TOO_LARGE (also for a file that unpacks to more than is allowed). VALIDATION_ERROR for a file that is not what its format says, a workbook with macros, a limit of the sheet that the file goes over (it is named, with the row and column when a cell is the reason) or a text that holds markup; nothing is cut. CONFLICT names the number of the draft when one exists, or when the sheet has the most versions it can have. RATE_LIMITED when other files are being read at the same moment. FORBIDDEN for a caller who may read the record but not update it. replace=true puts the grid in the draft that is held for a change request, in place, instead of making a draft: only for the people asked to decide that request. Audited by the format, the sizes and the counts, never by what the file held. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record.
          */
         post: operations["importSheetVersion"];
         delete?: never;
@@ -4909,13 +4929,13 @@ export interface paths {
         };
         /**
          * The change requests of a template that the caller may see
-         * @description Each request with its comments, newest first. canReview says whether the caller may answer requests and canRequest whether the screen may offer to ask for a change (a version is in use and the template is not retired); the flags only hide buttons. status narrows the list (OPEN, ACCEPTED, DECLINED or DONE). A comment says whether its place is still in the version in use. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
+         * @description Each request with its comments, newest first. canReview says whether the caller may see all requests and canRequest whether the screen may offer to ask for a change (a revision is in use, the template is not retired and no other change is in progress); inProgress says that one is. The flags only hide buttons. status narrows the list (OPEN, DECLINED or DONE). A comment says whether its place is still in the revision in use. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
          */
         get: operations["listChangeRequests"];
         put?: never;
         /**
-         * Ask for a change to a version of a template
-         * @description Needs only the right to read the template. The version must be one that is or was in use; each comment may name a row, a column, both (a cell) or neither (the template as a whole), and a row or column must be in that version. Nothing of the template changes. VALIDATION_ERROR names the place that is wrong. CONFLICT for a retired template, when no version is in use, and when a limit is reached (open requests per person, requests per template). NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
+         * Ask for a change to a revision of a template
+         * @description Needs only the right to read the template. The body is the register form (the request number the person types, what is asked, the basis, the horizontal deployment and the format that stops being used), the revision that was read and, if the person likes, places on the sheet; each place may name a row, a column, both (a cell) or neither (the template as a whole), and a row or column must be in that revision. The platform fills the rest of the register (document, revision, who and when, department). Nothing of the template changes. VALIDATION_ERROR names the box that is wrong. CONFLICT for a retired template, when no revision is in use, when another change is in progress on the template, when the organization has no approval process for change requests, and when a limit is reached. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
          */
         post: operations["createChangeRequest"];
         delete?: never;
@@ -4924,7 +4944,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/templates/{templateId}/change-requests/turn-into-version": {
+    "/api/v1/templates/{templateId}/change-requests/register/file": {
         parameters: {
             query?: never;
             header?: never;
@@ -4934,10 +4954,50 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Turn change requests into the next version of the template
-         * @description Needs the right to change the template (FORBIDDEN otherwise). Makes a draft that is a copy of the version in use now (not of the version each person read) and links the requests to it; they become done. When a draft already exists nothing is copied and the requests are linked to that draft (created is false). The draft goes through approval like any other. CONFLICT for a retired template, when no version is in use, and for a request that is already answered or turned (the second of two callers at once gets this). NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
+         * The register form for a request about the template as an Excel file, to fill there
+         * @description The typed parts the body carries (all may be empty) are written with the parts the platform fills. Every cell is text, never a formula. Nothing is stored or logged. NOT_FOUND for a template the caller cannot read.
          */
-        post: operations["turnChangeRequestsIntoVersion"];
+        post: operations["downloadChangeRequestRegisterDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/change-requests/register/page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draw the register form for a request about the template, without making the request
+         * @description For the screen that shows the Excel view while a person types: the typed parts are drawn with the parts the platform fills (the document, the revision in use, who asks and the department). Nothing is stored or logged. CONFLICT when no revision is in use. NOT_FOUND for a template the caller cannot read.
+         */
+        post: operations["drawChangeRequestRegister"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/change-requests/register/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take the typed parts out of a filled register file
+         * @description The body is the .xlsx file itself and nothing else. Only the parts a requester types are taken, from their places on the page; text anywhere else on the page is refused in plain words that name the place. The file is read under the limits of the spreadsheet upload and kept nowhere; the form is filled with the answer and the person raises the request from it. VALIDATION_ERROR for a file that is not a register, PAYLOAD_TOO_LARGE for a file over the limit, RATE_LIMITED when other files are being read. NOT_FOUND for a template the caller cannot read.
+         */
+        post: operations["readChangeRequestRegisterFile"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4975,7 +5035,7 @@ export interface paths {
         put?: never;
         /**
          * Add a comment to a change request
-         * @description By the person who asked or by a person who may change the template, while the request is open or accepted. The place is checked against the version the request read. CONFLICT when the request is closed or has the most comments. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
+         * @description By the person who asked or by a person who may change the template, while the request is in progress. The place is checked against the revision the request read. CONFLICT when the request is closed or has the most comments. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
          */
         post: operations["addChangeComment"];
         delete?: never;
@@ -4984,7 +5044,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/templates/{templateId}/change-requests/{requestId}/reopen": {
+    "/api/v1/templates/{templateId}/change-requests/{requestId}/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The register form of a change request
+         * @description The values of the Document Change Register form, one set of values for both views, with the form drawn as a sheet page for the Excel view. canComplete says whether the caller may complete the bottom of it now. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
+         */
+        get: operations["getChangeRequestRegister"];
+        /**
+         * Complete the bottom of the register form of a change request
+         * @description For the people asked to decide the request now (and the administrator), while it is in progress: the department, the format or document obsoleted with its day, who approved, the signature words, the effective day and the two answers. The new revision and the day it was published are stamped by the publish and cannot be written. The register is changed in place and is final once the request is answered. FORBIDDEN for anybody else, CONFLICT when the request is answered, CONCURRENT_MODIFICATION when the register changed since it was read. Audited by the names of the boxes that changed, never by what was written. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
+         */
+        put: operations["completeChangeRequestRegister"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/change-requests/{requestId}/register/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The register form of a change request as an Excel file
+         * @description The same values as the form, drawn on the page of the register. Every cell is text, never a formula. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
+         */
+        get: operations["downloadChangeRequestRegister"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{templateId}/change-requests/{requestId}/revised-copy": {
         parameters: {
             query?: never;
             header?: never;
@@ -4994,10 +5098,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Reopen a change request whose new version was not used
-         * @description Needs the right to change the template (FORBIDDEN otherwise). Puts a done request back to accepted, only when the version it became was rejected or withdrawn, so it can be turned into a version again. Accepting and declining a request is the work of its approval, never of this endpoint. CONFLICT when it is not done, its version was used, or somebody moved it first. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
+         * Make the revised copy of the sheet for a change request
+         * @description A draft that is a copy of the revision in use now, held for the request: people who only read the template never see it, and the revision in use is not edited. Only a person asked to decide the request now (and the administrator) may. It is made on demand and only once. FORBIDDEN for anybody else. CONFLICT when the request is answered or not waiting for an approval, when a copy or another draft already exists, or when no revision is in use. NOT_FOUND for a template the caller cannot read, for one that does not exist and on the platform host (all alike), and for a request the caller may not see. A person sees their own requests; a person who may change the template sees all of them.
          */
-        post: operations["reopenChangeRequest"];
+        post: operations["createRevisedCopy"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5851,6 +5955,12 @@ export interface components {
         ApiResponseRecordView: {
             data: components["schemas"]["RecordView"];
         };
+        ApiResponseRegisterFileView: {
+            data: components["schemas"]["RegisterFileView"];
+        };
+        ApiResponseRegisterView: {
+            data: components["schemas"]["RegisterView"];
+        };
         ApiResponseReleaseView: {
             data: components["schemas"]["ReleaseView"];
         };
@@ -5898,9 +6008,6 @@ export interface components {
         };
         ApiResponseTenantSummary: {
             data: components["schemas"]["TenantSummary"];
-        };
-        ApiResponseTurnedView: {
-            data: components["schemas"]["TurnedView"];
         };
         ApiResponseValidationRuleView: {
             data: components["schemas"]["ValidationRuleView"];
@@ -6419,9 +6526,9 @@ export interface components {
         ChangeRequestView: {
             /** Format: date-time */
             answeredAt?: string;
+            canChangeCopy: boolean;
             canComment: boolean;
-            canReopen: boolean;
-            canTurn: boolean;
+            canCreateCopy: boolean;
             comments: components["schemas"]["ChangeCommentView"][];
             /** Format: date-time */
             createdAt: string;
@@ -6432,8 +6539,11 @@ export interface components {
             placesInActive: number;
             /** Format: int32 */
             placesTotal: number;
+            publishPrefill?: components["schemas"]["PublishPrefill"];
             requesterDepartment?: string;
             requesterName?: string;
+            /** Format: int32 */
+            resultingRevision?: number;
             /** Format: int32 */
             resultingVersion?: number;
             resultingVersionStatus?: string;
@@ -6455,6 +6565,7 @@ export interface components {
             canReview: boolean;
             /** Format: int32 */
             draftVersion: number;
+            inProgress: boolean;
             /** Format: int32 */
             openCount: number;
             requests: components["schemas"]["ChangeRequestView"][];
@@ -6572,7 +6683,7 @@ export interface components {
         };
         CreateChangeRequest: {
             comments?: components["schemas"]["NewChangeComment"][];
-            title: string;
+            register: components["schemas"]["RegisterInput"];
             /** Format: int32 */
             versionNo: number;
         };
@@ -7704,6 +7815,13 @@ export interface components {
             planKey: string;
             slug: string;
         };
+        PublishPrefill: {
+            allowDownload: boolean;
+            suggested: components["schemas"]["SuggestedAudience"][];
+            /** Format: int32 */
+            suggestionDropped: number;
+            viewOnly: boolean;
+        };
         PublishTemplateRequest: {
             allowDownload?: boolean;
             audiences: components["schemas"]["AudiencePick"][];
@@ -7889,6 +8007,58 @@ export interface components {
             recordType?: string;
             /** Format: date-time */
             updatedAt: string;
+            /** Format: int64 */
+            version: number;
+        };
+        RegisterCompletion: {
+            approvedBy?: string;
+            department?: string;
+            effectiveOn?: string;
+            masterListUpdated?: string;
+            obsoletedEffectiveOn?: string;
+            obsoletedFormat?: string;
+            serverUpdated?: string;
+            signatureNote?: string;
+            /** Format: int64 */
+            version: number;
+        };
+        RegisterFileView: {
+            notes: string[];
+            values: components["schemas"]["RegisterInput"];
+        };
+        RegisterInput: {
+            basisForChange?: string;
+            changeRequested: string;
+            horizontalDeployment?: string;
+            obsoletedEffectiveOn?: string;
+            obsoletedFormat?: string;
+            requestNo: string;
+        };
+        RegisterView: {
+            approvedBy?: string;
+            basisForChange?: string;
+            canComplete: boolean;
+            changeRequested: string;
+            department?: string;
+            documentName: string;
+            documentNo?: string;
+            effectiveOn?: string;
+            grid: {
+                [key: string]: unknown;
+            };
+            horizontalDeployment?: string;
+            masterListUpdated?: string;
+            newRevNo?: string;
+            /** Format: date-time */
+            newRevisionAt?: string;
+            obsoletedEffectiveOn?: string;
+            obsoletedFormat?: string;
+            requestNo: string;
+            requestedBy?: string;
+            requestedOn: string;
+            revNo: string;
+            serverUpdated?: string;
+            signatureNote?: string;
             /** Format: int64 */
             version: number;
         };
@@ -8288,8 +8458,11 @@ export interface components {
             /** Format: int64 */
             gridBytes: number;
             gridHash: string;
+            held: boolean;
             /** Format: int32 */
             reviewEdits: number;
+            /** Format: int32 */
+            revisionNo?: number;
             rowsMode: string;
             status: string;
             /** Format: date-time */
@@ -8308,6 +8481,7 @@ export interface components {
         };
         SheetVersionsView: {
             canChange: boolean;
+            canChangeHeld: boolean;
             limits: components["schemas"]["SheetLimitsView"];
             versions: components["schemas"]["SheetVersionSummaryView"][];
         };
@@ -8440,6 +8614,8 @@ export interface components {
             canUnpublish: boolean;
             /** Format: uuid */
             id: string;
+            /** Format: date-time */
+            lastRevisedAt?: string;
             lifecycle: components["schemas"]["TemplateLifecycle"];
             number?: string;
             numberPreview?: string;
@@ -8447,6 +8623,7 @@ export interface components {
             /** Format: int32 */
             openChangeRequests: number;
             retired: boolean;
+            revision?: string;
             suggestedAudience: components["schemas"]["SuggestedAudience"][];
             /** Format: int32 */
             suggestionDropped: number;
@@ -8480,6 +8657,7 @@ export interface components {
             /** Format: int32 */
             openChangeRequests: number;
             retired: boolean;
+            revision?: string;
             subCategory?: string;
         };
         TenantSummary: {
@@ -8498,16 +8676,6 @@ export interface components {
             values?: {
                 [key: string]: string;
             };
-        };
-        TurnIntoVersionRequest: {
-            requestIds: string[];
-        };
-        TurnedView: {
-            created: boolean;
-            /** Format: int32 */
-            requests: number;
-            /** Format: int32 */
-            versionNo: number;
         };
         UpdateApplicationRequest: {
             definition: components["schemas"]["ApplicationDefinition"];
@@ -10179,6 +10347,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseAutomationHealthView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getChangeRequestByReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reviewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseChangeRequestView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -18455,6 +18654,7 @@ export interface operations {
                 format: string;
                 firstRowLabels?: boolean;
                 preview?: boolean;
+                replace?: boolean;
             };
             header?: never;
             path: {
@@ -18849,7 +19049,7 @@ export interface operations {
             };
         };
     };
-    turnChangeRequestsIntoVersion: {
+    downloadChangeRequestRegisterDraft: {
         parameters: {
             query?: never;
             header?: never;
@@ -18860,7 +19060,42 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TurnIntoVersionRequest"];
+                "application/json": components["schemas"]["RegisterInput"];
+            };
+        };
+        responses: {
+            /** @description The Excel file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    drawChangeRequestRegister: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterInput"];
             };
         };
         responses: {
@@ -18870,7 +19105,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiResponseTurnedView"];
+                    "application/json": components["schemas"]["ApiResponseRegisterView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    readChangeRequestRegisterFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRegisterFileView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -18952,7 +19222,107 @@ export interface operations {
             };
         };
     };
-    reopenChangeRequest: {
+    getChangeRequestRegister: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+                requestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRegisterView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    completeChangeRequestRegister: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+                requestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterCompletion"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseRegisterView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    downloadChangeRequestRegister: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+                requestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Excel file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createRevisedCopy: {
         parameters: {
             query?: never;
             header?: never;

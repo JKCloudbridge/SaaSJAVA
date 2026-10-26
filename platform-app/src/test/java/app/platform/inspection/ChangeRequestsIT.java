@@ -10,11 +10,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;
 
 /**
- * Change requests on a published template (FA5, ADR-0191): a reader asks for a change and points at a row, a column, a
- * cell or the whole template of the version they read; the owner and the approvers see the request and nobody else
- * does; the owner accepts, declines with a reason, or turns requests into the next version; comments find their places
- * by identifier in a later version; a rejected version keeps its comments; and a request changes nothing of the
- * template. The limits are set small here so that they can be reached.
+ * Change requests on a published template (FA5, ADR-0191; the controlled change of FA8, ADR-0202): a reader fills the
+ * register and asks for a change, pointing at a row, a column, a cell or the whole template of the revision they read;
+ * the owner and the approvers see the request and nobody else does; the approval declines it or the last approval
+ * publishes the reviewer's revised copy; comments find their places by identifier in a later revision; a rejected copy
+ * keeps its comments; and a request changes nothing of the template until it is published. The limits are set small
+ * here so that they can be reached.
  */
 @PlatformIntegrationTest
 @TestPropertySource(properties = {
@@ -22,9 +23,14 @@ import org.springframework.test.context.TestPropertySource;
     "platform.workflow.enabled=false",
     "platform.inspection.change-requests.max-comments-per-request=5",
     "platform.inspection.change-requests.max-first-comments=4",
-    "platform.inspection.change-requests.max-open-per-person=3",
-    "platform.inspection.change-requests.max-per-template=6"})
+    "platform.inspection.change-requests.max-per-template=3"})
 class ChangeRequestsIT extends ChangeRequestSupport {
+
+    /** Takes a request of the one-step world to the end: the approver makes the copy and gives the last approval. */
+    private static Response published(World world, String request) {
+        copied(world.approver().browser(), world.template(), request);
+        return approveWith(world.approver().browser(), approvalOfRequest(world, request), PUBLISH_CHOICE);
+    }
 
     // ---- asking ----
 
@@ -48,10 +54,11 @@ class ChangeRequestsIT extends ChangeRequestSupport {
         assertThat(JsonPath.<String>read(made.body(), "$.data.status")).isEqualTo("OPEN");
         assertThat(JsonPath.<Boolean>read(made.body(), "$.data.mine")).isTrue();
         assertThat(JsonPath.<Boolean>read(made.body(), "$.data.canComment")).isTrue();
-        assertThat(JsonPath.<Boolean>read(made.body(), "$.data.canTurn")).as("not before it is accepted").isFalse();
+        assertThat(JsonPath.<Boolean>read(made.body(), "$.data.canCreateCopy")).as("the asker is no reviewer")
+                .isFalse();
         assertThat(statuses(world.author().browser(), world.template())).as("no new version").containsExactly("ACTIVE");
         assertThat(JsonPath.<String>read(version(world.reader().browser(), world.template(), 1).body(),
-                "$.data.version.gridHash")).as("the version read is as it was").isEqualTo(hash);
+                "$.data.version.gridHash")).as("the revision read is as it was").isEqualTo(hash);
         assertThat(audited(world.setting().organization(), "inspection.changerequest.created")).isEqualTo(1);
     }
 
@@ -68,22 +75,17 @@ class ChangeRequestsIT extends ChangeRequestSupport {
     }
 
     @Test
-    void aPlaceThatIsNotInTheVersionReadAndAVersionNobodyMayReadAreRefusedWithoutRepeatingThem() {
+    void aPlaceThatIsNotInTheRevisionReadAndARevisionNobodyMayReadAreRefusedWithoutRepeatingThem() {
         World world = world();
-        int draft = newVersion(world.author().browser(), world.template());
 
         Response nowhere = ask(world.reader().browser(), world.template(), "A title", 1,
                 comment("zzzzzzzz", null, "Where?"));
         Response nonsense = ask(world.reader().browser(), world.template(), "A title", 99);
-        Response aDraft = ask(world.reader().browser(), world.template(), "A title", draft);
 
         assertThat(nowhere.status()).isEqualTo(400);
         assertThat(JsonPath.<List<String>>read(nowhere.body(), "$.error.fields['comments[0].place']")).hasSize(1);
         assertThat(nowhere.body()).doesNotContain("zzzzzzzz");
         assertThat(nonsense.status()).isEqualTo(400);
-        assertThat(aDraft.status()).as("a draft answers like a version that does not exist").isEqualTo(400);
-        assertThat(JsonPath.<List<String>>read(aDraft.body(), "$.error.fields.versionNo"))
-                .isEqualTo(JsonPath.<List<String>>read(nonsense.body(), "$.error.fields.versionNo"));
         assertThat(listedRequests(world.author().browser(), world.template())).isEmpty();
     }
 
@@ -112,25 +114,41 @@ class ChangeRequestsIT extends ChangeRequestSupport {
     }
 
     @Test
-    void theLimitsHold() {
+    void aRequestWithoutANumberOrWithATooLongOneIsRefusedAndNamesTheBox() {
         World world = world();
-        String first = asked(world.reader().browser(), world.template(), "One", 1);
-        asked(world.reader().browser(), world.template(), "Two", 1);
-        asked(world.reader().browser(), world.template(), "Three", 1);
+
+        Response none = askWith(world.reader().browser(), world.template(), "{\"changeRequested\":\"Walkway\"}", 1);
+        Response blank = askWith(world.reader().browser(), world.template(),
+                "{\"requestNo\":\"  \",\"changeRequested\":\"Walkway\"}", 1);
+        Response tooLong = askWith(world.reader().browser(), world.template(),
+                "{\"requestNo\":\"" + "9".repeat(31) + "\",\"changeRequested\":\"Walkway\"}", 1);
+
+        for (Response refused : List.of(none, blank, tooLong)) {
+            assertThat(refused.status()).as(refused.body()).isEqualTo(400);
+            assertThat(refused.body()).contains("register.requestNo");
+        }
+        assertThat(listedRequests(world.author().browser(), world.template())).isEmpty();
+    }
+
+    @Test
+    void theNumberOfRequestsOfATemplateHoldsEvenWhenEachOneWasAnswered() {
+        World world = world();
+        for (int i = 0; i < 3; i++) {
+            String request = asked(world.reader().browser(), world.template(), "Request " + i, 1);
+            assertThat(decline(world, request, "Not now").status()).isEqualTo(200);
+        }
 
         Response fourth = ask(world.reader().browser(), world.template(), "Four", 1);
-        assertThat(fourth.status()).as("three open requests is the most a person may have").isEqualTo(409);
-        assertThat(message(fourth)).contains("3 open requests");
 
-        // The colleague has their own allowance; the template as a whole holds six.
-        asked(world.colleague().browser(), world.template(), "Colleague one", 1);
-        asked(world.colleague().browser(), world.template(), "Colleague two", 1);
-        asked(world.colleague().browser(), world.template(), "Colleague three", 1);
-        Response seventh = ask(world.approver().browser(), world.template(), "Seven", 1);
-        assertThat(seventh.status()).as(seventh.body()).isEqualTo(409);
-        assertThat(message(seventh)).contains("most change requests");
+        assertThat(fourth.status()).as(fourth.body()).isEqualTo(409);
+        assertThat(message(fourth)).contains("most change requests");
+    }
 
-        // Five comments is the most one request holds; it has four of the five places so far.
+    @Test
+    void theNumberOfCommentsOfARequestHolds() {
+        World world = world();
+        String first = asked(world.reader().browser(), world.template(), "One", 1);
+
         for (int i = 0; i < 5; i++) {
             assertThat(add(world.reader().browser(), world.template(), first, comment(null, null, "Note " + i))
                     .status()).isEqualTo(200);
@@ -138,7 +156,8 @@ class ChangeRequestsIT extends ChangeRequestSupport {
         Response sixth = add(world.reader().browser(), world.template(), first, comment(null, null, "Note 6"));
         assertThat(sixth.status()).isEqualTo(409);
         assertThat(message(sixth)).contains("most comments");
-        Response tooMany = ask(world.approver().browser(), world.template(), "Many", 1, comment(null, null, "1"),
+        assertThat(decline(world, first, "Enough").status()).isEqualTo(200);
+        Response tooMany = ask(world.reader().browser(), world.template(), "Many", 1, comment(null, null, "1"),
                 comment(null, null, "2"), comment(null, null, "3"), comment(null, null, "4"),
                 comment(null, null, "5"));
         assertThat(tooMany.status()).as("a request starts with at most four comments").isIn(400, 409);
@@ -160,7 +179,7 @@ class ChangeRequestsIT extends ChangeRequestSupport {
         assertThat(one(world.colleague().browser(), world.template(), request).status()).isEqualTo(404);
         assertThat(add(world.colleague().browser(), world.template(), request, comment(null, null, "Hello"))
                 .status()).isEqualTo(404);
-        assertThat(reopen(world.colleague().browser(), world.template(), request).status()).isEqualTo(404);
+        assertThat(registerOf(world.colleague().browser(), world.template(), request).status()).isEqualTo(404);
         assertThat(list(world.outsider().browser(), world.template()).status()).isEqualTo(404);
     }
 
@@ -202,93 +221,59 @@ class ChangeRequestsIT extends ChangeRequestSupport {
     }
 
     @Test
-    void theApprovalAcceptsAndDeclinesAndNothingElseDoes() {
+    void onlyTheApprovalDeclinesARequestAndADeclinedRequestIsFinal() {
         World world = world();
-        String open = asked(world.reader().browser(), world.template(), "Open", 1);
         String doomed = asked(world.reader().browser(), world.template(), "Doomed", 1);
 
-        Response accepted = accept(world, open);
         Response noReason = decide(world.approver().browser(), approvalOfRequest(world, doomed), "reject", " ");
         Response declined = decline(world, doomed, "Not our decision");
+        Response again = decide(world.approver().browser(), approvalOfRequest(world, doomed), "reject", "Twice");
 
-        assertThat(accepted.status()).as(accepted.body()).isEqualTo(200);
-        assertThat(requestStatus(world.author().browser(), world.template(), open)).isEqualTo("ACCEPTED");
         assertThat(noReason.status()).as("a decline needs a reason").isGreaterThanOrEqualTo(400);
         assertThat(declined.status()).as(declined.body()).isEqualTo(200);
         assertThat(requestStatus(world.reader().browser(), world.template(), doomed)).isEqualTo("DECLINED");
-        assertThat(accept(world, doomed).status()).as("a declined request stays declined").isEqualTo(409);
-        assertThat(accept(world, open).status()).as("accepted twice").isEqualTo(409);
-        assertThat(reopen(world.author().browser(), world.template(), doomed).status())
-                .as("a declined request is final").isEqualTo(409);
-        // An accepted request still waits for its version, so it counts as open; the declined one does not.
-        assertThat(list(world.author().browser(), world.template()).body()).contains("\"openCount\":1");
+        assertThat(again.status()).as("a declined request stays declined").isGreaterThanOrEqualTo(400);
+        assertThat(requestStatus(world.reader().browser(), world.template(), doomed)).isEqualTo("DECLINED");
+        assertThat(list(world.author().browser(), world.template()).body()).contains("\"openCount\":0");
+        assertThat(ask(world.reader().browser(), world.template(), "A new one", 1).status())
+                .as("a new change may be asked for").isEqualTo(201);
     }
-    // ---- turning requests into a version ----
+
+    // ---- the revised copy and the publish ----
 
     @Test
-    void requestsAreTurnedIntoADraftThatIsACopyOfTheVersionInUseAndTheyBecomeDone() {
+    void theRevisedCopyIsACopyOfTheRevisionInUseAndOnlyThePeopleAskedToDecideMakeIt() {
         World world = world();
-        String first = asked(world.reader().browser(), world.template(), "First", 1, comment("r1", null, "Row"));
-        String second = asked(world.colleague().browser(), world.template(), "Second", 1);
-        assertThat(accept(world, first).status()).isEqualTo(200);
-        assertThat(accept(world, second).status()).isEqualTo(200);
+        String request = asked(world.reader().browser(), world.template(), "First", 1, comment("r1", null, "Row"));
 
-        Response turned = turn(world.author().browser(), world.template(), first, second);
+        assertThat(createCopy(world.reader().browser(), world.template(), request).status()).isEqualTo(403);
+        assertThat(createCopy(world.colleague().browser(), world.template(), request).status()).isEqualTo(404);
+        int copy = copied(world.approver().browser(), world.template(), request);
 
-        assertThat(turned.status()).as(turned.body()).isEqualTo(200);
-        assertThat(JsonPath.<Integer>read(turned.body(), "$.data.versionNo")).isEqualTo(2);
-        assertThat(JsonPath.<Boolean>read(turned.body(), "$.data.created")).isTrue();
-        assertThat(JsonPath.<Integer>read(turned.body(), "$.data.requests")).isEqualTo(2);
+        assertThat(copy).isEqualTo(2);
         assertThat(statuses(world.author().browser(), world.template())).containsExactly("DRAFT", "ACTIVE");
-        Response linked = one(world.reader().browser(), world.template(), first);
-        assertThat(JsonPath.<String>read(linked.body(), "$.data.status")).isEqualTo("DONE");
-        assertThat(JsonPath.<Integer>read(linked.body(), "$.data.resultingVersion")).isEqualTo(2);
-        assertThat(JsonPath.<String>read(linked.body(), "$.data.resultingVersionStatus")).isEqualTo("DRAFT");
-        assertThat(gridOf(version(world.author().browser(), world.template(), 2)))
-                .as("a copy of the version in use").isEqualTo(gridOf(version(world.author().browser(),
+        Response linked = one(world.reader().browser(), world.template(), request);
+        assertThat(JsonPath.<String>read(linked.body(), "$.data.status")).as("still being decided")
+                .isEqualTo("OPEN");
+        assertThat(gridOf(version(world.approver().browser(), world.template(), copy)))
+                .as("a copy of the revision in use").isEqualTo(gridOf(version(world.approver().browser(),
                         world.template(), 1)));
-        assertThat(turn(world.author().browser(), world.template(), first).status())
-                .as("a request already turned").isEqualTo(409);
-        assertThat(audited(world.setting().organization(), "inspection.changerequest.turned")).isEqualTo(1);
-    }
-
-    @Test
-    void aReaderCannotTurnRequestsIntoAVersionAndTheDraftIsNotSeenByReaders() {
-        World world = world();
-        String request = acceptedRequest(world, world.reader().browser(), "First", 1);
-
-        assertThat(turn(world.reader().browser(), world.template(), request).status()).isEqualTo(403);
-        assertThat(turn(world.colleague().browser(), world.template(), request).status()).isEqualTo(403);
-        assertThat(turn(world.author().browser(), world.template(), request).status()).isEqualTo(200);
-        assertThat(version(world.reader().browser(), world.template(), 2).status())
-                .as("a draft is not read by those who may only read").isEqualTo(404);
-    }
-
-    @Test
-    void aDraftThatExistsIsJoinedNotCopiedAgain() {
-        World world = world();
-        int draft = newVersion(world.author().browser(), world.template());
-        String request = acceptedRequest(world, world.reader().browser(), "First", 1);
-
-        Response turned = turn(world.author().browser(), world.template(), request);
-
-        assertThat(turned.status()).as(turned.body()).isEqualTo(200);
-        assertThat(JsonPath.<Integer>read(turned.body(), "$.data.versionNo")).isEqualTo(draft);
-        assertThat(JsonPath.<Boolean>read(turned.body(), "$.data.created")).isFalse();
-        assertThat(statuses(world.author().browser(), world.template())).containsExactly("DRAFT", "ACTIVE");
+        assertThat(version(world.reader().browser(), world.template(), copy).status())
+                .as("the copy is not read by those who may only read").isEqualTo(404);
+        assertThat(audited(world.setting().organization(), "inspection.changerequest.copied")).isEqualTo(1);
     }
 
     // ---- what happens to the comments ----
 
     @Test
-    void commentsFindTheirPlacesByIdentifierInALaterVersionAndSayWhenAPlaceIsGone() {
+    void commentsFindTheirPlacesByIdentifierInALaterRevisionAndSayWhenAPlaceIsGone() {
         World world = world();
-        String request = acceptedRequest(world, world.reader().browser(), "Two places", 1,
+        String request = asked(world.reader().browser(), world.template(), "Two places", 1,
                 comment("r1", null, "The row"), comment(null, world.column(), "The column"));
-        assertThat(turn(world.author().browser(), world.template(), request).status()).isEqualTo(200);
-        String review = editAndSend(world, 2);
-        assertThat(approve(world.approver().browser(), review).status()).isEqualTo(200);
-        assertThat(publish(world.approver().browser(), world.template(), 2, "PLANT1/PRD").status()).isEqualTo(200);
+        int copy = copied(world.approver().browser(), world.template(), request);
+        changeCopy(world.approver().browser(), world.template(), copy);
+        assertThat(approveWith(world.approver().browser(), approvalOfRequest(world, request), PUBLISH_CHOICE)
+                .status()).isEqualTo(200);
 
         Response now = one(world.reader().browser(), world.template(), request);
 
@@ -303,56 +288,43 @@ class ChangeRequestsIT extends ChangeRequestSupport {
     }
 
     @Test
-    void aRequestOnAnOlderVersionStaysAskableAboutThatVersionAfterANewOneIsPublished() {
+    void aRequestOnAnOlderRevisionStaysAskableAboutThatRevisionAfterANewOneIsPublished() {
         World world = world();
-        asked(world.reader().browser(), world.template(), "Before", 1);
-        int second = newVersion(world.author().browser(), world.template());
-        assertThat(approve(world.approver().browser(), editAndSend(world, second)).status()).isEqualTo(200);
-        assertThat(publish(world.approver().browser(), world.template(), second, "PLANT1/PRD").status())
-                .isEqualTo(200);
+        String before = asked(world.reader().browser(), world.template(), "Before", 1);
+        assertThat(published(world, before).status()).isEqualTo(200);
 
         Response late = ask(world.reader().browser(), world.template(), "After", 1, comment(null, world.column(), "x"));
 
-        assertThat(late.status()).as("the version was in use, so it may still be asked about").isEqualTo(201);
+        assertThat(late.status()).as("the revision was in use, so it may still be asked about: " + late.body())
+                .isEqualTo(201);
         assertThat(listedRequests(world.reader().browser(), world.template())).hasSize(2);
     }
 
     @Test
-    void aRejectedVersionKeepsItsCommentsAndTheRequestCanBeReopened() {
+    void aRejectedCopyKeepsTheCommentsAndTheRequestIsFinal() {
         World world = world();
-        String request = acceptedRequest(world, world.reader().browser(), "Keep me", 1,
+        String request = asked(world.reader().browser(), world.template(), "Keep me", 1,
                 comment("r1", null, "The row"));
-        assertThat(turn(world.author().browser(), world.template(), request).status()).isEqualTo(200);
-        assertThat(one(world.author().browser(), world.template(), request).body()).contains("\"canReopen\":false");
-        assertThat(reopen(world.author().browser(), world.template(), request).status())
-                .as("the version is only a draft").isEqualTo(409);
-        assertThat(reject(world.approver().browser(), editAndSend(world, 2)).status()).isEqualTo(200);
+        copied(world.approver().browser(), world.template(), request);
+        assertThat(decline(world, request, "No").status()).isEqualTo(200);
 
         Response kept = one(world.author().browser(), world.template(), request);
 
-        assertThat(JsonPath.<String>read(kept.body(), "$.data.resultingVersionStatus")).isEqualTo("REJECTED");
+        assertThat(JsonPath.<String>read(kept.body(), "$.data.status")).isEqualTo("DECLINED");
         assertThat(JsonPath.<List<String>>read(kept.body(), "$.data.comments[*].text")).containsExactly("The row");
-        assertThat(JsonPath.<Boolean>read(kept.body(), "$.data.canReopen")).isTrue();
-        Response reopened = reopen(world.author().browser(), world.template(), request);
-        assertThat(reopened.status()).as(reopened.body()).isEqualTo(200);
-        assertThat(JsonPath.<String>read(reopened.body(), "$.data.status")).as("its review already happened")
-                .isEqualTo("ACCEPTED");
-        assertThat(reopened.body()).as("a request that is accepted again names no version")
-                .doesNotContain("resultingVersion");
-        assertThat(JsonPath.<List<String>>read(reopened.body(), "$.data.comments[*].text")).containsExactly("The row");
+        assertThat(statuses(world.author().browser(), world.template())).containsExactly("REJECTED", "ACTIVE");
+        assertThat(JsonPath.<Boolean>read(kept.body(), "$.data.canComment")).isFalse();
     }
 
     @Test
-    void aRetiredTemplateTakesNoRequestsAndHasNothingToTurnInto() {
+    void aRetiredTemplateTakesNoRequests() {
         World world = world();
         String request = asked(world.reader().browser(), world.template(), "Before", 1);
         assertThat(retire(world.approver().browser(), world.template()).status()).isEqualTo(200);
 
         Response late = ask(world.reader().browser(), world.template(), "After", 1);
-        Response turned = turn(world.author().browser(), world.template(), request);
 
         assertThat(late.status()).isEqualTo(409);
-        assertThat(turned.status()).isEqualTo(409);
         assertThat(list(world.reader().browser(), world.template()).body()).contains("\"canRequest\":false");
         assertThat(one(world.reader().browser(), world.template(), request).status()).as("still readable")
                 .isEqualTo(200);
@@ -364,18 +336,18 @@ class ChangeRequestsIT extends ChangeRequestSupport {
     void theOwnerIsToldWhenARequestArrivesAndTheRequesterWhenItIsAnsweredAndNobodyIsToldOfTheirOwnAct() {
         World world = world();
 
-        String accepted = asked(world.reader().browser(), world.template(), "News", 1);
         String declined = asked(world.reader().browser(), world.template(), "Other", 1);
-        add(world.reader().browser(), world.template(), accepted, comment(null, null, "More"));
-        assertThat(accept(world, accepted).status()).isEqualTo(200);
+        add(world.reader().browser(), world.template(), declined, comment(null, null, "More"));
         assertThat(decline(world, declined, "Not now").status()).isEqualTo(200);
+        String done = asked(world.reader().browser(), world.template(), "News", 1);
+        assertThat(published(world, done).status()).isEqualTo(200);
 
         List<String> ownerSaw = JsonPath.read(world.author().browser().get("/api/v1/notifications").body(),
                 "$.data[?(@.kind=='CHANGE_REQUEST')].body");
         List<String> requesterSaw = JsonPath.read(world.reader().browser().get("/api/v1/notifications").body(),
                 "$.data[?(@.kind=='CHANGE_REQUEST')].body");
         assertThat(ownerSaw.toString()).contains("a change was asked for").contains("a comment was added");
-        assertThat(requesterSaw.toString()).contains("it was accepted").contains("it was declined");
+        assertThat(requesterSaw.toString()).contains("it was declined").contains("it was published as a new revision");
         assertThat(requesterSaw.toString()).as("nobody is told of their own act")
                 .doesNotContain("a change was asked for");
         String notices = world.author().browser().get("/api/v1/notifications").body();
@@ -386,6 +358,7 @@ class ChangeRequestsIT extends ChangeRequestSupport {
         assertThat(JsonPath.<List<String>>read(notices, "$.data[?(@.kind=='CHANGE_REQUEST')].category"))
                 .containsOnly("REQUESTS");
     }
+
     @Test
     void aPersonWhoSwitchedTheRequestNoticesOffIsNotToldAndTheRequestStillHappens() {
         World world = world();

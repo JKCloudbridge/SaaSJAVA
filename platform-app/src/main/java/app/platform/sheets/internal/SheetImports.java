@@ -5,6 +5,7 @@ import app.platform.sheets.internal.SheetGrid.RowsMode;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
 import app.platformapi.SheetVersionSummaryView;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -29,8 +30,10 @@ class SheetImports {
      *
      * @param dimension 2 when the sheet names its rows, 1 when the filler adds them
      * @param rowsMode the rows mode that goes with the dimension
+     * @param replaces the number of the draft held for a change request whose grid the file replaces in place, or 0
+     *        when the file makes a new draft
      */
-    record Plan(int dimension, RowsMode rowsMode) {
+    record Plan(int dimension, RowsMode rowsMode, int replaces) {
     }
 
     private final SheetOwners owners;
@@ -56,7 +59,12 @@ class SheetImports {
      *         most versions a sheet may have)
      */
     @Transactional(readOnly = true)
-    Plan plan(String ownerObject, UUID ownerId) {
+    Plan plan(String ownerObject, UUID ownerId, boolean replace) {
+        if (replace) {
+            SheetVersionStore.Row held = heldOrRefuse(ownerObject, ownerId);
+            SheetOwners.Reach reach = owners.reachForDraft(ownerObject, ownerId, held);
+            return shapeOf(reach, held.versionNo());
+        }
         SheetOwners.Reach reach = owners.reachForChange(ownerObject, ownerId);
         return check(reach, store.state(reach.object(), reach.id()));
     }
@@ -72,6 +80,9 @@ class SheetImports {
     @Transactional
     SheetVersionSummaryView start(String ownerObject, UUID ownerId, Plan expected,
             SpreadsheetImporter.Imported imported, String format, int fileBytes) {
+        if (expected.replaces() > 0) {
+            return replace(ownerObject, ownerId, expected, imported, format, fileBytes);
+        }
         SheetOwners.Reach reach = owners.reachForChange(ownerObject, ownerId);
         store.lock(reach.object(), reach.id());
         SheetVersionStore.State state = store.state(reach.object(), reach.id());
@@ -96,12 +107,61 @@ class SheetImports {
         return versions.summaryOf(row);
     }
 
+    /**
+     * Puts the grid of a file in the draft that is held for a change request, in place (FA8, ADR-0202): there is still
+     * only one draft, and it keeps its number. Asked again under the lock, because the world may have moved while the
+     * file was read.
+     */
+    private SheetVersionSummaryView replace(String ownerObject, UUID ownerId, Plan expected,
+            SpreadsheetImporter.Imported imported, String format, int fileBytes) {
+        SheetVersionStore.Row held = heldOrRefuse(ownerObject, ownerId);
+        SheetOwners.Reach reach = owners.reachForDraft(ownerObject, ownerId, held);
+        store.lock(reach.object(), reach.id());
+        SheetVersionStore.Row now = store.heldDraft(reach.object(), reach.id()).orElse(null);
+        if (now == null || now.versionNo() != expected.replaces() || !shapeOf(reach, now.versionNo())
+                .equals(expected)) {
+            changes.refused("import", "changed");
+            throw new ApiException(ErrorCode.CONFLICT, "The sheet changed while the file was being read. Upload the "
+                    + "file again.");
+        }
+        Optional<SheetVersionStore.Row> saved = store.updateGrid(reach.object(), reach.id(), now.versionNo(),
+                now.version(), imported.checked(), reach.userId());
+        if (saved.isEmpty()) {
+            changes.refused("import", "conflict");
+            throw new ApiException(ErrorCode.CONCURRENT_MODIFICATION);
+        }
+        int leftOut = imported.report().notes().stream().filter(entry -> entry.note().leftOut())
+                .mapToInt(ImportNote.Entry::count).sum();
+        changes.imported(reach.userId(), reach.object(), reach.id(), saved.get().versionNo(), format, fileBytes,
+                imported.checked(), leftOut);
+        return versions.summaryOf(saved.get());
+    }
+
+    private SheetVersionStore.Row heldOrRefuse(String ownerObject, UUID ownerId) {
+        owners.caller(ownerObject);
+        return store.heldDraft(ownerObject, ownerId).orElseThrow(() -> {
+            changes.refused("import", "no_held_draft");
+            return new ApiException(ErrorCode.CONFLICT, "There is no draft prepared for a change request to put the "
+                    + "file in.");
+        });
+    }
+
+    private Plan shapeOf(SheetOwners.Reach reach, int replaces) {
+        SheetVersionStore.Row first = store.first(reach.object(), reach.id()).orElseThrow();
+        return new Plan(first.dimension(), RowsMode.of(first.rowsMode()).orElseThrow(), replaces);
+    }
+
     /** Counts a refused file by a fixed code, never by what it held. */
     void refused(String code) {
         changes.refused("import", code);
     }
 
     private Plan check(SheetOwners.Reach reach, SheetVersionStore.State state) {
+        String against = versions.refusedByOwner(reach.object(), reach.id());
+        if (against != null) {
+            changes.refused("import", "owner_rule");
+            throw new ApiException(ErrorCode.CONFLICT, against);
+        }
         if (state.draft() != null) {
             changes.refused("import", "draft_exists");
             throw new ApiException(ErrorCode.CONFLICT, "A draft already exists: it is " + Revisions.words(state.draft())
@@ -113,9 +173,9 @@ class SheetImports {
                     + properties.limits().maxVersionsPerOwner() + ").");
         }
         if (state.count() == 0) {
-            return new Plan(2, RowsMode.FIXED);
+            return new Plan(2, RowsMode.FIXED, 0);
         }
         SheetVersionStore.Row first = store.first(reach.object(), reach.id()).orElseThrow();
-        return new Plan(first.dimension(), RowsMode.of(first.rowsMode()).orElseThrow());
+        return new Plan(first.dimension(), RowsMode.of(first.rowsMode()).orElseThrow(), 0);
     }
 }

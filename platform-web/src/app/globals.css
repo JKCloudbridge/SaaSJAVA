@@ -2377,6 +2377,62 @@ form + .detail-section {
   grid-column: 1 / -1;
 }
 
+/* The Document Change Register form (FA8): boxes in two columns, a label above what the box holds. */
+.register-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.register-box {
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.register-box-wide,
+.register-wide-note {
+  grid-column: 1 / -1;
+}
+
+.register-label {
+  margin-bottom: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+.register-label label {
+  font-weight: 700;
+}
+
+.register-value {
+  font-size: var(--font-size-sm);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.register-value input:not([type="checkbox"], [type="radio"], [type="file"]),
+.register-value select,
+.register-value textarea {
+  width: 100%;
+}
+
+.register-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (max-width: 40rem) {
+  .register-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .dl-label {
   margin-bottom: var(--space-1);
   color: var(--color-text-muted);
@@ -3146,6 +3202,7 @@ form + .detail-section {
 }
 
 .detail-tab {
+  position: relative;
   padding: var(--space-2) var(--space-1);
   border: 0;
   border-bottom: 2px solid transparent;
@@ -3442,15 +3499,18 @@ form + .detail-section {
   }
 }
 
-/* The mark of a template that has change requests waiting for someone (FA6E): a reading aid in the accent colour. */
+/*
+ * The mark of a template that has a change in progress (FA6E; FA8 puts it on the Change requests tab only): a small
+ * asterisk at the top right corner of the tab, close to the word, in the accent colour.
+ */
 .open-requests-mark {
-  display: inline-block;
-  margin-inline-start: var(--space-1-5);
+  position: absolute;
+  top: var(--space-0-5);
+  inset-inline-end: calc(-1 * var(--space-1));
   color: var(--color-accent);
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-md);
   font-weight: 700;
   line-height: 1;
-  vertical-align: middle;
 }
 
 /* The approvals of a template, one entry for each, newest first (FA6E): an entry opens to the same flow as the card. */

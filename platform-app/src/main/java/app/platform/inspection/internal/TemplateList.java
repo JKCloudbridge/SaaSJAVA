@@ -125,7 +125,8 @@ class TemplateList {
                 rows.add(new TemplateRow(header.id(), text(header, Templates.NAME), text(header, Templates.NUMBER),
                         text(header, Templates.CATEGORY), text(header, Templates.SUB_CATEGORY),
                         text(header, Templates.LEVEL), text(header, Templates.DOCUMENT_TYPE), isRetired, lifecycle,
-                        waiting.getOrDefault(header.id(), 0)));
+                        waiting.getOrDefault(header.id(), 0),
+                        Templates.revisionShown(header.fields(), summary.active())));
             }
         }
         boolean canCreate = decisions.can(caller.membershipId(), Templates.OBJECT, ObjectAction.CREATE).allowed();

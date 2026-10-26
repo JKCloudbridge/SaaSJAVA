@@ -398,6 +398,7 @@ function ApprovalForms({ approval, recordVersion }: { approval: RecordApproval; 
           explain={explain(acting)}
           labels={approval.labels}
           asksForChoice={summary.currentStepAsksForChoice}
+          lastStep={summary.currentStep !== undefined && summary.currentStep !== null && summary.currentStep === summary.stepCount}
           objectApiName={summary.objectApiName}
           recordId={summary.recordId}
           onClose={() => setActing(undefined)}

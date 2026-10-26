@@ -21,7 +21,7 @@ import {
 } from "@/lib/sheets/api";
 import { explainPlace, hintsFor, problemsFromFields } from "@/lib/sheets/hints";
 import { defaultVersion, useVersion, useVersions } from "@/lib/sheets/hooks";
-import { revisionWords } from "@/lib/sheets/revision";
+import { revisionWords, versionTitle } from "@/lib/sheets/revision";
 import { isDraft, statusTag } from "@/lib/sheets/tags";
 import type { GridDoc, Problem, SheetLimits } from "@/lib/sheets/types";
 import { FormView } from "./FormView";
@@ -31,6 +31,15 @@ import { useNarrowScreen } from "./useNarrowScreen";
 import { useSheetEditor } from "./useSheetEditor";
 import { UploadSheet } from "./UploadSheet";
 import { VersionList } from "./VersionList";
+
+/**
+ * What a version is called at the start of a sentence: its revision once it was in use, else "This copy" (a draft, a copy in
+ * review and a copy that was rejected are not revisions, so "Draft is a draft" and the like are never written).
+ */
+function sentenceName(summary: { versionNo: number; status: string; revisionNo?: number | null }): string {
+  const title = versionTitle(summary);
+  return title.startsWith("Revision ") ? title : "This copy";
+}
 
 export interface SheetWorkspaceProps {
   /** The record the sheet belongs to. */
@@ -75,6 +84,14 @@ export interface SheetWorkspaceProps {
   footer?: string | ((versionNo: number) => string);
   /** Extra buttons beside View for the revision that is open (a download, for a caller that offers one). */
   actions?: (open: { versionNo: number }) => ReactNode;
+  /**
+   * False hides every way to start a new draft by hand: a sheet whose owner takes its new revisions from somewhere else
+   * (a change request, FA8) offers none, and the server refuses one anyway. The first draft of a sheet that has none is
+   * not affected. Default true.
+   */
+  allowNewDraft?: boolean;
+  /** The version to open first (FA8: the revised copy of a change request). */
+  focusVersion?: number;
 }
 
 interface Notice {
@@ -102,10 +119,12 @@ export function SheetWorkspace({
   toolbarSlot,
   footer,
   actions,
+  allowNewDraft = true,
+  focusVersion,
 }: SheetWorkspaceProps) {
   const owner = useMemo<SheetOwner>(() => ({ object: given.object, id: given.id }), [given.object, given.id]);
   const { state, reload } = useVersions(owner);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<number | null>(focusVersion ?? null);
   const [pending, setPending] = useState<number | null>(null);
   const [dirty, setDirty] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -202,7 +221,7 @@ export function SheetWorkspace({
     );
   }
 
-  const { canChange, limits } = state.view;
+  const { canChange, limits, canChangeHeld } = state.view;
   const draft = versions.find((entry) => isDraft(entry.status));
 
   return (
@@ -282,14 +301,16 @@ export function SheetWorkspace({
             versions={versions}
             current={listFirst ? 0 : current}
             onOpen={open}
-            onStartFrom={canChange && !draft ? (no) => void start({ basedOn: no }) : undefined}
+            onStartFrom={allowNewDraft && canChange && !draft ? (no) => void start({ basedOn: no }) : undefined}
           />
-          {canChange && draft ? (
+          {(canChange || canChangeHeld) && draft ? (
             <p className="hint">
-              {revisionWords(draft.versionNo)} is a draft. Only one draft can exist at a time: continue with it, or save it first.
+              {draft.held
+                ? "The draft is the revised copy of a change request. Only the people asked to decide the request change it; it becomes the next revision when the last step approves."
+                : "This is a draft. Only one draft can exist at a time: continue with it, or save it first."}
             </p>
           ) : null}
-          {canChange && !draft ? (
+          {allowNewDraft && canChange && !draft ? (
             <div className="split">
               <button type="button" className="button button-secondary" onClick={() => void start({})} disabled={starting}>
                 {startLabel ?? (versions.some((entry) => entry.status === "ACTIVE") ? "Start a new revision from the active one" : "Start a new revision")}
@@ -325,6 +346,7 @@ export function SheetWorkspace({
           initial={fromApi(version.version.grid)}
           limits={limits}
           canChange={canChange}
+          canChangeHeld={canChangeHeld}
           correctInReview={correctInReview}
           annotate={annotate}
           onBack={listFirst ? backToList : undefined}
@@ -347,6 +369,7 @@ function VersionEditor({
   initial,
   limits,
   canChange,
+  canChangeHeld,
   correctInReview,
   annotate,
   onBack,
@@ -363,6 +386,7 @@ function VersionEditor({
   initial: GridDoc;
   limits: SheetLimits;
   canChange: boolean;
+  canChangeHeld: boolean;
   correctInReview: boolean;
   annotate: SheetAnnotate | undefined;
   onBack?: () => void;
@@ -393,16 +417,20 @@ function VersionEditor({
   // server audits and counts each one. Only drawn editable when the screen believes the member may; the server decides.
   const inReview = summary.status === "IN_REVIEW";
   const correcting = inReview && canChange && correctInReview;
-  const readOnly = !canChange || !(draft || correcting);
+  // A draft held for a change request is changed by the people asked to decide it, not by whoever may change the record.
+  const mayEdit = draft && summary.held ? canChangeHeld : canChange;
+  const readOnly = !mayEdit || !(draft || correcting);
   const tag = statusTag(summary.status);
   const readOnlyReason = annotating
-    ? `You are reading ${revisionWords(summary.versionNo).toLowerCase()}, which is in use and cannot be changed here. To ask for a change, stand on a place in the grid and press Ask for a change.`
+    ? `You are reading ${versionTitle(summary).toLowerCase()}, which is in use and cannot be changed here. To ask for a change, stand on a place in the grid and press Ask for a change.`
     : !(draft || correcting)
     ? inReview
-      ? `${revisionWords(summary.versionNo)} is in review. Only the people who approve it can correct it; everyone else reads it.`
-      : `${revisionWords(summary.versionNo)} is ${tag.text.toLowerCase()} and cannot be changed. Start a new revision from it to make changes.`
-    : !canChange
-      ? "You can read this sheet but not change it."
+      ? `${sentenceName(summary)} is in review. Only the people who approve it can correct it; everyone else reads it.`
+      : `${sentenceName(summary)} is ${tag.text.toLowerCase()} and cannot be changed.`
+    : !mayEdit
+      ? summary.held
+        ? "This is the revised copy of a change request. Only the people asked to decide the request can change it."
+        : "You can read this sheet but not change it."
       : narrow
         ? "On a narrow screen the grid is for reading. Build in the form view, or use a wider screen."
         : undefined;
@@ -515,6 +543,17 @@ function VersionEditor({
           View
         </button>
         {actions ? actions({ versionNo: summary.versionNo }) : null}
+        {draft && summary.held && canChangeHeld ? (
+          <UploadSheet
+            owner={owner}
+            label="Replace from a spreadsheet"
+            replace
+            onSaved={() => {
+              onSaved();
+              onReload();
+            }}
+          />
+        ) : null}
       </div>
       {readOnly ? null : (
         <div className="sheet-bar-actions">
@@ -587,7 +626,7 @@ function VersionEditor({
             editor={editor}
             readOnly={gridReadOnly}
             readOnlyReason={!readOnly && narrow ? readOnlyReason : undefined}
-            label={`${label}, ${revisionWords(summary.versionNo).toLowerCase()}`}
+            label={`${label}, ${versionTitle(summary).toLowerCase()}`}
             footer={footerText}
             annotation={
               annotating && annotate ? { marks: annotate.marks, onActivate: () => setActivations((n) => n + 1) } : undefined
@@ -600,7 +639,7 @@ function VersionEditor({
         <SheetPrintView
           doc={editor.doc}
           footer={footerText ?? ""}
-          label={`${label}, ${revisionWords(summary.versionNo).toLowerCase()}`}
+          label={`${label}, ${versionTitle(summary).toLowerCase()}`}
           onClose={() => setViewing(false)}
         />
       ) : null}

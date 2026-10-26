@@ -28,6 +28,7 @@ function summary(versionNo: number, status: string): VersionSummary {
     createdAt: "2026-10-22T08:00:00Z",
     updatedAt: "2026-10-22T09:00:00Z",
     reviewEdits: 0,
+    held: false,
   };
 }
 

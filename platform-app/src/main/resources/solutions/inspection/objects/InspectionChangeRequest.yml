@@ -41,7 +41,7 @@ fields:
 
   - apiName: status
     label: Status
-    description: Open, accepted, declined or done. A copy that follows the request; the request itself decides.
+    description: Open, declined or done (published). A copy that follows the request; the request itself decides.
     type: TEXT
     platformWritten: true
     indexed: true

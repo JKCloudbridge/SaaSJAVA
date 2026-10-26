@@ -10,8 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;
 
 /**
- * The asterisk of a template (FA6E, ADR-0199): the number of change requests that still wait for someone (open, or
- * accepted and not yet made into a version) is on the master list and on the lifecycle of a template, counted as far as
+ * The asterisk of a template (FA6E, ADR-0199): the number of change requests that still wait for someone (there is
+ * at most one on a template: it is open until it is published or declined) is on the master list and on the lifecycle
+ * of a template, counted as far as
  * the person asking may see the requests. It is a reading aid; it decides nothing.
  */
 @PlatformIntegrationTest
@@ -43,22 +44,25 @@ class TemplateOpenRequestsIT extends ChangeRequestReviewSupport {
     }
 
     @Test
-    void anAcceptedRequestStillCountsUntilItIsTurnedIntoAVersionAndADeclinedOneDoesNot() {
+    void aDeclinedRequestAndAPublishedOneNoLongerCountAndTheNextOneDoes() {
         World world = world();
-        String accepted = asked(world.reader().browser(), world.template(), "Accepted", 1);
         String declined = asked(world.reader().browser(), world.template(), "Declined", 1);
 
-        assertThat(onList(world.author().browser(), world.template())).isEqualTo(2);
-        assertThat(accept(world, accepted).status()).isEqualTo(200);
+        assertThat(onList(world.author().browser(), world.template())).isEqualTo(1);
         assertThat(decline(world, declined, "No").status()).isEqualTo(200);
-        assertThat(onList(world.author().browser(), world.template())).as("accepted waits for its version")
-                .isEqualTo(1);
+        assertThat(onList(world.author().browser(), world.template())).as("declined does not wait").isZero();
+        assertThat(onLifecycle(world.author().browser(), world.template())).isZero();
+
+        String published = asked(world.reader().browser(), world.template(), "Published", 1);
         assertThat(onLifecycle(world.author().browser(), world.template())).isEqualTo(1);
+        copied(world.approver().browser(), world.template(), published);
+        assertThat(onLifecycle(world.author().browser(), world.template())).as("a copy is still a request in progress")
+                .isEqualTo(1);
+        assertThat(approveWith(world.approver().browser(), approvalOfRequest(world, published), PUBLISH_CHOICE)
+                .status()).isEqualTo(200);
 
-        assertThat(turn(world.author().browser(), world.template(), accepted).status()).isEqualTo(200);
-
-        assertThat(onList(world.author().browser(), world.template())).as("done does not wait").isEqualTo(0);
-        assertThat(onLifecycle(world.author().browser(), world.template())).isEqualTo(0);
+        assertThat(onList(world.author().browser(), world.template())).as("done does not wait").isZero();
+        assertThat(onLifecycle(world.author().browser(), world.template())).isZero();
     }
 
     @Test

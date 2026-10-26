@@ -25,6 +25,11 @@ export interface UploadSheetProps {
   /** Called with the new draft once it is saved. */
   onSaved(version: VersionSummary): void;
   disabled?: boolean;
+  /**
+   * True to put the grid of the file in the draft that is held for a change request, in place (FA8): there is still only
+   * one draft and it keeps its number.
+   */
+  replace?: boolean;
 }
 
 type Phase =
@@ -40,7 +45,15 @@ type Phase =
  * server names, and decides nothing: the kind of file and the size are checked here only to spare a long upload; the
  * server checks the bytes again and a refusal is shown as it is.
  */
-export function UploadSheet({ owner, label, firstVersion = false, maxBytes, onSaved, disabled = false }: UploadSheetProps) {
+export function UploadSheet({
+  owner,
+  label,
+  firstVersion = false,
+  maxBytes,
+  onSaved,
+  disabled = false,
+  replace = false,
+}: UploadSheetProps) {
   const inputId = useId();
   const input = useRef<HTMLInputElement>(null);
   const latest = useRef(0);
@@ -51,7 +64,7 @@ export function UploadSheet({ owner, label, firstVersion = false, maxBytes, onSa
   const preview = async (blob: File, kind: FileKind, labels: boolean) => {
     const ticket = ++latest.current;
     setPhase({ step: "reading" });
-    const outcome = await importSpreadsheet(owner, blob, { format: kind, firstRowLabels: labels, preview: true });
+    const outcome = await importSpreadsheet(owner, blob, { format: kind, firstRowLabels: labels, preview: true, replace });
     if (ticket !== latest.current) {
       return;
     }
@@ -92,7 +105,7 @@ export function UploadSheet({ owner, label, firstVersion = false, maxBytes, onSa
     }
     const ticket = ++latest.current;
     setPhase({ step: "saving", report: phase.report });
-    const outcome = await importSpreadsheet(owner, file.blob, { format: file.kind, firstRowLabels, preview: false });
+    const outcome = await importSpreadsheet(owner, file.blob, { format: file.kind, firstRowLabels, preview: false, replace });
     if (ticket !== latest.current) {
       return;
     }
@@ -194,7 +207,7 @@ export function UploadSheet({ owner, label, firstVersion = false, maxBytes, onSa
             ) : null}
             <div className="split">
               <button type="button" className="button" disabled={phase.step !== "ready"} onClick={() => void save()}>
-                {phase.step === "saving" ? "Saving…" : "Save as a new draft"}
+                {phase.step === "saving" ? "Saving…" : replace ? "Replace the revised copy" : "Save as a new draft"}
               </button>
               <button type="button" className="button button-secondary" onClick={close}>
                 Cancel

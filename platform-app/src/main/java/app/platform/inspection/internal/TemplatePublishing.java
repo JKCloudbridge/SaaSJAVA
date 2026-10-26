@@ -12,6 +12,7 @@ import app.platform.data.RecordShares;
 import app.platform.inspection.internal.DepartmentAudiences.Resolved;
 import app.platform.inspection.internal.TemplateAccess.Caller;
 import app.platform.inspection.internal.TemplateViews.AudienceOptionsView;
+import app.platform.inspection.internal.TemplateViews.AudiencePick;
 import app.platform.inspection.internal.TemplateOptionStore.Options;
 import app.platform.inspection.internal.TemplateViews.PublishTemplateRequest;
 import app.platform.inspection.internal.TemplateViews.SheetOptionsRequest;
@@ -23,6 +24,7 @@ import app.platform.inspection.internal.TemplateViews.VersionReview;
 import app.platform.security.Ability;
 import app.platform.security.Grantee;
 import app.platform.security.GroupMembers;
+import app.platform.sharedkernel.approval.RecordLocks;
 import app.platform.sharedkernel.audit.AuditOutcome;
 import app.platform.sharedkernel.audit.AuditRecord;
 import app.platform.sharedkernel.audit.AuditRecorder;
@@ -32,6 +34,7 @@ import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -80,11 +83,16 @@ class TemplatePublishing {
     private final ChangeRequestCounts requestCounts;
     private final AudienceSuggestions suggestions;
     private final TemplateOptionStore optionStore;
+    private final TemplateRevisions revisions;
+    private final RecordLocks locks;
 
     TemplatePublishing(TemplateAccess access, PublicationStore store, SheetLifecycle sheets, RecordShares shares,
             DepartmentAudiences audiences, BackgroundRecords records, BackgroundWrites writes, GroupMembers groups,
             AuditRecorder audit, TenantContexts contexts, MeterRegistry meters, NumberSeries numbers,
-            ChangeRequestCounts requestCounts, AudienceSuggestions suggestions, TemplateOptionStore optionStore) {
+            ChangeRequestCounts requestCounts, AudienceSuggestions suggestions, TemplateOptionStore optionStore,
+            TemplateRevisions revisions, RecordLocks locks) {
+        this.revisions = revisions;
+        this.locks = locks;
         this.suggestions = suggestions;
         this.optionStore = optionStore;
         this.access = access;
@@ -159,8 +167,9 @@ class TemplatePublishing {
                 refuse("publish", refusal.reason().name().toLowerCase(Locale.ROOT));
                 throw new ApiException(ErrorCode.CONFLICT, refusal.getMessage());
             }
+            stampRevision(templateId, wanted);
         }
-        Counts counts = shareWith(caller, templateId, wanted, resolved);
+        Counts counts = shareWith(caller.userId(), templateId, wanted, resolved);
         Options options = changedOptions(templateId, request.viewOnly(), request.allowDownload(), caller);
         audit.record(base("inspection.template.published", caller, templateId).with("version_no",
                 Integer.toString(wanted)).with("replaced", Integer.toString(replaced))
@@ -169,7 +178,63 @@ class TemplatePublishing {
                 .with("view_only", Boolean.toString(options.viewOnly()))
                 .with("allow_download", Boolean.toString(options.allowDownload())));
         meters.counter("platform.inspection.template", "act", "publish", "result", "ok").increment();
-        return view(caller, templateId, header);
+        return view(caller, templateId, header(templateId));
+    }
+
+    /**
+     * The result of publishing a revised sheet.
+     *
+     * @param revision the revision number the version now has
+     * @param replaced the number of the version that was replaced, or 0
+     * @param sharesMade how many shares the publish made
+     */
+    record Published(int revision, int replaced, int sharesMade) {
+    }
+
+    /**
+     * Makes the revised sheet of a change request the revision in use, in the transaction of the last approval (FA8,
+     * ADR-0202). The caller has decided the act: it holds the Publisher policy and the version is the approved copy.
+     * The
+     * revision number is the database's (the next after the highest before it), the audience and the two options are
+     * those of the window of the last approval, and the template record keeps the revision and the moment, which only
+     * this path and {@link #publish} write.
+     *
+     * @throws ApiException {@code VALIDATION_ERROR} (a department with no group, several, a removed group or one with
+     * no
+     *         members)
+     * @throws SheetMoveRefusal when the version is not an approved one
+     */
+    Published publishRevised(UUID templateId, int versionNo, UUID actor, List<AudiencePick> picks, boolean viewOnly,
+            boolean allowDownload) {
+        store.lock(templateId);
+        List<Resolved> resolved = audiences.resolve(picks);
+        int replaced = sheets.publish(Templates.OBJECT, templateId, versionNo, actor);
+        Counts counts = shareWith(actor, templateId, versionNo, resolved);
+        optionStore.set(templateId, new Options(viewOnly, allowDownload), actor);
+        int revision = stampRevision(templateId, versionNo);
+        audit.record(base("inspection.template.published", actor, templateId)
+                .with("version_no", Integer.toString(versionNo)).with("replaced", Integer.toString(replaced))
+                .with("audiences", Integer.toString(resolved.size()))
+                .with("shares_made", Integer.toString(counts.made()))
+                .with("shares_ended", Integer.toString(counts.ended()))
+                .with("view_only", Boolean.toString(viewOnly)).with("allow_download", Boolean.toString(allowDownload)));
+        meters.counter("platform.inspection.template", "act", "publish", "result", "ok").increment();
+        return new Published(revision, replaced, counts.made());
+    }
+
+    /**
+     * Saves the revision now in use and the moment it was published on the template record, through the one reviewed
+     * path of the platform writes. A record locked by a waiting approval is left as it is: the revision number is the
+     * sheet own and the screens read it from there when the record does not say.
+     */
+    private int stampRevision(UUID templateId, int versionNo) {
+        int revision = revisions.of(templateId, versionNo);
+        if (!locks.locked(Templates.OBJECT, templateId)) {
+            writes.update(Source.solution("revision", templateId), Templates.OBJECT, templateId, List.of(
+                    new Assignment(Templates.REVISION, new Value.Literal(TemplateRevisions.show(revision))),
+                    new Assignment(Templates.LAST_REVISED_AT, new Value.Literal(Instant.now().toString()))));
+        }
+        return revision;
     }
 
     /** Takes the template back from the people: the version in use is approved again and its shares are removed. */
@@ -268,7 +333,7 @@ class TemplatePublishing {
      * Brings the shares to the groups asked for. A group published to and not asked for any more is taken back; a group
      * asked for that is not yet published to is shared with; a group in both stays and its row follows the version.
      */
-    private Counts shareWith(Caller caller, UUID templateId, int version, List<Resolved> resolved) {
+    private Counts shareWith(UUID actor, UUID templateId, int version, List<Resolved> resolved) {
         Map<UUID, Resolved> desired = new LinkedHashMap<>();
         resolved.forEach(one -> desired.putIfAbsent(one.groupId(), one));
         int made = 0;
@@ -278,12 +343,12 @@ class TemplatePublishing {
             if (desired.containsKey(row.groupId())) {
                 already.add(row.groupId());
                 if (row.versionNo() != version) {
-                    store.moveVersion(row.id(), version, caller.userId());
+                    store.moveVersion(row.id(), version, actor);
                 }
             } else {
-                store.revoke(row.id(), "changed", caller.userId());
+                store.revoke(row.id(), "changed", actor);
                 if (row.madeShare() && shares.revoke(Templates.OBJECT, templateId,
-                    new Grantee(Grantee.Kind.GROUP, row.groupId()), caller.userId())) {
+                    new Grantee(Grantee.Kind.GROUP, row.groupId()), actor)) {
                     ended++;
                 }
             }
@@ -293,10 +358,10 @@ class TemplatePublishing {
                 continue;
             }
             RecordShares.Granted granted = shares.grantRead(Templates.OBJECT, templateId,
-                    new Grantee(Grantee.Kind.GROUP, one.groupId()), caller.userId());
+                    new Grantee(Grantee.Kind.GROUP, one.groupId()), actor);
             boolean madeIt = granted == RecordShares.Granted.CREATED;
             store.insert(templateId, version, one.pick().location(), one.pick().department(), one.groupId(), madeIt,
-                    caller.userId());
+                    actor);
             if (madeIt) {
                 made++;
             }
@@ -355,7 +420,8 @@ class TemplatePublishing {
                 mayPublishNow && !retired, mayPublish && summary.active() > 0,
                 mayRetire && !retired, start.orElse(null), whole.isPresent(), waiting, reviews, suggested, dropped,
                 Templates.isBlank(number) ? null : number.toString(), options.viewOnly(), options.allowDownload(),
-                options.allowDownload() || mayPublish, mayPublish);
+                options.allowDownload() || mayPublish, mayPublish,
+                Templates.revisionShown(header.fields(), summary.active()), Templates.lastRevisedAt(header.fields()));
     }
 
     private List<SuggestedAudience> suggestedViews(List<AudienceChoices.Place> places) {
@@ -415,7 +481,11 @@ class TemplatePublishing {
     }
 
     private AuditRecord base(String type, Caller caller, UUID templateId) {
-        return AuditRecord.of(type, AuditOutcome.SUCCESS).forUser(caller.userId())
+        return base(type, caller.userId(), templateId);
+    }
+
+    private AuditRecord base(String type, UUID actor, UUID templateId) {
+        return AuditRecord.of(type, AuditOutcome.SUCCESS).forUser(actor)
                 .inTenant(contexts.require().tenantId()).onObject(Templates.OBJECT, templateId.toString());
     }
 

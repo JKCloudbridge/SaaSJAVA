@@ -196,6 +196,8 @@ A template of the Audit maintenance application. Its records are kept for good.
 | `partCode` | Part code | TEXT |  |  | up to 10 characters |
 | `planYear` | Plan year | TEXT |  |  | up to 4 characters |
 | `number` | Number | TEXT |  | yes | up to 40 characters; written by the platform only |
+| `revision` | Revision | TEXT |  |  | up to 10 characters; written by the platform only |
+| `lastRevisedAt` | Last revised on | TEXT |  |  | up to 40 characters; written by the platform only |
 
 ## LicenceType
 

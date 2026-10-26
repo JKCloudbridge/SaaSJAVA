@@ -35,8 +35,8 @@ class ChangeRequestListIT extends ChangeRequestReviewSupport {
     void eachPersonSeesTheirOwnRequestsAndThePeopleWhoMayChangeTheTemplateSeeEveryRequest() {
         World world = world();
         String alpha = asked(world.reader().browser(), world.template(), "Alpha wording", 1);
-        String beta = asked(world.colleague().browser(), world.template(), "Beta wording", 1);
-        String gamma = asked(world.reader().browser(), world.template(), "Gamma wording", 1);
+        String beta = asked(world.colleague().browser(), anotherPublished(world), "Beta wording", 1);
+        String gamma = asked(world.reader().browser(), anotherPublished(world), "Gamma wording", 1);
 
         assertThat(ids(queryRequests(world.reader().browser(), "{}"))).containsExactlyInAnyOrder(alpha, gamma);
         assertThat(ids(queryRequests(world.colleague().browser(), "{}"))).containsExactly(beta);
@@ -70,7 +70,7 @@ class ChangeRequestListIT extends ChangeRequestReviewSupport {
     void theSearchMatchesTheTitleAndTheNameOfThePersonWhoAskedAndNothingElse() {
         World world = world();
         String alpha = asked(world.reader().browser(), world.template(), "Alpha wording", 1);
-        String beta = asked(world.colleague().browser(), world.template(), "Beta wording", 1);
+        String beta = asked(world.colleague().browser(), anotherPublished(world), "Beta wording", 1);
         String readerName = JsonPath.read(one(world.approver().browser(), world.template(), alpha).body(),
                 "$.data.requesterName");
 
@@ -88,18 +88,19 @@ class ChangeRequestListIT extends ChangeRequestReviewSupport {
     void theOrderAndTheStatusNarrowingAreTheServers() {
         World world = world();
         String first = asked(world.reader().browser(), world.template(), "First", 1);
-        String second = asked(world.colleague().browser(), world.template(), "Second", 1);
-        assertThat(accept(world, second).status()).isEqualTo(200);
+        String otherTemplate = anotherPublished(world);
+        String second = asked(world.colleague().browser(), otherTemplate, "Second", 1);
+        assertThat(decline(on(world, otherTemplate), second, "Not now").status()).isEqualTo(200);
 
         assertThat(ids(queryRequests(world.approver().browser(), "{}"))).as("newest first by default")
                 .containsExactly(second, first);
         assertThat(ids(queryRequests(world.approver().browser(), "{\"sort\":\"date\",\"descending\":false}")))
                 .containsExactly(first, second);
         assertThat(ids(queryRequests(world.approver().browser(), "{\"sort\":\"status\",\"descending\":false}")))
-                .as("accepted comes before open").containsExactly(second, first);
+                .as("declined comes before open").containsExactly(second, first);
         assertThat(ids(queryRequests(world.approver().browser(), "{\"sort\":\"status\",\"descending\":true}")))
                 .containsExactly(first, second);
-        assertThat(ids(queryRequests(world.approver().browser(), "{\"status\":\"ACCEPTED\"}"))).containsExactly(second);
+        assertThat(ids(queryRequests(world.approver().browser(), "{\"status\":\"DECLINED\"}"))).containsExactly(second);
         assertThat(ids(queryRequests(world.approver().browser(), "{\"sort\":\"version\"}"))).hasSize(2);
         assertThat(queryRequests(world.approver().browser(), "{\"sort\":\"bogus\"}").status()).isEqualTo(400);
         assertThat(queryRequests(world.approver().browser(), "{\"status\":\"BOGUS\"}").status()).isEqualTo(400);
@@ -111,7 +112,7 @@ class ChangeRequestListIT extends ChangeRequestReviewSupport {
         Set<String> all = new HashSet<>();
         for (int i = 0; i < 5; i++) {
             TestBrowser who = i % 2 == 0 ? world.reader().browser() : world.colleague().browser();
-            all.add(asked(who, world.template(), "Wording " + i, 1));
+            all.add(asked(who, i == 0 ? world.template() : anotherPublished(world), "Wording " + i, 1));
         }
 
         Set<String> seen = new HashSet<>();

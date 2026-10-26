@@ -142,7 +142,7 @@ class SheetLimitsIT extends SheetSupport {
         Response refused = startFrom(browser, owner, null);
 
         assertThat(refused.status()).as(refused.body()).isEqualTo(409);
-        assertThat(JsonPath.<String>read(refused.body(), "$.error.message")).contains("most versions").contains("3");
+        assertThat(JsonPath.<String>read(refused.body(), "$.error.message")).contains("most revisions").contains("3");
         assertThat(countRows(setting.organization(), owner)).isEqualTo(3);
     }
 }

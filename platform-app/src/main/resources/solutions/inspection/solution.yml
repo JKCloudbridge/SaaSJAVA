@@ -58,7 +58,7 @@ accessPolicies:
     fields:
       InspectionTemplate:
         edit: [name, level, documentType]
-        read: [id, category, subCategory, partCode, planYear, number, retired, createdAt, updatedAt, ownerId,
+        read: [id, category, subCategory, partCode, planYear, number, retired, revision, lastRevisedAt, createdAt, updatedAt, ownerId,
                 createdById, updatedById]
       InspectionChangeRequest:
         read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
@@ -75,7 +75,7 @@ accessPolicies:
     fields:
       InspectionTemplate:
         edit: [name, level, documentType, category, subCategory, partCode, planYear]
-        read: [id, number, retired, createdAt, updatedAt, ownerId, createdById, updatedById]
+        read: [id, number, retired, revision, lastRevisedAt, createdAt, updatedAt, ownerId, createdById, updatedById]
       InspectionFill:
         read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
       InspectionChangeRequest:
@@ -90,7 +90,7 @@ accessPolicies:
       - sheets.retire
     fields:
       InspectionTemplate:
-        read: [id, name, number, level, documentType, category, subCategory, partCode, planYear, retired, createdAt, updatedAt, ownerId,
+        read: [id, name, number, level, documentType, category, subCategory, partCode, planYear, retired, revision, lastRevisedAt, createdAt, updatedAt, ownerId,
                 createdById, updatedById]
   - key: reader
     name: Reader
@@ -100,7 +100,7 @@ accessPolicies:
       InspectionChangeRequest: [read]
     fields:
       InspectionTemplate:
-        read: [id, name, number, level, documentType, category, subCategory, partCode, planYear, retired, createdAt, updatedAt, ownerId,
+        read: [id, name, number, level, documentType, category, subCategory, partCode, planYear, retired, revision, lastRevisedAt, createdAt, updatedAt, ownerId,
                 createdById, updatedById]
       InspectionChangeRequest:
         read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
@@ -115,7 +115,7 @@ accessPolicies:
       - sheets.fill
     fields:
       InspectionTemplate:
-        read: [id, name, number, level, documentType, category, subCategory, partCode, planYear, retired, createdAt, updatedAt, ownerId,
+        read: [id, name, number, level, documentType, category, subCategory, partCode, planYear, retired, revision, lastRevisedAt, createdAt, updatedAt, ownerId,
                 createdById, updatedById]
       InspectionFill:
         read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]

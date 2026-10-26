@@ -22,6 +22,8 @@ enum ImportNote {
             "left empty (a merged area keeps the text of its top left cell only)"),
     ROWS_NOT_KEPT(true, "row", "rows",
             "left out (in this sheet the person who fills it in adds the rows)"),
+    FOOTER_ROW(true, "footer row", "footer rows",
+            "left out (the platform adds it when it shows or downloads a sheet)"),
     FORMULAS(false, "formula", "formulas", "read as its last value"),
     DATES(false, "date", "dates", "written year-month-day");
 

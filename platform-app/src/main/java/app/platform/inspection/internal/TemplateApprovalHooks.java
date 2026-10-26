@@ -93,7 +93,7 @@ class TemplateApprovalHooks implements ApprovalHooks {
     public void beforeApprove(DecisionContext context, ApprovalHookWriter writer) {
         if (context.asksForChoice()) {
             // A step the process marks as asking for a choice: no approval without a location (FA6G, ADR-0200).
-            suggestions.accept(context);
+            suggestions.accept(context, context.recordId());
         }
         DataRecord template = template(context.recordId());
         if (!Templates.isBlank(template.fields().get(Templates.NUMBER))) {

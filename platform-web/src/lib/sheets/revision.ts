@@ -16,12 +16,61 @@ export function revisionWords(stored: number): string {
 }
 
 /**
+ * The revision number of a version as people read it (FA8, ADR-0202). The server gives a version its revision number when
+ * it first becomes the one in use, so a copy that was rejected never uses one and the numbers have no gaps; a version that
+ * was in use before numbers were stored has none and is read as its stored number minus one.
+ */
+export function revisionOf(summary: { versionNo: number; revisionNo?: number | null }): string {
+  return summary.revisionNo === undefined || summary.revisionNo === null
+    ? revisionNumber(summary.versionNo)
+    : String(Math.max(0, summary.revisionNo)).padStart(2, "0");
+}
+
+/** `Revision 01` for a version that has a revision number (or was in use); see {@link revisionOf}. */
+export function revisionWordsOf(summary: { versionNo: number; revisionNo?: number | null }): string {
+  return `Revision ${revisionOf(summary)}`;
+}
+
+/**
+ * What a version is called in a list: its revision once it was in use; before that, what it is, since a revised copy is not
+ * a revision until it is published (a copy that is rejected never becomes one).
+ */
+export function versionTitle(summary: { versionNo: number; status: string; revisionNo?: number | null }): string {
+  if (summary.revisionNo !== undefined && summary.revisionNo !== null) {
+    return revisionWordsOf(summary);
+  }
+  switch (summary.status) {
+    case "ACTIVE":
+    case "SUPERSEDED":
+    case "RETIRED":
+      return revisionWordsOf(summary);
+    case "DRAFT":
+      return "Draft";
+    case "IN_REVIEW":
+      return "In review";
+    case "APPROVED":
+      return "Approved, not published";
+    case "REJECTED":
+      return "Rejected copy";
+    case "WITHDRAWN":
+      return "Withdrawn copy";
+    default:
+      return revisionWordsOf(summary);
+  }
+}
+
+/**
  * The name a downloaded sheet is saved under: the template number and the revision, a slash of the number becoming a
  * hyphen (`F-MR-16_Rev00.xlsx`). The server offers the same name; this one is used when the browser saves the file.
  */
 export function downloadName(number: string | null | undefined, stored: number): string {
+  return downloadNameFor(number, revisionNumber(stored));
+}
+
+/** As {@link downloadName}, for a revision that is already written with its digits (FA8). */
+export function downloadNameFor(number: string | null | undefined, revision: string): string {
   const base = number === null || number === undefined || number.trim() === "" ? "Template" : number.trim().replace(/[^A-Za-z0-9._-]/g, "-");
-  return `${base}_Rev${revisionNumber(stored)}.xlsx`;
+  return `${base}_Rev${revision}.xlsx`;
 }
 
 /**
@@ -30,8 +79,13 @@ export function downloadName(number: string | null | undefined, stored: number):
  * sheet is shown, printed and downloaded; it is never part of the stored grid.
  */
 export function footerText(number: string | null | undefined, stored: number): string {
+  return footerTextFor(number, revisionNumber(stored));
+}
+
+/** As {@link footerText}, for a revision that is already written with its digits (FA8). */
+export function footerTextFor(number: string | null | undefined, revision: string): string {
   if (number === null || number === undefined || number.trim() === "") {
     return "";
   }
-  return `${number.trim()}  Rev No.'${revisionNumber(stored)}'`;
+  return `${number.trim()}  Rev No.'${revision}'`;
 }

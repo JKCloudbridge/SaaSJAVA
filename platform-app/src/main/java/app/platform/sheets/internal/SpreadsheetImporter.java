@@ -84,6 +84,7 @@ final class SpreadsheetImporter {
         try {
             RawSheet raw = format == Format.XLSX ? new XlsxReader(settings, limits).read(file)
                     : new SheetCsvReader(settings, limits).read(file);
+            raw.dropFooter();
             SheetImportBuilder.Built built = new SheetImportBuilder(limits).build(raw, options);
             SheetGridValidator.Result result = validator.check(built.grid());
             if (!result.accepted()) {
@@ -93,6 +94,30 @@ final class SpreadsheetImporter {
                         + result.problems().get(0).message());
             }
             return new Imported(result.checked(), built.report());
+        } finally {
+            places.release();
+        }
+    }
+
+    /**
+     * The cells of the first sheet of a workbook, read under the same limits and the same places as a file that becomes
+     * a sheet (FA8): for a module that fits the cells into something of its own. Nothing is kept.
+     *
+     * @throws ImportRefusal when the file cannot be read; the words are safe to show
+     */
+    RawSheet readCells(byte[] file) {
+        if (file.length > settings.maxFileBytes()) {
+            throw tooLarge(settings.maxFileBytes());
+        }
+        if (file.length == 0) {
+            throw new ImportRefusal("empty_file", "The file is empty.");
+        }
+        if (!places.tryAcquire()) {
+            throw new ImportRefusal(ImportRefusal.Kind.BUSY, "busy", "Other files are being read right now. Try "
+                    + "again in a moment.");
+        }
+        try {
+            return new XlsxReader(settings, limits).read(file);
         } finally {
             places.release();
         }

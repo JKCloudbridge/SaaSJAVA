@@ -35,25 +35,30 @@ export function stateTag(state: string): { text: string; tone: "active" | "draft
 }
 
 /**
- * "Active Rev 02, Rev 03 in review": the revision in use first, then what waits behind it. A retired template says so and which
- * revision was the last in use. Nothing is invented: a number that is 0 is not mentioned.
+ * "Active Rev 02, in review": the revision in use first, then what waits behind it. A retired template says so and which
+ * revision was the last in use. Nothing is invented: a number that is 0 is not mentioned. A version that is not in use yet
+ * has no revision number (a revised copy is not a revision until it is published), so it is called by what it is. The
+ * revision in use is the platform's saved one when the template carries it (FA8), else the stored number minus one.
  */
-export function lifecycleText(lifecycle: LifecycleNumbers): string {
+export function lifecycleText(lifecycle: LifecycleNumbers, revision?: string | null): string {
   if (lifecycle.state === "RETIRED") {
+    if (revision) {
+      return `Retired, Rev ${revision} was the last in use`;
+    }
     return lifecycle.retiredVersion > 0 ? `Retired, Rev ${revisionNumber(lifecycle.retiredVersion)} was the last in use` : "Retired";
   }
   const parts: string[] = [];
   if (lifecycle.activeVersion > 0) {
-    parts.push(`Active Rev ${revisionNumber(lifecycle.activeVersion)}`);
+    parts.push(`Active Rev ${revision ?? revisionNumber(lifecycle.activeVersion)}`);
   }
   if (lifecycle.approvedVersion > 0) {
-    parts.push(`Rev ${revisionNumber(lifecycle.approvedVersion)} approved, not published`);
+    parts.push("Approved, not published");
   }
   if (lifecycle.inReviewVersion > 0) {
-    parts.push(`Rev ${revisionNumber(lifecycle.inReviewVersion)} in review`);
+    parts.push("In review");
   }
   if (lifecycle.draftVersion > 0) {
-    parts.push(`Rev ${revisionNumber(lifecycle.draftVersion)} draft`);
+    parts.push("Draft");
   }
   return parts.length === 0 ? "No revision yet" : parts.join(", ");
 }

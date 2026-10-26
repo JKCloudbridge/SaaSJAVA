@@ -73,7 +73,9 @@ export function AskForChange({
   if (view && !view.canRequest) {
     return (
       <p className="hint" role="note" data-testid="annotate-unavailable">
-        Nobody can ask for a change to this template right now.
+        {view.inProgress
+          ? "A change is already in progress on this template. You can ask for another when it has been published or declined."
+          : "Nobody can ask for a change to this template right now."}
       </p>
     );
   }

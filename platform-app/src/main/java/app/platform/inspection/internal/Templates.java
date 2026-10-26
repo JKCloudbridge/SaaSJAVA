@@ -24,6 +24,10 @@ final class Templates {
     static final String PART_CODE = "partCode";
     static final String PLAN_YEAR = "planYear";
     static final String RETIRED = "retired";
+    /** The revision in use, two digits; written by the platform when a revision is published (FA8, ADR-0202). */
+    static final String REVISION = "revision";
+    /** When the revision in use was published; written by the platform at that moment. */
+    static final String LAST_REVISED_AT = "lastRevisedAt";
 
     /** The application and the entry of it that opens a template with its change requests (a notice leads there). */
     static final String APPLICATION = "inspection";
@@ -63,6 +67,35 @@ final class Templates {
                 .map(field -> PART_WORDS.getOrDefault(field, "a part of the number")).toList());
         return fit("Fill in " + parts + " (Edit), then approve again: its number is made from "
                 + (fields.size() == 1 ? "it." : "them."));
+    }
+
+    /**
+     * The revision in use as people read it: the one the platform saved on the template when it was published, else the
+     * stored number of the version in use minus one (a template published before the field existed), else null when no
+     * revision was ever in use.
+     */
+    static String revisionShown(Map<String, Object> fields, int activeVersion) {
+        Object saved = fields.get(REVISION);
+        if (saved instanceof String text && !text.isBlank()) {
+            return text;
+        }
+        return activeVersion > 0 ? TemplateRevisions.show(activeVersion - 1) : null;
+    }
+
+    /** When the revision in use was published, or null. */
+    static java.time.Instant lastRevisedAt(Map<String, Object> fields) {
+        Object saved = fields.get(LAST_REVISED_AT);
+        if (saved instanceof java.time.Instant at) {
+            return at;
+        }
+        if (saved instanceof String text && !text.isBlank()) {
+            try {
+                return java.time.Instant.parse(text);
+            } catch (java.time.format.DateTimeParseException notAnInstant) {
+                return null;
+            }
+        }
+        return null;
     }
 
     /** The words cut to the most a refusal may carry. */
