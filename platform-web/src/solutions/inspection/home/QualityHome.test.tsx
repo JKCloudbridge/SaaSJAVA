@@ -390,6 +390,32 @@ describe("the graphs of the home page", () => {
 
     expect(screen.getByTestId("chart-approval-steps")).toHaveTextContent("1. Plant QMS");
     expect(screen.getByTestId("chart-approval-steps")).toHaveTextContent("2.5 days");
-    expect(screen.getByTestId("chart-published-per-month")).toHaveTextContent("Oct 26");
+    expect(screen.queryByTestId("chart-published-per-month")).toBeNull();
+  });
+
+  it("draws the level and type graph as a heat map, without a legend", async () => {
+    open();
+    await screen.findByTestId("value-active-templates");
+
+    const card = screen.getByTestId("chart-level-and-type");
+
+    expect(card.querySelector(".heat")).not.toBeNull();
+    expect(card.querySelector(".chart-legend")).toBeNull();
+  });
+
+  it("offers a second look with its own title, its tile order and the two extra tiles", async () => {
+    window.localStorage.clear();
+    open();
+    await screen.findByTestId("value-active-templates");
+
+    fireEvent.click(screen.getByRole("radio", { name: "Option 2" }));
+
+    expect(await screen.findByRole("heading", { name: "Template approvals" })).toBeInTheDocument();
+    expect(screen.getByTestId("tile-drafts")).toBeInTheDocument();
+    expect(screen.getByTestId("chart-fills-by-template")).toHaveTextContent("Top templates");
+    expect(screen.getByTestId("chart-fills-by-template")).toHaveTextContent("Departments");
+
+    fireEvent.click(screen.getByRole("radio", { name: "Option 1" }));
+    window.localStorage.clear();
   });
 });

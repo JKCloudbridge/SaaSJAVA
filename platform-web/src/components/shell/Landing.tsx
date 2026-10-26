@@ -88,7 +88,7 @@ function Welcome() {
  * arrived.
  */
 function OrganizationLanding({ abilities }: { abilities: readonly string[] }) {
-  const { state, refresh } = useApplications();
+  const { state } = useApplications();
   const router = useRouter();
   const from = useCameFrom();
   const known = state.applications.length > 0 || state.status === "ready";
@@ -121,12 +121,8 @@ function OrganizationLanding({ abilities }: { abilities: readonly string[] }) {
       </>
     );
   }
-  const status: GridStatus =
-    state.status === "error" && !known
-      ? { kind: "error", message: state.message }
-      : known
-        ? { kind: state.status === "error" ? "error" : "ready", message: state.status === "error" ? state.message : undefined }
-        : { kind: "loading" };
+  // A list that could not be had is drawn as it stands (nothing, or what was loaded before): no error text.
+  const status: GridStatus = { kind: known || state.status === "error" ? "ready" : "loading" };
   return (
     <div className="landing-window">
       <ApplicationGrid
@@ -134,7 +130,6 @@ function OrganizationLanding({ abilities }: { abilities: readonly string[] }) {
         status={status}
         current={from}
         canSetUp={setUp}
-        onRetry={() => void refresh()}
       />
     </div>
   );

@@ -29,8 +29,7 @@ import {
 
 /** What the grid needs to say about the list it was given. */
 export interface GridStatus {
-  readonly kind: "loading" | "ready" | "error";
-  readonly message?: string;
+  readonly kind: "loading" | "ready";
 }
 
 /**
@@ -46,20 +45,17 @@ export interface GridStatus {
  * @param status whether the list is still on its way, is here, or could not be had
  * @param current the API name of the application the person came from, marked in the grid
  * @param canSetUp whether the member may set things up, which adds the "New application" tile and "Manage applications"
- * @param onRetry asks the API for the list again
  */
 export function ApplicationGrid({
   applications,
   status,
   current,
   canSetUp,
-  onRetry,
 }: {
   applications: readonly MyApplication[];
   status: GridStatus;
   current?: string;
   canSetUp: boolean;
-  onRetry: () => void;
 }) {
   const [search, setSearch] = useState("");
   const [group, setGroup] = useState<string | null>(null);
@@ -138,10 +134,7 @@ export function ApplicationGrid({
   return (
     <div className="app-grid-page" data-testid="application-grid">
       <header className="app-grid-head">
-        <div>
-          <h1 className="app-grid-title">Applications</h1>
-          <p className="app-grid-lead">Choose where to work. Each application opens on its Home.</p>
-        </div>
+        <h1 className="visually-hidden">Applications</h1>
         {canSetUp ? (
           <Link href="/setup/applications" className="app-grid-manage">
             <Icon name="setup" className="app-grid-manage-icon" />
@@ -233,15 +226,6 @@ export function ApplicationGrid({
         </ul>
       ) : null}
 
-      {status.kind === "error" ? (
-        <div className="empty-state" role="alert" data-testid="landing-failed">
-          <p>{status.message}</p>
-          <button type="button" className="link-button" onClick={onRetry}>
-            Try again
-          </button>
-        </div>
-      ) : null}
-
       {!loading && (shown.length > 0 || (canSetUp && !searching)) ? (
         <ul className="app-grid" ref={list} onKeyDown={onGridKey}>
           {shown.map((application, index) => {
@@ -297,7 +281,7 @@ export function ApplicationGrid({
         </ul>
       ) : null}
 
-      {!loading && status.kind !== "error" && applications.length > 0 && shown.length === 0 ? (
+      {!loading && applications.length > 0 && shown.length === 0 ? (
         <div className="empty-state" role="status" data-testid="grid-no-match">
           <p>
             <strong>No application matches.</strong>

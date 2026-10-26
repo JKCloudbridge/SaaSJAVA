@@ -50,16 +50,12 @@ export function AppLauncher({ current }: { current?: string }) {
 }
 
 function LauncherWindow({ current, onClose }: { current?: string; onClose: () => void }) {
-  const { state, refresh } = useApplications();
+  const { state } = useApplications();
   const { state: session } = useSession();
   const abilities = session.status === "signedIn" ? session.user.abilities : [];
   const known = state.applications.length > 0 || state.status === "ready";
-  const status: GridStatus =
-    state.status === "error" && !known
-      ? { kind: "error", message: state.message }
-      : known
-        ? { kind: state.status === "error" ? "error" : "ready", message: state.status === "error" ? state.message : undefined }
-        : { kind: "loading" };
+  // A list that could not be had is drawn as it stands (nothing, or what was loaded before): no error text.
+  const status: GridStatus = { kind: known || state.status === "error" ? "ready" : "loading" };
   return (
     <Modal title="Applications" onClose={onClose} wide testId="launcher-window">
       <ApplicationGrid
@@ -67,7 +63,6 @@ function LauncherWindow({ current, onClose }: { current?: string; onClose: () =>
         status={status}
         current={current}
         canSetUp={canSetUp(abilities)}
-        onRetry={() => void refresh()}
       />
     </Modal>
   );

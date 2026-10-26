@@ -2,10 +2,12 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
+import { readHomeLook, writeHomeLook, type HomeLook } from "./look";
 import { loadMyTasks, useSummary } from "./api";
 import { ActivityList } from "./ActivityList";
 import { ChartCard } from "./ChartCard";
-import { AreaChart, Columns, HBars, RingChart, StackedBars, type Bar, type Slice } from "./charts";
+import { AreaChart, HBars, RingChart, type Bar, type Slice } from "./charts";
+import { creamSeries, HeatMap, HRows, VBars } from "./creamCharts";
 import { FilterBar } from "./FilterBar";
 import {
   activityWords,
@@ -65,6 +67,12 @@ function HomeScreen() {
   const filters = useMemo(() => filtersFromParams(params), [params]);
   const { state, refresh } = useSummary(filters);
   const [tasks, setTasks] = useState<number | null | undefined>(undefined);
+  const [look, setLook] = useState<HomeLook>(1);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- browser storage is read after mount, so the server and first draw agree
+    setLook(readHomeLook());
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -86,11 +94,33 @@ function HomeScreen() {
   const summary = state.summary;
   const refreshing = state.status === "ready" ? state.refreshing : false;
   return (
-    <div className="dash" data-testid="quality-home" aria-busy={state.status === "loading" || refreshing}>
+    <div className={look === 2 ? "dash dash-cream" : "dash"} data-look={look} data-testid="quality-home" aria-busy={state.status === "loading" || refreshing}>
       <header className="dash-head">
-        <p className="dash-eyebrow">Quality Management System</p>
-        <h1 className="dash-title">Overview</h1>
-        <p className="dash-lead">Where documents and records stand. Every number is what you may see.</p>
+        {look === 2 ? (
+          <div className="dash-head-text">
+            <h1 className="dash-title">Template approvals</h1>
+            <p className="dash-lead">{headline(summary)}</p>
+          </div>
+        ) : (
+          <h1 className="visually-hidden">Quality Management System</h1>
+        )}
+        <div className="dash-look" role="radiogroup" aria-label="Look of this page">
+          {([1, 2] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={look === option}
+              className="dash-look-option"
+              onClick={() => {
+                setLook(option);
+                writeHomeLook(option);
+              }}
+            >
+              Option {option}
+            </button>
+          ))}
+        </div>
       </header>
 
       <FilterBar
@@ -100,6 +130,7 @@ function HomeScreen() {
         onRefresh={refresh}
         refreshing={refreshing || state.status === "loading"}
         updatedAt={summary?.generatedAt}
+        variant={look === 2 ? "select" : "bars"}
       />
 
       {state.status === "failed" ? (
@@ -114,7 +145,7 @@ function HomeScreen() {
       <h2 className="visually-hidden">Numbers</h2>
       {summary ? (
         <ul className="dash-tiles" data-testid="home-tiles">
-          {tilesOf(summary, tasks, filters).map((entry) =>
+          {orderedTiles(tilesOf(summary, tasks, filters), look).map((entry) =>
             entry.failed ? <FailedTile key={entry.label} label={entry.label} /> : <StatTile key={entry.view.id} tile={entry.view} />,
           )}
         </ul>
@@ -134,10 +165,40 @@ function HomeScreen() {
           filters={filters}
           onNarrow={go}
           onOpen={(href) => router.push(href)}
+          look={look}
         />
       </div>
     </div>
   );
+}
+
+/** The tiles of the second look: the nine of its design, in its order; the first look keeps all of them. */
+function orderedTiles(entries: TileEntry[], look: HomeLook): TileEntry[] {
+  if (look !== 2) {
+    return entries;
+  }
+  const order = ["active-templates", "waiting-approval", "my-tasks", "open-requests", "fills-sent", "fills-waiting", "published", "average-days", "rejected-share", "drafts", "approved-unpublished"];
+  return entries
+    .filter((entry) => entry.failed || order.includes(entry.view.id))
+    .sort((a, b) => (order.indexOf(a.view.id) + 1 || 99) - (order.indexOf(b.view.id) + 1 || 99));
+}
+
+/** The sentence under the title of the second look: what waits, and the slowest step of the approvals. */
+function headline(summary: HomeSummary | undefined): string {
+  if (!summary) {
+    return "";
+  }
+  const waiting = summary.tiles.waitingApproval?.value;
+  const steps = summary.charts.approvalStepDays ?? [];
+  const slowest = steps.reduce<(typeof steps)[number] | undefined>(
+    (worst, one) => (worst === undefined || one.averageDays > worst.averageDays ? one : worst),
+    undefined,
+  );
+  const first =
+    waiting === undefined
+      ? "Where templates stand."
+      : `${formatCount(waiting)} ${waiting === 1 ? "template is" : "templates are"} waiting for approval.`;
+  return slowest ? `${first} ${slowest.name} is the slowest step, at ${formatDays(slowest.averageDays)} on average.` : first;
 }
 
 // ---- the tiles ----
@@ -268,6 +329,39 @@ function tilesOf(summary: HomeSummary, tasks: number | null | undefined, filters
       note: ignored(tile),
     };
   });
+  const byStatus = summary.charts.templatesByStatus;
+  const statusCount = (key: string) => byStatus?.find((one) => one.key === key)?.count;
+  const drafts = statusCount("DRAFT");
+  const approved = statusCount("APPROVED");
+  if (drafts !== undefined && !filters.location && !filters.department) {
+    out.push({
+      failed: false,
+      label: "Drafts in progress",
+      view: {
+        id: "drafts",
+        label: "Drafts in progress",
+        value: formatCount(drafts),
+        empty: "",
+        hint: "Not yet sent for approval",
+        href: HOME_LINKS.templates("DRAFT"),
+      },
+    });
+  }
+  if (approved !== undefined && !filters.location && !filters.department) {
+    out.push({
+      failed: false,
+      label: "Approved, not published",
+      view: {
+        id: "approved-unpublished",
+        label: "Approved, not published",
+        value: formatCount(approved),
+        empty: "",
+        hint: "Waiting for the Publisher",
+        href: HOME_LINKS.templates("APPROVED"),
+        attention: true,
+      },
+    });
+  }
   add(tiles.rejectedShare, templatesFailed, "Rejected", (tile) => {
     const change = describeChange(tile.value, tile.previous, period, "points");
     return {
@@ -292,7 +386,9 @@ function Charts({
   filters,
   onNarrow,
   onOpen,
+  look,
 }: {
+  look: HomeLook;
   summary: HomeSummary | undefined;
   loading: boolean;
   filters: HomeFilters;
@@ -343,6 +439,8 @@ function Charts({
       .filter((one) => one.levelLabel === level)
       .map((one) => ({ label: one.typeLabel, count: one.count })),
   }));
+  const heatLevels = levels.map((level) => ({ key: level, label: level }));
+  const heatCounts = new Map((charts.templatesByLevelAndType ?? []).map((one) => [`${one.levelLabel}|${one.typeLabel}`, one.count]));
   const byTemplate: Bar[] | undefined = charts.fillsByTemplate?.map((one) => ({
     key: one.templateId,
     label: one.name || "Template",
@@ -357,6 +455,167 @@ function Charts({
   const months = charts.publishedPerMonth;
   const monthTotal = months?.reduce((sum, one) => sum + one.count, 0) ?? 0;
   const period = periodWords(summary.period.key);
+
+  if (look === 2) {
+    const slowest = (steps ?? []).reduce<number>((worst, one, index, all) => (one.averageDays > (all[worst]?.averageDays ?? -1) ? index : worst), 0);
+    return (
+      <>
+        <ChartCard
+          wide
+          testId="chart-fills-per-day"
+          title="Fill-ins per day"
+          note={perDay ? `Last ${period}, by day` : undefined}
+          empty={fillsFailed ? failedWords : !perDay ? undefined : perDay.total === 0 ? "No fill-ins in this period" : undefined}
+          loading={loading && !perDay && !fillsFailed}
+          table={{ caption: "Fill-ins sent on each day of the period", columns: ["Day", "Fill-ins"], rows: (perDay?.days ?? []).map((one) => [dayLabel(one.day), one.count]) }}
+        >
+          {perDay ? (
+            <VBars
+              aria="Fill-ins per day"
+              unit="fill-ins"
+              bars={perDay.days.map((one) => ({ key: one.day, short: dayLabel(one.day), label: dayLabel(one.day), count: one.count }))}
+            />
+          ) : null}
+        </ChartCard>
+
+        {statuses || templatesFailed ? (
+          <ChartCard
+            testId="chart-templates-by-status"
+            title="Templates by status"
+            note="All templates you can open, as of today"
+            empty={templatesFailed ? failedWords : statuses && statuses.every((one) => one.count === 0) ? "There are no templates yet" : undefined}
+            table={{ caption: "Templates by status", columns: ["Status", "Templates"], rows: (statuses ?? []).map((one) => [one.label, one.count]) }}
+          >
+            <HRows
+              rows={(statuses ?? []).map((one, index) => ({
+                key: one.key,
+                label: one.label,
+                count: one.count,
+                paint: creamSeries(index),
+                words: `${one.label}: ${formatCount(one.count)} templates`,
+              }))}
+              onSelect={(key) => onOpen(HOME_LINKS.templates(stateForList(key)))}
+            />
+          </ChartCard>
+        ) : null}
+
+        {charts.templatesByLevelAndType || templatesFailed ? (
+          <ChartCard
+            testId="chart-level-and-type"
+            title="Templates by level and document type"
+            note="All templates you can open, by level and document type"
+            empty={templatesFailed ? failedWords : stackRows.length === 0 ? "There are no templates yet" : undefined}
+            table={{
+              caption: "Templates by level and document type",
+              columns: ["Level", "Document type", "Templates"],
+              rows: (charts.templatesByLevelAndType ?? []).map((one) => [one.levelLabel, one.typeLabel, one.count]),
+            }}
+          >
+            <HeatMap levels={heatLevels} kinds={kinds} counts={heatCounts} tone={creamSeries(0)} unit="templates" />
+          </ChartCard>
+        ) : null}
+
+        {byTemplate || byDepartment || fillsFailed ? (
+          <ChartCard
+            wide
+            testId="chart-fills-by-template"
+            title="Fill-ins by template and by department"
+            note={`Last ${period}. Press a department to filter the whole page`}
+            empty={fillsFailed ? failedWords : (byTemplate?.length ?? 0) === 0 && (byDepartment?.length ?? 0) === 0 ? "No fill-ins in this period" : undefined}
+            table={{
+              caption: "Fill-ins by template and by department",
+              columns: ["Group", "Name", "Fill-ins"],
+              rows: [
+                ...(byTemplate ?? []).map((one) => ["Template", one.label, one.count]),
+                ...(byDepartment ?? []).map((one) => ["Department", one.label, one.count]),
+              ],
+            }}
+          >
+            <div className="hrows-two">
+              <div>
+                <h4 className="hrows-heading">Top templates</h4>
+                <HRows
+                  rows={(byTemplate ?? []).map((one) => ({ ...one, words: `${one.label}: ${formatCount(one.count)} fill-ins` }))}
+                  onSelect={(key) => onOpen(HOME_LINKS.fillsOfTemplate(key))}
+                />
+              </div>
+              <div>
+                <h4 className="hrows-heading">Departments</h4>
+                <HRows
+                  rows={(byDepartment ?? []).map((one) => ({ ...one, words: `${one.label}: ${formatCount(one.count)} fill-ins` }))}
+                  selected={filters.location && filters.department ? `${filters.location}/${filters.department}` : undefined}
+                  onSelect={(key) => {
+                    if (key === "none") {
+                      return;
+                    }
+                    const [location = "", department = ""] = key.split("/");
+                    const same = filters.location === location && filters.department === department;
+                    onNarrow({ ...filters, location: same ? "" : location, department: same ? "" : department });
+                  }}
+                />
+              </div>
+            </div>
+          </ChartCard>
+        ) : null}
+
+        {steps || templatesFailed ? (
+          <ChartCard
+            testId="chart-approval-steps"
+            title="Average days at each approval step"
+            note="Steps finished in this period. The darkest bar is the slowest"
+            empty={templatesFailed ? failedWords : steps && steps.length === 0 ? "No approvals were decided in this period" : undefined}
+            table={{
+              caption: "Average days at each approval step",
+              columns: ["Step", "Average days", "Approvals"],
+              rows: (steps ?? []).map((one) => [`${one.position}. ${one.name}`, one.averageDays, one.samples]),
+            }}
+          >
+            <HRows
+              rows={(steps ?? []).map((one, index) => ({
+                key: String(one.position),
+                label: `${one.position}. ${one.name}`,
+                count: one.averageDays,
+                shown: formatDays(one.averageDays),
+                paint: index === slowest ? creamSeries(0) : "var(--cream-muted-bar)",
+                words: `Step ${one.position}, ${one.name}: ${formatDays(one.averageDays)} on average over ${formatCount(one.samples)} approvals`,
+              }))}
+            />
+          </ChartCard>
+        ) : null}
+
+        {months || templatesFailed ? (
+          <ChartCard
+            testId="chart-published-per-month"
+            title="Published per month"
+            note="The last twelve months"
+            empty={templatesFailed ? failedWords : months && monthTotal === 0 ? "No templates were published in these months" : undefined}
+            table={{ caption: "Templates published in each of the last twelve months", columns: ["Month", "Templates"], rows: (months ?? []).map((one) => [monthLabel(one.month), one.count]) }}
+          >
+            <VBars
+              aria="Templates published per month"
+              unit="templates"
+              bars={(months ?? []).map((one) => ({ key: one.month, short: monthLabel(one.month), label: monthLabel(one.month), count: one.count }))}
+            />
+          </ChartCard>
+        ) : null}
+
+        <ChartCard
+          wide
+          testId="chart-recent-activity"
+          title="Recent activity"
+          note="Only what you may see"
+          empty={charts.recentActivity && charts.recentActivity.length === 0 ? "Nothing has happened yet" : undefined}
+          table={{
+            caption: "The latest things that happened",
+            columns: ["What", "Template or fill-in", "By", "When"],
+            rows: (charts.recentActivity ?? []).map((one) => [activityWords(one.kind), one.name, one.who ?? "", momentLabel(one.at)]),
+          }}
+        >
+          <ActivityList items={charts.recentActivity ?? []} />
+        </ChartCard>
+      </>
+    );
+  }
 
   return (
     <>
@@ -393,23 +652,7 @@ function Charts({
             rows: (charts.templatesByLevelAndType ?? []).map((one) => [one.levelLabel, one.typeLabel, one.count]),
           }}
         >
-          <StackedBars rows={stackRows} kinds={kinds} unit="templates" />
-        </ChartCard>
-      ) : null}
-
-      {months || templatesFailed ? (
-        <ChartCard
-          testId="chart-published-per-month"
-          title="Templates published per month"
-          note="The last twelve months"
-          empty={templatesFailed ? failedWords : months && monthTotal === 0 ? "No templates were published in these months" : undefined}
-          table={{
-            caption: "Templates published in each of the last twelve months",
-            columns: ["Month", "Templates"],
-            rows: (months ?? []).map((one) => [monthLabel(one.month), one.count]),
-          }}
-        >
-          <Columns months={months ?? []} unit="templates" />
+          <HeatMap levels={heatLevels} kinds={kinds} counts={heatCounts} tone="var(--series-2)" unit="templates" />
         </ChartCard>
       ) : null}
 
@@ -463,6 +706,7 @@ function Charts({
 
       {byDepartment || fillsFailed ? (
         <ChartCard
+          wide
           testId="chart-fills-by-department"
           title="Fill-ins by department"
           note={filters.department ? "Showing the chosen department's place; press a bar to narrow the page" : "Press a bar to narrow the page"}

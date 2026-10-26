@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useId, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { Swatch } from "./ChartCard";
 import {
   areaPath,
@@ -14,7 +14,6 @@ import {
   niceMax,
   ringArcs,
   seriesNumber,
-  shareOf,
   ticks,
 } from "./model";
 
@@ -213,8 +212,6 @@ export function RingChart({
             <>
               <Swatch index={index} solid />
               <span className="chart-legend-name">{slice.label}</span>
-              <span className="chart-legend-count">{formatCount(slice.count)}</span>
-              <span className="chart-legend-share">{shareOf(slice.count, total)}%</span>
             </>
           );
           return (
@@ -324,64 +321,6 @@ export interface StackRow {
   key: string;
   label: string;
   parts: readonly { label: string; count: number }[];
-}
-
-/**
- * Stacked horizontal bars: one row for each level, split by document type. The types are told apart by a solid colour and named in the legend; every part carries its own tooltip and the row's total is written at its end.
- */
-export function StackedBars({ rows, kinds, unit }: { rows: readonly StackRow[]; kinds: readonly string[]; unit: string }) {
-  const totals = rows.map((row) => row.parts.reduce((sum, part) => sum + part.count, 0));
-  const most = Math.max(1, ...totals);
-  return (
-    <div className="chart-stack">
-      <ul className="chart-legend chart-legend-inline">
-        {kinds.map((kind, index) => (
-          <li key={kind}>
-            <span className="chart-legend-row">
-              <Swatch index={index} solid />
-              <span className="chart-legend-name">{kind}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
-      <ul className="chart-bars">
-        {rows.map((row, at) => (
-          <li key={row.key}>
-            <div className="chart-bar-row" aria-label={`${row.label}: ${formatCount(totals[at] ?? 0)} ${unit}`} tabIndex={0}>
-              <span className="chart-bar-label" title={row.label}>
-                {row.label}
-              </span>
-              <span className="chart-bar-track chart-bar-track-stack">
-                <svg className="chart-stack-svg" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true">
-                  {row.parts.reduce<{ x: number; marks: ReactNode[] }>(
-                    (state, part) => {
-                      const width = ((part.count / most) * 100);
-                      const index = Math.max(0, kinds.indexOf(part.label));
-                      state.marks.push(
-                        <rect
-                          key={part.label}
-                          x={state.x}
-                          y={0}
-                          width={Math.max(0, width - 0.4)}
-                          height={10}
-                          fill={`var(--series-${(index % 6) + 1})`}
-                        >
-                          <title>{`${row.label}, ${part.label}: ${formatCount(part.count)} ${unit}`}</title>
-                        </rect>,
-                      );
-                      return { x: state.x + width, marks: state.marks };
-                    },
-                    { x: 0, marks: [] },
-                  ).marks}
-                </svg>
-              </span>
-              <span className="chart-bar-value">{formatCount(totals[at] ?? 0)}</span>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
 }
 
 // ---- columns: a value for each month ----

@@ -110,22 +110,16 @@ describe("where a member lands", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("says so, and offers to try again, when the list could not be had; it never lands on a guess", async () => {
-    let healthy = false;
+  it("shows no error text when the list could not be had, and never lands on a guess", async () => {
     shellApi({
       abilities: ["metadata.view"],
-      applicationsAnswer: () =>
-        healthy ? json({ data: [SALES] }) : refusal("SERVICE_UNAVAILABLE", "Try again later.", 503),
+      applicationsAnswer: () => refusal("SERVICE_UNAVAILABLE", "Try again later.", 503),
     });
     renderLanding();
 
-    const failed = await screen.findByTestId("landing-failed");
-    expect(failed).toHaveTextContent("Your applications could not be loaded.");
-    expect(replace).not.toHaveBeenCalled();
-
-    healthy = true;
-    screen.getByRole("button", { name: "Try again" }).click();
-    expect(await screen.findByRole("link", { name: /Sales/ })).toBeInTheDocument();
+    expect(await screen.findByTestId("application-grid")).toBeInTheDocument();
+    expect(screen.queryByText(/could not be loaded/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
     expect(replace).not.toHaveBeenCalled();
   });
 

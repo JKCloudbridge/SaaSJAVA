@@ -22,6 +22,7 @@ export function FilterBar({
   onRefresh,
   refreshing,
   updatedAt,
+  variant = "bars",
 }: {
   filters: HomeFilters;
   /** The locations and departments the server offers; empty while the first answer is on its way. */
@@ -31,7 +32,10 @@ export function FilterBar({
   refreshing: boolean;
   /** The moment of the answer on screen, or undefined before there is one. */
   updatedAt?: string;
+  /** "bars" is the first look (a row of period buttons); "select" the second (a labelled list, like the others). */
+  variant?: "bars" | "select";
 }) {
+  const periodId = useId();
   const locationId = useId();
   const departmentId = useId();
   const departments = useMemo(() => {
@@ -45,6 +49,18 @@ export function FilterBar({
 
   return (
     <div className="dash-filters" role="search" aria-label="Filter the home page" data-testid="home-filters">
+      {variant === "select" ? (
+        <label className="dash-select" htmlFor={periodId}>
+          <span className="dash-select-label">Period</span>
+          <select id={periodId} value={filters.period} onChange={(event) => onChange({ ...filters, period: event.target.value as HomeFilters["period"] })}>
+            {PERIODS.map((period) => (
+              <option key={period.key} value={period.key}>
+                {period.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : (
       <div className="dash-periods" role="radiogroup" aria-label="Period">
         {PERIODS.map((period) => (
           <button
@@ -59,6 +75,7 @@ export function FilterBar({
           </button>
         ))}
       </div>
+      )}
 
       <label className="dash-select" htmlFor={locationId}>
         <span className="dash-select-label">Location</span>

@@ -37,7 +37,6 @@ function renderGrid(
     status: GridStatus;
     current: string;
     canSetUp: boolean;
-    onRetry: () => void;
   }> = {},
 ) {
   return render(
@@ -46,7 +45,6 @@ function renderGrid(
       status={props.status ?? READY}
       current={props.current}
       canSetUp={props.canSetUp ?? false}
-      onRetry={props.onRetry ?? (() => undefined)}
     />,
   );
 }
@@ -203,13 +201,10 @@ describe("the grid of applications", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Loading your applications");
   });
 
-  it("says why the list could not be had and tries again on request", () => {
-    const retry = vi.fn();
-    renderGrid({ applications: [], status: { kind: "error", message: "Not reachable." }, onRetry: retry });
+  it("shows no error text when the list could not be had", () => {
+    renderGrid({ applications: [], status: { kind: "ready" } });
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Not reachable.");
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-
-    expect(retry).toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(/could not be loaded/i)).toBeNull();
   });
 });
