@@ -393,7 +393,8 @@ class QualityHome {
         return found;
     }
 
-    private static List<Duration> durations(List<VersionDates> decided, java.util.function.Predicate<Instant> inPeriod) {
+    private static List<Duration> durations(List<VersionDates> decided,
+            java.util.function.Predicate<Instant> inPeriod) {
         return decided.stream().filter(one -> APPROVED_LIKE.contains(one.status()) && one.submittedAt() != null
                 && inPeriod.test(one.decidedAt())).map(one -> Duration.between(one.submittedAt(), one.decidedAt()))
                 .filter(one -> !one.isNegative()).toList();

@@ -110,6 +110,11 @@
   --series-6: #5b5fc7;
 
   /* the second look of the home page (FA9): a warm canvas, flat white cards, a serif for the title and the numbers */
+  /* the light edge and faint shadow that give a bar a little depth */
+  --bar-sheen-top: rgb(255 255 255 / 22%);
+  --bar-sheen-none: rgb(255 255 255 / 0%);
+  --bar-sheen-edge: rgb(255 255 255 / 25%);
+  --bar-shadow: rgb(16 24 40 / 14%);
   --cream-canvas: #faf9f7;
   --cream-panel: #ffffff;
   --cream-line: rgb(20 20 19 / 11%);
@@ -176,6 +181,9 @@
     --series-4: #5fd08a;
     --series-5: #f07aa3;
     --series-6: #9ea2f0;
+    --bar-sheen-top: rgb(255 255 255 / 14%);
+    --bar-sheen-edge: rgb(255 255 255 / 16%);
+    --bar-shadow: rgb(0 0 0 / 40%);
     --cream-canvas: #1b1b19;
     --cream-panel: #262624;
     --cream-line: rgb(240 238 232 / 13%);
