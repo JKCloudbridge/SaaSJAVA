@@ -43,9 +43,10 @@ final class SolutionLoader {
     private static final Pattern PLAIN_TEXT = Pattern.compile("[\\p{L}\\p{N}][\\p{L}\\p{N} .,;:!?&'()/+-]{0,499}");
 
     private static final Set<String> BUNDLE_KEYS = Set.of("key", "feature", "label", "removalNote", "application",
-            "objects", "sheetOwners", "accessPolicies");
-    private static final Set<String> APPLICATION_KEYS = Set.of("apiName", "label", "iconKey", "entries");
-    private static final Set<String> ENTRY_KEYS = Set.of("type", "label", "object", "pageKey", "readsObject");
+            "applications", "objects", "sheetOwners", "accessPolicies");
+    private static final Set<String> APPLICATION_KEYS = Set.of("apiName", "label", "iconKey", "group", "entries");
+    private static final Set<String> ENTRY_KEYS = Set.of("type", "label", "object", "pageKey", "readsObject",
+            "placeholder");
     private static final Set<String> POLICY_KEYS = Set.of("key", "name", "description", "objects", "abilities",
             "fields");
     private static final Pattern FIELD = Pattern.compile("[a-z][A-Za-z0-9]{0,39}");
@@ -88,7 +89,23 @@ final class SolutionLoader {
         String label = node.pattern("label", PLAIN_LABEL, "a plain label of at most 80 characters");
         String note = node.optional("removalNote") == null ? "" : node.pattern("removalNote", PLAIN_TEXT,
                 "plain text of at most 500 characters");
-        SolutionBundle.Application application = application(node.child("application", APPLICATION_KEYS));
+        List<SolutionBundle.Application> applications = new ArrayList<>();
+        boolean one = node.optional("application") != null;
+        boolean several = node.optional("applications") != null;
+        if (one == several) {
+            throw new IllegalStateException(where + ": give either 'application' or 'applications', not both and "
+                    + "not neither");
+        }
+        if (one) {
+            applications.add(application(node.child("application", APPLICATION_KEYS)));
+        } else {
+            for (Node each : node.children("applications", APPLICATION_KEYS)) {
+                applications.add(application(each));
+            }
+            if (applications.isEmpty()) {
+                throw new IllegalStateException(where + ": 'applications' lists at least one application");
+            }
+        }
         List<String> objects = new ArrayList<>();
         for (Object item : node.list("objects")) {
             String name = item instanceof String text ? text : "";
@@ -127,13 +144,15 @@ final class SolutionLoader {
                     policy.pattern("description", PLAIN_TEXT, "plain text of at most 500 characters"),
                     rights(policy), abilities(policy), fieldRights(policy)));
         }
-        return new SolutionBundle(key, feature, label, note, application, objects, sheetOwners, policies);
+        return new SolutionBundle(key, feature, label, note, applications, objects, sheetOwners, policies);
     }
 
     private static SolutionBundle.Application application(Node node) {
         String apiName = node.pattern("apiName", KEY, "a lower case name");
         String label = node.pattern("label", PLAIN_LABEL, "a plain label of at most 80 characters");
         String icon = node.optional("iconKey") == null ? "" : node.pattern("iconKey", ICON, "an icon key");
+        String group = node.optional("group") == null ? "" : node.pattern("group", PLAIN_LABEL,
+                "a plain group word of at most 80 characters");
         List<SolutionBundle.Entry> entries = new ArrayList<>();
         List<Node> nodes = node.children("entries", ENTRY_KEYS);
         if (nodes.isEmpty()) {
@@ -152,6 +171,15 @@ final class SolutionLoader {
             String pageKey = entry.optional("pageKey") == null ? "" : entry.pattern("pageKey", KEY, "a page key");
             String reads = entry.optional("readsObject") == null ? "" : entry.pattern("readsObject", OBJECT,
                     "an API name");
+            Object marker = entry.optional("placeholder");
+            if (marker != null && !(marker instanceof Boolean)) {
+                throw new IllegalStateException(entry.where() + ": 'placeholder' is true or false");
+            }
+            boolean placeholder = Boolean.TRUE.equals(marker);
+            if (placeholder && (kind != ShippedEntryView.Kind.PLATFORM || !reads.isEmpty())) {
+                throw new IllegalStateException(entry.where() + ": a placeholder is a PLATFORM entry that names no "
+                        + "'readsObject'");
+            }
             switch (kind) {
                 case OBJECT -> {
                     if (object.isEmpty() || !pageKey.isEmpty()) {
@@ -173,9 +201,9 @@ final class SolutionLoader {
                 }
                 default -> throw new IllegalStateException("an entry kind this release does not know");
             }
-            entries.add(new SolutionBundle.Entry(kind, label2, object, pageKey, reads));
+            entries.add(new SolutionBundle.Entry(kind, label2, object, pageKey, reads, placeholder));
         }
-        return new SolutionBundle.Application(apiName, label, icon, entries);
+        return new SolutionBundle.Application(apiName, label, icon, group, entries);
     }
 
     private static Map<String, Set<ObjectAction>> rights(Node policy) {

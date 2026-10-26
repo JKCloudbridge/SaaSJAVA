@@ -11,9 +11,16 @@ import java.util.Objects;
  *        organization's own application
  * @param label what people read
  * @param iconKey the icon to show, or null
+ * @param group the plain word that gathers the application with others in the grid (FA9), or null
  * @param entries the navigation in order
  */
-public record ShippedApplicationView(String apiName, String label, String iconKey, List<ShippedEntryView> entries) {
+public record ShippedApplicationView(String apiName, String label, String iconKey, String group,
+        List<ShippedEntryView> entries) {
+
+    /** An application that belongs to no group. */
+    public ShippedApplicationView(String apiName, String label, String iconKey, List<ShippedEntryView> entries) {
+        this(apiName, label, iconKey, null, entries);
+    }
 
     /** Checks and copies what is given. */
     public ShippedApplicationView {

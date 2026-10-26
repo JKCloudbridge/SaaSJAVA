@@ -104,14 +104,29 @@ class MyApplications {
         for (ShippedApplications source : shipped.orderedStream().toList()) {
             for (ShippedApplicationView application : source.forMember(context.membershipId())) {
                 List<NavigationEntryView> entries = shippedEntries(application, readable);
-                boolean leadsAnywhere = entries.stream().anyMatch(entry -> !"HEADING".equals(entry.type()));
+                // Home and the tabs still being prepared lead nowhere on their own: an application that has real
+                // tabs is shown only to a member who can open one of them.
+                boolean hasRealTabs = application.entries().stream().anyMatch(MyApplications::isRealTab);
+                boolean leadsAnywhere = hasRealTabs
+                        ? entries.stream().anyMatch(MyApplications::isRealTab)
+                        : entries.stream().anyMatch(entry -> !"HEADING".equals(entry.type()));
                 if (leadsAnywhere) {
                     shown.add(new MyApplicationView(application.apiName(), application.label(), application.iconKey(),
-                            entries));
+                            entries, application.group()));
                 }
             }
         }
         return shown;
+    }
+
+    private static boolean isRealTab(ShippedEntryView entry) {
+        return entry.kind() != ShippedEntryView.Kind.HEADING && !entry.placeholder()
+                && !"home".equals(entry.pageKey());
+    }
+
+    private static boolean isRealTab(NavigationEntryView entry) {
+        return !"HEADING".equals(entry.type()) && !Boolean.TRUE.equals(entry.placeholder())
+                && !"home".equals(entry.pageKey());
     }
 
     private List<NavigationEntryView> shippedEntries(ShippedApplicationView application,
@@ -127,7 +142,7 @@ class MyApplications {
                 case PLATFORM -> {
                     if (entry.readsObject() == null || mayRead(readable, entry.readsObject())) {
                         entries.add(new NavigationEntryView("PLATFORM", entry.label(), null, null, null, null, null,
-                                null, Boolean.TRUE, entry.pageKey()));
+                                null, Boolean.TRUE, entry.pageKey(), entry.placeholder() ? Boolean.TRUE : null));
                     }
                 }
                 case HEADING -> entries.add(new NavigationEntryView("HEADING", entry.label(), null, null, null));

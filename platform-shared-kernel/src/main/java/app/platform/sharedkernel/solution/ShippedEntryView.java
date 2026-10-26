@@ -12,8 +12,16 @@ import java.util.Objects;
  * @param readsObject the object whose read permission shows the entry, or null: a {@code PLATFORM} entry carries no
  *        permission of its own, it is shown to the members who may read the object it names (an {@code OBJECT} entry
  *        is shown to the members who may read its object)
+ * @param placeholder true for a function that is only announced (FA9, ADR-0203): the entry has a name and an identity
+ *        but no page yet, and the browser draws the "being prepared" page for it
  */
-public record ShippedEntryView(Kind kind, String label, String objectApiName, String pageKey, String readsObject) {
+public record ShippedEntryView(Kind kind, String label, String objectApiName, String pageKey, String readsObject,
+        boolean placeholder) {
+
+    /** An entry that is not a placeholder. */
+    public ShippedEntryView(Kind kind, String label, String objectApiName, String pageKey, String readsObject) {
+        this(kind, label, objectApiName, pageKey, readsObject, false);
+    }
 
     /** The kinds of entry a shipped application may list. */
     public enum Kind {

@@ -822,6 +822,30 @@ public final class TenantScopedTables {
                     tenant, UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
 
     /**
+     * The departments of the person who started a fill-in (FA9). The guard lets a row in only when the transaction
+     * setting is on, which the probe raises in the same statement.
+     */
+    public static final TenantScopedTable INSPECTION_FILL_DEPARTMENT = new TenantScopedTable(
+            "inspection_fill_department",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "with allowed as (select set_config('platform.fill_department_write', 'on', true)) "
+                            + "insert into inspection_fill_department (tenant_id, fill_id, location, department, "
+                            + "created_by, updated_by) select ?, ?, 'PROBE', 'PROBE', ?, ? from allowed",
+                    tenant, UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
+    /**
+     * What happened to a template (FA9). The guard lets a row in only when the transaction setting is on, which the
+     * probe raises in the same statement.
+     */
+    public static final TenantScopedTable INSPECTION_TEMPLATE_EVENT = new TenantScopedTable(
+            "inspection_template_event",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "with allowed as (select set_config('platform.template_event_write', 'on', true)) "
+                            + "insert into inspection_template_event (tenant_id, template_id, kind, version_no, "
+                            + "created_by, updated_by) select ?, ?, 'PUBLISHED', 1, ?, ? from allowed",
+                    tenant, UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
+    /**
      * The register forms of change requests (FA8). The guard lets a row in only when the transaction setting is on,
      * which the probe raises in the same statement.
      */
@@ -887,7 +911,8 @@ public final class TenantScopedTables {
             SHEET_VERSION, SHEET_FILL,
             SHEET_FILL_VALUE,
             INSPECTION_PUBLICATION, INSPECTION_CHANGE_REQUEST, INSPECTION_CHANGE_COMMENT,
-            INSPECTION_AUDIENCE_SUGGESTION, INSPECTION_TEMPLATE_OPTION, INSPECTION_CHANGE_REGISTER);
+            INSPECTION_AUDIENCE_SUGGESTION, INSPECTION_TEMPLATE_OPTION, INSPECTION_CHANGE_REGISTER,
+            INSPECTION_FILL_DEPARTMENT, INSPECTION_TEMPLATE_EVENT);
 
     private TenantScopedTables() {
     }

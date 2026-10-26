@@ -7,8 +7,17 @@ import { useListViews } from "@/components/ui/lists/useListViews";
 import { Tag } from "@/components/ui/lists/Tag";
 import { useListRoute } from "@/components/ui/lists/useListRoute";
 import { fillStatusTag } from "@/lib/sheets/fillTags";
+import { AddressFilterNote } from "./AddressFilterNote";
 import { FillInDetail } from "./FillInDetail";
-import { fillInsHref, queryFillIns, startFillIn, useFillInOptions, type FillInRow } from "./fillIns";
+import {
+  fillInsHref,
+  fillStatusParam,
+  fillStatusParamWords,
+  queryFillIns,
+  startFillIn,
+  useFillInOptions,
+  type FillInRow,
+} from "./fillIns";
 import { revisionNumber } from "@/lib/sheets/revision";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
@@ -48,10 +57,12 @@ function when(iso: string | null | undefined): string {
  * says a fill-in can be started on the version in use.
  */
 export function FillInsList({ templateId: given, embedded = false }: { templateId?: string; embedded?: boolean }) {
-  const route = useListRoute({ keep: ["template"] });
+  const route = useListRoute({ keep: ["template", "status"] });
   const params = useSearchParams();
   const router = useRouter();
   const templateId = given ?? params?.get("template") ?? "";
+  // A tile of the home page opens the list narrowed to one status (FA9); only the statuses the server knows count.
+  const status = embedded ? "" : fillStatusParam(params?.get("status"));
   const options = useFillInOptions(embedded ? templateId : "", 0);
   const [startMessage, setStartMessage] = useState<string | undefined>();
   const [starting, setStarting] = useState(false);
@@ -66,7 +77,7 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
     allLabel: "All fill-ins",
   });
   const request = views.request;
-  const key = `${templateId}|${views.requestKey}`;
+  const key = `${templateId}|${status}|${views.requestKey}`;
   const loaded: Loaded = result && result.key === key ? result.loaded : { status: "loading" };
 
   useEffect(() => {
@@ -74,7 +85,7 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
       return;
     }
     let live = true;
-    void queryFillIns(request, templateId).then((outcome) => {
+    void queryFillIns(request, templateId, undefined, status).then((outcome) => {
       if (live) {
         setResult({
           key,
@@ -87,14 +98,14 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
     return () => {
       live = false;
     };
-  }, [request, templateId, key, route.openId, embedded, views.ready]);
+  }, [request, templateId, status, key, route.openId, embedded, views.ready]);
 
   const showMore = async () => {
     if (loaded.status !== "ready" || !loaded.next) {
       return;
     }
     setMore(true);
-    const outcome = await queryFillIns(request, templateId, loaded.next);
+    const outcome = await queryFillIns(request, templateId, loaded.next, status);
     setMore(false);
     setResult({
       key,
@@ -140,7 +151,7 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
   return (
     <>
     <ListPage<FillInRow>
-      title="Fill-ins"
+      title="Record Control"
       titleControl={views.titleControl}
       remote={views.remote}
       items={ready?.rows}
@@ -189,6 +200,8 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
           <p className="form-message" role="alert">
             {startMessage}
           </p>
+        ) : status ? (
+          <AddressFilterNote what={fillStatusParamWords(status)} />
         ) : undefined
       }
       below={

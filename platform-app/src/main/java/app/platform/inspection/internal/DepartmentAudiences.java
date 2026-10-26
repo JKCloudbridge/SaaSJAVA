@@ -177,16 +177,42 @@ class DepartmentAudiences {
      * @param membershipId the member
      */
     String departmentsOf(UUID membershipId) {
-        if (membershipId == null) {
-            return null;
-        }
-        Set<UUID> member = groups.groupsOf(membershipId);
-        if (member.isEmpty()) {
+        List<QualityHomeStore.Place> found = placesOf(membershipId);
+        if (found.isEmpty()) {
             return null;
         }
         Map<String, String> places = labels(Templates.LOCATION);
         Map<String, String> parts = labels(Templates.DEPARTMENT);
         List<String> words = new ArrayList<>();
+        for (QualityHomeStore.Place place : found) {
+            String one = places.getOrDefault(place.location(), place.location()) + " \u00b7 "
+                    + parts.getOrDefault(place.department(), place.department());
+            if (!words.contains(one)) {
+                words.add(one);
+            }
+        }
+        String joined = String.join("; ", words);
+        return joined.length() <= MOST_DEPARTMENT_CHARS ? joined : joined.substring(0, MOST_DEPARTMENT_CHARS);
+    }
+
+    /**
+     * The places a member belongs to now, as the codes of the two lists (FA9, ADR-0203): the groups of the member,
+     * nested ones included, matched against the records of the mapping object, in the order of the mapping records,
+     * each pair once. Read as the platform (the person asking may not read the mapping). A fill-in keeps these codes as
+     * a snapshot when it is started, so a department can be counted without a name; they are the organization's text
+     * and are never logged.
+     *
+     * @param membershipId the member
+     */
+    List<QualityHomeStore.Place> placesOf(UUID membershipId) {
+        if (membershipId == null) {
+            return List.of();
+        }
+        Set<UUID> member = groups.groupsOf(membershipId);
+        if (member.isEmpty()) {
+            return List.of();
+        }
+        List<QualityHomeStore.Place> found = new ArrayList<>();
         UUID after = null;
         int read = 0;
         while (read < MOST_MAPPINGS) {
@@ -197,10 +223,9 @@ class DepartmentAudiences {
                 Object part = mapping.fields().get(Templates.DEPARTMENT);
                 if (group != null && member.contains(group) && place instanceof String location
                         && part instanceof String department) {
-                    String one = places.getOrDefault(location, location) + " \u00b7 "
-                            + parts.getOrDefault(department, department);
-                    if (!words.contains(one)) {
-                        words.add(one);
+                    QualityHomeStore.Place one = new QualityHomeStore.Place(location, department);
+                    if (!found.contains(one)) {
+                        found.add(one);
                     }
                 }
             }
@@ -210,11 +235,7 @@ class DepartmentAudiences {
             }
             after = page.get(page.size() - 1).id();
         }
-        if (words.isEmpty()) {
-            return null;
-        }
-        String joined = String.join("; ", words);
-        return joined.length() <= MOST_DEPARTMENT_CHARS ? joined : joined.substring(0, MOST_DEPARTMENT_CHARS);
+        return found;
     }
 
     /**

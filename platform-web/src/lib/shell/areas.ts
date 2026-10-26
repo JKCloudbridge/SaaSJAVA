@@ -1,4 +1,3 @@
-import { applicationHref } from "@/lib/applications/entries";
 
 /**
  * Where the person is in the shell, which entries the side rail offers and where each person lands (UA1, ADR-0167).
@@ -247,17 +246,30 @@ export function settingsLanding(abilities: readonly string[]): string | null {
   return tabs.home ?? tabs.objects;
 }
 
+/** The address of the grid of applications: the start page of an organization (FA9, ADR-0203). */
+export const GRID_HREF = "/";
+
+/** What the start page of an organization shows. */
+export type OrganizationLanding =
+  | { kind: "grid" }
+  | { kind: "setup"; href: string }
+  | { kind: "none" };
+
 /**
- * Where a signed-in member of an organization lands: the first application the API lists; with none, a person who may
- * set things up lands on General, and anybody else on no address (the page says no application is available yet).
+ * What a signed-in member of an organization sees at `/` (FA9, ADR-0203): the grid of every application the API lists
+ * for them, drawn in place (so `/` never redirects to itself); with none, a person who may set things up is sent to
+ * General, and anybody else sees the plain page that says no application is available yet.
  */
-export function landingFor(abilities: readonly string[], applications: readonly { apiName: string }[]): string | null {
-  const first = applications[0];
-  if (first) {
-    return applicationHref(first);
+export function landingFor(
+  abilities: readonly string[],
+  applications: readonly { apiName: string }[],
+): OrganizationLanding {
+  if (applications.length > 0) {
+    return { kind: "grid" };
   }
-  return canSetUp(abilities) ? GENERAL_HREF : null;
+  return canSetUp(abilities) ? { kind: "setup", href: GENERAL_HREF } : { kind: "none" };
 }
+
 
 /** The part of an address that names an application and one of its pages, `/apps/<application>/<entry>`. */
 export function applicationAddress(pathname: string): { application: string; entry?: string } | null {
@@ -301,6 +313,9 @@ export function areaOf(pathname: string): Area {
   }
   if (linksOf(HOME_ENTRIES).some((entry) => isCurrent(entry, pathname))) {
     return { kind: "home" };
+  }
+  if (pathname === GRID_HREF) {
+    return { kind: "neutral", name: "Applications" };
   }
   const neutral = NEUTRAL_NAMES.find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`));
   return { kind: "neutral", name: neutral?.[1] ?? null };

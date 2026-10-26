@@ -6,7 +6,7 @@ import type { ListRequest } from "@/components/ui/lists/useListViews";
 import { call, type Outcome } from "@/lib/records/call";
 
 /**
- * The calls of the fill-ins of the Audit maintenance application (Functional track FF1, ADR-0192): whether a fill-in can be
+ * The calls of the fill-ins of the Quality Management System application (Functional track FF1, ADR-0192): whether a fill-in can be
  * started on a template, starting one, and the list of fill-ins. Every call is made the way the record screens make theirs
  * (`call`), and what comes back is the API's own data or its own failure, in its own words. Nothing here decides a
  * permission. The cells are the generic sheet fill-in endpoints (`lib/sheets/fillApi`).
@@ -69,7 +69,12 @@ export function listFillIns(filters: FillInFilters, cursor?: string): Promise<Ou
 }
 
 /** One page of the fill-ins for the question of a list view, optionally narrowed to one template (UI3A). */
-export function queryFillIns(request: ListRequest, templateId: string, cursor?: string): Promise<Outcome<FillInPage>> {
+export function queryFillIns(
+  request: ListRequest,
+  templateId: string,
+  cursor?: string,
+  status?: string,
+): Promise<Outcome<FillInPage>> {
   return unwrap(
     call(() =>
       api.POST("/api/v1/fill-ins/query", {
@@ -78,6 +83,7 @@ export function queryFillIns(request: ListRequest, templateId: string, cursor?: 
           filter: request.filter,
           sort: request.sort,
           templateId: templateId === "" ? undefined : templateId,
+          status: status === undefined || status === "" ? undefined : status,
           cursor,
         },
       }),
@@ -151,4 +157,25 @@ export function useFillInOptions(templateId: string, refresh: number): OptionsSt
   return loaded.outcome.ok
     ? { status: "ready", options: loaded.outcome.data }
     : { status: "failed", failure: loaded.outcome.failure };
+}
+
+const FILL_STATUS_PARAMS = ["DRAFT", "SUBMITTED", "RETURNED", "APPROVED"] as const;
+
+/** The status an address asks the list of fill-ins to show (FA9): one the server knows, or nothing. */
+export function fillStatusParam(value: string | null | undefined): string {
+  return FILL_STATUS_PARAMS.find((status) => status === value) ?? "";
+}
+
+/** "fill-ins that were sent": what the note over a narrowed list calls the slice. */
+export function fillStatusParamWords(status: string): string {
+  switch (status) {
+    case "SUBMITTED":
+      return "fill-ins that were sent";
+    case "RETURNED":
+      return "returned fill-ins";
+    case "APPROVED":
+      return "approved fill-ins";
+    default:
+      return "draft fill-ins";
+  }
 }

@@ -2,6 +2,7 @@ package app.platform.sheets;
 
 import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -76,6 +77,34 @@ public interface FillLifecycle {
      * @return a summary for each header that has a fill-in, by header; one without is not in the map
      */
     Map<UUID, Summary> summaries(String fillObject, Collection<UUID> fillIds);
+
+    /**
+     * The fill-ins of an object that were last sent in a period, oldest first, without reading a cells document
+     * (FA9, ADR-0203). The sheets module knows nothing of who may see a fill-in: the module that owns the header
+     * judges the identifiers it gets back with the record store.
+     *
+     * @param from the start of the period, included
+     * @param to the end of the period, excluded
+     * @param limit the most rows to return
+     */
+    List<Submission> submittedBetween(String fillObject, Instant from, Instant to, int limit);
+
+    /** The fill-ins of an object that wait for a review, oldest first, at most the limit (FA9, ADR-0203). */
+    List<Submission> awaitingReview(String fillObject, int limit);
+
+    /**
+     * One fill-in that was sent.
+     *
+     * @param fillId the header record
+     * @param ownerId the record the sheet it is pinned to belongs to
+     * @param status its status
+     * @param submittedAt when it was last sent
+     * @param approvalRequestId the review it went through, or null when it was sent without one
+     * @param startedBy the person who started it, its filler
+     */
+    record Submission(UUID fillId, UUID ownerId, FillStatus status, Instant submittedAt, UUID approvalRequestId,
+            UUID startedBy) {
+    }
 
     /**
      * The facts of one fill-in.

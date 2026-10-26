@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as navigation from "@/lib/navigation";
@@ -41,18 +41,35 @@ function renderLanding(strict = false) {
 }
 
 describe("where a member lands", () => {
-  it("opens the first application the API lists, in the order it lists them", async () => {
+  it("shows the grid of the applications the API lists, in the order it lists them, and goes nowhere", async () => {
     shellApi({ applications: [FIELD, SALES], abilities: [] });
     renderLanding();
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/apps/Field__c"));
+    const grid = await screen.findByTestId("application-grid");
+    await screen.findByRole("link", { name: /Field Service/ });
+    const tiles = within(grid).getAllByRole("link").filter((link) => link.classList.contains("app-tile"));
+    expect(tiles.map((tile) => tile.getAttribute("href"))).toEqual(["/apps/Field__c", "/apps/Sales__c"]);
+    expect(replace).not.toHaveBeenCalled();
   });
 
-  it("opens the first application for a person who may set things up too: settings are one click away", async () => {
+  it("shows the grid to a person who may set things up too, with the way to manage and add applications", async () => {
     shellApi({ applications: [SALES, FIELD], abilities: ["metadata.view", "members.view"] });
     renderLanding();
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/apps/Sales__c"));
+    expect(await screen.findByTestId("application-grid")).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /Manage applications/ })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /New application/ })).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("marks the application the strip sent the person from", async () => {
+    window.history.replaceState({}, "", "/?from=Sales__c");
+    shellApi({ applications: [FIELD, SALES] });
+    renderLanding();
+
+    const sales = await screen.findByRole("link", { name: /Sales/ });
+    expect(sales).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: /Field Service/ })).not.toHaveAttribute("aria-current");
   });
 
   it("lands on General when there is no application and the person may set things up", async () => {
@@ -83,12 +100,14 @@ describe("where a member lands", () => {
 
     // The list is asked for once the sign-in is known; until it answers there is nothing to decide on.
     await waitFor(() => expect(answer).toBeDefined());
-    expect(screen.getByText("Loading…")).toBeInTheDocument();
+    expect(screen.getByTestId("grid-loading")).toBeInTheDocument();
     expect(screen.queryByTestId("no-application")).toBeNull();
     expect(replace).not.toHaveBeenCalled();
 
     answer?.();
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/apps/Field__c"));
+    expect(await screen.findByRole("link", { name: /Field Service/ })).toBeInTheDocument();
+    expect(screen.queryByTestId("grid-loading")).toBeNull();
+    expect(replace).not.toHaveBeenCalled();
   });
 
   it("says so, and offers to try again, when the list could not be had; it never lands on a guess", async () => {
@@ -106,15 +125,16 @@ describe("where a member lands", () => {
 
     healthy = true;
     screen.getByRole("button", { name: "Try again" }).click();
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/apps/Sales__c"));
+    expect(await screen.findByRole("link", { name: /Sales/ })).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
   });
 
   it("does the same under StrictMode, which runs effects twice in development", async () => {
     shellApi({ applications: [FIELD] });
     renderLanding(true);
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/apps/Field__c"));
-    expect(replace.mock.calls.every(([address]) => address === "/apps/Field__c")).toBe(true);
+    expect(await screen.findByRole("link", { name: /Field Service/ })).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
   });
 });
 
@@ -346,7 +366,8 @@ describe("a member of an organization who arrives with the marker", () => {
     afterSigningIn();
     renderLanding();
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/apps/Field__c"));
+    expect(await screen.findByRole("link", { name: /Field Service/ })).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
     expect(window.location.search).toBe("");
   });
 });

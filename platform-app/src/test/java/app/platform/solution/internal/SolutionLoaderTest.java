@@ -63,11 +63,15 @@ class SolutionLoaderTest {
         SolutionBundle bundle = bundles.stream().filter(candidate -> candidate.key().equals("inspection"))
                 .findFirst().orElseThrow();
         assertThat(bundle.feature()).isEqualTo("inspection");
-        assertThat(bundle.label()).isEqualTo("Audit maintenance");
+        assertThat(bundle.label()).isEqualTo("Quality Management System");
         assertThat(bundle.application().apiName()).isEqualTo("inspection");
-        assertThat(bundle.application().entries()).extracting(SolutionBundle.Entry::kind)
-                .containsExactly(ShippedEntryView.Kind.PLATFORM, ShippedEntryView.Kind.PLATFORM,
-                        ShippedEntryView.Kind.PLATFORM, ShippedEntryView.Kind.PLATFORM, ShippedEntryView.Kind.OBJECT);
+        assertThat(bundle.application().entries()).extracting(SolutionBundle.Entry::label)
+                .containsExactly("Home", "Document Control", "Change requests", "Record Control", "Report",
+                        "Management Review", "Internal Audit", "");
+        assertThat(bundle.application().entries()).extracting(SolutionBundle.Entry::placeholder)
+                .containsExactly(false, false, false, false, false, true, true, false);
+        assertThat(bundle.application().entries().get(0).pageKey()).isEqualTo("home");
+        assertThat(bundle.application().entries().get(7).kind()).isEqualTo(ShippedEntryView.Kind.OBJECT);
         assertThat(bundle.objects()).containsExactly("InspectionTemplate", "InspectionFill", "InspectionChangeRequest",
                 "DepartmentGroup");
         assertThat(bundle.sheetOwners()).containsExactly("InspectionTemplate");
@@ -211,6 +215,70 @@ class SolutionLoaderTest {
                         "Widget: [read]\n    fields: name"), "maps an API name"),
                 Arguments.of("an empty list of rights", GOOD.replace("Widget: [read]", "Widget: []"), "are a list"),
                 Arguments.of("a syntax mistake", "key: demo\n  bad: [\n", "not valid YAML"));
+    }
+
+    private static final String SEVERAL = """
+            key: demo
+            feature: demo-feature
+            label: Demo solution
+            applications:
+              - apiName: first
+                label: First
+                iconKey: tool
+                group: Operations
+                entries:
+                  - { type: PLATFORM, label: Home, pageKey: home }
+                  - { type: PLATFORM, label: Soon, pageKey: soon, placeholder: true }
+              - apiName: second
+                label: Second
+                entries:
+                  - { type: PLATFORM, label: Home, pageKey: home }
+            """;
+
+    @Test
+    void aBundleMayListSeveralApplicationsAndMarkAnEntryAsAPlaceholder(@TempDir Path dir) throws IOException {
+        write(dir, "demo", SEVERAL);
+
+        SolutionBundle bundle = load(dir).get(0);
+
+        assertThat(bundle.applications()).extracting(SolutionBundle.Application::apiName)
+                .containsExactly("first", "second");
+        assertThat(bundle.applications().get(0).group()).isEqualTo("Operations");
+        assertThat(bundle.applications().get(1).group()).isEmpty();
+        assertThat(bundle.applications().get(0).entries()).extracting(SolutionBundle.Entry::placeholder)
+                .containsExactly(false, true);
+        assertThat(bundle.objects()).isEmpty();
+        assertThat(bundle.policies()).isEmpty();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("applicationMistakes")
+    void aMistakeInTheApplicationsOrAPlaceholderStopsTheLoading(String name, String file, String expected,
+            @TempDir Path dir) throws IOException {
+        write(dir, "demo", file);
+
+        assertThatThrownBy(() -> load(dir)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("solution 'demo'").hasMessageContaining(expected);
+    }
+
+    static Stream<Arguments> applicationMistakes() {
+        return Stream.of(
+                Arguments.of("both forms at once", GOOD + SEVERAL.substring(SEVERAL.indexOf("applications:")),
+                        "either 'application' or 'applications'"),
+                Arguments.of("neither form", GOOD.replaceAll("(?s)application:.*?objects:", "objects:"),
+                        "either 'application' or 'applications'"),
+                Arguments.of("an empty list of applications",
+                        SEVERAL.replaceAll("(?s)applications:.*", "applications: []\n"),
+                        "'applications' lists at least one application"),
+                Arguments.of("a placeholder that is not true or false", SEVERAL.replace("placeholder: true",
+                        "placeholder: maybe"), "'placeholder' is true or false"),
+                Arguments.of("a placeholder that is not a platform entry", SEVERAL.replace(
+                        "{ type: PLATFORM, label: Soon, pageKey: soon, placeholder: true }",
+                        "{ type: OBJECT, object: Widget, placeholder: true }"), "a placeholder is a PLATFORM entry"),
+                Arguments.of("a placeholder that reads an object", SEVERAL.replace("placeholder: true",
+                        "placeholder: true, readsObject: Widget"), "a placeholder is a PLATFORM entry"),
+                Arguments.of("a group with markup", SEVERAL.replace("group: Operations", "group: <b>x</b>"),
+                        "'group' must be a plain group word"));
     }
 
     @Test

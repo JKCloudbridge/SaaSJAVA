@@ -23,20 +23,30 @@ import java.util.UUID;
  * @param pageKey for {@code PLATFORM}, the key of the page the web application has registered for the application's
  *        solution; a key it does not know shows the plain "not available" page. It carries no permission: the page it
  *        opens asks the API, and the API decides every request again (Functional track FA1, ADR-0175)
+ * @param placeholder true for a function that is only announced (FA9, ADR-0203): the browser draws the "being
+ *        prepared" page for it; null for every other entry
  */
 public record NavigationEntryView(@NotNull String type, @NotNull String label, String objectApiName,
         String pageApiName, String path, String tabApiName, String customPageApiName, UUID assetId,
-        @NotNull Boolean available, String pageKey) {
+        @NotNull Boolean available, String pageKey, Boolean placeholder) {
 
     /** An entry that is available and names no tab (the kinds of Sprint 12). */
     public NavigationEntryView(String type, String label, String objectApiName, String pageApiName, String path) {
-        this(type, label, objectApiName, pageApiName, path, null, null, null, Boolean.TRUE, null);
+        this(type, label, objectApiName, pageApiName, path, null, null, null, Boolean.TRUE, null, null);
     }
 
     /** An entry with a tab and a custom page and no page key (Sprint 18). */
     public NavigationEntryView(String type, String label, String objectApiName, String pageApiName, String path,
             String tabApiName, String customPageApiName, UUID assetId, Boolean available) {
-        this(type, label, objectApiName, pageApiName, path, tabApiName, customPageApiName, assetId, available, null);
+        this(type, label, objectApiName, pageApiName, path, tabApiName, customPageApiName, assetId, available, null,
+                null);
+    }
+
+    /** An entry of a platform-shipped application that is not a placeholder. */
+    public NavigationEntryView(String type, String label, String objectApiName, String pageApiName, String path,
+            String tabApiName, String customPageApiName, UUID assetId, Boolean available, String pageKey) {
+        this(type, label, objectApiName, pageApiName, path, tabApiName, customPageApiName, assetId, available, pageKey,
+                null);
     }
 
     /** Prints nothing typed: the label is text the organization chose (ADR-0012). */

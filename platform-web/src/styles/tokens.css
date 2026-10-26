@@ -96,6 +96,38 @@
   --flow-dot-size: 0.75rem;
   --flow-line-width: 2px;
   --sign-in-logo-width: 7.3125rem;
+
+  /*
+   * Series colours (FA9): six hues that tell apart the groups of the application grid and the series of the dashboard.
+   * Each one reads at 3 to 1 or better on a panel (a mark) and, mixed toward the text colour, at 4.5 to 1 (a word).
+   * A chart never relies on colour alone: it also labels, and it draws a pattern where marks touch.
+   */
+  --series-1: #93418b;
+  --series-2: #1d6fa5;
+  --series-3: #a85600;
+  --series-4: #1f7a4d;
+  --series-5: #c2255c;
+  --series-6: #5b5fc7;
+
+  /* sizes of the application grid and of the dashboard (FA9) */
+  --app-tile-min-width: 15rem;
+  --app-tile-min-height: 8.75rem;
+  --app-tile-icon-size: 2.75rem;
+  --app-glyph-size: 1.5rem;
+  --dash-tile-min-width: 13.5rem;
+  --chart-height: 15rem;
+  --chart-height-compact: 11rem;
+  --chart-ring-size: 12rem;
+  --chart-bar-height: 1.375rem;
+  --chart-spark-height: 2rem;
+  --filter-bar-gap: var(--space-2-5);
+  --glow-size: 18rem;
+  --font-size-stat: 2.25rem;
+  --size-dot: 0.5rem;
+  --size-input-lg: 2.875rem;
+  --chart-label-width: 11rem;
+  --chart-tip-offset: 0.625rem;
+  --chart-chart-min-width: 22rem;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -120,5 +152,11 @@
     --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
     --shadow-2: 0 10px 30px rgb(0 0 0 / 50%);
     --color-overlay: rgb(0 0 0 / 60%);
+    --series-1: #d68fcf;
+    --series-2: #6fb4e8;
+    --series-3: #f0a45a;
+    --series-4: #5fd08a;
+    --series-5: #f07aa3;
+    --series-6: #9ea2f0;
   }
 }

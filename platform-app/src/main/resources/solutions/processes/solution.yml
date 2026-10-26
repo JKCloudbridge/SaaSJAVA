@@ -1,0 +1,275 @@
+# The process applications (Functional track FA9, ADR-0203): the business's own functions, announced before they are
+# built. Every application here is a placeholder: it opens on a generic Home that lists its tabs, and each tab says it
+# is being prepared. A tab becomes a real page later by changing only this file (a page key or an object in place of
+# the marker) and registering its page in the web application; nothing else moves.
+#
+# The bundle brings no objects and no access policies: a placeholder holds no data, so there is nothing to read or to
+# protect. It has a plan feature of its own, so an organization can have these without the quality application
+# and the other way round. Licence, access policy and plan feature stay three mechanisms.
+key: processes
+feature: process-applications
+label: Process applications
+removalNote: >-
+  Taking this feature away hides the process applications from the organization at once. They hold no data, so nothing
+  is lost, and they come back when the feature is given again.
+applications:
+  - apiName: marketing
+    label: Marketing - New Business Development
+    iconKey: megaphone
+    group: Operations
+    entries:
+      - type: PLATFORM
+        label: Home
+        pageKey: home
+      - type: PLATFORM
+        label: Enquiry Review
+        pageKey: enquiry-review
+        placeholder: true
+      - type: PLATFORM
+        label: Contract Review
+        pageKey: contract-review
+        placeholder: true
+      - type: PLATFORM
+        label: Customer Satisfaction
+        pageKey: customer-satisfaction
+        placeholder: true
+  - apiName: new-product-development
+    label: New Product Development
+    iconKey: bulb
+    group: Engineering
+    entries:
+      - type: PLATFORM
+        label: Home
+        pageKey: home
+      - type: PLATFORM
+        label: New Product & Process Development
+        pageKey: new-product-process-development
+        placeholder: true
+      - type: PLATFORM
+        label: Change Control
+        pageKey: change-control
+        placeholder: true
+  - apiName: production
+    label: Production
+    iconKey: factory
+    group: Operations
+    entries:
+      - type: PLATFORM
+        label: Home
+        pageKey: home
+      - type: PLATFORM
+        label: Production Planning
+        pageKey: production-planning
+        placeholder: true
+      - type: PLATFORM
+        label: Production
+        pageKey: production
+        placeholder: true
+  - apiName: qa
+    label: QA
+    iconKey: shield
+    group: Operations
+    entries:
+      - type: PLATFORM
+        label: Home
+        pageKey: home
+      - type: PLATFORM
+        label: Inspection and Testing
+        pageKey: inspect-and-test
+        placeholder: true
+      - type: PLATFORM
+        label: Control of NC Product
+        pageKey: control-of-nc-product
+        placeholder: true
+      - type: PLATFORM
+        label: Corrective - Preventive Action
+        pageKey: corrective-preventive-action
+        placeholder: true
+      - type: PLATFORM
+        label: Calibration and MSA
+        pageKey: calibration-and-msa
+        placeholder: true
+  - apiName: top-management
+    label: Top Management
+    iconKey: target
+    group: Leadership
+    entries:
+      - type: PLATFORM
+        label: Home
+        pageKey: home
+      - type: PLATFORM
+        label: Business Planning
+        pageKey: business-planning
+        placeholder: true
+      - type: PLATFORM
+        label: Policy Making
+        pageKey: policy-making
+        placeholder: true
+      - type: PLATFORM
+        label: Strategic Planning
+        pageKey: strategic-planning
+        placeholder: true
+  - apiName: purchasing
+    label: Purchasing
+    iconKey: cart
+    group: Supply chain
+    entries:
+      - type: PLATFORM
+        label: Home
+        pageKey: home
+      - type: PLATFORM
+        label: Supplier Selection
+        pageKey: supplier-selection
+        placeholder: true
+      - type: PLATFORM
+        label: Development Purchasing
+        pageKey: development-purchasing
+        placeholder: true
+  - apiName: stores
+    label: Stores
+    iconKey: store
+    group: Supply chain
+    entries:
+      - type: PLATFORM
+        label: Home
+        pageKey: home
+      - type: PLATFORM
+        label: FIFO
+        pageKey: fifo
+        placeholder: true
+      - type: PLATFORM
+        label: Shelf Life
+        pageKey: shelf-life
+        placeholder: true
+  - apiName: packing-dispatch
+    label: Packing - Dispatch & Product Delivery
+    iconKey: truck
+    group: Supply chain
+    entries:
+      - type: PLATFORM
+        label: Home
+        pageKey: home
+      - type: PLATFORM
+        label: Customer Performance Monitoring
+        pageKey: customer-performance-monitoring
+        placeholder: true
+  - apiName: hr-training
+    label: HR - Training
+    iconKey: members
+    group: Support
+    entries:
+      - type: PLATFORM
+        label: Home
+        pageKey: home
+      - type: PLATFORM
+        label: Recruitment
+        pageKey: recruitment
+        placeholder: true
+      - type: PLATFORM
+        label: Training
+        pageKey: training
+        placeholder: true
+      - type: PLATFORM
+        label: Employee Motivation
+        pageKey: employee-motivation
+        placeholder: true
+  - apiName: it
+    label: IT
+    iconKey: monitor
+    group: Support
+    entries:
+      - type: PLATFORM
+        label: Home
+        pageKey: home
+      - type: PLATFORM
+        label: Data Backup
+        pageKey: data-backup
+        placeholder: true
+      - type: PLATFORM
+        label: Server Monitoring
+        pageKey: server-monitoring
+        placeholder: true
+      - type: PLATFORM
+        label: Ticketing Process
+        pageKey: ticketing-process
+        placeholder: true
+  - apiName: total-productive-maintenance
+    label: Total Productive Maintenance
+    iconKey: cog
+    group: Operations
+    entries:
+      - type: PLATFORM
+        label: Home
+        pageKey: home
+      - type: PLATFORM
+        label: Preventive
+        pageKey: preventive
+        placeholder: true
+      - type: PLATFORM
+        label: Predictive
+        pageKey: predictive
+        placeholder: true
+      - type: PLATFORM
+        label: Breakdown Maintenance
+        pageKey: breakdown-maintenance
+        placeholder: true
+      - type: PLATFORM
+        label: Tool Maintenance
+        pageKey: tool-maintenance
+        placeholder: true
+      - type: PLATFORM
+        label: Periodic Overhaul
+        pageKey: periodic-overhaul
+        placeholder: true
+  - apiName: npc
+    label: NPC
+    iconKey: layers
+    group: Engineering
+    entries:
+      - type: PLATFORM
+        label: Home
+        pageKey: home
+      - type: PLATFORM
+        label: APQP Time Plan
+        pageKey: apqp-time-plan
+        placeholder: true
+  - apiName: tooling
+    label: Tooling
+    iconKey: tool
+    group: Engineering
+    entries:
+      - type: PLATFORM
+        label: Home
+        pageKey: home
+      - type: PLATFORM
+        label: Tool Development
+        pageKey: tool-development
+        placeholder: true
+      - type: PLATFORM
+        label: Tool Maintenance
+        pageKey: tool-maintenance
+        placeholder: true
+  - apiName: process-engineering
+    label: Process Engineering
+    iconKey: sliders
+    group: Engineering
+    entries:
+      - type: PLATFORM
+        label: Home
+        pageKey: home
+      - type: PLATFORM
+        label: Wiring Harness Board Preparation & Maintenance
+        pageKey: wiring-harness-boards
+        placeholder: true
+  - apiName: cvd
+    label: CVD
+    iconKey: flask
+    group: Engineering
+    entries:
+      - type: PLATFORM
+        label: Home
+        pageKey: home
+      - type: PLATFORM
+        label: Crimping Validation
+        pageKey: crimping-validation
+        placeholder: true

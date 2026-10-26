@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;
 
 /**
- * The fill-ins of the Audit maintenance application, end to end (Functional track FF1, ADR-0192): started on the
+ * The fill-ins of the Quality Management System application, end to end (Functional track FF1, ADR-0192): started on the
  * version
  * in use and pinned to it, filled in by input cells only with each column type enforced, rows added by the filler
  * living

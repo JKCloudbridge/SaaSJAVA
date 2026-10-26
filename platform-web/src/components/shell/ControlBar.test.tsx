@@ -163,7 +163,7 @@ describe("the strip in settings", () => {
     expect(within(tabs).getByRole("link", { name: "Object settings" })).toHaveAttribute("href", "/setup/objects");
     expect(within(tabs).getByRole("link", { name: "Object settings" })).not.toHaveAttribute("aria-current");
     expect(screen.queryByRole("link", { name: "Setup" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Applications" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Applications" })).toBeInTheDocument();
   });
 
   it("marks Object settings on the object pages, builders included", async () => {
@@ -208,7 +208,7 @@ describe("the strip on the pages that are neither", () => {
 
     expect(screen.getByTestId("control-app")).toHaveTextContent("Notifications");
     expect(screen.queryByRole("link", { name: "Setup" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Applications" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Applications" })).toBeInTheDocument();
   });
 
   it("names a record screen outside an application, and the switching of organization", async () => {
@@ -227,11 +227,27 @@ describe("the strip on the pages that are neither", () => {
   });
 
   it("says no application is open on any other page", async () => {
-    pathname = "/";
+    pathname = "/somewhere-else";
     shellApi();
     renderBar();
 
     expect(await screen.findByText("No application open")).toBeInTheDocument();
+  });
+
+  it("names the start page Applications: the grid", async () => {
+    pathname = "/";
+    shellApi();
+    renderBar();
+
+    expect(await screen.findByTestId("control-app")).toHaveTextContent("Applications");
+  });
+
+  it("points the three lines at the grid and tells it which application is open", async () => {
+    shellApi();
+    renderBar();
+
+    const link = await screen.findByRole("link", { name: "Applications" });
+    await waitFor(() => expect(link).toHaveAttribute("href", "/?from=Field__c"));
   });
 });
 
@@ -266,7 +282,7 @@ describe("the strip elsewhere", () => {
     renderBar();
 
     expect(await screen.findByTestId("control-app")).toHaveTextContent("Platform console");
-    expect(screen.queryByRole("button", { name: "Applications" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Applications" })).toBeNull();
     expect(screen.queryByRole("navigation", { name: "Settings" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Setup" })).toBeNull();
   });
