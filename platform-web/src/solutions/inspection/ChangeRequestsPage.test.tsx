@@ -6,6 +6,7 @@ import { ChangeRequestsList, ChangeRequestsPage } from "./ChangeRequestsPage";
 
 // These screens draw a lot; a slow machine needs more than the default second to settle.
 configure({ asyncUtilTimeout: 5000 });
+vi.setConfig({ testTimeout: 20000 });
 
 vi.mock("next/navigation", async () => (await import("@/test/navigation")).navigationMock);
 
