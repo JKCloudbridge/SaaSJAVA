@@ -16,6 +16,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.test.context.TestPropertySource;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -25,6 +26,7 @@ import tools.jackson.databind.json.JsonMapper;
  * object), a reader (the shipped policy that holds the read right only) and an author (a policy made here that holds
  * read and update, because the shipped policies hold the read right only until the lifecycle sprint).
  */
+@TestPropertySource(properties = "platform.inspection.hold-published-templates=false")
 abstract class SheetSupport extends SolutionSupport {
 
     protected static final String SHEETS = "/api/v1/sheets/" + OBJECT + "/";

@@ -36,7 +36,7 @@ class SheetRacesIT extends SheetSupport {
 
     @BeforeAll
     static void startTheOtherInstance() {
-        instanceB = TestApplication.start();
+        instanceB = TestApplication.start("platform.inspection.hold-published-templates=false");
     }
 
     @AfterAll

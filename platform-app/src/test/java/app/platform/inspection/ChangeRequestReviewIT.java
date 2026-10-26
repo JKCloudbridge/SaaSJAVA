@@ -286,8 +286,8 @@ class ChangeRequestReviewIT extends ChangeRequestReviewSupport {
         String approval = approvalOf(plant, raised.reviewId());
         boolean copy = step > 0;
         if (step >= 1) {
-            assertThat(approve(plant, approval).status()).isEqualTo(200);
             copied(plant, template, raised.request());
+            assertThat(approve(plant, approval).status()).isEqualTo(200);
         }
         if (step >= 2) {
             assertThat(approveWith(corporate, approval, choices("location=PLANT1")).status()).isEqualTo(200);
@@ -334,8 +334,8 @@ class ChangeRequestReviewIT extends ChangeRequestReviewSupport {
         TestBrowser plant = review.plant().browser();
         Raised first = raise(review);
         String firstApproval = approvalOf(plant, first.reviewId());
-        approve(plant, firstApproval);
         copied(plant, template, first.request());
+        approve(plant, firstApproval);
         assertThat(reject(review.corporate().browser(), firstApproval).status()).isEqualTo(200);
         Raised second = raise(review);
         String approval = approvalOf(plant, second.reviewId());
@@ -356,8 +356,8 @@ class ChangeRequestReviewIT extends ChangeRequestReviewSupport {
         String template = review.world().template();
         Raised raised = raise(review);
         String approval = approvalOf(review.plant().browser(), raised.reviewId());
-        approve(review.plant().browser(), approval);
         copied(review.plant().browser(), template, raised.request());
+        approve(review.plant().browser(), approval);
 
         assertThat(recall(review.world().reader().browser(), approval).status()).isEqualTo(200);
 
@@ -509,7 +509,7 @@ class ChangeRequestReviewIT extends ChangeRequestReviewSupport {
         long version = registerVersion(review.plant().browser(), template, raised.request());
 
         Response refused = completeRegister(review.plant().browser(), template, raised.request(), version,
-                "\"effectiveOn\":\"soon\",\"serverUpdated\":\"maybe\"");
+                "\"effectiveOn\":\"soon\",\"serverUpdated\":\"xyz\"");
 
         assertThat(refused.status()).isEqualTo(400);
         assertThat(refused.body()).contains("effectiveOn").contains("serverUpdated").doesNotContain("soon");
