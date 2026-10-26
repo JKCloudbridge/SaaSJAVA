@@ -255,7 +255,7 @@ class StandardMetadataLoaderTest {
         assertThat(shipped.field("retired").orElseThrow().platformWritten()).isTrue();
         assertThat(shipped.fields().stream().skip(standard.systemFields().size()).map(FieldDefinition::apiName))
                 .containsExactly("name", "level", "documentType", "retired", "category", "subCategory",
-                        "partCode", "planYear", "number");
+                        "partCode", "planYear", "number", "revision", "lastRevisedAt");
         // A fill-in (FF1, ADR-0192): private, kept, and every field one only the platform writes.
         ObjectDefinition fill = standard.object("InspectionFill").orElseThrow();
         assertThat(fill.requiresFeature()).isEqualTo("inspection");

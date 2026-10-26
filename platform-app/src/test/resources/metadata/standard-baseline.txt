@@ -87,6 +87,8 @@ InspectionTemplate.subCategory PICKLIST codeValues organizationValues dependsOn=
 InspectionTemplate.partCode TEXT
 InspectionTemplate.planYear TEXT
 InspectionTemplate.number TEXT platformWritten
+InspectionTemplate.revision TEXT platformWritten
+InspectionTemplate.lastRevisedAt TEXT platformWritten
 LicenceType managedBy=licensing
 LicenceType.key TEXT
 LicenceType.name TEXT
