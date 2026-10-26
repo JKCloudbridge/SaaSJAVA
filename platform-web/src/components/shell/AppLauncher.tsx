@@ -1,24 +1,74 @@
 "use client";
 
-import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { ApplicationGrid, type GridStatus } from "@/components/apps/ApplicationGrid";
 import { Icon } from "@/components/ui/Icon";
-import { GRID_HREF } from "@/lib/shell/areas";
+import { Modal } from "@/components/ui/Modal";
+import { useApplications } from "@/lib/applications/ApplicationsProvider";
+import { useSession } from "@/lib/session/SessionProvider";
+import { canSetUp } from "@/lib/shell/areas";
 
 /**
- * The three lines at the left of the strip (Sprint 18, ADR-0128; since FA9, ADR-0203, a link): it opens the grid of
- * applications, the same page the member lands on, from any page. There is one grid, not a grid and a popup, so the
- * list has one look and one place to be kept right. The application that is open is passed along as `?from=` so the
- * grid can mark it; the grid trusts nothing in it (a name that is not in the member's list marks nothing).
+ * The three lines at the left of the strip (Sprint 18, ADR-0128; the grid since FA9, ADR-0203): they open the grid of
+ * applications in a rounded window over the page, with a cross to close it. It is the same grid the member lands on, so
+ * the list has one look; it scrolls inside the window and the page behind stays where it was. Choosing an application
+ * (the address changes) closes the window; Escape and the cross close it too.
  *
- * @param current the API name of the application that is open, if one is
+ * @param current the API name of the application that is open, if one is, so the grid can mark it
  */
 export function AppLauncher({ current }: { current?: string }) {
-  const href = current ? `${GRID_HREF}?from=${encodeURIComponent(current)}` : GRID_HREF;
+  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  const [openedAt, setOpenedAt] = useState(pathname);
+
+  useEffect(() => {
+    if (open && pathname !== openedAt) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the window closes when the address changes
+      setOpen(false);
+    }
+  }, [open, pathname, openedAt]);
+
   return (
     <div className="launcher">
-      <Link href={href} className="launcher-button" aria-label="Applications" title="All applications">
+      <button
+        type="button"
+        className="launcher-button"
+        aria-label="Applications"
+        title="All applications"
+        aria-haspopup="dialog"
+        onClick={() => {
+          setOpenedAt(pathname);
+          setOpen(true);
+        }}
+      >
         <Icon name="menu" className="launcher-icon" />
-      </Link>
+      </button>
+      {open ? <LauncherWindow current={current} onClose={() => setOpen(false)} /> : null}
     </div>
+  );
+}
+
+function LauncherWindow({ current, onClose }: { current?: string; onClose: () => void }) {
+  const { state, refresh } = useApplications();
+  const { state: session } = useSession();
+  const abilities = session.status === "signedIn" ? session.user.abilities : [];
+  const known = state.applications.length > 0 || state.status === "ready";
+  const status: GridStatus =
+    state.status === "error" && !known
+      ? { kind: "error", message: state.message }
+      : known
+        ? { kind: state.status === "error" ? "error" : "ready", message: state.status === "error" ? state.message : undefined }
+        : { kind: "loading" };
+  return (
+    <Modal title="Applications" onClose={onClose} wide testId="launcher-window">
+      <ApplicationGrid
+        applications={state.applications}
+        status={status}
+        current={current}
+        canSetUp={canSetUp(abilities)}
+        onRetry={() => void refresh()}
+      />
+    </Modal>
   );
 }

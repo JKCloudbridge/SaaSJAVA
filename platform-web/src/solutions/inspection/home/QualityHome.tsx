@@ -360,22 +360,6 @@ function Charts({
 
   return (
     <>
-      <ChartCard
-        wide
-        testId="chart-fills-per-day"
-        title="Fill-ins per day"
-        note={perDay ? `${formatCount(perDay.total, perDay.atLeast)} in the last ${period}` : undefined}
-        empty={fillsFailed ? failedWords : !perDay ? undefined : perDay.total === 0 ? "No fill-ins in this period" : undefined}
-        loading={loading && !perDay && !fillsFailed}
-        table={{
-          caption: "Fill-ins sent on each day of the period",
-          columns: ["Day", "Fill-ins"],
-          rows: (perDay?.days ?? []).map((one) => [dayLabel(one.day), one.count]),
-        }}
-      >
-        {perDay ? <AreaChart days={perDay.days} unit="fill-ins" /> : null}
-      </ChartCard>
-
       {statuses || templatesFailed ? (
         <ChartCard
           testId="chart-templates-by-status"
@@ -410,6 +394,48 @@ function Charts({
           }}
         >
           <StackedBars rows={stackRows} kinds={kinds} unit="templates" />
+        </ChartCard>
+      ) : null}
+
+      {months || templatesFailed ? (
+        <ChartCard
+          testId="chart-published-per-month"
+          title="Templates published per month"
+          note="The last twelve months"
+          empty={templatesFailed ? failedWords : months && monthTotal === 0 ? "No templates were published in these months" : undefined}
+          table={{
+            caption: "Templates published in each of the last twelve months",
+            columns: ["Month", "Templates"],
+            rows: (months ?? []).map((one) => [monthLabel(one.month), one.count]),
+          }}
+        >
+          <Columns months={months ?? []} unit="templates" />
+        </ChartCard>
+      ) : null}
+
+      {steps || templatesFailed ? (
+        <ChartCard
+          testId="chart-approval-steps"
+          title="Approvals: days at each step"
+          note="Average, over the approvals decided in this period"
+          empty={templatesFailed ? failedWords : steps && steps.length === 0 ? "No approvals were decided in this period" : undefined}
+          table={{
+            caption: "Average days at each approval step",
+            columns: ["Step", "Average days", "Approvals"],
+            rows: (steps ?? []).map((one) => [`${one.position}. ${one.name}`, one.averageDays, one.samples]),
+          }}
+        >
+          <HBars
+            seriesIndex={3}
+            unit="days"
+            bars={(steps ?? []).map((one) => ({
+              key: String(one.position),
+              label: `${one.position}. ${one.name}`,
+              count: one.averageDays,
+              shown: formatDays(one.averageDays),
+              words: `Step ${one.position}, ${one.name}: ${formatDays(one.averageDays)} on average over ${formatCount(one.samples)} approvals`,
+            }))}
+          />
         </ChartCard>
       ) : null}
 
@@ -463,47 +489,21 @@ function Charts({
         </ChartCard>
       ) : null}
 
-      {steps || templatesFailed ? (
-        <ChartCard
-          testId="chart-approval-steps"
-          title="Approvals: days at each step"
-          note="Average, over the approvals decided in this period"
-          empty={templatesFailed ? failedWords : steps && steps.length === 0 ? "No approvals were decided in this period" : undefined}
-          table={{
-            caption: "Average days at each approval step",
-            columns: ["Step", "Average days", "Approvals"],
-            rows: (steps ?? []).map((one) => [`${one.position}. ${one.name}`, one.averageDays, one.samples]),
-          }}
-        >
-          <HBars
-            seriesIndex={3}
-            unit="days"
-            bars={(steps ?? []).map((one) => ({
-              key: String(one.position),
-              label: `${one.position}. ${one.name}`,
-              count: one.averageDays,
-              shown: formatDays(one.averageDays),
-              words: `Step ${one.position}, ${one.name}: ${formatDays(one.averageDays)} on average over ${formatCount(one.samples)} approvals`,
-            }))}
-          />
-        </ChartCard>
-      ) : null}
-
-      {months || templatesFailed ? (
-        <ChartCard
-          testId="chart-published-per-month"
-          title="Templates published per month"
-          note="The last twelve months"
-          empty={templatesFailed ? failedWords : months && monthTotal === 0 ? "No templates were published in these months" : undefined}
-          table={{
-            caption: "Templates published in each of the last twelve months",
-            columns: ["Month", "Templates"],
-            rows: (months ?? []).map((one) => [monthLabel(one.month), one.count]),
-          }}
-        >
-          <Columns months={months ?? []} unit="templates" />
-        </ChartCard>
-      ) : null}
+      <ChartCard
+        wide
+        testId="chart-fills-per-day"
+        title="Fill-ins per day"
+        note={perDay ? `${formatCount(perDay.total, perDay.atLeast)} in the last ${period}` : undefined}
+        empty={fillsFailed ? failedWords : !perDay ? undefined : perDay.total === 0 ? "No fill-ins in this period" : undefined}
+        loading={loading && !perDay && !fillsFailed}
+        table={{
+          caption: "Fill-ins sent on each day of the period",
+          columns: ["Day", "Fill-ins"],
+          rows: (perDay?.days ?? []).map((one) => [dayLabel(one.day), one.count]),
+        }}
+      >
+        {perDay ? <AreaChart days={perDay.days} unit="fill-ins" /> : null}
+      </ChartCard>
 
       <ChartCard
         wide

@@ -302,6 +302,17 @@ class QualityHome {
         List<QualityHomeStore.Event> events = store.eventsSince(since, MOST_EVENTS).stream()
                 .filter(event -> facts.containsKey(event.templateId())).toList();
 
+        // Before this release no event was kept, so a version that went into use is also counted as published on the
+        // day its approval ended (the last approval publishes); a template that has both is still counted once.
+        List<QualityHomeStore.Event> publishing = new ArrayList<>(events);
+        for (VersionDates one : dates) {
+            if (one.decidedAt() != null && (one.status() == SheetStatus.ACTIVE || one.status() == SheetStatus.SUPERSEDED
+                    || one.status() == SheetStatus.RETIRED) && facts.containsKey(one.ownerId())) {
+                publishing.add(new QualityHomeStore.Event(one.ownerId(), "PUBLISHED", one.versionNo(), null,
+                        one.decidedAt(), null));
+            }
+        }
+
         Tile active = new Tile((double) facts.entrySet().stream().filter(one -> "ACTIVE".equals(one.getValue().state())
                 && chosen.allows(places.get(one.getKey()))).count(), null, null, more[0], true, true);
 
@@ -320,8 +331,8 @@ class QualityHome {
             openRequests = new Tile((double) open, null, null, more[0], false, false);
         }
 
-        Tile published = new Tile((double) published(events, window::contains, places, chosen).size(),
-                (double) published(events, window::containsPrevious, places, chosen).size(), null, more[0], true,
+        Tile published = new Tile((double) published(publishing, window::contains, places, chosen).size(),
+                (double) published(publishing, window::containsPrevious, places, chosen).size(), null, more[0], true,
                 true);
 
         List<VersionDates> decided = dates.stream().filter(one -> one.decidedAt() != null).toList();
@@ -331,7 +342,7 @@ class QualityHome {
                 window::containsPrevious), null, more[0], false, false);
 
         return new TemplateResult(active, waiting, openRequests, published, average, rejected, byStatus(facts),
-                byLevelAndType(facts), stepDays(decided, window), perMonth(events, places, chosen, now),
+                byLevelAndType(facts), stepDays(decided, window), perMonth(publishing, places, chosen, now),
                 templateActivity(events, facts));
     }
 

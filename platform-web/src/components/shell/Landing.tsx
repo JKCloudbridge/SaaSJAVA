@@ -128,13 +128,15 @@ function OrganizationLanding({ abilities }: { abilities: readonly string[] }) {
         ? { kind: state.status === "error" ? "error" : "ready", message: state.status === "error" ? state.message : undefined }
         : { kind: "loading" };
   return (
-    <ApplicationGrid
-      applications={state.applications}
-      status={status}
-      current={from}
-      canSetUp={setUp}
-      onRetry={() => void refresh()}
-    />
+    <div className="landing-window">
+      <ApplicationGrid
+        applications={state.applications}
+        status={status}
+        current={from}
+        canSetUp={setUp}
+        onRetry={() => void refresh()}
+      />
+    </div>
   );
 }
 

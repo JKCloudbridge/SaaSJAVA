@@ -1,30 +1,39 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { AppLauncher } from "./AppLauncher";
 
+vi.mock("next/navigation", () => ({ usePathname: () => "/apps/quality/home" }));
+vi.mock("@/components/apps/ApplicationGrid", () => ({
+  ApplicationGrid: ({ current }: { current?: string }) => <div data-testid="the-grid">{current ?? "none"}</div>,
+}));
+vi.mock("@/lib/applications/ApplicationsProvider", () => ({
+  useApplications: () => ({ state: { status: "ready", applications: [] }, refresh: async () => {} }),
+}));
+vi.mock("@/lib/session/SessionProvider", () => ({
+  useSession: () => ({ state: { status: "signedIn", user: { abilities: [] } } }),
+}));
+
 describe("the application launcher button", () => {
-  it("is a link to the grid of applications, not a popup", () => {
-    render(<AppLauncher />);
-
-    const link = screen.getByRole("link", { name: "Applications" });
-
-    expect(link).toHaveAttribute("href", "/");
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(link).not.toHaveAttribute("aria-haspopup");
-  });
-
-  it("tells the grid which application is open, so the grid can mark it", () => {
+  it("opens the grid in a window and closes it with the cross", () => {
     render(<AppLauncher current="quality" />);
+    expect(screen.queryByRole("dialog")).toBeNull();
 
-    expect(screen.getByRole("link", { name: "Applications" })).toHaveAttribute("href", "/?from=quality");
+    fireEvent.click(screen.getByRole("button", { name: "Applications" }));
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByTestId("the-grid")).toHaveTextContent("quality");
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("encodes a name that needs it", () => {
-    render(<AppLauncher current="Field__c & more" />);
+  it("closes with Escape", () => {
+    render(<AppLauncher />);
+    fireEvent.click(screen.getByRole("button", { name: "Applications" }));
 
-    expect(screen.getByRole("link", { name: "Applications" })).toHaveAttribute(
-      "href",
-      "/?from=Field__c%20%26%20more",
-    );
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

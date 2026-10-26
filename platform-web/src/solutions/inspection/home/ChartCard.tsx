@@ -136,9 +136,16 @@ export function ChartPatterns({ prefix }: { prefix: string }) {
 }
 
 /** A small square in the paint of series n, for a legend. */
-export function Swatch({ index }: { index: number }) {
+export function Swatch({ index, solid = false }: { index: number; solid?: boolean }) {
   const at = index % PATTERNS.length;
   const id = `sw${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  if (solid) {
+    return (
+      <svg className="chart-swatch" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+        <rect width="12" height="12" rx="2" fill={`var(--series-${at + 1})`} />
+      </svg>
+    );
+  }
   return (
     <svg className="chart-swatch" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
       <ChartPatterns prefix={id} />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
-import { ChartPatterns, Swatch } from "./ChartCard";
+import { Swatch } from "./ChartCard";
 import {
   areaPath,
   axisIndexes,
@@ -170,7 +170,6 @@ export function RingChart({
   onSelect?: (key: string) => void;
 }) {
   const [active, setActive] = useState<number | null>(null);
-  const prefix = `ring${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const total = slices.reduce((sum, slice) => sum + slice.count, 0);
   const arcs = ringArcs(slices.map((slice) => slice.count));
   const radius = 62;
@@ -180,7 +179,6 @@ export function RingChart({
     <div className="chart-ring">
       <div className="chart-ring-figure">
         <svg viewBox="0 0 180 180" className="chart-ring-svg" role="img" aria-label={`${formatCount(total)} ${unit} by state`}>
-          <ChartPatterns prefix={prefix} />
           <circle cx="90" cy="90" r={radius} fill="none" className="chart-ring-track" strokeWidth="26" />
           <g transform="rotate(-90 90 90)">
             {arcs.map((arc, index) =>
@@ -191,7 +189,7 @@ export function RingChart({
                   cy="90"
                   r={radius}
                   fill="none"
-                  stroke={`url(#${prefix}-${index % 6})`}
+                  stroke={`var(--series-${(index % 6) + 1})`}
                   strokeWidth={active === index ? 30 : 26}
                   strokeDasharray={`${Math.max(0, arc.share * circumference - 2)} ${circumference}`}
                   strokeDashoffset={-arc.start * circumference}
@@ -213,7 +211,7 @@ export function RingChart({
         {slices.map((slice, index) => {
           const body = (
             <>
-              <Swatch index={index} />
+              <Swatch index={index} solid />
               <span className="chart-legend-name">{slice.label}</span>
               <span className="chart-legend-count">{formatCount(slice.count)}</span>
               <span className="chart-legend-share">{shareOf(slice.count, total)}%</span>
@@ -329,11 +327,9 @@ export interface StackRow {
 }
 
 /**
- * Stacked horizontal bars: one row for each level, split by document type. The types are told apart by a pattern as
- * well as a colour and named in the legend; every part carries its own tooltip and the row's total is written at its end.
+ * Stacked horizontal bars: one row for each level, split by document type. The types are told apart by a solid colour and named in the legend; every part carries its own tooltip and the row's total is written at its end.
  */
 export function StackedBars({ rows, kinds, unit }: { rows: readonly StackRow[]; kinds: readonly string[]; unit: string }) {
-  const prefix = `stack${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const totals = rows.map((row) => row.parts.reduce((sum, part) => sum + part.count, 0));
   const most = Math.max(1, ...totals);
   return (
@@ -342,7 +338,7 @@ export function StackedBars({ rows, kinds, unit }: { rows: readonly StackRow[]; 
         {kinds.map((kind, index) => (
           <li key={kind}>
             <span className="chart-legend-row">
-              <Swatch index={index} />
+              <Swatch index={index} solid />
               <span className="chart-legend-name">{kind}</span>
             </span>
           </li>
@@ -357,7 +353,6 @@ export function StackedBars({ rows, kinds, unit }: { rows: readonly StackRow[]; 
               </span>
               <span className="chart-bar-track chart-bar-track-stack">
                 <svg className="chart-stack-svg" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true">
-                  <ChartPatterns prefix={prefix} />
                   {row.parts.reduce<{ x: number; marks: ReactNode[] }>(
                     (state, part) => {
                       const width = ((part.count / most) * 100);
@@ -369,7 +364,7 @@ export function StackedBars({ rows, kinds, unit }: { rows: readonly StackRow[]; 
                           y={0}
                           width={Math.max(0, width - 0.4)}
                           height={10}
-                          fill={`url(#${prefix}-${index % 6})`}
+                          fill={`var(--series-${(index % 6) + 1})`}
                         >
                           <title>{`${row.label}, ${part.label}: ${formatCount(part.count)} ${unit}`}</title>
                         </rect>,

@@ -38,7 +38,7 @@ them are not built.
    Applications an organization makes itself in Setup are not changed.
 6. **The grid is the start page.** `/` on an organization address draws the grid in place (no redirect, so no loop and no flash), nothing
    is decided before the session and the list have arrived, and a person with no application still lands on General or on the plain "no
-   application" page. The three lines in the strip are a link to `/` (with `?from=<application>` so the grid marks the application that was
+   application" page. The three lines in the strip open the same grid in a rounded window with a cross (changed after the first review; the grid at `/` stays)
    open); the popup is gone, there is one grid. A tile is a link, the arrow keys move by the columns that are drawn, `/` focuses the search,
    the last three applications opened are remembered in the browser only.
 7. **The dashboard counts through the record store.** `POST /api/v1/quality-home/summary` (module `inspection`, no ability, the plan feature

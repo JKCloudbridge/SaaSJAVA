@@ -3038,6 +3038,65 @@ form + .detail-section {
   box-shadow: var(--shadow-2);
 }
 
+/* The window of the application grid: wide, rounded, its own scroll, the page behind stays put. */
+.modal-wide {
+  width: min(100%, 72rem);
+  max-height: calc(100vh - var(--space-6) * 2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+}
+
+/* No title bar: the cross floats over the corner of the window. */
+.modal-wide {
+  position: relative;
+  margin-top: var(--space-5);
+}
+
+.modal-float-close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 2;
+  width: var(--size-input-lg);
+  height: var(--size-input-lg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-2);
+  cursor: pointer;
+}
+
+.modal-float-close:hover {
+  background: var(--color-surface-sunken);
+}
+
+.modal-wide .modal-body {
+  overflow-y: auto;
+}
+
+/* The home pages sit in the middle of the page with the same space on both sides. */
+.dash,
+.overview,
+.app-grid-page {
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+}
+
+/* The shell's main area is itself centred on these pages, so both sides have the same space. */
+.shell-main:has(> .dash, > .overview, > .app-grid-page, > .landing-window) {
+  margin-inline: auto;
+  justify-self: center;
+}
+
 .modal-head {
   display: flex;
   align-items: center;
@@ -4915,4 +4974,16 @@ button.chart-bar-row:hover,
   .chart-activity-time {
     grid-column: 2;
   }
+}
+
+/* The start page draws the grid as a window too: rounded, in the middle, the same look as the one the three lines open. */
+.landing-window {
+  width: 100%;
+  max-width: 72rem;
+  margin: var(--space-5) auto;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
 }
