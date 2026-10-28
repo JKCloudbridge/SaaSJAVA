@@ -208,6 +208,6 @@ class TemplateLifecycleIT extends TemplateSupport {
         Response response = submit(run.author().browser(), template, run.process());
 
         assertThat(response.status()).isEqualTo(409);
-        assertThat(message(response)).contains("no draft");
+        assertThat(message(response)).contains("no first Revision in draft");
     }
 }
