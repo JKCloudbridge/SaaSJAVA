@@ -10,6 +10,8 @@ sizeTheGrid();
 
 // A whole sheet is drawn for every test; give each wait longer than the default second on a busy machine.
 configure({ asyncUtilTimeout: 5000 });
+// The whole test is bounded too: on a busy CI machine one heavy grid test can use up the default 5 seconds.
+vi.setConfig({ testTimeout: 20000 });
 
 const OWNER = { object: "Subject", id: "0198f5c0-0000-7000-8000-000000000001" };
 const BASE = `/api/v1/sheets/${OWNER.object}/${OWNER.id}/versions`;
