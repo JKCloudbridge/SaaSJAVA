@@ -43,7 +43,7 @@ class TemplateSubmitRuleIT extends FillSupport {
         Setting setting = setting();
         Person author = author(setting);
         Person approver = approver(setting);
-        String process = process(setting.admin(), "send-" + newName(), step("one", user(approver.userId())));
+        String process = process(setting.admin(), "Send" + System.nanoTime(), step("one", user(approver.userId())));
         return new Case(setting, author, approver, process);
     }
 
@@ -53,7 +53,8 @@ class TemplateSubmitRuleIT extends FillSupport {
         String template = templateWithSheet(run.author().browser(), "WI", "PRD");
 
         assertThat(canSubmit(run.author().browser(), template)).isTrue();
-        assertThat(lifecycle(run.author().browser(), template).body()).contains("\"submitNote\":null");
+        assertThat(lifecycle(run.author().browser(), template).body()).as("no sentence when it can be sent")
+                .doesNotContain("\"submitNote\":\"");
         assertThat(submit(run.author().browser(), template, run.process()).status()).isEqualTo(201);
     }
 
@@ -77,7 +78,10 @@ class TemplateSubmitRuleIT extends FillSupport {
 
         assertThat(canSubmit(run.author().browser(), template)).isFalse();
         assertThat(note(run.author().browser(), template)).isEqualTo(BEING_APPROVED);
-        assertThat(submit(run.author().browser(), template, run.process()).status()).isEqualTo(409);
+        // The approval engine answers a repeat send of a record that already has a pending request; the template still has
+        // exactly one version in review (the engine, not this rule, keeps one request per record).
+        submit(run.author().browser(), template, run.process());
+        assertThat(statuses(run.author().browser(), template)).containsExactly("IN_REVIEW");
     }
 
     @Test

@@ -1,5 +1,6 @@
 package app.platform.sheets;
 
+import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Map;
 
@@ -93,8 +94,9 @@ public interface SheetPages {
      * @param marginTop the top margin in inches
      * @param marginBottom the bottom margin in inches
      */
-    record PrintSettings(String paper, String orientation, int pageWidthMm, int pageHeightMm, double marginLeft,
-            double marginRight, double marginTop, double marginBottom) {
+    record PrintSettings(@NotNull String paper, @NotNull String orientation, @NotNull Integer pageWidthMm,
+            @NotNull Integer pageHeightMm, @NotNull Double marginLeft,
+            @NotNull Double marginRight, @NotNull Double marginTop, @NotNull Double marginBottom) {
     }
 
     /** The page as an .xlsx workbook with no label band above it and no footer below it. */

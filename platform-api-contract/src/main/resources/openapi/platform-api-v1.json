@@ -21668,6 +21668,42 @@
         },
         "required" : [ "kind", "selectorValue", "values" ]
       },
+      "PrintSettings" : {
+        "type" : "object",
+        "properties" : {
+          "marginBottom" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "marginLeft" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "marginRight" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "marginTop" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "orientation" : {
+            "type" : "string"
+          },
+          "pageHeightMm" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pageWidthMm" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "paper" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "marginBottom", "marginLeft", "marginRight", "marginTop", "orientation", "pageHeightMm", "pageWidthMm", "paper" ]
+      },
       "ProblemView" : {
         "type" : "object",
         "properties" : {
@@ -22536,6 +22572,9 @@
           "obsoletedFormat" : {
             "type" : "string"
           },
+          "print" : {
+            "$ref" : "#/components/schemas/PrintSettings"
+          },
           "requestNo" : {
             "type" : "string"
           },
@@ -22559,7 +22598,7 @@
             "format" : "int64"
           }
         },
-        "required" : [ "canComplete", "changeRequested", "documentName", "grid", "requestNo", "requestedOn", "revNo", "version" ]
+        "required" : [ "canComplete", "changeRequested", "documentName", "grid", "print", "requestNo", "requestedOn", "revNo", "version" ]
       },
       "RelationshipView" : {
         "type" : "object",
@@ -24180,6 +24219,9 @@
           "canSetOptions" : {
             "type" : "boolean"
           },
+          "canSubmit" : {
+            "type" : "boolean"
+          },
           "canUnpublish" : {
             "type" : "boolean"
           },
@@ -24213,6 +24255,9 @@
           "revision" : {
             "type" : "string"
           },
+          "submitNote" : {
+            "type" : "string"
+          },
           "suggestedAudience" : {
             "type" : "array",
             "items" : {
@@ -24233,7 +24278,7 @@
             "type" : "boolean"
           }
         },
-        "required" : [ "allowDownload", "audience", "canDownload", "canPublish", "canRetire", "canSetOptions", "canUnpublish", "id", "lifecycle", "numberPreviewComplete", "openChangeRequests", "retired", "suggestedAudience", "suggestionDropped", "versionReviews", "viewOnly" ]
+        "required" : [ "allowDownload", "audience", "canDownload", "canPublish", "canRetire", "canSetOptions", "canSubmit", "canUnpublish", "id", "lifecycle", "numberPreviewComplete", "openChangeRequests", "retired", "suggestedAudience", "suggestionDropped", "versionReviews", "viewOnly" ]
       },
       "TemplatePage" : {
         "type" : "object",
