@@ -34,7 +34,7 @@ retainRecords: true
 sharingDefault: PRIVATE
 fields:
   - apiName: name
-    label: Template name
+    label: Document name
     description: The name people read.
     type: TEXT
     required: true
@@ -52,7 +52,7 @@ fields:
         - { value: L2, label: "Level 2" }
 
   - apiName: documentType
-    label: Document
+    label: Document type
     description: The kind of document within the level. Only the documents that go with the level can be chosen.
     type: PICKLIST
     organizationValues: true
@@ -70,7 +70,7 @@ fields:
           L2: [DOCC, DOCD]
 
   - apiName: retired
-    label: Retired
+    label: Obsolete
     description: Whether the template is no longer used. A retired template is kept and can still be read. Only retiring it sets this.
     type: BOOLEAN
     platformWritten: true
@@ -148,7 +148,7 @@ fields:
     settings: { maxLength: 4 }
 
   - apiName: number
-    label: Number
+    label: Document number
     description: The document number. The platform gives it when the template is approved; nobody types it.
     type: TEXT
     unique: true
@@ -156,7 +156,7 @@ fields:
     settings: { maxLength: 40 }
 
   - apiName: revision
-    label: Revision
+    label: Revision number
     description: The revision now in use, written with two digits (00 is the first). The platform sets it when a revision is published; nobody types it.
     type: TEXT
     platformWritten: true

@@ -454,3 +454,24 @@ Decision: [ADR-0203](../adr/0203-the-application-grid-home-in-every-application-
   `ControlBar.test.tsx`, `AppLauncher.test.tsx`, `tokens.test.ts`. Real PostgreSQL: `QualityHomeIT` (the numbers equal the lists, no
   section for what cannot be read, filters, every period, cross-tenant, forged host, platform address, not signed in, feature missing, the two
   records), `QualityHomeBoundIT`, `QualityHomeLogsAreCleanIT`, `QualityHomeCostIT`; the isolation harness lists both new tables.
+
+## The template Details tab and the approval history by day (FA11A)
+
+Decision: ADR-0205. Frontend, one object file and documents; no migration, no API change.
+
+- **Names a person reads** (labels only; stored names, the API and the policies are unchanged): Document name (`name`), Document type
+  (`documentType`), Document number (`number`), Obsolete (`retired`), Revision number (`revision`). They are in `InspectionTemplate.yml`
+  and in the generated list `docs/standard-objects.md`.
+- **Two fixed columns** (`solutions/inspection/templateDetails.ts`, drawn by `RecordDetails` and `RecordForm` through the optional
+  `left` of a section): left Document name, Level, Document type, Identity category, Identity sub-category, then Part code or Plan year;
+  right Document number, Revision number, Obsolete (last). Reading shows Part code and Plan year only when the template has a value and
+  the Revision number only once a Revision is in use; editing shows every field the member can see. Revision number and the date are
+  never typed. **System information** holds "Last revised on" and the system fields. The generic record page is unchanged.
+- **Revision number:** the saved value, else the Revision in use read from the sheet (the Sheet tab's rule). **Last revised on** is stored
+  as text and shown as the date and time of the reader's own time zone (`formatInstant`).
+- **The read lists of every shipped policy** name the eleven fields of the tab when the policy opens a template (`SolutionLoaderTest`).
+- **The approvals of a template** (`TemplateApprovals` over `ApprovalHistoryList`) are one accordion item for each calendar day in the
+  reader's time zone, newest first and open, older days closed. A day is one card with its approvals newest first; each has a title,
+  the time of day, a note and the flow. `ApprovalHistoryList` has no other user.
+- **Tests.** No database: `templateDetails.test.ts`, `columns.test.ts`, `ApprovalHistoryList.test.tsx`, `SolutionLoaderTest`; frontend
+  `TemplatesPage.test.tsx` (the Details tab).

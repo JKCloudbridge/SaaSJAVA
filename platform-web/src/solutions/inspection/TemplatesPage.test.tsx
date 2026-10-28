@@ -405,10 +405,12 @@ await waitFor(() => expect(screen.getByTestId("approval-submit")).toBeDisabled()
     await waitFor(() => expect(screen.queryByRole("button", { name: "Edit" })).toBeNull());
   });
 
-  it("shows the revision the platform saved on the Details tab, and the day it was last revised (FA8)", async () => {
+  it("shows the revision the platform saved on the Details tab, and the day it was last revised (FA8, FA11A)", async () => {
     setUrl(OPEN);
     fakeApi({
       ...listAnswers(),
+      "GET /api/v1/objects/InspectionTemplate/form": detailsForm(),
+      [`GET ${RECORDS}/${ID}`]: () => json(detailsRecord({ lastRevisedAt: "2026-10-26T08:00:00Z" })),
       [`GET /api/v1/templates/${ID}/lifecycle`]: () =>
         json(
           lifecycleOf(
@@ -419,8 +421,10 @@ await waitFor(() => expect(screen.getByTestId("approval-submit")).toBeDisabled()
     });
     render(<TemplatesPage />);
 
-    expect(await screen.findByTestId("template-revision")).toHaveTextContent("01");
+    expect(await screen.findByTestId("value-revision")).toHaveTextContent("01");
     expect(screen.getByText("Last revised on")).toBeInTheDocument();
+    // Stored as text, shown as the reader's date and time (the tests run in UTC).
+    expect(screen.getByTestId("value-lastRevisedAt")).toHaveTextContent(new Date("2026-10-26T08:00:00Z").toLocaleString());
     expect(await screen.findByTestId("lifecycle-text")).toHaveTextContent("Active Rev 01");
   });
 
@@ -966,12 +970,186 @@ describe("the New template popup", () => {
   });
 });
 
+// The form of a template as the Details tab of FA11A draws it: the renamed labels and the fields the page arranges.
+function detailsForm() {
+  const picks = (values: string[]) => values.map((value) => ({ value, label: `${value} label`, active: true }));
+  const field = (apiName: string, label: string, extra: Record<string, unknown> = {}) => ({
+    apiName,
+    label,
+    type: "TEXT",
+    editable: false,
+    ...extra,
+  });
+  return () =>
+    json({
+      data: {
+        objectApiName: "InspectionTemplate",
+        label: "Template",
+        pluralLabel: "Templates",
+        // The API's own layout is ignored by the Details tab: the page draws its own two columns.
+        layout: { source: "GENERATED", sections: [{ label: "Details", columns: 2, fields: ["number", "name"] }] },
+        fields: [
+          field("name", "Document name", { editable: true, required: true }),
+          field("level", "Level", { type: "PICKLIST", editable: true, values: picks(["L1"]) }),
+          field("documentType", "Document type", { type: "PICKLIST", editable: true, values: picks(["DOCA"]) }),
+          field("category", "Identity category", { type: "PICKLIST", values: picks(["CP", "WI"]) }),
+          field("subCategory", "Identity sub-category", { type: "PICKLIST", values: picks(["PRD"]) }),
+          field("partCode", "Part code", { editable: true }),
+          field("planYear", "Plan year", { editable: true }),
+          field("number", "Document number"),
+          field("revision", "Revision number"),
+          field("retired", "Obsolete", { type: "BOOLEAN" }),
+          field("lastRevisedAt", "Last revised on"),
+          field("createdAt", "Created on", { type: "DATE_TIME", kind: "SYSTEM" }),
+        ],
+        sections: [],
+        recordTypes: [],
+        actions: { create: true, update: true, delete: false },
+      },
+    });
+}
+
+function detailsRecord(extra: Record<string, unknown> = {}) {
+  return {
+    data: {
+      id: ID,
+      objectApiName: "InspectionTemplate",
+      ownerId: "0198f5c0-0000-7000-8000-000000000001",
+      fields: {
+        name: "Fire exit check",
+        level: "L1",
+        documentType: "DOCA",
+        category: "WI",
+        subCategory: "PRD",
+        number: "WI/PRD/01",
+        retired: false,
+        ...extra,
+      },
+      version: 0,
+      createdAt: "2026-10-22T08:00:00Z",
+      updatedAt: "2026-10-22T08:00:00Z",
+    },
+  };
+}
+
+/** The fields of an arranged section in drawing order, each with its column (1 or 2) and row. */
+function placed(grid: Element) {
+  return Array.from(grid.children).map((one) => ({
+    field: one.getAttribute("data-field") ?? "",
+    column: (one as HTMLElement).style.getPropertyValue("--col"),
+    row: (one as HTMLElement).style.getPropertyValue("--row"),
+  }));
+}
+
+describe("the Details tab of a template (FA11A)", () => {
+  const ACTIVE = { ...NONE, state: "ACTIVE", activeVersion: 4, highestVersion: 4 };
+  const withLifecycle = (extra: Record<string, unknown>, numbers = ACTIVE) => ({
+    "GET /api/v1/objects/InspectionTemplate/form": detailsForm(),
+    [`GET /api/v1/templates/${ID}/lifecycle`]: () => json(lifecycleOf(extra, numbers)),
+  });
+
+  it("draws the new labels in two fixed columns, with Obsolete last on the right and no Part code without a value", async () => {
+    setUrl(OPEN);
+    fakeApi({ ...listAnswers(), ...withLifecycle({ revision: "02" }), [`GET ${RECORDS}/${ID}`]: () => json(detailsRecord()) });
+    render(<TemplatesPage />);
+
+    const details = await screen.findByTestId("record-details");
+    const labels = Array.from(details.querySelectorAll(".dl-label")).map((one) => one.textContent);
+    expect(labels).toEqual([
+      "Document name *",
+      "Level",
+      "Document type",
+      "Identity category",
+      "Identity sub-category",
+      "Document number",
+      "Revision number",
+      "Obsolete",
+      "Last revised on",
+      "Created on",
+    ]);
+    expect(placed(details.querySelector(".record-grid-placed") as Element)).toEqual([
+      { field: "name", column: "1", row: "1" },
+      { field: "level", column: "1", row: "2" },
+      { field: "documentType", column: "1", row: "3" },
+      { field: "category", column: "1", row: "4" },
+      { field: "subCategory", column: "1", row: "5" },
+      { field: "number", column: "2", row: "1" },
+      { field: "revision", column: "2", row: "2" },
+      { field: "retired", column: "2", row: "3" },
+    ]);
+    expect(screen.queryByText("Template name")).toBeNull();
+    expect(screen.queryByText("Retired")).toBeNull();
+  });
+
+  it("adds Part code to the left column once the template has a value", async () => {
+    setUrl(OPEN);
+    fakeApi({
+      ...listAnswers(),
+      ...withLifecycle({ revision: "00" }),
+      [`GET ${RECORDS}/${ID}`]: () => json(detailsRecord({ category: "CP", partCode: "P-100" })),
+    });
+    render(<TemplatesPage />);
+
+    const details = await screen.findByTestId("record-details");
+    const left = placed(details.querySelector(".record-grid-placed") as Element).filter((one) => one.column === "1");
+    expect(left.map((one) => one.field)).toEqual(["name", "level", "documentType", "category", "subCategory", "partCode"]);
+    expect(screen.getByTestId("value-partCode")).toHaveTextContent("P-100");
+  });
+
+  it("reads the Revision number from the sheet when none was saved", async () => {
+    setUrl(OPEN);
+    // Published before the revision was saved: the fourth stored version of the sheet is Revision 03.
+    fakeApi({ ...listAnswers(), ...withLifecycle({}), [`GET ${RECORDS}/${ID}`]: () => json(detailsRecord()) });
+    render(<TemplatesPage />);
+
+    expect(await screen.findByTestId("value-revision")).toHaveTextContent("03");
+  });
+
+  it("shows no Revision number before a first Revision is in use", async () => {
+    setUrl(OPEN);
+    fakeApi({
+      ...listAnswers(),
+      ...withLifecycle({}, { ...NONE, state: "DRAFT", draftVersion: 1, highestVersion: 1 }),
+      [`GET ${RECORDS}/${ID}`]: () => json(detailsRecord()),
+    });
+    render(<TemplatesPage />);
+
+    await screen.findByTestId("record-details");
+    await screen.findByTestId("lifecycle-text");
+    expect(screen.queryByTestId("value-revision")).toBeNull();
+    expect(screen.queryByText("Revision number")).toBeNull();
+  });
+
+  it("keeps the same order in the edit form and does not let the Revision number or its date be typed", async () => {
+    setUrl(OPEN);
+    fakeApi({
+      ...listAnswers(),
+      ...withLifecycle({ revision: "01", lastRevisedAt: "2026-10-26T08:00:00Z" }),
+      [`GET ${RECORDS}/${ID}`]: () => json(detailsRecord({ lastRevisedAt: "2026-10-26T08:00:00Z" })),
+    });
+    render(<TemplatesPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+
+    const form = await screen.findByTestId("record-form");
+    const grid = form.querySelector(".record-grid-placed") as Element;
+    const columns = Array.from(grid.children).map((one) => (one as HTMLElement).style.getPropertyValue("--col"));
+    // Name, Level, Document type, Category, Sub-category, Part code and Plan year on the left; the three on the right.
+    expect(columns).toEqual(["1", "1", "1", "1", "1", "1", "1", "2", "2", "2"]);
+    expect(placed(grid).slice(-3).map((one) => one.field)).toEqual(["number", "revision", "retired"]);
+    expect(within(form).queryByLabelText(/Revision number/)).toBeNull();
+    expect(within(form).queryByLabelText(/Last revised on/)).toBeNull();
+    expect(within(form).getByTestId("value-revision")).toHaveTextContent("01");
+    expect(within(form).getByTestId("value-lastRevisedAt")).toHaveTextContent(new Date("2026-10-26T08:00:00Z").toLocaleString());
+  });
+});
+
 describe("the approval flow beside the details (FA6D)", () => {
   const person = (name: string) => ({ userId: `id-${name}`, name });
   const request = (status: string) => ({
     summary: {
       id: "req-1",
       version: 1,
+      startedAt: "2026-10-24T08:00:00Z",
       status,
       processLabel: "Template approval",
       submittedBy: person("Department Author"),

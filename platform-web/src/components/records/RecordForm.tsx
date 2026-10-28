@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api } from "@/lib/api/client";
 import { call, problemsOf } from "@/lib/records/call";
 import { cloneableInputs } from "@/lib/records/clone";
+import { arrange } from "@/lib/records/columns";
 import { compareChanges, type Conflict } from "@/lib/records/conflict";
 import {
   defaultInput,
@@ -72,6 +73,7 @@ export function RecordForm({
   onCancel,
   onDeleted,
   recordHref,
+  display = {},
 }: {
   objectApiName: string;
   form: ObjectForm;
@@ -84,6 +86,8 @@ export function RecordForm({
   onCancel: () => void;
   onDeleted?: () => void;
   recordHref?: (objectApiName: string, id: string) => string;
+  /** Words to show for a field the member cannot type, instead of its stored value (a date in the reader's time zone). */
+  display?: Readonly<Record<string, string>>;
 }) {
   const [base, setBase] = useState<RecordView | undefined>(record);
   const [edits, setEdits] = useState<Record<string, FieldInput>>(() =>
@@ -453,7 +457,7 @@ export function RecordForm({
         </div>
       ) : null}
       {form.layout.sections.map((section, index) => {
-        const names = section.fields.filter((name) => {
+        const visible = section.fields.filter((name) => {
           const field = byName.get(name);
           if (!field) {
             return false;
@@ -461,13 +465,14 @@ export function RecordForm({
           // A new record shows what can be typed, and a calculated value once the server has worked one out.
           return !creating || field.editable || calculated[name] !== undefined;
         });
-        if (names.length === 0) {
+        if (visible.length === 0) {
           return null;
         }
+        const { names, placed, styleOf } = arrange(section, visible);
         return (
           <section key={`${section.label}-${index}`} aria-labelledby={`section-${index}`}>
             <h2 id={`section-${index}`}>{section.label}</h2>
-            <div className={`record-grid${section.columns === 2 ? " record-grid-two" : ""}`}>
+            <div className={`record-grid${section.columns === 2 ? " record-grid-two" : ""}${placed ? " record-grid-placed" : ""}`}>
               {names.map((name) => {
                 const field = byName.get(name) as FormField;
                 const span = wide(field) || section.columns === 1 ? " span-2" : "";
@@ -479,7 +484,7 @@ export function RecordForm({
                   const offered = offeredField(field, controllingInput, held, added[name] ?? []);
                   const controllingField = controllingName ? byName.get(controllingName) : undefined;
                   return (
-                    <div key={name} className={`record-field${span}`}>
+                    <div key={name} className={`record-field${span}`} style={styleOf(name)}>
                       <FieldEditor
                         objectApiName={objectApiName}
                         field={offered}
@@ -512,13 +517,16 @@ export function RecordForm({
                   );
                 }
                 const value = calculated[name] !== undefined ? calculated[name] : base ? recordValue(base, name) : undefined;
-                const text = formatValue(field, value, loadedLabels[name]);
+                const shown = calculated[name] === undefined ? display[name] : undefined;
+                const text = shown ?? formatValue(field, value, loadedLabels[name]);
                 return (
-                  <div key={name} className={`detail-item${span}`} data-field={name}>
+                  <div key={name} className={`detail-item${span}`} data-field={name} style={styleOf(name)}>
                     <div className="dl-label">{field.label}</div>
                     <div className={`dl-value${text === "" ? " muted" : ""}`} data-testid={`value-${name}`}>
                       {text === "" ? (
                         "—"
+                      ) : shown !== undefined ? (
+                        shown
                       ) : (
                         <FieldReadValue field={field} value={value} labels={loadedLabels[name]} recordHref={recordHref} />
                       )}

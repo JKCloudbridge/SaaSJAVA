@@ -22,7 +22,6 @@ import { useAbilities } from "@/lib/session/SessionProvider";
 import { canSetUp } from "@/lib/shell/areas";
 import { DetailGrid, DetailItem, DetailPage, DetailSection, MissingDetail } from "@/components/ui/lists/DetailPage";
 import { Tag } from "@/components/ui/lists/Tag";
-import { formatInstant } from "@/lib/records/fieldValue";
 import {
   downloadTemplateSheet,
   retireTemplate,
@@ -40,6 +39,7 @@ import { PublishDialog } from "./PublishDialog";
 import { SheetOptionsDialog } from "./SheetOptionsDialog";
 import { TemplateApprovals } from "./TemplateApprovals";
 import { TEMPLATE_OBJECT, text } from "./template";
+import { detailDisplay, templateSections } from "./templateDetails";
 import { downloadNameFor, footerTextFor, revisionNumber, revisionWords } from "@/lib/sheets/revision";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
@@ -329,7 +329,8 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
                   formId={FORM_ID}
                   hideActions
                   objectApiName={TEMPLATE_OBJECT}
-                  form={objectForm}
+                  form={templateSections(objectForm, record.record, view, true)}
+                  display={detailDisplay(view, record.record)}
                   record={record.record}
                   recordHref={recordHref}
                   onRecordTypeChange={() => undefined}
@@ -342,31 +343,21 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
               ) : objectForm ? (
                 <RecordDetails
                   objectApiName={TEMPLATE_OBJECT}
-                  form={objectForm}
+                  form={templateSections(objectForm, record.record, view, false)}
                   record={record.record}
                   recordHref={recordHref}
-                  hide={["revision", "lastRevisedAt"]}
+                  display={detailDisplay(view, record.record)}
                 />
               ) : (
                 <DetailGrid>
                   <DetailItem label="Level">{text(fields.level) || "None"}</DetailItem>
-                  <DetailItem label="Document">{text(fields.documentType) || "None"}</DetailItem>
+                  <DetailItem label="Document type">{text(fields.documentType) || "None"}</DetailItem>
                   <DetailItem label="Identity category">{text(fields.category) || "None"}</DetailItem>
                   <DetailItem label="Identity sub-category">{text(fields.subCategory) || "None"}</DetailItem>
                 </DetailGrid>
               )}
               {!editing ? (
                 <>
-                  <DetailGrid>
-                    <DetailItem label="Revision">
-                      <span data-testid="template-revision">{view?.revision ?? "—"}</span>
-                    </DetailItem>
-                    <DetailItem label="Last revised on">
-                      <span data-testid="template-last-revised">
-                        {view?.lastRevisedAt ? formatInstant(view.lastRevisedAt) : "—"}
-                      </span>
-                    </DetailItem>
-                  </DetailGrid>
                   {approval.mayApprove && view?.numberPreview ? (
                     <DetailGrid>
                       <DetailItem label="Number when approved" tone="mono">

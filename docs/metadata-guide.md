@@ -1149,7 +1149,7 @@ Organization administrator holds every ability. A request cannot be raised while
 
 **Revisions.** The new Revision gets the next number, **without gaps**: a copy that was rejected never uses a number. The *New Rev. No.* and
 *New Revision date* of the register are written by the platform when the request is published and nobody can type them. The template shows
-**Revision** and **Last revised on** on its Details tab; the footer row of the sheet, the file name and the list use the same Revision.
+**Revision number** (beside the Document number) on its Details tab and **Last revised on** in System information, in your own time zone; the footer row of the sheet, the file name and the list use the same Revision.
 
 **What readers see.** A person who can only read a template sees the Revision in use and nothing else. Nobody starts a new draft of a published
 template by hand any more: the old button on the template page is gone; a new Revision is made only from a change request. The first draft of a

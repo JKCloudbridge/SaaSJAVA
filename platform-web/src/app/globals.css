@@ -1589,6 +1589,12 @@ a.control-tab:hover {
   grid-column: 1 / -1;
 }
 
+/* A section whose two columns are named by the screen (FA11A): each field says its column and row. */
+.record-grid-placed > * {
+  grid-column: var(--col);
+  grid-row: var(--row);
+}
+
 .record-field,
 .detail-item {
   min-width: 0;
@@ -1696,6 +1702,11 @@ a.control-tab:hover {
 @media (max-width: 48rem) {
   .record-grid-two {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .record-grid-placed > * {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .search-row input[type="search"] {
@@ -3524,6 +3535,37 @@ form + .detail-section {
 
 .approval-history-body {
   padding: var(--space-1) var(--space-4) var(--space-4);
+}
+
+/* One day is one card: its approvals sit in a list separated by a quiet rule, not in cards of their own (FA11A). */
+.approval-history-items {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.approval-history-item {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+}
+
+.approval-history-item + .approval-history-item {
+  border-top: 1px solid var(--color-border);
+}
+
+.approval-history-item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.approval-history-item-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
 }
 
 @media (max-width: 40rem) {

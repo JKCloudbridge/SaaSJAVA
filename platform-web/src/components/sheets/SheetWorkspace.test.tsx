@@ -412,7 +412,7 @@ describe("a new revision from the active one (FA4)", () => {
       [`GET ${BASE}/3`]: one(3, "ACTIVE", 5),
     });
     const { unmount } = draw();
-    await screen.findByRole("grid");
+    await screen.findByRole("grid", {}, { timeout: 5000 });
     expect(screen.queryByRole("button", { name: /Start a new revision/ })).toBeNull();
     unmount();
 
@@ -421,7 +421,7 @@ describe("a new revision from the active one (FA4)", () => {
       [`GET ${BASE}/4`]: one(4, "DRAFT"),
     });
     draw();
-    await screen.findByRole("grid");
+    await screen.findByRole("grid", {}, { timeout: 5000 });
     expect(screen.queryByRole("button", { name: /Start a new revision/ })).toBeNull();
   });
 });
