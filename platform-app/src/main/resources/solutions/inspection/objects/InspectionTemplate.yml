@@ -1,4 +1,4 @@
-# Shipped object: InspectionTemplate, the header of a template of the Audit maintenance application (ADR-0175, ADR-0180,
+# Shipped object: InspectionTemplate, the header of a template of the Quality Management System application (ADR-0175, ADR-0180,
 # ADR-0181). It is a platform definition like the standard objects: the loader, the baseline test and the rule "never
 # delete or rename a released definition, set retired: true" (docs/metadata-guide.md) apply to it.
 #
@@ -27,7 +27,7 @@
 apiName: InspectionTemplate
 label: Template
 pluralLabel: Templates
-description: A template of the Audit maintenance application. Its records are kept for good.
+description: A template of the Quality Management System application. Its records are kept for good.
 extensible: false
 requiresFeature: inspection
 retainRecords: true

@@ -1,6 +1,8 @@
 package app.platform.sheets;
 
+import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -174,6 +176,29 @@ public interface SheetLifecycle {
         public String toString() {
             return "Layout[" + status + "]";
         }
+    }
+
+    /**
+     * The dates of the versions of these owners that are in review or were decided since a day, without reading a grid
+     * (FA9, ADR-0203): one statement for all of them. A version still being written, and one decided before the day,
+     * is not in the answer.
+     *
+     * @param decidedSince the earliest day of a decision that matters
+     */
+    List<VersionDates> dates(String ownerObject, Collection<UUID> ownerIds, Instant decidedSince);
+
+    /**
+     * When one version was sent and decided.
+     *
+     * @param ownerId the record the sheet belongs to
+     * @param versionNo the version
+     * @param status its status
+     * @param submittedAt when it was sent for approval, or null
+     * @param decidedAt when its approval ended, or null while it is in review
+     * @param approvalRequestId the approval it went through, or null
+     */
+    record VersionDates(UUID ownerId, int versionNo, SheetStatus status, Instant submittedAt, Instant decidedAt,
+            UUID approvalRequestId) {
     }
 
     /**

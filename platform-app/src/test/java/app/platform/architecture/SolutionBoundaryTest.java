@@ -41,7 +41,8 @@ class SolutionBoundaryTest {
             Pattern.compile("\\bInspection(Template|Fill)\\b"),
             Pattern.compile("\\bTemplateChange(Request|Comment)\\b"),
             Pattern.compile("app\\.platform\\.inspection\\b"),
-            Pattern.compile("(?i)audit[-_ ]?maintenance"));
+            Pattern.compile("(?i)audit[-_ ]?maintenance"),
+            Pattern.compile("Quality Management System"));
 
     /** Where the cluster's words may be written (paths relative to the repository root, with forward slashes). */
     private static final List<String> CLUSTER_PLACES = List.of(
@@ -52,6 +53,9 @@ class SolutionBoundaryTest {
             "platform-app/src/main/resources/db/migration/V076__create_audience_suggestion.sql",
             "platform-app/src/main/resources/db/migration/V078__make_audience_suggestion_key_partial.sql",
             "platform-app/src/main/resources/db/migration/V079__create_template_option.sql",
+            "platform-app/src/main/resources/db/migration/"
+                    + "V081__rename_inspection_feature_and_add_process_applications.sql",
+            "platform-app/src/main/resources/db/migration/V082__create_fill_departments_and_template_events.sql",
             "platform-web/src/solutions/",
             "platform-app/src/main/java/app/platform/inspection/");
 
@@ -103,6 +107,7 @@ class SolutionBoundaryTest {
         assertThat(CLUSTER_WORDS).anyMatch(word -> word.matcher("new InspectionTemplate()").find());
         assertThat(CLUSTER_WORDS).anyMatch(word -> word.matcher("\"inspection\"").find());
         assertThat(CLUSTER_WORDS).anyMatch(word -> word.matcher("Audit maintenance").find());
+        assertThat(CLUSTER_WORDS).anyMatch(word -> word.matcher("Quality Management System").find());
         assertThat(CLUSTER_WORDS).noneMatch(word -> word.matcher("Inspection__c").find());
     }
 

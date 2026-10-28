@@ -102,7 +102,7 @@ describe("the title row of a list", () => {
     expect(within(row).getByTestId("view-menu")).toHaveTextContent("All templates");
     expect(within(row).getByRole("button", { name: "New" })).toBeInTheDocument();
     expect(within(row).getByRole("searchbox")).toBeInTheDocument();
-    expect(within(row).getByRole("button", { name: "Templates settings" })).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: "Document Control settings" })).toBeInTheDocument();
     expect(document.querySelector(".page-intro")).toBeNull();
   });
 
@@ -111,7 +111,7 @@ describe("the title row of a list", () => {
     render(<TemplatesPage />);
     await screen.findByText("Fire exit check");
 
-    fireEvent.click(screen.getByRole("button", { name: "Templates settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Document Control settings" }));
 
     expect(screen.getByRole("menuitem", { name: "Select fields to display" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Filter" })).toBeInTheDocument();
@@ -206,7 +206,7 @@ describe("select fields to display", () => {
     render(<TemplatesPage />);
     await screen.findByText("Fire exit check");
 
-    fireEvent.click(screen.getByRole("button", { name: "Templates settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Document Control settings" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Select fields to display" }));
     const dialog = await screen.findByRole("dialog", { name: "Select fields to display" });
     const selected = within(dialog).getByLabelText("Selected fields") as HTMLSelectElement;
@@ -231,7 +231,7 @@ describe("select fields to display", () => {
     setup();
     render(<TemplatesPage />);
     await screen.findByText("Fire exit check");
-    fireEvent.click(screen.getByRole("button", { name: "Templates settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Document Control settings" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Select fields to display" }));
     const dialog = await screen.findByRole("dialog", { name: "Select fields to display" });
     const selected = within(dialog).getByLabelText("Selected fields") as HTMLSelectElement;
@@ -251,7 +251,7 @@ describe("filter", () => {
     render(<TemplatesPage />);
     await screen.findByText("Fire exit check");
 
-    fireEvent.click(screen.getByRole("button", { name: "Templates settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Document Control settings" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Filter" }));
     const dialog = await screen.findByRole("dialog", { name: "Filter" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Add condition" }));
@@ -272,7 +272,7 @@ describe("filter", () => {
     const { queries } = setup();
     render(<TemplatesPage />);
     await screen.findByText("Fire exit check");
-    fireEvent.click(screen.getByRole("button", { name: "Templates settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Document Control settings" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Filter" }));
     const dialog = await screen.findByRole("dialog", { name: "Filter" });
 

@@ -1,4 +1,4 @@
-# Shipped object: InspectionFill, the header of a fill-in of the Audit maintenance application (FF1, ADR-0180, ADR-0192).
+# Shipped object: InspectionFill, the header of a fill-in of the Quality Management System application (FF1, ADR-0180, ADR-0192).
 # A fill-in is what a person types into a template that was published to them. The header is a record so that a
 # fill-in has an owner, a place in the record store's lists, shares and an approval of its own; its cells and its status
 # are kept in the sheets module (table sheet_fill), pinned to the version of the template the fill-in was started on.
@@ -18,7 +18,7 @@
 apiName: InspectionFill
 label: Fill-in
 pluralLabel: Fill-ins
-description: A fill-in of a template of the Audit maintenance application. Its records are kept for good.
+description: A fill-in of a template of the Quality Management System application. Its records are kept for good.
 extensible: false
 requiresFeature: inspection
 retainRecords: true

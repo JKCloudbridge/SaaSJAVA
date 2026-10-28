@@ -84,7 +84,6 @@
   --sheet-input-min-width: 4rem;
   --sheet-page-portrait-width: 210mm;
   --sheet-page-landscape-width: 297mm;
-  --modal-width-wide: 76rem;
   /* The sheet on paper (FA7): the same in both themes, because paper is white. */
   --color-print-paper: #ffffff;
   --color-print-ink: #111111;
@@ -96,6 +95,61 @@
   --flow-dot-size: 0.75rem;
   --flow-line-width: 2px;
   --sign-in-logo-width: 7.3125rem;
+
+  /*
+   * Series colours (FA9): six hues that tell apart the groups of the application grid and the series of the dashboard.
+   * Each one reads at 3 to 1 or better on a panel (a mark) and, mixed toward the text colour, at 4.5 to 1 (a word).
+   * A chart never relies on colour alone: it also labels, and it draws a pattern where marks touch.
+   */
+  --series-1: #93418b;
+  --series-2: #1d6fa5;
+  --series-3: #a85600;
+  --series-4: #1f7a4d;
+  --series-5: #c2255c;
+  --series-6: #5b5fc7;
+
+  /* the second look of the home page (FA9): a warm canvas, flat white cards, a serif for the title and the numbers */
+  /* the light edge and faint shadow that give a bar a little depth */
+  --bar-sheen-top: rgb(255 255 255 / 22%);
+  --bar-sheen-none: rgb(255 255 255 / 0%);
+  --bar-sheen-edge: rgb(255 255 255 / 25%);
+  --bar-shadow: rgb(16 24 40 / 14%);
+  --cream-canvas: #faf9f7;
+  --cream-panel: #ffffff;
+  --cream-line: rgb(20 20 19 / 11%);
+  --cream-text-muted: #6b6a64;
+  --cream-s0: #3d5a80;
+  --cream-s1: #c96442;
+  --cream-s2: #5b8c5a;
+  --cream-s3: #8a6bb0;
+  --cream-s4: #d19a2b;
+  --cream-s5: #3a9ba8;
+  --cream-s6: #b5527a;
+  --cream-s7: #7a7a72;
+  --cream-grid: rgb(20 20 19 / 7%);
+  --cream-axis: rgb(20 20 19 / 28%);
+  --cream-muted-bar: rgb(20 20 19 / 20%);
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+
+  /* sizes of the application grid and of the dashboard (FA9) */
+  --app-tile-min-width: 15rem;
+  --app-tile-min-height: 8.75rem;
+  --app-tile-icon-size: 2.75rem;
+  --app-glyph-size: 1.5rem;
+  --dash-tile-min-width: 13.5rem;
+  --chart-height: 15rem;
+  --chart-height-compact: 11rem;
+  --chart-ring-size: 12rem;
+  --chart-bar-height: 1.375rem;
+  --chart-spark-height: 2rem;
+  --filter-bar-gap: var(--space-2-5);
+  --glow-size: 18rem;
+  --font-size-stat: 2.25rem;
+  --size-dot: 0.5rem;
+  --size-input-lg: 2.875rem;
+  --chart-label-width: 11rem;
+  --chart-tip-offset: 0.625rem;
+  --chart-chart-min-width: 22rem;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -120,5 +174,29 @@
     --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
     --shadow-2: 0 10px 30px rgb(0 0 0 / 50%);
     --color-overlay: rgb(0 0 0 / 60%);
+    --series-1: #d68fcf;
+    --series-2: #6fb4e8;
+    --series-3: #f0a45a;
+    --series-4: #5fd08a;
+    --series-5: #f07aa3;
+    --series-6: #9ea2f0;
+    --bar-sheen-top: rgb(255 255 255 / 14%);
+    --bar-sheen-edge: rgb(255 255 255 / 16%);
+    --bar-shadow: rgb(0 0 0 / 40%);
+    --cream-canvas: #1b1b19;
+    --cream-panel: #262624;
+    --cream-line: rgb(240 238 232 / 13%);
+    --cream-text-muted: #a3a198;
+    --cream-s0: #7fa0d0;
+    --cream-s1: #e0906f;
+    --cream-s2: #86b985;
+    --cream-s3: #b79ad6;
+    --cream-s4: #e6b956;
+    --cream-s5: #6cc0cc;
+    --cream-s6: #d98aab;
+    --cream-s7: #a3a198;
+    --cream-grid: rgb(240 238 232 / 9%);
+    --cream-axis: rgb(240 238 232 / 30%);
+    --cream-muted-bar: rgb(240 238 232 / 22%);
   }
 }

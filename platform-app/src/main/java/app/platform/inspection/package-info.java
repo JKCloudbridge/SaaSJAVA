@@ -32,7 +32,7 @@
  * <p>This module has no public API: it is a leaf. Allowed outgoing dependencies are declared below and verified by the
  * architecture tests. */
 @ApplicationModule(
-        displayName = "Audit maintenance",
+        displayName = "Quality Management System",
         allowedDependencies = {
             "sharedkernel",
             "tenant",

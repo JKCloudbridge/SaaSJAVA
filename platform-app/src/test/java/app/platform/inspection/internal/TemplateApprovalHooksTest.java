@@ -154,6 +154,12 @@ class TemplateApprovalHooksTest {
         }
 
         @Override
+        public java.util.List<VersionDates> dates(String ownerObject, java.util.Collection<UUID> ownerIds,
+                java.time.Instant decidedSince) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public Started startDraft(String ownerObject, UUID ownerId, int basedOn, UUID actor) {
             throw new UnsupportedOperationException();
         }

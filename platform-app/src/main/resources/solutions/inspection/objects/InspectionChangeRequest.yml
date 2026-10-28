@@ -1,4 +1,4 @@
-# Shipped object: InspectionChangeRequest, the record that gives a change request of the Audit maintenance application to
+# Shipped object: InspectionChangeRequest, the record that gives a change request of the Quality Management System application to
 # the approval engine (FA6E, ADR-0199). The request itself, its places and its comments stay in the cluster's own tables
 # (ADR-0191); this record exists only so that the engine has a record to review, to lock and to show in the approval
 # inbox, in the way the header of a fill-in does for a fill-in (ADR-0192). It is made by the platform in the step that
@@ -18,7 +18,7 @@
 apiName: InspectionChangeRequest
 label: Change request
 pluralLabel: Change requests
-description: The record that sends a change request of the Audit maintenance application through its approval. Its records are kept for good.
+description: The record that sends a change request of the Quality Management System application through its approval. Its records are kept for good.
 extensible: false
 requiresFeature: inspection
 retainRecords: true

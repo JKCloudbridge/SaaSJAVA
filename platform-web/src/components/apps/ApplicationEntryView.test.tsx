@@ -79,7 +79,7 @@ describe("a page of an application", () => {
       applications: [
         {
           apiName: "inspection",
-          label: "Audit maintenance",
+          label: "Demo application",
           items: [{ type: "PLATFORM", label: "Templates", pageKey: "templates", available: true }],
         },
       ],
@@ -96,7 +96,7 @@ describe("a page of an application", () => {
       applications: [
         {
           apiName: "inspection",
-          label: "Audit maintenance",
+          label: "Demo application",
           items: [{ type: "PLATFORM", label: "Elsewhere", pageKey: "elsewhere", available: true }],
         },
       ],
@@ -105,6 +105,66 @@ describe("a page of an application", () => {
 
     expect(await screen.findByTestId("entry-unavailable")).toHaveTextContent("This page is not available.");
     expect(screen.queryByTestId("solution-page-placeholder")).toBeNull();
+  });
+
+  it("draws the page that says a function is being prepared for an entry the API marks as a placeholder", async () => {
+    params = { application: "demo", entry: "s-soon" };
+    shellApi({
+      applications: [
+        {
+          apiName: "demo",
+          label: "Demo application",
+          items: [
+            { type: "PLATFORM", label: "Home", pageKey: "home", available: true },
+            { type: "PLATFORM", label: "Soon", pageKey: "soon", available: true, placeholder: true },
+          ],
+        },
+      ],
+    });
+    renderEntry();
+
+    expect(await screen.findByTestId("placeholder-page")).toHaveTextContent("This function is being prepared");
+    expect(screen.getByRole("heading", { level: 1, name: "Soon" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to Home" })).toHaveAttribute("href", "/apps/demo/s-home");
+  });
+
+  it("draws the generic overview for the Home of an application that registered no Home page", async () => {
+    params = { application: "demo", entry: "s-home" };
+    shellApi({
+      applications: [
+        {
+          apiName: "demo",
+          label: "Demo application",
+          items: [
+            { type: "PLATFORM", label: "Home", pageKey: "home", available: true },
+            { type: "PLATFORM", label: "Soon", pageKey: "soon", available: true, placeholder: true },
+          ],
+        },
+      ],
+    });
+    renderEntry();
+
+    expect(await screen.findByTestId("application-overview")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Soon/ })).toHaveAttribute("href", "/apps/demo/s-soon");
+  });
+
+  it("still says not available for a key that is not Home and has no page", async () => {
+    params = { application: "demo", entry: "s-other" };
+    shellApi({
+      applications: [
+        {
+          apiName: "demo",
+          label: "Demo application",
+          items: [
+            { type: "PLATFORM", label: "Home", pageKey: "home", available: true },
+            { type: "PLATFORM", label: "Other", pageKey: "other", available: true },
+          ],
+        },
+      ],
+    });
+    renderEntry();
+
+    expect(await screen.findByTestId("entry-unavailable")).toBeInTheDocument();
   });
 
   it("waits for the list before saying anything", () => {

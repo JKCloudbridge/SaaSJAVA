@@ -306,7 +306,7 @@ describe("one template", () => {
     expect(within(detail).getByRole("heading", { name: "Fire exit check" })).toBeInTheDocument();
     expect(await within(detail).findByTestId("lifecycle-text")).toHaveTextContent("Active Rev 02, In review");
     expect(within(detail).getByRole("tab", { name: "Details", selected: true })).toBeInTheDocument();
-    expect(within(detail).queryByRole("button", { name: "Templates" })).toBeNull();
+    expect(within(detail).queryByRole("button", { name: "Document Control" })).toBeNull();
     expect(within(detail).queryByRole("link", { name: "Edit the details" })).toBeNull();
     expect(await within(detail).findByRole("button", { name: "Edit" })).toBeInTheDocument();
   });

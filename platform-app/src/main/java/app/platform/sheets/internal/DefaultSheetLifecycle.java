@@ -5,7 +5,9 @@ import app.platform.sheets.SheetMoveRefusal;
 import app.platform.sheets.SheetMoveRefusal.Reason;
 import app.platform.sheets.SheetStatus;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -238,6 +240,14 @@ class DefaultSheetLifecycle implements SheetLifecycle {
                     row.retired(), row.highest(), row.total()));
         }
         return found;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<VersionDates> dates(String ownerObject, Collection<UUID> ownerIds, Instant decidedSince) {
+        return store.dates(ownerObject, ownerIds, decidedSince).stream()
+                .map(row -> new VersionDates(row.owner(), row.versionNo(), SheetStatus.valueOf(row.status()),
+                        row.submittedAt(), row.decidedAt(), row.approvalRequestId())).toList();
     }
 
     /**

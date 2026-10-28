@@ -5,6 +5,6 @@ import org.springframework.context.annotation.Configuration;
 
 /** Wiring of the cluster's module: its settings (FA5, ADR-0191). */
 @Configuration
-@EnableConfigurationProperties(ChangeRequestProperties.class)
+@EnableConfigurationProperties({ChangeRequestProperties.class, QualityHomeProperties.class})
 class InspectionModuleConfiguration {
 }

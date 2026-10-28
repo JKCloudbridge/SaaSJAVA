@@ -85,12 +85,14 @@ class TemplatePublishing {
     private final TemplateOptionStore optionStore;
     private final TemplateRevisions revisions;
     private final RecordLocks locks;
+    private final QualityHomeStore home;
 
     TemplatePublishing(TemplateAccess access, PublicationStore store, SheetLifecycle sheets, RecordShares shares,
             DepartmentAudiences audiences, BackgroundRecords records, BackgroundWrites writes, GroupMembers groups,
             AuditRecorder audit, TenantContexts contexts, MeterRegistry meters, NumberSeries numbers,
             ChangeRequestCounts requestCounts, AudienceSuggestions suggestions, TemplateOptionStore optionStore,
-            TemplateRevisions revisions, RecordLocks locks) {
+            TemplateRevisions revisions, RecordLocks locks, QualityHomeStore home) {
+        this.home = home;
         this.revisions = revisions;
         this.locks = locks;
         this.suggestions = suggestions;
@@ -167,7 +169,8 @@ class TemplatePublishing {
                 refuse("publish", refusal.reason().name().toLowerCase(Locale.ROOT));
                 throw new ApiException(ErrorCode.CONFLICT, refusal.getMessage());
             }
-            stampRevision(templateId, wanted);
+            int revision = stampRevision(templateId, wanted);
+            home.recordEvent(templateId, revision > 0 ? "REVISED" : "PUBLISHED", wanted, revision, caller.userId());
         }
         Counts counts = shareWith(caller.userId(), templateId, wanted, resolved);
         Options options = changedOptions(templateId, request.viewOnly(), request.allowDownload(), caller);
@@ -212,6 +215,7 @@ class TemplatePublishing {
         Counts counts = shareWith(actor, templateId, versionNo, resolved);
         optionStore.set(templateId, new Options(viewOnly, allowDownload), actor);
         int revision = stampRevision(templateId, versionNo);
+        home.recordEvent(templateId, revision > 0 ? "REVISED" : "PUBLISHED", versionNo, revision, actor);
         audit.record(base("inspection.template.published", actor, templateId)
                 .with("version_no", Integer.toString(versionNo)).with("replaced", Integer.toString(replaced))
                 .with("audiences", Integer.toString(resolved.size()))
@@ -257,6 +261,7 @@ class TemplatePublishing {
                 ended++;
             }
         }
+        home.recordEvent(templateId, "UNPUBLISHED", version, null, caller.userId());
         audit.record(base("inspection.template.unpublished", caller, templateId).with("version_no",
                 Integer.toString(version)).with("shares_ended", Integer.toString(ended)));
         meters.counter("platform.inspection.template", "act", "unpublish", "result", "ok").increment();
@@ -317,6 +322,7 @@ class TemplatePublishing {
                     : "The template could not be retired right now.");
         }
         int version = sheets.retire(Templates.OBJECT, templateId, caller.userId());
+        home.recordEvent(templateId, "RETIRED", version, null, caller.userId());
         audit.record(base("inspection.template.retired", caller, templateId).with("version_no",
                 Integer.toString(version)));
         meters.counter("platform.inspection.template", "act", "retire", "result", "ok").increment();

@@ -70,7 +70,7 @@ function OrganizationStrip({ area }: { area: Area }) {
   const gear = !inSettings && setUp ? settingsLanding(abilities) : null;
   return (
     <div className="control-bar" data-testid="control-bar">
-      <AppLauncher current={application?.apiName} canSetUp={setUp} />
+      <AppLauncher current={application?.apiName} />
       {inSettings ? (
         <SettingsTabs area={area} abilities={abilities} />
       ) : (

@@ -30,15 +30,21 @@ describe("the pages a shipped solution registers", () => {
     expect(new Set(SOLUTIONS.map((solution) => solution.application)).size).toBe(SOLUTIONS.length);
   });
 
-  it("registers every page key the bundle that ships the application names, and no other", () => {
-    // The bundle is a file of the backend; reading it keeps the two sides from drifting apart.
+  it("registers every page key the bundle that ships the application names, except Home and the announced ones", () => {
+    // The bundle is a file of the backend; reading it keeps the two sides from drifting apart. A placeholder entry has
+    // no page (the API marks it and the browser draws the "being prepared" page), and Home may fall back to the
+    // generic overview, so neither needs a registered page.
     const bundle = readFileSync(
       resolve(__dirname, "../../../platform-app/src/main/resources/solutions/inspection/solution.yml"),
       "utf-8",
     );
-    const named = [...bundle.matchAll(/^\s*pageKey:\s*([a-z][a-z0-9-]*)\s*$/gm)].map((match) => match[1]);
+    const entries = bundle.split(/^\s*- type:/m).slice(1);
+    const named = entries
+      .filter((entry) => !/^\s*placeholder:\s*true\s*$/m.test(entry))
+      .map((entry) => /^\s*pageKey:\s*([a-z][a-z0-9-]*)\s*$/m.exec(entry)?.[1])
+      .filter((key): key is string => key !== undefined && key !== "home");
     expect(named.length).toBeGreaterThan(0);
-    expect([...new Set(named)].sort()).toEqual([...PAGE_KEYS].sort());
+    const registered = [...PAGE_KEYS].filter((key) => key !== "home");
+    expect([...new Set(named)].sort()).toEqual(registered.sort());
   });
 });
-

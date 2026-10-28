@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { RecordFormPage } from "@/components/records/RecordFormPage";
 import { Modal } from "@/components/ui/Modal";
@@ -8,7 +9,8 @@ import { useListViews } from "@/components/ui/lists/useListViews";
 import { Tag } from "@/components/ui/lists/Tag";
 import { useListRoute } from "@/components/ui/lists/useListRoute";
 import { queryTemplates, type TemplateRow } from "./api";
-import { lifecycleText, stateTag } from "./lifecycle";
+import { lifecycleText, stateParam, stateParamWords, stateTag } from "./lifecycle";
+import { AddressFilterNote } from "./AddressFilterNote";
 import { TemplateDetail } from "./TemplateDetail";
 import { TEMPLATE_OBJECT, text } from "./template";
 
@@ -43,7 +45,9 @@ const FIELD_COLUMNS = ["number", "level", "documentType", "category", "subCatego
 const PRIMARY_FIELD = "name";
 
 function TemplatesScreen() {
-  const route = useListRoute();
+  const route = useListRoute({ keep: ["state"] });
+  // A tile of the home page opens this list narrowed to one state (FA9): the address names it, the server filters.
+  const state = stateParam(useSearchParams()?.get("state"));
   const views = useListViews({
     objectApiName: TEMPLATE_OBJECT,
     displayable: FIELD_COLUMNS,
@@ -55,7 +59,7 @@ function TemplatesScreen() {
   const [more, setMore] = useState(false);
 
   // The page that was read is kept with the question it answers; an answer to another question is no answer yet.
-  const key = views.requestKey;
+  const key = `${state}|${views.requestKey}`;
   const loaded: Loaded = result && result.key === key ? result.loaded : { status: "loading" };
   const request = views.request;
 
@@ -64,7 +68,7 @@ function TemplatesScreen() {
       return;
     }
     let live = true;
-    void queryTemplates(request).then((outcome) => {
+    void queryTemplates(request, undefined, state).then((outcome) => {
       if (live) {
         setResult({
           key,
@@ -82,14 +86,14 @@ function TemplatesScreen() {
     return () => {
       live = false;
     };
-  }, [request, key, route.openId, views.ready]);
+  }, [request, key, state, route.openId, views.ready]);
 
   const showMore = async () => {
     if (loaded.status !== "ready" || !loaded.next) {
       return;
     }
     setMore(true);
-    const outcome = await queryTemplates(request, loaded.next);
+    const outcome = await queryTemplates(request, loaded.next, state);
     setMore(false);
     setResult({
       key,
@@ -145,7 +149,7 @@ function TemplatesScreen() {
   return (
     <>
       <ListPage<TemplateRow>
-        title="Templates"
+        title="Document Control"
         titleControl={views.titleControl}
         remote={views.remote}
         items={ready?.rows}
@@ -168,6 +172,7 @@ function TemplatesScreen() {
             kind: "tag",
           },
         ]}
+        notices={state ? <AddressFilterNote what={stateParamWords(state)} /> : undefined}
         searchLabel="Search templates by number, name, category or sub-category"
         onOpen={(row) => route.open(row.id)}
         onNew={ready?.canCreate ? route.create : undefined}

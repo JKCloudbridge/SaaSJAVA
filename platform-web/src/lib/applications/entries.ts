@@ -85,3 +85,35 @@ export function describeKind(entry: NavigationEntry): string {
       return "heading";
   }
 }
+
+/**
+ * The page key every shipped application opens on (FA9, ADR-0203). A solution may register its own page for it; an
+ * application that registers none gets the generic overview, which is drawn from the entries the API lists.
+ */
+export const HOME_PAGE_KEY = "home";
+
+/** Whether the entry is a function that is only announced: the API marks it, the browser invents none. */
+export function isPlaceholder(entry: NavigationEntry): boolean {
+  return entry.placeholder === true;
+}
+
+/** Whether the entry is the application's Home. */
+export function isHomeEntry(entry: NavigationEntry): boolean {
+  return entry.type === "PLATFORM" && entry.pageKey === HOME_PAGE_KEY;
+}
+
+/** The entries that are tabs of their own: everything but headings and Home. */
+export function functionEntries(application: MyApplication): NavigationEntry[] {
+  return application.items.filter((entry) => entry.type !== "HEADING" && !isHomeEntry(entry));
+}
+
+/** The tabs that count in "7 tabs": the openable entries, Home included. */
+export function tabCount(application: MyApplication): number {
+  return application.items.filter(isOpenable).length;
+}
+
+/** Whether every function of the application is still only announced (and there is at least one). */
+export function isComingSoon(application: MyApplication): boolean {
+  const functions = functionEntries(application);
+  return functions.length > 0 && functions.every(isPlaceholder);
+}

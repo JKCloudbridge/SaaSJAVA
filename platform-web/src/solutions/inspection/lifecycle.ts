@@ -62,3 +62,18 @@ export function lifecycleText(lifecycle: LifecycleNumbers, revision?: string | n
   }
   return parts.length === 0 ? "No revision yet" : parts.join(", ");
 }
+
+const STATE_PARAMS = ["ACTIVE", "APPROVED", "IN_REVIEW", "DRAFT", "NONE", "RETIRED"] as const;
+
+/**
+ * The state an address asks the list of templates to show (FA9: the tiles of the home page open it so): one of the
+ * states the server knows, or nothing. The server filters; this only refuses a word that is not a state.
+ */
+export function stateParam(value: string | null | undefined): string {
+  return STATE_PARAMS.find((state) => state === value) ?? "";
+}
+
+/** "active templates": what the note over a narrowed list calls the slice. */
+export function stateParamWords(state: string): string {
+  return `${stateTag(state).text.toLowerCase()} templates`;
+}

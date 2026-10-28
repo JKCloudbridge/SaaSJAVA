@@ -177,17 +177,29 @@ describe("the two settings tabs and the gear", () => {
 describe("where a member lands", () => {
   const apps = [{ apiName: "Field__c" }, { apiName: "Sales__c" }];
 
-  it("lands on the first application the API lists, whoever the person is", () => {
-    expect(landingFor([], apps)).toBe("/apps/Field__c");
-    expect(landingFor(EVERYTHING, apps)).toBe("/apps/Field__c");
+  it("shows the grid when the API lists any application, whoever the person is", () => {
+    expect(landingFor([], apps)).toEqual({ kind: "grid" });
+    expect(landingFor(EVERYTHING, apps)).toEqual({ kind: "grid" });
+    expect(landingFor([], [{ apiName: "Field__c" }])).toEqual({ kind: "grid" });
   });
 
-  it("lands on General when there is no application and the person may set things up", () => {
-    expect(landingFor(["metadata.view"], [])).toBe(GENERAL_HREF);
+  it("goes to General when there is no application and the person may set things up", () => {
+    expect(landingFor(["metadata.view"], [])).toEqual({ kind: "setup", href: GENERAL_HREF });
   });
 
-  it("lands nowhere when there is no application and nothing to set up: the page says so", () => {
-    expect(landingFor([], [])).toBeNull();
+  it("shows nothing to open when there is no application and nothing to set up: the page says so", () => {
+    expect(landingFor([], [])).toEqual({ kind: "none" });
+  });
+
+  it("never sends the grid anywhere, so the start page cannot redirect to itself", () => {
+    for (const abilities of [[], ["metadata.view"], EVERYTHING]) {
+      const landing = landingFor(abilities, apps);
+      expect(landing).not.toHaveProperty("href");
+    }
+  });
+
+  it("names the start page Applications in the strip", () => {
+    expect(areaOf("/")).toEqual({ kind: "neutral", name: "Applications" });
   });
 });
 
@@ -226,7 +238,7 @@ describe("the areas of the shell", () => {
     expect(areaOf("/notifications/preferences")).toEqual({ kind: "neutral", name: "Notifications" });
     expect(areaOf("/records/Deal__c/new")).toEqual({ kind: "neutral", name: "Records" });
     expect(areaOf("/switch")).toEqual({ kind: "neutral", name: "Switch organization" });
-    expect(areaOf("/")).toEqual({ kind: "neutral", name: null });
+    expect(areaOf("/unknown-page")).toEqual({ kind: "neutral", name: null });
   });
 
   it("does not take the approvals inbox for the setup page of approval processes", () => {

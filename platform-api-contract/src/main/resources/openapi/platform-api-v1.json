@@ -11779,6 +11779,45 @@
         "tags" : [ "Access" ]
       }
     },
+    "/api/v1/quality-home/summary" : {
+      "post" : {
+        "description" : "One answer for the whole page: the tiles, the graphs and the lists, for a period (7d, 30d, 90d or 12m; 30d when left out) and optionally one location and one department the organization offers. A post, because the filters do not belong in an address. Needs no ability: every number is counted over the records the caller may see, through the same record store query the lists use, so the page agrees with the lists, and a section whose object the caller cannot read at all is null (never a zero). The record store gives no total, so the headers are read in pages up to a limit; a number that reached it says atLeast. A section that failed is named in problems and the others are still answered. Days are days in UTC. NOT_FOUND on the platform host and for an organization without the plan feature; VALIDATION_ERROR for a period, location or department that is not offered. Nothing typed, no name and no filter value is logged or audited.",
+        "operationId" : "qualityHomeSummary",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SummaryRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSummaryView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The numbers and graphs of the Quality Management System home page",
+        "tags" : [ "Quality home" ]
+      }
+    },
     "/api/v1/roles" : {
       "get" : {
         "description" : "The hierarchy as a flat list with each role's parent. For members who manage access, invite members or see members. NOT_FOUND on the platform host, FORBIDDEN without one of those abilities.",
@@ -14355,6 +14394,32 @@
         },
         "required" : [ "abilities", "description", "id", "managed", "name" ]
       },
+      "Activity" : {
+        "type" : "object",
+        "properties" : {
+          "about" : {
+            "type" : "string"
+          },
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "who" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "about", "at", "id", "kind", "name" ]
+      },
       "AddCatalogueItemRequest" : {
         "type" : "object",
         "properties" : {
@@ -16014,6 +16079,15 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseSummaryView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/SummaryView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseSwitchTarget" : {
         "type" : "object",
         "properties" : {
@@ -16182,6 +16256,17 @@
           }
         },
         "required" : [ "apiName", "definition", "description", "label", "version" ]
+      },
+      "AppliedView" : {
+        "type" : "object",
+        "properties" : {
+          "department" : {
+            "type" : "string"
+          },
+          "location" : {
+            "type" : "string"
+          }
+        }
       },
       "ApprovalActionsView" : {
         "type" : "object",
@@ -17851,6 +17936,56 @@
         },
         "required" : [ "id", "kind", "objectApiName", "position" ]
       },
+      "ChartsView" : {
+        "type" : "object",
+        "properties" : {
+          "approvalStepDays" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/StepDays"
+            }
+          },
+          "fillsByDepartment" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DepartmentCount"
+            }
+          },
+          "fillsByTemplate" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TemplateCount"
+            }
+          },
+          "fillsPerDay" : {
+            "$ref" : "#/components/schemas/DaysView"
+          },
+          "publishedPerMonth" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MonthCount"
+            }
+          },
+          "recentActivity" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Activity"
+            }
+          },
+          "templatesByLevelAndType" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LevelTypeCount"
+            }
+          },
+          "templatesByStatus" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/StatusCount"
+            }
+          }
+        }
+      },
       "CheckApprovalProcessRequest" : {
         "type" : "object",
         "properties" : {
@@ -18804,6 +18939,38 @@
         },
         "required" : [ "fields", "key", "label", "retained" ]
       },
+      "DayCount" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "day" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "count", "day" ]
+      },
+      "DaysView" : {
+        "type" : "object",
+        "properties" : {
+          "atLeast" : {
+            "type" : "boolean"
+          },
+          "days" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DayCount"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "atLeast", "days", "total" ]
+      },
       "DeadLetterGroup" : {
         "type" : "object",
         "properties" : {
@@ -18838,6 +19005,37 @@
           }
         },
         "required" : [ "key", "value" ]
+      },
+      "DepartmentCount" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "department" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "location" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "count", "label" ]
+      },
+      "DepartmentOption" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "label" ]
       },
       "EmbeddedTokenRequest" : {
         "type" : "object",
@@ -19382,6 +19580,18 @@
           }
         },
         "required" : [ "columnId", "operator", "templateId" ]
+      },
+      "FiltersView" : {
+        "type" : "object",
+        "properties" : {
+          "locations" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LocationOption"
+            }
+          }
+        },
+        "required" : [ "locations" ]
       },
       "FirstAdministratorInfo" : {
         "type" : "object",
@@ -20060,6 +20270,28 @@
         },
         "required" : [ "apiName", "definition", "description", "label", "objectApiName", "version" ]
       },
+      "LevelTypeCount" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "level" : {
+            "type" : "string"
+          },
+          "levelLabel" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "typeLabel" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "count", "level", "levelLabel", "type", "typeLabel" ]
+      },
       "LicencePoolView" : {
         "type" : "object",
         "properties" : {
@@ -20211,6 +20443,24 @@
           }
         },
         "required" : [ "definition", "id", "label", "mine", "objectApiName", "scope", "updatedAt", "version" ]
+      },
+      "LocationOption" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "departments" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DepartmentOption"
+            }
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "departments", "label" ]
       },
       "LookupLabelsRequest" : {
         "type" : "object",
@@ -20380,10 +20630,26 @@
         },
         "required" : [ "displayName", "email", "id", "policies", "since", "status" ]
       },
+      "MonthCount" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "month" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "count", "month" ]
+      },
       "MyApplicationView" : {
         "type" : "object",
         "properties" : {
           "apiName" : {
+            "type" : "string"
+          },
+          "group" : {
             "type" : "string"
           },
           "iconKey" : {
@@ -20441,6 +20707,9 @@
           },
           "path" : {
             "type" : "string"
+          },
+          "placeholder" : {
+            "type" : "boolean"
           },
           "tabApiName" : {
             "type" : "string"
@@ -21369,6 +21638,31 @@
           }
         },
         "required" : [ "attempts", "id", "occurredAt", "type" ]
+      },
+      "PeriodView" : {
+        "type" : "object",
+        "properties" : {
+          "from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "previousFrom" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "previousTo" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "from", "key", "previousFrom", "previousTo", "to" ]
       },
       "PermissionEntry" : {
         "type" : "object",
@@ -23842,6 +24136,43 @@
         },
         "required" : [ "operation" ]
       },
+      "StatusCount" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "count", "key", "label" ]
+      },
+      "StepDays" : {
+        "type" : "object",
+        "properties" : {
+          "averageDays" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "position" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "samples" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "averageDays", "name", "position", "samples" ]
+      },
       "SubmitApprovalRequest" : {
         "type" : "object",
         "properties" : {
@@ -23904,6 +24235,51 @@
           }
         },
         "required" : [ "location", "locationLabel" ]
+      },
+      "SummaryRequest" : {
+        "type" : "object",
+        "properties" : {
+          "department" : {
+            "type" : "string"
+          },
+          "location" : {
+            "type" : "string"
+          },
+          "period" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SummaryView" : {
+        "type" : "object",
+        "properties" : {
+          "applied" : {
+            "$ref" : "#/components/schemas/AppliedView"
+          },
+          "charts" : {
+            "$ref" : "#/components/schemas/ChartsView"
+          },
+          "filters" : {
+            "$ref" : "#/components/schemas/FiltersView"
+          },
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "period" : {
+            "$ref" : "#/components/schemas/PeriodView"
+          },
+          "problems" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "tiles" : {
+            "$ref" : "#/components/schemas/TilesView"
+          }
+        },
+        "required" : [ "applied", "charts", "filters", "generatedAt", "period", "problems", "tiles" ]
       },
       "SupportAccessRequestBody" : {
         "type" : "object",
@@ -24161,6 +24537,23 @@
           }
         },
         "required" : [ "department", "departmentLabel", "groupAvailable", "location", "locationLabel", "publishedAt", "versionNo" ]
+      },
+      "TemplateCount" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "templateId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        },
+        "required" : [ "count", "name", "templateId" ]
       },
       "TemplateLifecycle" : {
         "type" : "object",
@@ -24424,6 +24817,62 @@
             "additionalProperties" : {
               "type" : "string"
             }
+          }
+        }
+      },
+      "Tile" : {
+        "type" : "object",
+        "properties" : {
+          "atLeast" : {
+            "type" : "boolean"
+          },
+          "byDepartment" : {
+            "type" : "boolean"
+          },
+          "byLocation" : {
+            "type" : "boolean"
+          },
+          "extra" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "previous" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "value" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "atLeast", "byDepartment", "byLocation" ]
+      },
+      "TilesView" : {
+        "type" : "object",
+        "properties" : {
+          "activeTemplates" : {
+            "$ref" : "#/components/schemas/Tile"
+          },
+          "averageApprovalDays" : {
+            "$ref" : "#/components/schemas/Tile"
+          },
+          "fillsSubmitted" : {
+            "$ref" : "#/components/schemas/Tile"
+          },
+          "fillsWaiting" : {
+            "$ref" : "#/components/schemas/Tile"
+          },
+          "openChangeRequests" : {
+            "$ref" : "#/components/schemas/Tile"
+          },
+          "rejectedShare" : {
+            "$ref" : "#/components/schemas/Tile"
+          },
+          "templatesPublished" : {
+            "$ref" : "#/components/schemas/Tile"
+          },
+          "waitingApproval" : {
+            "$ref" : "#/components/schemas/Tile"
           }
         }
       },

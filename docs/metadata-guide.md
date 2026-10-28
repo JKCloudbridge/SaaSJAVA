@@ -762,7 +762,7 @@ A single-value picklist can depend on another single-value picklist of the same 
 
 ### 26.2 A picklist whose list the organization owns
 
-A platform object can have picklists flagged `organizationValues` (the shipped object of the Audit maintenance solution has two). The platform owns the field (name, type, the other picklist it depends on); **the organization's administrator owns the list of values and the pairs**: in the object manager the field's page has **Edit the values**. Only the values, their labels, whether each is offered, and the pairs can be changed; the form shows the rest and the server refuses anything else. A value is never removed, only switched off; a rollback that would remove a value you added is refused, as for every picklist. Another organization never sees your list. A platform release can replace the *starting* list for organizations that never changed theirs.
+A platform object can have picklists flagged `organizationValues` (the shipped object of the Quality Management System solution has two). The platform owns the field (name, type, the other picklist it depends on); **the organization's administrator owns the list of values and the pairs**: in the object manager the field's page has **Edit the values**. Only the values, their labels, whether each is offered, and the pairs can be changed; the form shows the rest and the server refuses anything else. A value is never removed, only switched off; a rollback that would remove a value you added is refused, as for every picklist. Another organization never sees your list. A platform release can replace the *starting* list for organizations that never changed theirs.
 A field flagged `codeValues` takes only short codes as values (1 to 10 letters, digits, hyphens or underscores): the label says more.
 
 **Adding one value while filling in a record.** A member who holds the ability **Add values to picklists** (`field-values.add`, which the Organization administrator profile has) and may edit the field sees **Add a value** beside it. They give a code, optionally what people read, and (for a dependent picklist) tick which values of the other picklist it goes with. It takes effect at once, is audited by counts and cannot rename, switch off or remove a value. To let the authors of templates do this, give their profile (or an individual grant) that ability.
@@ -792,7 +792,7 @@ A **sheet** is a spreadsheet-like grid that belongs to one record: in this relea
 
 Creating a template creates **no table** and no object: the sheet is kept as numbered **versions** of the template.
 
-### 27.2 Building and saving (Audit maintenance, Templates)
+### 27.2 Building and saving (Quality Management System, Document Control)
 
 1. Open **Templates**, choose **New template**, fill in the header and save; open the template. A person who may only read sees the list and the template, not New.
 2. The template has no version yet: choose **how the rows come about** (the sheet names them, or the filler adds them) and **Start the first version**. That choice is made once. It can be changed only while the first version is the only one and is still a draft.
@@ -873,7 +873,7 @@ Give **Author** to the people (or a group of them) who write templates and **App
 
 For the organization's administrator. The decisions are in ADR-0190.
 
-A template is published to a **Location** and a **Department**, and the people who see it are **a group you keep**. The place that says which group belongs to which pair is **Audit maintenance, Department groups** (the policy **Department setup** shows it).
+A template is published to a **Location** and a **Department**, and the people who see it are **a group you keep**. The place that says which group belongs to which pair is **Quality Management System, Department groups** (the policy **Department setup** shows it).
 
 1. **The lists.** Location and Department are lists you own, like the categories (section 26). A starting list of placeholders comes with the platform; replace it with yours (Setup, Objects, Department group, the Location and Department fields). A department belongs to the locations you list it under; the department list narrows to the location when you choose.
 2. **The groups.** Make one **public group** for each department (Setup, Groups) and add its people. Nested groups count. The group is yours: add and remove people there, and the next page they open shows or hides the templates.
@@ -886,7 +886,7 @@ A template is published to a **Location** and a **Department**, and the people w
 
 For the organization's administrator and for the contributor. The decisions are in ADR-0191.
 
-**What a person can do.** A person who can read a template that is in use (a Reader or Filler it was published to, but also an author or an approver) opens the template in Audit maintenance, Templates. Under the sheet there is **Ask for a change**. They stand on a place in the grid (a click on a cell, a click on a column label, or the arrow keys), choose whether the comment is about **this cell, this row, this column or the whole template**, write it, add it to the request, give the request a title and send it. They cannot change the sheet and the request changes nothing in it.
+**What a person can do.** A person who can read a template that is in use (a Reader or Filler it was published to, but also an author or an approver) opens the template in Quality Management System, Document Control. Under the sheet there is **Ask for a change**. They stand on a place in the grid (a click on a cell, a click on a column label, or the arrow keys), choose whether the comment is about **this cell, this row, this column or the whole template**, write it, add it to the request, give the request a title and send it. They cannot change the sheet and the request changes nothing in it.
 
 **Who sees a request.** The person who asked, the owner of the template, and everybody who holds the **Approver** policy (they can change every template). Another reader of the same template sees none of them; an author who does not own the template sees none of them. If the person who asked can no longer read the template (it was taken back from their department), they no longer see their request; the owner still does.
 
@@ -902,7 +902,7 @@ For the organization's administrator and for the contributor. The decisions are 
 
 For the organization's administrator and for the contributor. The decisions are in [ADR-0192](adr/0192-fill-ins-the-header-record-the-cell-table-and-review-by-the-approval-engine.md).
 
-**What a person does.** A person who holds the **Filler** policy and is in a department a template was published to opens the template (Audit maintenance, Templates) and presses **Start a fill-in**. The fill-in is made on the version of the template that is in use at that moment and stays on it for ever, even when a newer version is published later. They type into the cells the template marks as input (fixed text from the template cannot be typed into), in the grid on a wide screen or in the form view on a phone, add rows where the template lets the filler add them, and press **Save**. A half-done fill-in can be saved. When it is complete they press **Submit for approval** in the approval panel of the fill-in; only what is saved is sent. The values of each column are checked by the type of the column (text, number as the digits typed, a real date, one of the listed values, yes or no); a required column needs a value in every row.
+**What a person does.** A person who holds the **Filler** policy and is in a department a template was published to opens the template (Quality Management System, Document Control) and presses **Start a fill-in**. The fill-in is made on the version of the template that is in use at that moment and stays on it for ever, even when a newer version is published later. They type into the cells the template marks as input (fixed text from the template cannot be typed into), in the grid on a wide screen or in the form view on a phone, add rows where the template lets the filler add them, and press **Save**. A half-done fill-in can be saved. When it is complete they press **Submit for approval** in the approval panel of the fill-in; only what is saved is sent. The values of each column are checked by the type of the column (text, number as the digits typed, a real date, one of the listed values, yes or no); a required column needs a value in every row.
 
 **Review.** The organization's administrator builds an approval process on **Fill-in** in the approval setup (`/setup/approvals`), with steps that name people, roles or groups, exactly as for a template. **Without a process, Submit sends the fill-in for good** (section 34): it is stored, read-only, with the status Submitted, and a process made later does not reopen it. When a step approves the last time the fill-in is **approved** and fixed. When a step **rejects** it (a comment is required) the fill-in is **returned**: it goes back to its filler, who changes it and sends it again (the history keeps both requests). The filler can **recall** a fill-in before it is decided and has a draft again. A person who is asked to review a fill-in but holds no policy of the solution reads that one fill-in and nothing else, and decides it from their inbox.
 
@@ -1167,3 +1167,35 @@ before keep the places they carry in the stored data). The grid of the Sheet tab
 Enter. **Submit for approval** on a template is greyed out when the template cannot be sent: it was published (a published template changes
 only through a change request), it is retired, it is already being approved, or it has no first Revision in draft. The asterisk on the
 **Change requests** tab sits beside the word and no longer makes the row of tabs scroll.
+## 41. The application grid, Home in every application and the Quality Management System dashboard (FA9)
+
+Decision: [ADR-0203](adr/0203-the-application-grid-home-in-every-application-placeholders-and-the-quality-dashboard.md). This is for the
+platform administrator and the organization administrator.
+
+**Which applications exist.** An organization sees the applications it made itself in Setup, the **Quality Management System** (plan feature
+`inspection`) and, with the feature **Process applications** (`process-applications`), fifteen more that are only announced: Marketing,
+New Product Development, Production, QA, Top Management, Purchasing, Stores, Packing - Dispatch & Product Delivery, HR - Training, IT,
+Total Productive Maintenance, NPC, Tooling, Process Engineering and CVD. To give or take the feature: Plans, open the plan, Change, tick
+the feature; or Organizations, open it, Features, switch it on or off for that organization. Taking it away hides the applications at once
+and loses nothing (they hold no data). The applications you make yourself in Setup do not change: they have no Home tab of their own.
+
+**The grid.** After signing in, `/` shows every application the person may open, as tiles, with a search box, one chip for each group, the
+last three opened and a mark on the one they came from. A tile marked "Coming soon" is an application whose tabs are all still to be built.
+The three lines in the strip open the same grid from any page. A person who may set things up also sees "Manage applications" and a "New
+application" tile.
+
+**Home.** Every shipped application opens on its Home. The Quality Management System's Home is the dashboard; the others show a plain
+overview with one card for each tab.
+
+**The dashboard.** Everyone who can open the application sees it, and every number is about what **that person** may see (the same lists as
+the tabs). A person who may read only their own templates sees numbers about their own; a person who cannot read fill-ins at all sees no
+fill-in tile. A number marked "at least" means more records exist than the page is allowed to read at once (50,000). Choose the period, a
+location and a department at the top; the choice is in the address, so you can send the page to someone and the back button undoes a choice.
+A tile that does not follow a chosen filter says so (for example "Not filtered by department"). Press a tile to open the list it counts, a
+department bar to narrow the page, a template bar to open its fill-ins, a ring segment to open the templates in that status. "View as
+table" shows the numbers of any graph as a table.
+
+**Two things to know.** The department of a fill-in is the department of the person who started it, written when it is started; fill-ins
+started before this release have none and are shown as "Not recorded". "Published per month" counts from this release on.
+
+**Settings** (`platform.inspection.home.*`): `max-scanned` (50,000), `max-approvals` (500), `recent-activity` (10).

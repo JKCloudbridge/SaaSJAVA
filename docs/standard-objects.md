@@ -151,7 +151,7 @@ A set of people that access policies and shares can name.
 
 ## InspectionChangeRequest
 
-The record that sends a change request of the Audit maintenance application through its approval. Its records are kept for good.
+The record that sends a change request of the Quality Management System application through its approval. Its records are kept for good.
 
 - Label: Change request / Change requests
 - Records managed by: the organization (ordinary data)
@@ -165,7 +165,7 @@ The record that sends a change request of the Audit maintenance application thro
 
 ## InspectionFill
 
-A fill-in of a template of the Audit maintenance application. Its records are kept for good.
+A fill-in of a template of the Quality Management System application. Its records are kept for good.
 
 - Label: Fill-in / Fill-ins
 - Records managed by: the organization (ordinary data)
@@ -179,7 +179,7 @@ A fill-in of a template of the Audit maintenance application. Its records are ke
 
 ## InspectionTemplate
 
-A template of the Audit maintenance application. Its records are kept for good.
+A template of the Quality Management System application. Its records are kept for good.
 
 - Label: Template / Templates
 - Records managed by: the organization (ordinary data)

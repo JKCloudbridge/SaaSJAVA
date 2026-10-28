@@ -18,7 +18,6 @@ export function Modal({
   onClose: () => void;
   children: ReactNode;
   testId?: string;
-  /** A popup that is as wide as a sheet of paper needs (the print view of the register). */
   wide?: boolean;
 }) {
   const heading = useId();
@@ -67,13 +66,19 @@ export function Modal({
 
   return (
     <div className="modal-backdrop" data-testid={testId}>
-      <div className={wide ? "modal modal-wide" : "modal"} role="dialog" aria-modal="true" aria-labelledby={heading} ref={box}>
-        <div className="modal-head">
-          <h2 id={heading}>{title}</h2>
-          <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
+      <div className={wide ? "modal modal-wide" : "modal"} role="dialog" aria-modal="true" aria-labelledby={wide ? undefined : heading} aria-label={wide ? title : undefined} ref={box}>
+        {wide ? (
+          <button type="button" className="modal-float-close" aria-label="Close" onClick={onClose}>
             ×
           </button>
-        </div>
+        ) : (
+          <div className="modal-head">
+            <h2 id={heading}>{title}</h2>
+            <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
+              ×
+            </button>
+          </div>
+        )}
         <div className="modal-body">{children}</div>
       </div>
     </div>
