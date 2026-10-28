@@ -420,6 +420,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
               key={focusVersion ?? "list"}
               listFirst
               focusVersion={focusVersion}
+              onVersionsChanged={reload}
               allowNewDraft={!view || (view.lifecycle.activeVersion === 0 && view.lifecycle.retiredVersion === 0)}
               toolbarSlot={toolbarSlot}
               footer={view ? footerFor : undefined}

@@ -222,6 +222,19 @@ describe("a sheet with no version", () => {
     expect(bodyOf(calls, `POST ${BASE}`)).toEqual({ dimension: 2 });
   });
 
+
+  it("tells the page around it when a first revision was started, so it can read what depends on it (FA10)", async () => {
+    fakeApi({
+      [`GET ${BASE}`]: list([]),
+      [`POST ${BASE}`]: () => json({ data: summary(1, "DRAFT", 0) }, 201),
+    });
+    const changed = vi.fn();
+    render(<SheetWorkspace owner={OWNER} label="Fire checks" onVersionsChanged={changed} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Start first revision" }));
+
+    await waitFor(() => expect(changed).toHaveBeenCalled());
+  });
   it("shows the API's words when the first revision cannot be started", async () => {
     fakeApi({
       [`GET ${BASE}`]: list([]),

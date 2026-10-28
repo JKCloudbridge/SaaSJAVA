@@ -81,6 +81,11 @@ export interface SheetWorkspaceProps {
    * at once (FA10). A number the caller may not read is answered like any unknown one by the server.
    */
   focusVersion?: number;
+  /**
+   * Called after a version was started, uploaded, saved or its grid replaced (FA10), so a page around the sheet can read what
+   * depends on the versions again (whether the template can be sent for approval).
+   */
+  onVersionsChanged?: () => void;
 }
 
 interface Notice {
@@ -109,6 +114,7 @@ export function SheetWorkspace({
   actions,
   allowNewDraft = true,
   focusVersion,
+  onVersionsChanged,
 }: SheetWorkspaceProps) {
   const owner = useMemo<SheetOwner>(() => ({ object: given.object, id: given.id }), [given.object, given.id]);
   const { state, reload } = useVersions(owner);
@@ -189,6 +195,7 @@ export function SheetWorkspace({
     setSelected(versionNo);
     setOpened(true);
     reload();
+    onVersionsChanged?.();
   };
 
   if (state.status === "loading") {
@@ -339,7 +346,10 @@ export function SheetWorkspace({
           onBack={listFirst ? backToList : undefined}
           toolbarSlot={toolbarSlot}
           onDirty={setDirty}
-          onSaved={reload}
+          onSaved={() => {
+            reload();
+            onVersionsChanged?.();
+          }}
           onReload={() => setRefresh((n) => n + 1)}
           footer={footer}
           actions={actions}
