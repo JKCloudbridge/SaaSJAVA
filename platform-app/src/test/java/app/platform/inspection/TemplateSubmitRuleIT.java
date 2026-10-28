@@ -78,8 +78,8 @@ class TemplateSubmitRuleIT extends FillSupport {
 
         assertThat(canSubmit(run.author().browser(), template)).isFalse();
         assertThat(note(run.author().browser(), template)).isEqualTo(BEING_APPROVED);
-        // The approval engine answers a repeat send of a record that already has a pending request; the template still has
-        // exactly one version in review (the engine, not this rule, keeps one request per record).
+        // The approval engine answers a repeat send of a record that already has a pending request; the template
+        // still has exactly one version in review (the engine, not this rule, keeps one request per record).
         submit(run.author().browser(), template, run.process());
         assertThat(statuses(run.author().browser(), template)).containsExactly("IN_REVIEW");
     }
