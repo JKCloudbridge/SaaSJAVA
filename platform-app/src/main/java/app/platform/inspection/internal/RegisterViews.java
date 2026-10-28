@@ -1,5 +1,6 @@
 package app.platform.inspection.internal;
 
+import app.platform.sheets.SheetPages.PrintSettings;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
@@ -92,13 +93,15 @@ public final class RegisterViews {
      * @param canComplete whether the caller may complete the bottom of it now (the request is open and they are asked
      *        to decide it); a screen only hides the controls
      * @param grid the register drawn as a sheet, in the format of a sheet version, for the Excel view
+     * @param print how the page is set up for paper (the Excel file is written from the same description), for the
+     *        print view
      */
     public record RegisterView(@NotNull String requestNo, @NotNull String documentName, String documentNo,
             @NotNull String revNo, @NotNull String requestedOn, String requestedBy, @NotNull String changeRequested,
             String basisForChange, String horizontalDeployment, String approvedBy, String signatureNote,
             String newRevNo, String effectiveOn, Instant newRevisionAt, String department, String obsoletedFormat,
             String obsoletedEffectiveOn, String serverUpdated, String masterListUpdated, @NotNull Long version,
-            @NotNull Boolean canComplete, @NotNull Map<String, Object> grid) {
+            @NotNull Boolean canComplete, @NotNull Map<String, Object> grid, @NotNull PrintSettings print) {
 
         /** Prints a marker only: the words are the organization's. */
         @Override

@@ -7889,6 +7889,22 @@ export interface components {
                 [key: string]: string;
             };
         };
+        PrintSettings: {
+            /** Format: double */
+            marginBottom: number;
+            /** Format: double */
+            marginLeft: number;
+            /** Format: double */
+            marginRight: number;
+            /** Format: double */
+            marginTop: number;
+            orientation: string;
+            /** Format: int32 */
+            pageHeightMm: number;
+            /** Format: int32 */
+            pageWidthMm: number;
+            paper: string;
+        };
         ProblemView: {
             dependent?: string;
             fields: string[];
@@ -8156,6 +8172,7 @@ export interface components {
             newRevisionAt?: string;
             obsoletedEffectiveOn?: string;
             obsoletedFormat?: string;
+            print: components["schemas"]["PrintSettings"];
             requestNo: string;
             requestedBy?: string;
             requestedOn: string;
@@ -8751,6 +8768,7 @@ export interface components {
             canPublish: boolean;
             canRetire: boolean;
             canSetOptions: boolean;
+            canSubmit: boolean;
             canUnpublish: boolean;
             /** Format: uuid */
             id: string;
@@ -8764,6 +8782,7 @@ export interface components {
             openChangeRequests: number;
             retired: boolean;
             revision?: string;
+            submitNote?: string;
             suggestedAudience: components["schemas"]["SuggestedAudience"][];
             /** Format: int32 */
             suggestionDropped: number;

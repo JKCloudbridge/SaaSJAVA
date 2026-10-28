@@ -1,8 +1,5 @@
-import { configure, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { configure, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { describePlace, placesOfSelection, type AnnotateContext } from "@/lib/sheets/annotate";
-import { sampleDoc } from "@/lib/sheets/fixtures";
-import { displayRows } from "@/lib/sheets/geometry";
 import { fakeApi, json, refusal, type Handler } from "@/test/fakeApi";
 import { AskForChange } from "./AskForChange";
 import type { ChangeRequestsView } from "./changeRequests";
@@ -32,54 +29,29 @@ const DRAWN: Record<string, Handler> = {
     json({ data: { version: 0, documentName: "Fire exit template", revNo: "00", canComplete: false, grid: {} } }),
 };
 
-function context(extra: Partial<AnnotateContext> = {}): AnnotateContext {
-  const doc = sampleDoc();
-  const rows = displayRows(doc);
-  return {
-    versionNo: 1,
-    doc,
-    places: placesOfSelection(doc, rows, { ar: 2, ac: 1, fr: 2, fc: 1 }),
-    describe: (place) => describePlace(doc, rows, place),
-    select: vi.fn(),
-    activations: 0,
-    ...extra,
-  };
-}
-
-function draw(ctx: AnnotateContext = context(), view: ChangeRequestsView | undefined = VIEW) {
+function draw(view: ChangeRequestsView | undefined = VIEW) {
   const onSent = vi.fn();
-  const onShown = vi.fn();
-  const element = (next: AnnotateContext, shown: { rowId: string | null; columnId: string | null } | null = null) => (
-    <AskForChange templateId={ID} context={next} view={view} show={shown} onShown={onShown} onSent={onSent} />
-  );
-  const utils = render(element(ctx));
-  return {
-    ...utils,
-    onSent,
-    onShown,
-    rerender: (next: AnnotateContext, shown = null as Parameters<typeof element>[1]) => utils.rerender(element(next, shown)),
-  };
+  const utils = render(<AskForChange templateId={ID} versionNo={1} view={view} onSent={onSent} />);
+  return { ...utils, onSent };
 }
 
 const open = () => fireEvent.click(screen.getByRole("button", { name: "Ask for a change" }));
-const box = () => screen.getByRole("textbox", { name: /Your note/ });
-const write = (text: string) => fireEvent.change(box(), { target: { value: text } });
 const asked = (no: string, change: string) => {
   fireEvent.change(screen.getByTestId("register-request-no"), { target: { value: no } });
   fireEvent.change(screen.getByTestId("register-change"), { target: { value: change } });
 };
 const escape = () => fireEvent.keyDown(document, { key: "Escape" });
 
-describe("the way in to asking for a change (FA6D)", () => {
-  it("draws a button, not the request, until it is pressed", () => {
+describe("the way in to asking for a change (FA6D, FA10)", () => {
+  it("draws a plain button, not the request, until it is pressed", () => {
     draw();
 
     expect(screen.getByRole("button", { name: "Ask for a change" })).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(screen.queryByTestId("annotate-panel")).toBeNull();
+    expect(screen.queryByTestId("request-panel")).toBeNull();
   });
 
-  it("opens a popup with the register form that names the place the person stood on", () => {
+  it("opens a popup with the register form and no part for a place on the sheet", () => {
     fakeApi(DRAWN);
     draw();
 
@@ -87,7 +59,11 @@ describe("the way in to asking for a change (FA6D)", () => {
 
     expect(screen.getByRole("dialog", { name: "Ask for a change" })).toHaveAttribute("aria-modal", "true");
     expect(screen.getByTestId("register-form")).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Your note — Cell: column “Amount”, row “First”" })).toBeInTheDocument();
+    expect(screen.queryByText("Where on the sheet (optional)")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add the place to my request" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "This cell" })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: /Your note/ })).toBeNull();
+    expect(screen.queryByTestId("register-view")).toBeNull();
   });
 
   it("closes on Escape when nothing was written", () => {
@@ -104,80 +80,63 @@ describe("the way in to asking for a change (FA6D)", () => {
     fakeApi(DRAWN);
     draw();
     open();
-    write("The torque is wrong");
-
-    escape();
-
-    expect(screen.getByTestId("ask-for-change-confirm")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Close and keep my words" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
-
-    open();
-    expect(box()).toHaveValue("The torque is wrong");
-  });
-
-  it("goes back to writing when asked to keep writing", () => {
-    fakeApi(DRAWN);
-    draw();
-    open();
-    write("Still writing");
-
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
-    fireEvent.click(screen.getByRole("button", { name: "Keep writing" }));
-
-    expect(screen.getByRole("dialog", { name: "Ask for a change" })).toBeInTheDocument();
-    expect(screen.queryByTestId("ask-for-change-confirm")).toBeNull();
-    expect(box()).toHaveValue("Still writing");
-  });
-
-  it("counts the words of the register as something unsent too", () => {
-    fakeApi(DRAWN);
-    draw();
-    open();
     asked("DCN-9", "A wider walkway");
 
     escape();
 
     expect(screen.getByTestId("ask-for-change-confirm")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Close and keep my words" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
     open();
     expect(screen.getByTestId("register-request-no")).toHaveValue("DCN-9");
     expect(screen.getByTestId("register-change")).toHaveValue("A wider walkway");
+  });
+
+  it("goes back to writing when asked to keep writing", () => {
+    fakeApi(DRAWN);
+    draw();
+    open();
+    asked("DCN-9", "Still writing");
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep writing" }));
+
+    expect(screen.getByRole("dialog", { name: "Ask for a change" })).toBeInTheDocument();
+    expect(screen.queryByTestId("ask-for-change-confirm")).toBeNull();
+    expect(screen.getByTestId("register-change")).toHaveValue("Still writing");
   });
 
   it("drops the words only when the person says so", () => {
     fakeApi(DRAWN);
     draw();
     open();
-    write("Throw this away");
+    asked("DCN-9", "Throw this away");
 
     escape();
     fireEvent.click(screen.getByRole("button", { name: "Discard my words" }));
     expect(screen.queryByRole("dialog")).toBeNull();
 
     open();
-    expect(box()).toHaveValue("");
+    expect(screen.getByTestId("register-change")).toHaveValue("");
   });
 
   it("does not close over a stray click beside the popup", () => {
     fakeApi(DRAWN);
     draw();
     open();
-    write("Not lost");
+    asked("DCN-9", "Not lost");
 
     fireEvent.click(screen.getByTestId("ask-for-change-popup"));
 
     expect(screen.getByRole("dialog", { name: "Ask for a change" })).toBeInTheDocument();
-    expect(box()).toHaveValue("Not lost");
+    expect(screen.getByTestId("register-change")).toHaveValue("Not lost");
   });
 
-  it("sends the request as before, closes, says it was sent and clears what was written", async () => {
+  it("sends the register and the revision in use, closes, says it was sent and clears what was written", async () => {
     const calls = fakeApi({ ...DRAWN, [`POST ${PATH}`]: () => json({ data: { id: "x" } }, 201) });
     const { onSent } = draw();
     open();
     asked("DCN-1", "Fix it");
-    write("This cell is wrong");
-    fireEvent.click(screen.getByRole("button", { name: "Add the place to my request" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Send the request" }));
 
@@ -186,17 +145,15 @@ describe("the way in to asking for a change (FA6D)", () => {
     const body = JSON.parse(calls.find((call) => call.key === `POST ${PATH}`)?.body ?? "null") as {
       register: { requestNo: string; changeRequested: string };
       versionNo: number;
-      comments: { rowId?: string; columnId?: string; text: string }[];
+      comments: unknown[];
     };
     expect(body.register).toMatchObject({ requestNo: "DCN-1", changeRequested: "Fix it" });
     expect(body.versionNo).toBe(1);
-    expect(body.comments).toEqual([{ rowId: "r1", columnId: "c2", text: "This cell is wrong" }]);
+    expect(body.comments).toEqual([]);
     expect(onSent).toHaveBeenCalledTimes(1);
 
     open();
-    expect(box()).toHaveValue("");
     expect(screen.getByTestId("register-request-no")).toHaveValue("");
-    expect(screen.queryByTestId("drafted")).toBeNull();
   });
 
   it("keeps the popup open and shows the API's words for a refusal", async () => {
@@ -207,57 +164,31 @@ describe("the way in to asking for a change (FA6D)", () => {
     const { onSent } = draw();
     open();
     asked("DCN-1", "Fix it");
-    write("A comment");
-    fireEvent.click(screen.getByRole("button", { name: "Add the place to my request" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Send the request" }));
 
     expect(await screen.findByText("A change is already in progress on this template.")).toBeInTheDocument();
     expect(screen.getByRole("dialog", { name: "Ask for a change" })).toBeInTheDocument();
     expect(onSent).not.toHaveBeenCalled();
-    expect(screen.getByTestId("drafted")).toBeInTheDocument();
-  });
-
-  it("opens by itself, standing on the cell, when Enter is pressed in the grid", async () => {
-    fakeApi(DRAWN);
-    const first = context();
-    const { rerender } = draw(first);
-
-    rerender({ ...first, activations: 1 });
-
-    expect(await screen.findByRole("dialog", { name: "Ask for a change" })).toBeInTheDocument();
-    await waitFor(() => expect(box()).toHaveAccessibleName("Your note — Cell: column “Amount”, row “First”"));
-  });
-
-  it("stands the grid on a place a comment in the list asked to be shown, then says it is done", async () => {
-    const ctx = context();
-    const { rerender, onShown } = draw(ctx);
-
-    rerender(ctx, { rowId: "r2", columnId: null });
-
-    await waitFor(() => expect(onShown).toHaveBeenCalledTimes(1));
-    expect(ctx.select).toHaveBeenCalledWith({ rowId: "r2", columnId: null });
-    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("says so, and draws no button, when the API says nobody can ask", () => {
-    draw(context(), { ...VIEW, canRequest: false });
+    draw({ ...VIEW, canRequest: false });
 
-    expect(screen.getByTestId("annotate-unavailable")).toBeInTheDocument();
+    expect(screen.getByTestId("request-unavailable")).toHaveTextContent("Nobody can ask for a change");
     expect(screen.queryByRole("button", { name: "Ask for a change" })).toBeNull();
   });
 
   it("says a change is in progress when that is why nobody can ask", () => {
-    draw(context(), { ...VIEW, canRequest: false, inProgress: true });
+    draw({ ...VIEW, canRequest: false, inProgress: true });
 
-    expect(screen.getByTestId("annotate-unavailable")).toHaveTextContent("A change is already in progress");
+    expect(screen.getByTestId("request-unavailable")).toHaveTextContent("A change is already in progress");
   });
 
   it("draws the button in the toolbar it is given", () => {
     const slot = document.createElement("div");
     document.body.appendChild(slot);
-    const ctx = context();
-    render(<AskForChange templateId={ID} context={ctx} view={VIEW} show={null} onShown={vi.fn()} onSent={vi.fn()} toolbarSlot={slot} />);
+    render(<AskForChange templateId={ID} versionNo={1} view={VIEW} onSent={vi.fn()} toolbarSlot={slot} />);
 
     expect(slot.querySelector("button")).toHaveTextContent("Ask for a change");
     slot.remove();

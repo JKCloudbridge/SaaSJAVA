@@ -1,6 +1,7 @@
 /**
- * The asterisk of a template that has a change in progress (Functional track FA6E, ADR-0199; FA8, ADR-0202): a small mark
- * in the accent colour at the top right corner of the Change requests tab, with a text for screen readers. It is a reading
+ * The asterisk of a template that has a change in progress (Functional track FA6E, ADR-0199; FA8, ADR-0202; FA10, ADR-0204): a small mark
+ * in the accent colour after the word of the Change requests tab, inside the tab's own box so the row of tabs never grows a
+ * scroll bar because of it, with a text for screen readers. It is a reading
  * aid made from the number the API sent and decides nothing; it draws nothing when the number is zero, and the number is
  * zero once the request is published or declined.
  */

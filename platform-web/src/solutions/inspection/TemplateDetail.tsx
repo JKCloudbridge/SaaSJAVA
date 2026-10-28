@@ -20,7 +20,6 @@ import type { ActionMenuItem } from "@/components/ui/ActionMenu";
 import { useObjectForm } from "@/lib/records/hooks";
 import { useAbilities } from "@/lib/session/SessionProvider";
 import { canSetUp } from "@/lib/shell/areas";
-import type { AnnotateContext, Place, SheetAnnotate } from "@/lib/sheets/annotate";
 import { DetailGrid, DetailItem, DetailPage, DetailSection, MissingDetail } from "@/components/ui/lists/DetailPage";
 import { Tag } from "@/components/ui/lists/Tag";
 import { formatInstant } from "@/lib/records/fieldValue";
@@ -32,9 +31,8 @@ import {
   type TemplateLifecycleView,
 } from "./api";
 import { AskForChange } from "./AskForChange";
-import { marksFromRequests, useChangeRequests } from "./changeRequests";
+import { useChangeRequests } from "./changeRequests";
 import { ChangeRequestsList } from "./ChangeRequestsPage";
-import { ChangeRequestsSection } from "./ChangeRequestsSection";
 import { FillInsList } from "./FillInsPage";
 import { lifecycleText, stateTag } from "./lifecycle";
 import { OpenRequestsMark } from "./OpenRequestsMark";
@@ -79,8 +77,6 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
   const { state: form } = useObjectForm(TEMPLATE_OBJECT, undefined, id);
   const { state: lifecycle, reload } = useLifecycle(id, refresh);
   const { state: requests, reload: reloadRequests } = useChangeRequests(id, refresh);
-  // A place a comment in the list asked to be shown: the way in to asking (`AskForChange`) stands the grid on it and clears this.
-  const [show, setShow] = useState<Place | null>(null);
   const [approval, setApproval] = useState<ApprovalState>({ locked: false, mayOverride: false, mayApprove: false });
   const [editing, setEditing] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -162,25 +158,15 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
   // The approvals sit beside the details, one entry for each by date, once the template has had a request (FA6E).
   const flowShown = decisions.panel?.available === true && decisions.panel.current !== undefined;
 
-  // Annotate mode (FA5): the version in use can be pointed at by anyone the API says may ask for a change.
-  const annotate: SheetAnnotate | undefined =
-    view && view.lifecycle.activeVersion > 0 && (requestsView?.canRequest || requestsView?.inProgress)
-      ? {
-          versionNo: view.lifecycle.activeVersion,
-          marks: marksFromRequests(requestsView),
-          panel: (context: AnnotateContext) => (
-            <AskForChange
-              templateId={id}
-              context={context}
-              view={requestsView}
-              show={show}
-              onShown={() => setShow(null)}
-              onSent={changed}
-              toolbarSlot={toolbarSlot}
-            />
-          ),
-        }
-      : undefined;
+  // The version in use can be asked about by anyone the API says may ask for a change (FA5; no place on the sheet since FA10).
+  const mayAsk = view !== undefined && view.lifecycle.activeVersion > 0 && (requestsView?.canRequest || requestsView?.inProgress);
+  // A revised copy opened from a change request (FA10): the address names the stored version to open.
+  const openVersion = Number(params?.get("version"));
+  const focusVersion = Number.isInteger(openVersion) && openVersion > 0 ? openVersion : undefined;
+  // The people who change the revised copy of a request may download it whatever the template's option says (the server
+  // decides again).
+  const heldCopyOf = (versionNo: number) =>
+    requestsView?.requests.some((request) => request.resultingVersion === versionNo && request.canChangeCopy) === true;
 
   const act = async (run: () => ReturnType<typeof unpublishTemplate>, done: string) => {
     setBusy(true);
@@ -253,7 +239,11 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
           Edit
         </button>
       ) : null}
-      <ApprovalHeaderActions approval={decisions} extra={more}>
+      <ApprovalHeaderActions
+        approval={decisions}
+        extra={more}
+        submitDisabled={view?.canSubmit === false ? { title: view.submitNote ?? undefined } : undefined}
+      >
         {view?.canSetOptions ? (
           <button
             type="button"
@@ -427,34 +417,35 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
               label={name}
               correctInReview={approval.mayOverride}
               refreshToken={refresh}
-              annotate={annotate}
+              key={focusVersion ?? "list"}
               listFirst
+              focusVersion={focusVersion}
+              onVersionsChanged={reload}
               allowNewDraft={!view || (view.lifecycle.activeVersion === 0 && view.lifecycle.retiredVersion === 0)}
               toolbarSlot={toolbarSlot}
               footer={view ? footerFor : undefined}
-              actions={
-                view?.canDownload
-                  ? (open) => (
-                      <button
-                        type="button"
-                        className="button button-secondary"
-                        onClick={() => void download(open.versionNo)}
-                        data-testid="sheet-download"
-                      >
-                        Download
-                      </button>
-                    )
-                  : undefined
+              actions={(open) =>
+                view?.canDownload || heldCopyOf(open.versionNo) ? (
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    onClick={() => void download(open.versionNo)}
+                    data-testid="sheet-download"
+                  >
+                    Download
+                  </button>
+                ) : null
               }
             />
-            <DetailSection title="Change requests" stack>
-              <ChangeRequestsSection
+            {mayAsk && view ? (
+              <AskForChange
                 templateId={id}
-                state={requests}
-                onChanged={changed}
-                onShow={annotate ? setShow : undefined}
+                versionNo={view.lifecycle.activeVersion}
+                view={requestsView}
+                onSent={changed}
+                toolbarSlot={toolbarSlot}
               />
-            </DetailSection>
+            ) : null}
           </>
         ) : null}
 

@@ -5,14 +5,6 @@ import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/Modal";
 import { fromApi } from "@/lib/sheets/adapter";
 import {
-  describePlace,
-  placesOfSelection,
-  selectionOfPlace,
-  type AnnotateContext,
-  type Place,
-  type SheetAnnotate,
-} from "@/lib/sheets/annotate";
-import {
   saveGrid,
   startVersion,
   type NewVersion,
@@ -60,12 +52,6 @@ export interface SheetWorkspaceProps {
   /** The words for the start of a new version, which a person who works on the sheet may begin (FA4). */
   startLabel?: string;
   /**
-   * Annotate mode (FA5, ADR-0191): the one version it names can be pointed at while it is read-only. The grid marks the
-   * places that have notes and the caller's panel is drawn under it with the places the active cell stands for. The
-   * workspace knows no business word: what a note is, who may write one and where it goes is the caller's.
-   */
-  annotate?: SheetAnnotate;
-  /**
    * Show the list of versions first and a version only after the person opens it, with a way back to the list inside the
    * workspace. Without it the list and the version in use are drawn together (the first behaviour of the screen).
    */
@@ -90,8 +76,16 @@ export interface SheetWorkspaceProps {
    * not affected. Default true.
    */
   allowNewDraft?: boolean;
-  /** The version to open first (FA8: the revised copy of a change request). */
+  /**
+   * The version to open first (FA8: the revised copy of a change request). With the list first, naming a version opens it
+   * at once (FA10). A number the caller may not read is answered like any unknown one by the server.
+   */
   focusVersion?: number;
+  /**
+   * Called after a version was started, uploaded, saved or its grid replaced (FA10), so a page around the sheet can read what
+   * depends on the versions again (whether the template can be sent for approval).
+   */
+  onVersionsChanged?: () => void;
 }
 
 interface Notice {
@@ -114,13 +108,13 @@ export function SheetWorkspace({
   correctInReview = false,
   startLabel,
   refreshToken,
-  annotate,
   listFirst = false,
   toolbarSlot,
   footer,
   actions,
   allowNewDraft = true,
   focusVersion,
+  onVersionsChanged,
 }: SheetWorkspaceProps) {
   const owner = useMemo<SheetOwner>(() => ({ object: given.object, id: given.id }), [given.object, given.id]);
   const { state, reload } = useVersions(owner);
@@ -130,7 +124,7 @@ export function SheetWorkspace({
   const [refresh, setRefresh] = useState(0);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [starting, setStarting] = useState(false);
-  const [opened, setOpened] = useState(!listFirst);
+  const [opened, setOpened] = useState(!listFirst || focusVersion !== undefined);
   const heading = useId();
 
   const versions = state.status === "ready" ? state.view.versions : [];
@@ -201,6 +195,7 @@ export function SheetWorkspace({
     setSelected(versionNo);
     setOpened(true);
     reload();
+    onVersionsChanged?.();
   };
 
   if (state.status === "loading") {
@@ -348,11 +343,13 @@ export function SheetWorkspace({
           canChange={canChange}
           canChangeHeld={canChangeHeld}
           correctInReview={correctInReview}
-          annotate={annotate}
           onBack={listFirst ? backToList : undefined}
           toolbarSlot={toolbarSlot}
           onDirty={setDirty}
-          onSaved={reload}
+          onSaved={() => {
+            reload();
+            onVersionsChanged?.();
+          }}
           onReload={() => setRefresh((n) => n + 1)}
           footer={footer}
           actions={actions}
@@ -371,7 +368,6 @@ function VersionEditor({
   canChange,
   canChangeHeld,
   correctInReview,
-  annotate,
   onBack,
   toolbarSlot,
   onDirty,
@@ -388,7 +384,6 @@ function VersionEditor({
   canChange: boolean;
   canChangeHeld: boolean;
   correctInReview: boolean;
-  annotate: SheetAnnotate | undefined;
   onBack?: () => void;
   toolbarSlot?: HTMLElement | null;
   onDirty(dirty: boolean): void;
@@ -400,11 +395,7 @@ function VersionEditor({
   const editor = useSheetEditor(initial, limits);
   const narrow = useNarrowScreen();
   const [summary, setSummary] = useState(first);
-  const [activations, setActivations] = useState(0);
-  // Annotate mode: this is the version the caller can point at and it cannot be changed here. The grid is the place to
-  // point, even on a narrow screen, where it is for reading only.
-  const annotating = annotate !== undefined && annotate.versionNo === first.versionNo && !isDraft(first.status);
-  const [tab, setTab] = useState<"form" | "grid">(narrow && !annotating ? "form" : "grid");
+  const [tab, setTab] = useState<"form" | "grid">(narrow ? "form" : "grid");
   const [saving, setSaving] = useState(false);
   const [refused, setRefused] = useState<{ doc: GridDoc; problems: Problem[]; message: string; stale: boolean } | null>(null);
   const [saved, setSaved] = useState(false);
@@ -421,9 +412,7 @@ function VersionEditor({
   const mayEdit = draft && summary.held ? canChangeHeld : canChange;
   const readOnly = !mayEdit || !(draft || correcting);
   const tag = statusTag(summary.status);
-  const readOnlyReason = annotating
-    ? `You are reading ${versionTitle(summary).toLowerCase()}, which is in use and cannot be changed here. To ask for a change, stand on a place in the grid and press Ask for a change.`
-    : !(draft || correcting)
+  const readOnlyReason = !(draft || correcting)
     ? inReview
       ? `${sentenceName(summary)} is in review. Only the people who approve it can correct it; everyone else reads it.`
       : `${sentenceName(summary)} is ${tag.text.toLowerCase()} and cannot be changed.`
@@ -435,26 +424,6 @@ function VersionEditor({
         ? "On a narrow screen the grid is for reading. Build in the form view, or use a wider screen."
         : undefined;
   const gridReadOnly = readOnly || narrow;
-
-  const places = useMemo(
-    () => placesOfSelection(editor.doc, editor.rows, editor.selection),
-    [editor.doc, editor.rows, editor.selection],
-  );
-  const annotateContext: AnnotateContext | null = annotating
-    ? {
-        versionNo: summary.versionNo,
-        doc: editor.doc,
-        places,
-        describe: (place: Place) => describePlace(editor.doc, editor.rows, place),
-        select: (place: Place) => {
-          const target = selectionOfPlace(editor.doc, editor.rows, place);
-          if (target) {
-            editor.select(target);
-          }
-        },
-        activations,
-      }
-    : null;
 
   const hints = useMemo(() => hintsFor(editor.doc, limits), [editor.doc, limits]);
   // What the server refused applies to the document that was sent; after any further edit it is out of date.
@@ -628,11 +597,7 @@ function VersionEditor({
             readOnlyReason={!readOnly && narrow ? readOnlyReason : undefined}
             label={`${label}, ${versionTitle(summary).toLowerCase()}`}
             footer={footerText}
-            annotation={
-              annotating && annotate ? { marks: annotate.marks, onActivate: () => setActivations((n) => n + 1) } : undefined
-            }
           />
-          {annotating && annotate && annotateContext ? annotate.panel(annotateContext) : null}
         </div>
       )}
       {viewing ? (

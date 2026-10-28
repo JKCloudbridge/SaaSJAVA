@@ -896,7 +896,7 @@ For the organization's administrator and for the contributor. The decisions are 
 
 **Limits** (settings `platform.inspection.change-requests.*`): 50 comments in a request, 10 open requests for one person on one template, 200 requests for one template, 2,000 characters in a comment, 120 in a title, 500 in a reason. Nothing is ever deleted: a request and what was said on it are kept. A text may not contain markup (the characters < and >).
 
-**For a contributor.** Annotate mode of the grid is generic: `SheetWorkspace` takes an optional `annotate` (`lib/sheets/annotate.ts`) for the one version it names, which must be read-only and not a draft; the grid stays read-only, marks the places that have notes and asks for the box of a note on Enter. The panel and the list are the cluster's (`solutions/inspection/AnnotatePanel.tsx`, `ChangeRequestsSection.tsx`). The backend is `app.platform.inspection.internal` (`ChangeRequests` the rules, `ChangeRequestAccess` the one place that decides who sees what, `ChangeRequestStore` the only class that names the tables) and the generic `SheetLifecycle.startDraft`, `statusOf` and `layoutOf`. The notice kind is `CHANGE_REQUEST` in the category `REQUESTS`.
+**For a contributor.** (Annotate mode and the places were removed from the screens in FA10, ADR-0204; the server still accepts places.) Annotate mode of the grid was generic: `SheetWorkspace` takes an optional `annotate` (`lib/sheets/annotate.ts`) for the one version it names, which must be read-only and not a draft; the grid stays read-only, marks the places that have notes and asks for the box of a note on Enter. The panel and the list are the cluster's (`solutions/inspection/AnnotatePanel.tsx`, `ChangeRequestsSection.tsx`). The backend is `app.platform.inspection.internal` (`ChangeRequests` the rules, `ChangeRequestAccess` the one place that decides who sees what, `ChangeRequestStore` the only class that names the tables) and the generic `SheetLifecycle.startDraft`, `statusOf` and `layoutOf`. The notice kind is `CHANGE_REQUEST` in the category `REQUESTS`.
 
 ## 32. Fill-ins: filling in a published template (Functional track FF1)
 
@@ -1115,7 +1115,7 @@ requests in Setup, and what follows works only with it.
 Register**: the request number (typed by hand, up to 30 characters, the way it is kept on paper today), the change requested, the basis for
 change, the horizontal deployment and, if there is one, the format or document that stops being used and from which day. The platform writes
 the rest of the top itself: the document name and number, the Revision in use, who asks and from which department. The person may also
-point at rows, columns or cells of the sheet. Only **one change is in progress on a template** at a time; the next can be asked for when the
+point at nothing on the sheet any more (FA10): a request is the register alone. Only **one change is in progress on a template** at a time; the next can be asked for when the
 first is published or declined.
 
 **Form and Excel.** The register is shown as a **form** and as an **Excel page**, one click apart. They are the same values: the Excel page is
@@ -1134,10 +1134,8 @@ Make the process active. Create the groups (Setup, Groups; making a group needs 
 Organization administrator holds every ability. A request cannot be raised while there is no such process, and the words say so.
 
 **What the approvers do.**
-- Each person who holds an open task of the request sees the request page. **Create revised copy** (a button on that page, for the people
-  with an open task and for the Organization administrator) makes a copy of the Revision in use. It is a draft held for the request: the
-  people who only read the template never see it. The reviewer changes it in the grid, or **replaces it from an Excel file**; the Revision in
-  use is never edited.
+- Each person who holds an open task of the request sees the request page, with two buttons in one row. **View Current Version** opens the Sheet tab of the template at the Revision in use, to read. **Create Revised Version** (for the people with an open task and for the Organization administrator) makes a copy of the Revision in use and takes you to the **Sheet tab, opened on that copy**. It is a draft held for the request: the people who only read the template never see it. Change it in the grid or the form, or **replace it from an Excel file** (the usual upload on the Sheet tab), then save; the Revision in use is never edited. Once the copy exists the button reads **Open Revised Version** and goes to the same place; for people who cannot make or change the copy it is not drawn. On the Sheet tab the people who change the copy also get **Download**, whatever *Allow download* says (that option is for readers of a published Revision).
+- **View** (next to *Download as Excel* above the register) opens the register as it looks when printed: a white A4 page with the register's margins, merged boxes and borders, no grid lines and no headings. You can only read it; after the publish it shows the finished register.
 - The people with an open task may complete the **bottom of the register**: department, approved by, signature, effective date, the format
   obsoleted and its day, and the two Yes/No answers. Open the **Form** view and press **Save the register**. What nobody fills in is
   filled in by the platform at the publish: the effective date is the day of the publish (UTC), both answers are **Yes**, *Approved by*
@@ -1164,6 +1162,11 @@ longer on the rows of the list; the list has a **Revision** column.
 read-only. Fill-in and report screens still show the Revision as the stored number minus one, which can be off by the number of rejected
 copies.
 
+**Calmer screens (FA10, ADR-0204).** The *Ask for a change* popup holds the register only (nothing about places on the sheet; requests made
+before keep the places they carry in the stored data). The grid of the Sheet tab no longer marks places or opens the popup when you press
+Enter. **Submit for approval** on a template is greyed out when the template cannot be sent: it was published (a published template changes
+only through a change request), it is retired, it is already being approved, or it has no first Revision in draft. The asterisk on the
+**Change requests** tab sits beside the word and no longer makes the row of tabs scroll.
 ## 41. The application grid, Home in every application and the Quality Management System dashboard (FA9)
 
 Decision: [ADR-0203](adr/0203-the-application-grid-home-in-every-application-placeholders-and-the-quality-dashboard.md). This is for the

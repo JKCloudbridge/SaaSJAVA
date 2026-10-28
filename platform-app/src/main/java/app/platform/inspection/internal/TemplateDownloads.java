@@ -92,9 +92,9 @@ class TemplateDownloads {
         Options set = options.find(templateId);
         boolean heldCopy = versionNo != null && lifecycle.heldDraft(Templates.OBJECT, templateId)
                 .filter(held -> held.versionNo() == versionNo).isPresent();
-        // The revised copy of a change request may be downloaded by the people who can read it (the sheet rule asks
-        // again):
-        // they are making the changes, whatever the option says.
+        // The revised copy of a change request may be downloaded by the people who change it, whatever the option says
+        // (FA10, ADR-0204). The sheet rule asks again below, and it shows the held copy only to the people asked to
+        // decide the request (and the organization's administrator): reading it and changing it are the same people.
         if (!set.allowDownload() && !heldCopy && !access.has(caller, Ability.SHEETS_PUBLISH)) {
             meters.counter("platform.inspection.template", "act", "download", "result", "not_allowed").increment();
             throw new ApiException(ErrorCode.FORBIDDEN, NOT_ALLOWED);

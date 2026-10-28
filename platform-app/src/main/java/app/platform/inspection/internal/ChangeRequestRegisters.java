@@ -153,7 +153,7 @@ class ChangeRequestRegisters {
                 nz(values.changeRequested()), values.basisForChange(), values.horizontalDeployment(), null, null, null,
                 null, null, values.department(), values.obsoletedFormat(), RegisterRules.show(
                         values.obsoletedEffectiveOn()), null, null, 0L, false,
-                pages.grid(RegisterLayout.page(values)));
+                pages.grid(RegisterLayout.page(values)), pages.print(RegisterLayout.page(values)));
     }
 
     /** The register with these typed parts as an Excel file, for a person who prefers to fill it there. */
@@ -213,7 +213,7 @@ class ChangeRequestRegisters {
                 v.horizontalDeployment(), v.approvedBy(), v.signatureNote(), v.newRevNo(),
                 RegisterRules.show(v.effectiveOn()), row.newRevisionAt(), v.department(), v.obsoletedFormat(),
                 RegisterRules.show(v.obsoletedEffectiveOn()), v.serverUpdated(), v.masterListUpdated(), row.version(),
-                canComplete, pages.grid(RegisterLayout.page(v)));
+                canComplete, pages.grid(RegisterLayout.page(v)), pages.print(RegisterLayout.page(v)));
     }
 
     /** The names of the boxes whose words changed. */

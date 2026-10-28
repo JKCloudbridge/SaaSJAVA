@@ -77,10 +77,12 @@ class TemplateApprovalHooks implements ApprovalHooks {
     public void onSubmit(SubmitContext context) {
         DataRecord template = template(context.recordId());
         Map<String, Object> fields = template.fields();
-        if (Boolean.TRUE.equals(fields.get(Templates.RETIRED))) {
-            throw new ApprovalHookRefusal("template_retired",
-                    "This template is retired and cannot be sent for approval.");
-        }
+        // The one rule of whether a template can be sent, which the lifecycle view asks too (FA10, ADR-0204).
+        SheetLifecycle.Summary summary = sheets.summaries(Templates.OBJECT, List.of(context.recordId()))
+                .getOrDefault(context.recordId(), new SheetLifecycle.Summary(0, 0, 0, 0, 0, 0, 0));
+        TemplateSendRule.blocked(summary, Boolean.TRUE.equals(fields.get(Templates.RETIRED))).ifPresent(block -> {
+            throw new ApprovalHookRefusal(block.reason(), block.words());
+        });
         try {
             sheets.submit(Templates.OBJECT, context.recordId(), context.requestId(), context.submitter());
         } catch (SheetMoveRefusal refusal) {

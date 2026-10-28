@@ -10,6 +10,8 @@ sizeTheGrid();
 
 // A whole sheet is drawn for every test; give each wait longer than the default second on a busy machine.
 configure({ asyncUtilTimeout: 5000 });
+// The whole test is bounded too: on a busy CI machine one heavy grid test can use up the default 5 seconds.
+vi.setConfig({ testTimeout: 20000 });
 
 const OWNER = { object: "Subject", id: "0198f5c0-0000-7000-8000-000000000001" };
 const BASE = `/api/v1/sheets/${OWNER.object}/${OWNER.id}/versions`;
@@ -220,6 +222,19 @@ describe("a sheet with no version", () => {
     expect(bodyOf(calls, `POST ${BASE}`)).toEqual({ dimension: 2 });
   });
 
+
+  it("tells the page around it when a first revision was started, so it can read what depends on it (FA10)", async () => {
+    fakeApi({
+      [`GET ${BASE}`]: list([]),
+      [`POST ${BASE}`]: () => json({ data: summary(1, "DRAFT", 0) }, 201),
+    });
+    const changed = vi.fn();
+    render(<SheetWorkspace owner={OWNER} label="Fire checks" onVersionsChanged={changed} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Start first revision" }));
+
+    await waitFor(() => expect(changed).toHaveBeenCalled());
+  });
   it("shows the API's words when the first revision cannot be started", async () => {
     fakeApi({
       [`GET ${BASE}`]: list([]),

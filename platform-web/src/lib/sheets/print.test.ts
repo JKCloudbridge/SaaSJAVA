@@ -14,6 +14,13 @@ describe("the print model of a sheet", () => {
     expect(model.body.map((row) => row.id)).toEqual(["r1", "r2", "r3"]);
   });
 
+  it("leaves out the band of column labels when asked to, and keeps the header rows (FA10)", () => {
+    const model = printModel(sampleDoc(), { labels: false });
+
+    expect(model.head.map((row) => row.id)).toEqual(["h1", "h2"]);
+    expect(model.body.map((row) => row.id)).toEqual(["r1", "r2", "r3"]);
+  });
+
   it("shows the cells a filler types into empty and the sheet's own text as it is", () => {
     const doc: GridDoc = {
       ...sampleDoc(),

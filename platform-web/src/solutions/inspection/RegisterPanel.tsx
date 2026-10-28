@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { RegisterExcelView } from "./RegisterExcelView";
 import { RegisterRaiseForm, RegisterViewForm } from "./RegisterForm";
+import { RegisterPrintView } from "./RegisterPrintView";
 import {
   downloadRegister,
   downloadRegisterDraft,
@@ -165,6 +166,7 @@ export function RegisterRequestPanel({
   onChanged(next: RegisterView): void;
 }) {
   const [which, setWhich] = useState<Which>("form");
+  const [viewing, setViewing] = useState(false);
   const [message, setMessage] = useState<{ text: string; error: boolean } | undefined>();
 
   const download = async () => {
@@ -184,7 +186,11 @@ export function RegisterRequestPanel({
         <button type="button" className="button button-secondary" onClick={() => void download()} data-testid="register-download">
           Download as Excel
         </button>
+        <button type="button" className="button button-secondary" onClick={() => setViewing(true)} data-testid="register-view">
+          View
+        </button>
       </div>
+      {viewing ? <RegisterPrintView view={view} onClose={() => setViewing(false)} /> : null}
       {message ? (
         <p className="form-message" role="alert">
           {message.text}

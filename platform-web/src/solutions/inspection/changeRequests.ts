@@ -3,7 +3,6 @@ import { api } from "@/lib/api/client";
 import type { ApiFailure } from "@/lib/api/errors";
 import type { components } from "@/lib/api/generated/schema";
 import { call, type Outcome } from "@/lib/records/call";
-import { marksOf, type AnnotationMarks, type Place } from "@/lib/sheets/annotate";
 import { revisionWords, versionTitle } from "@/lib/sheets/revision";
 import type { RegisterInput } from "./register";
 
@@ -126,46 +125,6 @@ export const STATUS_WORDS: Record<string, { text: string; tone: "quiet" | "on" |
 
 export function statusWords(status: string): { text: string; tone: "quiet" | "on" | "ok" | "error" } {
   return STATUS_WORDS[status] ?? { text: status, tone: "quiet" };
-}
-
-/** Where a comment points, in words, from what the API kept when it was made (the label it had then). */
-export function placeWords(comment: ChangeCommentView): string {
-  const label = comment.label.trim();
-  switch (comment.kind) {
-    case "ROW":
-      return label ? `Row “${label}”` : "A row";
-    case "COLUMN":
-      return label ? `Column “${label}”` : "A column";
-    case "CELL":
-      return label ? `Cell: ${label}` : "A cell";
-    default:
-      return "The whole template";
-  }
-}
-
-/** The place of a comment as the grid knows it, or null for a comment on the whole template. */
-export function placeOf(comment: ChangeCommentView): Place | null {
-  return comment.kind === "TEMPLATE" ? null : { rowId: comment.rowId ?? null, columnId: comment.columnId ?? null };
-}
-
-/**
- * What to mark in the grid of the version in use: the places of the comments of requests that are still open or accepted
- * and whose place is still in that version. Declined and finished requests do not clutter the grid.
- */
-export function marksFromRequests(view: ChangeRequestsView | undefined): AnnotationMarks {
-  const places: Place[] = [];
-  for (const request of view?.requests ?? []) {
-    if (request.status !== "OPEN" && request.status !== "ACCEPTED") {
-      continue;
-    }
-    for (const comment of request.comments) {
-      const place = placeOf(comment);
-      if (place && comment.inActiveVersion) {
-        places.push(place);
-      }
-    }
-  }
-  return marksOf(places);
 }
 
 /**

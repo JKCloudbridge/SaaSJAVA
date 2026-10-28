@@ -1,5 +1,6 @@
 package app.platform.sheets;
 
+import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Map;
 
@@ -80,11 +81,32 @@ public interface SheetPages {
         }
     }
 
+    /**
+     * How the page is set up for paper: the one description that the Excel file is written from and the print view
+     * on the screen is drawn from (FA10, ADR-0204), so the two can never disagree.
+     *
+     * @param paper the paper size, for example {@code A4}
+     * @param orientation {@code portrait} or {@code landscape}
+     * @param pageWidthMm the width of the paper as it is turned, in millimetres
+     * @param pageHeightMm the height of the paper as it is turned, in millimetres
+     * @param marginLeft the left margin in inches
+     * @param marginRight the right margin in inches
+     * @param marginTop the top margin in inches
+     * @param marginBottom the bottom margin in inches
+     */
+    record PrintSettings(@NotNull String paper, @NotNull String orientation, @NotNull Integer pageWidthMm,
+            @NotNull Integer pageHeightMm, @NotNull Double marginLeft,
+            @NotNull Double marginRight, @NotNull Double marginTop, @NotNull Double marginBottom) {
+    }
+
     /** The page as an .xlsx workbook with no label band above it and no footer below it. */
     byte[] xlsx(Page page);
 
     /** The page as the sheet document the screen's grid draws, in the format of a sheet version. */
     Map<String, Object> grid(Page page);
+
+    /** How the page is set up for paper (the file is written with it; a screen that shows the print view draws it). */
+    PrintSettings print(Page page);
 
     /**
      * The non-empty cells of the first sheet of a workbook.
