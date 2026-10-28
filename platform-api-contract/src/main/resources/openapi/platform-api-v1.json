@@ -12873,7 +12873,7 @@
     },
     "/api/v1/templates" : {
       "get" : {
-        "description" : "One page of templates, each with the numbers of its active, approved, in-review and draft versions and the state of the template as one word. The page is read through the record store, so a caller sees exactly the templates they may see: their own, all of them for a caller who may view every template, and those published to a group they are in. Filters: search (part of a name or a number), identification (category), partA, retired and state. The state filter is applied to the page after it is read: a page can hold fewer rows than asked while nextCursor still goes on (filtered is true then). Sort: name, number or newest. canCreate says whether the screen may offer New; the request is decided again.",
+        "description" : "One page of templates, each with the numbers of its active, approved, in-review and draft versions and the state of the template as one word. The page is read through the record store, so a caller sees exactly the templates they may see: their own, all of them for a caller who may view every template, and those published to a group they are in. Filters: search (part of a name or a number), category (the identification), partA, retired and state. The state filter is applied to the page after it is read: a page can hold fewer rows than asked while nextCursor still goes on (filtered is true then). Sort: name, number or newest. canCreate says whether the screen may offer New; the request is decided again.",
         "operationId" : "listTemplates",
         "parameters" : [ {
           "in" : "query",
