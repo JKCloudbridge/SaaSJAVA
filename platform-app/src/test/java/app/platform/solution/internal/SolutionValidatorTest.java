@@ -49,7 +49,7 @@ class SolutionValidatorTest {
 
     private static SolutionBundle good() {
         return bundle("demo", "demo-feature", "demo", List.of("Widget"),
-                List.of(new SolutionBundle.Entry(ShippedEntryView.Kind.PLATFORM, "Overview", "", "overview",
+                List.of(new SolutionBundle.Entry(ShippedEntryView.Kind.PLATFORM, "Overview", "", "home",
                         "Widget")),
                 List.of(new SolutionBundle.Policy("reader", "Reader", "d",
                         Map.of("Widget", Set.of(ObjectAction.READ)))));
@@ -196,6 +196,80 @@ class SolutionValidatorTest {
                 .hasMessageContaining("the name is used by another policy of the solution");
     }
 
+    // ---- several applications, Home first and placeholders (FA9, ADR-0203) ----
+
+    private static SolutionBundle.Entry home() {
+        return new SolutionBundle.Entry(ShippedEntryView.Kind.PLATFORM, "Home", "", "home", "");
+    }
+
+    private static SolutionBundle.Entry soon(String pageKey) {
+        return new SolutionBundle.Entry(ShippedEntryView.Kind.PLATFORM, "Soon", "", pageKey, "", true);
+    }
+
+    private static SolutionBundle.Application application(String name, SolutionBundle.Entry... entries) {
+        return new SolutionBundle.Application(name, "App", "", "Group", List.of(entries));
+    }
+
+    private static SolutionBundle several(SolutionBundle.Application... applications) {
+        return new SolutionBundle("many", "many-feature", "Label", "", List.of(applications), List.of(), List.of(),
+                List.of());
+    }
+
+    @Test
+    void aBundleWithSeveralPlaceholderApplicationsAndNoObjectsOrPoliciesPasses() {
+        SolutionBundle bundle = several(application("one", home(), soon("a"), soon("b")),
+                application("two", home(), soon("a")));
+
+        assertThatCode(() -> SolutionValidator.validate(List.of(bundle), platform(), Set.of("many-feature")))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void twoApplicationsOfOneBundleMayNotShareAName() {
+        SolutionBundle twins = several(application("one", home()), application("one", home()));
+
+        assertThatThrownBy(() -> SolutionValidator.validate(List.of(twins), platform(), null))
+                .hasMessageContaining("used by another solution or twice in this one");
+    }
+
+    @Test
+    void twoEntriesOfOneApplicationMayNotShareAnIdentity() {
+        SolutionBundle twins = several(application("one", home(), soon("a"), soon("a")));
+
+        assertThatThrownBy(() -> SolutionValidator.validate(List.of(twins), platform(), null))
+                .hasMessageContaining("entries[2]: the identity is used by another entry of the application");
+    }
+
+    @Test
+    void theSameIdentityInTwoApplicationsIsFine() {
+        SolutionBundle bundle = several(application("one", home(), soon("a")), application("two", home(), soon("a")));
+
+        assertThatCode(() -> SolutionValidator.validate(List.of(bundle), platform(), null))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void everyApplicationOpensOnHome() {
+        SolutionBundle notFirst = several(application("one", soon("a"), home()));
+        SolutionBundle none = several(application("one", soon("a")));
+
+        assertThatThrownBy(() -> SolutionValidator.validate(List.of(notFirst), platform(), null))
+                .hasMessageContaining("the first entry is the Home page");
+        assertThatThrownBy(() -> SolutionValidator.validate(List.of(none), platform(), null))
+                .hasMessageContaining("application 'one'").hasMessageContaining("the first entry is the Home page");
+    }
+
+    @Test
+    void aPlaceholderMayNameNoObject() {
+        SolutionBundle.Entry reading = new SolutionBundle.Entry(ShippedEntryView.Kind.PLATFORM, "Soon", "", "a",
+                "Widget", true);
+        SolutionBundle bundle = new SolutionBundle("demo", "demo-feature", "Label", "",
+                application("demo", home(), reading), List.of("Widget"), List.of());
+
+        assertThatThrownBy(() -> SolutionValidator.validate(List.of(bundle), WIDGET, null))
+                .hasMessageContaining("a placeholder names no object");
+    }
+
     // ---- the rights on fields (FA4, ADR-0189) ----
 
     private static ObjectDefinition widgetWithFields() {
@@ -214,7 +288,7 @@ class SolutionValidatorTest {
 
     private static SolutionBundle withFieldRights(String key) {
         return bundle("demo", "demo-feature", "demo", List.of("Widget"),
-                List.of(new SolutionBundle.Entry(ShippedEntryView.Kind.PLATFORM, "Overview", "", "overview",
+                List.of(new SolutionBundle.Entry(ShippedEntryView.Kind.PLATFORM, "Overview", "", "home",
                         "Widget")),
                 List.of(new SolutionBundle.Policy("reader", "Reader", "d", Map.of("Widget",
                         Set.of(ObjectAction.READ)), Set.of(), Map.of(key,
@@ -247,7 +321,7 @@ class SolutionValidatorTest {
     @Test
     void aRightOnAFieldOfAnObjectThePolicyGivesNoRightOnIsRefused() {
         SolutionBundle bundle = bundle("demo", "demo-feature", "demo", List.of("Widget"),
-                List.of(new SolutionBundle.Entry(ShippedEntryView.Kind.PLATFORM, "Overview", "", "overview",
+                List.of(new SolutionBundle.Entry(ShippedEntryView.Kind.PLATFORM, "Overview", "", "home",
                         "Widget")),
                 List.of(new SolutionBundle.Policy("reader", "Reader", "d", Map.of(), Set.of(),
                         Map.of("Widget.name", Set.of(app.platform.security.FieldAction.READ)))));

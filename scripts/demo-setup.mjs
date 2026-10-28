@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Demo setup for a developer machine (the `local` profile): makes the people, groups, access policies, department
-// groups and the two approval processes (templates, and change requests) that the Audit maintenance demo needs, in `tenant-a`, through the public API only,
+// groups and the two approval processes (templates, and change requests) that the Quality Management System demo needs, in `tenant-a`, through the public API only,
 // so everything it makes is ordinary data that can be looked at, changed and removed in Setup.
 //
 //   usage:  node scripts/demo-setup.mjs            (from the repository root; the local services and the app must be up)
@@ -259,7 +259,7 @@ async function ensureGroups(admin, members) {
     for (const policyName of wanted) {
       const policy = byName[policyName];
       if (!policy) {
-        say("missing", `access policy ${policyName} (open Audit maintenance once as an administrator, then run again)`);
+        say("missing", `access policy ${policyName} (open Quality Management System once as an administrator, then run again)`);
       } else if (group.policies.some((p) => p.id === policy.id)) {
         say("ok", `${groupName} holds ${policyName}`);
       } else if (checkOnly) {

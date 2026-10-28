@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { json } from "@/test/fakeApi";
 import { FIELD, SALES, shellApi, ShellProviders } from "@/test/shellApi";
@@ -227,11 +227,26 @@ describe("the strip on the pages that are neither", () => {
   });
 
   it("says no application is open on any other page", async () => {
-    pathname = "/";
+    pathname = "/somewhere-else";
     shellApi();
     renderBar();
 
     expect(await screen.findByText("No application open")).toBeInTheDocument();
+  });
+
+  it("names the start page Applications: the grid", async () => {
+    pathname = "/";
+    shellApi();
+    renderBar();
+
+    expect(await screen.findByTestId("control-app")).toHaveTextContent("Applications");
+  });
+  it("opens the grid in a window from the three lines", async () => {
+    shellApi();
+    renderBar();
+    const button = await screen.findByRole("button", { name: "Applications" });
+    fireEvent.click(button);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 });
 

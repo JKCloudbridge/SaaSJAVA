@@ -1,4 +1,4 @@
-# The Audit maintenance solution (Functional track, ADR-0175, ADR-0179, ADR-0180, ADR-0181).
+# The Quality Management System solution, key inspection (Functional track, ADR-0175, ADR-0179, ADR-0180, ADR-0181).
 #
 # A shipped solution is read-only data inside the platform: an organization sees it only while its plan has the feature
 # and can neither change nor remove any part of it. The application below is computed for every request and written to
@@ -12,32 +12,48 @@
 # mechanisms: these policies are not bound to a licence, and the plan feature decides whether any of this exists.
 key: inspection
 feature: inspection
-label: Audit maintenance
+label: Quality Management System
 removalNote: >-
-  Taking this feature away hides the Audit maintenance application and its objects from the organization at once.
+  Taking this feature away hides the Quality Management System application and its objects from the organization at once.
   Nothing is deleted: the records, approvals in flight and access policies stay, and everything comes back when the
   feature is given again.
+# Only the words people read changed in FA9 (ADR-0203): the API name, the page keys and the feature key are permanent.
+# Home is the dashboard everyone who can open the application sees; Management Review and Internal Audit are announced
+# and have no page yet.
 application:
   apiName: inspection
-  label: Audit maintenance
+  label: Quality Management System
   iconKey: clipboard
+  group: Leadership
   entries:
     - type: PLATFORM
-      label: Templates
-      pageKey: templates
+      label: Home
+      pageKey: home
       readsObject: InspectionTemplate
     - type: PLATFORM
-      label: Fill-ins
-      pageKey: fill-ins
-      readsObject: InspectionFill
+      label: Document Control
+      pageKey: templates
+      readsObject: InspectionTemplate
     - type: PLATFORM
       label: Change requests
       pageKey: change-requests
       readsObject: InspectionChangeRequest
     - type: PLATFORM
+      label: Record Control
+      pageKey: fill-ins
+      readsObject: InspectionFill
+    - type: PLATFORM
       label: Report
       pageKey: fill-in-report
       readsObject: InspectionFill
+    - type: PLATFORM
+      label: Management Review
+      pageKey: management-review
+      placeholder: true
+    - type: PLATFORM
+      label: Internal Audit
+      pageKey: internal-audit
+      placeholder: true
     - type: OBJECT
       object: DepartmentGroup
 objects:
@@ -51,7 +67,7 @@ sheetOwners:
 accessPolicies:
   - key: author
     name: Author
-    description: Writes templates and sends them for approval. Comes with the Audit maintenance application and cannot be changed.
+    description: Writes templates and sends them for approval. Comes with the Quality Management System application and cannot be changed.
     objects:
       InspectionTemplate: [create, read, update]
       InspectionChangeRequest: [read]
@@ -64,7 +80,7 @@ accessPolicies:
         read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: approver
     name: Approver
-    description: Sees every template and change request, and changes a template that is in review. Does not publish or retire; that is the Publisher policy. Comes with the Audit maintenance application and cannot be changed.
+    description: Sees every template and change request, and changes a template that is in review. Does not publish or retire; that is the Publisher policy. Comes with the Quality Management System application and cannot be changed.
     objects:
       InspectionTemplate: [read, update, view-all, modify-all]
       InspectionFill: [read, update, view-all, modify-all]
@@ -82,7 +98,7 @@ accessPolicies:
         read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: publisher
     name: Publisher
-    description: Publishes an approved template to departments, takes it back and retires it. Give it to the group that has the last word, for example Corporate QMS, or to Plant QMS in a flow with no Corporate step. Comes with the Audit maintenance application and cannot be changed.
+    description: Publishes an approved template to departments, takes it back and retires it. Give it to the group that has the last word, for example Corporate QMS, or to Plant QMS in a flow with no Corporate step. Comes with the Quality Management System application and cannot be changed.
     objects:
       InspectionTemplate: [read, view-all]
     abilities:
@@ -94,7 +110,7 @@ accessPolicies:
                 createdById, updatedById]
   - key: reader
     name: Reader
-    description: Reads the templates published to them. Comes with the Audit maintenance application and cannot be changed.
+    description: Reads the templates published to them. Comes with the Quality Management System application and cannot be changed.
     objects:
       InspectionTemplate: [read]
       InspectionChangeRequest: [read]
@@ -106,7 +122,7 @@ accessPolicies:
         read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: filler
     name: Filler
-    description: Fills in published templates. Comes with the Audit maintenance application and cannot be changed.
+    description: Fills in published templates. Comes with the Quality Management System application and cannot be changed.
     objects:
       InspectionTemplate: [read]
       InspectionFill: [read, update]
@@ -123,7 +139,7 @@ accessPolicies:
         read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: reviewer
     name: Reviewer
-    description: Sees every fill-in. Whether a person reviews one is decided by the approval process. Comes with the Audit maintenance application and cannot be changed.
+    description: Sees every fill-in. Whether a person reviews one is decided by the approval process. Comes with the Quality Management System application and cannot be changed.
     objects:
       InspectionFill: [read, view-all]
     fields:
@@ -131,7 +147,7 @@ accessPolicies:
         read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
   - key: departments
     name: Department setup
-    description: Says which group of people belongs to which department of which location. Comes with the Audit maintenance application and cannot be changed.
+    description: Says which group of people belongs to which department of which location. Comes with the Quality Management System application and cannot be changed.
     objects:
       DepartmentGroup: [create, read, update, delete]
     fields:

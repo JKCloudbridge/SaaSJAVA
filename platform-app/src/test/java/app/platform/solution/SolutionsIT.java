@@ -103,15 +103,15 @@ class SolutionsIT extends SolutionSupport {
         assertThat(mine.status()).as(mine.body()).isEqualTo(200);
         String application = "$.data[?(@.apiName=='" + APPLICATION + "')]";
         assertThat(JsonPath.<List<String>>read(mine.body(), application + ".label"))
-                .containsExactly("Audit maintenance");
+                .containsExactly("Quality Management System");
         assertThat(JsonPath.<List<String>>read(mine.body(), application + ".iconKey")).containsExactly("clipboard");
-        assertThat(JsonPath.<List<Object>>read(mine.body(), application + ".items[*]")).hasSize(5);
+        assertThat(JsonPath.<List<Object>>read(mine.body(), application + ".items[*]")).hasSize(8);
         assertThat(JsonPath.<List<String>>read(mine.body(), application + ".items[0].type"))
                 .containsExactly("PLATFORM");
         assertThat(JsonPath.<List<String>>read(mine.body(), application + ".items[0].label"))
-                .containsExactly("Templates");
+                .containsExactly("Home");
         assertThat(JsonPath.<List<String>>read(mine.body(), application + ".items[0].pageKey"))
-                .containsExactly("templates");
+                .containsExactly("home");
         Response records = admin.get(RECORDS);
         assertThat(records.status()).as(records.body()).isEqualTo(200);
         assertThat(JsonPath.<List<Object>>read(records.body(), "$.data")).isEmpty();
@@ -297,7 +297,7 @@ class SolutionsIT extends SolutionSupport {
         Response anonymous = new TestBrowser(port, organization.host()).get(MY_APPLICATIONS);
 
         assertThat(anonymous.status()).isEqualTo(401);
-        assertThat(anonymous.body()).doesNotContain("Audit maintenance");
+        assertThat(anonymous.body()).doesNotContain("Quality Management System");
     }
 
     // ---- the caches ----

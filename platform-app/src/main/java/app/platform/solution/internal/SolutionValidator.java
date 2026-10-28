@@ -44,13 +44,16 @@ final class SolutionValidator {
             if (!featuresUsed.add(bundle.feature())) {
                 throw new IllegalStateException(where + ": the feature is the feature of another solution too");
             }
-            String applicationName = bundle.application().apiName();
-            if (applicationName.endsWith("__c")) {
-                throw new IllegalStateException(where + ": the application name must not end like an organization's "
-                        + "own");
-            }
-            if (!applicationNames.add(applicationName)) {
-                throw new IllegalStateException(where + ": the application name is used by another solution");
+            for (SolutionBundle.Application application : bundle.applications()) {
+                String applicationName = application.apiName();
+                if (applicationName.endsWith("__c")) {
+                    throw new IllegalStateException(where + ": the application name must not end like an "
+                            + "organization's own");
+                }
+                if (!applicationNames.add(applicationName)) {
+                    throw new IllegalStateException(where + ": the application name is used by another solution or "
+                            + "twice in this one");
+                }
             }
             for (String object : bundle.objects()) {
                 ObjectDefinition definition = platform.named(object).orElseThrow(() -> new IllegalStateException(
@@ -83,22 +86,50 @@ final class SolutionValidator {
         }
     }
 
+    /** The page key every shipped application opens on: its Home (FA9, ADR-0203). */
+    static final String HOME = "home";
+
     private static void checkEntries(SolutionBundle bundle, String where) {
         Set<String> objects = Set.copyOf(bundle.objects());
+        for (SolutionBundle.Application application : bundle.applications()) {
+            checkEntries(application, objects, where + ": application '" + application.apiName() + "'");
+        }
+    }
+
+    private static void checkEntries(SolutionBundle.Application application, Set<String> objects, String where) {
         int index = 0;
-        for (SolutionBundle.Entry entry : bundle.application().entries()) {
-            String part = where + ": application.entries[" + index++ + "]";
+        Set<String> identities = new HashSet<>();
+        for (SolutionBundle.Entry entry : application.entries()) {
+            String part = where + ": entries[" + index++ + "]";
             if (entry.kind() == ShippedEntryView.Kind.OBJECT && !objects.contains(entry.object())) {
                 throw new IllegalStateException(part + " names an object the solution does not bring");
             }
             if (!entry.readsObject().isEmpty() && !objects.contains(entry.readsObject())) {
                 throw new IllegalStateException(part + ": 'readsObject' names an object the solution does not bring");
             }
+            if (entry.placeholder() && (!entry.object().isEmpty() || !entry.readsObject().isEmpty())) {
+                throw new IllegalStateException(part + ": a placeholder names no object");
+            }
+            // The address of an entry is made from this identity, so two entries may not share it.
+            String identity = switch (entry.kind()) {
+                case OBJECT -> "o-" + entry.object();
+                case PLATFORM -> "s-" + entry.pageKey();
+                case HEADING -> null;
+                default -> throw new IllegalStateException("an entry kind this release does not know");
+            };
+            if (identity != null && !identities.add(identity)) {
+                throw new IllegalStateException(part + ": the identity is used by another entry of the application");
+            }
         }
-        boolean leads = bundle.application().entries().stream()
+        boolean leads = application.entries().stream()
                 .anyMatch(entry -> entry.kind() != ShippedEntryView.Kind.HEADING);
         if (!leads) {
             throw new IllegalStateException(where + ": the application has only headings, which lead nowhere");
+        }
+        SolutionBundle.Entry first = application.entries().get(0);
+        if (first.kind() != ShippedEntryView.Kind.PLATFORM || !HOME.equals(first.pageKey())) {
+            throw new IllegalStateException(where + ": the first entry is the Home page (a PLATFORM entry with the "
+                    + "page key '" + HOME + "')");
         }
     }
 

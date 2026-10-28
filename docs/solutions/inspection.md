@@ -1,4 +1,4 @@
-# The Audit maintenance solution (key `inspection`)
+# The Quality Management System solution (key `inspection`, first called Audit maintenance)
 
 > **Since FA7 the screens say *Revision*, written with two digits starting at 00** (the stored number minus one). Where this page says
 > "version" of a sheet or a template, read *Revision*; the stored numbers, the API and the code keep the word "version". See the last section.
@@ -24,7 +24,7 @@ A person can now **fill in** a template that was published to them. The decision
 
 A person who can read a published template may now **ask for a change** without being able to edit it.
 
-1. **Ask.** Open the template (Audit maintenance, Templates). Under the sheet, **Ask for a change**: stand on a place in the grid (a click on a cell or on a column label, or the arrow keys; **Enter** on a cell goes to the box for the comment), choose **this cell, this row, this column or the whole template**, write the comment and add it to the request. Give the request a title and send it. The sheet cannot be changed from here and the request changes nothing in it.
+1. **Ask.** Open the template (Quality Management System, Document Control). Under the sheet, **Ask for a change**: stand on a place in the grid (a click on a cell or on a column label, or the arrow keys; **Enter** on a cell goes to the box for the comment), choose **this cell, this row, this column or the whole template**, write the comment and add it to the request. Give the request a title and send it. The sheet cannot be changed from here and the request changes nothing in it.
 2. **Who sees it.** The person who asked, the owner of the template and everybody who holds the Approver policy. No other reader, and no other author. If the person who asked can no longer read the template they no longer see their request.
 3. **Review.** Under **Change requests** the owner sees each request with its comments, the version it read, which places are still in the version in use (**no longer in this version** for one that a later version removed), and can comment, **accept**, **decline** (with a reason the person reads), or choose requests and **turn them into a new version**: a draft that is a copy of the version in use, to which the requests are linked. If a draft already exists they are linked to it as it is. The draft is edited in the sheet and sent for approval like any other. A rejected or withdrawn version keeps its comments; the owner can **reopen** the request.
 4. **Told by notice.** The owner when a request arrives or the requester comments; the requester when someone else comments or the request is accepted, declined or turned into a version. A person can switch these off (Change requests in their notification preferences). No mail is sent.
@@ -50,7 +50,7 @@ The steps in order are in `docs/metadata-guide.md` section 29 (and the demo set-
 
 ### What existed in FA3
 
-Since FA3 a template has a **sheet**: open **Templates** in the Audit maintenance application, open a template (or choose **New template**), start its first version, build it in the Form view or the Grid view, save it and keep its versions. The full description for the administrator is [metadata-guide.md](../metadata-guide.md) section 27. In this release a version is only ever a **draft**: submitting for approval, the number, publishing and retiring come next (FA4A and FA4). The page lists the templates plainly (no filters, no lifecycle summary: the master list is FA4).
+Since FA3 a template has a **sheet**: open **Document Control** in the Quality Management System application, open a template (or choose **New template**), start its first version, build it in the Form view or the Grid view, save it and keep its versions. The full description for the administrator is [metadata-guide.md](../metadata-guide.md) section 27. In this release a version is only ever a **draft**: submitting for approval, the number, publishing and retiring come next (FA4A and FA4). The page lists the templates plainly (no filters, no lifecycle summary: the master list is FA4).
 
 ### What existed in FA2A
 
@@ -60,12 +60,12 @@ The framework (FA1) and, since FA2A, the first fields of the object and the numb
 
 ### What existed in FA1
 
-Only the framework and its first object. An organization that has the feature sees an application called **Audit maintenance** in the application launcher, with one page, **Templates**, that says "nothing here yet". The object **Template** (`InspectionTemplate`, a name and a "retired" flag) exists and can be read through the usual record screens and API by a member who is allowed. The templates themselves, the grid, the approval, the numbers and the publishing come in later sprints (FA2A to FA5).
+Only the framework and its first object. An organization that has the feature sees an application called **Quality Management System** in the application launcher, with one page, **Templates**, that says "nothing here yet". The object **Template** (`InspectionTemplate`, a name and a "retired" flag) exists and can be read through the usual record screens and API by a member who is allowed. The templates themselves, the grid, the approval, the numbers and the publishing come in later sprints (FA2A to FA5).
 
 ### How to give an organization the feature
 
 1. Sign in on the platform address as a platform administrator and open the console.
-2. Either add the feature **Audit maintenance** to a plan (Plans, open the plan, Change, tick the feature) or give one organization an override (Organizations, open it, Features, "Switch on"). There is no licence to buy and no quantity to set.
+2. Either add the feature **Quality Management System** to a plan (Plans, open the plan, Change, tick the feature) or give one organization an override (Organizations, open it, Features, "Switch on"). There is no licence to buy and no quantity to set.
 3. Taking the feature away shows the platform's own words first: the application and its objects are hidden at once, **nothing is deleted**, and everything comes back when the feature is given again.
 
 ### What the organization's administrator does
@@ -388,3 +388,35 @@ the administrator's view is [metadata-guide.md](../metadata-guide.md) section 40
   `RegisterPanel.test.tsx`, `PublishChoiceForm.test.tsx`, `ChangeRequestPage.test.tsx`, `ChangeRequestsSection.test.tsx`,
   `AnnotatePanel.test.tsx`, `AskForChange.test.tsx`, `ChangeRequestsPage.test.tsx`, `TemplatesPage.test.tsx`, `revision.test.ts`,
   `choices.test.ts`, `ApprovalActionFormChoice.test.tsx`, `SheetWorkspace.test.tsx`.
+
+## The Quality Management System home page, the rename and the grid (FA9)
+
+Decision: [ADR-0203](../adr/0203-the-application-grid-home-in-every-application-placeholders-and-the-quality-dashboard.md). Administrator's view:
+`docs/metadata-guide.md` section 41. The process applications are on [their own page](processes.md).
+
+- **The rename changed words only.** The application is **Quality Management System**; its tabs are Home, Document Control (was Templates),
+  Change requests, Record Control (was Fill-ins), Report, Management Review and Internal Audit (the last two are announced and have no page
+  yet) and, for a person who may read it, Department groups. The API name `inspection`, the feature key `inspection`, the page keys
+  (`templates`, `fill-ins`, `change-requests`, `fill-in-report`) and every address are unchanged. The shipped access policies carry the new
+  name in their descriptions; they are refreshed at the first menu request after the new jar.
+- **Home is the dashboard** (page key `home`, `solutions/inspection/home/`): `QualityHomePage` (the screen and its address state),
+  `FilterBar`, `StatTile`, `ChartCard`, `charts.tsx` (area, ring, bars, stacked bars, columns), `ActivityList`, `model.ts` (pure: periods,
+  the change words, number formats, the geometry of the graphs), `api.ts`. Everything on it is one answer of
+  `POST /api/v1/quality-home/summary` (`QualityHome`, `QualityHomeController`, `QualityHomeViews`, `QualityHomeStore`, `HomePeriod`,
+  `QualityHomeProperties`), plus the header's own count of approval tasks.
+- **Rules for a number.** It is counted over the records the record store lists for the person (templates, fill-ins) and over
+  `ChangeRequestCounts` (change requests): it equals the list it opens. The record store gives no total, so the headers are read in pages
+  up to `platform.inspection.home.max-scanned` (50,000); a number that hit it says "at least". A section whose object the person cannot read
+  is absent. Nothing is cached across people. Days are UTC.
+- **A new tile** is: a field in `TilesView`, its computation in `QualityHome`, an entry in `tilesOf` (`QualityHome.tsx`) saying what it
+  opens and which filters it follows, a case in `QualityHomeIT` against the list it equals. **A new graph** is a field in `ChartsView`, a
+  component in `charts.tsx` built from `ChartCard`, and a table of the same numbers.
+- **Two small records** (V082): `inspection_fill_department` (written by `FillIns.start` from `DepartmentAudiences.placesOf`) and
+  `inspection_template_event` (written by `TemplatePublishing` in publish, revised publish, unpublish and retire). Both are append-only.
+- **Lists that a tile opens** accept the narrowing in the address: `/apps/inspection/s-templates?state=ACTIVE|IN_REVIEW|...` and
+  `/apps/inspection/s-fill-ins?status=SUBMITTED|...`; a note over the list says it is narrowed and offers "Show everything".
+- **Tests.** No database: `HomePeriodTest`, `SolutionLoaderTest`, `SolutionValidatorTest`, `SolutionBoundaryTest`; frontend `model.test.ts`,
+  `QualityHome.test.tsx`, `ApplicationGrid.test.tsx`, `grid.test.ts`, `ApplicationOverview.test.tsx`, `Landing.test.tsx`,
+  `ControlBar.test.tsx`, `AppLauncher.test.tsx`, `tokens.test.ts`. Real PostgreSQL: `QualityHomeIT` (the numbers equal the lists, no
+  section for what cannot be read, filters, every period, cross-tenant, forged host, platform address, not signed in, feature missing, the two
+  records), `QualityHomeBoundIT`, `QualityHomeLogsAreCleanIT`, `QualityHomeCostIT`; the isolation harness lists both new tables.

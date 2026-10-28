@@ -1,4 +1,4 @@
-# The numbers of the Audit maintenance solution (Functional track FA2A, ADR-0176, ADR-0184).
+# The numbers of the Quality Management System solution (Functional track FA2A, ADR-0176, ADR-0184).
 #
 # A series names the object whose records are numbered, the field that holds the number (a unique text field only the
 # platform writes) and the format to write it in. The format language is closed: fixed text, {field:name} for the stored

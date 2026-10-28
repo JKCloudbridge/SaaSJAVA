@@ -40,7 +40,7 @@ class ShippedApplicationsService implements ShippedApplications {
                 continue;
             }
             keeper.keep(bundle);
-            views.add(view(bundle.application()));
+            bundle.applications().forEach(application -> views.add(view(application)));
         }
         return views;
     }
@@ -48,9 +48,9 @@ class ShippedApplicationsService implements ShippedApplications {
     private static ShippedApplicationView view(SolutionBundle.Application application) {
         List<ShippedEntryView> entries = application.entries().stream().map(entry -> new ShippedEntryView(entry.kind(),
                 entry.label(), blankToNull(entry.object()), blankToNull(entry.pageKey()),
-                blankToNull(entry.readsObject()))).toList();
+                blankToNull(entry.readsObject()), entry.placeholder())).toList();
         return new ShippedApplicationView(application.apiName(), application.label(),
-                blankToNull(application.iconKey()), entries);
+                blankToNull(application.iconKey()), blankToNull(application.group()), entries);
     }
 
     private static String blankToNull(String text) {

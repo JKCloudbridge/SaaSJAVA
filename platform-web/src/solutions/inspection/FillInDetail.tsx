@@ -87,7 +87,7 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
 
   return (
     <DetailPage
-      listLabel="Fill-ins"
+      listLabel="Record Control"
       onBack={() => void beforeLeave.current(onBack)}
       noBreadcrumb
       title={name}

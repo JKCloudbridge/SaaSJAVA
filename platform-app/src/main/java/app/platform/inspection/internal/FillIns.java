@@ -90,11 +90,16 @@ class FillIns {
     private final MeterRegistry meters;
     private final TemplateNumbers templateNumbers;
     private final TemplateOptionStore templateOptions;
+    private final DepartmentAudiences departments;
+    private final QualityHomeStore home;
 
     FillIns(TemplateAccess access, BackgroundRecords background, Records records, SheetLifecycle sheets,
             FillLifecycle fills, FillHeaders headers, FillSubmission submission, ApprovalApplicability approvals,
             List<ReferenceLabels> labels, AuditRecorder audit, TenantContexts contexts, MeterRegistry meters,
-            TemplateNumbers templateNumbers, TemplateOptionStore templateOptions) {
+            TemplateNumbers templateNumbers, TemplateOptionStore templateOptions, DepartmentAudiences departments,
+            QualityHomeStore home) {
+        this.departments = departments;
+        this.home = home;
         this.templateOptions = templateOptions;
         this.access = access;
         this.background = background;
@@ -156,6 +161,8 @@ class FillIns {
             throw new ApiException(ErrorCode.CONFLICT, refusal.reason() == FillRefusal.Reason.NOT_IN_USE ? CHANGED
                     : refusal.getMessage());
         }
+        // The departments of the filler are kept as codes, once, so the home page can count fill-ins by department.
+        home.recordFillPlaces(header.id(), departments.placesOf(caller.membershipId()), caller.userId());
         audit.record(AuditRecord.of("inspection.fill.started", AuditOutcome.SUCCESS).forUser(caller.userId())
                 .inTenant(contexts.require().tenantId()).onObject(Fills.OBJECT, header.id().toString())
                 .with("template", templateId.toString()).with("version_no", Integer.toString(active)));

@@ -1,4 +1,4 @@
-/** The object that holds the templates of the Audit maintenance application (the header record; its sheet is kept in versions). */
+/** The object that holds the templates of the Quality Management System application (the header record; its sheet is kept in versions). */
 export const TEMPLATE_OBJECT = "InspectionTemplate";
 
 /** A field value as text for a list or a heading: a string as it is, anything else as nothing. */

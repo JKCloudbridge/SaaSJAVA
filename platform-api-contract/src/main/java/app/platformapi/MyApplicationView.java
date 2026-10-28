@@ -11,9 +11,15 @@ import java.util.List;
  * @param label the label people read
  * @param iconKey the icon to show, or null
  * @param items the navigation in order
+ * @param group the plain word that gathers the application with others in the grid (FA9), or null
  */
 public record MyApplicationView(@NotNull String apiName, @NotNull String label, String iconKey,
-        @NotNull List<NavigationEntryView> items) {
+        @NotNull List<NavigationEntryView> items, String group) {
+
+    /** An application that belongs to no group. */
+    public MyApplicationView(String apiName, String label, String iconKey, List<NavigationEntryView> items) {
+        this(apiName, label, iconKey, items, null);
+    }
 
     public MyApplicationView {
         items = items == null ? List.of() : List.copyOf(items);

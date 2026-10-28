@@ -4,11 +4,21 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useApplications } from "@/lib/applications/ApplicationsProvider";
-import { describeKind, findApplication, findEntry, type NavigationEntry } from "@/lib/applications/entries";
+import {
+  describeKind,
+  findApplication,
+  findEntry,
+  isHomeEntry,
+  isPlaceholder,
+  type MyApplication,
+  type NavigationEntry,
+} from "@/lib/applications/entries";
 import { entryBase, recordHref } from "@/lib/records/paths";
 import { ObjectListPage } from "@/components/records/ObjectListPage";
 import { platformPageElement } from "@/solutions";
+import { ApplicationOverview } from "./ApplicationOverview";
 import { CustomPageFrame } from "./CustomPageFrame";
+import { PlaceholderPage } from "./PlaceholderPage";
 
 /** What the address names, decoded: the application and the entry inside it. */
 function useAddress(): { application: string; entry: string } {
@@ -70,6 +80,7 @@ export function ApplicationEntryView() {
   }
   return (
     <EntryBody
+      application={application}
       applicationApiName={application.apiName}
       applicationLabel={application.label}
       entry={entry}
@@ -92,22 +103,29 @@ function NotAvailable() {
 }
 
 function EntryBody({
+  application,
   applicationApiName,
   applicationLabel,
   entry,
   base,
 }: {
+  application: MyApplication;
   applicationApiName: string;
   applicationLabel: string;
   entry: NavigationEntry;
   base: string;
 }) {
   if (entry.type === "PLATFORM") {
+    // A function that is only announced (FA9): the API says so, the page says it is being prepared.
+    if (isPlaceholder(entry)) {
+      return <PlaceholderPage application={application} entry={entry} />;
+    }
     // A page the platform ships with the application (Functional track FA1). Which pages exist is code, kept with the
     // solution; whether the member may have the entry at all was the API's answer when it listed it.
     const page = platformPageElement(applicationApiName, entry.pageKey);
     if (!page) {
-      return <NotAvailable />;
+      // Home is the one page every shipped application has: without a page of its own it is the generic overview.
+      return isHomeEntry(entry) ? <ApplicationOverview applicationApiName={applicationApiName} /> : <NotAvailable />;
     }
     // The page draws its own title band (the pages of FA3 are lists and details in the frame of every Home screen).
     return page;

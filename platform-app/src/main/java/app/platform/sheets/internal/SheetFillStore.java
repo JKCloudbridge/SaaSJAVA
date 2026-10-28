@@ -112,6 +112,13 @@ class SheetFillStore {
     private static final String SUMMARIES = "select " + COLUMNS + " from sheet_fill where tenant_id = :tenant "
             + "and fill_object = :object and fill_id in (:fills) and deleted_at is null";
 
+    private static final String SUBMITTED_BETWEEN = "select " + COLUMNS + " from sheet_fill where tenant_id = :tenant "
+            + "and fill_object = :object and submitted_at >= :from and submitted_at < :to and deleted_at is null "
+            + "order by submitted_at, fill_id limit :limit";
+    private static final String AWAITING_REVIEW = "select " + COLUMNS + " from sheet_fill where tenant_id = :tenant "
+            + "and fill_object = :object and status = 'SUBMITTED' and approval_request_id is not null "
+            + "and deleted_at is null order by submitted_at, fill_id limit :limit";
+
     private final JdbcClient jdbc;
     private final TenantContexts contexts;
 
@@ -180,6 +187,19 @@ class SheetFillStore {
             return List.of();
         }
         return jdbc.sql(SUMMARIES).param("tenant", tenant()).param("object", object).param("fills", List.copyOf(fills))
+                .query(SheetFillStore::map).list();
+    }
+
+    /** The fill-ins last sent in the half-open period, oldest first, at most the limit; no cells document is read. */
+    List<Row> submittedBetween(String object, Instant from, Instant to, int limit) {
+        return jdbc.sql(SUBMITTED_BETWEEN).param("tenant", tenant()).param("object", object)
+                .param("from", java.sql.Timestamp.from(from)).param("to", java.sql.Timestamp.from(to))
+                .param("limit", limit).query(SheetFillStore::map).list();
+    }
+
+    /** The fill-ins that wait for a review (sent, with an approval request), oldest first, at most the limit. */
+    List<Row> awaitingReview(String object, int limit) {
+        return jdbc.sql(AWAITING_REVIEW).param("tenant", tenant()).param("object", object).param("limit", limit)
                 .query(SheetFillStore::map).list();
     }
 

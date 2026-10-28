@@ -4,6 +4,7 @@ import app.platform.sheets.FillLifecycle;
 import app.platform.sheets.FillRefusal;
 import app.platform.sheets.FillRefusal.Reason;
 import app.platform.sheets.FillStatus;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -132,6 +133,24 @@ class DefaultFillLifecycle implements FillLifecycle {
                     row.decidedAt(), row.createdBy(), row.archivedAt()));
         }
         return found;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Submission> submittedBetween(String fillObject, Instant from, Instant to, int limit) {
+        return store.submittedBetween(fillObject, from, to, limit).stream().map(DefaultFillLifecycle::submission)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Submission> awaitingReview(String fillObject, int limit) {
+        return store.awaitingReview(fillObject, limit).stream().map(DefaultFillLifecycle::submission).toList();
+    }
+
+    private static Submission submission(SheetFillStore.Row row) {
+        return new Submission(row.fillId(), row.ownerId(), FillStatus.valueOf(row.status()), row.submittedAt(),
+                row.approvalRequestId(), row.createdBy());
     }
 
     private FillRefusal refused(String operation, Reason reason) {

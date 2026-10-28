@@ -68,6 +68,17 @@ class SheetVersionStore {
             int total) {
     }
 
+    /** A version in review, or decided since a day: dates only, no grid. */
+    private static final String DATES = "select owner_id, version_no, status, submitted_at, decided_at, "
+            + "approval_request_id from sheet_version where tenant_id = :tenant and owner_object = :object "
+            + "and owner_id in (:owners) and deleted_at is null "
+            + "and (status = 'IN_REVIEW' or decided_at >= :since) order by owner_id, version_no";
+
+    /** The dates of one version. */
+    record Dates(UUID owner, int versionNo, String status, Instant submittedAt, Instant decidedAt,
+            UUID approvalRequestId) {
+    }
+
     private static final String COLUMNS = "version_no, status, dimension, rows_mode, grid_bytes, "
             + "encode(grid_hash, 'hex') as grid_hash, version, created_at, updated_at, submitted_at, decided_at, "
             + "review_edits, approval_request_id, updated_by, revision_no";
@@ -331,6 +342,18 @@ class SheetVersionStore {
                         rs.getObject("owner_id", UUID.class), rs.getInt("active"), rs.getInt("approved"),
                         rs.getInt("in_review"), rs.getInt("draft"), rs.getInt("retired"), rs.getInt("highest"),
                         rs.getInt("total"))).list();
+    }
+
+    /** The versions of these owners that are in review or were decided since a day: dates only. */
+    List<Dates> dates(String object, java.util.Collection<UUID> owners, Instant since) {
+        if (owners.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql(DATES).param("tenant", tenant()).param("object", object).param("owners", List.copyOf(owners))
+                .param("since", java.sql.Timestamp.from(since)).query((rs, n) -> new Dates(
+                        rs.getObject("owner_id", UUID.class), rs.getInt("version_no"), rs.getString("status"),
+                        instant(rs, "submitted_at"), instant(rs, "decided_at"),
+                        rs.getObject("approval_request_id", UUID.class))).list();
     }
 
     private UUID tenant() {

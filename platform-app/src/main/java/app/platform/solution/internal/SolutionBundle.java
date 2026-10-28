@@ -15,28 +15,41 @@ import java.util.Set;
  * @param feature the plan feature an organization needs for the solution to exist for it
  * @param label what people read
  * @param removalNote what the platform administrator reads before the feature is taken away
- * @param application the application the solution shows in the member's menu
+ * @param applications the applications the solution shows in the member's menu, at least one (FA9, ADR-0203: a
+ *        bundle may list several; the first is the solution's main one)
  * @param objects the API names of the objects the solution brings, which the metadata module reads from the
  *        solution's {@code objects} folder
  * @param sheetOwners the objects, among {@code objects}, whose records may own a sheet (FA3, ADR-0186)
  * @param policies the access policies the solution ships
  */
-record SolutionBundle(String key, String feature, String label, String removalNote, Application application,
+record SolutionBundle(String key, String feature, String label, String removalNote, List<Application> applications,
         List<String> objects, List<String> sheetOwners, List<Policy> policies) {
 
     /** The prefix of the identity of a shipped policy: {@code <solution key>.<policy key>}. */
     static final String OWNER = "solution";
 
     SolutionBundle {
+        applications = List.copyOf(applications);
         objects = List.copyOf(objects);
         sheetOwners = List.copyOf(sheetOwners);
         policies = List.copyOf(policies);
     }
 
-    /** A solution whose objects own no sheet. */
+    /** A solution with one application. */
+    SolutionBundle(String key, String feature, String label, String removalNote, Application application,
+            List<String> objects, List<String> sheetOwners, List<Policy> policies) {
+        this(key, feature, label, removalNote, List.of(application), objects, sheetOwners, policies);
+    }
+
+    /** A solution with one application whose objects own no sheet. */
     SolutionBundle(String key, String feature, String label, String removalNote, Application application,
             List<String> objects, List<Policy> policies) {
-        this(key, feature, label, removalNote, application, objects, List.of(), policies);
+        this(key, feature, label, removalNote, List.of(application), objects, List.of(), policies);
+    }
+
+    /** The solution's main application: the first one. */
+    Application application() {
+        return applications.get(0);
     }
 
     /**
@@ -45,12 +58,18 @@ record SolutionBundle(String key, String feature, String label, String removalNo
      * @param apiName its permanent name, which never ends in {@code __c} (an organization's own do)
      * @param label what people read
      * @param iconKey the icon, or empty
+     * @param group the plain word that gathers it with others in the grid, or empty
      * @param entries the navigation in order
      */
-    record Application(String apiName, String label, String iconKey, List<Entry> entries) {
+    record Application(String apiName, String label, String iconKey, String group, List<Entry> entries) {
 
         Application {
             entries = List.copyOf(entries);
+        }
+
+        /** An application that belongs to no group. */
+        Application(String apiName, String label, String iconKey, List<Entry> entries) {
+            this(apiName, label, iconKey, "", entries);
         }
     }
 
@@ -62,8 +81,15 @@ record SolutionBundle(String key, String feature, String label, String removalNo
      * @param object for an object entry, the object
      * @param pageKey for a platform entry, the key of the page the web application registered
      * @param readsObject the object whose read right shows the entry, or empty
+     * @param placeholder true for a function that is only announced: it has an identity and a name and no page yet
      */
-    record Entry(ShippedEntryView.Kind kind, String label, String object, String pageKey, String readsObject) {
+    record Entry(ShippedEntryView.Kind kind, String label, String object, String pageKey, String readsObject,
+            boolean placeholder) {
+
+        /** An entry that is not a placeholder. */
+        Entry(ShippedEntryView.Kind kind, String label, String object, String pageKey, String readsObject) {
+            this(kind, label, object, pageKey, readsObject, false);
+        }
     }
 
     /**

@@ -4512,6 +4512,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/quality-home/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The numbers and graphs of the Quality Management System home page
+         * @description One answer for the whole page: the tiles, the graphs and the lists, for a period (7d, 30d, 90d or 12m; 30d when left out) and optionally one location and one department the organization offers. A post, because the filters do not belong in an address. Needs no ability: every number is counted over the records the caller may see, through the same record store query the lists use, so the page agrees with the lists, and a section whose object the caller cannot read at all is null (never a zero). The record store gives no total, so the headers are read in pages up to a limit; a number that reached it says atLeast. A section that failed is named in problems and the others are still answered. Days are days in UTC. NOT_FOUND on the platform host and for an organization without the plan feature; VALIDATION_ERROR for a period, location or department that is not offered. Nothing typed, no name and no filter value is logged or audited.
+         */
+        post: operations["qualityHomeSummary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/roles": {
         parameters: {
             query?: never;
@@ -5501,6 +5521,16 @@ export interface components {
             name: string;
             requiredLicenceType?: string;
         };
+        Activity: {
+            about: string;
+            /** Format: date-time */
+            at: string;
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            name: string;
+            who?: string;
+        };
         AddCatalogueItemRequest: {
             key: string;
             name: string;
@@ -5994,6 +6024,9 @@ export interface components {
         ApiResponseSheetVersionsView: {
             data: components["schemas"]["SheetVersionsView"];
         };
+        ApiResponseSummaryView: {
+            data: components["schemas"]["SummaryView"];
+        };
         ApiResponseSwitchTarget: {
             data: components["schemas"]["SwitchTarget"];
         };
@@ -6047,6 +6080,10 @@ export interface components {
             label: string;
             /** Format: int64 */
             version: number;
+        };
+        AppliedView: {
+            department?: string;
+            location?: string;
         };
         ApprovalActionsView: {
             canApprove: boolean;
@@ -6609,6 +6646,16 @@ export interface components {
             /** Format: int32 */
             position: number;
         };
+        ChartsView: {
+            approvalStepDays?: components["schemas"]["StepDays"][];
+            fillsByDepartment?: components["schemas"]["DepartmentCount"][];
+            fillsByTemplate?: components["schemas"]["TemplateCount"][];
+            fillsPerDay?: components["schemas"]["DaysView"];
+            publishedPerMonth?: components["schemas"]["MonthCount"][];
+            recentActivity?: components["schemas"]["Activity"][];
+            templatesByLevelAndType?: components["schemas"]["LevelTypeCount"][];
+            templatesByStatus?: components["schemas"]["StatusCount"][];
+        };
         CheckApprovalProcessRequest: {
             entryCriteria?: string;
             outcomes?: components["schemas"]["ApprovalOutcomesSpec"];
@@ -6870,6 +6917,17 @@ export interface components {
             label: string;
             retained: boolean;
         };
+        DayCount: {
+            /** Format: int64 */
+            count: number;
+            day: string;
+        };
+        DaysView: {
+            atLeast: boolean;
+            days: components["schemas"]["DayCount"][];
+            /** Format: int64 */
+            total: number;
+        };
         DeadLetterGroup: {
             /** Format: int64 */
             count: number;
@@ -6880,6 +6938,17 @@ export interface components {
         DecisionChoice: {
             key: string;
             value: string;
+        };
+        DepartmentCount: {
+            /** Format: int64 */
+            count: number;
+            department?: string;
+            label: string;
+            location?: string;
+        };
+        DepartmentOption: {
+            code: string;
+            label: string;
         };
         EmbeddedTokenRequest: {
             customPage?: string;
@@ -7073,6 +7142,9 @@ export interface components {
             values?: string[];
             /** Format: int32 */
             versionNo?: number;
+        };
+        FiltersView: {
+            locations: components["schemas"]["LocationOption"][];
         };
         FirstAdministratorInfo: {
             /** Format: date-time */
@@ -7317,6 +7389,14 @@ export interface components {
             /** Format: int64 */
             version: number;
         };
+        LevelTypeCount: {
+            /** Format: int64 */
+            count: number;
+            level: string;
+            levelLabel: string;
+            type: string;
+            typeLabel: string;
+        };
         LicencePoolView: {
             /** Format: int32 */
             assigned?: number;
@@ -7370,6 +7450,11 @@ export interface components {
             updatedAt: string;
             /** Format: int64 */
             version: number;
+        };
+        LocationOption: {
+            code: string;
+            departments: components["schemas"]["DepartmentOption"][];
+            label: string;
         };
         LookupLabelsRequest: {
             ids: string[];
@@ -7425,8 +7510,14 @@ export interface components {
             status: string;
             you?: boolean;
         };
+        MonthCount: {
+            /** Format: int64 */
+            count: number;
+            month: string;
+        };
         MyApplicationView: {
             apiName: string;
+            group?: string;
             iconKey?: string;
             items: components["schemas"]["NavigationEntryView"][];
             label: string;
@@ -7446,6 +7537,7 @@ export interface components {
             pageApiName?: string;
             pageKey?: string;
             path?: string;
+            placeholder?: boolean;
             tabApiName?: string;
             type: string;
         };
@@ -7691,6 +7783,17 @@ export interface components {
             /** Format: date-time */
             occurredAt: string;
             type: string;
+        };
+        PeriodView: {
+            /** Format: date-time */
+            from: string;
+            key: string;
+            /** Format: date-time */
+            previousFrom: string;
+            /** Format: date-time */
+            previousTo: string;
+            /** Format: date-time */
+            to: string;
         };
         PermissionEntry: {
             actions: string[];
@@ -8501,6 +8604,21 @@ export interface components {
             };
             operation: string;
         };
+        StatusCount: {
+            /** Format: int64 */
+            count: number;
+            key: string;
+            label: string;
+        };
+        StepDays: {
+            /** Format: double */
+            averageDays: number;
+            name: string;
+            /** Format: int32 */
+            position: number;
+            /** Format: int64 */
+            samples: number;
+        };
         SubmitApprovalRequest: {
             comment?: string;
             process?: string;
@@ -8522,6 +8640,21 @@ export interface components {
             departmentLabel?: string;
             location: string;
             locationLabel: string;
+        };
+        SummaryRequest: {
+            department?: string;
+            location?: string;
+            period?: string;
+        };
+        SummaryView: {
+            applied: components["schemas"]["AppliedView"];
+            charts: components["schemas"]["ChartsView"];
+            filters: components["schemas"]["FiltersView"];
+            /** Format: date-time */
+            generatedAt: string;
+            period: components["schemas"]["PeriodView"];
+            problems: string[];
+            tiles: components["schemas"]["TilesView"];
         };
         SupportAccessRequestBody: {
             /** Format: int32 */
@@ -8588,6 +8721,13 @@ export interface components {
             publishedAt: string;
             /** Format: int32 */
             versionNo: number;
+        };
+        TemplateCount: {
+            /** Format: int64 */
+            count: number;
+            name: string;
+            /** Format: uuid */
+            templateId: string;
         };
         TemplateLifecycle: {
             /** Format: int32 */
@@ -8676,6 +8816,27 @@ export interface components {
             values?: {
                 [key: string]: string;
             };
+        };
+        Tile: {
+            atLeast: boolean;
+            byDepartment: boolean;
+            byLocation: boolean;
+            /** Format: double */
+            extra?: number;
+            /** Format: double */
+            previous?: number;
+            /** Format: double */
+            value?: number;
+        };
+        TilesView: {
+            activeTemplates?: components["schemas"]["Tile"];
+            averageApprovalDays?: components["schemas"]["Tile"];
+            fillsSubmitted?: components["schemas"]["Tile"];
+            fillsWaiting?: components["schemas"]["Tile"];
+            openChangeRequests?: components["schemas"]["Tile"];
+            rejectedShare?: components["schemas"]["Tile"];
+            templatesPublished?: components["schemas"]["Tile"];
+            waitingApproval?: components["schemas"]["Tile"];
         };
         UpdateApplicationRequest: {
             definition: components["schemas"]["ApplicationDefinition"];
@@ -18118,6 +18279,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    qualityHomeSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SummaryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseSummaryView"];
+                };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
             default: {

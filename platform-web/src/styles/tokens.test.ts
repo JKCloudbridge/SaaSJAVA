@@ -154,5 +154,35 @@ describe("design tokens", () => {
         }
       }
     });
+
+    it("defines six series colours in both themes that read as marks (3 to 1) and, as words, at AA (FA9)", () => {
+      const mix = (a: string, b: string, share: number): string => {
+        const channels = [1, 3, 5].map((at) => {
+          const x = parseInt(a.slice(at, at + 2), 16);
+          const y = parseInt(b.slice(at, at + 2), 16);
+          return Math.round(x * share + y * (1 - share))
+            .toString(16)
+            .padStart(2, "0");
+        });
+        return `#${channels.join("")}`;
+      };
+      for (const [name, block] of [
+        ["light", light],
+        ["dark", dark],
+      ] as const) {
+        const surface = role(block, "--color-surface");
+        const text = role(block, "--color-text");
+        const seen = new Set<string>();
+        for (let n = 1; n <= 6; n += 1) {
+          const colour = role(block, `--series-${n}`);
+          seen.add(colour);
+          expect(contrast(colour, surface), `${name}: series ${n} as a mark`).toBeGreaterThanOrEqual(3);
+          expect(contrast(mix(colour, text, 0.7), surface), `${name}: series ${n} as a word`).toBeGreaterThanOrEqual(
+            4.5,
+          );
+        }
+        expect(seen.size, `${name}: the six series are six different colours`).toBe(6);
+      }
+    });
   });
 });

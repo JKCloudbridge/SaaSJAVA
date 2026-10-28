@@ -146,7 +146,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
   if (record.status === "failed") {
     return (
       <MissingDetail
-        listLabel="Templates"
+        listLabel="Document Control"
         onBack={onBack}
         what="This template is not available. It may have been removed, or it may not be part of your access."
       />
@@ -276,7 +276,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
 
   return (
     <DetailPage
-      listLabel="Templates"
+      listLabel="Document Control"
       onBack={onBack}
       noBreadcrumb
       title={name}

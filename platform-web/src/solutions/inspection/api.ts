@@ -73,7 +73,11 @@ export function listTemplates(filters: ListFilters, cursor?: string): Promise<Ou
  * One page of the templates for the question of a list view: the search text, the conditions and the order, all judged by
  * the server (UI3A). `cursor` continues the same question; a different question starts again.
  */
-export function queryTemplates(request: ListRequest, cursor?: string): Promise<Outcome<TemplatePage>> {
+export function queryTemplates(
+  request: ListRequest,
+  cursor?: string,
+  state?: string,
+): Promise<Outcome<TemplatePage>> {
   return unwrap(
     call(() =>
       api.POST("/api/v1/templates/query", {
@@ -81,6 +85,7 @@ export function queryTemplates(request: ListRequest, cursor?: string): Promise<O
           search: request.search === "" ? undefined : request.search,
           filter: request.filter,
           sort: request.sort,
+          state: state === "" ? undefined : state,
           cursor,
         },
       }),
