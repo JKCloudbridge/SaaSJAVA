@@ -42,7 +42,12 @@ export async function ensureForgeryCookie(): Promise<void> {
   }
   cookieRequest ??= api
     .GET("/api/v1/auth/csrf")
-    .then(() => undefined)
+    // A failed request for the cookie is not this caller's failure: the call that follows reports its own. Without this,
+    // every caller that joined a request which failed would fail with it, whatever its own call would have met.
+    .then(
+      () => undefined,
+      () => undefined,
+    )
     .finally(() => {
       cookieRequest = undefined;
     });
