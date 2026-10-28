@@ -50,7 +50,7 @@ function formWith(create: boolean) {
         pluralLabel: "Templates",
         layout: {
           source: "LAYOUT",
-          sections: [{ label: "Details", columns: 1, fields: ["name", "category", "subCategory"] }],
+          sections: [{ label: "Details", columns: 1, fields: ["name", "category", "partA"] }],
         },
         fields: [
           {
@@ -72,8 +72,8 @@ function formWith(create: boolean) {
             filterOperators: ["EQ", "IN"],
           },
           {
-            apiName: "subCategory",
-            label: "Sub-category",
+            apiName: "partA",
+            label: "Part A",
             type: "PICKLIST",
             values: picks(["PRD", "QLT", "CUSA"]),
             sortable: true,
@@ -124,7 +124,7 @@ const NO_APPROVAL = {
 
 function listAnswers(create = true) {
   const rows = [
-    templateRow(ID, "Fire exit check", { number: "WI/PRD/01", category: "WI", subCategory: "PRD" }, {
+    templateRow(ID, "Fire exit check", { number: "WI/PRD/01", category: "WI", partA: "PRD" }, {
       ...NONE,
       state: "ACTIVE",
       activeVersion: 3,
@@ -144,7 +144,7 @@ function listAnswers(create = true) {
           id: ID,
           objectApiName: "InspectionTemplate",
           ownerId: "0198f5c0-0000-7000-8000-000000000001",
-          fields: { name: "Fire exit check", category: "WI", subCategory: "PRD" },
+          fields: { name: "Fire exit check", category: "WI", partA: "PRD" },
           version: 0,
           createdAt: "2026-10-22T08:00:00Z",
           updatedAt: "2026-10-22T08:00:00Z",
@@ -481,7 +481,7 @@ await waitFor(() => expect(screen.getByTestId("approval-submit")).toBeDisabled()
             id: ID,
             objectApiName: "InspectionTemplate",
             ownerId: "0198f5c0-0000-7000-8000-000000000001",
-            fields: { name: "Fire exit check", category: "WI", subCategory: "PRD" },
+            fields: { name: "Fire exit check", category: "WI", partA: "PRD" },
             version: 1,
             createdAt: "2026-10-22T08:00:00Z",
             updatedAt: "2026-10-22T08:00:00Z",
@@ -946,7 +946,7 @@ describe("the New template popup", () => {
                 values: picks(["DOCA", "DOCB", "DOCC"]),
                 dependency: { controllingField: "level", allowed: { L1: ["DOCA", "DOCB"], L2: ["DOCC"] } },
               },
-              { apiName: "category", label: "Identity category", type: "PICKLIST", editable: false, values: picks(["WI"]) },
+              { apiName: "category", label: "Identification", type: "PICKLIST", editable: false, values: picks(["WI"]) },
             ],
             sections: [],
             recordTypes: [],
@@ -966,7 +966,7 @@ describe("the New template popup", () => {
     fireEvent.change(level, { target: { value: "L2" } });
     expect(within(document).getAllByRole("option").map((option) => option.getAttribute("value"))).toContain("DOCC");
     expect(within(document).queryByRole("option", { name: "DOCA label" })).toBeNull();
-    expect(within(dialog).queryByLabelText(/^Identity category/)).toBeNull();
+    expect(within(dialog).queryByLabelText(/^Identification/)).toBeNull();
   });
 });
 
@@ -992,10 +992,10 @@ function detailsForm() {
           field("name", "Document name", { editable: true, required: true }),
           field("level", "Level", { type: "PICKLIST", editable: true, values: picks(["L1"]) }),
           field("documentType", "Document type", { type: "PICKLIST", editable: true, values: picks(["DOCA"]) }),
-          field("category", "Identity category", { type: "PICKLIST", values: picks(["CP", "WI"]) }),
-          field("subCategory", "Identity sub-category", { type: "PICKLIST", values: picks(["PRD"]) }),
-          field("partCode", "Part code", { editable: true }),
-          field("planYear", "Plan year", { editable: true }),
+          field("category", "Identification", { type: "PICKLIST", values: picks(["CP", "WI"]) }),
+          field("partA", "Part A", { editable: true }),
+          field("partB", "Part B", { editable: true }),
+          field("serial", "Serial number", { editable: true }),
           field("number", "Document number"),
           field("revision", "Revision number"),
           field("retired", "Obsolete", { type: "BOOLEAN" }),
@@ -1020,7 +1020,7 @@ function detailsRecord(extra: Record<string, unknown> = {}) {
         level: "L1",
         documentType: "DOCA",
         category: "WI",
-        subCategory: "PRD",
+        partA: "PRD",
         number: "WI/PRD/01",
         retired: false,
         ...extra,
@@ -1041,59 +1041,76 @@ function placed(grid: Element) {
   }));
 }
 
-describe("the Details tab of a template (FA11A)", () => {
+/** What the server says about the number of an identification (FA11B): which parts it asks for and where its counter stands. */
+function numberingInfo(extra: Record<string, unknown> = {}) {
+  return {
+    data: {
+      known: true, partA: true, partB: false, serial: true, width: 2, prefix: "WI/PRD/", complete: true, started: true,
+      canStart: false, nextSerial: null, number: null, ...extra,
+    },
+  };
+}
+
+describe("the Details tab of a template (FA11B)", () => {
   const ACTIVE = { ...NONE, state: "ACTIVE", activeVersion: 4, highestVersion: 4 };
-  const withLifecycle = (extra: Record<string, unknown>, numbers = ACTIVE) => ({
+  const withLifecycle = (extra: Record<string, unknown>, numbers = ACTIVE, info = numberingInfo()) => ({
     "GET /api/v1/objects/InspectionTemplate/form": detailsForm(),
     [`GET /api/v1/templates/${ID}/lifecycle`]: () => json(lifecycleOf(extra, numbers)),
+    "POST /api/v1/templates/numbering-info": () => json(info),
   });
 
-  it("draws the new labels in two fixed columns, with Obsolete last on the right and no Part code without a value", async () => {
+  it("draws the new labels in the rows of the layout, with Part B left out when the identification does not ask for it", async () => {
     setUrl(OPEN);
     fakeApi({ ...listAnswers(), ...withLifecycle({ revision: "02" }), [`GET ${RECORDS}/${ID}`]: () => json(detailsRecord()) });
     render(<TemplatesPage />);
 
     const details = await screen.findByTestId("record-details");
+    await waitFor(() => expect(details.querySelector('[data-field="partB"]')).toBeNull());
     const labels = Array.from(details.querySelectorAll(".dl-label")).map((one) => one.textContent);
     expect(labels).toEqual([
       "Document name *",
       "Level",
       "Document type",
-      "Identity category",
-      "Identity sub-category",
+      "Identification",
       "Document number",
+      "Part A",
       "Revision number",
       "Obsolete",
       "Last revised on",
       "Created on",
     ]);
     expect(placed(details.querySelector(".record-grid-placed") as Element)).toEqual([
-      { field: "name", column: "1", row: "1" },
+      { field: "name", column: "1 / -1", row: "1" },
       { field: "level", column: "1", row: "2" },
-      { field: "documentType", column: "1", row: "3" },
-      { field: "category", column: "1", row: "4" },
-      { field: "subCategory", column: "1", row: "5" },
-      { field: "number", column: "2", row: "1" },
-      { field: "revision", column: "2", row: "2" },
-      { field: "retired", column: "2", row: "3" },
+      { field: "documentType", column: "2", row: "2" },
+      { field: "category", column: "1", row: "3" },
+      { field: "number", column: "2", row: "3" },
+      { field: "partA", column: "1", row: "4" },
+      { field: "revision", column: "1", row: "5" },
+      { field: "retired", column: "2", row: "5" },
     ]);
+    expect(screen.queryByTestId("value-serial")).toBeNull();
     expect(screen.queryByText("Template name")).toBeNull();
     expect(screen.queryByText("Retired")).toBeNull();
   });
 
-  it("adds Part code to the left column once the template has a value", async () => {
+  it("draws Part A beside Part B when the identification asks for both", async () => {
     setUrl(OPEN);
     fakeApi({
       ...listAnswers(),
-      ...withLifecycle({ revision: "00" }),
-      [`GET ${RECORDS}/${ID}`]: () => json(detailsRecord({ category: "CP", partCode: "P-100" })),
+      ...withLifecycle({ revision: "00" }, ACTIVE, numberingInfo({ partB: true, serial: false })),
+      [`GET ${RECORDS}/${ID}`]: () => json(detailsRecord({ category: "CP", partA: "ABC", partB: "P-100" })),
     });
     render(<TemplatesPage />);
 
     const details = await screen.findByTestId("record-details");
-    const left = placed(details.querySelector(".record-grid-placed") as Element).filter((one) => one.column === "1");
-    expect(left.map((one) => one.field)).toEqual(["name", "level", "documentType", "category", "subCategory", "partCode"]);
-    expect(screen.getByTestId("value-partCode")).toHaveTextContent("P-100");
+    await screen.findByTestId("value-partB");
+    const parts = placed(details.querySelector(".record-grid-placed") as Element).filter((one) => one.field.startsWith("part"));
+    expect(parts).toEqual([
+      { field: "partA", column: "1", row: "4" },
+      { field: "partB", column: "2", row: "4" },
+    ]);
+    expect(screen.getByTestId("value-partB")).toHaveTextContent("P-100");
   });
 
   it("reads the Revision number from the sheet when none was saved", async () => {
@@ -1120,7 +1137,7 @@ describe("the Details tab of a template (FA11A)", () => {
     expect(screen.queryByText("Revision number")).toBeNull();
   });
 
-  it("keeps the same order in the edit form and does not let the Revision number or its date be typed", async () => {
+  it("keeps the same rows in the edit form and does not let the Revision number or its date be typed", async () => {
     setUrl(OPEN);
     fakeApi({
       ...listAnswers(),
@@ -1132,14 +1149,45 @@ describe("the Details tab of a template (FA11A)", () => {
 
     const form = await screen.findByTestId("record-form");
     const grid = form.querySelector(".record-grid-placed") as Element;
-    const columns = Array.from(grid.children).map((one) => (one as HTMLElement).style.getPropertyValue("--col"));
-    // Name, Level, Document type, Category, Sub-category, Part code and Plan year on the left; the three on the right.
-    expect(columns).toEqual(["1", "1", "1", "1", "1", "1", "1", "2", "2", "2"]);
-    expect(placed(grid).slice(-3).map((one) => one.field)).toEqual(["number", "revision", "retired"]);
+    const at = Array.from(grid.children).map((one) => ({
+      column: (one as HTMLElement).style.getPropertyValue("--col"),
+      row: (one as HTMLElement).style.getPropertyValue("--row"),
+    }));
+    // name | level, document type | identification, number | Part A | revision, obsolete (Part B and the serial are not drawn).
+    expect(at).toEqual([
+      { column: "1 / -1", row: "1" },
+      { column: "1", row: "2" },
+      { column: "2", row: "2" },
+      { column: "1", row: "3" },
+      { column: "2", row: "3" },
+      { column: "1", row: "4" },
+      { column: "1", row: "5" },
+      { column: "2", row: "5" },
+    ]);
     expect(within(form).queryByLabelText(/Revision number/)).toBeNull();
     expect(within(form).queryByLabelText(/Last revised on/)).toBeNull();
     expect(within(form).getByTestId("value-revision")).toHaveTextContent("01");
     expect(within(form).getByTestId("value-lastRevisedAt")).toHaveTextContent(new Date("2026-10-26T08:00:00Z").toLocaleString());
+  });
+
+  it("builds the Document number on the screen: capitals as Part A is typed, the saved number while the identity is unchanged", async () => {
+    setUrl(OPEN);
+    fakeApi({
+      ...listAnswers(),
+      ...withLifecycle({ revision: "01" }, ACTIVE, numberingInfo({ prefix: "WI/NEW/", started: false, canStart: true })),
+      [`GET ${RECORDS}/${ID}`]: () => json(detailsRecord()),
+    });
+    render(<TemplatesPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+
+    const form = await screen.findByTestId("record-form");
+    expect(await within(form).findByTestId("live-number")).toHaveTextContent("WI/PRD/01");
+    const partA = within(form).getByLabelText("Part A");
+    fireEvent.change(partA, { target: { value: "new" } });
+
+    expect(partA).toHaveValue("NEW");
+    await waitFor(() => expect(within(form).getByTestId("serial-input")).toBeEnabled());
+    expect(within(form).getByTestId("live-number")).toHaveTextContent("WI/NEW/");
   });
 });
 

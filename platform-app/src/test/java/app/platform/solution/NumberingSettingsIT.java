@@ -64,7 +64,7 @@ class NumberingSettingsIT extends SolutionSupport {
     }
 
     private static Map<String, Object> values(String category, String sub) {
-        return Map.of("category", category, "subCategory", sub);
+        return Map.of("category", category, "partA", sub);
     }
 
     private <T> T here(Organization organization, Supplier<T> work) {
@@ -101,16 +101,12 @@ class NumberingSettingsIT extends SolutionSupport {
         Organization organization = organizationWithFeature();
         TestBrowser admin = adminOf(organization);
         add(admin, "category", Map.of("value", "NEW"));
-        add(admin, "subCategory", Map.of("value", "SUB1", "controllingValues", List.of("NEW")));
-        add(admin, "subCategory", Map.of("value", "SUB2", "controllingValues", List.of("NEW")));
-        assertThat(next(organization, values("NEW", "SUB1"))).isEqualTo("NEW/SUB1/1");
-        assertThat(next(organization, values("NEW", "SUB1"))).isEqualTo("NEW/SUB1/2");
-        assertThat(next(organization, values("NEW", "SUB2"))).isEqualTo("NEW/SUB2/1");
+        assertThat(next(organization, Map.of("category", "NEW", "partB", "SUB1"))).isEqualTo("NEW/SUB1/1");
+        assertThat(next(organization, Map.of("category", "NEW", "partB", "SUB1"))).isEqualTo("NEW/SUB1/2");
+        assertThat(next(organization, Map.of("category", "NEW", "partB", "SUB2"))).isEqualTo("NEW/SUB2/1");
         assertThat(next(organization, Map.of("category", "NEW"))).isEqualTo("NEW/1");
         assertThat(next(organization, Map.of("category", "NEW"))).isEqualTo("NEW/2");
-        assertThat(next(organization, Map.of("category", "WI"))).isEqualTo("WI/1");
-        assertThat(save(admin, "WI", "W/{field:subCategory}/{seq:3}", 0).status()).isEqualTo(200);
-        assertThat(next(organization, Map.of("category", "WI"))).isEqualTo("WI/2");
+        assertThat(save(admin, "WI", "W/{field:partA}/{seq:3}", 0).status()).isEqualTo(200);
         assertThat(next(organization, values("WI", "PRD"))).isEqualTo("W/PRD/001");
         add(admin, "category", Map.of("value", "PLAIN"));
         assertThat(next(organization, Map.of("category", "PLAIN"))).isEqualTo("PLAIN/1");
@@ -120,7 +116,7 @@ class NumberingSettingsIT extends SolutionSupport {
     void goingBackToThePlatformsFormatChangesOnlyLaterNumbersAndNeedsTheVersionRead() {
         Organization organization = organizationWithFeature();
         TestBrowser admin = adminOf(organization);
-        assertThat(save(admin, "WI", "W/{field:subCategory}/{seq:3}", 0).status()).isEqualTo(200);
+        assertThat(save(admin, "WI", "W/{field:partA}/{seq:3}", 0).status()).isEqualTo(200);
         assertThat(next(organization, values("WI", "PRD"))).isEqualTo("W/PRD/001");
         String reset = json(Map.of("kind", "CATEGORY", "selectorValue", "WI", "version", 7));
         assertThat(admin.postJson(SERIES + "/formats/reset", reset).status()).as("a stale version").isEqualTo(409);
@@ -136,11 +132,11 @@ class NumberingSettingsIT extends SolutionSupport {
         Organization organization = organizationWithFeature();
         TestBrowser admin = adminOf(organization);
         String issued = next(organization, values("WI", "PRD"));
-        Response saved = save(admin, "WI", "{field:subCategory}-WI-{seq:3}", 0);
+        Response saved = save(admin, "WI", "{field:partA}-WI-{seq:3}", 0);
         assertThat(saved.status()).as(saved.body()).isEqualTo(200);
         assertThat(next(organization, values("WI", "PRD"))).isEqualTo("PRD-WI-002");
         assertThat(issued).isEqualTo("WI/PRD/01");
-        assertThat(save(admin, "WI", "WI/{field:subCategory}/{seq:2}", 1).status()).isEqualTo(200);
+        assertThat(save(admin, "WI", "WI/{field:partA}/{seq:2}", 1).status()).isEqualTo(200);
         assertThat(next(organization, values("WI", "PRD"))).isEqualTo("WI/PRD/03");
         assertThat(save(admin, "WI", "WI/{seq:1}", 1).status()).isEqualTo(409);
     }
@@ -150,20 +146,21 @@ class NumberingSettingsIT extends SolutionSupport {
         Organization organization = organizationWithFeature();
         TestBrowser admin = adminOf(organization);
         add(admin, "category", Map.of("value", "NEW"));
-        add(admin, "subCategory", Map.of("value", "SUB", "controllingValues", List.of("NEW")));
         for (Map.Entry<String, String> entry : Map.of("DEFAULT",
-                "D/{field:category}/{field:subCategory}/{seq:2}", "WITHOUT_OPTIONAL",
+                "D/{field:category}/{field:partB}/{seq:2}", "WITHOUT_OPTIONAL",
                 "D/{field:category}/{seq:2}").entrySet()) {
             Response result = admin.request("PUT", SERIES + "/formats", json(Map.of("kind", entry.getKey(),
                     "selectorValue", "", "format", entry.getValue(), "version", 0)), "Content-Type",
                     "application/json");
             assertThat(result.status()).as(result.body()).isEqualTo(200);
         }
-        assertThat(next(organization, values("NEW", "SUB"))).isEqualTo("D/NEW/SUB/01");
+        assertThat(next(organization, Map.of("category", "NEW", "partB", "SUB"))).isEqualTo("D/NEW/SUB/01");
         add(admin, "category", Map.of("value", "PLAIN"));
         assertThat(next(organization, Map.of("category", "PLAIN"))).isEqualTo("D/PLAIN/01");
-        assertThat(next(organization, values("WI", "PRD"))).isEqualTo("WI/PRD/01");
-        assertThat(next(organization, Map.of("category", "WI"))).isEqualTo("D/WI/01");
+        assertThat(next(organization, values("WI", "PRD"))).as("a shipped format is left alone").isEqualTo("WI/PRD/01");
+        assertThatThrownBy(() -> next(organization, Map.of("category", "WI")))
+                .as("Part A is needed by the shipped format, not optional")
+                .isInstanceOf(app.platform.data.NumberSeriesException.class);
     }
 
     @Test
@@ -182,9 +179,9 @@ class NumberingSettingsIT extends SolutionSupport {
         Organization organization = organizationWithFeature();
         TestBrowser admin = adminOf(organization);
         assertThat(next(organization, values("WI", "PRD"))).isEqualTo("WI/PRD/01");
-        assertThat(save(admin, "WI", "WI/{field:partCode}/{seq:1}", 0).status()).isEqualTo(200);
-        assertThat(next(organization, Map.of("category", "WI", "partCode", "PRD"))).isEqualTo("WI/PRD/1");
-        assertThat(save(admin, "WI", "WI/{field:subCategory}/{seq:2}", 1).status()).isEqualTo(200);
+        assertThat(save(admin, "WI", "WI/{field:partB}/{seq:1}", 0).status()).isEqualTo(200);
+        assertThat(next(organization, Map.of("category", "WI", "partB", "PRD"))).isEqualTo("WI/PRD/1");
+        assertThat(save(admin, "WI", "WI/{field:partA}/{seq:2}", 1).status()).isEqualTo(200);
         assertThat(next(organization, values("WI", "PRD"))).isEqualTo("WI/PRD/02");
     }
 
@@ -209,7 +206,7 @@ class NumberingSettingsIT extends SolutionSupport {
         Organization organization = organizationWithFeature();
         Organization another = organizationWithFeature();
         TestBrowser admin = adminOf(organization);
-        assertThat(save(admin, "WI", "LOCAL/{field:subCategory}/{seq:1}", 0).status()).isEqualTo(200);
+        assertThat(save(admin, "WI", "LOCAL/{field:partA}/{seq:1}", 0).status()).isEqualTo(200);
         assertThat(next(another, values("WI", "PRD"))).isEqualTo("WI/PRD/01");
         assertThat(adminOf(another).get(ROOT).body()).doesNotContain("LOCAL/");
         TestBrowser denied = as(organization, plainMember(organization));
@@ -231,6 +228,36 @@ class NumberingSettingsIT extends SolutionSupport {
     }
 
     @Test
+    void theCombinationsThatHaveACounterAreListedReadOnlyForTheAbilityAndForNobodyElse() {
+        Organization organization = organizationWithFeature();
+        Organization another = organizationWithFeature();
+        TestBrowser admin = adminOf(organization);
+        next(organization, values("WI", "PRD"));
+        next(organization, values("WI", "PRD"));
+        next(organization, values("WI", "QLT"));
+        next(another, values("WI", "OTHER"));
+
+        Response listed = admin.get(SERIES + "/counters");
+
+        assertThat(listed.status()).as(listed.body()).isEqualTo(200);
+        assertThat(JsonPath.<List<String>>read(listed.body(), "$.data.counters[*].combination"))
+                .containsExactly("WI/PRD", "WI/QLT");
+        assertThat(JsonPath.<List<Integer>>read(listed.body(), "$.data.counters[*].nextValue"))
+                .containsExactly(3, 2);
+        assertThat(JsonPath.<List<Integer>>read(listed.body(), "$.data.counters[*].lastIssued"))
+                .containsExactly(2, 1);
+        assertThat(listed.body()).as("another organization's counter is never seen").doesNotContain("OTHER");
+        assertThat(admin.get(SERIES + "/counters?cursor=-1").status()).isEqualTo(400);
+        assertThat(admin.get(SERIES + "/counters?cursor=abc").status()).isEqualTo(400);
+        assertThat(admin.get(ROOT + "/nothing/counters").status()).isEqualTo(404);
+        TestBrowser denied = as(organization, plainMember(organization));
+        assertThat(denied.get(SERIES + "/counters").status()).isEqualTo(403);
+        assertThat(new TestBrowser(port, organization.host()).get(SERIES + "/counters").status()).isEqualTo(401);
+        TestBrowser platform = TestPlatform.signedIn(port, TestPlatform.person(users, PlatformRole.PLATFORM_ADMIN));
+        assertThat(platform.get(SERIES + "/counters").status()).isEqualTo(404);
+    }
+
+    @Test
     void invalidFormatsCannotLeakTheirTextOrReadUnknownFields() {
         TestBrowser admin = adminOf(organizationWithFeature());
         try (LogCapture capture = LogCapture.of("app.platform")) {
@@ -240,7 +267,7 @@ class NumberingSettingsIT extends SolutionSupport {
                 assertThat(result.status()).as(result.body()).isEqualTo(400);
                 assertThat(result.body()).doesNotContain(format).doesNotContain("SECRET-TEXT");
             }
-            assertThat(save(admin, "WI", "SECRET/{field:subCategory}/{seq:1}", 0).status()).isEqualTo(200);
+            assertThat(save(admin, "WI", "SECRET/{field:partA}/{seq:1}", 0).status()).isEqualTo(200);
             assertThat(raise(admin, values("WI", "PRD"), 71).status()).isEqualTo(200);
             capture.events().forEach(event -> assertThat(event.getFormattedMessage())
                     .doesNotContain("SECRET").doesNotContain("SECRET/PRD/71"));
@@ -259,7 +286,7 @@ class NumberingSettingsIT extends SolutionSupport {
     void theOtherInstanceSeesChangesAndConcurrentAllocationsRemainUnique() throws Exception {
         Organization organization = organizationWithFeature();
         TestBrowser admin = adminOf(organization);
-        assertThat(save(admin, "WI", "WI/{field:subCategory}/{seq:1}", 0).status()).isEqualTo(200);
+        assertThat(save(admin, "WI", "WI/{field:partA}/{seq:1}", 0).status()).isEqualTo(200);
         ExecutorService pool = Executors.newFixedThreadPool(4);
         try {
             List<Future<String>> pending = new ArrayList<>();
@@ -300,7 +327,7 @@ class NumberingSettingsIT extends SolutionSupport {
             assertThat(read.await(30, TimeUnit.SECONDS)).isTrue();
             Future<Response> change = pool.submit(() -> {
                 changing.countDown();
-                return save(admin, "WI", "NEXT/{field:subCategory}/{seq:1}", 0);
+                return save(admin, "WI", "NEXT/{field:partA}/{seq:1}", 0);
             });
             assertThat(changing.await(30, TimeUnit.SECONDS)).isTrue();
             assertThat(change.isDone()).isFalse();

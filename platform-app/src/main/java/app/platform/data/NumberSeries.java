@@ -72,4 +72,46 @@ public interface NumberSeries {
      * @throws NumberSeriesException when the series is unknown, the record has no format, or a part is missing or not a
      * code */
     String next(String seriesKey, Map<String, Object> values);
+
+    /**
+     * What a person typing the parts of a number needs to be told (FA11B, ADR-0206). A read: it takes no number and
+     * reserves nothing.
+     *
+     * @param fields the API names of the fields the format reads besides its selector, in order
+     * @param counted whether the number ends in a running count
+     * @param width the digits the count is padded to (zero when not counted)
+     * @param prefix what can be written of the number so far (up to the first part still missing, or the count)
+     * @param complete whether every part the format reads is given, so that the whole number can be written
+     * @param next the number the counter will issue next, present only when the scope has a counter already
+     * @param number the whole number as it would be written now: for a format without a counter the number the values
+     *        make, for one with a counter the one it would issue next; empty when a part is missing or the scope has
+     *        no counter yet
+     */
+    record Plan(java.util.List<String> fields, boolean counted, int width, String prefix, boolean complete,
+            java.util.OptionalLong next, Optional<String> number) {
+    }
+
+    /**
+     * Describes the format that applies to the record's values and the state of its counter.
+     *
+     * @param seriesKey the series
+     * @param values the values of the record by field API name, in their stored shape
+     * @return the plan, or empty when the selector is not chosen or has no format
+     * @throws NumberSeriesException {@link NumberSeriesException.Reason#UNKNOWN_SERIES} for a key that is not declared
+     */
+    Optional<Plan> plan(String seriesKey, Map<String, Object> values);
+
+    /**
+     * Starts the counter of a scope that has none, at a number the caller chose: that number is the one returned and
+     * the counter goes on from it. Must run inside a transaction and takes the same locks as {@link #next}.
+     *
+     * @param seriesKey the series
+     * @param values the values of the record by field API name, in their stored shape
+     * @param first the first serial, at least 1
+     * @return the number written in the format of the record's selector
+     * @throws NumberSeriesException {@link NumberSeriesException.Reason#ALREADY_STARTED} when the scope already has a
+     *         counter (someone else started it), {@link NumberSeriesException.Reason#NUMBER_TAKEN} when the number was
+     *         issued before, or the reasons of {@link #next}
+     */
+    String start(String seriesKey, Map<String, Object> values, long first);
 }

@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -38,6 +39,17 @@ class DefaultNumberSeries implements NumberSeries {
             + "version = number_series_counter.version + 1, updated_by = :actor "
             + "where number_series_counter.next_value <= 999999999999 "
             + "returning next_value - 1";
+
+    // A counter that has to start at a number somebody chose: made only if the scope has none, otherwise nothing is
+    // written and the caller is told that someone else started it first (FA11B, ADR-0206).
+    private static final String START = "insert into number_series_counter "
+            + "(tenant_id, series_key, scope_key, next_value, created_by, updated_by) "
+            + "values (:tenant, :series, :scope, :after, :actor, :actor) "
+            + "on conflict (tenant_id, series_key, scope_key) where deleted_at is null do nothing "
+            + "returning next_value";
+    private static final String COUNTER = "select next_value from number_series_counter where tenant_id = :tenant "
+            + "and series_key = :series and scope_key = :scope and deleted_at is null";
+    private static final long LAST_FIRST = 999999999998L;
 
     private final NumberSeriesCatalogue catalogue;
     private final NumberingFormats formats;
@@ -131,11 +143,7 @@ class DefaultNumberSeries implements NumberSeries {
                     .query(Long.class).optional()
                     .orElseThrow(() -> new NumberSeriesException(Reason.COUNTER_EXHAUSTED));
             String candidate = format.render(values, counter);
-            boolean used = jdbc.sql("select exists(select 1 from number_series_reservation "
-                    + "where tenant_id = :tenant and series_key = :series and number_value = :number)")
-                    .param("tenant", contexts.require().tenantId().value()).param("series", series.key())
-                    .param("number", candidate).query(Boolean.class).single()
-                    || storage.holdsText(series.object(), series.field(), candidate, null);
+            boolean used = used(series, candidate);
             if (!used) {
                 return candidate;
             }
@@ -143,7 +151,72 @@ class DefaultNumberSeries implements NumberSeries {
         throw new NumberSeriesException(Reason.COUNTER_EXHAUSTED);
     }
 
+    @Override
+    public Optional<Plan> plan(String seriesKey, Map<String, Object> values) {
+        NumberSeriesCatalogue.Series series = series(seriesKey);
+        NumberFormat format;
+        try {
+            format = formats.resolve(series, values);
+        } catch (NumberSeriesException unavailable) {
+            if (unavailable.reason() == Reason.UNKNOWN_SERIES) {
+                throw unavailable;
+            }
+            return Optional.empty();
+        }
+        List<String> fields = format.fields().stream().filter(name -> !name.equals(series.selector())).distinct()
+                .toList();
+        boolean complete = format.fields().stream().allMatch(name -> values.get(name) instanceof String text
+                && NumberFormat.CODE.matcher(text).matches());
+        OptionalLong next = OptionalLong.empty();
+        if (format.hasCounter() && complete) {
+            next = jdbc.sql(COUNTER).param("tenant", contexts.require().tenantId().value())
+                    .param("series", series.key()).param("scope", NumberingFormats.scope(series, format, values))
+                    .query(Long.class).optional().map(OptionalLong::of).orElse(OptionalLong.empty());
+        }
+        Optional<String> number = Optional.empty();
+        if (complete && !format.hasCounter()) {
+            number = Optional.of(format.render(values, 0));
+        } else if (complete && next.isPresent()) {
+            number = Optional.of(format.render(values, next.getAsLong()));
+        }
+        return Optional.of(new Plan(fields, format.hasCounter(), format.width(), format.partialPrefix(values),
+                complete, next, number));
+    }
+
+    @Override
+    public String start(String seriesKey, Map<String, Object> values, long first) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new IllegalStateException("A number is taken inside a transaction");
+        }
+        NumberSeriesCatalogue.Series series = series(seriesKey);
+        NumberFormat format = formats.resolve(series, values);
+        if (!format.hasCounter()) {
+            throw new NumberSeriesException(Reason.NO_FORMAT);
+        }
+        if (first < 1 || first > LAST_FIRST) {
+            throw new NumberSeriesException(Reason.COUNTER_EXHAUSTED);
+        }
+        // Every part is checked before the counter is made: a record that cannot be numbered must not start one.
+        String candidate = format.render(values, first);
+        String scope = NumberingFormats.scope(series, format, values);
+        jdbc.sql(START).param("tenant", contexts.require().tenantId().value()).param("series", series.key())
+                .param("scope", scope).param("after", first + 1).param("actor", ActorId.SYSTEM.value())
+                .query(Long.class).optional().orElseThrow(() -> new NumberSeriesException(Reason.ALREADY_STARTED));
+        if (used(series, candidate)) {
+            throw new NumberSeriesException(Reason.NUMBER_TAKEN);
+        }
+        return candidate;
+    }
+
     // ---- helpers ----
+
+    private boolean used(NumberSeriesCatalogue.Series series, String candidate) {
+        return jdbc.sql("select exists(select 1 from number_series_reservation "
+                + "where tenant_id = :tenant and series_key = :series and number_value = :number)")
+                .param("tenant", contexts.require().tenantId().value()).param("series", series.key())
+                .param("number", candidate).query(Boolean.class).single()
+                || storage.holdsText(series.object(), series.field(), candidate, null);
+    }
 
     private NumberSeriesCatalogue.Series series(String key) {
         return catalogue.series(key).orElseThrow(() -> new NumberSeriesException(Reason.UNKNOWN_SERIES));

@@ -116,6 +116,17 @@ class TemplateApprovalHooksTest {
             return "WI/PRD/" + String.format("%02d", next++);
         }
 
+        @Override
+        public Optional<Plan> plan(String seriesKey, Map<String, Object> values) {
+            return Optional.empty();
+        }
+
+        @Override
+        public String start(String seriesKey, Map<String, Object> values, long first) {
+            calls.add("start");
+            return "WI/PRD/" + String.format("%02d", first);
+        }
+
         // ---- SheetLifecycle ----
 
         @Override
@@ -237,7 +248,7 @@ class TemplateApprovalHooksTest {
         Fakes fakes = new Fakes();
         fakes.fields.put("name", TYPED);
         fakes.fields.put("category", "WI");
-        fakes.fields.put("subCategory", "PRD");
+        fakes.fields.put("partA", "PRD");
         return fakes;
     }
 
@@ -349,7 +360,7 @@ class TemplateApprovalHooksTest {
 
         assertThat(refused.reason()).isEqualTo("category_needed");
         assertThat(refused.words())
-                .isEqualTo("Choose the identity category (Edit), then approve again.");
+                .isEqualTo("Choose the identification (Edit), then approve again.");
         assertThat(fakes.calls).isEmpty();
         fakes.fields.put("category", "WI");
         hooks(fakes).beforeApprove(decision(), fakes);
@@ -371,26 +382,27 @@ class TemplateApprovalHooksTest {
     @Test
     void thePartsStillToFillInAreNamedByWhatTheyAreAndNeverByWhatWasTyped() {
         Fakes fakes = withTemplate();
-        fakes.fields.put("partCode", "has space " + TYPED);
-        fakes.missing = Optional.of(List.of("subCategory", "partCode", "planYear"));
+        fakes.fields.put("partB", "has space " + TYPED);
+        fakes.missing = Optional.of(List.of("partA", "partB"));
 
         ApprovalHookRefusal refused = refusal(() -> hooks(fakes).beforeApprove(decision(), fakes));
 
         assertThat(refused.reason()).isEqualTo("number_part_needed");
-        assertThat(refused.words()).startsWith("Fill in the identity sub-category and the part code")
-                .contains("and the plan year").doesNotContain(TYPED);
+        assertThat(refused.words()).startsWith("Fill in Part A (capital letters").contains("and Part B")
+                .doesNotContain(TYPED);
         assertThat(refused.words().length()).isLessThanOrEqualTo(300);
     }
 
     @Test
-    void aPlanYearThatIsNotFourDigitsIsRefused() {
+    void aPartThatIsNotInCapitalsIsRefusedInWordsThatNameNoValue() {
         Fakes fakes = withTemplate();
-        fakes.fields.put("planYear", "26");
+        fakes.fields.put("partB", "lower" + TYPED);
 
         ApprovalHookRefusal refused = refusal(() -> hooks(fakes).beforeApprove(decision(), fakes));
 
-        assertThat(refused.reason()).isEqualTo("plan_year_invalid");
-        fakes.fields.put("planYear", "2026");
+        assertThat(refused.reason()).isEqualTo("part_invalid");
+        assertThat(refused.words()).startsWith("Fill in Part B").doesNotContain(TYPED);
+        fakes.fields.put("partB", "UPPER-1");
         hooks(fakes).beforeApprove(decision(), fakes);
         assertThat(fakes.calls).containsExactly("next", "write:[number]");
     }

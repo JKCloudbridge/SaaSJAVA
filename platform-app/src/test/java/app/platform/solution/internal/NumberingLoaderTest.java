@@ -57,16 +57,27 @@ class NumberingLoaderTest {
         assertThat(series.object()).isEqualTo("InspectionTemplate");
         assertThat(series.field()).isEqualTo("number");
         assertThat(series.selector()).isEqualTo("category");
-        assertThat(series.defaults()).containsEntry("optionalField", "subCategory")
-                .containsEntry("format", "{field:category}/{field:subCategory}/{seq:1}")
+        assertThat(series.defaults()).containsEntry("optionalField", "partB")
+                .containsEntry("format", "{field:category}/{field:partB}/{seq:1}")
                 .containsEntry("withoutOptional", "{field:category}/{seq:1}");
-        assertThat(series.formats()).containsEntry("WI", "WI/{field:subCategory}/{seq:2}")
-                .containsEntry("IMS", "IMS/{seq:2}").hasSize(16);
-        // The categories whose last part the author types have a format without a counter (FA4, ADR-0188).
-        assertThat(series.formats()).containsEntry("CP", "CP/{field:subCategory}/{field:partCode}")
-                .containsEntry("PFC", "PFC/{field:subCategory}/{field:partCode}")
-                .containsEntry("FMEA", "FMEA/{field:subCategory}/{field:partCode}")
-                .containsEntry("BP", "BP/{field:planYear}");
+        assertThat(series.formats()).containsEntry("WI", "WI/{field:partA}/{seq:2}")
+                .containsEntry("IMS", "IMS/{seq:2}").hasSize(26);
+        // The identifications whose last part the person types have a format without a counter (FA4, ADR-0188).
+        assertThat(series.formats()).containsEntry("CP", "CP/{field:partA}/{field:partB}")
+                .containsEntry("PFC", "PFC/{field:partA}/{field:partB}")
+                .containsEntry("FMEA", "FMEA/{field:partA}/{field:partB}")
+                .containsEntry("BP", "BP/{field:partB}");
+        // The identifications the spreadsheet added in FA11B (ADR-0206).
+        assertThat(series.formats()).containsEntry("R", "R/{field:partA}/{seq:2}")
+                .containsEntry("REHS", "R/EHS/{field:partA}/{seq:2}")
+                .containsEntry("EHSAIR", "EHS/AIR/{field:partA}/{seq:2}")
+                .containsEntry("EHSHIR", "EHS/HIR/{field:partA}/{seq:2}")
+                .containsEntry("EHSAID", "EHS/AID/{field:partA}/{seq:2}")
+                .containsEntry("EHSHID", "EHS/HID/{field:partA}/{seq:2}")
+                .containsEntry("EHSAHID", "EHS/AHID/{field:partA}/{seq:2}")
+                .containsEntry("PLEHS", "PL/EHS/{field:partA}/{seq:2}")
+                .containsEntry("EHSEMP", "EHS/EMP/{seq:2}")
+                .containsEntry("EHSOCP", "EHS/OCP/{seq:2}");
     }
 
     @Test

@@ -3136,6 +3136,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/numbering/{seriesKey}/counters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The combinations that already have a counter
+         * @description Needs numbering.manage. One page of the counters of a series in the order of the combinations, with the next count of each. Read only; counters only, no record. Pass the returned cursor for the next page.
+         */
+        get: operations["listNumberingCounters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/numbering/{seriesKey}/formats": {
         parameters: {
             query?: never;
@@ -4889,7 +4909,7 @@ export interface paths {
         };
         /**
          * The templates the caller may see, with the lifecycle of each
-         * @description One page of templates, each with the numbers of its active, approved, in-review and draft versions and the state of the template as one word. The page is read through the record store, so a caller sees exactly the templates they may see: their own, all of them for a caller who may view every template, and those published to a group they are in. Filters: search (part of a name or a number), category, subCategory, retired and state. The state filter is applied to the page after it is read: a page can hold fewer rows than asked while nextCursor still goes on (filtered is true then). Sort: name, number or newest. canCreate says whether the screen may offer New; the request is decided again.
+         * @description One page of templates, each with the numbers of its active, approved, in-review and draft versions and the state of the template as one word. The page is read through the record store, so a caller sees exactly the templates they may see: their own, all of them for a caller who may view every template, and those published to a group they are in. Filters: search (part of a name or a number), identification (category), partA, retired and state. The state filter is applied to the page after it is read: a page can hold fewer rows than asked while nextCursor still goes on (filtered is true then). Sort: name, number or newest. canCreate says whether the screen may offer New; the request is decided again.
          */
         get: operations["listTemplates"];
         put?: never;
@@ -4920,6 +4940,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/templates/numbering-info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the number of a template is made of, for the form while a person types
+         * @description Takes the identification and the parts typed so far (all optional) and answers which of Part A and Part B the format of that identification reads, whether it ends in a serial, the number written so far, whether this combination already has numbers and, only for a caller who may set the identification, the next serial and the whole number. Advice only: nothing is reserved and the Save decides. NOT_FOUND for a caller who cannot read templates and on the platform host. A post, because what is typed does not belong in an address; nothing typed is logged.
+         */
+        post: operations["templateNumberingInfo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/templates/query": {
         parameters: {
             query?: never;
@@ -4931,7 +4971,7 @@ export interface paths {
         put?: never;
         /**
          * The templates the caller may see, for a search, a filter and an order
-         * @description The same page as the list, for a question a list view holds: search (a name or a number, or a whole category or sub-category code), a filter (the closed query model of the record store, conditions combined with AND or OR), up to two sort keys, and a lifecycle state. A post, because the filter does not belong in an address. A field the caller may not read is answered like a field that does not exist, and an order or a filter that cannot use an index is bounded by the query engine's scan limit (and refused above it, naming the field). The page is read through the record store, so the caller sees exactly the templates they may see. Nothing typed is logged.
+         * @description The same page as the list, for a question a list view holds: search (a name or a number, or a whole identification code or Part A), a filter (the closed query model of the record store, conditions combined with AND or OR), up to two sort keys, and a lifecycle state. A post, because the filter does not belong in an address. A field the caller may not read is answered like a field that does not exist, and an order or a filter that cannot use an index is bounded by the query engine's scan limit (and refused above it, naming the field). The page is read through the record store, so the caller sees exactly the templates they may see. Nothing typed is logged.
          */
         post: operations["queryTemplates"];
         delete?: never;
@@ -5907,6 +5947,12 @@ export interface components {
         ApiResponseNotificationTemplatesView: {
             data: components["schemas"]["NotificationTemplatesView"];
         };
+        ApiResponseNumberingCountersView: {
+            data: components["schemas"]["NumberingCountersView"];
+        };
+        ApiResponseNumberingInfoView: {
+            data: components["schemas"]["NumberingInfoView"];
+        };
         ApiResponseNumberingPreviewView: {
             data: components["schemas"]["NumberingPreviewView"];
         };
@@ -6693,6 +6739,13 @@ export interface components {
         };
         CompleteSwitchRequest: {
             token: string;
+        };
+        Counter: {
+            combination: string;
+            /** Format: int64 */
+            lastIssued: number;
+            /** Format: int64 */
+            nextValue: number;
         };
         CreateApplicationRequest: {
             definition: components["schemas"]["ApplicationDefinition"];
@@ -7618,10 +7671,34 @@ export interface components {
             read: boolean;
             title: string;
         };
+        NumberingCountersView: {
+            counters: components["schemas"]["Counter"][];
+            nextCursor?: string;
+        };
         NumberingFieldView: {
             apiName: string;
             label: string;
             values: components["schemas"]["PicklistOption"][];
+        };
+        NumberingInfoRequest: {
+            category?: string;
+            partA?: string;
+            partB?: string;
+        };
+        NumberingInfoView: {
+            canStart: boolean;
+            complete: boolean;
+            known: boolean;
+            /** Format: int64 */
+            nextSerial?: number;
+            number?: string;
+            partA: boolean;
+            partB: boolean;
+            prefix: string;
+            serial: boolean;
+            started: boolean;
+            /** Format: int32 */
+            width: number;
         };
         NumberingPreviewView: {
             example?: string;
@@ -8815,9 +8892,9 @@ export interface components {
             number?: string;
             /** Format: int32 */
             openChangeRequests: number;
+            partA?: string;
             retired: boolean;
             revision?: string;
-            subCategory?: string;
         };
         TenantSummary: {
             displayName: string;
@@ -15558,6 +15635,39 @@ export interface operations {
             };
         };
     };
+    listNumberingCounters: {
+        parameters: {
+            query?: {
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                seriesKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNumberingCountersView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     saveNumberingFormat: {
         parameters: {
             query?: never;
@@ -19099,7 +19209,7 @@ export interface operations {
             query?: {
                 search?: string;
                 category?: string;
-                subCategory?: string;
+                partA?: string;
                 retired?: boolean;
                 state?: string;
                 sort?: string;
@@ -19148,6 +19258,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseAudienceOptionsView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    templateNumberingInfo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NumberingInfoRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseNumberingInfoView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

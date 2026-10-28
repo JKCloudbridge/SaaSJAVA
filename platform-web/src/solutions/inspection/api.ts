@@ -17,18 +17,19 @@ export type TemplateLifecycle = components["schemas"]["TemplateLifecycle"];
 export type TemplateLifecycleView = components["schemas"]["TemplateLifecycleView"];
 export type AudienceOptions = components["schemas"]["AudienceOptionsView"];
 export type AudiencePick = components["schemas"]["AudiencePick"];
+export type NumberingInfo = components["schemas"]["NumberingInfoView"];
 
 /** What the master list may be narrowed by; an empty text means no narrowing. */
 export interface ListFilters {
   search: string;
   category: string;
-  subCategory: string;
+  partA: string;
   state: string;
   retired: "" | "true" | "false";
   sort: "name" | "number" | "newest";
 }
 
-export const NO_FILTERS: ListFilters = { search: "", category: "", subCategory: "", state: "", retired: "", sort: "name" };
+export const NO_FILTERS: ListFilters = { search: "", category: "", partA: "", state: "", retired: "", sort: "name" };
 
 const UNREADABLE: ApiFailure = {
   code: "UNREADABLE_RESPONSE",
@@ -57,7 +58,7 @@ export function listTemplates(filters: ListFilters, cursor?: string): Promise<Ou
           query: {
             search: blankToUndefined(filters.search),
             category: blankToUndefined(filters.category),
-            subCategory: blankToUndefined(filters.subCategory),
+            partA: blankToUndefined(filters.partA),
             state: blankToUndefined(filters.state),
             retired: filters.retired === "" ? undefined : filters.retired === "true",
             sort: filters.sort,
@@ -97,6 +98,15 @@ export function getLifecycle(id: string): Promise<Outcome<TemplateLifecycleView>
   return unwrap(
     call(() => api.GET("/api/v1/templates/{templateId}/lifecycle", { params: { path: { templateId: id } } })),
   );
+}
+
+/** What the number of a template is made of while the identity is typed (FA11B): advice, nothing is reserved. */
+export function getNumberingInfo(body: {
+  category?: string;
+  partA?: string;
+  partB?: string;
+}): Promise<Outcome<NumberingInfo>> {
+  return unwrap(call(() => api.POST("/api/v1/templates/numbering-info", { body })));
 }
 
 export function getAudienceOptions(): Promise<Outcome<AudienceOptions>> {

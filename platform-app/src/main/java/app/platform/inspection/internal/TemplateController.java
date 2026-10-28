@@ -49,8 +49,11 @@ class TemplateController {
     private final TemplateList list;
     private final TemplatePublishing publishing;
     private final TemplateDownloads downloads;
+    private final TemplateNumbering numbering;
 
-    TemplateController(TemplateList list, TemplatePublishing publishing, TemplateDownloads downloads) {
+    TemplateController(TemplateList list, TemplatePublishing publishing, TemplateDownloads downloads,
+            TemplateNumbering numbering) {
+        this.numbering = numbering;
         this.list = list;
         this.publishing = publishing;
         this.downloads = downloads;
@@ -64,16 +67,17 @@ class TemplateController {
                     + "versions and the state of the template as one word. The page is read through the record "
                     + "store, so a caller sees exactly the templates they may see: their own, all of them for a "
                     + "caller who may view every template, and those published to a group they are in. "
-                    + "Filters: search (part of a name or a number), category, subCategory, retired and state. "
+                    + "Filters: search (part of a name or a number), category (the identification), partA, retired and "
+                    + "state. "
                     + "The state filter is applied to the page after it is read: a page can hold fewer rows than asked "
                     + "while nextCursor still goes on (filtered is true then). Sort: name, number or newest. "
                     + "canCreate says whether the screen may offer New; the request is decided again.")
     ApiResponse<TemplatePage> list(@RequestParam(required = false) String search,
-            @RequestParam(required = false) String category, @RequestParam(required = false) String subCategory,
+            @RequestParam(required = false) String category, @RequestParam(required = false) String partA,
             @RequestParam(required = false) Boolean retired, @RequestParam(required = false) String state,
             @RequestParam(required = false) String sort, @RequestParam(required = false) Integer size,
             @RequestParam(required = false) String cursor) {
-        return ApiResponse.of(list.page(search, category, subCategory, retired, state, sort, size, cursor));
+        return ApiResponse.of(list.page(search, category, partA, retired, state, sort, size, cursor));
     }
 
     @PostMapping(BASE + "/query")
@@ -81,7 +85,7 @@ class TemplateController {
             operationId = "queryTemplates",
             summary = "The templates the caller may see, for a search, a filter and an order",
             description = "The same page as the list, for a question a list view holds: search (a name or a number, or "
-                    + "a whole category or sub-category code), a filter (the closed query model of the record "
+                    + "a whole identification code or Part A), a filter (the closed query model of the record "
                     + "store, conditions combined with AND or OR), up to two sort keys, and a lifecycle state. A "
                     + "post, because the filter does not belong in an address. A field the caller may not read is "
                     + "answered like a field that does not exist, and an order or a filter that cannot use an index "
@@ -90,6 +94,22 @@ class TemplateController {
                     + "Nothing typed is logged.")
     ApiResponse<TemplatePage> query(@Valid @RequestBody TemplateViews.TemplateQuery body) {
         return ApiResponse.of(list.query(body));
+    }
+
+    @PostMapping(BASE + "/numbering-info")
+    @Operation(
+            operationId = "templateNumberingInfo",
+            summary = "What the number of a template is made of, for the form while a person types",
+            description = "Takes the identification and the parts typed so far (all optional) and answers which of "
+                    + "Part A and Part B the format of that identification reads, whether it ends in a serial, the "
+                    + "number written so far, whether this combination already has numbers and, only for a caller "
+                    + "who may set the identification, the next serial and the whole number. Advice only: nothing is "
+                    + "reserved and the Save decides. NOT_FOUND for a caller who cannot read templates and on the "
+                    + "platform host. A post, because what is typed does not belong in an address; nothing typed is "
+                    + "logged.")
+    ApiResponse<TemplateViews.NumberingInfoView> numberingInfo(
+            @Valid @RequestBody TemplateViews.NumberingInfoRequest body) {
+        return ApiResponse.of(numbering.info(body));
     }
 
     @GetMapping(BASE + "/audience-options")

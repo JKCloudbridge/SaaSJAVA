@@ -47,7 +47,7 @@ class TemplateList {
     private static final int MOST = 200;
     private static final Set<String> STATES = Set.of("ACTIVE", "APPROVED", "IN_REVIEW", "DRAFT", "NONE", "RETIRED");
     private static final List<String> FIELDS = List.of(Templates.NAME, Templates.NUMBER, Templates.CATEGORY,
-            Templates.SUB_CATEGORY, Templates.LEVEL, Templates.DOCUMENT_TYPE, Templates.RETIRED);
+            Templates.PART_A, Templates.LEVEL, Templates.DOCUMENT_TYPE, Templates.RETIRED);
 
     private static final Pattern CODE = Pattern.compile("[A-Za-z0-9_-]{1,10}");
 
@@ -71,7 +71,7 @@ class TemplateList {
      *
      * @param search part of a name or of a number, or null
      * @param category a category code, or null
-     * @param subCategory a sub-category code, or null
+     * @param partA a Part A text, or null
      * @param retired true for retired templates only, false for the others, null for all
      * @param state a lifecycle state ({@code ACTIVE}, {@code APPROVED}, {@code IN_REVIEW}, {@code DRAFT},
      *        {@code NONE}, {@code RETIRED}), or null
@@ -79,9 +79,9 @@ class TemplateList {
      * @param size the page size, at most 200; 0 or null is 50
      * @param cursor the cursor of the previous page of the same question, or null
      */
-    TemplatePage page(String search, String category, String subCategory, Boolean retired, String state, String sort,
+    TemplatePage page(String search, String category, String partA, Boolean retired, String state, String sort,
             Integer size, String cursor) {
-        return run(search, null, category, subCategory, retired, state, order(sort), size, cursor);
+        return run(search, null, category, partA, retired, state, order(sort), size, cursor);
     }
 
     /**
@@ -100,7 +100,7 @@ class TemplateList {
                 query.size(), query.cursor());
     }
 
-    private TemplatePage run(String search, QueryFilter extra, String category, String subCategory, Boolean retired,
+    private TemplatePage run(String search, QueryFilter extra, String category, String partA, Boolean retired,
             String state, List<QuerySort> sort, Integer size, String cursor) {
         Caller caller = access.member();
         String wantedState = state == null || state.isBlank() ? null : state.toUpperCase(Locale.ROOT);
@@ -108,7 +108,7 @@ class TemplateList {
             throw ApiException.validation("state", "Choose ACTIVE, APPROVED, IN_REVIEW, DRAFT, NONE or RETIRED.");
         }
         int limit = size == null || size <= 0 ? DEFAULT_SIZE : Math.min(size, MOST);
-        RecordQuery query = new RecordQuery(filter(search, extra, category, subCategory, retired), sort, FIELDS,
+        RecordQuery query = new RecordQuery(filter(search, extra, category, partA, retired), sort, FIELDS,
                 List.of(), limit, cursor);
         QueryResult result = records.query(Templates.OBJECT, query);
         List<UUID> ids = result.records().stream().map(QueriedRecord::record).map(DataRecord::id).toList();
@@ -123,7 +123,7 @@ class TemplateList {
             var lifecycle = TemplatePublishing.lifecycle(summary, isRetired);
             if (wantedState == null || wantedState.equals(lifecycle.state())) {
                 rows.add(new TemplateRow(header.id(), text(header, Templates.NAME), text(header, Templates.NUMBER),
-                        text(header, Templates.CATEGORY), text(header, Templates.SUB_CATEGORY),
+                        text(header, Templates.CATEGORY), text(header, Templates.PART_A),
                         text(header, Templates.LEVEL), text(header, Templates.DOCUMENT_TYPE), isRetired, lifecycle,
                         waiting.getOrDefault(header.id(), 0),
                         Templates.revisionShown(header.fields(), summary.active())));
@@ -133,7 +133,7 @@ class TemplateList {
         return new TemplatePage(rows, result.nextCursor(), canCreate, wantedState != null);
     }
 
-    private static QueryFilter filter(String search, QueryFilter extra, String category, String subCategory,
+    private static QueryFilter filter(String search, QueryFilter extra, String category, String partA,
             Boolean retired) {
         List<QueryFilter> all = new ArrayList<>();
         if (extra != null) {
@@ -148,17 +148,18 @@ class TemplateList {
                     condition(QueryFilter.Op.CONTAINS, Templates.NAME, text),
                     condition(QueryFilter.Op.CONTAINS, Templates.NUMBER, text)));
             if (CODE.matcher(text).matches()) {
-                // The category and the sub-category are picklists of short codes: a code typed whole finds them.
+                // The identification is a picklist of short codes and Part A is typed in capitals: a code typed
+                // whole finds them.
                 any.add(condition(QueryFilter.Op.EQ, Templates.CATEGORY, text.toUpperCase(Locale.ROOT)));
-                any.add(condition(QueryFilter.Op.EQ, Templates.SUB_CATEGORY, text.toUpperCase(Locale.ROOT)));
+                any.add(condition(QueryFilter.Op.EQ, Templates.PART_A, text.toUpperCase(Locale.ROOT)));
             }
             all.add(new QueryFilter(QueryFilter.Op.OR, any, null, null));
         }
         if (category != null && !category.isBlank()) {
             all.add(condition(QueryFilter.Op.EQ, Templates.CATEGORY, category.strip()));
         }
-        if (subCategory != null && !subCategory.isBlank()) {
-            all.add(condition(QueryFilter.Op.EQ, Templates.SUB_CATEGORY, subCategory.strip()));
+        if (partA != null && !partA.isBlank()) {
+            all.add(condition(QueryFilter.Op.EQ, Templates.PART_A, partA.strip().toUpperCase(Locale.ROOT)));
         }
         if (Boolean.TRUE.equals(retired)) {
             all.add(condition(QueryFilter.Op.EQ, Templates.RETIRED, true));

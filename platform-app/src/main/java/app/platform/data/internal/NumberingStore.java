@@ -80,6 +80,22 @@ class NumberingStore {
                 .query(Long.class).optional().orElse(1L);
     }
 
+    /** One page of the counters of a series in scope order (the administrator's table). */
+    List<Counter> counters(String series, int offset, int limit) {
+        return jdbc.sql("select scope_key, next_value from number_series_counter where tenant_id = :tenant "
+                        + "and series_key = :series and deleted_at is null "
+                        + "order by scope_key limit :limit offset :offset")
+                .param("tenant", tenant()).param("series", series).param("offset", offset).param("limit", limit)
+                .query((rs, row) -> new Counter(rs.getString("scope_key"), rs.getLong("next_value"))).list();
+    }
+
+    record Counter(String scope, long nextValue) {
+        @Override
+        public String toString() {
+            return "Counter[redacted]";
+        }
+    }
+
     void advance(String series, String scope, long next, UUID actor) {
         if (next == 1) {
             return;

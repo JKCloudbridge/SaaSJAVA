@@ -3,9 +3,10 @@
 # delete or rename a released definition, set retired: true" (docs/metadata-guide.md) apply to it.
 #
 # FA1 declared only what proves the framework: the name, and the flag that retires a template. FA2A adds, additively,
-# the classification (category and sub-category, two picklists whose lists the organization owns, the second depending
-# on the first) and the number (a unique text field only the platform writes; the series that fills it is declared in
-# numbering.yml next to solution.yml). The next sprints add what they need: the lifecycle (FA4), the people (FA4).
+# the classification and the number (a unique text field only the platform writes; the series that fills it is declared
+# in numbering.yml next to solution.yml). FA11B (ADR-0206) makes the identity of a document the Identification (a
+# picklist whose list the organization owns), two free-text parts and the first serial of a new combination; which of
+# the parts a document needs is told by its number pattern, never by this file.
 #
 # organizationValues: the platform ships the starting list below; the organization's administrator owns the list and
 #                     the pairs from then on, and a member who may add values can add one from the form (ADR-0182).
@@ -14,9 +15,8 @@
 # platformWritten:    nobody writes this field through the API, a bulk change or an import; the platform's engine does
 #                     (ADR-0183).
 #
-# The starting list is the categories of the numbering scheme of the first customer (one code each, the label says what
-# it is). The sub-categories are placeholders - generic process abbreviations and customers - that every organization
-# replaces with its own; a sub-category goes with the categories that list it.
+# The starting list is the identifications of the numbering scheme of the first customer (one code each, the label says
+# what it is).
 #
 # requiresFeature: an organization without the plan feature does not have this object at all.
 # retainRecords:   no record of this object is ever deleted, restored over or purged, by anyone (ADR-0174 section 7).
@@ -76,8 +76,8 @@ fields:
     platformWritten: true
 
   - apiName: category
-    label: Identity category
-    description: The kind of document. It decides how the number is written and which sub-categories go with it.
+    label: Identification
+    description: The kind of document. It decides how the number is written and which of Part A and Part B are asked for. The administrator keeps the list in Setup; each value needs a number pattern in Setup, Numbering.
     type: PICKLIST
     organizationValues: true
     codeValues: true
@@ -99,53 +99,34 @@ fields:
         - { value: PPT, label: "PPT - Process" }
         - { value: L, label: "L - List" }
         - { value: LEHS, label: "L/EHS - List, Environment health safety" }
+        - { value: R, label: "R - Register" }
+        - { value: REHS, label: "R/EHS - Register, Environment health safety" }
+        - { value: EHSAIR, label: "EHS/AIR - Aspect identification register" }
+        - { value: EHSHIR, label: "EHS/HIR - Hazard identification register" }
+        - { value: EHSAID, label: "EHS/AID - Aspect identification diagram" }
+        - { value: EHSHID, label: "EHS/HID - Hazard identification diagram" }
+        - { value: EHSAHID, label: "EHS/AHID - Aspect hazard identification diagram" }
+        - { value: PLEHS, label: "PL/EHS - Planner, Environment health safety" }
+        - { value: EHSEMP, label: "EHS/EMP - Environmental management program" }
+        - { value: EHSOCP, label: "EHS/OCP - Operational control procedure" }
 
-  - apiName: subCategory
-    label: Identity sub-category
-    description: The process or the customer the document is for. Only the sub-categories that go with the category can be chosen.
-    type: PICKLIST
-    organizationValues: true
-    codeValues: true
-    settings:
-      values:
-        - { value: PRD, label: "PRD - Production" }
-        - { value: QLT, label: "QLT - Quality" }
-        - { value: MNT, label: "MNT - Maintenance" }
-        - { value: STR, label: "STR - Stores" }
-        - { value: CORP, label: "CORP - Corporate" }
-        - { value: CUSA, label: "CUSA - Customer A" }
-        - { value: CUSB, label: "CUSB - Customer B" }
-      dependency:
-        controllingField: category
-        allowed:
-          IMS: []
-          QSP: []
-          CORPQSP: []
-          ESSP: []
-          BP: []
-          CP: [PRD, QLT, MNT, STR]
-          WI: [PRD, QLT, MNT, STR]
-          PFC: [PRD, QLT, MNT, STR]
-          FMEA: [PRD, QLT, MNT, STR]
-          SOP: [PRD, QLT, MNT, STR]
-          F: [PRD, QLT, MNT, STR]
-          FEHS: [PRD, QLT, MNT, STR]
-          PPT: [PRD, QLT, MNT, STR]
-          L: [PRD, QLT, MNT, STR]
-          LEHS: [PRD, QLT, MNT, STR]
-          CSF: [CORP, CUSA, CUSB]
-
-  - apiName: partCode
-    label: Part code
-    description: The code of the part the document is for. Needed for the categories whose number ends in it (control plan, process flow chart, failure mode analysis); the number is made from it, so it is fixed once the template has its number.
+  - apiName: partA
+    label: Part A
+    description: Typed freehand when the identification asks for it (for example the process name or the customer). Capital letters, digits and hyphen, up to 10. The number is made from it, so it is fixed once the template has its number.
     type: TEXT
     settings: { maxLength: 10 }
 
-  - apiName: planYear
-    label: Plan year
-    description: The four-digit year of a business plan. Needed for the category whose number ends in it; the number is made from it.
+  - apiName: partB
+    label: Part B
+    description: Typed freehand when the identification asks for it (for example a part code or a year). Capital letters, digits and hyphen, up to 10. The number is made from it, so it is fixed once the template has its number.
     type: TEXT
-    settings: { maxLength: 4 }
+    settings: { maxLength: 10 }
+
+  - apiName: serial
+    label: Serial number
+    description: The first serial number of a new combination, typed once by the person who sets the identification. Digits only. When the combination already has numbers the next one is given automatically and nothing is typed. It is used when the template is saved and then cleared.
+    type: TEXT
+    settings: { maxLength: 12 }
 
   - apiName: number
     label: Document number

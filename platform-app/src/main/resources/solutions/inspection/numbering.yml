@@ -5,36 +5,52 @@
 # value of a text field or a short-code picklist of the record, and exactly one {seq:N} for the counter, padded with zeros
 # to N digits and never cut. There is no clock, no arithmetic and no code.
 #
-# The counter runs for each scope: the category followed by the values of the fields the format reads (WI/PRD is one
-# counter, WI/QLT another). A sub-category added later has no counter yet and starts at 1; one chosen from the list goes
-# on from the last number. Every organization has its own counters.
+# The counter runs for each scope: the identification followed by the values of the fields the format reads (WI/PRD is one
+# counter, WI/QLT another). Part A and Part B are typed freehand by the person who sets the identification; a
+# combination that has no counter yet starts at the first serial that person types (at 1 when none is typed, FA11B,
+# ADR-0206) and goes on from there. Every organization has its own counters.
 #
-# Four categories have no counter: their last part is typed by the author (a part code or a year) and the number is made
-# from the values alone (FA4, ADR-0188). The unique index of the number field is then the only thing that keeps two
-# numbers apart, so the submit looks for a clash first and says so in plain words.
+# Four identifications have no counter: their last part is typed (a part code or a year) and the number is made from the
+# values alone (FA4, ADR-0188). The unique index of the number field is then the only thing that keeps two numbers
+# apart, so the submit looks for a clash first and says so in plain words.
+#
+# Which of Part A and Part B an identification asks for, and whether it ends in a serial, is read from its format by the
+# screen (the numbering-info answer), so a format changed in Setup, Numbering is followed at once. An identification an
+# administrator adds gets the default below (the identification, Part B when typed, a running count) until the
+# administrator gives it a format of its own there.
 series:
   - key: document
     object: InspectionTemplate
     field: number
     selector: category
     defaults:
-      format: "{field:category}/{field:subCategory}/{seq:1}"
+      format: "{field:category}/{field:partB}/{seq:1}"
       withoutOptional: "{field:category}/{seq:1}"
-      optionalField: subCategory
+      optionalField: partB
     formats:
       IMS: "IMS/{seq:2}"
       QSP: "QSP-{seq:2}"
       CORPQSP: "CORP-QSP-{seq:2}"
       ESSP: "ESSP-{seq:2}"
-      WI: "WI/{field:subCategory}/{seq:2}"
-      SOP: "SOP/{field:subCategory}/{seq:2}"
-      F: "F/{field:subCategory}/{seq:2}"
-      FEHS: "F/EHS/{field:subCategory}/{seq:2}"
-      CSF: "CSF/{field:subCategory}/{seq:2}"
-      PPT: "PPT/{field:subCategory}/{seq:2}"
-      L: "L/{field:subCategory}/{seq:2}"
-      LEHS: "L/EHS/{field:subCategory}/{seq:2}"
-      CP: "CP/{field:subCategory}/{field:partCode}"
-      PFC: "PFC/{field:subCategory}/{field:partCode}"
-      FMEA: "FMEA/{field:subCategory}/{field:partCode}"
-      BP: "BP/{field:planYear}"
+      WI: "WI/{field:partA}/{seq:2}"
+      SOP: "SOP/{field:partA}/{seq:2}"
+      F: "F/{field:partA}/{seq:2}"
+      FEHS: "F/EHS/{field:partA}/{seq:2}"
+      CSF: "CSF/{field:partA}/{seq:2}"
+      PPT: "PPT/{field:partA}/{seq:2}"
+      L: "L/{field:partA}/{seq:2}"
+      LEHS: "L/EHS/{field:partA}/{seq:2}"
+      R: "R/{field:partA}/{seq:2}"
+      REHS: "R/EHS/{field:partA}/{seq:2}"
+      EHSAIR: "EHS/AIR/{field:partA}/{seq:2}"
+      EHSHIR: "EHS/HIR/{field:partA}/{seq:2}"
+      EHSAID: "EHS/AID/{field:partA}/{seq:2}"
+      EHSHID: "EHS/HID/{field:partA}/{seq:2}"
+      EHSAHID: "EHS/AHID/{field:partA}/{seq:2}"
+      PLEHS: "PL/EHS/{field:partA}/{seq:2}"
+      EHSEMP: "EHS/EMP/{seq:2}"
+      EHSOCP: "EHS/OCP/{seq:2}"
+      CP: "CP/{field:partA}/{field:partB}"
+      PFC: "PFC/{field:partA}/{field:partB}"
+      FMEA: "FMEA/{field:partA}/{field:partB}"
+      BP: "BP/{field:partB}"

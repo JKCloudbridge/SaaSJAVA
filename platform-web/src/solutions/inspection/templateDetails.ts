@@ -7,15 +7,20 @@ import { text } from "./template";
 
 /**
  * The arrangement of the Details tab of a template (Functional track FA11A, ADR-0205). The cluster owns it: the generic
- * record screens draw whatever sections they are given, and this module gives them two fixed columns. It only orders and
+ * record screens draw whatever sections they are given, and this module gives them fixed rows of two (FA11B). It only orders and
  * words what the API sent; the form still holds only the fields the member may read, and a field that is not there is not
  * drawn. Pure, so it is tested without a browser.
  */
 
-/** The left column, top to bottom. Part code and Plan year follow the others when they are drawn at all. */
-const LEFT = ["name", "level", "documentType", "category", "subCategory", "partCode", "planYear"] as const;
-/** The right column, top to bottom; Obsolete is last. */
-const RIGHT = ["number", "revision", "retired"] as const;
+/**
+ * The rows of the Details tab, the same in reading and in editing (FA11B, ADR-0206): the name; the level beside the kind of
+ * document; the identification beside the Document number (which the edit form draws with its serial box); Part A beside
+ * Part B; the Revision number beside Obsolete. A row whose fields are not drawn leaves no gap, and Part A and Part B are
+ * drawn only when the identification asks for them (the page hides the others).
+ */
+const ROWS = [["name"], ["level", "documentType"], ["category", "number"], ["partA", "partB"], ["revision", "retired"]] as const;
+/** Drawn by the number field of the form, never as a field of their own. */
+const IN_NUMBER = ["serial"] as const;
 
 /**
  * The Revision in use as the Sheet tab writes it (two digits, 00 first). The platform saves it when a Revision is published;
@@ -53,39 +58,31 @@ export function detailDisplay(
 }
 
 /**
- * The form with the sections of the Details tab. Reading leaves out Part code and Plan year when the template has no value
- * for them and the Revision number before a first Revision is in use; editing offers every field the member can see, since
- * a value may still be needed (the form shows them only when the category needs them from FA11B on). The second section
- * holds the date of the Revision in use and the system fields of the original layout.
+ * The form with the sections of the Details tab. Reading leaves out the Revision number before a first Revision is in use;
+ * editing offers every field the member can see. Which of Part A and Part B are drawn is told by the page (the server's
+ * numbering-info answer), not decided here. The second section holds the date of the Revision in use and the system fields
+ * of the original layout.
  */
 export function templateSections(
   form: ObjectForm,
-  record: RecordView,
   view: Pick<TemplateLifecycleView, "revision" | "lifecycle"> | undefined,
   editing: boolean,
 ): ObjectForm {
   const known = new Set(form.fields.map((field) => field.apiName));
   const system = form.fields.filter((field) => field.kind === "SYSTEM").map((field) => field.apiName);
-  const named = new Set<string>([...LEFT, ...RIGHT, "lastRevisedAt", ...system]);
+  const rowNames = ROWS.flat() as string[];
+  const named = new Set<string>([...rowNames, ...IN_NUMBER, "lastRevisedAt", ...system]);
   const other = form.fields.map((field) => field.apiName).filter((name) => !named.has(name));
 
-  const has = (name: string) => text(record.fields[name]) !== "";
   const wanted = (name: string) => {
     if (!known.has(name)) {
       return false;
     }
-    if (editing) {
-      return true;
-    }
-    if (name === "partCode" || name === "planYear") {
-      return has(name);
-    }
-    return name !== "revision" || revisionNumberOf(view) !== undefined;
+    return editing || name !== "revision" || revisionNumberOf(view) !== undefined;
   };
 
-  const left = [...LEFT, ...other].filter(wanted);
-  const right = RIGHT.filter(wanted);
-  const sections: ArrangedSection[] = [{ label: "Details", columns: 2, fields: [...left, ...right], left }];
+  const fields = [...rowNames, ...IN_NUMBER, ...other].filter(wanted);
+  const sections: ArrangedSection[] = [{ label: "Details", columns: 2, fields, rows: ROWS }];
   const bottom = ["lastRevisedAt", ...system].filter((name) => known.has(name));
   if (bottom.length > 0) {
     sections.push({ label: "System information", columns: 2, fields: bottom });

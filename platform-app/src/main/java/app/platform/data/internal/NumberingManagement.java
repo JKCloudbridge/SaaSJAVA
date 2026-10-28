@@ -17,6 +17,7 @@ import app.platform.tenant.TenantContexts;
 import app.platformapi.AdvanceNumberingCounterRequest;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
+import app.platformapi.NumberingCountersView;
 import app.platformapi.NumberingFieldView;
 import app.platformapi.NumberingPreviewView;
 import app.platformapi.NumberingSeriesView;
@@ -41,6 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
 class NumberingManagement {
 
     private static final long MAX_COUNT = 999999999999L;
+    private static final int COUNTER_PAGE = 50;
     private final NumberSeriesCatalogue catalogue;
     private final NumberingFormats formats;
     private final NumberingStore store;
@@ -72,6 +74,57 @@ class NumberingManagement {
             metadata.object(series.object()).ifPresent(object -> result.add(describe(series, object)));
         }
         return new NumberingSettingsView(result);
+    }
+
+    /**
+     * The combinations that have a counter, a page at a time (FA11B, ADR-0206). The scope is shown as it is stored,
+     * with the marker of the newer scope form taken off and the field names left out, so a person reads
+     * {@code WI/PRD}. Needs the same ability as the rest of the screen; reads counters only.
+     */
+    @Transactional(readOnly = true)
+    NumberingCountersView counters(String key, String cursor) {
+        require();
+        available(key);
+        store.lock(key, false);
+        int offset = offset(cursor);
+        List<NumberingStore.Counter> found = store.counters(key, offset, COUNTER_PAGE + 1);
+        boolean more = found.size() > COUNTER_PAGE;
+        List<NumberingStore.Counter> page = more ? found.subList(0, COUNTER_PAGE) : found;
+        List<NumberingCountersView.Counter> rows = page.stream().map(counter -> new NumberingCountersView.Counter(
+                readable(counter.scope()), counter.nextValue(), Math.max(0, counter.nextValue() - 1))).toList();
+        return new NumberingCountersView(rows, more ? Integer.toString(offset + COUNTER_PAGE) : null);
+    }
+
+    /** The cursor is only the number of counters already seen: nothing typed is ever put in an address. */
+    private static int offset(String cursor) {
+        if (cursor == null || cursor.isBlank()) {
+            return 0;
+        }
+        try {
+            int offset = Integer.parseInt(cursor);
+            if (offset < 0) {
+                throw new NumberFormatException();
+            }
+            return offset;
+        } catch (NumberFormatException notANumber) {
+            throw ApiException.validation("cursor", "The page you asked for does not exist.");
+        }
+    }
+
+    /** The older scope form is the values joined; the newer one starts with a marker and names each field. */
+    private static String readable(String scope) {
+        String[] parts = scope.split("/");
+        if (parts.length > 0 && parts[0].equals("numbering-scope-v2")) {
+            List<String> shown = new ArrayList<>();
+            if (parts.length > 1) {
+                shown.add(parts[1]);
+            }
+            for (int at = 3; at < parts.length; at += 2) {
+                shown.add(parts[at]);
+            }
+            return String.join("/", shown);
+        }
+        return scope;
     }
 
     NumberingSettingView save(String key, SaveNumberingFormatRequest request) {

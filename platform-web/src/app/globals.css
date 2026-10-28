@@ -1595,6 +1595,25 @@ a.control-tab:hover {
   grid-row: var(--row);
 }
 
+/* The Document number of a template as it builds itself while the identity is typed, ending in the serial box (FA11B). */
+.live-number {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2.25rem;
+}
+
+.live-number-text {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.live-number .serial-input {
+  width: 7rem;
+  font-family: var(--font-mono);
+}
+
 .record-field,
 .detail-item {
   min-width: 0;

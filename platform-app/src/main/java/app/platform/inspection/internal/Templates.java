@@ -20,9 +20,11 @@ final class Templates {
     static final String LEVEL = "level";
     static final String DOCUMENT_TYPE = "documentType";
     static final String CATEGORY = "category";
-    static final String SUB_CATEGORY = "subCategory";
-    static final String PART_CODE = "partCode";
-    static final String PLAN_YEAR = "planYear";
+    /** The two parts of the number a person types freehand when the identification asks for them (FA11B). */
+    static final String PART_A = "partA";
+    static final String PART_B = "partB";
+    /** The first serial of a new combination, typed once and cleared when the number is made (FA11B). */
+    static final String SERIAL = "serial";
     static final String RETIRED = "retired";
     /** The revision in use, two digits; written by the platform when a revision is published (FA8, ADR-0202). */
     static final String REVISION = "revision";
@@ -41,12 +43,14 @@ final class Templates {
 
     /** The longest sentence a hook refusal may carry. */
     private static final int MOST_WORDS = 300;
-    private static final Pattern YEAR = Pattern.compile("[0-9]{4}");
+    /** What a part may be made of: capital letters, digits and a hyphen, 1 to 10 (the server's one normalization). */
+    private static final Pattern PART = Pattern.compile("[A-Z0-9-]{1,10}");
+    private static final Pattern DIGITS = Pattern.compile("[0-9]{1,12}");
     /** What an author is told to fill in, by the field the number is made of. */
     private static final Map<String, String> PART_WORDS = Map.of(
-            SUB_CATEGORY, "the identity sub-category",
-            PART_CODE, "the part code (letters, digits, hyphen or underscore, up to 10)",
-            PLAN_YEAR, "the plan year");
+            CATEGORY, "the identification",
+            PART_A, "Part A (capital letters, digits or hyphen, up to 10)",
+            PART_B, "Part B (capital letters, digits or hyphen, up to 10)");
 
     private Templates() {
     }
@@ -56,9 +60,14 @@ final class Templates {
         return value == null || value instanceof String text && text.isBlank();
     }
 
-    /** Whether the value is a four-digit year. */
-    static boolean isYear(Object value) {
-        return value instanceof String text && YEAR.matcher(text).matches();
+    /** Whether the value is a part as the server accepts it: capital letters, digits and hyphen, 1 to 10. */
+    static boolean isPart(Object value) {
+        return value instanceof String text && PART.matcher(text).matches();
+    }
+
+    /** Whether the value is a serial a person may type: 1 to 12 digits, not all zeros. */
+    static boolean isSerial(Object value) {
+        return value instanceof String text && DIGITS.matcher(text).matches() && Long.parseLong(text) > 0;
     }
 
     /** The sentence that says which parts of the number are still to fill in. */

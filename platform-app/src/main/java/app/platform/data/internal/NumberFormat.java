@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
  * The closed language a number is written in (FA2A, ADR-0176, ADR-0184). A format is literal text, the stored value of
  * a field of the record, and one counter:
  *
- * <pre>{@code WI/{field:subCategory}/{seq:2}   gives   WI/PRD/03}</pre>
+ * <pre>{@code WI/{field:partA}/{seq:2}   gives   WI/PRD/03}</pre>
  *
  * <ul>
  * <li>{@code {field:<apiName>}} is the stored value of a short-code picklist or a text field; the value must match
@@ -198,6 +198,29 @@ final class NumberFormat {
             switch (part) {
                 case Literal literal -> text.append(literal.text());
                 case Field field -> text.append(codeOf(values.get(field.apiName())));
+                case Sequence ignored -> {
+                    return text.toString();
+                }
+            }
+        }
+        return text.toString();
+    }
+
+    /**
+     * What can be written so far: the parts in order up to the first field the record does not give as a short code, or
+     * up to the counter. Used by the live preview while a person is still typing; takes nothing and fails nowhere.
+     */
+    String partialPrefix(Map<String, Object> values) {
+        StringBuilder text = new StringBuilder();
+        for (Part part : parts) {
+            switch (part) {
+                case Literal literal -> text.append(literal.text());
+                case Field field -> {
+                    if (!(values.get(field.apiName()) instanceof String value) || !CODE.matcher(value).matches()) {
+                        return text.toString();
+                    }
+                    text.append(value);
+                }
                 case Sequence ignored -> {
                     return text.toString();
                 }

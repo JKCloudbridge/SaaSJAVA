@@ -28,7 +28,7 @@ import org.springframework.stereotype.Component;
  * <ul>
  *   <li><strong>On submit</strong>: the draft is the only thing under review. The template must not be retired; then
  *   the draft goes to review under the request. The numbering is <em>not</em> asked of the author (FA6A, ADR-0196): the
- *   people who approve first decide the identity category and sub-category.</li>
+ *   people who approve first decide the identification and its parts.</li>
  *   <li><strong>Before an approval</strong>: Save normally allocated the provisional number (ADR-0198). First Approve
  *   checks completeness and fixes the reservation and identity. An unnumbered header is still allocated through the
  *   narrow writer as a backstop. Any number of steps and skipped steps work; later approvals never allocate again.
@@ -113,15 +113,15 @@ class TemplateApprovalHooks implements ApprovalHooks {
             number = numbers.next(Templates.SERIES, template.fields());
         } catch (NumberSeriesException unavailable) {
             // The checks above passed a moment ago; a number that still cannot be made is told in the same words.
-            throw new ApprovalHookRefusal("not_numbered", "This template cannot get a number yet: check its identity "
-                    + "category, sub-category, part code and plan year (Edit), then approve again.");
+            throw new ApprovalHookRefusal("not_numbered", "This template cannot get a number yet: "
+                    + "check its identification, Part A and Part B (Edit), then approve again.");
         }
         try {
             writer.set(Map.of(Templates.NUMBER, number));
             assignments.reserve(Templates.SERIES, Templates.OBJECT, template.id(), number, true);
         } catch (ApprovalHookWriteException refused) {
             throw new ApprovalHookRefusal("number_in_use", "Another template already has the number this one would "
-                    + "get. Change its part code or identity sub-category (Edit), then approve again.");
+                    + "get. Change its identification, Part A or Part B (Edit), then approve again.");
         }
     }
 
@@ -140,33 +140,33 @@ class TemplateApprovalHooks implements ApprovalHooks {
 
     private void checkNumbering(Map<String, Object> fields, UUID templateId) {
         if (Templates.isBlank(fields.get(Templates.CATEGORY))) {
-            throw new ApprovalHookRefusal("category_needed", "Choose the identity category (Edit), "
+            throw new ApprovalHookRefusal("category_needed", "Choose the identification (Edit), "
                     + "then approve again.");
         }
         Optional<List<String>> missing = numbers.missingParts(Templates.SERIES, fields);
         if (missing.isEmpty()) {
-            throw new ApprovalHookRefusal("category_not_numbered", "This identity category has no numbering yet. Ask "
+            throw new ApprovalHookRefusal("category_not_numbered", "This identification has no numbering yet. Ask "
                     + "your administrator.");
         }
         if (!missing.get().isEmpty()) {
             throw new ApprovalHookRefusal("number_part_needed", Templates.neededWords(missing.get()));
         }
-        Object year = fields.get(Templates.PLAN_YEAR);
-        if (!Templates.isBlank(year) && !Templates.isYear(year)) {
-            throw new ApprovalHookRefusal("plan_year_invalid",
-                    "The plan year is four digits, for example 2026 (Edit), then approve again.");
+        for (String part : List.of(Templates.PART_A, Templates.PART_B)) {
+            if (!Templates.isBlank(fields.get(part)) && !Templates.isPart(fields.get(part))) {
+                throw new ApprovalHookRefusal("part_invalid", Templates.neededWords(List.of(part)));
+            }
         }
         Optional<String> known = numbers.known(Templates.SERIES, fields);
         if (known.isPresent() && taken(known.get(), templateId)) {
             throw new ApprovalHookRefusal("number_in_use", "Another template already has the number this one would "
-                    + "get. Change its part code or identity sub-category (Edit), then approve again.");
+                    + "get. Change its identification, Part A or Part B (Edit), then approve again.");
         }
         if (known.isPresent()) {
             try {
                 assignments.checkAvailable(Templates.SERIES, templateId, known.get());
             } catch (NumberSeriesException taken) {
                 throw new ApprovalHookRefusal("number_in_use", "Another template already has the number this one "
-                        + "would get. Change its part code or identity sub-category (Edit), then approve again.");
+                        + "would get. Change its identification, Part A or Part B (Edit), then approve again.");
             }
         }
     }

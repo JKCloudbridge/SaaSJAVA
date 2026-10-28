@@ -8058,6 +8058,51 @@
         "tags" : [ "Numbering" ]
       }
     },
+    "/api/v1/numbering/{seriesKey}/counters" : {
+      "get" : {
+        "description" : "Needs numbering.manage. One page of the counters of a series in the order of the combinations, with the next count of each. Read only; counters only, no record. Pass the returned cursor for the next page.",
+        "operationId" : "listNumberingCounters",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "seriesKey",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNumberingCountersView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The combinations that already have a counter",
+        "tags" : [ "Numbering" ]
+      }
+    },
     "/api/v1/numbering/{seriesKey}/formats" : {
       "put" : {
         "description" : "Needs numbering.manage and the version read. Changes future numbers only; never resets a counter. The closed format is checked on the server. Audited by series, setting and count.",
@@ -12828,7 +12873,7 @@
     },
     "/api/v1/templates" : {
       "get" : {
-        "description" : "One page of templates, each with the numbers of its active, approved, in-review and draft versions and the state of the template as one word. The page is read through the record store, so a caller sees exactly the templates they may see: their own, all of them for a caller who may view every template, and those published to a group they are in. Filters: search (part of a name or a number), category, subCategory, retired and state. The state filter is applied to the page after it is read: a page can hold fewer rows than asked while nextCursor still goes on (filtered is true then). Sort: name, number or newest. canCreate says whether the screen may offer New; the request is decided again.",
+        "description" : "One page of templates, each with the numbers of its active, approved, in-review and draft versions and the state of the template as one word. The page is read through the record store, so a caller sees exactly the templates they may see: their own, all of them for a caller who may view every template, and those published to a group they are in. Filters: search (part of a name or a number), identification (category), partA, retired and state. The state filter is applied to the page after it is read: a page can hold fewer rows than asked while nextCursor still goes on (filtered is true then). Sort: name, number or newest. canCreate says whether the screen may offer New; the request is decided again.",
         "operationId" : "listTemplates",
         "parameters" : [ {
           "in" : "query",
@@ -12846,7 +12891,7 @@
           }
         }, {
           "in" : "query",
-          "name" : "subCategory",
+          "name" : "partA",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -12944,9 +12989,49 @@
         "tags" : [ "Templates" ]
       }
     },
+    "/api/v1/templates/numbering-info" : {
+      "post" : {
+        "description" : "Takes the identification and the parts typed so far (all optional) and answers which of Part A and Part B the format of that identification reads, whether it ends in a serial, the number written so far, whether this combination already has numbers and, only for a caller who may set the identification, the next serial and the whole number. Advice only: nothing is reserved and the Save decides. NOT_FOUND for a caller who cannot read templates and on the platform host. A post, because what is typed does not belong in an address; nothing typed is logged.",
+        "operationId" : "templateNumberingInfo",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NumberingInfoRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNumberingInfoView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "What the number of a template is made of, for the form while a person types",
+        "tags" : [ "Templates" ]
+      }
+    },
     "/api/v1/templates/query" : {
       "post" : {
-        "description" : "The same page as the list, for a question a list view holds: search (a name or a number, or a whole category or sub-category code), a filter (the closed query model of the record store, conditions combined with AND or OR), up to two sort keys, and a lifecycle state. A post, because the filter does not belong in an address. A field the caller may not read is answered like a field that does not exist, and an order or a filter that cannot use an index is bounded by the query engine's scan limit (and refused above it, naming the field). The page is read through the record store, so the caller sees exactly the templates they may see. Nothing typed is logged.",
+        "description" : "The same page as the list, for a question a list view holds: search (a name or a number, or a whole identification code or Part A), a filter (the closed query model of the record store, conditions combined with AND or OR), up to two sort keys, and a lifecycle state. A post, because the filter does not belong in an address. A field the caller may not read is answered like a field that does not exist, and an order or a filter that cannot use an index is bounded by the query engine's scan limit (and refused above it, naming the field). The page is read through the record store, so the caller sees exactly the templates they may see. Nothing typed is logged.",
         "operationId" : "queryTemplates",
         "requestBody" : {
           "content" : {
@@ -15728,6 +15813,24 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseNumberingCountersView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/NumberingCountersView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseNumberingInfoView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/NumberingInfoView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseNumberingPreviewView" : {
         "type" : "object",
         "properties" : {
@@ -18127,6 +18230,23 @@
           }
         },
         "required" : [ "token" ]
+      },
+      "Counter" : {
+        "type" : "object",
+        "properties" : {
+          "combination" : {
+            "type" : "string"
+          },
+          "lastIssued" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nextValue" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "combination", "lastIssued", "nextValue" ]
       },
       "CreateApplicationRequest" : {
         "type" : "object",
@@ -21039,6 +21159,21 @@
         },
         "required" : [ "body", "category", "createdAt", "id", "kind", "read", "title" ]
       },
+      "NumberingCountersView" : {
+        "type" : "object",
+        "properties" : {
+          "counters" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Counter"
+            }
+          },
+          "nextCursor" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "counters" ]
+      },
       "NumberingFieldView" : {
         "type" : "object",
         "properties" : {
@@ -21056,6 +21191,67 @@
           }
         },
         "required" : [ "apiName", "label", "values" ]
+      },
+      "NumberingInfoRequest" : {
+        "type" : "object",
+        "properties" : {
+          "category" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "partA" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "partB" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          }
+        }
+      },
+      "NumberingInfoView" : {
+        "type" : "object",
+        "properties" : {
+          "canStart" : {
+            "type" : "boolean"
+          },
+          "complete" : {
+            "type" : "boolean"
+          },
+          "known" : {
+            "type" : "boolean"
+          },
+          "nextSerial" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "number" : {
+            "type" : "string"
+          },
+          "partA" : {
+            "type" : "boolean"
+          },
+          "partB" : {
+            "type" : "boolean"
+          },
+          "prefix" : {
+            "type" : "string"
+          },
+          "serial" : {
+            "type" : "boolean"
+          },
+          "started" : {
+            "type" : "boolean"
+          },
+          "width" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "canStart", "complete", "known", "partA", "partB", "prefix", "serial", "started", "width" ]
       },
       "NumberingPreviewView" : {
         "type" : "object",
@@ -24758,13 +24954,13 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "partA" : {
+            "type" : "string"
+          },
           "retired" : {
             "type" : "boolean"
           },
           "revision" : {
-            "type" : "string"
-          },
-          "subCategory" : {
             "type" : "string"
           }
         },

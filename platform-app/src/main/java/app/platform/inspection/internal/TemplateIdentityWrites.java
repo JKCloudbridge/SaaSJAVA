@@ -15,8 +15,9 @@ import org.springframework.stereotype.Component;
 /** Identity may change until first approval; every real allocation uses the platform's one number-series door. */
 @Component
 class TemplateIdentityWrites implements RecordWriteRule {
-    static final Set<String> IDENTITY = Set.of(Templates.CATEGORY, Templates.SUB_CATEGORY,
-            Templates.PART_CODE, Templates.PLAN_YEAR);
+    static final Set<String> IDENTITY = Set.of(Templates.CATEGORY, Templates.PART_A, Templates.PART_B,
+            Templates.SERIAL);
+    static final String STARTED = "This combination has just started; its numbers are now automatic. Save again.";
     static final String FIXED = "The identity fields are fixed after the first approval.";
     private final NumberSeries numbers;
     private final NumberAssignments assignments;
@@ -39,7 +40,7 @@ class TemplateIdentityWrites implements RecordWriteRule {
     @Override
     public String uniqueWords(String field) {
         return Templates.NUMBER.equals(field) ? "Another template already has the number this one would get. "
-                + "Change its part code or identity sub-category (Edit), then approve again." : null;
+                + "Change its identification, Part A or Part B (Edit), then approve again." : null;
     }
 
     @Override
@@ -72,16 +73,19 @@ class TemplateIdentityWrites implements RecordWriteRule {
         if (Templates.isBlank(merged.get(Templates.CATEGORY))) {
             return clearNumber(held);
         }
+        rejectUnusablePart(Templates.PART_A, "Part A", merged);
+        rejectUnusablePart(Templates.PART_B, "Part B", merged);
         var missing = numbers.missingParts(Templates.SERIES, merged);
         if (missing.isEmpty()) {
             throw ApiException.validation(Templates.CATEGORY,
-                    "This identity category has no numbering yet. Ask your administrator.");
+                    "This identification has no numbering yet. Ask your administrator.");
         }
         if (!missing.get().isEmpty()) {
             return clearNumber(held);
         }
-        if (!Templates.isBlank(merged.get(Templates.PLAN_YEAR)) && !Templates.isYear(merged.get(Templates.PLAN_YEAR))) {
-            throw ApiException.validation(Templates.PLAN_YEAR, "The plan year is four digits, for example 2026.");
+        Object typed = merged.get(Templates.SERIAL);
+        if (!Templates.isBlank(typed) && !Templates.isSerial(typed)) {
+            throw ApiException.validation(Templates.SERIAL, "The serial number is digits only, for example 5.");
         }
         if (!Templates.isBlank(held.get(Templates.NUMBER))
                 && assignments.sameInputs(Templates.SERIES, held, merged)) {
@@ -90,13 +94,34 @@ class TemplateIdentityWrites implements RecordWriteRule {
         try {
             numbers.known(Templates.SERIES, merged).ifPresent(number ->
                     assignments.checkAvailable(Templates.SERIES, current == null ? null : current.id(), number));
-            return new Changes(Map.of(Templates.NUMBER, numbers.next(Templates.SERIES, merged)), List.of());
+            return new Changes(Map.of(Templates.NUMBER, take(merged, typed)), List.of());
         } catch (NumberSeriesException unavailable) {
-            if (unavailable.reason() == NumberSeriesException.Reason.NUMBER_TAKEN) {
-                throw ApiException.validation(Templates.NUMBER, uniqueWords(Templates.NUMBER));
+            switch (unavailable.reason()) {
+                case NUMBER_TAKEN -> throw ApiException.validation(Templates.NUMBER, uniqueWords(Templates.NUMBER));
+                case ALREADY_STARTED -> throw ApiException.validation(Templates.SERIAL, STARTED);
+                default -> throw ApiException.validation("fields", "This template cannot get a number yet: check its "
+                        + "identification, Part A and Part B (Edit), then approve again.");
             }
-            throw ApiException.validation("fields", "This template cannot get a number yet: check its identity "
-                    + "category, sub-category, part code and plan year (Edit), then approve again.");
+        }
+    }
+
+    /**
+     * The number of a combination: the serial the person typed starts a combination that has no counter, anything else
+     * takes the next one. A serial typed for a combination that already has numbers is not used (the screen shows it
+     * disabled), so a stale value can never skip numbers.
+     */
+    private String take(Map<String, Object> merged, Object typed) {
+        boolean starts = !Templates.isBlank(typed) && numbers.plan(Templates.SERIES, merged)
+                .map(plan -> plan.counted() && plan.next().isEmpty()).orElse(false);
+        return starts ? numbers.start(Templates.SERIES, merged, Long.parseLong((String) typed))
+                : numbers.next(Templates.SERIES, merged);
+    }
+
+    /** A part is typed freehand; the server accepts capital letters, digits and a hyphen (1 to 10) and nothing else. */
+    private static void rejectUnusablePart(String field, String label, Map<String, Object> merged) {
+        Object value = merged.get(field);
+        if (!Templates.isBlank(value) && !Templates.isPart(value)) {
+            throw ApiException.validation(field, label + " uses capital letters, digits or a hyphen, up to 10.");
         }
     }
 
