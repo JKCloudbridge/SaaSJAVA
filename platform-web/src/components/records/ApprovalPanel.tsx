@@ -421,12 +421,18 @@ export function ApprovalHeaderActions({
   approval,
   extra = [],
   submitButton = true,
+  submitDisabled,
   children,
 }: {
   approval: RecordApproval;
   extra?: readonly ActionMenuItem[];
   /** False when the page has its own Submit (the fill-in's, which sends it for good when no process applies). */
   submitButton?: boolean;
+  /**
+   * The page knows the record cannot be sent now (a template that is published, retired or has nothing to send): Submit is
+   * drawn greyed out and unusable, with this short sentence only as its hover text. The server still decides every send.
+   */
+  submitDisabled?: { title?: string };
   /** The page's own buttons (Publish), drawn after the approval's and before the menu. */
   children?: ReactNode;
 }) {
@@ -442,7 +448,14 @@ export function ApprovalHeaderActions({
   return (
     <>
       {submitButton && actions?.canSubmit ? (
-        <button type="button" className="button" onClick={() => setActing("submit")} data-testid="approval-submit">
+        <button
+          type="button"
+          className="button"
+          onClick={() => setActing("submit")}
+          disabled={submitDisabled !== undefined}
+          title={submitDisabled?.title}
+          data-testid="approval-submit"
+        >
           Submit for approval
         </button>
       ) : null}

@@ -206,7 +206,7 @@ Frontend only: no migration, no endpoint, no change to who may ask for a change 
 **Ask for a change is a popup.** `AskForChange` draws a button in the sheet toolbar (the row of the tabs) while the version in
 use is open and the API says the person may ask (`canRequest`). The shared `Modal` covers the page, so the person stands on a
 place in the grid first and the popup names it (cell, row, column or the whole template); Enter on a cell opens it too.
-`AnnotatePanel` is only the content of the popup. What was written lives in `useAnnotateDraft`, held by `AskForChange`, so
+`AnnotatePanel` (since FA10 `RequestPanel`) is only the content of the popup. What was written lives in `useAnnotateDraft` (since FA10 `useRequestDraft`), held by `AskForChange`, so
 closing the popup never drops it: with something unsent, a close (the x, Escape) asks "Keep writing / Close and keep my words /
 Discard my words". A send closes the popup and shows a three-second notice; a refusal stays inside the popup in the API's words.
 `ChangeRequestsSection` is unchanged.
@@ -388,3 +388,38 @@ the administrator's view is [metadata-guide.md](../metadata-guide.md) section 40
   `RegisterPanel.test.tsx`, `PublishChoiceForm.test.tsx`, `ChangeRequestPage.test.tsx`, `ChangeRequestsSection.test.tsx`,
   `AnnotatePanel.test.tsx`, `AskForChange.test.tsx`, `ChangeRequestsPage.test.tsx`, `TemplatesPage.test.tsx`, `revision.test.ts`,
   `choices.test.ts`, `ApprovalActionFormChoice.test.tsx`, `SheetWorkspace.test.tsx`.
+
+## Change request clean-up (FA10)
+
+Short form; the decision is [ADR-0204](../adr/0204-change-request-clean-up-one-submit-rule-the-held-copy-on-the-sheet-tab-and-a-print-view.md).
+No migration. This section replaces what the FA8 section says about the popup's places, the link "Current revision" and the revised
+sheet drawn inside the request page.
+
+- **Places are gone from the screens, not from the API.** The popup `AskForChange` holds `RequestPanel` (the register and Send; the unsent
+  words live in `useRequestDraft`, outside the popup, so closing it does not throw them away) and sends `comments: []`. `AnnotatePanel`,
+  `ChangeRequestsSection`, `lib/sheets/annotate.ts` and the grid's annotate mode (`annotation` on `SheetGrid`/`GridView`, `annotate` on
+  `SheetWorkspace`) were removed with their tests and styles. `AskForChange` is a plain toolbar button on the Sheet tab, drawn when the API
+  says the person may ask (`canRequest` or `inProgress`). The server still accepts places on a new request and old requests keep theirs.
+- **The request page** (`ChangeRequestPage`) has one row of two buttons: **View Current Version** (a link to the Sheet tab) and
+  **Create Revised Version** (`canCreateCopy`: makes the copy, then goes to `&tab=sheet&version=<copy>`), which reads **Open Revised
+  Version** (a link to the same place) once the copy exists and `canChangeCopy`; nothing else is drawn for anyone else. The sentences for a
+  published or declined request stay under the row. The sections "Where on the sheet" and "Revised sheet" are gone.
+- **The Sheet tab** reads `&version=<stored number>`: `SheetWorkspace` opens that version at once (`focusVersion`, also with `listFirst`).
+  The Download button is drawn when `canDownload` or when the open version is the held copy of a request the person may change
+  (`canChangeCopy`); the server decides again (`TemplateDownloads`, then `SheetExports`/`SheetOwners.mayReadHeld`).
+- **Submit** is greyed out when the lifecycle view says `canSubmit: false` (`TemplateDetail` passes `submitDisabled` to
+  `ApprovalHeaderActions`; the title is `submitNote`). The rule is `TemplateSendRule`, used by `TemplatePublishing.view` and by
+  `TemplateApprovalHooks.onSubmit`. The fill-in page and the change request page draw no Submit.
+- **View of the register** (`RegisterPrintView`, opened by the *View* button of `RegisterRequestPanel`): the shared `Modal` (new `wide`
+  option), `printModel(doc, { labels: false })` for the cells, and the server's `RegisterView.print` (`SheetPages.PrintSettings`,
+  produced by `XlsxWriter.printSettings`, the method the file writer reads) for the size of the paper, the orientation and the margins.
+  The raise popup has no View button.
+- **The asterisk** (`OpenRequestsMark`, `.open-requests-mark`) is inline after the word of the tab.
+- **Tests.** No database: `TemplateSendRuleTest`, `TemplateApprovalHooksTest` (the refusal words equal the rule's), `OpenRequestsMark.test.tsx`
+  (the mark is in its tab and the style is not positioned outside it), `RequestPanel.test.tsx`, `AskForChange.test.tsx` (no place part),
+  `RegisterPrintView.test.tsx`, `ChangeRequestPage.test.tsx` (the two buttons), `TemplatesPage.test.tsx` (Submit, the `version` address and
+  the download), `print.test.ts`. Real PostgreSQL: `TemplateSubmitRuleIT` (every state, the field agrees with the send),
+  `HeldCopyDownloadIT` (a task holder and the administrator allowed; a reader, another organization and a caller who is not signed in
+  refused; the version by number). Removed with the features: `SheetGridAnnotate.test.tsx`, `SheetWorkspaceAnnotate.test.tsx`,
+  `annotate.test.ts`, `AnnotatePanel.test.tsx`, `ChangeRequestsSection.test.tsx` and the places and "Revised sheet" cases of
+  `ChangeRequestPage.test.tsx` and `changeRequests.test.ts`.

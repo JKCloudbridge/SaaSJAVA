@@ -82,9 +82,9 @@
   --cell-max-width: 20rem;
   --sheet-grid-height: 30rem;
   --sheet-input-min-width: 4rem;
-  --sheet-mark-size: 0.25rem;
   --sheet-page-portrait-width: 210mm;
   --sheet-page-landscape-width: 297mm;
+  --modal-width-wide: 76rem;
   /* The sheet on paper (FA7): the same in both themes, because paper is white. */
   --color-print-paper: #ffffff;
   --color-print-ink: #111111;

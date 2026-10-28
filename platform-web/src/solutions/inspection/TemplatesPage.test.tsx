@@ -339,6 +339,60 @@ describe("one template", () => {
     expect(screen.queryByTestId("no-approval-note")).toBeNull();
   });
 
+  it("greys Submit for approval out, with a short hover sentence, when the template cannot be sent (FA10)", async () => {
+    setUrl(OPEN);
+    fakeApi({
+      ...listAnswers(),
+      [`GET ${RECORDS}/${ID}/approval`]: () => json(approvalWith({ canSubmit: true })),
+      [`GET /api/v1/templates/${ID}/lifecycle`]: () =>
+        json(
+          lifecycleOf(
+            { canSubmit: false, submitNote: "A published template changes only through a change request." },
+            { ...NONE, state: "ACTIVE", activeVersion: 1, highestVersion: 1 },
+          ),
+        ),
+    });
+    render(<TemplatesPage />);
+await waitFor(() => expect(screen.getByTestId("approval-submit")).toBeDisabled());    const submit = screen.getByTestId("approval-submit");
+    expect(submit).toBeDisabled();
+    expect(submit).toHaveAttribute("title", "A published template changes only through a change request.");
+    expect(submit).not.toHaveAttribute("aria-describedby");
+    fireEvent.click(submit);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("offers Submit for approval as before when the template can be sent, or when the server says nothing (FA10)", async () => {
+    setUrl(OPEN);
+    fakeApi({
+      ...listAnswers(),
+      [`GET ${RECORDS}/${ID}/approval`]: () => json(approvalWith({ canSubmit: true })),
+      [`GET /api/v1/templates/${ID}/lifecycle`]: () =>
+        json(lifecycleOf({ canSubmit: true }, { ...NONE, state: "DRAFT", draftVersion: 1, highestVersion: 1 })),
+    });
+    const first = render(<TemplatesPage />);
+    expect(await screen.findByTestId("approval-submit")).toBeEnabled();
+    first.unmount();
+
+    fakeApi({ ...listAnswers(), [`GET ${RECORDS}/${ID}/approval`]: () => json(approvalWith({ canSubmit: true })) });
+    render(<TemplatesPage />);
+    expect(await screen.findByTestId("approval-submit")).toBeEnabled();
+  });
+
+  it("does not grey out Approve or Reject when Submit cannot be used (FA10)", async () => {
+    setUrl(OPEN);
+    fakeApi({
+      ...listAnswers(),
+      [`GET ${RECORDS}/${ID}/approval`]: () => json(approvalWith({ canSubmit: true, canApprove: true, canReject: true })),
+      [`GET /api/v1/templates/${ID}/lifecycle`]: () =>
+        json(lifecycleOf({ canSubmit: false }, { ...NONE, state: "ACTIVE", activeVersion: 1, highestVersion: 1 })),
+    });
+    render(<TemplatesPage />);
+
+    await screen.findByTestId("approval-submit");
+    expect(screen.getByTestId("approval-approve")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
+  });
+
   it("keeps the open tab in the address and offers Edit on the Details tab only", async () => {
     setUrl(OPEN);
     fakeApi(listAnswers());
@@ -706,57 +760,74 @@ describe("change requests on the template page (FA5)", () => {
     };
   }
 
-  it("offers a reader of the revision in use a button that opens the request as a popup, and lists their requests", async () => {
+  it("offers a reader of the revision in use a plain button that opens the request as a popup, and no list of places", async () => {
     setUrl(`${OPEN}&tab=sheet`);
-    fakeApi(
-      reading(true, [
-        {
-          id: "q-1",
-          title: "The first row",
-          status: "OPEN",
-          versionNo: 3,
-          requesterName: "Me",
-          mine: true,
-          createdAt: "2026-10-22T08:00:00Z",
-          placesTotal: 1,
-          placesInActive: 1,
-          canComment: true,
-          canAccept: false,
-          canDecline: false,
-          canTurn: false,
-          canReopen: false,
-          comments: [
-            {
-              id: "c-1",
-              kind: "ROW",
-              rowId: "r1",
-              label: "First",
-              inActiveVersion: true,
-              text: "Wrong",
-              createdAt: "2026-10-22T08:00:00Z",
-              mine: true,
-            },
-          ],
-        },
-      ]),
-    );
+    fakeApi(reading(true));
+
+    render(<TemplatesPage />);
+
+    const ask = await screen.findByRole("button", { name: "Ask for a change" });
+    expect(screen.queryByRole("heading", { name: "Change requests" })).toBeNull();
+    fireEvent.click(ask);
+    expect(await screen.findByRole("dialog", { name: "Ask for a change" })).toBeInTheDocument();
+    expect(screen.getByTestId("request-panel")).toBeInTheDocument();
+    expect(screen.queryByText("Where on the sheet (optional)")).toBeNull();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("does not mark places or react to Enter on a cell in the grid of the revision in use", async () => {
+    setUrl(`${OPEN}&tab=sheet`);
+    fakeApi(reading(true));
 
     render(<TemplatesPage />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Open revision 02" }));
-    const ask = await screen.findByRole("button", { name: "Ask for a change" });
-    expect(screen.queryByTestId("annotate-panel")).toBeNull();
-    expect(screen.getByRole("grid", { name: "Fire exit check, revision 02" })).toHaveAttribute("aria-readonly", "true");
-    fireEvent.click(ask);
-    expect(await screen.findByRole("dialog", { name: "Ask for a change" })).toBeInTheDocument();
-    expect(screen.getByTestId("annotate-panel")).toBeInTheDocument();
-    fireEvent.keyDown(document, { key: "Escape" });
+    const grid = await screen.findByRole("grid", { name: "Fire exit check, revision 02" });
+    expect(grid).toHaveAttribute("aria-readonly", "true");
+    fireEvent.keyDown(grid, { key: "Enter" });
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(await screen.findByRole("heading", { name: "The first row" })).toBeInTheDocument();
-    expect(document.querySelector(".sheet-row-noted")).not.toBeNull();
+    expect(document.querySelector(".sheet-noted, .sheet-label-pick")).toBeNull();
   });
 
-  it("offers no panel when the API says nobody can ask for a change", async () => {
+  it("opens the version the address names at once, and offers its Excel file to a person who changes that copy (FA10)", async () => {
+    setUrl(`${OPEN}&tab=sheet&version=3`);
+    const held = {
+      id: "q-1",
+      title: "The first row",
+      status: "ACCEPTED",
+      versionNo: 3,
+      mine: false,
+      createdAt: "2026-10-22T08:00:00Z",
+      placesTotal: 0,
+      placesInActive: 0,
+      canComment: true,
+      canCreateCopy: false,
+      canChangeCopy: true,
+      resultingVersion: 3,
+      resultingVersionStatus: "DRAFT",
+      comments: [],
+    };
+    fakeApi(reading(false, [held]));
+
+    render(<TemplatesPage />);
+
+    expect(await screen.findByRole("grid", { name: "Fire exit check, revision 02" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open revision 02" })).toBeNull();
+    expect(await screen.findByTestId("sheet-download")).toBeInTheDocument();
+  });
+
+  it("offers no Excel file for a version that is nobody's revised copy when the option is off (FA10)", async () => {
+    setUrl(`${OPEN}&tab=sheet&version=3`);
+    fakeApi(reading(false));
+
+    render(<TemplatesPage />);
+
+    expect(await screen.findByRole("grid", { name: "Fire exit check, revision 02" })).toBeInTheDocument();
+    expect(screen.queryByTestId("sheet-download")).toBeNull();
+  });
+
+  it("offers no button when the API says nobody can ask for a change", async () => {
     setUrl(`${OPEN}&tab=sheet`);
     fakeApi(reading(false));
 
@@ -764,9 +835,7 @@ describe("change requests on the template page (FA5)", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Open revision 02" }));
     expect(await screen.findByRole("grid", { name: "Fire exit check, revision 02" })).toBeInTheDocument();
-    expect(screen.queryByTestId("annotate-panel")).toBeNull();
     expect(screen.queryByRole("button", { name: "Ask for a change" })).toBeNull();
-    expect(await screen.findByText(/You have not asked for a change to this template/)).toBeInTheDocument();
   });
 });
 

@@ -66,7 +66,8 @@ export function orientationOf(doc: GridDoc): Orientation {
 
 const LABEL_HEIGHT = 28;
 
-export function printModel(doc: GridDoc): PrintModel {
+/** `labels: false` leaves out the band of column labels (a page that has no headings, such as the register). */
+export function printModel(doc: GridDoc, options: { labels?: boolean } = {}): PrintModel {
   const rows = displayRows(doc);
   const indexes = indexesOf(doc, rows);
   const rects = mergeRects(doc, indexes);
@@ -124,7 +125,7 @@ export function printModel(doc: GridDoc): PrintModel {
   return {
     orientation: orientationOf(doc),
     columns,
-    head: [labels, ...drawn.filter((row) => row.zone === "header")],
+    head: [...(options.labels === false ? [] : [labels]), ...drawn.filter((row) => row.zone === "header")],
     body: drawn.filter((row) => row.zone !== "header"),
   };
 }

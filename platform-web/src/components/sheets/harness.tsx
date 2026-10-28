@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import type { AnnotationMarks } from "@/lib/sheets/annotate";
 import { LIMITS, sampleDoc } from "@/lib/sheets/fixtures";
 import type { GridDoc, SheetLimits } from "@/lib/sheets/types";
 import { GridView } from "./GridView";
@@ -13,7 +12,6 @@ export function GridHost({
   readOnly = false,
   toolbar = false,
   limits = LIMITS,
-  annotation,
   footer,
   onEditor,
 }: {
@@ -21,7 +19,6 @@ export function GridHost({
   readOnly?: boolean;
   toolbar?: boolean;
   limits?: SheetLimits;
-  annotation?: { marks: AnnotationMarks; onActivate(): void };
   footer?: string;
   onEditor?: (editor: SheetEditor) => void;
 }) {
@@ -30,8 +27,8 @@ export function GridHost({
     onEditor?.(editor);
   });
   return toolbar ? (
-    <GridView editor={editor} readOnly={readOnly} label="Test sheet" annotation={annotation} footer={footer} />
+    <GridView editor={editor} readOnly={readOnly} label="Test sheet" footer={footer} />
   ) : (
-    <SheetGrid editor={editor} readOnly={readOnly} label="Test sheet" annotation={annotation} footer={footer} />
+    <SheetGrid editor={editor} readOnly={readOnly} label="Test sheet" footer={footer} />
   );
 }

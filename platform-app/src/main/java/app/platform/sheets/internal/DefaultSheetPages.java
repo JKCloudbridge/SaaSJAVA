@@ -50,6 +50,11 @@ class DefaultSheetPages implements SheetPages {
     }
 
     @Override
+    public PrintSettings print(Page page) {
+        return XlsxWriter.printSettings(gridOf(page));
+    }
+
+    @Override
     public List<Found> read(byte[] file) {
         RawSheet raw;
         try {

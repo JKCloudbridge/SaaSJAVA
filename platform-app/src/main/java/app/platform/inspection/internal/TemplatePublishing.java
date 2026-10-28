@@ -414,6 +414,7 @@ class TemplatePublishing {
                 dropped = held.dropped();
             }
         }
+        Optional<TemplateSendRule.Block> send = TemplateSendRule.blocked(summary, retired);
         Options options = optionStore.find(templateId);
         Object number = header.fields().get(Templates.NUMBER);
         return new TemplateLifecycleView(templateId, retired, lifecycle(summary, retired), audience,
@@ -421,7 +422,8 @@ class TemplatePublishing {
                 mayRetire && !retired, start.orElse(null), whole.isPresent(), waiting, reviews, suggested, dropped,
                 Templates.isBlank(number) ? null : number.toString(), options.viewOnly(), options.allowDownload(),
                 options.allowDownload() || mayPublish, mayPublish,
-                Templates.revisionShown(header.fields(), summary.active()), Templates.lastRevisedAt(header.fields()));
+                Templates.revisionShown(header.fields(), summary.active()), Templates.lastRevisedAt(header.fields()),
+                send.isEmpty(), send.map(TemplateSendRule.Block::words).orElse(null));
     }
 
     private List<SuggestedAudience> suggestedViews(List<AudienceChoices.Place> places) {

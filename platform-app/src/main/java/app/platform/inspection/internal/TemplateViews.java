@@ -143,6 +143,9 @@ public final class TemplateViews {
      * @param revision the revision in use, written with two digits (00 is the first), or null when none was ever
      *        published; the platform saves it on the template when a revision is published (FA8)
      * @param lastRevisedAt when the revision in use was published, or null
+     * @param canSubmit whether the template can be sent for approval now (FA10): the template's own rule, which the
+     *        approval hook asks again; a screen greys Submit out when it is false and decides nothing else
+     * @param submitNote a short fixed sentence for the hover of the greyed button, or null when it can be sent
      */
     public record TemplateLifecycleView(@NotNull UUID id, @NotNull Boolean retired,
             @NotNull TemplateLifecycle lifecycle, @NotNull List<TemplateAudience> audience,
@@ -151,7 +154,7 @@ public final class TemplateViews {
             @NotNull List<VersionReview> versionReviews, @NotNull List<SuggestedAudience> suggestedAudience,
             @NotNull Integer suggestionDropped, String number, @NotNull Boolean viewOnly,
             @NotNull Boolean allowDownload, @NotNull Boolean canDownload, @NotNull Boolean canSetOptions,
-            String revision, Instant lastRevisedAt) {
+            String revision, Instant lastRevisedAt, @NotNull Boolean canSubmit, String submitNote) {
     }
 
     /**

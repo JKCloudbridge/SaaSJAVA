@@ -2,7 +2,6 @@
 
 import { TextStyleControls } from "./TextStyleControls";
 
-import type { AnnotationMarks } from "@/lib/sheets/annotate";
 import type { FontSize } from "@/lib/sheets/types";
 import { SheetGrid } from "./SheetGrid";
 import type { SheetEditor } from "./useSheetEditor";
@@ -21,8 +20,6 @@ export interface GridViewProps {
   /** Why the grid is read-only, in words, shown above it. */
   readOnlyReason?: string;
   label: string;
-  /** Annotate mode (FA5): the places with notes are marked and Enter on a cell asks for a note on it. */
-  annotation?: { marks: AnnotationMarks; onActivate(): void };
   /** The footer row (FA7): the text at its right, empty for a blank row, absent for no row. */
   footer?: string;
 }
@@ -33,7 +30,7 @@ export interface GridViewProps {
  * model's operations on the selection, and a refusal is shown in its words under the grid. A button that the model would
  * refuse is not hidden, it is tried, so the person is told why.
  */
-export function GridView({ editor, readOnly, readOnlyReason, label, annotation, footer }: GridViewProps) {
+export function GridView({ editor, readOnly, readOnlyReason, label, footer }: GridViewProps) {
   const { state, selection, rows, doc } = editor;
   const focusRow = rows[selection.fr];
   const focusColumn = doc.columns[selection.fc];
@@ -130,15 +127,12 @@ export function GridView({ editor, readOnly, readOnlyReason, label, annotation, 
         editor={editor}
         readOnly={readOnly}
         label={label}
-        annotation={annotation}
         footer={footer}
-        onResizeColumn={readOnly || annotation ? undefined : (id, width) => editor.updateColumn(id, { width })}
-        onResizeRow={readOnly || annotation ? undefined : (id, height) => editor.updateRow(id, { height })}
+        onResizeColumn={readOnly ? undefined : (id, width) => editor.updateColumn(id, { width })}
+        onResizeRow={readOnly ? undefined : (id, height) => editor.updateRow(id, { height })}
       />
       <p className="hint">
-        {annotation
-          ? "Arrow keys move; click a column label to stand on a column. Press Enter on a cell to write a comment about it, or use the buttons under the grid. Marked places already have comments."
-          : readOnly
+        {readOnly
           ? "Arrow keys move; Ctrl+C copies."
           : "Type to write fixed text, Enter to edit, Delete to clear, Ctrl+B and Ctrl+I for bold and italic, Ctrl+Z to undo. Drag the right edge of a column label to change its width, or the bottom edge of a row to change its height. Cells with no text are cells the filler types into."}
       </p>

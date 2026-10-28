@@ -1,5 +1,6 @@
 package app.platform.sheets.internal;
 
+import app.platform.sheets.SheetPages;
 import app.platform.sheets.internal.SheetGrid.Alignment;
 import app.platform.sheets.internal.SheetGrid.Cell;
 import app.platform.sheets.internal.SheetGrid.Colour;
@@ -50,6 +51,11 @@ final class XlsxWriter {
     private static final int DEFAULT_COLUMN_WIDTH = 120;
     /** Wider than this (pixels, all columns together) the page is landscape: A4 portrait holds about this much. */
     static final int PORTRAIT_WIDTH = 720;
+    private static final int A4_SHORT_MM = 210;
+    private static final int A4_LONG_MM = 297;
+    /** The page margins in inches: left and right, then top and bottom. */
+    private static final double MARGIN_SIDE = 0.5;
+    private static final double MARGIN_TOP = 0.6;
     private static final int MOST_BYTES = 5_000_000;
     private static final String MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
     private static final String RELS = "http://schemas.openxmlformats.org/package/2006/relationships";
@@ -72,6 +78,17 @@ final class XlsxWriter {
             width += column.width() == null ? DEFAULT_COLUMN_WIDTH : column.width();
         }
         return width > PORTRAIT_WIDTH;
+    }
+
+    /**
+     * How a sheet is set up for paper: A4, fitted to the width of the page, the orientation by the width, and the
+     * margins in inches. The file is written from this and the print view of the register is drawn from it (FA10,
+     * ADR-0204), so the two are one description.
+     */
+    static SheetPages.PrintSettings printSettings(SheetGrid grid) {
+        boolean wide = landscape(grid);
+        return new SheetPages.PrintSettings("A4", wide ? "landscape" : "portrait", wide ? A4_LONG_MM : A4_SHORT_MM,
+                wide ? A4_SHORT_MM : A4_LONG_MM, MARGIN_SIDE, MARGIN_SIDE, MARGIN_TOP, MARGIN_TOP);
     }
 
     private record FontKey(boolean bold, boolean italic, boolean underline, int points, String colour) {
@@ -260,9 +277,11 @@ final class XlsxWriter {
             mergeRefs.forEach(ref -> xml.append("<mergeCell ref=\"").append(ref).append("\"/>"));
             xml.append("</mergeCells>");
         }
-        xml.append("<pageMargins left=\"0.5\" right=\"0.5\" top=\"0.6\" bottom=\"0.6\" header=\"0.3\" "
-                + "footer=\"0.3\"/>");
-        xml.append("<pageSetup paperSize=\"9\" orientation=\"").append(landscape(grid) ? "landscape" : "portrait")
+        SheetPages.PrintSettings print = printSettings(grid);
+        xml.append("<pageMargins left=\"").append(print.marginLeft()).append("\" right=\"").append(print.marginRight())
+                .append("\" top=\"").append(print.marginTop()).append("\" bottom=\"").append(print.marginBottom())
+                .append("\" header=\"0.3\" footer=\"0.3\"/>");
+        xml.append("<pageSetup paperSize=\"9\" orientation=\"").append(print.orientation())
                 .append("\" fitToWidth=\"1\" fitToHeight=\"0\"/></worksheet>");
         return xml.toString();
     }

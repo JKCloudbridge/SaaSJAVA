@@ -17,6 +17,7 @@ import app.platform.sharedkernel.approval.ApprovalHooks.EndContext;
 import app.platform.sharedkernel.approval.ApprovalHooks.SubmitContext;
 import app.platform.sharedkernel.approval.ApprovalOutcome;
 import app.platform.sheets.SheetLifecycle;
+import app.platform.sheets.SheetLifecycle.Summary;
 import app.platform.sheets.SheetMoveRefusal;
 import app.platform.sheets.SheetStatus;
 import app.platformapi.QueryFilterNode;
@@ -56,6 +57,8 @@ class TemplateApprovalHooksTest {
         boolean numberingFails;
         boolean writeFails;
         SheetMoveRefusal sheetRefusal;
+        /** What the versions of the template add up to: by default a first Revision in draft, nothing else. */
+        Summary summary = new Summary(0, 0, 0, 1, 0, 1, 1);
         int next = 1;
 
         // ---- BackgroundRecords ----
@@ -147,7 +150,7 @@ class TemplateApprovalHooksTest {
 
         @Override
         public Map<UUID, Summary> summaries(String ownerObject, java.util.Collection<UUID> ownerIds) {
-            throw new UnsupportedOperationException();
+            return Map.of(ownerIds.iterator().next(), summary);
         }
 
         @Override
@@ -283,6 +286,41 @@ class TemplateApprovalHooksTest {
 
         assertThat(refused.reason()).isEqualTo("template_retired");
         assertThat(fakes.calls).isEmpty();
+    }
+
+    @Test
+    void aSubmitIsRefusedInTheWordsOfTheOneRuleForEveryStateThatCannotBeSent() {
+        record Case(Summary summary, boolean retired, TemplateSendRule.Block expected) {
+        }
+        List<Case> cases = List.of(
+                new Case(new Summary(1, 0, 0, 0, 0, 1, 1), false, TemplateSendRule.PUBLISHED),
+                new Case(new Summary(1, 0, 0, 1, 0, 2, 2), false, TemplateSendRule.PUBLISHED),
+                new Case(new Summary(0, 0, 1, 0, 0, 1, 1), false, TemplateSendRule.BEING_APPROVED),
+                new Case(new Summary(0, 0, 0, 0, 0, 0, 0), false, TemplateSendRule.NO_DRAFT),
+                new Case(new Summary(0, 0, 0, 1, 0, 1, 1), true, TemplateSendRule.RETIRED));
+        for (Case one : cases) {
+            Fakes fakes = withTemplate();
+            fakes.summary = one.summary();
+            fakes.fields.put("retired", one.retired());
+
+            ApprovalHookRefusal refused = refusal(() -> hooks(fakes).onSubmit(submit()));
+
+            assertThat(refused.reason()).isEqualTo(one.expected().reason());
+            assertThat(refused.words()).isEqualTo(one.expected().words());
+            assertThat(fakes.calls).as("nothing moves").isEmpty();
+            // The view asks the same rule, so the button and the refusal agree.
+            assertThat(TemplateSendRule.blocked(one.summary(), one.retired())).contains(one.expected());
+        }
+    }
+
+    @Test
+    void aSubmitThatTheRuleAllowsIsAcceptedBecauseTheViewAndTheHookAgree() {
+        Fakes fakes = withTemplate();
+        assertThat(TemplateSendRule.blocked(fakes.summary, false)).isEmpty();
+
+        hooks(fakes).onSubmit(submit());
+
+        assertThat(fakes.calls).containsExactly("submit:" + REQUEST + ":" + PERSON);
     }
 
     @Test

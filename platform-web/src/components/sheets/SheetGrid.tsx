@@ -15,7 +15,6 @@ import {
   mergeRects,
   type MergeRect,
 } from "@/lib/sheets/geometry";
-import type { AnnotationMarks } from "@/lib/sheets/annotate";
 import { parseClipboard } from "@/lib/sheets/gridModel";
 import type { GridCell } from "@/lib/sheets/types";
 import type { SheetGridEditor } from "./useSheetEditor";
@@ -58,11 +57,6 @@ export interface SheetGridProps {
   /** The name of the grid for a screen reader. */
   label: string;
   /**
-   * Annotate mode (FA5, ADR-0191): the grid stays read-only, the places that have notes are marked, a click on a column label
-   * selects that column, and Enter or a double click on a cell asks the caller to open its box for a note. It decides nothing.
-   */
-  annotation?: { marks: AnnotationMarks; onActivate(): void };
-  /**
    * The author's grid lets the width of a column be changed by dragging the right edge of its label, as in a spreadsheet.
    * Called once when the drag ends (or a key was pressed), with the new width in pixels, or undefined to go back to the
    * default width. Without it no handle is drawn (a read-only grid, and the grid of a filler: the width belongs to the sheet).
@@ -95,11 +89,6 @@ const MAX_ROW_HEIGHT = 400;
 
 const clampHeight = (height: number) => Math.min(MAX_ROW_HEIGHT, Math.max(MIN_ROW_HEIGHT, Math.round(height)));
 
-/** The words a screen reader adds to a place that has notes. */
-function notesWords(count: number | undefined): string {
-  return count === undefined ? "" : count === 1 ? "1 note" : `${count} notes`;
-}
-
 /**
  * Our own grid (FA3, ADR-0172): a table-based editor of the canonical document that draws only the rows and columns on
  * the screen. It follows the ARIA grid pattern (grid, row, columnheader, gridcell; one tab stop; the active cell named by
@@ -113,7 +102,6 @@ export function SheetGrid({
   readOnly,
   canEditCell,
   label,
-  annotation,
   onResizeColumn,
   onResizeRow,
   footer,
@@ -223,17 +211,6 @@ export function SheetGrid({
     }
   }, [editing]);
 
-  // Annotate mode: the panel can stand the selection on a place (a comment "shown in the grid"); bring it into view.
-  const annotating = annotation !== undefined;
-  useEffect(() => {
-    if (annotating) {
-      rowVirtual.scrollToIndex(selection.fr);
-      columnVirtual.scrollToIndex(selection.fc);
-    }
-    // The virtualizers are stable objects; only the place the selection stands on should run this.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [annotating, selection.fr, selection.fc]);
-
   useEffect(() => {
     const up = () => {
       dragging.current = false;
@@ -264,8 +241,7 @@ export function SheetGrid({
 
   const startEdit = (row: number, column: number, seed?: string) => {
     if (readOnly) {
-      // Annotate mode: opening a cell is asking for the box of a note on it; anywhere else a read-only grid does nothing.
-      annotation?.onActivate();
+      // A read-only grid does nothing when a cell is opened.
       return;
     }
     const target = rows[row];
@@ -504,32 +480,18 @@ export function SheetGrid({
           <div role="row" aria-rowindex={1} className="sheet-labels" style={{ height: LABEL_BAND_HEIGHT, width: totalWidth }}>
             {visibleColumns.map((j) => {
               const column = at(doc.columns, j);
-              const columnNotes = annotation?.marks.columns.get(column.id);
               return (
                 <div
                   key={column.id}
                   role="columnheader"
                   aria-colindex={j + 1}
-                  className={["sheet-label", annotation ? "sheet-label-pick" : "", columnNotes ? "sheet-noted" : ""]
-                    .filter(Boolean)
-                    .join(" ")}
+                  className="sheet-label"
                   style={{ left: at(colLeft, j), width: widthOf(column), height: LABEL_BAND_HEIGHT }}
-                  onMouseDown={
-                    annotation
-                      ? (event) => {
-                          // A click on a column label stands on that column, so that a note can be written about it.
-                          event.preventDefault();
-                          moveTo(selection.fr, j, false);
-                          scrollRef.current?.focus();
-                        }
-                      : undefined
-                  }
                 >
                   {column.label}
                   {column.required ? <span aria-hidden="true"> *</span> : null}
                   {column.required ? <span className="visually-hidden"> (required)</span> : null}
-                  {columnNotes ? <span className="visually-hidden"> ({notesWords(columnNotes)})</span> : null}
-                  {onResizeColumn && !annotation ? (
+                  {onResizeColumn ? (
                     <ColumnEdge
                       label={column.label}
                       width={widthOf(column)}
@@ -546,15 +508,14 @@ export function SheetGrid({
           </div>
           {visibleRows.map((i) => {
             const row = at(rows, i);
-            const rowNotes = annotation?.marks.rows.get(row.id);
-            const rowName = [row.label || "", rowNotes ? notesWords(rowNotes) : ""].filter(Boolean).join(", ");
+
             return (
               <div
                 key={row.id}
                 role="row"
                 aria-rowindex={i + 2}
-                aria-label={rowName || undefined}
-                className={rowNotes ? "sheet-row sheet-row-noted" : "sheet-row"}
+                aria-label={row.label || undefined}
+                className="sheet-row"
                 style={{ top: LABEL_BAND_HEIGHT + at(rowTop, i), height: heightOf(row), width: totalWidth }}
               >
                 {visibleColumns.map((j) => {
@@ -568,7 +529,6 @@ export function SheetGrid({
                   const width = (area ? at(colLeft, area.c1 + 1) : at(colLeft, j + 1)) - at(colLeft, j);
                   const height = (area ? at(rowTop, area.r1 + 1) : at(rowTop, i + 1)) - at(rowTop, i);
                   const fixed = cellKind(row.zone, cell) === "fixed";
-                  const cellNotes = annotation?.marks.cells.get(key);
                   const inRect = i >= rect.r0 && i <= rect.r1 && j >= rect.c0 && j <= rect.c1;
                   const active = i === selection.fr && j === selection.fc;
                   const classes = [
@@ -585,7 +545,6 @@ export function SheetGrid({
                     inRect ? "sheet-selected" : "",
                     active ? "sheet-active" : "",
                     area ? "sheet-merged" : "",
-                    cellNotes ? "sheet-noted" : "",
                   ]
                     .filter(Boolean)
                     .join(" ");
@@ -645,13 +604,12 @@ export function SheetGrid({
                         <>
                           {text}
                           {text === "" && row.zone !== "header" && !fixed ? <span className="visually-hidden">Input cell</span> : null}
-                          {cellNotes ? <span className="visually-hidden"> ({notesWords(cellNotes)})</span> : null}
                         </>
                       )}
                     </div>
                   );
                 })}
-                {onResizeRow && !annotation && row.zone !== "blank" ? (
+                {onResizeRow && row.zone !== "blank" ? (
                   <RowEdge
                     label={row.label || `row ${i + 1}`}
                     height={heightOf(row)}

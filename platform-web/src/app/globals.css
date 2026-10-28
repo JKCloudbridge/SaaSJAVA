@@ -2936,24 +2936,10 @@ form + .detail-section {
   outline-offset: -2px;
 }
 
-/* Annotate mode (FA5, ADR-0191): a place that has notes is marked by an accent edge on a cell or a label and an accent line under
-   a row. The count is also in the words of the cell for a screen reader, never in colour alone. */
-.sheet-label-pick {
-  cursor: pointer;
-}
-
 /* The text of a change request is a person's own: its line breaks are kept and a long word breaks instead of widening the page. */
 .comment-text {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-
-.sheet-noted {
-  box-shadow: inset 0 calc(-1 * var(--sheet-mark-size)) 0 var(--color-accent);
-}
-
-.sheet-row-noted > .sheet-cell {
-  border-bottom-color: var(--color-accent);
 }
 
 .sheet-input {
@@ -3159,6 +3145,30 @@ form + .detail-section {
 
 .modal-body {
   padding: var(--space-4);
+}
+
+/* The wide popup (FA10): wide enough for a sheet of paper, never wider than the screen. */
+.modal-wide {
+  width: min(100%, var(--modal-width-wide));
+}
+
+/*
+ * The print view of the register (FA10, ADR-0204): a white page the shape of the paper the file is set for. Its width and
+ * shape and the margins come from the server's own print settings (set on the element), so the view, the Excel page and
+ * the file agree. The page scales down with the popup on a narrow screen and is shown whole, top to bottom.
+ */
+.register-paper-scroll {
+  background: var(--color-surface-sunken);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+}
+
+.sheet-print-page.register-paper {
+  width: min(100%, var(--register-paper-width));
+  max-width: 100%;
+  aspect-ratio: var(--register-paper-ratio);
+  padding: 0;
+  overflow: visible;
 }
 
 /* The page sits close under the strip, and the card is no wider than its content needs. */
@@ -3500,13 +3510,14 @@ form + .detail-section {
 }
 
 /*
- * The mark of a template that has a change in progress (FA6E; FA8 puts it on the Change requests tab only): a small
- * asterisk at the top right corner of the tab, close to the word, in the accent colour.
+ * The mark of a template that has a change in progress (FA6E; FA8 puts it on the Change requests tab only; FA10 draws it in
+ * the flow of the tab, after the word): a small asterisk in the accent colour that sits inside the tab's own box, so the
+ * row of tabs never grows a scroll bar because of it.
  */
 .open-requests-mark {
-  position: absolute;
-  top: var(--space-0-5);
-  inset-inline-end: calc(-1 * var(--space-1));
+  display: inline-block;
+  margin-inline-start: var(--space-0-5);
+  vertical-align: top;
   color: var(--color-accent);
   font-size: var(--font-size-md);
   font-weight: 700;
@@ -3580,10 +3591,3 @@ form + .detail-section {
   gap: var(--space-2) var(--space-5);
 }
 
-.request-place-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: var(--space-3);
-}
