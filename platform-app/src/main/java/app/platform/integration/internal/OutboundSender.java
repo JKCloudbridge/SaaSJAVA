@@ -304,6 +304,7 @@ class OutboundSender {
                     .ifPresent(link -> links.synced(link.id(), link.version(), ready.hash(), "OUT", ACTOR));
             case DELETE -> links.byRecord(connection, work.object(), work.record())
                     .ifPresent(link -> links.remove(link.id(), ACTOR));
+            default -> throw new IllegalStateException("Unknown operation");
         }
         endIn(work, "DONE", null, status);
     }

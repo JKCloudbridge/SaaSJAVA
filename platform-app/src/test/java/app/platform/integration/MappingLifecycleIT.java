@@ -84,7 +84,7 @@ class MappingLifecycleIT extends MappingSupport {
 
         assertThat(JsonPath.<Integer>read(after.body(), "$.data.live.number")).isEqualTo(2);
         assertThat(JsonPath.<String>read(after.body(), "$.data.live.definition.conflict")).isEqualTo("PLATFORM_WINS");
-        assertThat(JsonPath.<Object>read(after.body(), "$.data.draft")).isNull();
+        assertThat(after.body()).as("no draft any more").doesNotContain("\"draft\":");
         assertThat(JsonPath.<List<String>>read(after.body(), "$.data.history[*].status")).containsExactly("SUPERSEDED");
         assertThat(JsonPath.<String>read(after.body(), "$.data.history[0].hash")).isEqualTo(firstHash);
         assertThat(JsonPath.<String>read(after.body(), "$.data.history[0].definition.conflict"))
@@ -102,7 +102,7 @@ class MappingLifecycleIT extends MappingSupport {
 
         Response stopped = linked.admin().postJson(mappingsOf(linked.connection()) + "/" + OBJECT + "/stop", "{}");
         assertThat(stopped.status()).as(stopped.body()).isEqualTo(200);
-        assertThat(JsonPath.<Object>read(stopped.body(), "$.data.live")).isNull();
+        assertThat(stopped.body()).as("no live version").doesNotContain("\"live\":");
         Response afterStop = linked.admin().request("DELETE", field, "");
         assertThat(afterStop.body()).as("no longer a mapping that stops it").doesNotContain("mapping to an external");
     }
@@ -116,9 +116,10 @@ class MappingLifecycleIT extends MappingSupport {
         body.put("credentialName", "partner-token");
         body.put("settings", Map.of("entityPath", "/api", "inboundCredential", "partner-signing"));
         body.put("subscriptions", List.of());
-        body.put("scope", List.of(Map.of("object", OBJECT, "read", false, "create", false, "update", false)));
+        body.put("scope", List.of(Map.of("object", OBJECT, "read", true, "create", false, "update", false)));
         body.put("version", versionOf(linked.admin(), "partner-link"));
-        assertThat(change(linked.admin(), "partner-link", body).status()).isEqualTo(200);
+        Response changed = change(linked.admin(), "partner-link", body);
+        assertThat(changed.status()).as(changed.body()).isEqualTo(200);
         Response draft = saveDraft(linked.admin(), linked.connection(), draftOf("item", simple(), 0));
 
         Response refused = publish(linked.admin(), linked.connection(), draftVersion(draft));

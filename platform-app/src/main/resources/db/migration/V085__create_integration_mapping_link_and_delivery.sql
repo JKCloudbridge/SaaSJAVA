@@ -370,7 +370,7 @@ create policy integration_inbound_seen_delete on integration_inbound_seen for de
 -- The receiver finds a connection, and through it the organization, from the public identity in the address alone
 -- (ADR-0221). Reading only, in the one named scope; the code always asks by that identity.
 create policy integration_connection_inbound_lookup on integration_connection for select
-    using (platform_in_system_scope('inbound_lookup'));
+    using (tenant_id = (select platform_current_tenant()) or platform_in_system_scope('inbound_lookup'));
 
 comment on table integration_mapping is
     'How one platform object corresponds to one entity of an external system, for one connection. Not metadata (ADR-0217).';

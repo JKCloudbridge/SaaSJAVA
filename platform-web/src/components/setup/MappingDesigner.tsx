@@ -69,7 +69,7 @@ export function MappingDesigner({ connection }: { connection: Integration }) {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [object, setObject] = useState<string>(connection.scope[0]?.object ?? "");
   const [fields, setFields] = useState<ObjectField[]>([]);
-  const [draft, setDraft] = useState<DesignerDraft | undefined>();
+  const [edited, setEdited] = useState<{ key: string; draft: DesignerDraft } | undefined>();
   const [sample, setSample] = useState<Record<string, string>>({});
   const [direction, setDirection] = useState<"OUTBOUND" | "INBOUND">("OUTBOUND");
   const [dry, setDry] = useState<DryResult | undefined>();
@@ -118,13 +118,11 @@ export function MappingDesigner({ connection }: { connection: Integration }) {
     };
   }, [object]);
 
-  // Start from what exists for the object whenever the object or the saved mapping changes.
-  useEffect(() => {
-    if (mappings && catalogue) {
-      setDraft(designerDraftOf(view, catalogue));
-      setDry(undefined);
-    }
-  }, [mappings, catalogue, view]);
+  // What the person edits is kept against the saved mapping it started from: when the object or the saved mapping
+  // changes (a save, a publish, another object) the edit is dropped and the screen starts from what exists.
+  const baseKey = `${object}:${view?.draft?.version ?? "-"}:${view?.live?.number ?? "-"}:${mappings?.length ?? "-"}`;
+  const draft: DesignerDraft | undefined =
+    mappings && catalogue ? (edited?.key === baseKey ? edited.draft : designerDraftOf(view, catalogue)) : undefined;
 
   const run = async (work: () => Promise<{ error: unknown; response: Response; text: string }>) => {
     setBusy(true);
@@ -166,7 +164,10 @@ export function MappingDesigner({ connection }: { connection: Integration }) {
     );
   }
 
-  const update = (next: DesignerDraft) => setDraft(next);
+  const update = (next: DesignerDraft) => {
+    setEdited({ key: baseKey, draft: next });
+    setDry(undefined);
+  };
   const palette: PaletteItem[] = unusedFields(fields, draft).map((field) => ({
     key: field.apiName,
     label: field.label,
@@ -247,7 +248,10 @@ export function MappingDesigner({ connection }: { connection: Integration }) {
         <div className="split">
           <label className="field">
             <span>Object</span>
-            <select value={object} onChange={(event) => setObject(event.target.value)} aria-label="Object to map">
+            <select value={object} onChange={(event) => {
+                setObject(event.target.value);
+                setDry(undefined);
+              }} aria-label="Object to map">
               {connection.scope.map((one) => (
                 <option key={one.object} value={one.object}>
                   {one.object}

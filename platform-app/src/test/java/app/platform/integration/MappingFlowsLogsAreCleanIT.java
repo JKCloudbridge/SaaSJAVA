@@ -33,6 +33,7 @@ import org.springframework.test.context.TestPropertySource;
 @PlatformIntegrationTest
 @Import(TestSecrets.class)
 @TestPropertySource(properties = {
+    "platform.outbox.enabled=true",
     "logging.file.name=" + MappingFlowsLogsAreCleanIT.LOG_FILE,
     "logging.level.app.platform=DEBUG",
     "logging.level.org.springframework.security=DEBUG",

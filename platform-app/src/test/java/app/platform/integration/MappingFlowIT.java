@@ -23,6 +23,7 @@ import org.springframework.context.annotation.Import;
  */
 @PlatformIntegrationTest
 @Import(TestSecrets.class)
+@org.springframework.test.context.TestPropertySource(properties = "platform.outbox.enabled=true")
 class MappingFlowIT extends MappingSupport {
 
     private static final Duration PATIENCE = Duration.ofSeconds(180);
@@ -105,7 +106,7 @@ class MappingFlowIT extends MappingSupport {
         assertThat(ids).hasSize(1);
         service.answer("PUT /api/item/ext-2", FakeService.Reply.json(200, "{\"id\":\"ext-2\"}"));
         Response again = admin.request("PATCH", "/api/v1/objects/" + OBJECT + "/records/" + ids.getFirst(),
-                "{\"version\":1,\"fields\":{\"" + TITLE_FIELD + "\":\"changed-here\"}}");
+                "{\"version\":0,\"fields\":{\"" + TITLE_FIELD + "\":\"changed-here\"}}");
         assertThat(again.status()).as(again.body()).isEqualTo(200);
         awaitSent("PUT", "/api/item/ext-2", 1);
         assertThat(service.asked("/api/item")).as("a link made by the receiver is used, no second create")
