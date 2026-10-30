@@ -212,6 +212,40 @@ describe("IntegrationsPanel", () => {
     await waitFor(() => expect(calls.some((call) => call.key === "DELETE /api/v1/integrations/link-a")).toBe(true));
   });
 
+  it("offers the credentials the API lists as a choice instead of free text", async () => {
+    const calls = api([], {
+      "GET /api/v1/credentials": () =>
+        json({
+          data: [{ name: "link-key", version: 1, createdAt: "2026-10-01T09:00:00Z", updatedAt: "2026-10-01T09:00:00Z", usedBy: 0, canRollBack: false }],
+        }),
+      "POST /api/v1/integrations": () => json({ data: CONNECTION }, 201),
+    });
+    render(<IntegrationsPanel />);
+    await screen.findByTestId("integrations");
+
+    fireEvent.click(await screen.findByRole("button", { name: "New connection" }));
+    const choice = await screen.findByLabelText("Name of the credential");
+    expect(choice.tagName).toBe("SELECT");
+    fireEvent.change(choice, { target: { value: "link-key" } });
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "link-c" } });
+    fireEvent.click(screen.getByRole("button", { name: "Make the connection" }));
+
+    await waitFor(() => expect(calls.some((call) => call.key === "POST /api/v1/integrations")).toBe(true));
+    expect(JSON.parse(calls.find((call) => call.key === "POST /api/v1/integrations")?.body ?? "{}")).toMatchObject({
+      credentialName: "link-key",
+    });
+  });
+
+  it("falls back to typing the name when the API offers no credentials to this person", async () => {
+    api([], { "GET /api/v1/credentials": () => refusal("FORBIDDEN", "You are not allowed to perform this action.", 403) });
+    render(<IntegrationsPanel />);
+    await screen.findByTestId("integrations");
+
+    fireEvent.click(await screen.findByRole("button", { name: "New connection" }));
+
+    expect((await screen.findByLabelText("Name of the credential")).tagName).toBe("INPUT");
+  });
+
   it("shows the API's words when the plan does not include integrations", async () => {
     fakeApi({
       "GET /api/v1/integrations": () => refusal("CONFLICT", "Integrations are not part of this organization's plan.", 409),

@@ -133,6 +133,10 @@ services:
       # no Secure flag and its token signing key is generated in memory. A deployment supplies real keys (ADR-0019).
       PLATFORM_IDENTITY_COOKIES_SECURE: "false"
       PLATFORM_IDENTITY_SIGNING_EPHEMERAL: "true"
+      # The key that protects stored credentials (Sprint 27). Local only, from infra/local/.env; a deployment supplies
+      # its own from its secret store (docs/runbooks/secrets.md).
+      PLATFORM_SECRETS_KEK_ACTIVE_ID: local
+      PLATFORM_SECRETS_KEK_ACTIVE_KEY: ${LOCAL_SECRETS_KEY:?run init-env.ps1 first}
       PLATFORM_TRACE_EXPORT: "true"
       PLATFORM_TRACE_SAMPLING: "1.0"
       PLATFORM_TRACE_ENDPOINT: http://tracing:4318/v1/traces

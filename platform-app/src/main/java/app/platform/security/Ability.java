@@ -203,7 +203,24 @@ public enum Ability {
     /** Test a connection (Sprint 26, ADR-0210). A test makes a call to the external system, so it is its own right. */
     INTEGRATIONS_TEST("integrations.test", "Test integrations",
             "Test a connection: the platform calls the external system once and reports whether it answered. "
-                    + "Needs the ability to view integrations as well.");
+                    + "Needs the ability to view integrations as well."),
+
+    /**
+     * See the organization's credentials: their names, versions and dates, and how many connections use each
+     * (Sprint 27, ADR-0213). Never the value: no ability can show it.
+     */
+    CREDENTIALS_VIEW("credentials.view", "View credentials",
+            "See the names, versions and dates of the organization's credentials and which connections use them. "
+                    + "A credential's value can never be seen by anyone."),
+
+    /**
+     * Write, rotate, go back and remove credentials (Sprint 27, ADR-0213). Separate from managing integrations: a
+     * person who decides where the platform connects does not thereby decide which secret it uses.
+     */
+    CREDENTIALS_MANAGE("credentials.manage", "Manage credentials",
+            "Add a credential, replace its value with a new version, go back to the version before, or remove it. "
+                    + "The value is written once and is never shown again. Needs the ability to view credentials as "
+                    + "well.");
 
     private final String key;
     private final String title;

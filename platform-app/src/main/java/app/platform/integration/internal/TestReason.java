@@ -27,6 +27,8 @@ enum TestReason {
             "Credentials cannot be read at this time, so a connection that needs one cannot be tested.", false),
     CHANGED_DURING_TEST("changed_during_test", "The connection was changed while it was tested. Test it again.",
             false),
+    CREDENTIAL_CHANGED("credential_changed",
+            "The credential was replaced or removed after the last test. Test the connection again.", false),
     UNEXPECTED("unexpected", "The test could not be completed.", false);
 
     private final String key;

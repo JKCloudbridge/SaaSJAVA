@@ -225,6 +225,8 @@ jobs:
             -e PLATFORM_STORAGE_ENDPOINT=http://smoke-store:8333 -e PLATFORM_STORAGE_PATH_STYLE=true \
             -e PLATFORM_STORAGE_BUCKET=smoke-files \
             -e PLATFORM_STORAGE_ACCESS_KEY="$store_key" -e PLATFORM_STORAGE_SECRET_KEY="$store_secret" \
+            -e PLATFORM_SECRETS_KEK_ACTIVE_ID=ci-smoke-kek \
+            -e PLATFORM_SECRETS_KEK_ACTIVE_KEY="$(openssl rand -base64 32)" \
             -e PLATFORM_SIGNING_KEY_ID=ci-smoke-key \
             -e PLATFORM_SIGNING_PRIVATE_KEY_FILE=/keys/private.pem \
             -e PLATFORM_SIGNING_PUBLIC_KEY_FILE=/keys/public.pem \

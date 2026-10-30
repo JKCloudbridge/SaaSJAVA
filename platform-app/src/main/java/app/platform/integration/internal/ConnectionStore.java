@@ -171,6 +171,39 @@ class ConnectionStore {
                 .param("tenant", tenant()).param("id", id).param("fingerprint", fingerprint).update() == 1;
     }
 
+    /** How many live connections name the credential. */
+    int countUsing(String credentialName) {
+        return jdbc.sql("select count(*) from integration_connection where tenant_id = :tenant "
+                        + "and credential_name = :name and deleted_at is null")
+                .param("tenant", tenant()).param("name", credentialName).query(Integer.class).single();
+    }
+
+    /** Whether a connection that is switched on (working or failing) names the credential. */
+    boolean anyOnUsing(String credentialName) {
+        return jdbc.sql("select exists (select 1 from integration_connection where tenant_id = :tenant "
+                        + "and credential_name = :name and state in ('ENABLED', 'FAILING') and deleted_at is null)")
+                .param("tenant", tenant()).param("name", credentialName).query(Boolean.class).single();
+    }
+
+    /**
+     * Voids what a test vouched for after the credential changed (ADR-0213): a tested connection goes back to
+     * untested, a connection that is switched off must be tested before it is switched on again, a connection that is
+     * switched on keeps running, and every one shows that its last test no longer counts. The fingerprint of the
+     * definition is not touched: the credential's value was never part of it.
+     */
+    int voidTests(String credentialName, UUID actor) {
+        return jdbc.sql("update integration_connection set "
+                        + "state = case when state = 'TESTED' then 'UNTESTED' else state end, "
+                        + "tested_fingerprint = case when state in ('TESTED', 'DISABLED') then null "
+                        + "else tested_fingerprint end, "
+                        + "last_test_result = case when last_test_at is null then last_test_result else 'VOIDED' end, "
+                        + "last_test_reason = case when last_test_at is null then last_test_reason "
+                        + "else 'credential_changed' end, "
+                        + "version = version + 1, updated_by = :actor where tenant_id = :tenant "
+                        + "and credential_name = :name and deleted_at is null")
+                .param("actor", actor).param("tenant", tenant()).param("name", credentialName).update();
+    }
+
     boolean remove(UUID id, long version, UUID actor) {
         return jdbc.sql("update integration_connection set deleted_at = now(), deleted_by = :actor, "
                         + "version = version + 1, updated_by = :actor where tenant_id = :tenant and id = :id "

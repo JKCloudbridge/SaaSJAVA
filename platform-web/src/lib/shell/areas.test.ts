@@ -131,6 +131,13 @@ describe("the console rail", () => {
     );
     expect(linksOf(homeRail(["integrations.manage", "integrations.test"])).some((entry) => entry.href === "/setup/integrations")).toBe(false);
   });
+  it("offers Credentials only to those who may see them, apart from the right to see integrations", () => {
+    expect(linksOf(homeRail(["credentials.view"]))).toContainEqual(
+      expect.objectContaining({ href: "/setup/credentials", ability: "credentials.view" }),
+    );
+    expect(linksOf(homeRail(["credentials.manage", "integrations.view"])).some((entry) => entry.href === "/setup/credentials")).toBe(false);
+    expect(linksOf(homeRail(["credentials.view"])).some((entry) => entry.href === "/setup/integrations")).toBe(false);
+  });
   it("lists the seven sections of the console with the same addresses as before", () => {
     expect(consoleRail().map((entry) => [entry.label, entry.kind === "link" ? entry.href : ""])).toEqual([
       ["Organizations", "/console"],

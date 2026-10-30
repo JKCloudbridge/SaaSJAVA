@@ -739,6 +739,32 @@ public final class TenantScopedTables {
                     tenant, "probe-" + UUID.randomUUID().toString().substring(0, 8), "a".repeat(64),
                     ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
 
+    /** A named secret of an organization (Sprint 27). Every probe uses its own name. */
+    public static final TenantScopedTable SECRET_ENTRY = new TenantScopedTable("secret_entry",
+            (connection, tenant) -> probeSecret(connection, tenant));
+
+    /** One sealed version of a secret (Sprint 27). A probe row needs its secret, which it creates. */
+    public static final TenantScopedTable SECRET_VERSION = new TenantScopedTable("secret_version",
+            (connection, tenant) -> {
+                UUID secret = probeSecret(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into secret_version (tenant_id, secret_id, ordinal, algorithm, key_id, wrapped_key, "
+                                + "sealed_value, created_by, updated_by) values (?, ?, 2, 'A256GCM-1', 'probe', ?, ?, "
+                                + "?, ?)",
+                        tenant, secret, new byte[60], new byte[40], ActorId.SYSTEM.value(),
+                        ActorId.SYSTEM.value());
+            });
+
+    /** The counted use of a secret in one hour (Sprint 27). A probe row needs its secret, which it creates. */
+    public static final TenantScopedTable SECRET_USAGE = new TenantScopedTable("secret_usage",
+            (connection, tenant) -> {
+                UUID secret = probeSecret(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into secret_usage (tenant_id, secret_id, hour_start, uses, created_by, updated_by) "
+                                + "values (?, ?, date_trunc('hour', now()), 1, ?, ?)",
+                        tenant, secret, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
     /** The counters of number series (FA2A). One live row per scope, so each call retires the live one first. */
     public static final TenantScopedTable NUMBER_SERIES_COUNTER = new TenantScopedTable("number_series_counter",
             (connection, tenant) -> {
@@ -917,7 +943,7 @@ public final class TenantScopedTables {
             APPROVAL_STEP_INSTANCE, APPROVAL_ASSIGNMENT, APPROVAL_HISTORY, APPROVAL_DELEGATION, NOTIFICATION,
             NOTIFICATION_PREFERENCE, NOTIFICATION_TEMPLATE, APPROVAL_STEP_TIMER, APPROVAL_REMINDER,
             ORGANIZATION_FIELD_VALUES, NUMBER_SERIES_COUNTER, NUMBERING_FORMAT, NUMBER_RESERVATION,
-            INTEGRATION_CONNECTION,
+            INTEGRATION_CONNECTION, SECRET_ENTRY, SECRET_VERSION, SECRET_USAGE,
             SHEET_VERSION, SHEET_FILL,
             SHEET_FILL_VALUE,
             INSPECTION_PUBLICATION, INSPECTION_CHANGE_REQUEST, INSPECTION_CHANGE_COMMENT,
@@ -988,6 +1014,17 @@ public final class TenantScopedTables {
                         + "as jsonb), cast('{}' as jsonb), ?, ?)",
                 version, tenant, process, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
         return version;
+    }
+
+    /** A secret for a probe row; returns it. Every call makes a secret with its own name. */
+    private static UUID probeSecret(java.sql.Connection connection, UUID tenant) throws java.sql.SQLException {
+        UUID secret = UUID.randomUUID();
+        TenantFixtures.update(connection,
+                "insert into secret_entry (id, tenant_id, name, current_version, created_by, updated_by) "
+                        + "values (?, ?, ?, 1, ?, ?)",
+                secret, tenant, "probe-" + UUID.randomUUID().toString().substring(0, 8), ActorId.SYSTEM.value(),
+                ActorId.SYSTEM.value());
+        return secret;
     }
 
     /** A pending request of the tenant for a probe row, with its process and version; returns it. */

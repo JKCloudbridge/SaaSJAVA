@@ -272,6 +272,22 @@ platform:
       timeout: 10s
       min-interval: 5s
       max-concurrent: 4
+  secrets:
+    # The secrets store (Sprint 27, ADR-0212). The key-encryption key wraps the data keys of stored secrets and is
+    # supplied by the deployment (a mounted file or an environment variable from its secret manager): there is no
+    # default, and without a valid key the application does not start. A key is 32 random bytes in Base64.
+    kek:
+      active-id: ${PLATFORM_SECRETS_KEK_ACTIVE_ID:}
+      active-key: ${PLATFORM_SECRETS_KEK_ACTIVE_KEY:}
+      active-file: ${PLATFORM_SECRETS_KEK_ACTIVE_FILE:}
+      # Older keys, only used to open what they wrapped while the active key is being replaced:
+      #   previous:
+      #     - id: <identifier>
+      #       file: <path>     (or key: <Base64>)
+    limits:
+      max-value-chars: 4096
+      max-per-organization: 200
+      retained-versions: 3
   notification:
     # Every instance may run the mail relay; they coordinate through the database (ADR-0024).
     enabled: ${PLATFORM_MAIL_RELAY_ENABLED:true}

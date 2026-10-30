@@ -22,6 +22,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.awaitility.Awaitility;
+import org.awaitility.core.ConditionTimeoutException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
@@ -174,8 +175,16 @@ abstract class WorkflowSupport {
      * loaded CI runner can be slower than a developer machine to drain the queue.
      */
     protected static void settle(Organization organization) {
-        Awaitility.await().atMost(Duration.ofSeconds(180)).pollInterval(Duration.ofMillis(50)).until(
-                () -> scalar(organization, "select count(*) from outbox_event where status = 'PENDING'") == 0);
+        try {
+            Awaitility.await().atMost(Duration.ofSeconds(180)).pollInterval(Duration.ofMillis(50)).until(
+                    () -> scalar(organization, "select count(*) from outbox_event where status = 'PENDING'") == 0);
+        } catch (ConditionTimeoutException timeout) {
+            // Say why the queue did not drain: a stall seen only on CI is otherwise undiagnosable. Types, counters
+            // and times only; the payload is never read.
+            throw new AssertionError("The outbox did not drain: " + rows(organization, "select event_type, attempts, "
+                    + "status, last_error_type, next_attempt_at - now() as due_in, locked_until - now() as locked_for "
+                    + "from outbox_event where status = 'PENDING' order by created_at limit 10"), timeout);
+        }
     }
 
     /** Runs the worker until it finds nothing more to claim. */

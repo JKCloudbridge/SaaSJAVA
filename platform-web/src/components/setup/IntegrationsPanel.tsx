@@ -50,6 +50,7 @@ export function IntegrationsPanel() {
   const [items, setItems] = useState<Integration[] | undefined>();
   const [types, setTypes] = useState<ConnectorType[]>([]);
   const [objects, setObjects] = useState<ObjectSummary[]>([]);
+  const [credentialNames, setCredentialNames] = useState<string[]>([]);
   const [failure, setFailure] = useState<string | undefined>();
   const [editing, setEditing] = useState(false);
   const offersManage = useOffers("integrations.manage");
@@ -57,10 +58,12 @@ export function IntegrationsPanel() {
 
   const reload = useCallback(async () => {
     try {
-      const [list, kinds, known] = await Promise.all([
+      const [list, kinds, known, credentials] = await Promise.all([
         api.GET("/api/v1/integrations"),
         api.GET("/api/v1/integrations/connector-types"),
         api.GET("/api/v1/metadata/objects"),
+        // A person who may not see credentials gets a refusal here and types the name instead.
+        api.GET("/api/v1/credentials").catch(() => undefined),
       ]);
       if (!list.data) {
         setFailure(await failureText(list.error, list.response));
@@ -70,6 +73,7 @@ export function IntegrationsPanel() {
       setItems(list.data.data);
       setTypes(kinds.data?.data ?? []);
       setObjects(known.data?.data ?? []);
+      setCredentialNames(credentials?.data?.data.map((one) => one.name) ?? []);
     } catch {
       setFailure(COMMON_TEXT.network);
     }
@@ -143,6 +147,7 @@ export function IntegrationsPanel() {
         start={newDraft(types[0])}
         types={types}
         objects={objects}
+        credentialNames={credentialNames}
         busy={busy}
         messages={messages}
         onCancel={() => screen.back()}
@@ -166,6 +171,7 @@ export function IntegrationsPanel() {
         existing={item}
         types={types}
         objects={objects}
+        credentialNames={credentialNames}
         busy={busy}
         messages={messages}
         onCancel={() => setEditing(false)}
@@ -319,6 +325,8 @@ interface FormProps {
   existing?: Integration;
   types: ConnectorType[];
   objects: ObjectSummary[];
+  /** The names of the credentials the person may see; empty when the API offers none. */
+  credentialNames: string[];
   busy: boolean;
   messages: ReactNode;
   title: string;
@@ -328,7 +336,19 @@ interface FormProps {
 }
 
 /** The form for a connection, drawn from the connector type the API describes. */
-function IntegrationForm({ start, existing, types, objects, busy, messages, title, submitLabel, onCancel, onSubmit }: FormProps) {
+function IntegrationForm({
+  start,
+  existing,
+  types,
+  objects,
+  credentialNames,
+  busy,
+  messages,
+  title,
+  submitLabel,
+  onCancel,
+  onSubmit,
+}: FormProps) {
   const [draft, setDraft] = useState<Draft>(start);
   const type = useMemo(() => types.find((candidate) => candidate.key === draft.connectorType), [types, draft.connectorType]);
   const patch = (change: Partial<Draft>) => setDraft((old) => ({ ...old, ...change }));
@@ -422,13 +442,34 @@ function IntegrationForm({ start, existing, types, objects, busy, messages, titl
             </div>
             <div className="field">
               <label htmlFor="integration-credential">Name of the credential</label>
-              <input
-                id="integration-credential"
-                value={draft.credentialName}
-                maxLength={128}
-                onChange={(event) => patch({ credentialName: event.target.value })}
-              />
-              <span className="hint">Only the name is kept here. The credential itself is never shown or stored with the connection.</span>
+              {credentialNames.length > 0 ? (
+                <select
+                  id="integration-credential"
+                  value={draft.credentialName}
+                  onChange={(event) => patch({ credentialName: event.target.value })}
+                >
+                  <option value="">Choose a credential</option>
+                  {draft.credentialName !== "" && !credentialNames.includes(draft.credentialName) ? (
+                    <option value={draft.credentialName}>{draft.credentialName}</option>
+                  ) : null}
+                  {credentialNames.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id="integration-credential"
+                  value={draft.credentialName}
+                  maxLength={128}
+                  onChange={(event) => patch({ credentialName: event.target.value })}
+                />
+              )}
+              <span className="hint">
+                Only the name is kept here. The credential itself is never shown or stored with the connection; it is
+                added under Credentials.
+              </span>
             </div>
             <div className="field">
               <label htmlFor="integration-header">Header that carries the credential</label>

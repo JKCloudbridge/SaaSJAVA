@@ -59,6 +59,12 @@ logging:
     correlation: "[trace=%X{traceId:-} request=%X{requestId:-} tenant=%X{tenantId:-}] "
 
 platform:
+  secrets:
+    kek:
+      # The key of infra/local/.env (made by init-env.ps1). It must stay the same between starts, or the credentials
+      # stored in the local database can no longer be opened.
+      active-id: local
+      active-key: ${LOCAL_SECRETS_KEY:}
   tenancy:
     # Browsers resolve every *.localhost name to this machine: open http://tenant-a.localhost:3000
     base-domain: localhost
