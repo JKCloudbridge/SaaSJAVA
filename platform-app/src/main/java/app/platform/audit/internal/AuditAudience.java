@@ -27,7 +27,7 @@ record AuditAudience(boolean organization, boolean platform) {
             return new AuditAudience(aboutOrganization, true);
         }
         if (type.startsWith("access.") || type.startsWith("membership.") || type.startsWith("organization.")
-                || type.startsWith("metadata.")) {
+                || type.startsWith("credentials.") || type.startsWith("metadata.")) {
             return new AuditAudience(aboutOrganization, false);
         }
         return new AuditAudience(aboutOrganization, !aboutOrganization);
@@ -41,6 +41,6 @@ record AuditAudience(boolean organization, boolean platform) {
     static boolean reasonVisible(String type) {
         return type.startsWith("access.") || type.startsWith("membership.") || type.startsWith("support_access.")
                 || type.startsWith("retention.") || type.startsWith("tenant.") || type.startsWith("metadata.")
-                || type.startsWith("approval.");
+                || type.startsWith("approval.") || type.startsWith("credentials.");
     }
 }

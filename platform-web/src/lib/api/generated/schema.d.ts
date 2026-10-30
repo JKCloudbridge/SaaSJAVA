@@ -840,6 +840,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The organization's credentials
+         * @description Needs credentials.view. Names, versions, dates and how many connections use each. Never a value, and never whether a value is valid.
+         */
+        get: operations["listCredentials"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/credentials/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add a credential or replace its value
+         * @description Needs credentials.view and credentials.manage. The value is in the body and is sealed at once; it is never returned, shown, logged or audited. Writing to a name that exists makes a new version and marks the last test of every connection that uses it as void.
+         */
+        put: operations["writeCredential"];
+        post?: never;
+        /**
+         * Remove a credential and all its versions
+         * @description Needs credentials.view and credentials.manage. Refused while a connection that is switched on uses it.
+         */
+        delete: operations["removeCredential"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/credentials/{name}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Go back to the version before
+         * @description Needs credentials.view and credentials.manage. The version before the current one becomes the current value again, as a new version. No one is shown a value.
+         */
+        post: operations["rollBackCredential"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/data-access/mine": {
         parameters: {
             query?: never;
@@ -5845,6 +5909,9 @@ export interface components {
         ApiResponseChangeSetView: {
             data: components["schemas"]["ChangeSetView"];
         };
+        ApiResponseCredentialView: {
+            data: components["schemas"]["CredentialView"];
+        };
         ApiResponseCurrentUser: {
             data: components["schemas"]["CurrentUser"];
         };
@@ -5949,6 +6016,9 @@ export interface components {
         };
         ApiResponseListConnectorTypeView: {
             data: components["schemas"]["ConnectorTypeView"][];
+        };
+        ApiResponseListCredentialView: {
+            data: components["schemas"]["CredentialView"][];
         };
         ApiResponseListCustomPageView: {
             data: components["schemas"]["CustomPageView"][];
@@ -7062,6 +7132,20 @@ export interface components {
             label: string;
             name: string;
             trigger: components["schemas"]["WorkflowTriggerSpec"];
+        };
+        CredentialView: {
+            canRollBack?: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastUsedAt?: string;
+            name: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int32 */
+            usedBy?: number;
+            /** Format: int32 */
+            version?: number;
         };
         CurrentUser: {
             abilities: string[];
@@ -9523,6 +9607,9 @@ export interface components {
             /** Format: int64 */
             version: number;
         };
+        WriteCredentialRequest: {
+            value: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -10954,6 +11041,132 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseChangeRequestView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listCredentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListCredentialView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    writeCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WriteCredentialRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCredentialView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    removeCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseBoolean"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    rollBackCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCredentialView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

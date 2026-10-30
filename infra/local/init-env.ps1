@@ -16,6 +16,13 @@ function New-RandomSecret([int]$bytes = 24) {
     return ([Convert]::ToBase64String($buffer) -replace '[+/=]', 'x')
 }
 
+function New-RandomKey {
+    # The local key-encryption key of the secrets store: 32 random bytes in standard Base64.
+    $buffer = New-Object byte[] 32
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($buffer)
+    return [Convert]::ToBase64String($buffer)
+}
+
 function New-RandomPassword {
     # LOCAL_SEED_PASSWORD must satisfy PasswordPolicy (platform.identity.password): at least 9 characters, with an
     # upper case letter, a lower case letter, a digit and a symbol. New-RandomSecret alone will not reliably contain
@@ -43,6 +50,7 @@ if ((Test-Path $target) -and -not $Force) {
         $key = ($line -split '=', 2)[0]
         if (-not $existing.ContainsKey($key)) {
             if ($key -eq 'LOCAL_SEED_PASSWORD') { $line = "$key=$(New-RandomPassword)" }
+            elseif ($key -eq 'LOCAL_SECRETS_KEY') { $line = "$key=$(New-RandomKey)" }
             elseif ($secrets.ContainsKey($key)) { $line = "$key=$(New-RandomSecret $secrets[$key])" }
             $added += $line
         }
@@ -67,6 +75,7 @@ foreach ($key in $secrets.Keys) {
     $content = $content -replace "(?m)^$key=.*$", "$key=$(New-RandomSecret $secrets[$key])"
 }
 $content = $content -replace '(?m)^LOCAL_SEED_PASSWORD=.*$', "LOCAL_SEED_PASSWORD=$(New-RandomPassword)"
+$content = $content -replace '(?m)^LOCAL_SECRETS_KEY=.*$', "LOCAL_SECRETS_KEY=$(New-RandomKey)"
 [System.IO.File]::WriteAllText($target, $content, (New-Object System.Text.UTF8Encoding($false)))
 Write-Host "Created $target with random local-only credentials."
 Write-Host "After 'docker compose up -d', run ./init-app-role.ps1 once to create the application database role."

@@ -266,6 +266,9 @@ public final class ApiPaths {
     /** Connections to external systems and the catalogue of connector types (Sprint 26, ADR-0207). */
     public static final String INTEGRATIONS = V1 + "/integrations";
 
+    /** Credentials of an organization: written, listed by name and removed, never read back (Sprint 27, ADR-0212). */
+    public static final String CREDENTIALS = V1 + "/credentials";
+
     private ApiPaths() {
     }
 }

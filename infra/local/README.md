@@ -81,8 +81,11 @@ not used yet. Three ways to run it, all against these services:
 1. **As a jar or from the IDE** (the usual loop). Build once with `./mvnw -DskipTests package` in the repository root, then
    `java -jar platform-app/target/platform-app-0.1.0-SNAPSHOT.jar --spring.profiles.active=local`. The `local` profile reads
    `infra/local/.env` directly (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`, `APP_DB_USER`, `APP_DB_PASSWORD`,
-   `TRACING_COLLECTOR_PORT`, `REDIS_PORT`, `REDIS_PASSWORD`, `MAIL_SMTP_PORT`, `LOCAL_SEED_PASSWORD`),
+   `TRACING_COLLECTOR_PORT`, `REDIS_PORT`, `REDIS_PASSWORD`, `MAIL_SMTP_PORT`, `LOCAL_SEED_PASSWORD`, `LOCAL_SECRETS_KEY`),
    so nothing needs to be exported; real environment variables win over the file. The first start migrates the database.
+   `LOCAL_SECRETS_KEY` is the key that protects credentials saved in this database (Sprint 27): `init-env.ps1` adds it to an
+   existing `.env` that lacks it, the application does not start without it, and credentials saved under one key cannot be opened
+   with another, so keep it as long as you keep the database.
 2. **As the container image**, closest to a deployment: build the jar as above, then
    `docker build -t platform-app:local platform-app` and `docker compose --profile app up -d` here. It runs the `prod`
    profile with the settings passed in the compose file, plus Redis and, for this local container only, cookies without the Secure

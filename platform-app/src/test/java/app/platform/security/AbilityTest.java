@@ -33,6 +33,16 @@ class AbilityTest {
     }
 
     @Test
+    void theAbilitiesOfCredentialsAreApartFromTheAbilitiesOfIntegrations() {
+        assertThat(Ability.fromKey("credentials.view")).contains(Ability.CREDENTIALS_VIEW);
+        assertThat(Ability.fromKey("credentials.manage")).contains(Ability.CREDENTIALS_MANAGE);
+        assertThat(List.of(Ability.CREDENTIALS_VIEW, Ability.CREDENTIALS_MANAGE)).doesNotContainAnyElementsOf(
+                List.of(Ability.INTEGRATIONS_VIEW, Ability.INTEGRATIONS_MANAGE, Ability.INTEGRATIONS_TEST));
+        assertThat(Ability.CREDENTIALS_VIEW.description()).as("no ability can show a value")
+                .contains("can never be seen");
+    }
+
+    @Test
     void everyKeyIsUniqueDocumentedAndHasTheShapeTheDatabaseAccepts() {
         List<String> keys = Arrays.stream(Ability.values()).map(Ability::key).toList();
 

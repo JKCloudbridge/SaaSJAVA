@@ -1,7 +1,7 @@
 # Runbook: connections to external systems
 
 Sprint 26 (ADR-0207 to ADR-0211). For the operator and for an organization's administrator. The framework can describe, test
-and switch on a connection; it cannot yet hold a real credential (Sprint 27), map data or send a record (Sprint 28).
+and switch on a connection; a credential is written under Setup, Credentials (Sprint 27, [secrets.md](secrets.md)); it cannot yet map data or send a record (Sprint 28).
 
 ## Who may do what
 
@@ -39,8 +39,9 @@ The answer is a stable reason and a fixed sentence; the platform never shows wha
 | `authentication_rejected` | the service answered 401 or 403 to the credential |
 | `credential_missing` | no secret exists under that name for this organization |
 | `credential_unusable` | the secret cannot be sent as a header (a space in a bearer token, a line break, no `:` in a user name and password) |
-| `credential_store_unavailable` | the secrets store cannot be read, or **no store is installed (before Sprint 27 this is the answer for every connection that needs a credential)** |
+| `credential_store_unavailable` | the secrets store cannot be read, or its key cannot be opened by this instance (see [secrets.md](secrets.md)) |
 | `changed_during_test` | the connection was changed while it was tested; test again |
+| `credential_changed` | not the result of a call: the credential this connection names was replaced, rolled back or removed after the last test, so that test no longer counts (the result shows as voided); test the connection again |
 
 A test is limited to one per connection every `platform.integration.test.min-interval` (default 5 s); a second answers `429`.
 
@@ -76,6 +77,6 @@ network of the platform, not at one organization.
 ## What to do when
 
 - **Every test of every organization fails with `name_not_found`:** the application's DNS. Check the resolver of the host.
-- **`credential_store_unavailable` everywhere:** expected until Sprint 27 installs a store.
+- **`credential_store_unavailable`:** the store could not open the credential; see [secrets.md](secrets.md). A test whose last result reads `credential_changed` only needs to be run again after a credential was replaced.
 - **A connection is stuck `FAILING`:** run a test; if it passes it is `ENABLED` again; if the service is gone, switch it off.
 - **An administrator cannot change a connection:** it is on. Switch it off first.

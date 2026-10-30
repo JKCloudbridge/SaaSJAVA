@@ -1828,6 +1828,158 @@
         "tags" : [ "Template change requests" ]
       }
     },
+    "/api/v1/credentials" : {
+      "get" : {
+        "description" : "Needs credentials.view. Names, versions, dates and how many connections use each. Never a value, and never whether a value is valid.",
+        "operationId" : "listCredentials",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListCredentialView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The organization's credentials",
+        "tags" : [ "Credentials" ]
+      }
+    },
+    "/api/v1/credentials/{name}" : {
+      "delete" : {
+        "description" : "Needs credentials.view and credentials.manage. Refused while a connection that is switched on uses it.",
+        "operationId" : "removeCredential",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseBoolean"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a credential and all its versions",
+        "tags" : [ "Credentials" ]
+      },
+      "put" : {
+        "description" : "Needs credentials.view and credentials.manage. The value is in the body and is sealed at once; it is never returned, shown, logged or audited. Writing to a name that exists makes a new version and marks the last test of every connection that uses it as void.",
+        "operationId" : "writeCredential",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WriteCredentialRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCredentialView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Add a credential or replace its value",
+        "tags" : [ "Credentials" ]
+      }
+    },
+    "/api/v1/credentials/{name}/rollback" : {
+      "post" : {
+        "description" : "Needs credentials.view and credentials.manage. The version before the current one becomes the current value again, as a new version. No one is shown a value.",
+        "operationId" : "rollBackCredential",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCredentialView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Go back to the version before",
+        "tags" : [ "Credentials" ]
+      }
+    },
     "/api/v1/data-access/mine" : {
       "get" : {
         "description" : "Their effective permissions on objects and fields (profile while licensed, access policies, the access policies of their groups, individual grants), with implied actions written out. Presentation only: every request is decided again by the server. NOT_FOUND on the platform host.",
@@ -15312,6 +15464,15 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseCredentialView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CredentialView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseCurrentUser" : {
         "type" : "object",
         "properties" : {
@@ -15652,6 +15813,18 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/ConnectorTypeView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListCredentialView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CredentialView"
             }
           }
         },
@@ -19279,6 +19452,38 @@
           }
         },
         "required" : [ "actions", "label", "name", "trigger" ]
+      },
+      "CredentialView" : {
+        "type" : "object",
+        "properties" : {
+          "canRollBack" : {
+            "type" : "boolean"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastUsedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "usedBy" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "createdAt", "name", "updatedAt" ]
       },
       "CurrentUser" : {
         "type" : "object",
@@ -27002,6 +27207,17 @@
           }
         },
         "required" : [ "actions", "active", "apiName", "definitionVersion", "description", "label", "objectApiName", "trigger", "version" ]
+      },
+      "WriteCredentialRequest" : {
+        "type" : "object",
+        "properties" : {
+          "value" : {
+            "type" : "string",
+            "maxLength" : 4096,
+            "minLength" : 1
+          }
+        },
+        "required" : [ "value" ]
       }
     }
   }

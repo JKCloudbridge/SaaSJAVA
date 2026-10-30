@@ -59,6 +59,12 @@ platform:
     timer:
       # Tests drive the timer of reminders themselves (pollOnce), or switch it on for the one context that wants it.
       enabled: false
+  secrets:
+    kek:
+      # A fixed key for the tests only (not a secret: it protects nothing outside a throw-away database), so that two
+      # application instances started by one test open each other's secrets.
+      active-id: test-kek
+      active-key: dGVzdC1rZXktZW5jcnlwdGlvbi1rZXktMzItYnl0ZXM=
   integration:
     egress:
       # The sample connector talks to a service the test starts on this machine, over plain HTTP.

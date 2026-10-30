@@ -1273,4 +1273,30 @@ if [ -n "$mail" ]; then
   status="$(client_call -X DELETE -H "$group_json" "$base/api/v1/integrations/smoke-link")"
   [ "$status" = "200" ] || fail "removing the connection answered $status: $(cat "$body")"
   echo "ok: the connector catalogue described its types, a connection was made untested, could not be switched on before a test, a private address was refused without being repeated, and the connection was removed"
+  # 32. Credentials (Sprint 27, ADR-0212 to ADR-0215): a credential is written, listed by name, replaced (a new version),
+  # rolled back and removed, and its value is in no answer and no log of the container (the columns of the tables are
+  # looked at by SecretsLogsAreCleanIT and SecretStoreGuardIT, which can set the organization the policies need). Written carefully and NOT claimed to work until this job has run it.
+  canary="smoke-canary-$(date +%s)-value"
+  status="$(client_call -X PUT -H "$group_json" -d "{\"value\":\"$canary\"}" "$base/api/v1/credentials/smoke-credential")"
+  [ "$status" = "200" ] || fail "writing a credential answered $status: $(cat "$body")"
+  grep -Fq '"version":1' "$body" || fail "a new credential is not at version 1: $(cat "$body")"
+  if grep -Fq "$canary" "$body"; then fail "the answer repeats the value: $(cat "$body")"; fi
+  status="$(client_call "$base/api/v1/credentials")"
+  [ "$status" = "200" ] || fail "listing the credentials answered $status: $(cat "$body")"
+  grep -Fq '"name":"smoke-credential"' "$body" || fail "the credential is not listed: $(cat "$body")"
+  if grep -Fq "$canary" "$body"; then fail "the list repeats the value: $(cat "$body")"; fi
+  status="$(client_call -X PUT -H "$group_json" -d "{\"value\":\"$canary-two\"}" "$base/api/v1/credentials/smoke-credential")"
+  [ "$status" = "200" ] || fail "replacing a credential answered $status: $(cat "$body")"
+  grep -Fq '"version":2' "$body" || fail "a replaced credential is not at version 2: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/credentials/smoke-credential/rollback")"
+  [ "$status" = "200" ] || fail "rolling a credential back answered $status: $(cat "$body")"
+  grep -Fq '"version":3' "$body" || fail "a rolled back credential is not at version 3: $(cat "$body")"
+  status="$(client_call -X PUT -H "$group_json" -d '{"value":""}' "$base/api/v1/credentials/smoke-credential")"
+  [ "$status" = "400" ] || fail "an empty value was accepted ($status): $(cat "$body")"
+  if docker logs smoke 2>&1 | grep -Fq "$canary"; then fail "the log of the container holds the value"; fi
+  status="$(client_call -X DELETE -H "$group_json" "$base/api/v1/credentials/smoke-credential")"
+  [ "$status" = "200" ] || fail "removing the credential answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/credentials")"
+  if grep -Fq '"name":"smoke-credential"' "$body"; then fail "the credential is still listed after its removal: $(cat "$body")"; fi
+  echo "ok: a credential was written, listed by name, replaced, rolled back and removed; no answer and no log line of the container held its value"
 fi
