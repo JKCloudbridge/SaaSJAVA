@@ -103,6 +103,8 @@ class PlatformRulesTest {
         // tests narrow all three.
         noClasses().that().resideOutsideOfPackages("app.platform.tenant..", "app.platform.outbox..",
                         "app.platform.identity..", "app.platform.workflow..", "app.platform.approval..")
+                // Sprint 28 (ADR-0221): the one class of integration that finds a connection by its public identity.
+                .and().doNotHaveFullyQualifiedName("app.platform.integration.internal.InboundDirectory")
                 .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.tenant.SystemScope")
                 .because("system scopes are platform infrastructure")
                 .allowEmptyShould(true)
