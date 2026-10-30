@@ -15,9 +15,6 @@ import app.platform.sharedkernel.TenantId;
 import app.platform.sharedkernel.audit.AuditOutcome;
 import app.platform.sharedkernel.audit.AuditRecord;
 import app.platform.sharedkernel.audit.AuditRecorder;
-import app.platform.sharedkernel.secrets.SecretRef;
-import app.platform.sharedkernel.secrets.SecretValue;
-import app.platform.sharedkernel.secrets.SecretsStore;
 import app.platform.tenant.TenantContext;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
@@ -25,10 +22,7 @@ import app.platformapi.IntegrationTestView;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import jakarta.annotation.PreDestroy;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.Base64;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -37,7 +31,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -67,7 +60,7 @@ class ConnectionTesting {
     private final EgressClient egress;
     private final EndpointRules.Policy policy;
     private final IntegrationProperties properties;
-    private final ObjectProvider<SecretsStore> secrets;
+    private final CredentialHeaders credentials;
     private final AuditRecorder audit;
     private final ErrorTracker tracker;
     private final MeterRegistry meters;
@@ -76,7 +69,7 @@ class ConnectionTesting {
 
     ConnectionTesting(PlatformTransactionManager transactions, ConnectionStore store, ConnectorRegistry registry,
             IntegrationAccess access, IntegrationViews views, EgressClient egress, EndpointRules.Policy policy,
-            IntegrationProperties properties, ObjectProvider<SecretsStore> secrets, AuditRecorder audit,
+            IntegrationProperties properties, CredentialHeaders credentials, AuditRecorder audit,
             ErrorTracker tracker, MeterRegistry meters) {
         this.transactions = transactions;
         this.store = store;
@@ -86,7 +79,7 @@ class ConnectionTesting {
         this.egress = egress;
         this.policy = policy;
         this.properties = properties;
-        this.secrets = secrets;
+        this.credentials = credentials;
         this.audit = audit;
         this.tracker = tracker;
         this.meters = meters;
@@ -174,28 +167,12 @@ class ConnectionTesting {
         if (!address.ok()) {
             return TestReason.ADDRESS_NOT_ALLOWED;
         }
-        Header header = null;
         AuthKind auth = AuthKind.fromKey(definition.authKind()).orElse(AuthKind.NONE);
-        if (auth != AuthKind.NONE) {
-            Optional<SecretValue> secret;
-            try {
-                SecretsStore store = secrets.getIfAvailable();
-                if (store == null) {
-                    return TestReason.CREDENTIAL_STORE_UNAVAILABLE;
-                }
-                secret = store.resolve(SecretRef.forTenant(tenant, definition.credentialName()));
-            } catch (RuntimeException unavailable) {
-                // Deliberately without the exception: a store's message could carry secret material.
-                return TestReason.CREDENTIAL_STORE_UNAVAILABLE;
-            }
-            if (secret.isEmpty()) {
-                return TestReason.CREDENTIAL_MISSING;
-            }
-            header = header(auth, definition.authHeaderName(), secret.get());
-            if (header == null) {
-                return TestReason.CREDENTIAL_UNUSABLE;
-            }
+        CredentialHeaders.Resolved credential = credentials.resolve(tenant, definition);
+        if (credential.failure() != null) {
+            return credential.failure();
         }
+        Header header = credential.header();
         Duration timeout = probe.timeout().compareTo(properties.test().timeout()) < 0 ? probe.timeout()
                 : properties.test().timeout();
         Outcome outcome = egress.send(new EgressClient.Request(address.endpoint(),
@@ -212,25 +189,6 @@ class ConnectionTesting {
         }
         return auth != AuthKind.NONE && (status == 401 || status == 403) ? TestReason.AUTHENTICATION_REJECTED
                 : TestReason.UNEXPECTED_STATUS;
-    }
-
-    /** The header that carries the credential, or null when the secret cannot be sent as one. */
-    private static Header header(AuthKind auth, String customName, SecretValue secret) {
-        char[] plain = secret.reveal();
-        try {
-            String text = new String(plain);
-            return switch (auth) {
-                case BEARER_TOKEN -> Header.printable(text) && text.indexOf(' ') < 0
-                        ? new Header("Authorization", "Bearer " + text) : null;
-                case API_KEY_HEADER -> Header.printable(text) ? new Header(customName, text) : null;
-                case BASIC -> text.indexOf(':') > 0 ? new Header("Authorization", "Basic "
-                        + Base64.getEncoder().encodeToString(text.getBytes(StandardCharsets.UTF_8))) : null;
-                case NONE -> null;
-            };
-        } finally {
-            java.util.Arrays.fill(plain, '\0');
-            secret.destroy();
-        }
     }
 
     private IntegrationTestView finish(Claimed claimed, TestReason reason) {

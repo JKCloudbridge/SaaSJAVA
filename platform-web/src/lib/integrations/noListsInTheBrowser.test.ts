@@ -5,7 +5,12 @@ import { describe, expect, it } from "vitest";
 const src = path.resolve(__dirname, "..", "..");
 
 /** The sources of the integration screens and their model: everything that draws or decides something about a connection. */
-const FILES = ["components/setup/IntegrationsPanel.tsx", "lib/integrations/model.ts"];
+const FILES = [
+  "components/setup/IntegrationsPanel.tsx",
+  "lib/integrations/model.ts",
+  "components/setup/MappingDesigner.tsx",
+  "lib/integrations/mappingModel.ts",
+];
 
 /**
  * The browser holds no list of what a connection can be made of (Sprint 26, ADR-0207, ADR-0210): the connector types, their
@@ -41,6 +46,15 @@ describe("the integration screens", () => {
     for (const { file, text } of sources) {
       expect(text, file).not.toMatch(/state\s*===?\s*"(TESTED|UNTESTED|DISABLED)"/);
       expect(text, file).not.toMatch(/\b(TESTED|UNTESTED|DISABLED)\b.*\?.*:/);
+    }
+  });
+
+  it("hold no conversion, rule or reason of the mappings: the API's catalogue and words are shown", () => {
+    for (const { file, text } of sources) {
+      expect(text, file).not.toMatch(/"(VALUE_MAP|NUMBER_SCALE|TRIM|PLATFORM_UNLESS_NEWER|EXTERNAL_WINS|PLATFORM_WINS)"/);
+      expect(text, file).not.toMatch(
+        /\b(required_missing|value_not_mapped|transform_failed|platform_newer|out_of_scope|unknown_entity|update_not_allowed)\b/,
+      );
     }
   });
 

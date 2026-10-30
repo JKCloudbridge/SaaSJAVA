@@ -34,7 +34,14 @@ public enum SystemScope {
      * reading and for the claim, and no other table does. The work itself always runs inside the organization's own
      * tenant context.
      */
-    APPROVAL_TIMERS("approval_timers", false);
+    APPROVAL_TIMERS("approval_timers", false),
+
+    /**
+     * The receiver of changes from an external system (Sprint 28, ADR-0221): finds the connection a public address
+     * names and, through it, the organization. The policy of {@code integration_connection} admits it for reading
+     * and no other table does. The work itself always runs inside the organization’s own tenant context.
+     */
+    INBOUND_LOOKUP("inbound_lookup", false);
 
     private final String settingValue;
     private final boolean audited;

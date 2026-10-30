@@ -41,7 +41,7 @@ class ConnectionStore {
     /** A stored connection. */
     record Connection(UUID id, String name, String connectorType, Definition definition, State state,
             String testedFingerprint, Instant lastTestAt, String lastTestResult, String lastTestReason,
-            long version) {
+            long version, String inboundId) {
 
         @Override
         public String toString() {
@@ -52,7 +52,8 @@ class ConnectionStore {
     private static final String COLUMNS = "id, name, label, connector_type, connector_version, base_url, auth_kind, "
             + "auth_header_name, credential_name, cast(settings as text) as settings, "
             + "cast(subscriptions as text) as subscriptions, cast(scope as text) as scope, state, "
-            + "definition_fingerprint, tested_fingerprint, last_test_at, last_test_result, last_test_reason, version";
+            + "definition_fingerprint, tested_fingerprint, last_test_at, last_test_result, last_test_reason, version, "
+            + "inbound_id";
     private static final TypeReference<Map<String, String>> SETTINGS = new TypeReference<>() {
     };
     private static final TypeReference<List<IntegrationView.Subscription>> SUBSCRIPTIONS = new TypeReference<>() {
@@ -174,14 +175,16 @@ class ConnectionStore {
     /** How many live connections name the credential. */
     int countUsing(String credentialName) {
         return jdbc.sql("select count(*) from integration_connection where tenant_id = :tenant "
-                        + "and credential_name = :name and deleted_at is null")
+                        + "and (credential_name = :name or settings ->> 'inboundCredential' = :name) "
+                        + "and deleted_at is null")
                 .param("tenant", tenant()).param("name", credentialName).query(Integer.class).single();
     }
 
     /** Whether a connection that is switched on (working or failing) names the credential. */
     boolean anyOnUsing(String credentialName) {
         return jdbc.sql("select exists (select 1 from integration_connection where tenant_id = :tenant "
-                        + "and credential_name = :name and state in ('ENABLED', 'FAILING') and deleted_at is null)")
+                        + "and (credential_name = :name or settings ->> 'inboundCredential' = :name) "
+                        + "and state in ('ENABLED', 'FAILING') and deleted_at is null)")
                 .param("tenant", tenant()).param("name", credentialName).query(Boolean.class).single();
     }
 
@@ -200,7 +203,8 @@ class ConnectionStore {
                         + "last_test_reason = case when last_test_at is null then last_test_reason "
                         + "else 'credential_changed' end, "
                         + "version = version + 1, updated_by = :actor where tenant_id = :tenant "
-                        + "and credential_name = :name and deleted_at is null")
+                        + "and (credential_name = :name or settings ->> 'inboundCredential' = :name) "
+                        + "and deleted_at is null")
                 .param("actor", actor).param("tenant", tenant()).param("name", credentialName).update();
     }
 
@@ -222,7 +226,7 @@ class ConnectionStore {
         return new Connection(rs.getObject("id", UUID.class), rs.getString("name"), rs.getString("connector_type"),
                 definition, State.valueOf(rs.getString("state")), rs.getString("tested_fingerprint"),
                 at == null ? null : at.toInstant(), rs.getString("last_test_result"),
-                rs.getString("last_test_reason"), rs.getLong("version"));
+                rs.getString("last_test_reason"), rs.getLong("version"), rs.getString("inbound_id"));
     }
 
     private UUID tenant() {

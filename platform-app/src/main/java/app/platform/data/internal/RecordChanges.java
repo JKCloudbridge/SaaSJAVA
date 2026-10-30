@@ -250,9 +250,14 @@ class RecordChanges {
             // Names and identifiers only (ADR-0139): which workflow, which run, never a value.
             boolean workflow = source.kind() == BackgroundWrites.Kind.WORKFLOW;
             boolean solution = source.kind() == BackgroundWrites.Kind.SOLUTION;
+            boolean inbound = source.kind() == BackgroundWrites.Kind.INTEGRATION;
             record = record.from(AuditSource.SYSTEM).with("actor", "platform")
-                    .with(workflow ? "workflow" : solution ? "act" : "approval", source.name())
-                    .with(workflow ? "execution" : solution ? "subject" : "request", source.execution().toString());
+                    .with(workflow ? "workflow" : solution ? "act" : inbound ? "channel" : "approval", source.name())
+                    .with(workflow ? "execution" : solution ? "subject" : inbound ? "change" : "request",
+                            source.execution().toString());
+            if (inbound && source.chain() != null && !source.chain().workflows().isEmpty()) {
+                record = record.with("integration", source.chain().workflows().get(0).toString());
+            }
         }
         audit.record(record);
         events.publish(new NewEvent("record." + kind, payload(object, id, version, fields, source)));

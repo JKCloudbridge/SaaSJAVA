@@ -220,7 +220,21 @@ public enum Ability {
     CREDENTIALS_MANAGE("credentials.manage", "Manage credentials",
             "Add a credential, replace its value with a new version, go back to the version before, or remove it. "
                     + "The value is written once and is never shown again. Needs the ability to view credentials as "
-                    + "well.");
+                    + "well."),
+
+    /** See the field mappings between an object and a connection (Sprint 28, ADR-0217). */
+    MAPPINGS_VIEW("mappings.view", "View mappings",
+            "See how the fields of an object are mapped to and from an external system, the versions of each mapping "
+                    + "and the result of each send. Never a record value. Needs the ability to view integrations as "
+                    + "well."),
+
+    /**
+     * Write, try, publish and stop mappings (Sprint 28, ADR-0217). A mapping decides which fields leave the platform
+     * and which fields an outside change may write, so it is apart from managing the connection itself.
+     */
+    MAPPINGS_MANAGE("mappings.manage", "Manage mappings",
+            "Draft, try with a sample, publish and stop the mapping of an object to a connection. Needs the "
+                    + "abilities to view integrations and to view mappings as well.");
 
     private final String key;
     private final String title;

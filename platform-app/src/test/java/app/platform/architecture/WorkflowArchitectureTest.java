@@ -77,7 +77,7 @@ class WorkflowArchitectureTest {
         // The module of a shipped solution is the third (FA4, ADR-0188): it sets the one field only the platform writes
         // when it retires what it keeps. The lock still refuses it, and its fields are a short fixed list.
         return noClasses().that().resideOutsideOfPackages("app.platform.workflow..", "app.platform.approval..",
-                "app.platform.data..", "app.platform.inspection..")
+                "app.platform.data..", "app.platform.inspection..", "app.platform.integration..")
                 .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.data.BackgroundWrites")
                 .because("background writes are for workflows, the outcome of an approval and a solution's own act "
                         + "only")

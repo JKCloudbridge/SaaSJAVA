@@ -55,7 +55,13 @@ public interface BackgroundWrites {
          * An act of a shipped solution's own module that sets a field only the platform writes, for instance retiring
          * what it keeps (FA4, ADR-0188). It passes no lock: a record locked by a pending approval refuses it like a
          * workflow. */
-        SOLUTION
+        SOLUTION,
+        /**
+         * A change an external system sent through the receiver of a connection (Sprint 28, ADR-0222). The record
+         * lock refuses it like a workflow, and its events carry the connection in the chain so that the change is
+         * not sent back.
+         */
+        INTEGRATION
     }
 
     /**
@@ -92,6 +98,17 @@ public interface BackgroundWrites {
          */
         public static Source solution(String act, UUID subject) {
             return new Source(Kind.SOLUTION, act, subject, null);
+        }
+
+        /**
+         * A write of a connection's receiver. The connection is put in the chain, so the events of the write say
+         * who made it and the sender does not send the change back to that connection (ADR-0222).
+         *
+         * @param connection the identifier of the connection
+         * @param change the identifier of this inbound change
+         */
+        public static Source integration(UUID connection, UUID change) {
+            return new Source(Kind.INTEGRATION, "inbound", change, new Chain(change, 1, List.of(connection)));
         }
 
         /** The API name of the workflow, or of the approval process. */

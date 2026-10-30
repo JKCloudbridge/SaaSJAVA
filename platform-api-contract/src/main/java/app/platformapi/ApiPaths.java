@@ -269,6 +269,19 @@ public final class ApiPaths {
     /** Credentials of an organization: written, listed by name and removed, never read back (Sprint 27, ADR-0212). */
     public static final String CREDENTIALS = V1 + "/credentials";
 
+    /** The field mappings of a connection (Sprint 28, ADR-0217). */
+    public static final String MAPPINGS = INTEGRATIONS + "/{name}/mappings";
+
+    /** The sends of a connection and how each ended (Sprint 28, ADR-0220). */
+    public static final String DELIVERIES = INTEGRATIONS + "/{name}/deliveries";
+
+    /**
+     * The one public receiver of changes from an external system (Sprint 28, ADR-0221): the address ends with the
+     * connection’s unguessable inbound identity and the name of the entity. The organization is found from the
+     * connection, never from the host or the caller.
+     */
+    public static final String INBOUND = V1 + "/inbound";
+
     private ApiPaths() {
     }
 }

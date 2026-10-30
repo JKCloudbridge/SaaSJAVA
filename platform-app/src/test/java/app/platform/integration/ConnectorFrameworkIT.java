@@ -85,7 +85,8 @@ class ConnectorFrameworkIT extends IntegrationSupport {
         assertThat(types.status()).as(types.body()).isEqualTo(200);
         assertThat(JsonPath.<List<String>>read(types.body(), "$.data[*].key")).contains("rest");
         assertThat(JsonPath.<List<String>>read(types.body(), "$.data[?(@.key=='rest')].settings[*].key"))
-                .containsExactly("healthPath", "probeMethod", "expect", "timeoutSeconds");
+                .containsExactly("healthPath", "probeMethod", "expect", "timeoutSeconds", "entityPath", "idField",
+                        "updateMethod", "inboundCredential");
 
         // 2. define by reference
         Map<String, Object> body = definition("partner-link", service.url());

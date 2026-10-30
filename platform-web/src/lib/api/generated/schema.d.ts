@@ -1216,6 +1216,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inbound/{inboundId}/{entity}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receive a signed change from an external system
+         * @description Public: no sign-in. The caller proves itself with the headers X-Platform-Timestamp, X-Platform-Nonce and X-Platform-Signature (see the integrations runbook). An unknown connection, a connection that is off, a stale time, a replay and a wrong signature all get the same answer. Raw bytes in, at most the configured size.
+         */
+        post: operations["receiveChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/integrations": {
         parameters: {
             query?: never;
@@ -1260,6 +1280,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/integrations/mapping-catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a mapping can be made of
+         * @description Needs integrations.view and mappings.view. The rules, directions, types and conversions the screens draw their choices from.
+         */
+        get: operations["getMappingCatalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/integrations/{name}": {
         parameters: {
             query?: never;
@@ -1283,6 +1323,26 @@ export interface paths {
          * @description Needs integrations.view and integrations.manage.
          */
         delete: operations["removeIntegration"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/{name}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What was sent and received
+         * @description Needs integrations.view and mappings.view. The newest first, at most 100. Identifiers, a stable reason and the platform's own sentence for it: never a record value or a payload.
+         */
+        get: operations["listDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1322,6 +1382,130 @@ export interface paths {
          * @description Needs integrations.view, integrations.manage and the version read. Only after a successful test of exactly the current settings.
          */
         post: operations["enableIntegration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/{name}/mappings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The mappings of a connection
+         * @description Needs integrations.view and mappings.view. One mapping for each object, with its live version, its draft and the versions that were live before.
+         */
+        get: operations["listMappings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/{name}/mappings/{object}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The mapping of one object
+         * @description Needs integrations.view and mappings.view.
+         */
+        get: operations["getMapping"];
+        /**
+         * Save the draft of a mapping
+         * @description Needs integrations.view, mappings.view and mappings.manage. Checks the definition against the object as it is now and stores it as the draft; nothing is sent or received until it is published. The first save for an object makes the mapping and names its entity.
+         */
+        put: operations["saveMappingDraft"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/{name}/mappings/{object}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Discard the draft of a mapping
+         * @description Needs integrations.view, mappings.view and mappings.manage and the version of the draft read.
+         */
+        delete: operations["discardMappingDraft"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/{name}/mappings/{object}/dry-run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try a definition on a sample
+         * @description Needs integrations.view, mappings.view and mappings.manage. The real mapper works on the sample the person typed; nothing is stored, sent, logged or audited.
+         */
+        post: operations["tryMapping"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/{name}/mappings/{object}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make the draft live
+         * @description Needs integrations.view, mappings.view and mappings.manage and the version of the draft read. Checked again against the object as it is now and against the scope of the connection. The version that was live ends; events already under way finish under the version they began with.
+         */
+        post: operations["publishMapping"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/{name}/mappings/{object}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop the live version
+         * @description Needs integrations.view, mappings.view and mappings.manage. Nothing is sent or received for the object until a draft is published again.
+         */
+        post: operations["stopMapping"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5963,6 +6147,9 @@ export interface components {
         ApiResponseImportJobView: {
             data: components["schemas"]["ImportJobView"];
         };
+        ApiResponseInboundResultView: {
+            data: components["schemas"]["InboundResultView"];
+        };
         ApiResponseIntegrationTestView: {
             data: components["schemas"]["IntegrationTestView"];
         };
@@ -6023,6 +6210,9 @@ export interface components {
         ApiResponseListCustomPageView: {
             data: components["schemas"]["CustomPageView"][];
         };
+        ApiResponseListDeliveryView: {
+            data: components["schemas"]["DeliveryView"][];
+        };
         ApiResponseListFieldTypeView: {
             data: components["schemas"]["FieldTypeView"][];
         };
@@ -6061,6 +6251,9 @@ export interface components {
         };
         ApiResponseListLookupOptionView: {
             data: components["schemas"]["LookupOptionView"][];
+        };
+        ApiResponseListMappingView: {
+            data: components["schemas"]["MappingView"][];
         };
         ApiResponseListMemberView: {
             data: components["schemas"]["MemberView"][];
@@ -6142,6 +6335,15 @@ export interface components {
         };
         ApiResponseLookupLabelsView: {
             data: components["schemas"]["LookupLabelsView"];
+        };
+        ApiResponseMappingCatalogueView: {
+            data: components["schemas"]["MappingCatalogueView"];
+        };
+        ApiResponseMappingDryRunView: {
+            data: components["schemas"]["MappingDryRunView"];
+        };
+        ApiResponseMappingView: {
+            data: components["schemas"]["MappingView"];
         };
         ApiResponseMemberAccessView: {
             data: components["schemas"]["MemberAccessView"];
@@ -7239,6 +7441,25 @@ export interface components {
             key: string;
             value: string;
         };
+        DeliveryView: {
+            /** Format: date-time */
+            createdAt: string;
+            direction: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            /** Format: int32 */
+            httpStatus?: number;
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            object: string;
+            reason?: string;
+            /** Format: uuid */
+            recordId?: string;
+            stale: boolean;
+            state: string;
+            words?: string;
+        };
         DepartmentCount: {
             /** Format: int64 */
             count: number;
@@ -7623,6 +7844,9 @@ export interface components {
             /** Format: int32 */
             updatedRows?: number;
         };
+        InboundResultView: {
+            result: string;
+        };
         IntegrationTestView: {
             integration: components["schemas"]["IntegrationView"];
             reason: string;
@@ -7642,6 +7866,7 @@ export interface components {
             credentialName?: string;
             /** Format: uuid */
             id: string;
+            inboundId: string;
             label: string;
             lastTest?: components["schemas"]["LastTest"];
             name: string;
@@ -7825,6 +8050,93 @@ export interface components {
             /** Format: int32 */
             limit?: number;
             text?: string;
+        };
+        MappingCatalogueView: {
+            conflicts: components["schemas"]["MappingChoice"][];
+            conversions: components["schemas"]["MappingChoice"][];
+            directions: components["schemas"]["MappingChoice"][];
+            externalTypes: components["schemas"]["MappingChoice"][];
+        };
+        MappingChoice: {
+            hint: string;
+            input?: string;
+            key: string;
+            label: string;
+        };
+        MappingDryRunRequest: {
+            definition: components["schemas"]["MappingSpec"];
+            direction: string;
+            entity: string;
+            values: {
+                [key: string]: string;
+            };
+        };
+        MappingDryRunView: {
+            direction: string;
+            problems: {
+                [key: string]: string[];
+            };
+            result: {
+                [key: string]: string;
+            };
+            skipped: components["schemas"]["MappingSkippedField"][];
+        };
+        MappingFieldSpec: {
+            conversion: string;
+            defaultValue?: string;
+            direction: string;
+            external: string;
+            externalType: string;
+            inExpression?: string;
+            outExpression?: string;
+            platform: string;
+            required: boolean;
+            scale?: string;
+            valueMap?: components["schemas"]["MappingValuePair"][];
+        };
+        MappingSkippedField: {
+            field: string;
+            reason: string;
+            words: string;
+        };
+        MappingSpec: {
+            changedAtField?: string;
+            conflict: string;
+            fields: components["schemas"]["MappingFieldSpec"][];
+            inboundCreate: boolean;
+            inboundUpdate: boolean;
+        };
+        MappingValuePair: {
+            external: string;
+            platform: string;
+        };
+        MappingVersionRequest: {
+            /** Format: int64 */
+            version: number;
+        };
+        MappingVersionView: {
+            definition: components["schemas"]["MappingSpec"];
+            hash: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: int32 */
+            number: number;
+            /** Format: date-time */
+            publishedAt?: string;
+            status: string;
+            /** Format: int64 */
+            version: number;
+        };
+        MappingView: {
+            canPublish: boolean;
+            connection: string;
+            draft?: components["schemas"]["MappingVersionView"];
+            entity: string;
+            history: components["schemas"]["MappingVersionView"][];
+            /** Format: uuid */
+            id: string;
+            live?: components["schemas"]["MappingVersionView"];
+            object: string;
         };
         MemberAccessView: {
             abilities: string[];
@@ -8673,6 +8985,12 @@ export interface components {
                 [key: string]: string;
             };
             subscriptions: components["schemas"]["Subscription"][];
+            /** Format: int64 */
+            version: number;
+        };
+        SaveMappingRequest: {
+            definition: components["schemas"]["MappingSpec"];
+            entity: string;
             /** Format: int64 */
             version: number;
         };
@@ -11757,6 +12075,38 @@ export interface operations {
             };
         };
     };
+    receiveChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inboundId: string;
+                entity: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseInboundResultView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     listIntegrations: {
         parameters: {
             query?: never;
@@ -11835,6 +12185,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseListConnectorTypeView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getMappingCatalogue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseMappingCatalogueView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -11945,6 +12324,39 @@ export interface operations {
             };
         };
     };
+    listDeliveries: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListDeliveryView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     disableIntegration: {
         parameters: {
             query?: never;
@@ -11998,6 +12410,243 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseIntegrationView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listMappings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListMappingView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getMapping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                object: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseMappingView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    saveMappingDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                object: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveMappingRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseMappingView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    discardMappingDraft: {
+        parameters: {
+            query: {
+                version: number;
+            };
+            header?: never;
+            path: {
+                name: string;
+                object: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseBoolean"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    tryMapping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                object: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MappingDryRunRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseMappingDryRunView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    publishMapping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                object: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MappingVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseMappingView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    stopMapping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                object: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseMappingView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
