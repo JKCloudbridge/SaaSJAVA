@@ -48,6 +48,11 @@ class WorkerCrashIT extends ActionsSupport {
     @BeforeEach
     void noFailuresPlanned() {
         FailureInjection.reset();
+        // The database is shared with every other test class of the run, and a worker claims the work of every
+        // organization. Whatever they left queued or with an ended lease is done first, so that the crash planned below
+        // meets the execution of this test and a count of claims counts only its own.
+        runWorker();
+        runWorker(survivor.bean(Dispatcher.class));
     }
 
     private record Setup(Organization organization, TestBrowser admin, String record, String execution) {
