@@ -66,8 +66,11 @@ export function orientationOf(doc: GridDoc): Orientation {
 
 const LABEL_HEIGHT = 28;
 
-/** `labels: false` leaves out the band of column labels (a page that has no headings, such as the register). */
-export function printModel(doc: GridDoc, options: { labels?: boolean } = {}): PrintModel {
+/**
+ * `labels: false` leaves out the band of column labels (a page that has no headings, such as the register).
+ * `showInput: true` shows what a filler typed into the input cells (a fill-in); a template leaves them empty.
+ */
+export function printModel(doc: GridDoc, options: { labels?: boolean; showInput?: boolean } = {}): PrintModel {
   const rows = displayRows(doc);
   const indexes = indexesOf(doc, rows);
   const rects = mergeRects(doc, indexes);
@@ -113,7 +116,7 @@ export function printModel(doc: GridDoc, options: { labels?: boolean } = {}): Pr
       cells.push({
         key: cellKey(row.id, column.id),
         // A template shows its input cells empty: what a filler will type is not part of the sheet.
-        text: input ? "" : shown(cell?.value),
+        text: input && !options.showInput ? "" : shown(cell?.value),
         rowSpan: area ? area.r1 - area.r0 + 1 : 1,
         colSpan: area ? area.c1 - area.c0 + 1 : 1,
         header: row.zone === "header",

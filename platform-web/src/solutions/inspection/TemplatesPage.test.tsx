@@ -63,6 +63,8 @@ function formWith(create: boolean) {
             filterOperators: ["EQ", "CONTAINS"],
           },
           { apiName: "number", label: "Number", type: "TEXT", sortable: true, filterOperators: ["EQ", "CONTAINS"] },
+          { apiName: "level", label: "Level", type: "TEXT", sortable: true, filterOperators: ["EQ"] },
+          { apiName: "documentType", label: "Document", type: "TEXT", sortable: true, filterOperators: ["EQ"] },
           {
             apiName: "category",
             label: "Category",
@@ -169,17 +171,18 @@ beforeEach(() => {
 });
 
 describe("the master list", () => {
-  it("lists the templates with their number, category, revisions and status", async () => {
+  it("lists the templates with their number, level, document type, revision and status", async () => {
     fakeApi(listAnswers());
 
     render(<TemplatesPage />);
 
     expect(await screen.findByText("Fire exit check")).toBeInTheDocument();
     expect(screen.getByText("WI/PRD/01")).toBeInTheDocument();
-    expect(screen.getByText("Active Rev 02, In review")).toBeInTheDocument();
+    const headers = within(screen.getByTestId("templates-list")).getAllByRole("columnheader").map((one) => one.textContent);
+    expect(headers.join("|")).toMatch(/^Name.*Number.*Level.*Document.*Revision.*Status/);
+    expect(headers.join("|")).not.toMatch(/Identification|Part A|Revisions/);
     expect(within(screen.getByTestId("templates-list")).getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("Not numbered yet")).toBeInTheDocument();
-    expect(screen.getByText("Retired, Rev 01 was the last in use")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /All templates/ })).toBeInTheDocument();
   });
 
@@ -894,15 +897,33 @@ describe("the Fill-ins tab (FF1)", () => {
     expect(asked[0]).toBe(ID);
   });
 
-  it("draws no Start button and no explanation when a fill-in cannot be started", async () => {
+  it("draws Start a fill-in greyed out, with the API's reason, when a fill-in cannot be started", async () => {
     setUrl(`${OPEN}&tab=fill-ins`);
     fakeApi({ ...listAnswers(), ...FILL_LIST, "POST /api/v1/fill-ins/query": () => json({ data: { rows: [] } }) });
 
     render(<TemplatesPage />);
 
     expect(await screen.findByText("No fill-ins on this template yet.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Start a fill-in" })).toBeNull();
-    expect(screen.queryByText("You do not have the right to fill in templates.")).toBeNull();
+    const start = await screen.findByRole("button", { name: "Start a fill-in" });
+    expect(start).toBeDisabled();
+    expect(start).toHaveAttribute("title", "You do not have the right to fill in templates.");
+  });
+
+  it("puts the search box first, then Start a fill-in, then the settings icon", async () => {
+    setUrl(`${OPEN}&tab=fill-ins`);
+    fakeApi({
+      ...listAnswers(),
+      ...FILL_LIST,
+      [`GET /api/v1/templates/${ID}/fill-in-options`]: () => json({ data: { canStart: true, activeVersion: 3 } }),
+      "POST /api/v1/fill-ins/query": () => json({ data: { rows: [fillRow] } }),
+    });
+
+    render(<TemplatesPage />);
+
+    const start = await screen.findByRole("button", { name: "Start a fill-in" });
+    const search = screen.getByRole("searchbox", { name: /Search fill-ins/ });
+    // The box comes before the button in the page (DOCUMENT_POSITION_FOLLOWING: the button follows the box).
+    expect(search.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
 
@@ -1059,7 +1080,7 @@ describe("the Details tab of a template (FA11B)", () => {
     "POST /api/v1/templates/numbering-info": () => json(info),
   });
 
-  it("draws the new labels in the rows of the layout, with Part B left out when the identification does not ask for it", async () => {
+  it("draws the new labels in the rows of the layout, with Part A and Part B left out in reading", async () => {
     setUrl(OPEN);
     fakeApi({ ...listAnswers(), ...withLifecycle({ revision: "02" }), [`GET ${RECORDS}/${ID}`]: () => json(detailsRecord()) });
     render(<TemplatesPage />);
@@ -1073,7 +1094,6 @@ describe("the Details tab of a template (FA11B)", () => {
       "Document type",
       "Identification",
       "Document number",
-      "Part A",
       "Revision number",
       "Obsolete",
       "Last revised on",
@@ -1085,16 +1105,15 @@ describe("the Details tab of a template (FA11B)", () => {
       { field: "documentType", column: "2", row: "2" },
       { field: "category", column: "1", row: "3" },
       { field: "number", column: "2", row: "3" },
-      { field: "partA", column: "1", row: "4" },
-      { field: "revision", column: "1", row: "5" },
-      { field: "retired", column: "2", row: "5" },
+      { field: "revision", column: "1", row: "4" },
+      { field: "retired", column: "2", row: "4" },
     ]);
     expect(screen.queryByTestId("value-serial")).toBeNull();
     expect(screen.queryByText("Template name")).toBeNull();
     expect(screen.queryByText("Retired")).toBeNull();
   });
 
-  it("draws Part A beside Part B when the identification asks for both", async () => {
+  it("never draws Part A or Part B in reading, even when the identification asks for both", async () => {
     setUrl(OPEN);
     fakeApi({
       ...listAnswers(),
@@ -1104,13 +1123,11 @@ describe("the Details tab of a template (FA11B)", () => {
     render(<TemplatesPage />);
 
     const details = await screen.findByTestId("record-details");
-    await screen.findByTestId("value-partB");
-    const parts = placed(details.querySelector(".record-grid-placed") as Element).filter((one) => one.field.startsWith("part"));
-    expect(parts).toEqual([
-      { field: "partA", column: "1", row: "4" },
-      { field: "partB", column: "2", row: "4" },
-    ]);
-    expect(screen.getByTestId("value-partB")).toHaveTextContent("P-100");
+    await screen.findByTestId("value-number");
+    expect(details.querySelector('[data-field="partA"]')).toBeNull();
+    expect(details.querySelector('[data-field="partB"]')).toBeNull();
+    expect(screen.queryByTestId("value-partA")).toBeNull();
+    expect(screen.queryByTestId("value-partB")).toBeNull();
   });
 
   it("reads the Revision number from the sheet when none was saved", async () => {

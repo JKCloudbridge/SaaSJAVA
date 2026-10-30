@@ -37,11 +37,25 @@ describe("Inbox", () => {
       "href",
       `/records/Expense__c/${RECORD_ID}`,
     );
-    expect(row).toHaveTextContent("Large expense");
-    expect(row).toHaveTextContent("Manager (step 1 of 2)");
+    expect(row).toHaveTextContent("ago");
     expect(within(row).getByRole("button", { name: "Approve" })).toBeInTheDocument();
     expect(within(row).getByRole("button", { name: "Reject" })).toBeInTheDocument();
     expect(within(row).getByRole("button", { name: "Hand it on" })).toBeInTheDocument();
+  });
+
+  it("opens the page the server names for a record, and the plain record page when it names none", async () => {
+    fakeApi({
+      [INBOX]: () =>
+        json({ data: [task({ path: `/apps/inspection/s-templates?open=${RECORD_ID}` })], pagination: LAST_PAGE }),
+    });
+
+    render(<Inbox />);
+
+    const row = await screen.findByTestId("inbox-task");
+    expect(within(row).getByRole("link", { name: "Trip to the fair" })).toHaveAttribute(
+      "href",
+      `/apps/inspection/s-templates?open=${RECORD_ID}`,
+    );
   });
 
   it("says plainly that a record cannot be opened and names no title for it", async () => {
@@ -51,7 +65,7 @@ describe("Inbox", () => {
 
     render(<Inbox />);
 
-    expect(await screen.findByTestId("inbox-unreadable")).toHaveTextContent("does not give you access");
+    expect(await screen.findByTestId("inbox-unreadable")).toHaveTextContent("gives you no access");
     expect(screen.queryByRole("link", { name: "Trip to the fair" })).not.toBeInTheDocument();
   });
 
@@ -72,7 +86,7 @@ describe("Inbox", () => {
   it("asks for the tab chosen and says so when nothing is there", async () => {
     const calls = fakeApi({ [INBOX]: () => json({ data: [], pagination: LAST_PAGE }) });
     render(<Inbox />);
-    expect(await screen.findByTestId("inbox-empty")).toBeInTheDocument();
+    expect(await screen.findByText("Nothing here.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Delegated to me" }));
 
@@ -97,7 +111,7 @@ describe("Inbox", () => {
 
     expect(await screen.findByTestId("inbox-notice")).toHaveTextContent("done");
     expect(JSON.parse(calls.find((call) => call.key === APPROVE)?.body ?? "{}")).toMatchObject({ version: 3 });
-    expect(await screen.findByTestId("inbox-empty")).toBeInTheDocument();
+    expect(await screen.findByText("Nothing here.")).toBeInTheDocument();
   });
 
   it("explains an approval at the last step as the end of the request", async () => {
@@ -140,6 +154,6 @@ describe("Inbox", () => {
 
     fakeApi({ [INBOX]: () => refusal("FORBIDDEN", "Approvals are not part of your plan.", 403) });
     render(<Inbox />);
-    expect(await screen.findByTestId("inbox-failed")).toHaveTextContent("Approvals are not part of your plan.");
+    expect(await screen.findByTestId("approval-inbox-failed")).toHaveTextContent("Approvals are not part of your plan.");
   });
 });

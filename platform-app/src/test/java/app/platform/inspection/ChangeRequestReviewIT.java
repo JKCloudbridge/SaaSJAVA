@@ -78,6 +78,11 @@ class ChangeRequestReviewIT extends ChangeRequestReviewSupport {
                 .isTrue();
         assertThat(JsonPath.<Boolean>read(approvalPanel(review.corporate().browser(), reviewId).body(),
                 "$.data.actions.canApprove")).as("Corporate QMS is asked only at the second step").isFalse();
+        Response inbox = review.plant().browser().get("/api/v1/approvals/inbox");
+        assertThat(inbox.status()).as(inbox.body()).isEqualTo(200);
+        assertThat(JsonPath.<java.util.List<String>>read(inbox.body(), "$.data[*].path"))
+                .as("the inbox opens a request on the template's page, on its Change requests tab")
+                .contains("/apps/inspection/s-templates?open=" + template + "&tab=change-requests&request=" + request);
         assertThat(statusCopy(review.world().reader().browser(), reviewId)).isEqualTo("OPEN");
         assertThat(review.world().outsider().browser().get(REVIEW_RECORDS + "/" + reviewId).status())
                 .as("the review record is private").isEqualTo(404);

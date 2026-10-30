@@ -499,3 +499,5 @@ Decision: ADR-0206. One shipped object, the number patterns, two read endpoints,
 - **Setup for an added identification.** Add the value in Setup, Objects, Template, Identification; it takes the default pattern (the
   identification, Part B when typed, a count) until a pattern is saved for it in Setup, Numbering.
 - **Tests.** See ADR-0206; the browser script `platform-web/browser-checks/sheet-grid.mjs` creates its template with Part A.
+
+**Reading hides the parts.** The Details tab in reading mode draws neither Part A nor Part B (`templateSections`, `editing` false): they are typed only to build the Document number, which already holds them. Editing is unchanged, and the stored values still feed the number and the first-approval check.

@@ -21,6 +21,8 @@ import { text } from "./template";
 const ROWS = [["name"], ["level", "documentType"], ["category", "number"], ["partA", "partB"], ["revision", "retired"]] as const;
 /** Drawn by the number field of the form, never as a field of their own. */
 const IN_NUMBER = ["serial"] as const;
+/** Typed only to build the Document number: editing draws them, reading never does (the number already holds them). */
+const PARTS: readonly string[] = ["partA", "partB"];
 
 /**
  * The Revision in use as the Sheet tab writes it (two digits, 00 first). The platform saves it when a Revision is published;
@@ -58,7 +60,7 @@ export function detailDisplay(
 }
 
 /**
- * The form with the sections of the Details tab. Reading leaves out the Revision number before a first Revision is in use;
+ * The form with the sections of the Details tab. Reading leaves out Part A and Part B always and the Revision number before a first Revision is in use;
  * editing offers every field the member can see. Which of Part A and Part B are drawn is told by the page (the server's
  * numbering-info answer), not decided here. The second section holds the date of the Revision in use and the system fields
  * of the original layout.
@@ -78,11 +80,14 @@ export function templateSections(
     if (!known.has(name)) {
       return false;
     }
+    if (!editing && PARTS.includes(name)) {
+      return false;
+    }
     return editing || name !== "revision" || revisionNumberOf(view) !== undefined;
   };
 
   const fields = [...rowNames, ...IN_NUMBER, ...other].filter(wanted);
-  const sections: ArrangedSection[] = [{ label: "Details", columns: 2, fields, rows: ROWS }];
+  const sections: ArrangedSection[] = [{ label: "Details", columns: 2, fields, rows: editing ? ROWS : ROWS.filter((row) => !row.some((name) => PARTS.includes(name))) }];
   const bottom = ["lastRevisedAt", ...system].filter((name) => known.has(name));
   if (bottom.length > 0) {
     sections.push({ label: "System information", columns: 2, fields: bottom });

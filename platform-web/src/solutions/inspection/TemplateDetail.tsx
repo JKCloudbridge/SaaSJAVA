@@ -358,10 +358,10 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
                       />
                     ),
                     partA: (access: FormSlotAccess) => (
-                      <PartField name="partA" label="Part A" access={access} hint="Typed freehand: capital letters, digits or a hyphen." />
+                      <PartField name="partA" label="Part A" access={access} />
                     ),
                     partB: (access: FormSlotAccess) => (
-                      <PartField name="partB" label="Part B" access={access} hint="Typed freehand: capital letters, digits or a hyphen." />
+                      <PartField name="partB" label="Part B" access={access} />
                     ),
                   }}
                   record={record.record}

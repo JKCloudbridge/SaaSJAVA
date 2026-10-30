@@ -10,6 +10,7 @@ import { problemsFromFields } from "@/lib/sheets/hints";
 import type { GridDoc, Problem } from "@/lib/sheets/types";
 import { FillForm } from "./FillForm";
 import { SheetGrid } from "./SheetGrid";
+import { SheetPrintView } from "./SheetPrintView";
 import { useFillEditor } from "./useFillEditor";
 import { useNarrowScreen } from "./useNarrowScreen";
 import { FillToolbar } from "./FillToolbar";
@@ -41,6 +42,11 @@ export interface FillWorkspaceProps {
   /** Cancel saves a draft before leaving. A refusal requires an explicit second click to discard. */
   onCancel?(): void;
   registerLeave?(leave: (next: () => void) => Promise<void>): void;
+  /**
+   * The text at the right of the footer row of the View page: the caller's words (the template number and the revision the
+   * fill-in was made on). A function is asked for the stored number of that revision. Empty leaves the row blank.
+   */
+  footer?: string | ((versionNo: number) => string);
 }
 
 /**
@@ -62,6 +68,7 @@ export function FillWorkspace({
   submit,
   onCancel,
   registerLeave,
+  footer,
 }: FillWorkspaceProps) {
   const owner = useMemo<FillOwner>(() => ({ object: given.object, id: given.id }), [given.object, given.id]);
   const [dirty, setDirty] = useState(false);
@@ -115,6 +122,7 @@ export function FillWorkspace({
       submit={submit}
       onCancel={onCancel}
       registerLeave={registerLeave}
+      footer={footer}
       onReload={() => setRefresh((n) => n + 1)}
     />
   );
@@ -131,7 +139,9 @@ function FillPane({
   onCancel,
   onReload,
   registerLeave,
+  footer,
 }: {
+  footer: FillWorkspaceProps["footer"];
   owner: FillOwner;
   label: string;
   view: FillView;
@@ -152,6 +162,7 @@ function FillPane({
   const [sending, setSending] = useState(false);
   const [sendNote, setSendNote] = useState<{ error: boolean; text: string } | null>(null);
   const [leaving, setLeaving] = useState(false);
+  const [viewing, setViewing] = useState(false);
   const [refused, setRefused] = useState<{ sent: FillDoc; problems: Problem[]; message: string; stale: boolean } | null>(
     null,
   );
@@ -268,6 +279,11 @@ function FillPane({
             ? ` · corrected ${summary.corrections === 1 ? "once" : `${summary.corrections} times`} after it was sent`
             : ""}
         </p>
+        <div className="sheet-bar-actions">
+          <button type="button" className="button button-secondary" data-testid="fill-view" onClick={() => setViewing(true)}>
+            View
+          </button>
+        </div>
         {readOnly ? null : (
           <div className="sheet-bar-actions">
             <button
@@ -405,6 +421,15 @@ function FillPane({
           </div>
         </div>
       )}
+      {viewing ? (
+        <SheetPrintView
+          doc={editor.doc}
+          showInput
+          label={label}
+          footer={(typeof footer === "function" ? footer(summary.versionNo) : footer) ?? ""}
+          onClose={() => setViewing(false)}
+        />
+      ) : null}
     </div>
   );
 }

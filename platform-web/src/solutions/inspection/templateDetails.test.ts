@@ -61,13 +61,21 @@ describe("the sections of the Details tab (FA11B)", () => {
       ["name"],
       ["level", "documentType"],
       ["category", "number"],
-      ["partA", "partB"],
       ["revision", "retired"],
     ]);
     expect(details?.fields).toEqual([
-      "name", "level", "documentType", "category", "number", "partA", "partB", "revision", "retired", "serial", "owner",
+      "name", "level", "documentType", "category", "number", "revision", "retired", "serial", "owner",
     ]);
     expect(system?.fields).toEqual(["lastRevisedAt", "createdAt"]);
+  });
+
+  it("never draws Part A or Part B in reading, whatever the identification: the number already holds them", () => {
+    const reading = sectionsOf(templateSections(form(), view("00", { activeVersion: 1 }), false))[0]?.fields;
+    const editing = sectionsOf(templateSections(form(), view("00", { activeVersion: 1 }), true))[0]?.fields;
+
+    expect(reading).not.toContain("partA");
+    expect(reading).not.toContain("partB");
+    expect(editing).toEqual(expect.arrayContaining(["partA", "partB"]));
   });
 
   it("names the serial in the section so that its problems are drawn by the number field, not at the top", () => {
@@ -84,7 +92,7 @@ describe("the sections of the Details tab (FA11B)", () => {
   it("draws only fields the member's form has: a field the member cannot read does not exist", () => {
     const [details, system] = sectionsOf(templateSections(form(["revision", "retired", "lastRevisedAt", "serial"]), view("01"), false));
 
-    expect(details?.fields).toEqual(["name", "level", "documentType", "category", "number", "partA", "partB", "owner"]);
+    expect(details?.fields).toEqual(["name", "level", "documentType", "category", "number", "owner"]);
     expect(system?.fields).toEqual(["createdAt"]);
   });
 });

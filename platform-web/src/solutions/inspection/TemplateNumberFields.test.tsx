@@ -54,7 +54,7 @@ describe("the Document number as it builds itself (FA11B)", () => {
     expect(screen.getByTestId("live-number")).toHaveTextContent("BP/…");
   });
 
-  it("lets the first serial of a new combination be typed, digits only, and tells where it starts", () => {
+  it("lets the first serial of a new combination be typed, digits only,, with no explanatory line under it", () => {
     const { given, set } = access();
     render(<NumberField access={given} info={info()} savedNumber={undefined} />);
 
@@ -63,7 +63,7 @@ describe("the Document number as it builds itself (FA11B)", () => {
     expect(screen.getByTestId("live-number")).toHaveTextContent("WI/PRD/");
     fireEvent.change(box, { target: { value: "5a" } });
     expect(set).toHaveBeenCalledWith("serial", "5");
-    expect(screen.getByText(/type the serial it starts at/)).toBeInTheDocument();
+    expect(screen.queryByText(/type the serial it starts at/)).toBeNull();
   });
 
   it("shows the next serial, disabled, for a combination that already has numbers", () => {

@@ -6343,6 +6343,7 @@ export interface components {
             forPerson?: components["schemas"]["ApprovalPersonView"];
             instance: components["schemas"]["ApprovalInstanceSummaryView"];
             objectLabel?: string;
+            path?: string;
             recordReadable: boolean;
             recordTitle?: string;
             /** Format: date-time */
@@ -6695,6 +6696,7 @@ export interface components {
         ChartsView: {
             approvalStepDays?: components["schemas"]["StepDays"][];
             fillsByDepartment?: components["schemas"]["DepartmentCount"][];
+            fillsByDepartmentAndTemplate?: components["schemas"]["DepartmentTemplateCount"][];
             fillsByTemplate?: components["schemas"]["TemplateCount"][];
             fillsPerDay?: components["schemas"]["DaysView"];
             publishedPerMonth?: components["schemas"]["MonthCount"][];
@@ -7002,6 +7004,16 @@ export interface components {
         DepartmentOption: {
             code: string;
             label: string;
+        };
+        DepartmentTemplateCount: {
+            /** Format: int64 */
+            count: number;
+            department?: string;
+            label: string;
+            location?: string;
+            /** Format: uuid */
+            templateId: string;
+            templateName: string;
         };
         EmbeddedTokenRequest: {
             customPage?: string;

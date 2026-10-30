@@ -60,6 +60,11 @@ function summary(changes: Partial<HomeSummary> = {}): HomeSummary {
         { location: "PLANT", department: "QA", label: "Plant · Quality", count: 8 },
         { label: "Not recorded", count: 7 },
       ],
+      fillsByDepartmentAndTemplate: [
+        { location: "PLANT", department: "QA", label: "Plant · Quality", templateId: "11111111-1111-1111-1111-111111111111", templateName: "Fire exit check", count: 5 },
+        { location: "PLANT", department: "QA", label: "Plant · Quality", templateId: "22222222-2222-2222-2222-222222222222", templateName: "Press line check", count: 3 },
+        { label: "Not recorded", templateId: "11111111-1111-1111-1111-111111111111", templateName: "Fire exit check", count: 7 },
+      ],
       approvalStepDays: [{ position: 1, name: "Plant QMS", averageDays: 2.5, samples: 8 }],
       publishedPerMonth: [
         { month: "2026-09", count: 1 },
@@ -175,7 +180,7 @@ describe("the home page of the Quality Management System", () => {
       summary({
         problems: ["fill-ins"],
         tiles: { ...base.tiles, fillsSubmitted: undefined, fillsWaiting: undefined },
-        charts: { ...base.charts, fillsPerDay: undefined, fillsByTemplate: undefined, fillsByDepartment: undefined },
+        charts: { ...base.charts, fillsPerDay: undefined, fillsByTemplate: undefined, fillsByDepartment: undefined, fillsByDepartmentAndTemplate: undefined },
       }),
     );
 
@@ -296,7 +301,7 @@ describe("the filters of the home page", () => {
 });
 
 describe("the graphs of the home page", () => {
-  it("narrows the page to a department when its bar is pressed", async () => {
+  it("narrows the page to a department when its heading is pressed", async () => {
     open();
     await screen.findByTestId("value-active-templates");
 
@@ -305,12 +310,14 @@ describe("the graphs of the home page", () => {
     expect(fakeRouter.push).toHaveBeenCalledWith("/apps/inspection/s-home?location=PLANT&department=QA", { scroll: false });
   });
 
-  it("does not narrow the page to the bar that says not recorded", async () => {
+  it("has no way to narrow the page to the group that says not recorded", async () => {
     open();
     await screen.findByTestId("value-active-templates");
 
-    fireEvent.click(within(screen.getByTestId("chart-fills-by-department")).getByRole("button", { name: /Not recorded/ }));
+    const card = within(screen.getByTestId("chart-fills-by-department"));
 
+    expect(card.queryByRole("button", { name: /Not recorded/ })).toBeNull();
+    expect(card.getAllByText("Fire exit check", { selector: ".chart-bar-label" })).toHaveLength(2);
     expect(fakeRouter.push).not.toHaveBeenCalled();
   });
 

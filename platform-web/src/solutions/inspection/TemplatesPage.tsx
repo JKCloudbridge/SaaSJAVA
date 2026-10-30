@@ -9,7 +9,7 @@ import { useListViews } from "@/components/ui/lists/useListViews";
 import { Tag } from "@/components/ui/lists/Tag";
 import { useListRoute } from "@/components/ui/lists/useListRoute";
 import { queryTemplates, type TemplateRow } from "./api";
-import { lifecycleText, stateParam, stateParamWords, stateTag } from "./lifecycle";
+import { stateParam, stateParamWords, stateTag } from "./lifecycle";
 import { AddressFilterNote } from "./AddressFilterNote";
 import { TemplateDetail } from "./TemplateDetail";
 import { TEMPLATE_OBJECT, text } from "./template";
@@ -41,7 +41,7 @@ type Loaded =
   | { status: "ready"; rows: TemplateRow[]; next?: string; canCreate: boolean }
   | { status: "failed"; message: string };
 
-const FIELD_COLUMNS = ["number", "level", "documentType", "category", "partA"] as const;
+const FIELD_COLUMNS = ["number", "level", "documentType"] as const;
 const PRIMARY_FIELD = "name";
 
 function TemplatesScreen() {
@@ -128,20 +128,6 @@ function TemplatesScreen() {
       kind: "muted",
       sort: (row) => text(row.documentType),
     },
-    category: {
-      key: "category",
-      header: "Identification",
-      cell: (row) => text(row.category),
-      kind: "muted",
-      sort: (row) => text(row.category),
-    },
-    partA: {
-      key: "partA",
-      header: "Part A",
-      cell: (row) => text(row.partA),
-      kind: "muted",
-      sort: (row) => text(row.partA),
-    },
   };
   const chosen = views.columns.map((name) => cells[name]).filter((column): column is ListColumn<TemplateRow> => Boolean(column));
 
@@ -161,7 +147,6 @@ function TemplatesScreen() {
         columns={[
           ...chosen,
           { key: "revision", header: "Revision", cell: (row) => row.revision ?? "—", kind: "muted" },
-          { key: "lifecycle", header: "Revisions", cell: (row) => lifecycleText(row.lifecycle, row.revision), kind: "muted" },
           {
             key: "state",
             header: "Status",
@@ -173,7 +158,7 @@ function TemplatesScreen() {
           },
         ]}
         notices={state ? <AddressFilterNote what={stateParamWords(state)} /> : undefined}
-        searchLabel="Search templates by number, name, identification or Part A"
+        searchLabel="Search templates by number or name"
         onOpen={(row) => route.open(row.id)}
         onNew={ready?.canCreate ? route.create : undefined}
         newLabel="New"

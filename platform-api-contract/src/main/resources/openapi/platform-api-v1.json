@@ -17026,6 +17026,9 @@
           "objectLabel" : {
             "type" : "string"
           },
+          "path" : {
+            "type" : "string"
+          },
           "recordReadable" : {
             "type" : "boolean"
           },
@@ -18052,6 +18055,12 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/DepartmentCount"
+            }
+          },
+          "fillsByDepartmentAndTemplate" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DepartmentTemplateCount"
             }
           },
           "fillsByTemplate" : {
@@ -19156,6 +19165,32 @@
           }
         },
         "required" : [ "code", "label" ]
+      },
+      "DepartmentTemplateCount" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "department" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "location" : {
+            "type" : "string"
+          },
+          "templateId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "templateName" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "count", "label", "templateId", "templateName" ]
       },
       "EmbeddedTokenRequest" : {
         "type" : "object",

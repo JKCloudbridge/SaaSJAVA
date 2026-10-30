@@ -13,7 +13,7 @@ import { digitsOnly, normalizePart, padSerial } from "./numbering";
  */
 
 /** A part typed freehand: capital letters, digits and a hyphen, corrected as it is typed. */
-export function PartField({ name, label, access, hint }: { name: string; label: string; access: FormSlotAccess; hint: string }) {
+export function PartField({ name, label, access, hint }: { name: string; label: string; access: FormSlotAccess; hint?: string }) {
   const problems = access.problems(name);
   const editable = access.editable(name);
   const id = `part-${name}`;
@@ -29,12 +29,14 @@ export function PartField({ name, label, access, hint }: { name: string; label: 
         autoComplete="off"
         spellCheck={false}
         aria-invalid={problems.length > 0 ? true : undefined}
-        aria-describedby={`${id}-hint`}
+        aria-describedby={hint ? `${id}-hint` : undefined}
         onChange={(event) => access.set(name, normalizePart(event.target.value))}
       />
-      <p id={`${id}-hint`} className="hint">
-        {hint}
-      </p>
+      {hint ? (
+        <p id={`${id}-hint`} className="hint">
+          {hint}
+        </p>
+      ) : null}
       {problems.map((message) => (
         <p key={message} className="field-error" role="alert">
           {message}
@@ -123,7 +125,7 @@ export function NumberField({
       return "This combination already has numbers; the next one is given automatically.";
     }
     return access.editable("serial") && info.canStart
-      ? "The first number of this combination: type the serial it starts at, or leave it empty to start at 1."
+      ? undefined
       : "The first number of this combination is set when the template is approved.";
   })();
 
