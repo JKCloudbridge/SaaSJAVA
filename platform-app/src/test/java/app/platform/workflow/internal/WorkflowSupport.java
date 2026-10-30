@@ -187,6 +187,24 @@ abstract class WorkflowSupport {
         }
     }
 
+    /**
+     * Sets aside the events that other organizations (earlier test classes of the same database) left waiting, so that
+     * a relay that polls oldest first reaches this test's events at once. Every test class that does not poll the relay
+     * leaves its events behind; by the time a late class turns the relay on, thousands may wait, and a budget that is
+     * ample for a fresh database is not for them (seen only on CI). Used by a class that depends on the relay's speed.
+     */
+    protected static void setAsideOtherEvents(Organization organization) {
+        try (java.sql.Connection connection = app.platform.testsupport.TestDatabase.ownerConnection()) {
+            connection.setAutoCommit(false);
+            TenantFixtures.setting(connection, "app.system_scope", "outbox_relay");
+            TenantFixtures.update(connection, "update outbox_event set status = 'DEAD', version = version + 1 "
+                    + "where status = 'PENDING' and tenant_id <> ?", organization.id().value());
+            connection.commit();
+        } catch (SQLException e) {
+            throw new IllegalStateException("The events of other organizations could not be set aside", e);
+        }
+    }
+
     /** Runs the worker until it finds nothing more to claim. */
     protected void runWorker() {
         runWorker(dispatcher);

@@ -25,6 +25,7 @@ class WorkflowRateIT extends ActionsSupport {
     @Test
     void pastTheRateTheRestAreDelayedByWholeMinutesAndNothingIsDropped() {
         Organization organization = organization();
+        setAsideOtherEvents(organization);
         TestBrowser admin = adminWithData(organization);
         workflowExists(admin, "Each", recordTrigger("RECORD_CREATED"), null, action("Tell", "each.event"));
         for (int i = 0; i < 5; i++) {
@@ -44,6 +45,7 @@ class WorkflowRateIT extends ActionsSupport {
     @Test
     void aDelayedExecutionStaysWaitingUntilItsTimeAndThenRunsLikeAnyOther() {
         Organization organization = organization();
+        setAsideOtherEvents(organization);
         TestBrowser admin = adminWithData(organization);
         workflowExists(admin, "Each", recordTrigger("RECORD_CREATED"), null, action("Tell", "each.event"));
         for (int i = 0; i < 4; i++) {
