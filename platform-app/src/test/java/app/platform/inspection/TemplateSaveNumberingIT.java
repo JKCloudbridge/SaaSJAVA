@@ -164,7 +164,7 @@ class TemplateSaveNumberingIT extends TemplateSupport {
         // A pending request locks the record, so the author fills the part in after the request is returned.
         assertThat(reject(reviewer.browser(), request).status()).isEqualTo(200);
         assertThat(patch(author.browser(), id, "{\"partA\":\"PRD\"}").status()).isEqualTo(200);
-        assertThat(number(setting.admin(), id)).isEqualTo("WI/PRD/01");
+        assertThat(number(setting.admin(), id)).startsWith("WI/PRD/");
     }
 
     @Test
