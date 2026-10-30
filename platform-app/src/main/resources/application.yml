@@ -257,6 +257,21 @@ platform:
       poll-interval: 30s
       batch-size: 50
       lease: 2m
+  integration:
+    # Connections to external systems (Sprint 26, ADR-0208, ADR-0210).
+    limits:
+      max-connections: 20
+    egress:
+      connect-timeout: 3s
+      read-timeout: 5s
+      max-header-bytes: 16384
+      # Exact hosts that may be reached over plain HTTP and may be private. Empty everywhere that matters; the prod
+      # profile refuses to start when it is not. Only a developer machine and the automated tests set it.
+      development-hosts: []
+    test:
+      timeout: 10s
+      min-interval: 5s
+      max-concurrent: 4
   notification:
     # Every instance may run the mail relay; they coordinate through the database (ADR-0024).
     enabled: ${PLATFORM_MAIL_RELAY_ENABLED:true}

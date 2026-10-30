@@ -24,6 +24,15 @@ class AbilityTest {
     }
 
     @Test
+    void theThreeIntegrationAbilitiesAreSeparateSoThatSeeingTestingAndManagingCanBeGivenApart() {
+        assertThat(Ability.fromKey("integrations.view")).contains(Ability.INTEGRATIONS_VIEW);
+        assertThat(Ability.fromKey("integrations.manage")).contains(Ability.INTEGRATIONS_MANAGE);
+        assertThat(Ability.fromKey("integrations.test")).contains(Ability.INTEGRATIONS_TEST);
+        assertThat(List.of(Ability.INTEGRATIONS_VIEW, Ability.INTEGRATIONS_MANAGE, Ability.INTEGRATIONS_TEST))
+                .doesNotHaveDuplicates();
+    }
+
+    @Test
     void everyKeyIsUniqueDocumentedAndHasTheShapeTheDatabaseAccepts() {
         List<String> keys = Arrays.stream(Ability.values()).map(Ability::key).toList();
 

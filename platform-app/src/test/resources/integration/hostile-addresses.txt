@@ -1,0 +1,90 @@
+# Addresses the platform must never accept as the address of an external system (ADR-0208).
+# One per line: reason | address. Every line is tried by EndpointRulesTest with no development host, and the test fails
+# when a line is accepted or when a refusal repeats part of the address. A new way round the rules adds a line here.
+loopback name | https://localhost/
+loopback literal | https://127.0.0.1/
+loopback other | https://127.1.2.3/
+shortened ipv4 | https://127.1/
+decimal host | https://2130706433/
+octal host | https://017700000001/
+octal dotted | https://0177.0.0.1/
+hex host | https://0x7f000001/
+hex dotted | https://0x7f.0x0.0x0.0x1/
+zero | https://0.0.0.0/
+this network | https://0.1.2.3/
+private 10 | https://10.0.0.1/
+private 172 | https://172.16.5.4/
+private 172 top | https://172.31.255.255/
+private 192 | https://192.168.1.1/
+shared carrier space | https://100.64.0.1/
+metadata address | https://169.254.169.254/latest/meta-data/
+link local | https://169.254.1.1/
+multicast | https://224.0.0.1/
+broadcast | https://255.255.255.255/
+reserved class | https://240.0.0.1/
+documentation 192 | https://192.0.2.1/
+documentation 198 | https://198.51.100.7/
+documentation 203 | https://203.0.113.9/
+benchmarking | https://198.18.0.1/
+ipv4 out of range | https://256.1.1.1/
+ipv6 loopback | https://[::1]/
+ipv6 unspecified | https://[::]/
+ipv6 mapped loopback | https://[::ffff:127.0.0.1]/
+ipv6 mapped private | https://[::ffff:10.0.0.1]/
+ipv6 mapped hex | https://[::ffff:7f00:1]/
+ipv6 unique local | https://[fd00::1]/
+ipv6 link local | https://[fe80::1]/
+ipv6 multicast | https://[ff02::1]/
+ipv6 translation prefix | https://[64:ff9b::7f00:1]/
+ipv6 6to4 | https://[2002:7f00:1::1]/
+ipv6 documentation | https://[2001:db8::1]/
+ipv6 tunnelling | https://[2001:0:4136:e378:8000:63bf:3fff:fdd2]/
+ipv6 zone encoded | https://[fe80::1%25eth0]/
+ipv6 zone raw | https://[fe80::1%eth0]/
+ipv6 not closed | https://[::1/
+ipv6 garbage | https://[not-an-address]/
+user name | https://user@example.com/
+user and password | https://user:pass@example.com/
+user trick | https://example.com@127.0.0.1/
+fragment trick | https://127.0.0.1#@example.com/
+backslash trick | https://example.com\@127.0.0.1/
+backslash path | https://example.com\evil/
+plain http | http://example.com/
+other scheme | ftp://example.com/
+file scheme | file:///etc/passwd
+script scheme | javascript://example.com/
+no scheme | example.com
+scheme only | https://
+empty host | https:///path
+empty address |
+query | https://example.com/?x=1
+fragment | https://example.com/#x
+dot dot | https://example.com/a/../b
+single dot | https://example.com/a/./b
+encoded dot | https://example.com/%2e%2e/admin
+encoded slash | https://example.com/a%2fb
+encoded backslash | https://example.com/a%5cb
+encoded null | https://example.com/a%00b
+double slash | https://example.com//a
+trailing dot host | https://example.com./
+leading dot host | https://.example.com/
+empty label | https://a..example.com/
+single label | https://intranet/
+internal suffix | https://service.internal/
+local suffix | https://printer.local/
+localhost suffix | https://app.localhost/
+home suffix | https://router.home.arpa/
+numeric last label | https://example.123/
+hex last label | https://example.0x7f/
+port zero | https://example.com:0/
+port too large | https://example.com:99999/
+port empty | https://example.com:/
+port leading zero | https://example.com:0443/
+port letters | https://example.com:44a/
+space in path | https://example.com/a b
+tab in path | https://example.com/a	b
+non ascii host | https://exämple.com/
+full width digits | https://１２７.０.０.１/
+label too long | https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com/
+underscore in host | https://my_host.example.com/
+leading hyphen label | https://-a.example.com/

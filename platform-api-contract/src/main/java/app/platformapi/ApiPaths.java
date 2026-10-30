@@ -263,6 +263,9 @@ public final class ApiPaths {
     /** Organization-specific number formats, previews and starting counts (FA6B). */
     public static final String NUMBERING = V1 + "/numbering";
 
+    /** Connections to external systems and the catalogue of connector types (Sprint 26, ADR-0207). */
+    public static final String INTEGRATIONS = V1 + "/integrations";
+
     private ApiPaths() {
     }
 }
