@@ -111,7 +111,7 @@ class IntegrationTestBoundsIT extends IntegrationSupport {
 
         assertThat(reason(answer)).isEqualTo("unexpected_status");
         assertThat(JsonPath.<String>read(answer.body(), "$.data.result")).isEqualTo("FAILED");
-        assertThat(answer.body()).doesNotContain("404").doesNotContain("the body is never read");
+        assertThat(answer.body()).doesNotContain("\"status\"").doesNotContain("the body is never read");
         assertThat(JsonPath.<String>read(admin.get(ROOT + "/missing-one").body(), "$.data.lastTest.reason"))
                 .isEqualTo("unexpected_status");
     }
