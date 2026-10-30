@@ -2577,6 +2577,348 @@
         "tags" : [ "Access" ]
       }
     },
+    "/api/v1/integrations" : {
+      "get" : {
+        "description" : "Needs integrations.view. Never holds a secret: a credential is shown only as its name.",
+        "operationId" : "listIntegrations",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListIntegrationView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The organization's connections",
+        "tags" : [ "Integrations" ]
+      },
+      "post" : {
+        "description" : "Needs integrations.view and integrations.manage. Starts untested. The address, the settings, the events and the scope are checked on the server; nothing typed is logged.",
+        "operationId" : "createIntegration",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveIntegrationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseIntegrationView"
+                }
+              }
+            },
+            "description" : "Created"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Make a connection",
+        "tags" : [ "Integrations" ]
+      }
+    },
+    "/api/v1/integrations/connector-types" : {
+      "get" : {
+        "description" : "Needs integrations.view. Each kind describes its own settings, ways of signing in and events; the screens draw their forms from this and hold no list of their own.",
+        "operationId" : "listConnectorTypes",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListConnectorTypeView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The kinds of external system that can be connected",
+        "tags" : [ "Integrations" ]
+      }
+    },
+    "/api/v1/integrations/{name}" : {
+      "delete" : {
+        "description" : "Needs integrations.view and integrations.manage.",
+        "operationId" : "removeIntegration",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseBoolean"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Remove a connection that is switched off",
+        "tags" : [ "Integrations" ]
+      },
+      "get" : {
+        "description" : "Needs integrations.view.",
+        "operationId" : "getIntegration",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseIntegrationView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "One connection",
+        "tags" : [ "Integrations" ]
+      },
+      "put" : {
+        "description" : "Needs integrations.view, integrations.manage and the version read. A change of the address, the sign-in or the settings makes the last test void. A connection that is switched on is switched off first.",
+        "operationId" : "updateIntegration",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveIntegrationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseIntegrationView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Change a connection that is switched off",
+        "tags" : [ "Integrations" ]
+      }
+    },
+    "/api/v1/integrations/{name}/disable" : {
+      "post" : {
+        "description" : "Needs integrations.view and integrations.manage. Takes effect at once: the next question about the connection is answered as for a connection that is off.",
+        "operationId" : "disableIntegration",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseIntegrationView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Switch a connection off",
+        "tags" : [ "Integrations" ]
+      }
+    },
+    "/api/v1/integrations/{name}/enable" : {
+      "post" : {
+        "description" : "Needs integrations.view, integrations.manage and the version read. Only after a successful test of exactly the current settings.",
+        "operationId" : "enableIntegration",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EnableIntegrationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseIntegrationView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Switch a tested connection on",
+        "tags" : [ "Integrations" ]
+      }
+    },
+    "/api/v1/integrations/{name}/test" : {
+      "post" : {
+        "description" : "Needs integrations.view and integrations.test. One bounded call outside any transaction; at most one test per connection every few seconds. The answer is a stable reason and the platform's own sentence, never anything the other system said.",
+        "operationId" : "testIntegration",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseIntegrationTestView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Call the external system once",
+        "tags" : [ "Integrations" ]
+      }
+    },
     "/api/v1/invitations" : {
       "get" : {
         "description" : "Newest first, with their state: OPEN, EXPIRED, ACCEPTED or REVOKED. For administrators.",
@@ -14898,6 +15240,15 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseBoolean" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseBulkRecordsResponse" : {
         "type" : "object",
         "properties" : {
@@ -15114,6 +15465,24 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseIntegrationTestView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/IntegrationTestView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseIntegrationView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/IntegrationView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseInvitationAccepted" : {
         "type" : "object",
         "properties" : {
@@ -15276,6 +15645,18 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListConnectorTypeView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConnectorTypeView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListCustomPageView" : {
         "type" : "object",
         "properties" : {
@@ -15343,6 +15724,18 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/ImportJobView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListIntegrationView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IntegrationView"
             }
           }
         },
@@ -18240,6 +18633,55 @@
         },
         "required" : [ "token" ]
       },
+      "ConnectorChoice" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "key", "label" ]
+      },
+      "ConnectorTypeView" : {
+        "type" : "object",
+        "properties" : {
+          "authKinds" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConnectorChoice"
+            }
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "platformEvents" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConnectorChoice"
+            }
+          },
+          "settings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Setting"
+            }
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "authKinds", "description", "key", "label", "platformEvents", "settings", "version" ]
+      },
       "Counter" : {
         "type" : "object",
         "properties" : {
@@ -19213,6 +19655,17 @@
           }
         },
         "required" : [ "expiresAt", "token" ]
+      },
+      "EnableIntegrationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "version" ]
       },
       "EntitlementInfo" : {
         "type" : "object",
@@ -20211,6 +20664,99 @@
         },
         "required" : [ "createdAt", "id", "object", "operation", "state" ]
       },
+      "IntegrationTestView" : {
+        "type" : "object",
+        "properties" : {
+          "integration" : {
+            "$ref" : "#/components/schemas/IntegrationView"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "result" : {
+            "type" : "string"
+          },
+          "words" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "integration", "reason", "result", "words" ]
+      },
+      "IntegrationView" : {
+        "type" : "object",
+        "properties" : {
+          "authHeaderName" : {
+            "type" : "string"
+          },
+          "authKind" : {
+            "type" : "string"
+          },
+          "baseUrl" : {
+            "type" : "string"
+          },
+          "canChange" : {
+            "type" : "boolean"
+          },
+          "canEnable" : {
+            "type" : "boolean"
+          },
+          "connectorType" : {
+            "type" : "string"
+          },
+          "connectorTypeLabel" : {
+            "type" : "string"
+          },
+          "connectorVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "credentialName" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "lastTest" : {
+            "$ref" : "#/components/schemas/LastTest"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "scope" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ScopeEntry"
+            }
+          },
+          "settings" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "state" : {
+            "type" : "string"
+          },
+          "stateLabel" : {
+            "type" : "string"
+          },
+          "subscriptions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Subscription"
+            }
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "authKind", "baseUrl", "canChange", "canEnable", "connectorType", "connectorTypeLabel", "connectorVersion", "id", "label", "name", "scope", "settings", "state", "stateLabel", "subscriptions", "version" ]
+      },
       "InvitationAccepted" : {
         "type" : "object",
         "properties" : {
@@ -20322,6 +20868,25 @@
           }
         },
         "required" : [ "email" ]
+      },
+      "LastTest" : {
+        "type" : "object",
+        "properties" : {
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "result" : {
+            "type" : "string"
+          },
+          "words" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "at", "reason", "result", "words" ]
       },
       "LayoutAssignmentView" : {
         "type" : "object",
@@ -23455,6 +24020,74 @@
         },
         "required" : [ "name" ]
       },
+      "SaveIntegrationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "authHeaderName" : {
+            "type" : "string",
+            "maxLength" : 64,
+            "minLength" : 0
+          },
+          "authKind" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "baseUrl" : {
+            "type" : "string",
+            "maxLength" : 2048,
+            "minLength" : 0
+          },
+          "connectorType" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "credentialName" : {
+            "type" : "string",
+            "maxLength" : 128,
+            "minLength" : 0
+          },
+          "label" : {
+            "type" : "string",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "scope" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ScopeEntry"
+            },
+            "maxItems" : 50,
+            "minItems" : 0
+          },
+          "settings" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "subscriptions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Subscription"
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "authKind", "baseUrl", "connectorType", "label", "name", "scope", "settings", "subscriptions", "version" ]
+      },
       "SaveNumberingFormatRequest" : {
         "type" : "object",
         "properties" : {
@@ -23631,6 +24264,24 @@
         },
         "required" : [ "accessLevel", "name", "targetId", "targetType" ]
       },
+      "ScopeEntry" : {
+        "type" : "object",
+        "properties" : {
+          "create" : {
+            "type" : "boolean"
+          },
+          "object" : {
+            "type" : "string"
+          },
+          "read" : {
+            "type" : "boolean"
+          },
+          "update" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "create", "object", "read", "update" ]
+      },
       "SearchRecordsRequest" : {
         "type" : "object",
         "properties" : {
@@ -23717,6 +24368,44 @@
           }
         },
         "required" : [ "quantity", "reason" ]
+      },
+      "Setting" : {
+        "type" : "object",
+        "properties" : {
+          "choices" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConnectorChoice"
+            }
+          },
+          "defaultValue" : {
+            "type" : "string"
+          },
+          "hint" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "max" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "min" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "required" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "choices", "hint", "key", "kind", "label", "required" ]
       },
       "ShareRecordRequest" : {
         "type" : "object",
@@ -24418,6 +25107,18 @@
             "minLength" : 0
           }
         }
+      },
+      "Subscription" : {
+        "type" : "object",
+        "properties" : {
+          "event" : {
+            "type" : "string"
+          },
+          "object" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "event", "object" ]
       },
       "SubscriptionInfo" : {
         "type" : "object",

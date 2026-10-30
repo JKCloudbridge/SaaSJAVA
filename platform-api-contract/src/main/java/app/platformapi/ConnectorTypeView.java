@@ -17,8 +17,8 @@ import java.util.List;
  * @param platformEvents the platform events a connection of this type may listen for
  */
 public record ConnectorTypeView(@NotNull String key, @NotNull String label, @NotNull String description,
-        @NotNull Integer version, @NotNull List<Choice> authKinds, @NotNull List<Setting> settings,
-        @NotNull List<Choice> platformEvents) {
+        @NotNull Integer version, @NotNull List<ConnectorChoice> authKinds, @NotNull List<Setting> settings,
+        @NotNull List<ConnectorChoice> platformEvents) {
 
     public ConnectorTypeView {
         authKinds = List.copyOf(authKinds);
@@ -40,7 +40,8 @@ public record ConnectorTypeView(@NotNull String key, @NotNull String label, @Not
      * @param max the largest value of an {@code INTEGER}, or null
      */
     public record Setting(@NotNull String key, @NotNull String label, @NotNull String hint, @NotNull String kind,
-            @NotNull Boolean required, String defaultValue, @NotNull List<Choice> choices, Long min, Long max) {
+            @NotNull Boolean required, String defaultValue, @NotNull List<ConnectorChoice> choices, Long min,
+            Long max) {
 
         public Setting {
             choices = List.copyOf(choices);
@@ -53,6 +54,6 @@ public record ConnectorTypeView(@NotNull String key, @NotNull String label, @Not
      * @param key the permanent key
      * @param label the words
      */
-    public record Choice(@NotNull String key, @NotNull String label) {
+    public record ConnectorChoice(@NotNull String key, @NotNull String label) {
     }
 }

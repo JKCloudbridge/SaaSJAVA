@@ -64,14 +64,15 @@ class ConnectorFrameworkTest {
         List<ConnectorTypeView> views = registry.views();
         assertThat(views).extracting(ConnectorTypeView::key).containsExactly("another-one", "rest");
         ConnectorTypeView rest = registry.view("rest").orElseThrow();
-        assertThat(rest.authKinds()).extracting(ConnectorTypeView.Choice::key)
+        assertThat(rest.authKinds()).extracting(ConnectorTypeView.ConnectorChoice::key)
                 .containsExactly("NONE", "BEARER_TOKEN", "API_KEY_HEADER", "BASIC");
-        assertThat(rest.authKinds()).extracting(ConnectorTypeView.Choice::label).allMatch(label -> !label.isBlank());
+        assertThat(rest.authKinds()).extracting(ConnectorTypeView.ConnectorChoice::label)
+                .allMatch(label -> !label.isBlank());
         assertThat(rest.settings()).extracting(ConnectorTypeView.Setting::key)
                 .containsExactly("healthPath", "probeMethod", "expect", "timeoutSeconds");
         assertThat(rest.settings().get(3).min()).isEqualTo(1L);
         assertThat(rest.settings().get(3).max()).isEqualTo(10L);
-        assertThat(rest.platformEvents()).extracting(ConnectorTypeView.Choice::key)
+        assertThat(rest.platformEvents()).extracting(ConnectorTypeView.ConnectorChoice::key)
                 .containsExactly("record.created", "record.updated", "record.deleted");
     }
 

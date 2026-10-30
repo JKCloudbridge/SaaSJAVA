@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
  * customer.
  */
 @Component
-class ConnectorRegistry {
+final class ConnectorRegistry {
 
     /** The platform events a connection may listen for. A connector offers a subset. */
     static final Set<String> SUBSCRIBABLE_EVENTS = Set.of("record.created", "record.updated", "record.deleted");
@@ -60,12 +60,13 @@ class ConnectorRegistry {
         return new ConnectorTypeView(description.key(), description.label(), description.description(),
                 description.version(),
                 description.authKinds().stream()
-                        .map(kind -> new ConnectorTypeView.Choice(kind.name(), kind.label())).toList(),
+                        .map(kind -> new ConnectorTypeView.ConnectorChoice(kind.name(), kind.label())).toList(),
                 description.settings().stream().map(spec -> new ConnectorTypeView.Setting(spec.key(), spec.label(),
                         spec.hint(), spec.kind().name(), spec.required(), spec.defaultValue(),
-                        spec.choices().stream().map(c -> new ConnectorTypeView.Choice(c.key(), c.label())).toList(),
+                        spec.choices().stream()
+                                .map(c -> new ConnectorTypeView.ConnectorChoice(c.key(), c.label())).toList(),
                         spec.min(), spec.max())).toList(),
                 description.platformEvents().stream()
-                        .map(event -> new ConnectorTypeView.Choice(event.key(), event.label())).toList());
+                        .map(event -> new ConnectorTypeView.ConnectorChoice(event.key(), event.label())).toList());
     }
 }

@@ -1,15 +1,17 @@
 package app.platform.integration;
 
-import com.sun.net.httpserver.HttpServer;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.Executors;
 
 /**
  * The external system of the connector tests: a small web service started by the test on this machine, answering as
@@ -38,42 +40,66 @@ public final class FakeService implements AutoCloseable {
         }
     }
 
-    private final HttpServer server;
+    private static final String BODY = "the body is never read by the platform";
+
+    private final ServerSocket server;
     private final Map<String, Reply> replies = new ConcurrentHashMap<>();
     private final List<Seen> seen = new CopyOnWriteArrayList<>();
 
     public FakeService() throws IOException {
-        server = HttpServer.create(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0), 0);
-        server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
-        server.createContext("/", exchange -> {
-            String path = exchange.getRequestURI().getPath();
-            seen.add(new Seen(exchange.getRequestMethod(), path,
-                    exchange.getRequestHeaders().getFirst("Authorization"),
-                    exchange.getRequestHeaders().getFirst("X-Api-Key")));
-            Reply reply = replies.getOrDefault(path, Reply.status(200));
-            try {
-                if (reply.delayMillis() > 0) {
-                    Thread.sleep(reply.delayMillis());
+        server = new ServerSocket(0, 20, InetAddress.getByName("127.0.0.1"));
+        Thread.ofVirtual().start(() -> {
+            while (!server.isClosed()) {
+                try {
+                    Socket client = server.accept();
+                    Thread.ofVirtual().start(() -> serve(client));
+                } catch (IOException closed) {
+                    return;
                 }
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
             }
-            reply.headers().forEach((name, value) -> exchange.getResponseHeaders().add(name, value));
-            byte[] body = "the body is never read by the platform".getBytes(StandardCharsets.UTF_8);
-            if (exchange.getRequestMethod().equals("HEAD")) {
-                exchange.sendResponseHeaders(reply.status(), -1);
-            } else {
-                exchange.sendResponseHeaders(reply.status(), body.length);
-                exchange.getResponseBody().write(body);
-            }
-            exchange.close();
         });
-        server.start();
+    }
+
+    private void serve(Socket client) {
+        try (client) {
+            BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream(),
+                    StandardCharsets.ISO_8859_1));
+            String[] line = in.readLine().split(" ");
+            String authorization = null;
+            String apiKey = null;
+            String header;
+            while ((header = in.readLine()) != null && !header.isEmpty()) {
+                String lower = header.toLowerCase(java.util.Locale.ROOT);
+                if (lower.startsWith("authorization:")) {
+                    authorization = header.substring(header.indexOf(':') + 1).strip();
+                } else if (lower.startsWith("x-api-key:")) {
+                    apiKey = header.substring(header.indexOf(':') + 1).strip();
+                }
+            }
+            seen.add(new Seen(line[0], line[1], authorization, apiKey));
+            Reply reply = replies.getOrDefault(line[1], Reply.status(200));
+            if (reply.delayMillis() > 0) {
+                Thread.sleep(reply.delayMillis());
+            }
+            StringBuilder head = new StringBuilder("HTTP/1.1 ").append(reply.status()).append(" X\r\n");
+            reply.headers().forEach((name, value) -> head.append(name).append(": ").append(value).append("\r\n"));
+            boolean headOnly = line[0].equals("HEAD");
+            head.append("Content-Length: ").append(headOnly ? 0 : BODY.length());
+            head.append("\r\nConnection: close\r\n\r\n");
+            OutputStream out = client.getOutputStream();
+            out.write(head.toString().getBytes(StandardCharsets.ISO_8859_1));
+            if (!headOnly) {
+                out.write(BODY.getBytes(StandardCharsets.ISO_8859_1));
+            }
+            out.flush();
+        } catch (IOException | InterruptedException | RuntimeException gone) {
+            // The platform gave up (a timeout test) or the test is over; nothing to report.
+        }
     }
 
     /** The address to give a connection: plain HTTP on this machine. */
     public String url() {
-        return "http://127.0.0.1:" + server.getAddress().getPort();
+        return "http://127.0.0.1:" + server.getLocalPort();
     }
 
     /** Answers the path in this way from now on. */
@@ -94,6 +120,10 @@ public final class FakeService implements AutoCloseable {
 
     @Override
     public void close() {
-        server.stop(0);
+        try {
+            server.close();
+        } catch (IOException ignored) {
+            // Already closed.
+        }
     }
 }

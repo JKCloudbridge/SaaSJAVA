@@ -1152,6 +1152,138 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The organization's connections
+         * @description Needs integrations.view. Never holds a secret: a credential is shown only as its name.
+         */
+        get: operations["listIntegrations"];
+        put?: never;
+        /**
+         * Make a connection
+         * @description Needs integrations.view and integrations.manage. Starts untested. The address, the settings, the events and the scope are checked on the server; nothing typed is logged.
+         */
+        post: operations["createIntegration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/connector-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The kinds of external system that can be connected
+         * @description Needs integrations.view. Each kind describes its own settings, ways of signing in and events; the screens draw their forms from this and hold no list of their own.
+         */
+        get: operations["listConnectorTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One connection
+         * @description Needs integrations.view.
+         */
+        get: operations["getIntegration"];
+        /**
+         * Change a connection that is switched off
+         * @description Needs integrations.view, integrations.manage and the version read. A change of the address, the sign-in or the settings makes the last test void. A connection that is switched on is switched off first.
+         */
+        put: operations["updateIntegration"];
+        post?: never;
+        /**
+         * Remove a connection that is switched off
+         * @description Needs integrations.view and integrations.manage.
+         */
+        delete: operations["removeIntegration"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/{name}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch a connection off
+         * @description Needs integrations.view and integrations.manage. Takes effect at once: the next question about the connection is answered as for a connection that is off.
+         */
+        post: operations["disableIntegration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/{name}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch a tested connection on
+         * @description Needs integrations.view, integrations.manage and the version read. Only after a successful test of exactly the current settings.
+         */
+        post: operations["enableIntegration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/{name}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Call the external system once
+         * @description Needs integrations.view and integrations.test. One bounded call outside any transaction; at most one test per connection every few seconds. The answer is a stable reason and the platform's own sentence, never anything the other system said.
+         */
+        post: operations["testIntegration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invitations": {
         parameters: {
             query?: never;
@@ -5689,6 +5821,9 @@ export interface components {
         ApiResponseAutomationHealthView: {
             data: components["schemas"]["AutomationHealthView"];
         };
+        ApiResponseBoolean: {
+            data: boolean;
+        };
         ApiResponseBulkRecordsResponse: {
             data: components["schemas"]["BulkRecordsResponse"];
         };
@@ -5761,6 +5896,12 @@ export interface components {
         ApiResponseImportJobView: {
             data: components["schemas"]["ImportJobView"];
         };
+        ApiResponseIntegrationTestView: {
+            data: components["schemas"]["IntegrationTestView"];
+        };
+        ApiResponseIntegrationView: {
+            data: components["schemas"]["IntegrationView"];
+        };
         ApiResponseInvitationAccepted: {
             data: components["schemas"]["InvitationAccepted"];
         };
@@ -5806,6 +5947,9 @@ export interface components {
         ApiResponseListChangeSetView: {
             data: components["schemas"]["ChangeSetView"][];
         };
+        ApiResponseListConnectorTypeView: {
+            data: components["schemas"]["ConnectorTypeView"][];
+        };
         ApiResponseListCustomPageView: {
             data: components["schemas"]["CustomPageView"][];
         };
@@ -5823,6 +5967,9 @@ export interface components {
         };
         ApiResponseListImportJobView: {
             data: components["schemas"]["ImportJobView"][];
+        };
+        ApiResponseListIntegrationView: {
+            data: components["schemas"]["IntegrationView"][];
         };
         ApiResponseListInvitationView: {
             data: components["schemas"]["InvitationView"][];
@@ -6742,6 +6889,20 @@ export interface components {
         CompleteSwitchRequest: {
             token: string;
         };
+        ConnectorChoice: {
+            key: string;
+            label: string;
+        };
+        ConnectorTypeView: {
+            authKinds: components["schemas"]["ConnectorChoice"][];
+            description: string;
+            key: string;
+            label: string;
+            platformEvents: components["schemas"]["ConnectorChoice"][];
+            settings: components["schemas"]["Setting"][];
+            /** Format: int32 */
+            version: number;
+        };
         Counter: {
             combination: string;
             /** Format: int64 */
@@ -7022,6 +7183,10 @@ export interface components {
             /** Format: date-time */
             expiresAt: string;
             token: string;
+        };
+        EnableIntegrationRequest: {
+            /** Format: int64 */
+            version: number;
         };
         EntitlementInfo: {
             enabled?: boolean;
@@ -7374,6 +7539,38 @@ export interface components {
             /** Format: int32 */
             updatedRows?: number;
         };
+        IntegrationTestView: {
+            integration: components["schemas"]["IntegrationView"];
+            reason: string;
+            result: string;
+            words: string;
+        };
+        IntegrationView: {
+            authHeaderName?: string;
+            authKind: string;
+            baseUrl: string;
+            canChange: boolean;
+            canEnable: boolean;
+            connectorType: string;
+            connectorTypeLabel: string;
+            /** Format: int32 */
+            connectorVersion: number;
+            credentialName?: string;
+            /** Format: uuid */
+            id: string;
+            label: string;
+            lastTest?: components["schemas"]["LastTest"];
+            name: string;
+            scope: components["schemas"]["ScopeEntry"][];
+            settings: {
+                [key: string]: string;
+            };
+            state: string;
+            stateLabel: string;
+            subscriptions: components["schemas"]["Subscription"][];
+            /** Format: int64 */
+            version: number;
+        };
         InvitationAccepted: {
             displayName: string;
             host: string;
@@ -7413,6 +7610,13 @@ export interface components {
             profileId?: string;
             /** Format: uuid */
             roleId?: string;
+        };
+        LastTest: {
+            /** Format: date-time */
+            at: string;
+            reason: string;
+            result: string;
+            words: string;
         };
         LayoutAssignmentView: {
             key: string;
@@ -8372,6 +8576,22 @@ export interface components {
             description?: string;
             name: string;
         };
+        SaveIntegrationRequest: {
+            authHeaderName?: string;
+            authKind: string;
+            baseUrl: string;
+            connectorType: string;
+            credentialName?: string;
+            label: string;
+            name: string;
+            scope: components["schemas"]["ScopeEntry"][];
+            settings: {
+                [key: string]: string;
+            };
+            subscriptions: components["schemas"]["Subscription"][];
+            /** Format: int64 */
+            version: number;
+        };
         SaveNumberingFormatRequest: {
             format: string;
             /** @enum {string} */
@@ -8423,6 +8643,12 @@ export interface components {
             /** Format: int64 */
             version?: number;
         };
+        ScopeEntry: {
+            create: boolean;
+            object: string;
+            read: boolean;
+            update: boolean;
+        };
         SearchRecordsRequest: {
             cursor?: string;
             /** Format: int32 */
@@ -8449,6 +8675,19 @@ export interface components {
             /** Format: int32 */
             quantity: number;
             reason: string;
+        };
+        Setting: {
+            choices: components["schemas"]["ConnectorChoice"][];
+            defaultValue?: string;
+            hint: string;
+            key: string;
+            kind: string;
+            label: string;
+            /** Format: int64 */
+            max?: number;
+            /** Format: int64 */
+            min?: number;
+            required: boolean;
         };
         ShareRecordRequest: {
             accessLevel: string;
@@ -8728,6 +8967,10 @@ export interface components {
         SubmitApprovalRequest: {
             comment?: string;
             process?: string;
+        };
+        Subscription: {
+            event: string;
+            object: string;
         };
         SubscriptionInfo: {
             /** Format: date-time */
@@ -11288,6 +11531,291 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseGroupView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listIntegrations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListIntegrationView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    createIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveIntegrationRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseIntegrationView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listConnectorTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListConnectorTypeView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseIntegrationView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    updateIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveIntegrationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseIntegrationView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    removeIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseBoolean"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    disableIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseIntegrationView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    enableIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnableIntegrationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseIntegrationView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    testIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseIntegrationTestView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

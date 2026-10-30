@@ -186,7 +186,7 @@ class IntegrationLifecycleIT extends IntegrationSupport {
     void everyWrongPartOfADefinitionIsAnsweredAtItsPlaceWithoutRepeatingWhatWasTyped() {
         TestBrowser admin = adminOf(organization());
         Map<String, Object> bad = definition("link-one", "http://10.20.30.40/private-path");
-        bad.put("label", "<b>markup</b>");
+        bad.put("label", "<b>zzlabel</b>");
         bad.put("authKind", "BEARER_TOKEN");
         bad.put("credentialName", "Not A Valid Name");
         bad.put("settings", Map.of("healthPath", "/a/../b", "timeoutSeconds", "500", "script", "run()"));
@@ -202,7 +202,7 @@ class IntegrationLifecycleIT extends IntegrationSupport {
                 "subscriptions", "scope");
         assertThat(refused.body()).doesNotContain("10.20.30.40").doesNotContain("private-path")
                 .doesNotContain("Not A Valid Name").doesNotContain("Missing__c").doesNotContain("record.exploded")
-                .doesNotContain("run()").doesNotContain("markup");
+                .doesNotContain("run()").doesNotContain("zzlabel");
         assertThat(JsonPath.<List<String>>read(admin.get(ROOT).body(), "$.data")).as("nothing was stored").isEmpty();
     }
 

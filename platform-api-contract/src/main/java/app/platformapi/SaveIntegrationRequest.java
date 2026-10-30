@@ -32,6 +32,12 @@ public record SaveIntegrationRequest(@NotBlank @Size(max = 40) String name, @Not
         @NotNull @Size(max = 50) @Valid List<IntegrationView.ScopeEntry> scope,
         @NotNull @PositiveOrZero Long version) {
 
+    public SaveIntegrationRequest {
+        settings = settings == null ? null : Map.copyOf(settings);
+        subscriptions = subscriptions == null ? null : List.copyOf(subscriptions);
+        scope = scope == null ? null : List.copyOf(scope);
+    }
+
     @Override
     public String toString() {
         return "SaveIntegrationRequest[redacted]";

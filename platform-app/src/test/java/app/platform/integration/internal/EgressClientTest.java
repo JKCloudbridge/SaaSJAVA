@@ -7,13 +7,10 @@ import app.platform.integration.internal.EgressClient.Header;
 import app.platform.integration.internal.EgressClient.Outcome;
 import app.platform.integration.internal.EgressClient.Request;
 import app.platform.integration.internal.EndpointRules.Endpoint;
-import com.sun.net.httpserver.HttpsConfigurator;
-import com.sun.net.httpserver.HttpsServer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
@@ -26,6 +23,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.TrustManagerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -248,19 +246,26 @@ class EgressClientTest {
         return store;
     }
 
-    private HttpsServer secureServer(KeyStore store) throws Exception {
+    /** A TLS server on this machine that answers every connection with a 200 once the handshake is done. */
+    private ServerSocket secureServer(KeyStore store) throws Exception {
         KeyManagerFactory keys = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         keys.init(store, "changeit".toCharArray());
         SSLContext context = SSLContext.getInstance("TLS");
         context.init(keys.getKeyManagers(), null, null);
-        HttpsServer server = HttpsServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
-        server.setHttpsConfigurator(new HttpsConfigurator(context));
-        server.createContext("/", exchange -> {
-            exchange.sendResponseHeaders(200, -1);
-            exchange.close();
+        SSLServerSocket server = (SSLServerSocket) context.getServerSocketFactory().createServerSocket(0, 5,
+                InetAddress.getLoopbackAddress());
+        Thread.ofVirtual().start(() -> {
+            while (!server.isClosed()) {
+                try (Socket client = server.accept()) {
+                    Canned.readHead(client.getInputStream());
+                    client.getOutputStream().write(
+                            "HTTP/1.1 200 OK\r\n\r\n".getBytes(StandardCharsets.ISO_8859_1));
+                } catch (IOException ended) {
+                    // A failed handshake or a closed socket ends this exchange.
+                }
+            }
         });
-        server.start();
-        open.add(() -> server.stop(0));
+        open.add(server);
         return server;
     }
 
@@ -276,11 +281,11 @@ class EgressClientTest {
     void aSecureConnectionIsMadeWhenTheCertificateIsTrustedAndMatchesTheName(@TempDir Path directory)
             throws Exception {
         KeyStore store = keystore(directory);
-        HttpsServer server = secureServer(store);
+        ServerSocket server = secureServer(store);
         EgressClient trusting = new EgressClient(SETTINGS, host -> new InetAddress[] {
             InetAddress.getByAddress(host, new byte[] {127, 0, 0, 1})}, trusting(store).getSocketFactory());
 
-        Outcome outcome = trusting.send(new Request(new Endpoint(true, "localhost", server.getAddress().getPort(), "",
+        Outcome outcome = trusting.send(new Request(new Endpoint(true, "localhost", server.getLocalPort(), "",
                 true), false, "/", null, WHOLE));
 
         assertThat(outcome.failure()).isNull();
@@ -290,8 +295,8 @@ class EgressClientTest {
     @Test
     void aCertificateForAnotherNameOrFromAnUntrustedIssuerIsRefused(@TempDir Path directory) throws Exception {
         KeyStore store = keystore(directory);
-        HttpsServer server = secureServer(store);
-        int port = server.getAddress().getPort();
+        ServerSocket server = secureServer(store);
+        int port = server.getLocalPort();
         EgressClient.Resolver toServer = host -> new InetAddress[] {
             InetAddress.getByAddress(host, new byte[] {127, 0, 0, 1})};
         EgressClient trusting = new EgressClient(SETTINGS, toServer, trusting(store).getSocketFactory());

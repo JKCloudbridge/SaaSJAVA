@@ -188,7 +188,7 @@ class IntegrationTestBoundsIT extends IntegrationSupport {
         assertThat(changed.status()).as(changed.body()).isEqualTo(200);
         assertThat(reason(answer)).isEqualTo("changed_during_test");
         assertThat(state(admin, "moving-one")).isEqualTo("UNTESTED");
-        assertThat(JsonPath.<Object>read(admin.get(ROOT + "/moving-one").body(), "$.data.lastTest"))
-                .as("the result of the old definition was dropped").isNull();
+        assertThat(admin.get(ROOT + "/moving-one").body()).as("the result of the old definition was dropped")
+                .doesNotContain("lastTest");
     }
 }
