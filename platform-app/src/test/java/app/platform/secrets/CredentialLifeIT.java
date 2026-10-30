@@ -52,7 +52,7 @@ class CredentialLifeIT extends CredentialSupport {
         assertThat(made.body()).doesNotContain("canary");
         assertThat(JsonPath.<Integer>read(made.body(), "$.data.version")).isEqualTo(1);
         assertThat(JsonPath.<Integer>read(made.body(), "$.data.usedBy")).isZero();
-        assertThat(JsonPath.<Object>read(made.body(), "$.data.lastUsedAt")).isNull();
+        assertThat(made.body()).doesNotContain("\"lastUsedAt\":\"");
         assertThat(JsonPath.<Boolean>read(made.body(), "$.data.canRollBack")).isFalse();
 
         // used: a connection test resolves it at that moment and sends it in the header

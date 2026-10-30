@@ -99,6 +99,13 @@ class SecretStoreGuardIT {
     private static final String VERSION = "insert into secret_version (tenant_id, secret_id, ordinal, algorithm, "
             + "key_id, wrapped_key, sealed_value, created_by, updated_by) values (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
+    /** Bytes that differ from the zero bytes the test rows were made with. */
+    private static byte[] changedBytes(int size) {
+        byte[] bytes = new byte[size];
+        java.util.Arrays.fill(bytes, (byte) 7);
+        return bytes;
+    }
+
     private static String name() {
         return "guard-" + UUID.randomUUID().toString().substring(0, 8);
     }
@@ -112,7 +119,7 @@ class SecretStoreGuardIT {
             for (String column : List.of("sealed_value = ?", "wrapped_key = ?")) {
                 assertThat(state(attempt(role, tenant, connection -> update(connection, "update secret_version set "
                         + column + ", version = version + 1, updated_by = ? where secret_id = ?",
-                        new byte[column.startsWith("sealed") ? 40 : 60], ACTOR, secret))))
+                        changedBytes(column.startsWith("sealed") ? 40 : 60), ACTOR, secret))))
                         .as(role + " changes " + column).isEqualTo(CHECK_VIOLATION);
             }
             assertThat(state(attempt(role, tenant, connection -> update(connection, "update secret_version set "

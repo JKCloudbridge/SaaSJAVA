@@ -135,15 +135,18 @@ class SecretsLogsAreCleanIT extends CredentialSupport {
         aMomentLater();
         answers.add(write(admin, name, three));
         answers.add(rollBack(admin, name));
+        aMomentLater();
         answers.add(test(admin, link));
         answers.add(credentials(admin));
-        answers.add(write(admin, "Bad Name", typed("canary-refused")));
+        answers.add(admin.request("PUT", CREDENTIALS + "/Bad%20Name",
+                json(java.util.Map.of("value", typed("canary-refused")))));
         answers.add(write(admin, name, ""));
         answers.add(rollBack(admin, "missing-" + typed("x")));
         answers.add(admin.get(ROOT));
         answers.add(admin.get(ROOT + "/" + link));
-        assertThat(service.seen()).as("the canary really was used and sent").hasSize(2);
+        assertThat(service.seen()).as("the canary really was used and sent").hasSize(3);
         assertThat(service.seen().get(1).authorization()).isEqualTo("Bearer " + two);
+        assertThat(service.seen().get(2).authorization()).as("after the rollback").isEqualTo("Bearer " + two);
 
         List<String> ciphertext = ciphertexts(organization.id());
         assertThat(ciphertext).as("the ciphertext of the retained versions exists").isNotEmpty();
