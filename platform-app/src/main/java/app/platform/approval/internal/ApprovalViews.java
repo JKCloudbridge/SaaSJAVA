@@ -20,6 +20,7 @@ import app.platform.security.Ability;
 import app.platform.security.Decisions;
 import app.platform.security.ObjectAction;
 import app.platform.security.RecordRef;
+import app.platform.sharedkernel.notice.NoticeDestination;
 import app.platformapi.ApiException;
 import app.platformapi.ApiPageResponse;
 import app.platformapi.ApprovalActionsView;
@@ -46,6 +47,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -80,10 +82,13 @@ class ApprovalViews {
     private final Decisions decisions;
     private final Entitlements entitlements;
     private final ApprovalProperties properties;
+    private final ObjectProvider<NoticeDestination> destinations;
 
     ApprovalViews(ApprovalStore store, ApproverResolver resolver, ApprovalCaller callers, RecordTitles titles,
             Metadata metadata, MetadataResolver definitions, BackgroundRecords records, ApprovalEngine engine,
-            Decisions decisions, Entitlements entitlements, ApprovalProperties properties) {
+            Decisions decisions, Entitlements entitlements, ApprovalProperties properties,
+            ObjectProvider<NoticeDestination> destinations) {
+        this.destinations = destinations;
         this.store = store;
         this.resolver = resolver;
         this.callers = callers;
@@ -243,13 +248,25 @@ class ApprovalViews {
                     readableRecord, step.label(), task.via(),
                     task.forUserId() == null ? null : person(task.forUserId(), names), task.status(),
                     task.createdAt(), task.decidedAt(), new ApprovalActionsView(false, open, open, open,
-                            false, false, false, false)));
+                            false, false, false, false),
+                    readableRecord ? pathOf(instance) : null));
         }
         AssignmentRow last = page.isEmpty() ? null : page.get(page.size() - 1);
         Instant lastKey = last == null ? null : "DECIDED".equals(which) ? last.decidedAt() : last.createdAt();
         Pagination pagination = more && last != null
                 ? Pagination.more(size, Cursors.encode(lastKey + "|" + last.id())) : Pagination.last(size);
         return ApiPageResponse.of(views, pagination);
+    }
+
+    /**
+     * Where the inbox opens a record when its owner has a page of its own for it: the answer a bell row would get, so a
+     * template or a change request opens on the template's page. Null leaves the plain record page. The destination
+     * decides again with the caller's own read rights.
+     */
+    private String pathOf(InstanceRow instance) {
+        return destinations.orderedStream().filter(target -> target.object().equals(instance.objectApiName()))
+                .map(target -> target.readablePath(instance.recordId(), Map.of())).flatMap(Optional::stream)
+                .findFirst().orElse(null);
     }
 
     /** How many open tasks the caller has (the badge on the inbox), and whether the link should be shown at all. */

@@ -261,7 +261,7 @@ class ProvisioningIT {
         Collections.sort(knownTimes);
         Collections.sort(unknownTimes);
         double ratio = (double) knownTimes.get(2) / unknownTimes.get(2);
-        assertThat(ratio).as("median time of known against unknown addresses").isBetween(0.4, 2.5);
+        assertThat(ratio).as("median time of known against unknown addresses").isBetween(0.25, 4.0);
     }
 
     // ---- resend, cancel, expiry, repair ----

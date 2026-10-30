@@ -73,18 +73,24 @@ class TemplateNumberingIT extends TemplateSupport {
         String fields = "/api/v1/metadata/objects/InspectionTemplate/fields/";
         assertThat(run.setting().admin().postJson(fields + "category/values", "{\"value\":\"DEMO\"}")
                 .status()).isEqualTo(200);
-        assertThat(run.setting().admin().postJson(fields + "subCategory/values",
-                "{\"value\":\"CHK\",\"controllingValues\":[\"DEMO\"]}").status()).isEqualTo(200);
-        String first = templateWithSheet(run.author().browser(), "DEMO", "CHK");
+        String first = unnumbered(run, "{\"category\":\"DEMO\",\"partB\":\"CHK\"}");
         assertThat(approvedNumber(run, first)).isEqualTo("DEMO/CHK/1");
         Response changed = run.setting().admin().request("PUT", "/api/v1/numbering/document/formats",
                 "{\"kind\":\"CATEGORY\",\"selectorValue\":\"DEMO\",\"version\":0,"
-                        + "\"format\":\"{field:category}-{field:subCategory}-{seq:2}\"}",
+                        + "\"format\":\"{field:category}-{field:partB}-{seq:2}\"}",
                 "Content-Type", "application/json");
         assertThat(changed.status()).as(changed.body()).isEqualTo(200);
-        String second = templateWithSheet(run.author().browser(), "DEMO", "CHK");
+        String second = unnumbered(run, "{\"category\":\"DEMO\",\"partB\":\"CHK\"}");
         assertThat(approvedNumber(run, second)).isEqualTo("DEMO-CHK-02");
         assertThat(number(run.setting().admin(), first)).isEqualTo("DEMO/CHK/1");
+    }
+
+    /** A template with these fields and a saved sheet; the author of a test run sets the identity at Save. */
+    private static String unnumbered(Run run, String fieldsJson) {
+        String template = template(run.author().browser(), "{\"name\":\"" + newName() + "\","
+                + fieldsJson.substring(1));
+        fill(run.author().browser(), template, firstVersion(run.author().browser(), template));
+        return template;
     }
 
     @Test
@@ -95,7 +101,13 @@ class TemplateNumberingIT extends TemplateSupport {
                 new String[] {"WI", "PRD", "WI/PRD/01"}, new String[] {"SOP", "QLT", "SOP/QLT/01"},
                 new String[] {"F", "MNT", "F/MNT/01"}, new String[] {"FEHS", "STR", "F/EHS/STR/01"},
                 new String[] {"CSF", "CUSA", "CSF/CUSA/01"}, new String[] {"PPT", "PRD", "PPT/PRD/01"},
-                new String[] {"L", "QLT", "L/QLT/01"}, new String[] {"LEHS", "MNT", "L/EHS/MNT/01"});
+                new String[] {"L", "QLT", "L/QLT/01"}, new String[] {"LEHS", "MNT", "L/EHS/MNT/01"},
+                // The identifications the spreadsheet added in FA11B (ADR-0206).
+                new String[] {"R", "PRD", "R/PRD/01"}, new String[] {"REHS", "QLT", "R/EHS/QLT/01"},
+                new String[] {"EHSAIR", "MNT", "EHS/AIR/MNT/01"}, new String[] {"EHSHIR", "PRD", "EHS/HIR/PRD/01"},
+                new String[] {"EHSAID", "QLT", "EHS/AID/QLT/01"}, new String[] {"EHSHID", "STR", "EHS/HID/STR/01"},
+                new String[] {"EHSAHID", "PRD", "EHS/AHID/PRD/01"}, new String[] {"PLEHS", "MNT", "PL/EHS/MNT/01"},
+                new String[] {"EHSEMP", null, "EHS/EMP/01"}, new String[] {"EHSOCP", null, "EHS/OCP/01"});
 
         for (String[] one : cases) {
             String template = templateWithSheet(run.author().browser(), one[0], one[1]);
@@ -107,20 +119,20 @@ class TemplateNumberingIT extends TemplateSupport {
     void theFourCategoriesWhoseLastPartIsTypedAreNumberedFromTheTypedPart() {
         Run run = run();
         String control = template(run.author().browser(), "{\"name\":\"" + newName()
-                + "\",\"category\":\"CP\",\"subCategory\":\"PRD\",\"partCode\":\"AB-12\"}");
+                + "\",\"category\":\"CP\",\"partA\":\"PRD\",\"partB\":\"AB-12\"}");
         String flow = template(run.author().browser(), "{\"name\":\"" + newName()
-                + "\",\"category\":\"PFC\",\"subCategory\":\"QLT\",\"partCode\":\"X9\"}");
+                + "\",\"category\":\"PFC\",\"partA\":\"QLT\",\"partB\":\"X9\"}");
         String analysis = template(run.author().browser(), "{\"name\":\"" + newName()
-                + "\",\"category\":\"FMEA\",\"subCategory\":\"MNT\",\"partCode\":\"P_1\"}");
+                + "\",\"category\":\"FMEA\",\"partA\":\"MNT\",\"partB\":\"P-1\"}");
         String plan = template(run.author().browser(), "{\"name\":\"" + newName()
-                + "\",\"category\":\"BP\",\"planYear\":\"2026\"}");
+                + "\",\"category\":\"BP\",\"partB\":\"2026\"}");
         for (String template : List.of(control, flow, analysis, plan)) {
             fill(run.author().browser(), template, firstVersion(run.author().browser(), template));
         }
 
         assertThat(approvedNumber(run, control)).isEqualTo("CP/PRD/AB-12");
         assertThat(approvedNumber(run, flow)).isEqualTo("PFC/QLT/X9");
-        assertThat(approvedNumber(run, analysis)).isEqualTo("FMEA/MNT/P_1");
+        assertThat(approvedNumber(run, analysis)).isEqualTo("FMEA/MNT/P-1");
         assertThat(approvedNumber(run, plan)).isEqualTo("BP/2026");
     }
 
@@ -128,14 +140,15 @@ class TemplateNumberingIT extends TemplateSupport {
     void aMissingOrBadTypedPartIsRefusedAtTheFirstApprovalInWordsAndTheTemplateStaysInReview() {
         Run run = run();
         String noCode = templateWithSheet(run.author().browser(), "CP", "PRD");
-        String badCode = template(run.author().browser(), "{\"name\":\"" + newName()
-                + "\",\"category\":\"CP\",\"subCategory\":\"PRD\",\"partCode\":\"has space\"}");
+        // Values that Save would refuse, as an older import could hold them: the approval is the backstop.
+        String badCode = unnumberedForBackstop(run, "{\"category\":\"CP\",\"partA\":\"PRD\","
+                + "\"partB\":\"has space\"}");
         fill(run.author().browser(), badCode, firstVersion(run.author().browser(), badCode));
         String noYear = templateWithSheet(run.author().browser(), "BP", null);
-        String badYear = unnumberedForBackstop(run, "{\"name\":\"" + newName()
-                + "\",\"category\":\"BP\",\"planYear\":\"26\"}");
-        fill(run.author().browser(), badYear, firstVersion(run.author().browser(), badYear));
-        List<String> templates = List.of(noCode, badCode, noYear, badYear);
+        String lowerCase = unnumberedForBackstop(run, "{\"category\":\"CP\",\"partA\":\"abc\","
+                + "\"partB\":\"X9\"}");
+        fill(run.author().browser(), lowerCase, firstVersion(run.author().browser(), lowerCase));
+        List<String> templates = List.of(noCode, badCode, noYear, lowerCase);
         // The author is not asked for the identity: every one of them is sent without a complaint.
         List<String> requests = new ArrayList<>();
         for (String template : templates) {
@@ -147,10 +160,10 @@ class TemplateNumberingIT extends TemplateSupport {
             refusals.add(approve(run.approver().browser(), request));
         }
 
-        assertThat(message(refusals.get(0))).startsWith("Fill in the part code").contains("then approve again");
-        assertThat(message(refusals.get(1))).startsWith("Fill in the part code");
-        assertThat(message(refusals.get(2))).startsWith("Fill in the plan year");
-        assertThat(message(refusals.get(3))).startsWith("The plan year is four digits");
+        assertThat(message(refusals.get(0))).startsWith("Fill in Part B").contains("then approve again");
+        assertThat(message(refusals.get(1))).startsWith("Fill in Part B");
+        assertThat(message(refusals.get(2))).startsWith("Fill in Part B");
+        assertThat(message(refusals.get(3))).startsWith("Fill in Part A (capital letters");
         for (Response refused : refusals) {
             assertThat(refused.status()).isEqualTo(409);
             assertThat(code(refused)).isEqualTo("CONFLICT");
@@ -161,13 +174,25 @@ class TemplateNumberingIT extends TemplateSupport {
             assertThat(number(run.setting().admin(), templates.get(i))).isNull();
         }
         assertThat(message(refusals.get(0))).as("the words never repeat what was typed").doesNotContain("has space");
+        assertThat(message(refusals.get(1))).doesNotContain("has space");
     }
 
     @Test
-    void aTypedPartFormatWithoutItsSubCategoryIsNeverNumberedByTheCountedDefault() {
+    void aPartThatSaveWouldRefuseIsRefusedAtSaveInWordsThatNameNoValue() {
+        Run run = run();
+
+        Response lower = run.author().browser().postJson(RECORDS, "{\"fields\":{\"name\":\"" + newName()
+                + "\",\"category\":\"WI\",\"partA\":\"has space\"}}");
+
+        assertThat(lower.status()).isEqualTo(400);
+        assertThat(lower.body()).contains("Part A uses capital letters").doesNotContain("has space");
+    }
+
+    @Test
+    void aTypedPartFormatWithoutItsPartAIsNeverNumberedByTheCountedDefault() {
         Run run = run();
         String template = unnumberedForBackstop(run, "{\"name\":\"" + newName()
-                + "\",\"category\":\"CP\",\"partCode\":\"AB-12\"}");
+                + "\",\"category\":\"CP\",\"partB\":\"AB-12\"}");
         fill(run.author().browser(), template, firstVersion(run.author().browser(), template));
         String request = submitted(run.author().browser(), template, run.process());
 
@@ -182,7 +207,7 @@ class TemplateNumberingIT extends TemplateSupport {
         Run run = run();
         String counted = templateWithSheet(run.author().browser(), "WI", "PRD");
         String typed = template(run.author().browser(), "{\"name\":\"" + newName()
-                + "\",\"category\":\"CP\",\"subCategory\":\"PRD\",\"partCode\":\"AB-12\"}");
+                + "\",\"category\":\"CP\",\"partA\":\"PRD\",\"partB\":\"AB-12\"}");
         fill(run.author().browser(), typed, firstVersion(run.author().browser(), typed));
 
         Response start = lifecycle(run.author().browser(), counted);
@@ -212,11 +237,11 @@ class TemplateNumberingIT extends TemplateSupport {
     void aTypedNumberAnotherTemplateAlreadyHasIsRefusedAtSaveWithWords() {
         Run run = run();
         String first = template(run.author().browser(), "{\"name\":\"" + newName()
-                + "\",\"category\":\"CP\",\"subCategory\":\"PRD\",\"partCode\":\"SAME\"}");
+                + "\",\"category\":\"CP\",\"partA\":\"PRD\",\"partB\":\"SAME\"}");
         fill(run.author().browser(), first, firstVersion(run.author().browser(), first));
         assertThat(approvedNumber(run, first)).isEqualTo("CP/PRD/SAME");
         Response clash = run.author().browser().postJson(RECORDS, "{\"fields\":{\"name\":\"" + newName()
-                + "\",\"category\":\"CP\",\"subCategory\":\"PRD\",\"partCode\":\"SAME\"}}");
+                + "\",\"category\":\"CP\",\"partA\":\"PRD\",\"partB\":\"SAME\"}}");
         assertThat(clash.status()).isEqualTo(400);
         assertThat(clash.body()).doesNotContain("SAME");
     }
@@ -225,10 +250,10 @@ class TemplateNumberingIT extends TemplateSupport {
     void aClashFoundOnlyAtTheApprovalRefusesItUndoesTheDecisionAndCanBeFixedByTheApprover() {
         Run run = run();
         String first = template(run.author().browser(), "{\"name\":\"" + newName()
-                + "\",\"category\":\"CP\",\"subCategory\":\"PRD\",\"partCode\":\"SAME\"}");
+                + "\",\"category\":\"CP\",\"partA\":\"PRD\",\"partB\":\"SAME\"}");
         fill(run.author().browser(), first, firstVersion(run.author().browser(), first));
         String second = unnumberedForBackstop(run, "{\"name\":\"" + newName()
-                + "\",\"category\":\"CP\",\"subCategory\":\"PRD\",\"partCode\":\"SAME\"}");
+                + "\",\"category\":\"CP\",\"partA\":\"PRD\",\"partB\":\"SAME\"}");
         fill(run.author().browser(), second, firstVersion(run.author().browser(), second));
         // The database enforces uniqueness of the number only once the background work has filled its copy and set the
         // constraint; a fresh organization has not had that yet, so this test drives it and waits for it.
@@ -255,7 +280,7 @@ class TemplateNumberingIT extends TemplateSupport {
         long version = JsonPath.<Number>read(run.approver().browser().get(RECORDS + "/" + second).body(),
                 "$.data.version").longValue();
         Response corrected = run.approver().browser().request("PATCH", RECORDS + "/" + second,
-                "{\"fields\":{\"partCode\":\"OTHER\"},\"version\":" + version + "}");
+                "{\"fields\":{\"partB\":\"OTHER\"},\"version\":" + version + "}");
         assertThat(corrected.status()).as(corrected.body()).isEqualTo(200);
         assertThat(approve(run.approver().browser(), requestTwo).status()).isEqualTo(200);
         assertThat(number(run.setting().admin(), second)).isEqualTo("CP/PRD/OTHER");
@@ -302,7 +327,7 @@ class TemplateNumberingIT extends TemplateSupport {
                     long version = JsonPath.<Number>read(browser.get(RECORDS + "/" + template).body(),
                             "$.data.version").longValue();
                     Response saved = browser.request("PATCH", RECORDS + "/" + template,
-                            "{\"version\":" + version + ",\"fields\":{\"category\":\"WI\",\"subCategory\":\"PRD\"}}");
+                            "{\"version\":" + version + ",\"fields\":{\"category\":\"WI\",\"partA\":\"PRD\"}}");
                     assertThat(saved.status()).as(saved.body()).isEqualTo(200);
                     return approve(browser, request).status();
                 };

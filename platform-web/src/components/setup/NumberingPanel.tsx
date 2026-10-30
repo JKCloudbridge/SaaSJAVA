@@ -11,6 +11,7 @@ import { problemText } from "./objectText";
 type Series = components["schemas"]["NumberingSeriesView"];
 type Setting = components["schemas"]["NumberingSettingView"];
 type Preview = components["schemas"]["NumberingPreviewView"];
+type Counters = components["schemas"]["NumberingCountersView"];
 type Row = { series: Series; setting: Setting };
 const keyOf = ({ series, setting }: Row) => `${series.key}:${setting.kind}:${setting.selectorValue}`;
 const sourceWords: Record<string, string> = { SHIPPED: "Comes with the platform", ORGANIZATION: "Your format", DEFAULT: "Uses default" };
@@ -45,6 +46,7 @@ export function NumberingPanel() {
     return <NumberingEditor key={open} row={selected} onBack={() => setOpen(null)} onSaved={load} />;
   }
   return (
+    <>
     <ListPage<Row>
       title="Numbering" items={rows} failure={failure} rowKey={keyOf} testId="numbering-list"
       primaryHeader="Category or default" primary={({ setting }) => setting.label}
@@ -59,6 +61,67 @@ export function NumberingPanel() {
       searchText={({ series, setting }) => `${series.label} ${setting.label} ${setting.selectorValue}`}
       emptyText="No numbering series is available in this organization."
     />
+    {series?.map((item) => <NumberingCounters key={item.key} series={item} />)}
+    </>
+  );
+}
+
+/**
+ * The combinations of one series that already have numbers, read only (FA11B, ADR-0206): what was typed, the count the next
+ * number gets and the count last given. Counters only; the page decides nothing and a failure is shown in the server's words.
+ */
+function NumberingCounters({ series }: { series: Series }) {
+  const [rows, setRows] = useState<Counters["counters"] | undefined>();
+  const [cursor, setCursor] = useState<string | null | undefined>();
+  const [failure, setFailure] = useState<string | undefined>();
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(async (from?: string) => {
+    setBusy(true);
+    try {
+      const result = await api.GET("/api/v1/numbering/{seriesKey}/counters", {
+        params: { path: { seriesKey: series.key }, query: { cursor: from } },
+      });
+      if (result.data) {
+        const page = result.data.data;
+        setRows((old) => (from ? [...(old ?? []), ...page.counters] : page.counters));
+        setCursor(page.nextCursor ?? null);
+        setFailure(undefined);
+      } else {
+        setFailure(problemText(result.error, result.response));
+      }
+    } catch {
+      setFailure("The page could not reach the platform. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }, [series.key]);
+  useEffect(() => {
+    void Promise.resolve().then(() => load());
+  }, [load]);
+
+  return (
+    <section aria-label={`Combinations with numbers: ${series.label}`} className="stack" data-testid="numbering-counters">
+      <h2>Combinations that already have numbers: {series.label}</h2>
+      {failure ? <p role="alert" className="form-message">{failure}</p> : null}
+      {rows && rows.length === 0 ? <p className="hint">No combination has a number yet.</p> : null}
+      {rows && rows.length > 0 ? (
+        <table className="table">
+          <thead>
+            <tr><th scope="col">Combination</th><th scope="col">Next count</th><th scope="col">Last count given</th></tr>
+          </thead>
+          <tbody>
+            {rows.map((row, index) => (
+              <tr key={`${row.combination}-${index}`}>
+                <td>{row.combination}</td><td>{row.nextValue}</td><td>{row.lastIssued}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+      {cursor ? (
+        <button type="button" className="button button-secondary" disabled={busy} onClick={() => void load(cursor)}>Show more</button>
+      ) : null}
+    </section>
   );
 }
 

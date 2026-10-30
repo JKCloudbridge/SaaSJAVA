@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { api } from "@/lib/api/client";
 import { call, problemsOf } from "@/lib/records/call";
 import { cloneableInputs } from "@/lib/records/clone";
+import { arrange } from "@/lib/records/columns";
 import { compareChanges, type Conflict } from "@/lib/records/conflict";
 import {
   defaultInput,
@@ -34,6 +35,14 @@ interface Moved {
 /** The long fields take the whole row of a two-column block. */
 function wide(field: FormField): boolean {
   return field.type === "LONG_TEXT" || field.type === "MULTI_PICKLIST";
+}
+
+/** What a page that draws a field of the form itself (a slot) can read and set, so the form stays the one holder of values. */
+export interface FormSlotAccess {
+  value: (field: string) => string;
+  set: (field: string, value: string) => void;
+  editable: (field: string) => boolean;
+  problems: (field: string) => readonly string[];
 }
 
 /**
@@ -72,6 +81,10 @@ export function RecordForm({
   onCancel,
   onDeleted,
   recordHref,
+  display = {},
+  hide = [],
+  slots,
+  onValues,
 }: {
   objectApiName: string;
   form: ObjectForm;
@@ -84,6 +97,14 @@ export function RecordForm({
   onCancel: () => void;
   onDeleted?: () => void;
   recordHref?: (objectApiName: string, id: string) => string;
+  /** Words to show for a field the member cannot type, instead of its stored value (a date in the reader's time zone). */
+  display?: Readonly<Record<string, string>>;
+  /** Fields the page does not draw now (a part of a number the chosen kind does not need); their values are kept. */
+  hide?: readonly string[];
+  /** Fields the page draws itself in their place in the layout, with the form's own values to read and set. */
+  slots?: Readonly<Record<string, (access: FormSlotAccess) => ReactNode>>;
+  /** Told the text of every text-like field whenever one of them changes (a live preview outside the form). */
+  onValues?: (values: Readonly<Record<string, string>>) => void;
 }) {
   const [base, setBase] = useState<RecordView | undefined>(record);
   const [edits, setEdits] = useState<Record<string, FieldInput>>(() =>
@@ -120,6 +141,26 @@ export function RecordForm({
   }, [form.fields, base]);
 
   const inputOf = (name: string): FieldInput => edits[name] ?? initial[name] ?? "";
+
+  // A page that follows what is typed (the live number of a template) is told the text of every field that holds text.
+  const texts = useMemo(() => {
+    const found: Record<string, string> = {};
+    for (const field of form.fields) {
+      const input = edits[field.apiName] ?? initial[field.apiName];
+      if (typeof input === "string") {
+        found[field.apiName] = input;
+      }
+    }
+    return found;
+  }, [edits, initial, form.fields]);
+  const told = useRef("");
+  useEffect(() => {
+    const key = JSON.stringify(texts);
+    if (onValues && told.current !== key) {
+      told.current = key;
+      onValues(texts);
+    }
+  }, [texts, onValues]);
   const changed = useMemo(
     () =>
       Object.keys(edits).filter((name) => {
@@ -453,24 +494,43 @@ export function RecordForm({
         </div>
       ) : null}
       {form.layout.sections.map((section, index) => {
-        const names = section.fields.filter((name) => {
+        const visible = section.fields.filter((name) => {
           const field = byName.get(name);
-          if (!field) {
+          if (!field || hide.includes(name)) {
             return false;
           }
           // A new record shows what can be typed, and a calculated value once the server has worked one out.
-          return !creating || field.editable || calculated[name] !== undefined;
+          return !creating || field.editable || calculated[name] !== undefined || slots?.[name] !== undefined;
         });
-        if (names.length === 0) {
+        if (visible.length === 0) {
           return null;
         }
+        const { names, placed, styleOf } = arrange(section, visible);
         return (
           <section key={`${section.label}-${index}`} aria-labelledby={`section-${index}`}>
             <h2 id={`section-${index}`}>{section.label}</h2>
-            <div className={`record-grid${section.columns === 2 ? " record-grid-two" : ""}`}>
+            <div className={`record-grid${section.columns === 2 ? " record-grid-two" : ""}${placed ? " record-grid-placed" : ""}`}>
               {names.map((name) => {
                 const field = byName.get(name) as FormField;
                 const span = wide(field) || section.columns === 1 ? " span-2" : "";
+                const slot = slots?.[name];
+                if (slot) {
+                  return (
+                    <div key={name} className={`record-field${span}`} style={styleOf(name)}>
+                      {slot({
+                        value: (other) => (typeof inputOf(other) === "string" ? (inputOf(other) as string) : ""),
+                        set: (other, next) => {
+                          const target = byName.get(other);
+                          if (target?.editable) {
+                            edit(target, next, undefined);
+                          }
+                        },
+                        editable: (other) => byName.get(other)?.editable === true,
+                        problems: (other) => problems[other] ?? [],
+                      })}
+                    </div>
+                  );
+                }
                 if (field.editable) {
                   const input = inputOf(name);
                   const controllingName = field.dependency?.controllingField;
@@ -479,7 +539,7 @@ export function RecordForm({
                   const offered = offeredField(field, controllingInput, held, added[name] ?? []);
                   const controllingField = controllingName ? byName.get(controllingName) : undefined;
                   return (
-                    <div key={name} className={`record-field${span}`}>
+                    <div key={name} className={`record-field${span}`} style={styleOf(name)}>
                       <FieldEditor
                         objectApiName={objectApiName}
                         field={offered}
@@ -512,13 +572,16 @@ export function RecordForm({
                   );
                 }
                 const value = calculated[name] !== undefined ? calculated[name] : base ? recordValue(base, name) : undefined;
-                const text = formatValue(field, value, loadedLabels[name]);
+                const shown = calculated[name] === undefined ? display[name] : undefined;
+                const text = shown ?? formatValue(field, value, loadedLabels[name]);
                 return (
-                  <div key={name} className={`detail-item${span}`} data-field={name}>
+                  <div key={name} className={`detail-item${span}`} data-field={name} style={styleOf(name)}>
                     <div className="dl-label">{field.label}</div>
                     <div className={`dl-value${text === "" ? " muted" : ""}`} data-testid={`value-${name}`}>
                       {text === "" ? (
                         "—"
+                      ) : shown !== undefined ? (
+                        shown
                       ) : (
                         <FieldReadValue field={field} value={value} labels={loadedLabels[name]} recordHref={recordHref} />
                       )}

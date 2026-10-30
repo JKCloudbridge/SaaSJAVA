@@ -323,6 +323,72 @@ export interface StackRow {
   parts: readonly { label: string; count: number }[];
 }
 
+export interface DepartmentGroup {
+  key: string;
+  label: string;
+  /** The department's code pair, or undefined for "not recorded". */
+  narrow?: { location: string; department: string };
+  rows: readonly { key: string; label: string; count: number }[];
+}
+
+/**
+ * The fill-ins by department and then by template: the department named once on the left, and beside it a bar for
+ * each of its templates with the count at its end. Bars share one scale so they can be compared across departments; each department
+ * keeps its own colour. The heading narrows the page to that department when it can.
+ */
+export function DepartmentGroups({
+  groups,
+  unit,
+  onNarrow,
+}: {
+  groups: readonly DepartmentGroup[];
+  unit: string;
+  onNarrow?: (narrow: { location: string; department: string }) => void;
+}) {
+  const most = Math.max(1, ...groups.flatMap((group) => group.rows.map((row) => row.count)));
+  return (
+    <div className="chart-groups chart-groups-aside">
+      {groups.map((group, groupIndex) => (
+        <div key={group.key} className="chart-group" role="group" aria-label={group.label}>
+          <h4 className="chart-group-title">
+            {group.narrow && onNarrow ? (
+              <button type="button" className="link-button" onClick={() => onNarrow(group.narrow!)}>
+                {group.label}
+              </button>
+            ) : (
+              group.label
+            )}
+          </h4>
+          <ul className="chart-bars">
+            {group.rows.map((row) => {
+              const words = `${group.label}, ${row.label}: ${formatCount(row.count)} ${unit}`;
+              return (
+                <li key={row.key}>
+                  <div className="chart-bar-row chart-hit" tabIndex={0} aria-label={words}>
+                    <span className="chart-bar-label" title={row.label}>
+                      {row.label}
+                    </span>
+                    <span className="chart-bar-track" aria-hidden="true">
+                      <span
+                        className="chart-bar-fill"
+                        style={{ width: `${(row.count / most) * 100}%`, "--bar-series": `var(--series-${seriesNumber(groupIndex)})` } as CSSProperties}
+                      />
+                    </span>
+                    <span className="chart-bar-value">{formatCount(row.count)}</span>
+                    <span className="chart-tip chart-tip-bar" aria-hidden="true">
+                      {words}
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ---- columns: a value for each month ----
 
 export interface MonthValue {

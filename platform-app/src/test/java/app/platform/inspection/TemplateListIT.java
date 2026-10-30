@@ -40,9 +40,9 @@ class TemplateListIT extends TemplateSupport {
         return JsonPath.read(page.body(), "$.data.rows[*]." + field);
     }
 
-    private static String named(Person person, String name, String category, String subCategory) {
+    private static String named(Person person, String name, String category, String partA) {
         String template = template(person.browser(), "{\"name\":\"" + name + "\",\"category\":\"" + category + "\""
-                + (subCategory == null ? "" : ",\"subCategory\":\"" + subCategory + "\"") + "}");
+                + (partA == null ? "" : ",\"partA\":\"" + partA + "\"") + "}");
         fill(person.browser(), template, firstVersion(person.browser(), template));
         return template;
     }
@@ -117,7 +117,7 @@ class TemplateListIT extends TemplateSupport {
         var browser = run.approver().browser();
 
         assertThat(rows(browser.get(TEMPLATES + "?category=WI"), "id")).containsExactlyInAnyOrder(wi, wiQlt);
-        assertThat(rows(browser.get(TEMPLATES + "?category=WI&subCategory=QLT"), "id")).containsExactly(wiQlt);
+        assertThat(rows(browser.get(TEMPLATES + "?category=WI&partA=QLT"), "id")).containsExactly(wiQlt);
         assertThat(rows(browser.get(TEMPLATES + "?search=exit"), "id")).containsExactly(wi);
         assertThat(rows(browser.get(TEMPLATES + "?search=WI/PRD"), "id")).as("by number").containsExactly(wi);
         assertThat(rows(browser.get(TEMPLATES + "?retired=true"), "id")).containsExactly(sop);

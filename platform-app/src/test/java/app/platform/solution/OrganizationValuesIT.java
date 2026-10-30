@@ -24,7 +24,7 @@ class OrganizationValuesIT extends SolutionSupport {
 
     private static final String FIELDS = METADATA_OBJECTS + "/" + OBJECT + "/fields";
     private static final String CATEGORY = FIELDS + "/category";
-    private static final String SUB = FIELDS + "/subCategory";
+    private static final String SUB = FIELDS + "/documentType";
 
     private static Response object(TestBrowser browser) {
         return browser.get(METADATA_OBJECTS + "/" + OBJECT);
@@ -41,7 +41,7 @@ class OrganizationValuesIT extends SolutionSupport {
     }
 
     private static List<String> allowedFor(TestBrowser browser, String category) {
-        List<List<String>> found = JsonPath.read(object(browser).body(), "$.data.fields[?(@.apiName=='subCategory')]"
+        List<List<String>> found = JsonPath.read(object(browser).body(), "$.data.fields[?(@.apiName=='documentType')]"
                 + ".settings.dependency.allowed." + category);
         return found.isEmpty() ? List.of() : found.get(0);
     }
@@ -88,9 +88,9 @@ class OrganizationValuesIT extends SolutionSupport {
         return browser.postJson(FIELDS + "/" + name + "/values", json);
     }
 
-    private static Response record(TestBrowser browser, String category, String sub) {
-        return browser.postJson(RECORDS, "{\"fields\":{\"name\":\"t\",\"category\":\"" + category
-                + "\",\"subCategory\":\"" + sub + "\"}}");
+    private static Response record(TestBrowser browser, String level, String sub) {
+        return browser.postJson(RECORDS, "{\"fields\":{\"name\":\"t\",\"level\":\"" + level
+                + "\",\"documentType\":\"" + sub + "\"}}");
     }
 
     // ---- the platform ships a list; the organization owns it from then on ----
@@ -105,9 +105,9 @@ class OrganizationValuesIT extends SolutionSupport {
         assertThat(field(object, "category", "codeValues")).isEqualTo("true");
         assertThat(field(object, "number", "platformWritten")).isEqualTo("true");
         assertThat(field(object, "category", "editable")).as("the field is the platform's").isEqualTo("false");
-        assertThat(values(admin, "category")).hasSize(16).contains("WI", "IMS", "FEHS");
+        assertThat(values(admin, "category")).hasSize(26).contains("WI", "IMS", "FEHS", "PLEHS");
         assertThat(field(object, "category", "version")).isEqualTo("0");
-        assertThat(allowedFor(admin, "WI")).contains("PRD");
+        assertThat(allowedFor(admin, "L1")).contains("DOCA");
     }
 
     @Test
@@ -116,28 +116,28 @@ class OrganizationValuesIT extends SolutionSupport {
         Organization other = organizationWithFeature();
         TestBrowser admin = adminOf(mine);
         TestBrowser otherAdmin = adminOf(other);
-        List<String> subs = new java.util.ArrayList<>(values(admin, "subCategory"));
+        List<String> subs = new java.util.ArrayList<>(values(admin, "documentType"));
         subs.add("NEWAB");
 
-        Response added = change(admin, SUB, "subCategory", subs, null, "{\"controllingField\":\"category\","
-                + "\"allowed\":" + allowedWith(admin, "WI", "NEWAB") + "}");
+        Response added = change(admin, SUB, "documentType", subs, null, "{\"controllingField\":\"level\","
+                + "\"allowed\":" + allowedWith(admin, "L1", "NEWAB") + "}");
 
         assertThat(added.status()).as(added.body()).isEqualTo(200);
-        assertThat(values(admin, "subCategory")).contains("NEWAB");
-        assertThat(allowedFor(admin, "WI")).contains("NEWAB", "PRD");
-        assertThat(version(admin, "subCategory")).isEqualTo(1);
-        assertThat(record(admin, "WI", "NEWAB").status()).as("the new pair is a pair").isEqualTo(201);
-        assertThat(record(admin, "SOP", "NEWAB").status()).as("not for the categories it was not given to")
+        assertThat(values(admin, "documentType")).contains("NEWAB");
+        assertThat(allowedFor(admin, "L1")).contains("NEWAB", "DOCA");
+        assertThat(version(admin, "documentType")).isEqualTo(1);
+        assertThat(record(admin, "L1", "NEWAB").status()).as("the new pair is a pair").isEqualTo(201);
+        assertThat(record(admin, "L2", "NEWAB").status()).as("not for the levels it was not given to")
                 .isEqualTo(400);
-        assertThat(values(otherAdmin, "subCategory")).doesNotContain("NEWAB");
-        assertThat(version(otherAdmin, "subCategory")).isZero();
-        assertThat(record(otherAdmin, "WI", "NEWAB").status()).isEqualTo(400);
+        assertThat(values(otherAdmin, "documentType")).doesNotContain("NEWAB");
+        assertThat(version(otherAdmin, "documentType")).isZero();
+        assertThat(record(otherAdmin, "L1", "NEWAB").status()).isEqualTo(400);
     }
 
-    /** The whole matrix of the sub-category as JSON, with one more value allowed for one category. */
+    /** The whole matrix of the document type as JSON, with one more value allowed for one level. */
     private static String allowedWith(TestBrowser browser, String category, String value) {
         java.util.Map<String, List<String>> matrix = JsonPath.<List<java.util.Map<String, List<String>>>>read(
-                object(browser).body(), "$.data.fields[?(@.apiName=='subCategory')].settings.dependency.allowed")
+                object(browser).body(), "$.data.fields[?(@.apiName=='documentType')].settings.dependency.allowed")
                 .get(0);
         java.util.Map<String, List<String>> copy = new java.util.LinkedHashMap<>();
         matrix.forEach((key, list) -> copy.put(key, new java.util.ArrayList<>(list)));
@@ -257,19 +257,19 @@ class OrganizationValuesIT extends SolutionSupport {
 
         assertThat(added.status()).as(added.body()).isEqualTo(201);
         assertThat(JsonPath.<Boolean>read(check.body(), "$.data.valid")).as(check.body()).isTrue();
-        assertThat(values(admin, "category")).as("a check changes nothing").hasSize(16);
+        assertThat(values(admin, "category")).as("a check changes nothing").hasSize(26);
         assertThat(publish(admin, set).status()).isEqualTo(200);
-        assertThat(values(admin, "category")).hasSize(17);
+        assertThat(values(admin, "category")).hasSize(27);
     }
 
     @Test
     void theMetadataCacheMovesWithTheChangeOnEveryRead() {
         TestBrowser admin = adminOf(organizationWithFeature());
-        assertThat(values(admin, "category")).hasSize(16);
+        assertThat(values(admin, "category")).hasSize(26);
 
         assertThat(add(admin, "category", "{\"value\":\"NEWK\"}").status()).isEqualTo(200);
 
-        assertThat(values(admin, "category")).hasSize(17);
+        assertThat(values(admin, "category")).hasSize(27);
         assertThat(JsonPath.<List<String>>read(admin.get("/api/v1/objects/" + OBJECT + "/form").body(),
                 "$.data.fields[?(@.apiName=='category')].values[*].value")).contains("NEWK");
     }
@@ -281,27 +281,27 @@ class OrganizationValuesIT extends SolutionSupport {
         Organization organization = organizationWithFeature();
         TestBrowser admin = adminOf(organization);
 
-        Response added = add(admin, "subCategory", "{\"value\":\"ab1\",\"label\":\"AB one\","
-                + "\"controllingValues\":[\"WI\",\"SOP\"]}");
-        Response again = add(admin, "subCategory", "{\"value\":\"AB1\",\"controllingValues\":[\"WI\"]}");
-        Response more = add(admin, "subCategory", "{\"value\":\"AB1\",\"controllingValues\":[\"L\"]}");
+        Response added = add(admin, "documentType", "{\"value\":\"ab1\",\"label\":\"AB one\","
+                + "\"controllingValues\":[\"L1\"]}");
+        Response again = add(admin, "documentType", "{\"value\":\"AB1\",\"controllingValues\":[\"L1\"]}");
+        Response more = add(admin, "documentType", "{\"value\":\"AB1\",\"controllingValues\":[\"L2\"]}");
 
         assertThat(added.status()).as(added.body()).isEqualTo(200);
         assertThat(JsonPath.<String>read(added.body(), "$.data.value")).as("a short code is kept in capitals")
                 .isEqualTo("AB1");
         assertThat(JsonPath.<Boolean>read(added.body(), "$.data.added")).isTrue();
         assertThat(JsonPath.<List<String>>read(added.body(), "$.data.controllingValues"))
-                .containsExactly("SOP", "WI");
+                .containsExactly("L1");
         assertThat(JsonPath.<Boolean>read(again.body(), "$.data.added")).as("a repeat changes nothing").isFalse();
         assertThat(JsonPath.<Boolean>read(more.body(), "$.data.added")).as("a new pair for the same value").isTrue();
-        assertThat(allowedFor(admin, "L")).contains("AB1");
-        assertThat(version(admin, "subCategory")).as("two changes moved the version on").isGreaterThanOrEqualTo(2);
-        assertThat(record(admin, "WI", "AB1").status()).isEqualTo(201);
+        assertThat(allowedFor(admin, "L2")).contains("AB1");
+        assertThat(version(admin, "documentType")).as("two changes moved the version on").isGreaterThanOrEqualTo(2);
+        assertThat(record(admin, "L1", "AB1").status()).isEqualTo(201);
 
         Response form = admin.get("/api/v1/objects/" + OBJECT + "/form");
-        assertThat(JsonPath.<List<Boolean>>read(form.body(), "$.data.fields[?(@.apiName=='subCategory')]"
+        assertThat(JsonPath.<List<Boolean>>read(form.body(), "$.data.fields[?(@.apiName=='documentType')]"
                 + ".canAddValues")).containsExactly(true);
-        assertThat(JsonPath.<List<Boolean>>read(form.body(), "$.data.fields[?(@.apiName=='subCategory')]"
+        assertThat(JsonPath.<List<Boolean>>read(form.body(), "$.data.fields[?(@.apiName=='documentType')]"
                 + ".codeValues")).containsExactly(true);
     }
 
@@ -309,10 +309,10 @@ class OrganizationValuesIT extends SolutionSupport {
     void whatTheAdditionRefusesIsRefusedInWordsThatNameNoValue() {
         TestBrowser admin = adminOf(organizationWithFeature());
 
-        Response notACode = add(admin, "subCategory", "{\"value\":\"not a code\",\"controllingValues\":[\"WI\"]}");
-        Response noPair = add(admin, "subCategory", "{\"value\":\"AB2\"}");
-        Response unknownPair = add(admin, "subCategory", "{\"value\":\"AB2\",\"controllingValues\":[\"NOPE\"]}");
-        Response unneeded = add(admin, "category", "{\"value\":\"NEWK\",\"controllingValues\":[\"WI\"]}");
+        Response notACode = add(admin, "documentType", "{\"value\":\"not a code\",\"controllingValues\":[\"L1\"]}");
+        Response noPair = add(admin, "documentType", "{\"value\":\"AB2\"}");
+        Response unknownPair = add(admin, "documentType", "{\"value\":\"AB2\",\"controllingValues\":[\"NOPE\"]}");
+        Response unneeded = add(admin, "category", "{\"value\":\"NEWK\",\"controllingValues\":[\"L1\"]}");
         Response notOurs = add(admin, "name", "{\"value\":\"X\"}");
         Response nothing = add(admin, "ghost", "{\"value\":\"X\"}");
 
@@ -324,7 +324,7 @@ class OrganizationValuesIT extends SolutionSupport {
         assertThat(unneeded.status()).isEqualTo(400);
         assertThat(notOurs.status()).as("a field whose list is the platform's").isEqualTo(404);
         assertThat(nothing.status()).isEqualTo(404);
-        assertThat(values(admin, "subCategory")).doesNotContain("AB2", "NOT A CODE");
+        assertThat(values(admin, "documentType")).doesNotContain("AB2", "NOT A CODE");
     }
 
     @Test
@@ -350,18 +350,18 @@ class OrganizationValuesIT extends SolutionSupport {
         Member readOnly = memberWithAbility(organization, admin, true, "read");
         Member editsWithoutAbility = memberWithAbility(organization, admin, false, "read", "create", "update");
 
-        Response withoutProfile = add(as(organization, plain), "subCategory",
-                "{\"value\":\"AB3\",\"controllingValues\":[\"WI\"]}");
-        Response allowed = add(as(organization, holder), "subCategory",
-                "{\"value\":\"AB3\",\"controllingValues\":[\"WI\"]}");
-        Response cannotEdit = add(as(organization, readOnly), "subCategory",
-                "{\"value\":\"AB4\",\"controllingValues\":[\"WI\"]}");
-        Response noAbility = add(as(organization, editsWithoutAbility), "subCategory",
-                "{\"value\":\"AB5\",\"controllingValues\":[\"WI\"]}");
-        Response otherOrganization = add(adminOf(other), "subCategory",
-                "{\"value\":\"AB6\",\"controllingValues\":[\"WI\"]}");
-        Response forged = as(organization, plain).request("POST", FIELDS + "/subCategory/values",
-                "{\"value\":\"AB7\",\"controllingValues\":[\"WI\"]}", "X-Tenant-Id", other.id().value().toString(),
+        Response withoutProfile = add(as(organization, plain), "documentType",
+                "{\"value\":\"AB3\",\"controllingValues\":[\"L1\"]}");
+        Response allowed = add(as(organization, holder), "documentType",
+                "{\"value\":\"AB3\",\"controllingValues\":[\"L1\"]}");
+        Response cannotEdit = add(as(organization, readOnly), "documentType",
+                "{\"value\":\"AB4\",\"controllingValues\":[\"L1\"]}");
+        Response noAbility = add(as(organization, editsWithoutAbility), "documentType",
+                "{\"value\":\"AB5\",\"controllingValues\":[\"L1\"]}");
+        Response otherOrganization = add(adminOf(other), "documentType",
+                "{\"value\":\"AB6\",\"controllingValues\":[\"L1\"]}");
+        Response forged = as(organization, plain).request("POST", FIELDS + "/documentType/values",
+                "{\"value\":\"AB7\",\"controllingValues\":[\"L1\"]}", "X-Tenant-Id", other.id().value().toString(),
                 "X-Forwarded-Host", other.host());
 
         assertThat(withoutProfile.status()).as("no ability").isEqualTo(403);
@@ -371,7 +371,7 @@ class OrganizationValuesIT extends SolutionSupport {
         assertThat(otherOrganization.status()).as("an organization without the solution has no such field")
                 .isEqualTo(404);
         assertThat(forged.status()).as("a header changes nothing").isEqualTo(403);
-        assertThat(values(admin, "subCategory")).contains("AB3").doesNotContain("AB4", "AB5", "AB6", "AB7");
+        assertThat(values(admin, "documentType")).contains("AB3").doesNotContain("AB4", "AB5", "AB6", "AB7");
     }
 
     @Test
@@ -379,7 +379,7 @@ class OrganizationValuesIT extends SolutionSupport {
         Organization organization = organizationWithFeature();
         TestBrowser admin = adminOf(organization);
 
-        add(admin, "subCategory", "{\"value\":\"SECRETAB\",\"label\":\"SECRETLABEL\",\"controllingValues\":[\"WI\"]}");
+        add(admin, "documentType", "{\"value\":\"SECRETAB\",\"label\":\"SECRETLABEL\",\"controllingValues\":[\"L1\"]}");
 
         List<String> audits = owner("select attributes::text from audit_record where event_type = "
                 + "'metadata.fieldvalues.added'");
@@ -394,7 +394,7 @@ class OrganizationValuesIT extends SolutionSupport {
         Organization organization = organization();
         TestBrowser admin = adminOf(organization);
 
-        Response refused = add(admin, "subCategory", "{\"value\":\"AB8\",\"controllingValues\":[\"WI\"]}");
+        Response refused = add(admin, "documentType", "{\"value\":\"AB8\",\"controllingValues\":[\"L1\"]}");
 
         assertThat(refused.status()).isEqualTo(404);
     }
@@ -419,8 +419,8 @@ class OrganizationValuesIT extends SolutionSupport {
         boolean edits = quoted.contains("\"update\"");
         Response matrix = admin.request("PUT", "/api/v1/profiles/" + profileId + "/data-access", "{\"objects\":["
                 + "{\"key\":\"" + OBJECT + "\",\"actions\":[" + String.join(",", quoted) + "]}],\"fields\":["
-                + "{\"key\":\"" + OBJECT + ".subCategory\",\"actions\":[\"" + (edits ? "edit" : "read") + "\"]},"
-                + "{\"key\":\"" + OBJECT + ".category\",\"actions\":[\"" + (edits ? "edit" : "read") + "\"]}]}");
+                + "{\"key\":\"" + OBJECT + ".documentType\",\"actions\":[\"" + (edits ? "edit" : "read") + "\"]},"
+                + "{\"key\":\"" + OBJECT + ".level\",\"actions\":[\"" + (edits ? "edit" : "read") + "\"]}]}");
         assertThat(matrix.status()).as(matrix.body()).isEqualTo(200);
         return member;
     }

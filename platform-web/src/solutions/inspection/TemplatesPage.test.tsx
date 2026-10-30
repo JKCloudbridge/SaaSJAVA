@@ -50,7 +50,7 @@ function formWith(create: boolean) {
         pluralLabel: "Templates",
         layout: {
           source: "LAYOUT",
-          sections: [{ label: "Details", columns: 1, fields: ["name", "category", "subCategory"] }],
+          sections: [{ label: "Details", columns: 1, fields: ["name", "category", "partA"] }],
         },
         fields: [
           {
@@ -63,6 +63,8 @@ function formWith(create: boolean) {
             filterOperators: ["EQ", "CONTAINS"],
           },
           { apiName: "number", label: "Number", type: "TEXT", sortable: true, filterOperators: ["EQ", "CONTAINS"] },
+          { apiName: "level", label: "Level", type: "TEXT", sortable: true, filterOperators: ["EQ"] },
+          { apiName: "documentType", label: "Document", type: "TEXT", sortable: true, filterOperators: ["EQ"] },
           {
             apiName: "category",
             label: "Category",
@@ -72,8 +74,8 @@ function formWith(create: boolean) {
             filterOperators: ["EQ", "IN"],
           },
           {
-            apiName: "subCategory",
-            label: "Sub-category",
+            apiName: "partA",
+            label: "Part A",
             type: "PICKLIST",
             values: picks(["PRD", "QLT", "CUSA"]),
             sortable: true,
@@ -124,7 +126,7 @@ const NO_APPROVAL = {
 
 function listAnswers(create = true) {
   const rows = [
-    templateRow(ID, "Fire exit check", { number: "WI/PRD/01", category: "WI", subCategory: "PRD" }, {
+    templateRow(ID, "Fire exit check", { number: "WI/PRD/01", category: "WI", partA: "PRD" }, {
       ...NONE,
       state: "ACTIVE",
       activeVersion: 3,
@@ -144,7 +146,7 @@ function listAnswers(create = true) {
           id: ID,
           objectApiName: "InspectionTemplate",
           ownerId: "0198f5c0-0000-7000-8000-000000000001",
-          fields: { name: "Fire exit check", category: "WI", subCategory: "PRD" },
+          fields: { name: "Fire exit check", category: "WI", partA: "PRD" },
           version: 0,
           createdAt: "2026-10-22T08:00:00Z",
           updatedAt: "2026-10-22T08:00:00Z",
@@ -169,17 +171,18 @@ beforeEach(() => {
 });
 
 describe("the master list", () => {
-  it("lists the templates with their number, category, revisions and status", async () => {
+  it("lists the templates with their number, level, document type, revision and status", async () => {
     fakeApi(listAnswers());
 
     render(<TemplatesPage />);
 
     expect(await screen.findByText("Fire exit check")).toBeInTheDocument();
     expect(screen.getByText("WI/PRD/01")).toBeInTheDocument();
-    expect(screen.getByText("Active Rev 02, In review")).toBeInTheDocument();
+    const headers = within(screen.getByTestId("templates-list")).getAllByRole("columnheader").map((one) => one.textContent);
+    expect(headers.join("|")).toMatch(/^Name.*Number.*Level.*Document.*Revision.*Status/);
+    expect(headers.join("|")).not.toMatch(/Identification|Part A|Revisions/);
     expect(within(screen.getByTestId("templates-list")).getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("Not numbered yet")).toBeInTheDocument();
-    expect(screen.getByText("Retired, Rev 01 was the last in use")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /All templates/ })).toBeInTheDocument();
   });
 
@@ -405,10 +408,12 @@ await waitFor(() => expect(screen.getByTestId("approval-submit")).toBeDisabled()
     await waitFor(() => expect(screen.queryByRole("button", { name: "Edit" })).toBeNull());
   });
 
-  it("shows the revision the platform saved on the Details tab, and the day it was last revised (FA8)", async () => {
+  it("shows the revision the platform saved on the Details tab, and the day it was last revised (FA8, FA11A)", async () => {
     setUrl(OPEN);
     fakeApi({
       ...listAnswers(),
+      "GET /api/v1/objects/InspectionTemplate/form": detailsForm(),
+      [`GET ${RECORDS}/${ID}`]: () => json(detailsRecord({ lastRevisedAt: "2026-10-26T08:00:00Z" })),
       [`GET /api/v1/templates/${ID}/lifecycle`]: () =>
         json(
           lifecycleOf(
@@ -419,8 +424,10 @@ await waitFor(() => expect(screen.getByTestId("approval-submit")).toBeDisabled()
     });
     render(<TemplatesPage />);
 
-    expect(await screen.findByTestId("template-revision")).toHaveTextContent("01");
+    expect(await screen.findByTestId("value-revision")).toHaveTextContent("01");
     expect(screen.getByText("Last revised on")).toBeInTheDocument();
+    // Stored as text, shown as the reader's date and time (the tests run in UTC).
+    expect(screen.getByTestId("value-lastRevisedAt")).toHaveTextContent(new Date("2026-10-26T08:00:00Z").toLocaleString());
     expect(await screen.findByTestId("lifecycle-text")).toHaveTextContent("Active Rev 01");
   });
 
@@ -477,7 +484,7 @@ await waitFor(() => expect(screen.getByTestId("approval-submit")).toBeDisabled()
             id: ID,
             objectApiName: "InspectionTemplate",
             ownerId: "0198f5c0-0000-7000-8000-000000000001",
-            fields: { name: "Fire exit check", category: "WI", subCategory: "PRD" },
+            fields: { name: "Fire exit check", category: "WI", partA: "PRD" },
             version: 1,
             createdAt: "2026-10-22T08:00:00Z",
             updatedAt: "2026-10-22T08:00:00Z",
@@ -890,15 +897,33 @@ describe("the Fill-ins tab (FF1)", () => {
     expect(asked[0]).toBe(ID);
   });
 
-  it("draws no Start button and no explanation when a fill-in cannot be started", async () => {
+  it("draws Start a fill-in greyed out, with the API's reason, when a fill-in cannot be started", async () => {
     setUrl(`${OPEN}&tab=fill-ins`);
     fakeApi({ ...listAnswers(), ...FILL_LIST, "POST /api/v1/fill-ins/query": () => json({ data: { rows: [] } }) });
 
     render(<TemplatesPage />);
 
     expect(await screen.findByText("No fill-ins on this template yet.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Start a fill-in" })).toBeNull();
-    expect(screen.queryByText("You do not have the right to fill in templates.")).toBeNull();
+    const start = await screen.findByRole("button", { name: "Start a fill-in" });
+    expect(start).toBeDisabled();
+    expect(start).toHaveAttribute("title", "You do not have the right to fill in templates.");
+  });
+
+  it("puts the search box first, then Start a fill-in, then the settings icon", async () => {
+    setUrl(`${OPEN}&tab=fill-ins`);
+    fakeApi({
+      ...listAnswers(),
+      ...FILL_LIST,
+      [`GET /api/v1/templates/${ID}/fill-in-options`]: () => json({ data: { canStart: true, activeVersion: 3 } }),
+      "POST /api/v1/fill-ins/query": () => json({ data: { rows: [fillRow] } }),
+    });
+
+    render(<TemplatesPage />);
+
+    const start = await screen.findByRole("button", { name: "Start a fill-in" });
+    const search = screen.getByRole("searchbox", { name: /Search fill-ins/ });
+    // The box comes before the button in the page (DOCUMENT_POSITION_FOLLOWING: the button follows the box).
+    expect(search.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
 
@@ -942,7 +967,7 @@ describe("the New template popup", () => {
                 values: picks(["DOCA", "DOCB", "DOCC"]),
                 dependency: { controllingField: "level", allowed: { L1: ["DOCA", "DOCB"], L2: ["DOCC"] } },
               },
-              { apiName: "category", label: "Identity category", type: "PICKLIST", editable: false, values: picks(["WI"]) },
+              { apiName: "category", label: "Identification", type: "PICKLIST", editable: false, values: picks(["WI"]) },
             ],
             sections: [],
             recordTypes: [],
@@ -962,7 +987,224 @@ describe("the New template popup", () => {
     fireEvent.change(level, { target: { value: "L2" } });
     expect(within(document).getAllByRole("option").map((option) => option.getAttribute("value"))).toContain("DOCC");
     expect(within(document).queryByRole("option", { name: "DOCA label" })).toBeNull();
-    expect(within(dialog).queryByLabelText(/^Identity category/)).toBeNull();
+    expect(within(dialog).queryByLabelText(/^Identification/)).toBeNull();
+  });
+});
+
+// The form of a template as the Details tab of FA11A draws it: the renamed labels and the fields the page arranges.
+function detailsForm() {
+  const picks = (values: string[]) => values.map((value) => ({ value, label: `${value} label`, active: true }));
+  const field = (apiName: string, label: string, extra: Record<string, unknown> = {}) => ({
+    apiName,
+    label,
+    type: "TEXT",
+    editable: false,
+    ...extra,
+  });
+  return () =>
+    json({
+      data: {
+        objectApiName: "InspectionTemplate",
+        label: "Template",
+        pluralLabel: "Templates",
+        // The API's own layout is ignored by the Details tab: the page draws its own two columns.
+        layout: { source: "GENERATED", sections: [{ label: "Details", columns: 2, fields: ["number", "name"] }] },
+        fields: [
+          field("name", "Document name", { editable: true, required: true }),
+          field("level", "Level", { type: "PICKLIST", editable: true, values: picks(["L1"]) }),
+          field("documentType", "Document type", { type: "PICKLIST", editable: true, values: picks(["DOCA"]) }),
+          field("category", "Identification", { type: "PICKLIST", values: picks(["CP", "WI"]) }),
+          field("partA", "Part A", { editable: true }),
+          field("partB", "Part B", { editable: true }),
+          field("serial", "Serial number", { editable: true }),
+          field("number", "Document number"),
+          field("revision", "Revision number"),
+          field("retired", "Obsolete", { type: "BOOLEAN" }),
+          field("lastRevisedAt", "Last revised on"),
+          field("createdAt", "Created on", { type: "DATE_TIME", kind: "SYSTEM" }),
+        ],
+        sections: [],
+        recordTypes: [],
+        actions: { create: true, update: true, delete: false },
+      },
+    });
+}
+
+function detailsRecord(extra: Record<string, unknown> = {}) {
+  return {
+    data: {
+      id: ID,
+      objectApiName: "InspectionTemplate",
+      ownerId: "0198f5c0-0000-7000-8000-000000000001",
+      fields: {
+        name: "Fire exit check",
+        level: "L1",
+        documentType: "DOCA",
+        category: "WI",
+        partA: "PRD",
+        number: "WI/PRD/01",
+        retired: false,
+        ...extra,
+      },
+      version: 0,
+      createdAt: "2026-10-22T08:00:00Z",
+      updatedAt: "2026-10-22T08:00:00Z",
+    },
+  };
+}
+
+/** The fields of an arranged section in drawing order, each with its column (1 or 2) and row. */
+function placed(grid: Element) {
+  return Array.from(grid.children).map((one) => ({
+    field: one.getAttribute("data-field") ?? "",
+    column: (one as HTMLElement).style.getPropertyValue("--col"),
+    row: (one as HTMLElement).style.getPropertyValue("--row"),
+  }));
+}
+
+/** What the server says about the number of an identification (FA11B): which parts it asks for and where its counter stands. */
+function numberingInfo(extra: Record<string, unknown> = {}) {
+  return {
+    data: {
+      known: true, partA: true, partB: false, serial: true, width: 2, prefix: "WI/PRD/", complete: true, started: true,
+      canStart: false, nextSerial: null, number: null, ...extra,
+    },
+  };
+}
+
+describe("the Details tab of a template (FA11B)", () => {
+  const ACTIVE = { ...NONE, state: "ACTIVE", activeVersion: 4, highestVersion: 4 };
+  const withLifecycle = (extra: Record<string, unknown>, numbers = ACTIVE, info = numberingInfo()) => ({
+    "GET /api/v1/objects/InspectionTemplate/form": detailsForm(),
+    [`GET /api/v1/templates/${ID}/lifecycle`]: () => json(lifecycleOf(extra, numbers)),
+    "POST /api/v1/templates/numbering-info": () => json(info),
+  });
+
+  it("draws the new labels in the rows of the layout, with Part A and Part B left out in reading", async () => {
+    setUrl(OPEN);
+    fakeApi({ ...listAnswers(), ...withLifecycle({ revision: "02" }), [`GET ${RECORDS}/${ID}`]: () => json(detailsRecord()) });
+    render(<TemplatesPage />);
+
+    const details = await screen.findByTestId("record-details");
+    await waitFor(() => expect(details.querySelector('[data-field="partB"]')).toBeNull());
+    const labels = Array.from(details.querySelectorAll(".dl-label")).map((one) => one.textContent);
+    expect(labels).toEqual([
+      "Document name *",
+      "Level",
+      "Document type",
+      "Identification",
+      "Document number",
+      "Revision number",
+      "Obsolete",
+      "Last revised on",
+      "Created on",
+    ]);
+    expect(placed(details.querySelector(".record-grid-placed") as Element)).toEqual([
+      { field: "name", column: "1 / -1", row: "1" },
+      { field: "level", column: "1", row: "2" },
+      { field: "documentType", column: "2", row: "2" },
+      { field: "category", column: "1", row: "3" },
+      { field: "number", column: "2", row: "3" },
+      { field: "revision", column: "1", row: "4" },
+      { field: "retired", column: "2", row: "4" },
+    ]);
+    expect(screen.queryByTestId("value-serial")).toBeNull();
+    expect(screen.queryByText("Template name")).toBeNull();
+    expect(screen.queryByText("Retired")).toBeNull();
+  });
+
+  it("never draws Part A or Part B in reading, even when the identification asks for both", async () => {
+    setUrl(OPEN);
+    fakeApi({
+      ...listAnswers(),
+      ...withLifecycle({ revision: "00" }, ACTIVE, numberingInfo({ partB: true, serial: false })),
+      [`GET ${RECORDS}/${ID}`]: () => json(detailsRecord({ category: "CP", partA: "ABC", partB: "P-100" })),
+    });
+    render(<TemplatesPage />);
+
+    const details = await screen.findByTestId("record-details");
+    await screen.findByTestId("value-number");
+    expect(details.querySelector('[data-field="partA"]')).toBeNull();
+    expect(details.querySelector('[data-field="partB"]')).toBeNull();
+    expect(screen.queryByTestId("value-partA")).toBeNull();
+    expect(screen.queryByTestId("value-partB")).toBeNull();
+  });
+
+  it("reads the Revision number from the sheet when none was saved", async () => {
+    setUrl(OPEN);
+    // Published before the revision was saved: the fourth stored version of the sheet is Revision 03.
+    fakeApi({ ...listAnswers(), ...withLifecycle({}), [`GET ${RECORDS}/${ID}`]: () => json(detailsRecord()) });
+    render(<TemplatesPage />);
+
+    expect(await screen.findByTestId("value-revision")).toHaveTextContent("03");
+  });
+
+  it("shows no Revision number before a first Revision is in use", async () => {
+    setUrl(OPEN);
+    fakeApi({
+      ...listAnswers(),
+      ...withLifecycle({}, { ...NONE, state: "DRAFT", draftVersion: 1, highestVersion: 1 }),
+      [`GET ${RECORDS}/${ID}`]: () => json(detailsRecord()),
+    });
+    render(<TemplatesPage />);
+
+    await screen.findByTestId("record-details");
+    await screen.findByTestId("lifecycle-text");
+    expect(screen.queryByTestId("value-revision")).toBeNull();
+    expect(screen.queryByText("Revision number")).toBeNull();
+  });
+
+  it("keeps the same rows in the edit form and does not let the Revision number or its date be typed", async () => {
+    setUrl(OPEN);
+    fakeApi({
+      ...listAnswers(),
+      ...withLifecycle({ revision: "01", lastRevisedAt: "2026-10-26T08:00:00Z" }),
+      [`GET ${RECORDS}/${ID}`]: () => json(detailsRecord({ lastRevisedAt: "2026-10-26T08:00:00Z" })),
+    });
+    render(<TemplatesPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+
+    const form = await screen.findByTestId("record-form");
+    const grid = form.querySelector(".record-grid-placed") as Element;
+    const at = Array.from(grid.children).map((one) => ({
+      column: (one as HTMLElement).style.getPropertyValue("--col"),
+      row: (one as HTMLElement).style.getPropertyValue("--row"),
+    }));
+    // name | level, document type | identification, number | Part A | revision, obsolete (Part B and the serial are not drawn).
+    expect(at).toEqual([
+      { column: "1 / -1", row: "1" },
+      { column: "1", row: "2" },
+      { column: "2", row: "2" },
+      { column: "1", row: "3" },
+      { column: "2", row: "3" },
+      { column: "1", row: "4" },
+      { column: "1", row: "5" },
+      { column: "2", row: "5" },
+    ]);
+    expect(within(form).queryByLabelText(/Revision number/)).toBeNull();
+    expect(within(form).queryByLabelText(/Last revised on/)).toBeNull();
+    expect(within(form).getByTestId("value-revision")).toHaveTextContent("01");
+    expect(within(form).getByTestId("value-lastRevisedAt")).toHaveTextContent(new Date("2026-10-26T08:00:00Z").toLocaleString());
+  });
+
+  it("builds the Document number on the screen: capitals as Part A is typed, the saved number while the identity is unchanged", async () => {
+    setUrl(OPEN);
+    fakeApi({
+      ...listAnswers(),
+      ...withLifecycle({ revision: "01" }, ACTIVE, numberingInfo({ prefix: "WI/NEW/", started: false, canStart: true })),
+      [`GET ${RECORDS}/${ID}`]: () => json(detailsRecord()),
+    });
+    render(<TemplatesPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+
+    const form = await screen.findByTestId("record-form");
+    expect(await within(form).findByTestId("live-number")).toHaveTextContent("WI/PRD/01");
+    const partA = within(form).getByLabelText("Part A");
+    fireEvent.change(partA, { target: { value: "new" } });
+
+    expect(partA).toHaveValue("NEW");
+    await waitFor(() => expect(within(form).getByTestId("serial-input")).toBeEnabled());
+    expect(within(form).getByTestId("live-number")).toHaveTextContent("WI/NEW/");
   });
 });
 
@@ -972,6 +1214,7 @@ describe("the approval flow beside the details (FA6D)", () => {
     summary: {
       id: "req-1",
       version: 1,
+      startedAt: "2026-10-24T08:00:00Z",
       status,
       processLabel: "Template approval",
       submittedBy: person("Department Author"),

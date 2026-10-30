@@ -142,6 +142,7 @@ public final class QualityHomeViews {
      * @param templatesByLevelAndType the templates by level and document type
      * @param fillsByTemplate the ten templates with the most fill-ins in the period
      * @param fillsByDepartment the fill-ins of the period by department
+     * @param fillsByDepartmentAndTemplate the fill-ins of the period by department, then by template
      * @param approvalStepDays the days an approval spends at each step, on average
      * @param publishedPerMonth the templates published or revised in each of the last twelve months
      * @param recentActivity the latest things that happened, newest first
@@ -149,7 +150,8 @@ public final class QualityHomeViews {
     public record ChartsView(DaysView fillsPerDay, List<StatusCount> templatesByStatus,
             List<LevelTypeCount> templatesByLevelAndType, List<TemplateCount> fillsByTemplate,
             List<DepartmentCount> fillsByDepartment, List<StepDays> approvalStepDays,
-            List<MonthCount> publishedPerMonth, List<Activity> recentActivity) {
+            List<MonthCount> publishedPerMonth, List<Activity> recentActivity,
+            List<DepartmentTemplateCount> fillsByDepartmentAndTemplate) {
     }
 
     /**
@@ -214,6 +216,20 @@ public final class QualityHomeViews {
      * @param count how many
      */
     public record DepartmentCount(String location, String department, @NotNull String label, @NotNull Long count) {
+    }
+
+    /**
+     * Fill-ins of one department for one template.
+     *
+     * @param location the location code, or null for "not recorded"
+     * @param department the department code, or null for "not recorded"
+     * @param label what people read for the department
+     * @param templateId the template
+     * @param templateName the name the fill-ins carry
+     * @param count how many
+     */
+    public record DepartmentTemplateCount(String location, String department, @NotNull String label,
+            @NotNull UUID templateId, @NotNull String templateName, @NotNull Long count) {
     }
 
     /**

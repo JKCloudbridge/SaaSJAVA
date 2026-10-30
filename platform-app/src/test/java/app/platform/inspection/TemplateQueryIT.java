@@ -52,9 +52,9 @@ class TemplateQueryIT extends FillSupport {
         return ids(browser.postJson(QUERY, body));
     }
 
-    private static String named(Person person, String name, String category, String subCategory) {
+    private static String named(Person person, String name, String category, String partA) {
         String template = template(person.browser(), "{\"name\":\"" + name + "\",\"category\":\"" + category + "\""
-                + (subCategory == null ? "" : ",\"subCategory\":\"" + subCategory + "\"") + "}");
+                + (partA == null ? "" : ",\"partA\":\"" + partA + "\"") + "}");
         fill(person.browser(), template, firstVersion(person.browser(), template));
         return template;
     }
@@ -80,7 +80,7 @@ class TemplateQueryIT extends FillSupport {
         assertThat(asked(browser, "{\"filter\":" + condition("EQ", "category", "WI") + "}"))
                 .containsExactlyInAnyOrder(fire, round);
         assertThat(asked(browser, "{\"filter\":{\"op\":\"AND\",\"items\":[" + condition("EQ", "category", "WI") + ","
-                + condition("EQ", "subCategory", "QLT") + "]}}")).containsExactly(round);
+                + condition("EQ", "partA", "QLT") + "]}}")).containsExactly(round);
         assertThat(asked(browser, "{\"filter\":" + condition("CONTAINS", "name", "audit") + "}"))
                 .containsExactly(stores);
         assertThat(asked(browser, "{\"search\":\"SOP\"}")).as("a whole category code is found").containsExactly(stores);

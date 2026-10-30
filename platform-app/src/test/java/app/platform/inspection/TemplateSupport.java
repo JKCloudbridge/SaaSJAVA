@@ -84,8 +84,8 @@ public abstract class TemplateSupport extends SolutionSupport {
                 + "\",\"description\":\"\",\"abilities\":[]}").body(), "$.data.id");
         Response access = setting.admin().request("PUT", POLICIES + "/" + policy + "/data-access",
                 "{\"objects\":[{\"key\":\"" + OBJECT + "\",\"actions\":[\"read\",\"update\"]}],\"fields\":["
-                + identityField("category") + "," + identityField("subCategory") + "," + identityField("partCode")
-                + "," + identityField("planYear") + "]}");
+                + identityField("category") + "," + identityField("partA") + "," + identityField("partB")
+                + "," + identityField("serial") + "]}");
         assertThat(access.status()).as(access.body()).isEqualTo(200);
         give(setting.admin(), person.member(), policy);
         return person;
@@ -139,10 +139,10 @@ public abstract class TemplateSupport extends SolutionSupport {
 
     // ---- templates and their sheets ----
 
-    /** A template with the category and sub-category, made by the browser; returns its identifier. */
-    protected static String template(TestBrowser browser, String category, String subCategory) {
+    /** A template with the identification and Part A, made by the browser; returns its identifier. */
+    protected static String template(TestBrowser browser, String category, String partA) {
         return template(browser, "{\"name\":\"" + newName() + "\",\"category\":\"" + category + "\""
-                + (subCategory == null ? "" : ",\"subCategory\":\"" + subCategory + "\"") + "}");
+                + (partA == null ? "" : ",\"partA\":\"" + partA + "\"") + "}");
     }
 
     protected static String template(TestBrowser browser, String fieldsJson) {
@@ -205,8 +205,8 @@ public abstract class TemplateSupport extends SolutionSupport {
     }
 
     /** A template with a saved, non-empty first version. */
-    protected static String templateWithSheet(TestBrowser browser, String category, String subCategory) {
-        String template = template(browser, category, subCategory);
+    protected static String templateWithSheet(TestBrowser browser, String category, String partA) {
+        String template = template(browser, category, partA);
         int number = firstVersion(browser, template);
         assertThat(fill(browser, template, number).status()).isEqualTo(200);
         return template;

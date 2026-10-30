@@ -131,13 +131,11 @@ class ShippedPoliciesIT extends SolutionSupport {
                 "Department setup", Map.of("DepartmentGroup", List.of("create", "delete", "read", "update")));
         Map<String, Map<String, String>> fields = Map.of(
                 "Author", Map.of("name", "edit", "level", "edit", "documentType", "edit", "category", "read",
-                        "subCategory", "read", "partCode", "read", "planYear", "read", "number", "read",
-                        "retired", "read"),
+                        "partA", "read", "partB", "read", "number", "read", "retired", "read"),
                 "Approver", Map.of("name", "edit", "level", "edit", "documentType", "edit", "category", "edit",
-                        "subCategory", "edit", "partCode", "edit", "planYear", "edit", "number", "read"),
+                        "partA", "edit", "partB", "edit", "serial", "edit", "number", "read"),
                 "Reader", Map.of("name", "read", "level", "read", "documentType", "read", "category", "read",
-                        "subCategory", "read", "partCode", "read",
-                        "planYear", "read", "number", "read", "retired", "read"));
+                        "partA", "read", "partB", "read", "number", "read", "retired", "read"));
 
         for (String name : SHIPPED_POLICIES) {
             Response access = admin.get(POLICIES + "/" + policyId(admin, name) + "/data-access");

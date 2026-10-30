@@ -9,7 +9,7 @@ import { useListViews } from "@/components/ui/lists/useListViews";
 import { Tag } from "@/components/ui/lists/Tag";
 import { useListRoute } from "@/components/ui/lists/useListRoute";
 import { queryTemplates, type TemplateRow } from "./api";
-import { lifecycleText, stateParam, stateParamWords, stateTag } from "./lifecycle";
+import { stateParam, stateParamWords, stateTag } from "./lifecycle";
 import { AddressFilterNote } from "./AddressFilterNote";
 import { TemplateDetail } from "./TemplateDetail";
 import { TEMPLATE_OBJECT, text } from "./template";
@@ -18,7 +18,7 @@ const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped:
 
 /**
  * The page of the "Templates" entry, the master list (Functional track FA3, FA4): every template the member may see with
- * its number, name, category, sub-category and lifecycle ("Active v3, v4 in review"), one search box over those columns,
+ * its number, name, identification, Part A and lifecycle ("Active v3, v4 in review"), one search box over those columns,
  * a click on a header to order by it, a settings menu with New when the API says the member may create one, and one
  * template opened in the same pane.
  *
@@ -41,7 +41,7 @@ type Loaded =
   | { status: "ready"; rows: TemplateRow[]; next?: string; canCreate: boolean }
   | { status: "failed"; message: string };
 
-const FIELD_COLUMNS = ["number", "level", "documentType", "category", "subCategory"] as const;
+const FIELD_COLUMNS = ["number", "level", "documentType"] as const;
 const PRIMARY_FIELD = "name";
 
 function TemplatesScreen() {
@@ -128,20 +128,6 @@ function TemplatesScreen() {
       kind: "muted",
       sort: (row) => text(row.documentType),
     },
-    category: {
-      key: "category",
-      header: "Identity category",
-      cell: (row) => text(row.category),
-      kind: "muted",
-      sort: (row) => text(row.category),
-    },
-    subCategory: {
-      key: "subCategory",
-      header: "Identity sub-category",
-      cell: (row) => text(row.subCategory),
-      kind: "muted",
-      sort: (row) => text(row.subCategory),
-    },
   };
   const chosen = views.columns.map((name) => cells[name]).filter((column): column is ListColumn<TemplateRow> => Boolean(column));
 
@@ -161,7 +147,6 @@ function TemplatesScreen() {
         columns={[
           ...chosen,
           { key: "revision", header: "Revision", cell: (row) => row.revision ?? "—", kind: "muted" },
-          { key: "lifecycle", header: "Revisions", cell: (row) => lifecycleText(row.lifecycle, row.revision), kind: "muted" },
           {
             key: "state",
             header: "Status",
@@ -173,7 +158,7 @@ function TemplatesScreen() {
           },
         ]}
         notices={state ? <AddressFilterNote what={stateParamWords(state)} /> : undefined}
-        searchLabel="Search templates by number, name, category or sub-category"
+        searchLabel="Search templates by number or name"
         onOpen={(row) => route.open(row.id)}
         onNew={ready?.canCreate ? route.create : undefined}
         newLabel="New"

@@ -34,7 +34,7 @@ const FORM = {
     label: "Template",
     pluralLabel: "Templates",
     layout: { source: "LAYOUT", sections: [] },
-    fields: [text("name", "Name"), text("number", "Number"), text("category", "Category"), text("subCategory", "Sub-category")],
+    fields: [text("name", "Name"), text("number", "Number"), text("level", "Level"), text("documentType", "Document")],
     sections: [],
     recordTypes: [],
     actions: { create: true, update: true, delete: false },
@@ -134,8 +134,8 @@ describe("views", () => {
     await waitFor(() => expect(lastQuery(queries)?.filter).toEqual({ op: "EQ", field: "category", values: ["WI"] }));
     expect(lastQuery(queries)?.sort).toEqual([{ field: "number", descending: false }]);
     expect(screen.getByTestId("view-menu")).toHaveTextContent("Work instructions");
-    // The view named only the number column, so the category and sub-category columns are gone.
-    expect(screen.queryByRole("columnheader", { name: /Category/ })).toBeNull();
+    // The view named only the number column, so the Level and Document columns are gone.
+    expect(screen.queryByRole("columnheader", { name: /Level/ })).toBeNull();
     expect(screen.getByRole("columnheader", { name: /Number/ })).toBeInTheDocument();
   });
 
@@ -211,20 +211,20 @@ describe("select fields to display", () => {
     const dialog = await screen.findByRole("dialog", { name: "Select fields to display" });
     const selected = within(dialog).getByLabelText("Selected fields") as HTMLSelectElement;
     const available = within(dialog).getByLabelText("Available fields") as HTMLSelectElement;
-    expect(Array.from(selected.options).map((option) => option.text)).toEqual(["Number", "Category", "Sub-category"]);
+    expect(Array.from(selected.options).map((option) => option.text)).toEqual(["Number", "Level", "Document"]);
     expect(available.options).toHaveLength(0);
 
-    fireEvent.change(selected, { target: { value: "category" } });
+    fireEvent.change(selected, { target: { value: "level" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "‹ Remove" }));
-    expect(Array.from(available.options).map((option) => option.text)).toEqual(["Category"]);
-    fireEvent.change(within(dialog).getByLabelText("Selected fields"), { target: { value: "subCategory" } });
+    expect(Array.from(available.options).map((option) => option.text)).toEqual(["Level"]);
+    fireEvent.change(within(dialog).getByLabelText("Selected fields"), { target: { value: "documentType" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Move up" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Apply" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(screen.queryByRole("columnheader", { name: /^Category/ })).toBeNull();
+    expect(screen.queryByRole("columnheader", { name: /^Level/ })).toBeNull();
     const headers = screen.getAllByRole("columnheader").map((header) => header.textContent);
-    expect(headers.indexOf("Sub-category")).toBeLessThan(headers.indexOf("Number"));
+    expect(headers.indexOf("Document")).toBeLessThan(headers.indexOf("Number"));
   });
 
   it("moves a field with Enter from the keyboard", async () => {

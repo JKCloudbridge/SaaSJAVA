@@ -254,7 +254,7 @@ try {
   });
   check("an approval process is made", process.status === 201, `status ${process.status} ${JSON.stringify(process.body?.error ?? "")}`.slice(0, 200));
   const lifecycle = await api(page, "POST", "/api/v1/objects/InspectionTemplate/records", {
-    fields: { name: `Lifecycle check ${stamp}`, category: "WI", subCategory: "PRD" },
+    fields: { name: `Lifecycle check ${stamp}`, category: "WI", partA: "PRD" },
   });
   const lifeId = lifecycle.body?.data?.id;
   await api(page, "POST", `/api/v1/sheets/InspectionTemplate/${lifeId}/versions`, { dimension: 2 });

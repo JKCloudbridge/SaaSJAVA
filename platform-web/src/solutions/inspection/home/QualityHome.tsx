@@ -6,7 +6,7 @@ import { readHomeLook, writeHomeLook, type HomeLook } from "./look";
 import { loadMyTasks, useSummary } from "./api";
 import { ActivityList } from "./ActivityList";
 import { ChartCard } from "./ChartCard";
-import { AreaChart, HBars, RingChart, type Bar, type Slice } from "./charts";
+import { AreaChart, DepartmentGroups, HBars, RingChart, type Bar, type DepartmentGroup, type Slice } from "./charts";
 import { creamSeries, HeatMap, HRows, VBars } from "./creamCharts";
 import { FilterBar } from "./FilterBar";
 import {
@@ -441,6 +441,25 @@ function Charts({
   }));
   const heatLevels = levels.map((level) => ({ key: level, label: level }));
   const heatCounts = new Map((charts.templatesByLevelAndType ?? []).map((one) => [`${one.levelLabel}|${one.typeLabel}`, one.count]));
+  const departmentGroups: DepartmentGroup[] = [];
+  for (const one of charts.fillsByDepartmentAndTemplate ?? []) {
+    const key = one.location && one.department ? `${one.location}/${one.department}` : "none";
+    let group = departmentGroups.find((candidate) => candidate.key === key);
+    if (!group) {
+      group = {
+        key,
+        label: one.label,
+        narrow: one.location && one.department ? { location: one.location, department: one.department } : undefined,
+        rows: [],
+      };
+      departmentGroups.push(group);
+    }
+    (group.rows as { key: string; label: string; count: number }[]).push({
+      key: one.templateId,
+      label: one.templateName,
+      count: one.count,
+    });
+  }
   const byTemplate: Bar[] | undefined = charts.fillsByTemplate?.map((one) => ({
     key: one.templateId,
     label: one.name || "Template",
@@ -704,31 +723,23 @@ function Charts({
         </ChartCard>
       ) : null}
 
-      {byDepartment || fillsFailed ? (
+      {charts.fillsByDepartmentAndTemplate || fillsFailed ? (
         <ChartCard
           wide
           testId="chart-fills-by-department"
-          title="Fill-ins by department"
-          note={filters.department ? "Showing the chosen department's place; press a bar to narrow the page" : "Press a bar to narrow the page"}
-          empty={fillsFailed ? failedWords : byDepartment && byDepartment.length === 0 ? "No fill-ins in this period" : undefined}
+          title="Fill-ins by department by template"
+          note="Every department and its templates. Press a department to narrow the page"
+          empty={fillsFailed ? failedWords : departmentGroups.length === 0 ? "No fill-ins in this period" : undefined}
           table={{
-            caption: "Fill-ins by department",
-            columns: ["Department", "Fill-ins"],
-            rows: (byDepartment ?? []).map((one) => [one.label, one.count]),
+            caption: "Fill-ins by department and template",
+            columns: ["Department", "Template", "Fill-ins"],
+            rows: (charts.fillsByDepartmentAndTemplate ?? []).map((one) => [one.label, one.templateName, one.count]),
           }}
         >
-          <HBars
-            bars={byDepartment ?? []}
+          <DepartmentGroups
+            groups={departmentGroups}
             unit="fill-ins"
-            seriesIndex={2}
-            onSelect={(key) => {
-              if (key === "none") {
-                return;
-              }
-              const [location = "", department = ""] = key.split("/");
-              onNarrow({ ...filters, location, department });
-            }}
-            selectWords="Show only this department"
+            onNarrow={(narrow) => onNarrow({ ...filters, ...narrow })}
           />
         </ChartCard>
       ) : null}

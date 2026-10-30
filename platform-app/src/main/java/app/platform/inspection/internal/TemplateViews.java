@@ -46,7 +46,7 @@ public final class TemplateViews {
      * @param name its name
      * @param number its number, or null before the first approval
      * @param category the category code
-     * @param subCategory the sub-category code, or null
+     * @param partA the Part A text, or null
      * @param level the level code (FA6A), or null
      * @param documentType the document code that goes with the level (FA6A), or null
      * @param retired whether it is retired
@@ -56,7 +56,7 @@ public final class TemplateViews {
      * @param revision the revision in use, written with two digits (00 is the first), or null when none was ever
      *        published (FA8)
      */
-    public record TemplateRow(@NotNull UUID id, String name, String number, String category, String subCategory,
+    public record TemplateRow(@NotNull UUID id, String name, String number, String category, String partA,
             String level, String documentType, @NotNull Boolean retired, @NotNull TemplateLifecycle lifecycle,
             @NotNull Integer openChangeRequests, String revision) {
     }
@@ -65,7 +65,7 @@ public final class TemplateViews {
      * The question a list view puts to the master list (UI3A). The filter and the order are the closed query model of
      * the record store; nothing in it is a rule of who may see what, and a typed text in it is never logged.
      *
-     * @param search a text matched against the name, the number and (a whole code) the category and sub-category
+     * @param search a text matched against the name, the number and (a whole code) the identification and Part A
      * @param filter conditions on the fields of the template, or null
      * @param sort up to two keys; none gives the name order
      * @param state a lifecycle state to keep, or null
@@ -240,5 +240,44 @@ public final class TemplateViews {
      * @param allowDownload the sheet may be given as a file to everybody who can read it
      */
     public record SheetOptionsRequest(@NotNull Boolean viewOnly, @NotNull Boolean allowDownload) {
+    }
+
+    /**
+     * What a person typing the identity of a template asks while they type (FA11B, ADR-0206). The parts are what is
+     * typed so far, possibly nothing; the answer is advice and reserves nothing.
+     *
+     * @param category the identification chosen, or null
+     * @param partA the Part A typed so far, or null
+     * @param partB the Part B typed so far, or null
+     */
+    public record NumberingInfoRequest(@Size(max = 40) String category, @Size(max = 40) String partA,
+            @Size(max = 40) String partB) {
+
+        @Override
+        public String toString() {
+            return "NumberingInfoRequest[redacted]";
+        }
+    }
+
+    /**
+     * What the format of the chosen identification asks for and where its counter stands.
+     *
+     * @param known whether the identification has a number format; false means nothing is asked and no number is shown
+     * @param partA whether the format reads Part A
+     * @param partB whether the format reads Part B
+     * @param serial whether the number ends in a running serial
+     * @param width the digits the serial is padded to (0 without a serial)
+     * @param prefix the number written so far, up to the first part still missing or up to the serial
+     * @param complete whether every part the format reads is given
+     * @param started whether this combination already has numbers, so that the serial is automatic and disabled
+     * @param canStart whether the caller may type the first serial (the people who set the identification)
+     * @param nextSerial the serial the next template of this combination gets, or null (given only to a caller who
+     *        may type the serial)
+     * @param number the whole number as it would be written, or null (with a serial only for a caller who may type
+     *        the serial)
+     */
+    public record NumberingInfoView(@NotNull Boolean known, @NotNull Boolean partA, @NotNull Boolean partB,
+            @NotNull Boolean serial, @NotNull Integer width, @NotNull String prefix, @NotNull Boolean complete,
+            @NotNull Boolean started, @NotNull Boolean canStart, Long nextSerial, String number) {
     }
 }

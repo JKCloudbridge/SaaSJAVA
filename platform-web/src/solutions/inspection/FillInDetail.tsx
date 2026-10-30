@@ -15,6 +15,7 @@ import { FillWorkspace } from "@/components/sheets/FillWorkspace";
 import { DetailGrid, DetailItem, DetailPage, DetailSection } from "@/components/ui/lists/DetailPage";
 import { Tag } from "@/components/ui/lists/Tag";
 import { fillStatusTag } from "@/lib/sheets/fillTags";
+import { footerText } from "@/lib/sheets/revision";
 import type { FillSummary } from "@/lib/sheets/fillApi";
 import { FILL_OBJECT, submitFillIn } from "./fillIns";
 import { text } from "./template";
@@ -58,6 +59,10 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
   const status = text(fields.status);
   const tag = status ? fillStatusTag(status) : undefined;
   const templateId = text(fields.templateId);
+  // The footer of the View page: the template's number and the revision the fill-in was made on (as the Sheet tab writes it).
+  const templateRecord = useRecord("InspectionTemplate", templateId || undefined, refresh);
+  const templateNumber = templateRecord.status === "ready" ? text(templateRecord.record.fields.number) : "";
+  const footer = (versionNo: number) => footerText(templateNumber, versionNo);
   // Only a hint for the buttons: a draft or returned fill-in takes files from the person who started it, a sent or approved
   // one from a person who may correct it, and an archived one from nobody. The server decides on every call.
   const sendable = status === "DRAFT" || status === "RETURNED";
@@ -146,6 +151,7 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
           submit={header && sendable ? submit : undefined}
           onCancel={sendable ? onBack : undefined}
           registerLeave={registerLeave}
+          footer={footer}
         />
       </DetailSection>
     </DetailPage>

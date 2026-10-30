@@ -22,7 +22,9 @@ public final class NumberSeriesException extends RuntimeException {
         /** The counter has reached the maximum supported number of digits. */
         COUNTER_EXHAUSTED("The running count has reached its limit."),
         /** A previously issued number belongs permanently to another record. */
-        NUMBER_TAKEN("This number has already been issued to another record.");
+        NUMBER_TAKEN("This number has already been issued to another record."),
+        /** A first number was typed for a scope that already has a counter (FA11B, ADR-0206). */
+        ALREADY_STARTED("This combination has already started; its numbers are automatic.");
 
         private final String words;
 

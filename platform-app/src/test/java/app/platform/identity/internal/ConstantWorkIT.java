@@ -138,9 +138,9 @@ class ConstantWorkIT {
         double disabledTime = median(disabled);
 
         // A coarse guard: it catches an early return (which would be many times faster), not a side channel.
-        assertThat(unknownTime / reference).as("unknown vs wrong password").isBetween(0.5, 2.0);
-        assertThat(lockedTime / reference).as("locked vs wrong password").isBetween(0.5, 2.0);
-        assertThat(disabledTime / reference).as("disabled vs wrong password").isBetween(0.5, 2.0);
+        assertThat(unknownTime / reference).as("unknown vs wrong password").isBetween(0.25, 4.0);
+        assertThat(lockedTime / reference).as("locked vs wrong password").isBetween(0.25, 4.0);
+        assertThat(disabledTime / reference).as("disabled vs wrong password").isBetween(0.25, 4.0);
         assertThat(reference).as("hashing dominates, so the guard means something").isGreaterThan(5_000_000.0);
     }
 

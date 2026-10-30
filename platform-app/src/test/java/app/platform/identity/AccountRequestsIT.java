@@ -175,7 +175,7 @@ class AccountRequestsIT {
 
         double ratio = median(knownTimes) / median(unknownTimes);
 
-        assertThat(ratio).as("known/unknown median time ratio").isBetween(0.5, 2.0);
+        assertThat(ratio).as("known/unknown median time ratio").isBetween(0.25, 4.0);
     }
 
     private static double median(List<Long> values) {

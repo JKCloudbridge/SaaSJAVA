@@ -187,16 +187,16 @@ A template of the Quality Management System application. Its records are kept fo
 
 | API name | Label | Type | Required | Unique | Details |
 |----------|-------|------|----------|--------|---------|
-| `name` | Template name | TEXT | yes |  | up to 120 characters |
+| `name` | Document name | TEXT | yes |  | up to 120 characters |
 | `level` | Level | PICKLIST |  |  | the organization owns the list; starting values: L1, L2; values are short codes |
-| `documentType` | Document | PICKLIST |  |  | the organization owns the list; starting values: DOCA, DOCB, DOCC, DOCD; depends on `level`; values are short codes |
-| `retired` | Retired | BOOLEAN |  |  | written by the platform only |
-| `category` | Identity category | PICKLIST |  |  | the organization owns the list; starting values: IMS, QSP, CORPQSP, ESSP, CP, WI, PFC, FMEA, SOP, BP, F, FEHS, CSF, PPT, L, LEHS; values are short codes |
-| `subCategory` | Identity sub-category | PICKLIST |  |  | the organization owns the list; starting values: PRD, QLT, MNT, STR, CORP, CUSA, CUSB; depends on `category`; values are short codes |
-| `partCode` | Part code | TEXT |  |  | up to 10 characters |
-| `planYear` | Plan year | TEXT |  |  | up to 4 characters |
-| `number` | Number | TEXT |  | yes | up to 40 characters; written by the platform only |
-| `revision` | Revision | TEXT |  |  | up to 10 characters; written by the platform only |
+| `documentType` | Document type | PICKLIST |  |  | the organization owns the list; starting values: DOCA, DOCB, DOCC, DOCD; depends on `level`; values are short codes |
+| `retired` | Obsolete | BOOLEAN |  |  | written by the platform only |
+| `category` | Identification | PICKLIST |  |  | the organization owns the list; starting values: IMS, QSP, CORPQSP, ESSP, CP, WI, PFC, FMEA, SOP, BP, F, FEHS, CSF, PPT, L, LEHS, R, REHS, EHSAIR, EHSHIR, EHSAID, EHSHID, EHSAHID, PLEHS, EHSEMP, EHSOCP; values are short codes |
+| `partA` | Part A | TEXT |  |  | up to 10 characters |
+| `partB` | Part B | TEXT |  |  | up to 10 characters |
+| `serial` | Serial number | TEXT |  |  | up to 12 characters |
+| `number` | Document number | TEXT |  | yes | up to 40 characters; written by the platform only |
+| `revision` | Revision number | TEXT |  |  | up to 10 characters; written by the platform only |
 | `lastRevisedAt` | Last revised on | TEXT |  |  | up to 40 characters; written by the platform only |
 
 ## LicenceType

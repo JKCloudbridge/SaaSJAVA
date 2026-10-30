@@ -3,6 +3,7 @@ package app.platform.data.internal;
 import app.platformapi.AdvanceNumberingCounterRequest;
 import app.platformapi.ApiResponse;
 import app.platformapi.ApiPaths;
+import app.platformapi.NumberingCountersView;
 import app.platformapi.NumberingPreviewView;
 import app.platformapi.NumberingSettingView;
 import app.platformapi.NumberingSettingsView;
@@ -36,6 +37,16 @@ class NumberingController {
             description = "Needs numbering.manage. Lists shipped and organization formats and switched-off categories.")
     ApiResponse<NumberingSettingsView> list() {
         return ApiResponse.of(management.list());
+    }
+
+    @GetMapping(ROOT + "/{seriesKey}/counters")
+    @Operation(operationId = "listNumberingCounters", summary = "The combinations that already have a counter",
+            description = "Needs numbering.manage. One page of the counters of a series in the order of the "
+                    + "combinations, with the next count of each. Read only; counters only, no record. Pass the "
+                    + "returned cursor for the next page.")
+    ApiResponse<NumberingCountersView> counters(@PathVariable String seriesKey,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String cursor) {
+        return ApiResponse.of(management.counters(seriesKey, cursor));
     }
 
     @PutMapping(ROOT + "/{seriesKey}/formats")

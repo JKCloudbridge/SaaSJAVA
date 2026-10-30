@@ -1149,7 +1149,7 @@ Organization administrator holds every ability. A request cannot be raised while
 
 **Revisions.** The new Revision gets the next number, **without gaps**: a copy that was rejected never uses a number. The *New Rev. No.* and
 *New Revision date* of the register are written by the platform when the request is published and nobody can type them. The template shows
-**Revision** and **Last revised on** on its Details tab; the footer row of the sheet, the file name and the list use the same Revision.
+**Revision number** (beside the Document number) on its Details tab and **Last revised on** in System information, in your own time zone; the footer row of the sheet, the file name and the list use the same Revision.
 
 **What readers see.** A person who can only read a template sees the Revision in use and nothing else. Nobody starts a new draft of a published
 template by hand any more: the old button on the template page is gone; a new Revision is made only from a change request. The first draft of a
@@ -1199,3 +1199,56 @@ table" shows the numbers of any graph as a table.
 started before this release have none and are shown as "Not recorded". "Published per month" counts from this release on.
 
 **Settings** (`platform.inspection.home.*`): `max-scanned` (50,000), `max-approvals` (500), `recent-activity` (10).
+
+## 42. Identification, Part A and Part B, and the number of a template (FA11B)
+
+Decision: [ADR-0206](adr/0206-identification-with-part-a-and-part-b-the-typed-start-of-a-series-and-the-numbering-information.md). This is for
+the organization administrator and for Plant QMS.
+
+**What a person types.** On a template (Edit) the person who sets the identity chooses an **Identification** (the kind of document). The
+form then asks for **Part A** and **Part B** only when that kind needs them, and the **Document number** builds itself on the screen as they
+are typed. Part A and Part B are typed freehand: capital letters, digits and a hyphen, up to 10 (the box corrects lower case as you type).
+The last part of most numbers is a running serial:
+
+- **A new combination** (this Identification with these Part A and Part B has no numbers yet): the serial box can be typed. Type the serial the
+  series starts at (5 gives `...05`, padded as the pattern says), or leave it empty to start at 1. The next template of the same combination
+  gets the number after it.
+- **A combination that already has numbers:** the box is disabled and shows the next number. Nothing is typed.
+- If two people start the same new combination at the same moment, the first one starts it and the second is told, in words, that the
+  combination has just started; they save again and the number is automatic.
+- Kinds with no serial (Control plan, Process flow chart and Failure mode analysis use both parts; Business plan uses Part B) show the whole
+  number as soon as the parts are typed.
+
+The number is fixed at the first approval, together with the Identification and the parts. Changing them afterwards is not possible
+(a separate "renumber" act is not built).
+
+**Which kinds exist and what they need.**
+
+| Identification | Number | Part A | Part B | Serial |
+|---|---|---|---|---|
+| IMS | `IMS/01` | | | yes |
+| QSP | `QSP-01` | | | yes |
+| CORP-QSP | `CORP-QSP-01` | | | yes |
+| ESSP | `ESSP-01` | | | yes |
+| WI, SOP, F, CSF, PPT, L, R | `WI/<A>/01` | process or customer | | yes |
+| F/EHS, L/EHS, R/EHS | `F/EHS/<A>/01` | process | | yes |
+| EHS/AIR, HIR, AID, HID, AHID | `EHS/AIR/<A>/01` | process | | yes |
+| PL/EHS | `PL/EHS/<A>/01` | process | | yes |
+| EHS/EMP, EHS/OCP | `EHS/EMP/01` | | | yes |
+| CP, PFC, FMEA | `CP/<A>/<B>` | process | part code | no |
+| BP | `BP/<B>` | | year | no |
+
+What Part A and Part B mean is only what the pattern does with them; the screen does not know.
+
+**Add an Identification of your own.** Setup, Objects, Template, the **Identification** field: add the value (a short code). Then Setup,
+Numbering: open the new value and save its pattern (`{field:partA}`, `{field:partB}`, one `{seq:N}`; at most 10 fixed characters). Until
+you do, the new kind uses the default pattern (the identification, Part B when typed, a running count). The form follows a saved pattern at
+once.
+
+**See what has started.** Setup, Numbering lists, under the patterns, every combination that already has numbers: what was typed, the count
+the next number gets and the count last given. A typing mistake (`PDR` for `PRD`) shows there as a combination of its own. A counter can be
+raised, never lowered, from the pattern's page (as before).
+
+**Who can type.** The people with the Approver policy (Plant QMS) edit the Identification, Part A, Part B and the serial; the Author does not.
+You can give another group the same right with an access policy of your own (the fields `category`, `partA`, `partB` and `serial` of the
+template). The shipped policies cannot be changed.

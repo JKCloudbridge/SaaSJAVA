@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { arrange } from "@/lib/records/columns";
 import { formatValue, recordValue } from "@/lib/records/fieldValue";
 import { useLookupLabels } from "@/lib/records/hooks";
 import type { FormField, ObjectForm, RecordView } from "@/lib/records/types";
@@ -23,6 +24,7 @@ export function RecordDetails({
   record,
   recordHref,
   hide = [],
+  display = {},
 }: {
   objectApiName: string;
   form: ObjectForm;
@@ -30,6 +32,8 @@ export function RecordDetails({
   recordHref?: (objectApiName: string, id: string) => string;
   /** Fields the page draws itself, from a better source than the stored value; they are left out here. */
   hide?: readonly string[];
+  /** Words to show for a field instead of its stored value (a date in the reader's time zone, a number the page works out). */
+  display?: Readonly<Record<string, string>>;
 }) {
   const byName = useMemo(() => new Map(form.fields.map((field) => [field.apiName, field])), [form.fields]);
   const labelSource = useMemo(() => [record], [record]);
@@ -38,21 +42,23 @@ export function RecordDetails({
   return (
     <div className="record-form" data-testid="record-details">
       {form.layout.sections.map((section, index) => {
-        const names = section.fields.filter((name) => byName.has(name) && !hide.includes(name));
-        if (names.length === 0) {
+        const visible = section.fields.filter((name) => byName.has(name) && !hide.includes(name));
+        if (visible.length === 0) {
           return null;
         }
+        const { names, placed, styleOf } = arrange(section, visible);
         return (
           <section key={`${section.label}-${index}`} aria-labelledby={`details-section-${index}`}>
             <h2 id={`details-section-${index}`}>{section.label}</h2>
-            <div className={`record-grid${section.columns === 2 ? " record-grid-two" : ""}`}>
+            <div className={`record-grid${section.columns === 2 ? " record-grid-two" : ""}${placed ? " record-grid-placed" : ""}`}>
               {names.map((name) => {
                 const field = byName.get(name) as FormField;
                 const span = wide(field) || section.columns === 1 ? " span-2" : "";
                 const value = recordValue(record, name);
-                const text = formatValue(field, value, labels[name]);
+                const shown = display[name];
+                const text = shown ?? formatValue(field, value, labels[name]);
                 return (
-                  <div key={name} className={`detail-item${span}`} data-field={name}>
+                  <div key={name} className={`detail-item${span}`} data-field={name} style={styleOf(name)}>
                     <div className="dl-label">
                       {field.label}
                       {field.required ? <span aria-hidden="true"> *</span> : null}
@@ -60,6 +66,8 @@ export function RecordDetails({
                     <div className={`dl-value${text === "" ? " muted" : ""}`} data-testid={`value-${name}`}>
                       {text === "" ? (
                         "—"
+                      ) : shown !== undefined ? (
+                        shown
                       ) : (
                         <FieldReadValue field={field} value={value} labels={labels[name]} recordHref={recordHref} />
                       )}

@@ -3,7 +3,7 @@
 import { ActionNotice } from "@/components/ui/ActionNotice";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ApprovalCard,
   ApprovalDialogs,
@@ -12,7 +12,7 @@ import {
   type ApprovalState,
 } from "@/components/records/ApprovalPanel";
 import { RecordDetails } from "@/components/records/RecordDetails";
-import { RecordForm } from "@/components/records/RecordForm";
+import { RecordForm, type FormSlotAccess } from "@/components/records/RecordForm";
 import { useRecord } from "@/components/records/RecordFormPage";
 import { SheetWorkspace } from "@/components/sheets/SheetWorkspace";
 import { Modal } from "@/components/ui/Modal";
@@ -22,7 +22,6 @@ import { useAbilities } from "@/lib/session/SessionProvider";
 import { canSetUp } from "@/lib/shell/areas";
 import { DetailGrid, DetailItem, DetailPage, DetailSection, MissingDetail } from "@/components/ui/lists/DetailPage";
 import { Tag } from "@/components/ui/lists/Tag";
-import { formatInstant } from "@/lib/records/fieldValue";
 import {
   downloadTemplateSheet,
   retireTemplate,
@@ -40,6 +39,9 @@ import { PublishDialog } from "./PublishDialog";
 import { SheetOptionsDialog } from "./SheetOptionsDialog";
 import { TemplateApprovals } from "./TemplateApprovals";
 import { TEMPLATE_OBJECT, text } from "./template";
+import { PartField, NumberField } from "./TemplateNumberFields";
+import { detailDisplay, templateSections } from "./templateDetails";
+import { hiddenIdentityFields, identityOf, sameIdentity, useNumberingInfo, type IdentityValues } from "./numbering";
 import { downloadNameFor, footerTextFor, revisionNumber, revisionWords } from "@/lib/sheets/revision";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
@@ -113,6 +115,18 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
   const mayAdminister = abilities !== null && canSetUp(abilities);
 
   const view: TemplateLifecycleView | undefined = lifecycle.status === "ready" ? lifecycle.view : undefined;
+
+  // The number builds itself on the screen from what is typed (FA11B). The server says which parts the identification asks
+  // for and where its counter stands; reading uses the identity the template holds, editing the one being typed.
+  const [typed, setTyped] = useState<IdentityValues | undefined>();
+  const heldIdentity = identityOf(record.status === "ready" ? record.record.fields : {});
+  const identity = editing && typed !== undefined ? typed : heldIdentity;
+  const numberingInfo = useNumberingInfo(record.status === "ready" ? identity : undefined);
+  const hiddenFields = hiddenIdentityFields(numberingInfo, identity, true);
+  const onValues = useCallback((values: Readonly<Record<string, string>>) => {
+    const next = identityOf(values);
+    setTyped((current) => (current !== undefined && sameIdentity(current, next) ? current : next));
+  }, []);
 
   // After an approval, once the lifecycle has been read again: if the approval ended and the member may publish, ask where.
   useEffect(() => {
@@ -329,7 +343,27 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
                   formId={FORM_ID}
                   hideActions
                   objectApiName={TEMPLATE_OBJECT}
-                  form={objectForm}
+                  form={templateSections(objectForm, view, true)}
+                  display={detailDisplay(view, record.record)}
+                  hide={hiddenFields}
+                  onValues={onValues}
+                  slots={{
+                    number: (access: FormSlotAccess) => (
+                      <NumberField
+                        access={access}
+                        info={numberingInfo}
+                        savedNumber={
+                          text(fields.number) !== "" && sameIdentity(identity, heldIdentity) ? text(fields.number) : undefined
+                        }
+                      />
+                    ),
+                    partA: (access: FormSlotAccess) => (
+                      <PartField name="partA" label="Part A" access={access} />
+                    ),
+                    partB: (access: FormSlotAccess) => (
+                      <PartField name="partB" label="Part B" access={access} />
+                    ),
+                  }}
                   record={record.record}
                   recordHref={recordHref}
                   onRecordTypeChange={() => undefined}
@@ -342,31 +376,21 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
               ) : objectForm ? (
                 <RecordDetails
                   objectApiName={TEMPLATE_OBJECT}
-                  form={objectForm}
+                  form={templateSections(objectForm, view, false)}
+                  hide={hiddenFields}
                   record={record.record}
                   recordHref={recordHref}
-                  hide={["revision", "lastRevisedAt"]}
+                  display={detailDisplay(view, record.record)}
                 />
               ) : (
                 <DetailGrid>
                   <DetailItem label="Level">{text(fields.level) || "None"}</DetailItem>
-                  <DetailItem label="Document">{text(fields.documentType) || "None"}</DetailItem>
-                  <DetailItem label="Identity category">{text(fields.category) || "None"}</DetailItem>
-                  <DetailItem label="Identity sub-category">{text(fields.subCategory) || "None"}</DetailItem>
+                  <DetailItem label="Document type">{text(fields.documentType) || "None"}</DetailItem>
+                  <DetailItem label="Identification">{text(fields.category) || "None"}</DetailItem>
                 </DetailGrid>
               )}
               {!editing ? (
                 <>
-                  <DetailGrid>
-                    <DetailItem label="Revision">
-                      <span data-testid="template-revision">{view?.revision ?? "—"}</span>
-                    </DetailItem>
-                    <DetailItem label="Last revised on">
-                      <span data-testid="template-last-revised">
-                        {view?.lastRevisedAt ? formatInstant(view.lastRevisedAt) : "—"}
-                      </span>
-                    </DetailItem>
-                  </DetailGrid>
                   {approval.mayApprove && view?.numberPreview ? (
                     <DetailGrid>
                       <DetailItem label="Number when approved" tone="mono">

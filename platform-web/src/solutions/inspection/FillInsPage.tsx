@@ -127,6 +127,9 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
     setStartMessage(outcome.failure.message);
   };
   const canStart = embedded && options.status === "ready" && options.options.canStart;
+  // The server says why a fill-in cannot be started (for example the template is view only): the button stays, greyed out.
+  const cannotStart =
+    embedded && options.status === "ready" && !options.options.canStart ? options.options.reason : undefined;
 
   if (!embedded && route.openId) {
     return <FillInDetail id={route.openId} onBack={() => route.close()} />;
@@ -195,6 +198,8 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
       openHref={embedded ? (row) => fillInsHref(row.fillId) : undefined}
       onNew={canStart && !starting ? () => void start() : undefined}
       newLabel="Start a fill-in"
+      newAfterSearch
+      newDisabledReason={cannotStart}
       notices={
         startMessage ? (
           <p className="form-message" role="alert">

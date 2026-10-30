@@ -5,7 +5,10 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
-import { ageText, personText, reasonText } from "@/lib/approvals/words";
+import { ListPage } from "@/components/ui/lists/ListPage";
+import { Tag } from "@/components/ui/lists/Tag";
+import { Modal } from "@/components/ui/Modal";
+import { ageText, personText } from "@/lib/approvals/words";
 import { humanize } from "@/lib/builder/approvalModel";
 import { call } from "@/lib/records/call";
 import { ApprovalActionForm, type ApprovalActionKind } from "./ApprovalActionForm";
@@ -19,9 +22,10 @@ const TABS = [
   { code: "DECIDED", label: "Decided" },
 ] as const;
 
-/** Where a record is opened, inside the platform's own record pages. */
+/** Where a record is opened: the page its owner has for it (the server says), else the platform's own record page. */
 function recordHref(task: Task): string {
-  return `/records/${encodeURIComponent(task.instance.objectApiName)}/${encodeURIComponent(task.instance.recordId)}`;
+  const { objectApiName, recordId } = task.instance;
+  return task.path ?? `/records/${encodeURIComponent(objectApiName)}/${encodeURIComponent(recordId)}`;
 }
 
 /**
@@ -35,8 +39,9 @@ function recordHref(task: Task): string {
 export function Inbox() {
   const search = useSearchParams();
   const [tab, setTab] = useState<string>(search.get("tab") ?? TABS[0].code);
-  const [object, setObject] = useState(search.get("object") ?? "");
-  const [process, setProcess] = useState(search.get("process") ?? "");
+  // The setup screen links here narrowed by object and process; there is no filter form.
+  const object = search.get("object") ?? "";
+  const process = search.get("process") ?? "";
   const [tasks, setTasks] = useState<Task[] | undefined>();
   const [next, setNext] = useState<string | undefined>();
   const [failure, setFailure] = useState<string | undefined>();
@@ -72,14 +77,6 @@ export function Inbox() {
     void Promise.resolve().then(() => load());
   }, [load]);
 
-  if (failure) {
-    return (
-      <p className="form-message" role="alert" data-testid="inbox-failed">
-        {failure}
-      </p>
-    );
-  }
-
   function explain(task: Task, kind: ApprovalActionKind): string {
     const last = task.instance.currentStep === task.instance.stepCount;
     const title = task.recordReadable && task.recordTitle ? `“${task.recordTitle}”` : "this record";
@@ -97,133 +94,166 @@ export function Inbox() {
     }
   }
 
+  const decidedTab = tab === "DECIDED";
+  const lastStepOf = (task: Task) =>
+    task.instance.currentStep !== undefined &&
+    task.instance.currentStep !== null &&
+    task.instance.currentStep === task.instance.stepCount;
+
   return (
-    <section aria-labelledby="inbox-heading" data-testid="approval-inbox" className="stack">
-      <div className="list-head">
-        <h1 id="inbox-heading">Approvals</h1>
-        <Link className="button button-secondary" href="/approvals/delegations">
-          Delegations
-        </Link>
-      </div>
-      <div className="control-tabs" role="tablist" aria-label="Approvals">
-        {TABS.map((one) => (
-          <button
-            key={one.code}
-            type="button"
-            role="tab"
-            aria-selected={tab === one.code}
-            onClick={() => {
-              setTasks(undefined);
-              setActing(undefined);
-              setTab(one.code);
-            }}
-          >
-            {one.label}
-          </button>
-        ))}
-      </div>
-      <form
-        className="filters"
-        aria-label="Narrow the list"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setTasks(undefined);
-          void load();
-        }}
-      >
-        <label htmlFor="inbox-object">Object</label>
-        <input id="inbox-object" value={object} onChange={(event) => setObject(event.target.value)} />
-        <label htmlFor="inbox-process">Process</label>
-        <input id="inbox-process" value={process} onChange={(event) => setProcess(event.target.value)} />
-        <button type="submit" className="button button-secondary">
-          Narrow
-        </button>
-      </form>
-      {notice ? (
-        <p role="status" data-testid="inbox-notice">
-          {notice}
-        </p>
-      ) : null}
-      {!tasks ? (
-        <p aria-live="polite">Loading…</p>
-      ) : tasks.length === 0 ? (
-        <p data-testid="inbox-empty">Nothing here.</p>
-      ) : (
-        <ul className="stack" data-testid="inbox-tasks">
-          {tasks.map((task) => (
-            <li key={task.assignmentId} className="card" data-testid="inbox-task">
-              <div className="list-head">
-                <strong>
-                  {task.recordReadable ? (
-                    <Link href={recordHref(task)}>{task.recordTitle ? task.recordTitle : task.objectLabel ?? "Record"}</Link>
-                  ) : (
-                    <span>{task.objectLabel ?? "A record"}</span>
-                  )}
-                </strong>
-                <span className="badge">{humanize(task.status)}</span>
-              </div>
-              {!task.recordReadable ? (
-                <p className="hint" data-testid="inbox-unreadable">
-                  You cannot open this record. Approving it does not give you access to it; an administrator can change that.
-                </p>
-              ) : null}
-              <p className="hint">
-                {task.instance.processLabel} · {task.stepLabel} (step {task.instance.currentStep ?? "—"} of{" "}
-                {task.instance.stepCount}) · asked {ageText(task.since)} ago
-                {task.forPerson ? ` · ${humanize(task.via).toLowerCase()}: ${personText(task.forPerson)}` : ""}
-              </p>
-              {task.instance.attention ? <p className="hint">{reasonText(task.instance.attention)}</p> : null}
-              <div className="filters-actions" role="group" aria-label="Task actions">
-                {task.actions.canApprove ? (
-                  <button type="button" className="button" onClick={() => setActing({ task, kind: "approve" })}>
-                    Approve
-                  </button>
-                ) : null}
-                {task.actions.canReject ? (
-                  <button type="button" className="button button-danger" onClick={() => setActing({ task, kind: "reject" })}>
-                    Reject
-                  </button>
-                ) : null}
-                {task.actions.canReassign ? (
-                  <button type="button" className="button button-secondary" onClick={() => setActing({ task, kind: "reassign" })}>
-                    Hand it on
-                  </button>
-                ) : null}
-              </div>
-              {acting && acting.task.assignmentId === task.assignmentId ? (
-                <ApprovalActionForm
-                  kind={acting.kind}
-                  requestId={task.instance.id}
-                  version={task.instance.version}
-                  explain={explain(task, acting.kind)}
-                  asksForChoice={task.instance.currentStepAsksForChoice}
-                  lastStep={
-                    task.instance.currentStep !== undefined &&
-                    task.instance.currentStep !== null &&
-                    task.instance.currentStep === task.instance.stepCount
-                  }
-                  objectApiName={task.instance.objectApiName}
-                  recordId={task.instance.recordId}
-                  onClose={() => setActing(undefined)}
-                  onDone={(text) => {
-                    setActing(undefined);
-                    setNotice(text);
+    <>
+      <ListPage<Task>
+        title="Approvals"
+        testId="approval-inbox"
+        rowTestId="inbox-task"
+        items={tasks}
+        failure={failure}
+        rowKey={(task) => task.assignmentId}
+        primaryHeader="Name"
+        primary={(task) =>
+          (task.recordReadable && task.recordTitle ? task.recordTitle : task.objectLabel) ??
+          (task.recordReadable ? "Record" : "A record")
+        }
+        sortPrimary
+        openHref={recordHref}
+        canOpen={(task) => task.recordReadable}
+        primaryExtra={(task) =>
+          task.recordReadable ? null : (
+            <span className="hint" data-testid="inbox-unreadable">
+              You cannot open this record. Approving it gives you no access to it.
+            </span>
+          )
+        }
+        columns={[
+          {
+            key: "asked-by",
+            header: "Asked by",
+            kind: "muted",
+            cell: (task) => personText(task.instance.submittedBy),
+            sort: (task) => personText(task.instance.submittedBy),
+          },
+          {
+            key: "time",
+            header: "Time",
+            kind: "muted",
+            cell: (task) => (task.since ? `${ageText(task.since)} ago` : ""),
+            sort: (task) => task.since ?? "",
+          },
+          decidedTab
+            ? {
+                key: "outcome",
+                header: "Outcome",
+                kind: "tag",
+                cell: (task) => <Tag>{humanize(task.status)}</Tag>,
+              }
+            : {
+                key: "actions",
+                header: "Actions",
+                kind: "actions",
+                cell: (task) => (
+                  <>
+                    {task.actions.canApprove ? (
+                      <button type="button" className="button" onClick={() => setActing({ task, kind: "approve" })}>
+                        Approve
+                      </button>
+                    ) : null}{" "}
+                    {task.actions.canReject ? (
+                      <button
+                        type="button"
+                        className="button button-danger"
+                        onClick={() => setActing({ task, kind: "reject" })}
+                      >
+                        Reject
+                      </button>
+                    ) : null}{" "}
+                    {task.actions.canReassign ? (
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        onClick={() => setActing({ task, kind: "reassign" })}
+                      >
+                        Hand it on
+                      </button>
+                    ) : null}
+                  </>
+                ),
+              },
+        ]}
+        searchText={(task) => `${task.recordTitle ?? ""} ${task.objectLabel ?? ""} ${personText(task.instance.submittedBy)}`}
+        tools={
+          <Link className="button button-secondary" href="/approvals/delegations">
+            Delegations
+          </Link>
+        }
+        notices={
+          notice ? (
+            <p role="status" data-testid="inbox-notice">
+              {notice}
+            </p>
+          ) : undefined
+        }
+        above={
+          <div className="detail-tabs-row">
+            <div role="tablist" aria-label="Approvals" className="detail-tabs">
+              {TABS.map((one) => (
+                <button
+                  key={one.code}
+                  type="button"
+                  role="tab"
+                  className="detail-tab"
+                  aria-selected={tab === one.code}
+                  onClick={() => {
                     setTasks(undefined);
-                    void load();
+                    setActing(undefined);
+                    setTab(one.code);
                   }}
-                />
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-      {next ? (
-        <p>
-          <button type="button" className="button button-secondary" onClick={() => void load(next)} data-testid="inbox-more">
-            Show more
-          </button>
-        </p>
+                >
+                  {one.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        }
+        below={
+          next ? (
+            <p>
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => void load(next)}
+                data-testid="inbox-more"
+              >
+                Show more
+              </button>
+            </p>
+          ) : undefined
+        }
+        emptyText="Nothing here."
+      />
+      {acting ? (
+        <Modal
+          title={acting.kind === "approve" ? "Approve" : acting.kind === "reject" ? "Reject" : "Hand it on"}
+          onClose={() => setActing(undefined)}
+        >
+          <ApprovalActionForm
+            kind={acting.kind}
+            requestId={acting.task.instance.id}
+            version={acting.task.instance.version}
+            explain={explain(acting.task, acting.kind)}
+            asksForChoice={acting.task.instance.currentStepAsksForChoice}
+            lastStep={lastStepOf(acting.task)}
+            objectApiName={acting.task.instance.objectApiName}
+            recordId={acting.task.instance.recordId}
+            onClose={() => setActing(undefined)}
+            onDone={(text) => {
+              setActing(undefined);
+              setNotice(text);
+              setTasks(undefined);
+              void load();
+            }}
+          />
+        </Modal>
       ) : null}
-    </section>
+    </>
   );
 }

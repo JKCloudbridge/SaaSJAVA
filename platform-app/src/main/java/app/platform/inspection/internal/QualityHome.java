@@ -14,6 +14,7 @@ import app.platform.inspection.internal.QualityHomeViews.ChartsView;
 import app.platform.inspection.internal.QualityHomeViews.DayCount;
 import app.platform.inspection.internal.QualityHomeViews.DaysView;
 import app.platform.inspection.internal.QualityHomeViews.DepartmentCount;
+import app.platform.inspection.internal.QualityHomeViews.DepartmentTemplateCount;
 import app.platform.inspection.internal.QualityHomeViews.DepartmentOption;
 import app.platform.inspection.internal.QualityHomeViews.FiltersView;
 import app.platform.inspection.internal.QualityHomeViews.LevelTypeCount;
@@ -96,6 +97,8 @@ class QualityHome {
     private static final int MOST_EVENTS = 5_000;
     private static final int TREND_MONTHS = 12;
     private static final int TOP_TEMPLATES = 10;
+    private static final int TOP_DEPARTMENTS = 30;
+    private static final int TOP_TEMPLATES_PER_DEPARTMENT = 30;
     private static final String NOT_RECORDED = "Not recorded";
     /** The dot between a location and a department, as the labels of the notices and the register read. */
     private static final char MIDDLE_DOT = (char) 0xB7;
@@ -194,7 +197,8 @@ class QualityHome {
 
     /** Everything the fill-ins give. */
     private record FillResult(Tile submitted, Tile waiting, DaysView perDay, List<TemplateCount> byTemplate,
-            List<DepartmentCount> byDepartment, List<Raw> activity) {
+            List<DepartmentCount> byDepartment, List<DepartmentTemplateCount> byDepartmentAndTemplate,
+            List<Raw> activity) {
     }
 
     /**
@@ -250,7 +254,8 @@ class QualityHome {
                 fillResult == null ? null : fillResult.byTemplate(),
                 fillResult == null ? null : fillResult.byDepartment(),
                 templates == null ? null : templates.stepDays(),
-                templates == null ? null : templates.perMonth(), activity);
+                templates == null ? null : templates.perMonth(), activity,
+                fillResult == null ? null : fillResult.byDepartmentAndTemplate());
         return new SummaryView(now,
                 new PeriodView(window.key().text(), window.from(), window.to(), window.previousFrom(),
                         window.previousTo()),
@@ -522,6 +527,8 @@ class QualityHome {
                         templateNames.get(entry.getKey()), entry.getValue())).toList();
 
         List<DepartmentCount> byDepartment = byDepartment(visible, window, chosen, places);
+        List<DepartmentTemplateCount> byDepartmentAndTemplate = byDepartmentAndTemplate(visible, window, chosen, places,
+                names);
 
         Tile waiting = starter.available(Fills.OBJECT) ? waiting(chosen, max) : null;
 
@@ -530,7 +537,8 @@ class QualityHome {
                 .limit(properties.recentActivity())
                 .map(one -> new Raw("SUBMITTED", one.submittedAt(), one.startedBy(), "fill-in", one.fillId(),
                         names.get(one.fillId()))).toList();
-        return new FillResult(submitted, waiting, perDayView, byTemplate, byDepartment, activity);
+        return new FillResult(submitted, waiting, perDayView, byTemplate, byDepartment, byDepartmentAndTemplate,
+                activity);
     }
 
     /** The fill-ins that wait for a review, as many as the caller may see and the filters let through. */
@@ -546,6 +554,64 @@ class QualityHome {
         long count = bounded.stream().filter(one -> names.containsKey(one.fillId())
                 && chosen.allows(places.get(one.fillId()))).count();
         return new Tile((double) count, null, null, more, true, true);
+    }
+
+    /**
+     * The fill-ins of the period by department and then by template: the thirty departments with the most fill-ins,
+     * and under each the thirty templates filled most there. A fill-in without a recorded department is kept under
+     * "not recorded" when no filter is chosen. The names are those the fill-ins carry; the same rules of who counts as
+     * in {@link #byDepartment}.
+     */
+    private List<DepartmentTemplateCount> byDepartmentAndTemplate(List<Submission> visible, Window window,
+            Chosen chosen, Map<UUID, Set<Place>> places, Map<UUID, String> names) {
+        Map<Place, Map<UUID, Long>> counts = new LinkedHashMap<>();
+        Map<UUID, Long> unrecorded = new HashMap<>();
+        Map<UUID, String> templateNames = new HashMap<>();
+        for (Submission one : visible) {
+            if (!window.contains(one.submittedAt())) {
+                continue;
+            }
+            templateNames.putIfAbsent(one.ownerId(), names.get(one.fillId()));
+            Set<Place> recorded = places.get(one.fillId());
+            if (recorded == null || recorded.isEmpty()) {
+                if (!chosen.any()) {
+                    unrecorded.merge(one.ownerId(), 1L, Long::sum);
+                }
+                continue;
+            }
+            if (!chosen.allowsLocation(recorded)) {
+                continue;
+            }
+            for (Place place : recorded) {
+                if (chosen.location() == null || chosen.location().equals(place.location())) {
+                    counts.computeIfAbsent(place, key -> new HashMap<>()).merge(one.ownerId(), 1L, Long::sum);
+                }
+            }
+        }
+        Map<String, String> locationLabels = departments.labels(Templates.LOCATION);
+        Map<String, String> departmentLabels = departments.labels(Templates.DEPARTMENT);
+        List<DepartmentTemplateCount> result = new ArrayList<>();
+        counts.entrySet().stream()
+                .sorted(Comparator.comparingLong((Map.Entry<Place, Map<UUID, Long>> entry) ->
+                        entry.getValue().values().stream().mapToLong(Long::longValue).sum()).reversed())
+                .limit(TOP_DEPARTMENTS).forEach(entry -> {
+                    Place place = entry.getKey();
+                    String label = locationLabels.getOrDefault(place.location(), place.location()) + " " + MIDDLE_DOT
+                            + " " + departmentLabels.getOrDefault(place.department(), place.department());
+                    topTemplates(entry.getValue(), templateNames).forEach(row -> result.add(
+                            new DepartmentTemplateCount(place.location(), place.department(), label, row.getKey(),
+                                    templateNames.get(row.getKey()), row.getValue())));
+                });
+        topTemplates(unrecorded, templateNames).forEach(row -> result.add(new DepartmentTemplateCount(null, null,
+                NOT_RECORDED, row.getKey(), templateNames.get(row.getKey()), row.getValue())));
+        return result;
+    }
+
+    private static List<Map.Entry<UUID, Long>> topTemplates(Map<UUID, Long> counts, Map<UUID, String> names) {
+        return counts.entrySet().stream()
+                .sorted(Map.Entry.<UUID, Long>comparingByValue().reversed()
+                        .thenComparing(entry -> String.valueOf(names.get(entry.getKey()))))
+                .limit(TOP_TEMPLATES_PER_DEPARTMENT).toList();
     }
 
     private List<DepartmentCount> byDepartment(List<Submission> visible, Window window, Chosen chosen,

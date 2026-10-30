@@ -76,9 +76,8 @@ class NumberSeriesIT extends SolutionSupport {
         instanceB.close();
     }
 
-    private static Map<String, Object> record(String category, String subCategory) {
-        return subCategory == null ? Map.of("category", category)
-                : Map.of("category", category, "subCategory", subCategory);
+    private static Map<String, Object> record(String category, String partA) {
+        return partA == null ? Map.of("category", category) : Map.of("category", category, "partA", partA);
     }
 
     private static <T> T inOrganization(TenantContexts contexts, PlatformTransactionManager transactions,
@@ -91,8 +90,8 @@ class NumberSeriesIT extends SolutionSupport {
         return inOrganization(contexts, transactions, organization, work);
     }
 
-    private String next(Organization organization, String category, String subCategory) {
-        return here(organization, () -> series.next(SERIES, record(category, subCategory)));
+    private String next(Organization organization, String category, String partA) {
+        return here(organization, () -> series.next(SERIES, record(category, partA)));
     }
 
     // ---- the numbers ----
@@ -103,7 +102,7 @@ class NumberSeriesIT extends SolutionSupport {
 
         assertThat(next(organization, "WI", "PRD")).isEqualTo("WI/PRD/01");
         assertThat(next(organization, "WI", "PRD")).isEqualTo("WI/PRD/02");
-        assertThat(next(organization, "WI", "QLT")).as("another sub-category counts on its own").isEqualTo("WI/QLT/01");
+        assertThat(next(organization, "WI", "QLT")).as("another Part A counts on its own").isEqualTo("WI/QLT/01");
         assertThat(next(organization, "SOP", "PRD")).as("another category counts on its own").isEqualTo("SOP/PRD/01");
         assertThat(next(organization, "IMS", null)).isEqualTo("IMS/01");
         assertThat(next(organization, "QSP", null)).isEqualTo("QSP-01");
@@ -115,7 +114,7 @@ class NumberSeriesIT extends SolutionSupport {
     @Test
     void aFormatWithoutACounterGivesTheTypedPartsTakesNoCounterAndSaysWhatIsStillToFillIn() {
         Organization organization = organizationWithFeature();
-        Map<String, Object> typed = Map.of("category", "CP", "subCategory", "PRD", "partCode", "AB-12");
+        Map<String, Object> typed = Map.of("category", "CP", "partA", "PRD", "partB", "AB-12");
 
         assertThat(here(organization, () -> series.next(SERIES, typed))).isEqualTo("CP/PRD/AB-12");
         assertThat(here(organization, () -> series.next(SERIES, typed))).as("nothing counts: the unique index of the "
@@ -124,15 +123,15 @@ class NumberSeriesIT extends SolutionSupport {
         assertThat(here(organization, () -> series.known(SERIES, record("WI", "PRD")))).as("a format that counts")
                 .isEmpty();
         assertThat(here(organization, () -> series.prefix(SERIES, typed))).contains("CP/PRD/AB-12");
-        assertThat(here(organization, () -> series.next(SERIES, Map.of("category", "BP", "planYear", "2026"))))
+        assertThat(here(organization, () -> series.next(SERIES, Map.of("category", "BP", "partB", "2026"))))
                 .isEqualTo("BP/2026");
         assertThat(here(organization, () -> series.missingParts(SERIES, record("CP", "PRD"))))
-                .contains(List.of("partCode"));
+                .contains(List.of("partB"));
         assertThat(here(organization, () -> series.missingParts(SERIES, record("WI", "PRD")))).contains(List.of());
         assertThat(here(organization, () -> series.missingParts(SERIES, record("WI", null))))
-                .as("the sub-category is optional for a counted format").contains(List.of());
+                .as("a counted format that reads Part A needs it").contains(List.of("partA"));
         assertThat(here(organization, () -> series.missingParts(SERIES, record("CP", null))))
-                .as("a typed-part format still needs it").contains(List.of("subCategory", "partCode"));
+                .as("a typed-part format needs both").contains(List.of("partA", "partB"));
         assertThat(here(organization, () -> series.missingParts(SERIES, record("ZZ", "PRD")))).as("no format at all")
                 .isEmpty();
         assertThat(here(organization, () -> series.missingParts(SERIES, Map.of()))).as("no category").isEmpty();
@@ -186,7 +185,7 @@ class NumberSeriesIT extends SolutionSupport {
         assertThat(next(organization, "WI", "PRD")).isEqualTo("WI/PRD/01");
 
         for (Map<String, Object> bad : List.of(record("WI", "has space"),
-                record("WI", "toolongvalue"), record("WI", "<b>"), Map.<String, Object>of("subCategory", "PRD"),
+                record("WI", "toolongvalue"), record("WI", "<b>"), Map.<String, Object>of("partA", "PRD"),
                 record("CP", "PRD"), record("UNKNOWN", "PRD"))) {
             assertThatThrownBy(() -> here(organization, () -> series.next(SERIES, bad)))
                     .isInstanceOf(NumberSeriesException.class)
@@ -211,8 +210,10 @@ class NumberSeriesIT extends SolutionSupport {
                 .isInstanceOfSatisfying(NumberSeriesException.class,
                         refusal -> assertThat(refusal.reason()).as("a typed part is missing")
                                 .isEqualTo(Reason.PART_MISSING));
-        assertThat(here(organization, () -> series.next(SERIES, record("WI", null))))
-                .as("a blank optional sub-category uses the category count").isEqualTo("WI/1");
+        assertThatThrownBy(() -> here(organization, () -> series.next(SERIES, record("WI", null))))
+                .isInstanceOfSatisfying(NumberSeriesException.class,
+                        refusal -> assertThat(refusal.reason()).as("Part A is needed, not optional")
+                                .isEqualTo(Reason.PART_MISSING));
         assertThatThrownBy(() -> here(organization, () -> series.next(SERIES, record("WI", "a b"))))
                 .isInstanceOfSatisfying(NumberSeriesException.class,
                         refusal -> assertThat(refusal.reason()).isEqualTo(Reason.PART_NOT_A_CODE));
@@ -227,7 +228,7 @@ class NumberSeriesIT extends SolutionSupport {
         String preview = here(organization, () -> series.prefix(SERIES, record("WI", "PRD")).orElseThrow());
 
         assertThat(preview).isEqualTo("WI/PRD/");
-        assertThat(here(organization, () -> series.prefix(SERIES, record("WI", null)))).contains("WI/");
+        assertThat(here(organization, () -> series.prefix(SERIES, record("WI", null)))).isEmpty();
         assertThat(here(organization, () -> series.prefix(SERIES, record("CP", "PRD")))).isEmpty();
         assertThat(next(organization, "WI", "PRD")).as("the preview used nothing").isEqualTo("WI/PRD/01");
     }
@@ -238,6 +239,120 @@ class NumberSeriesIT extends SolutionSupport {
 
         assertThatThrownBy(() -> contexts.call(TenantContext.of(organization.id()),
                 () -> series.next(SERIES, record("WI", "PRD")))).isInstanceOf(IllegalStateException.class);
+    }
+
+    // ---- a typed start (FA11B, ADR-0206) ----
+
+    @Test
+    void thePlanSaysWhichPartsAreAskedForAndWhetherTheCombinationHasStarted() {
+        Organization organization = organizationWithFeature();
+
+        NumberSeries.Plan fresh = here(organization, () -> series.plan(SERIES, record("WI", "TYP"))).orElseThrow();
+        NumberSeries.Plan typed = here(organization, () -> series.plan(SERIES,
+                Map.of("category", "CP", "partA", "PRD", "partB", "AB-12"))).orElseThrow();
+        NumberSeries.Plan unfinished = here(organization, () -> series.plan(SERIES, record("WI", null))).orElseThrow();
+
+        assertThat(fresh.fields()).containsExactly("partA");
+        assertThat(fresh.counted()).isTrue();
+        assertThat(fresh.width()).isEqualTo(2);
+        assertThat(fresh.prefix()).isEqualTo("WI/TYP/");
+        assertThat(fresh.complete()).isTrue();
+        assertThat(fresh.next()).as("no counter yet").isEmpty();
+        assertThat(typed.fields()).containsExactly("partA", "partB");
+        assertThat(typed.counted()).isFalse();
+        assertThat(typed.number()).contains("CP/PRD/AB-12");
+        assertThat(unfinished.complete()).isFalse();
+        assertThat(unfinished.prefix()).isEqualTo("WI/");
+        assertThat(here(organization, () -> series.plan(SERIES, Map.of()))).as("no identification").isEmpty();
+        assertThat(here(organization, () -> series.plan(SERIES, record("ZZ", "TYP")))).as("no format").isEmpty();
+        assertThat(next(organization, "WI", "TYP")).as("the plan used nothing").isEqualTo("WI/TYP/01");
+    }
+
+    @Test
+    void aCombinationWithoutACounterStartsAtATypedNumberAndGoesOnFromThere() {
+        Organization organization = organizationWithFeature();
+
+        String first = here(organization, () -> series.start(SERIES, record("WI", "TYP"), 5));
+
+        assertThat(first).isEqualTo("WI/TYP/05");
+        NumberSeries.Plan after = here(organization, () -> series.plan(SERIES, record("WI", "TYP"))).orElseThrow();
+        assertThat(after.next()).hasValue(6);
+        assertThat(after.number()).contains("WI/TYP/06");
+        assertThat(next(organization, "WI", "TYP")).isEqualTo("WI/TYP/06");
+        assertThat(next(organization, "WI", "OTH")).as("another combination is not touched").isEqualTo("WI/OTH/01");
+    }
+
+    @Test
+    void aSecondStartOfTheSameCombinationIsToldItHasAlreadyStartedAndChangesNothing() {
+        Organization organization = organizationWithFeature();
+        here(organization, () -> series.start(SERIES, record("WI", "TYP"), 5));
+
+        assertThatThrownBy(() -> here(organization, () -> series.start(SERIES, record("WI", "TYP"), 9)))
+                .isInstanceOfSatisfying(NumberSeriesException.class,
+                        refusal -> assertThat(refusal.reason()).isEqualTo(Reason.ALREADY_STARTED))
+                .satisfies(refusal -> assertThat(refusal.getMessage()).doesNotContain("TYP").doesNotContain("09"));
+
+        assertThat(next(organization, "WI", "TYP")).as("the counter was not moved").isEqualTo("WI/TYP/06");
+    }
+
+    @Test
+    void aStartThatCannotBeMadeLeavesNoCounterBehind() {
+        Organization organization = organizationWithFeature();
+
+        for (long bad : List.of(0L, -3L, 1_000_000_000_000L)) {
+            assertThatThrownBy(() -> here(organization, () -> series.start(SERIES, record("WI", "TYP"), bad)))
+                    .isInstanceOf(NumberSeriesException.class);
+        }
+        assertThatThrownBy(() -> here(organization, () -> series.start(SERIES, record("CP", "PRD"), 5)))
+                .isInstanceOf(NumberSeriesException.class);
+        assertThatThrownBy(() -> here(organization, () -> series.start(SERIES,
+                Map.of("category", "CP", "partA", "PRD", "partB", "AB-12"), 5)))
+                .isInstanceOfSatisfying(NumberSeriesException.class,
+                        refusal -> assertThat(refusal.reason()).as("a format without a counter has none to start")
+                                .isEqualTo(Reason.NO_FORMAT));
+
+        assertThat(next(organization, "WI", "TYP")).as("nothing was started by the refusals").isEqualTo("WI/TYP/01");
+    }
+
+    @Test
+    void twoInstancesStartingOneCombinationAtOnceStartItOnceAndTheOtherIsToldSo() throws Exception {
+        Organization organization = organizationWithFeature();
+        TenantContexts contextsB = instanceB.bean(TenantContexts.class);
+        PlatformTransactionManager transactionsB = instanceB.bean(PlatformTransactionManager.class);
+        NumberSeries seriesB = instanceB.bean(NumberSeries.class);
+        CountDownLatch go = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            Future<String> fromA = pool.submit(() -> {
+                await(go);
+                return startedOrTold(() -> inOrganization(contexts, transactions, organization,
+                        () -> series.start(SERIES, record("WI", "RACE"), 5)));
+            });
+            Future<String> fromB = pool.submit(() -> {
+                await(go);
+                return startedOrTold(() -> inOrganization(contextsB, transactionsB, organization,
+                        () -> seriesB.start(SERIES, record("WI", "RACE"), 7)));
+            });
+            go.countDown();
+
+            List<String> results = List.of(fromA.get(60, TimeUnit.SECONDS), fromB.get(60, TimeUnit.SECONDS));
+
+            assertThat(results.stream().filter(result -> result.startsWith("WI/RACE/")).count())
+                    .as("exactly one instance started the combination").isEqualTo(1);
+            assertThat(results.stream().filter(result -> result.equals(Reason.ALREADY_STARTED.name())).count())
+                    .as("the other was told").isEqualTo(1);
+        } finally {
+            go.countDown();
+            pool.shutdownNow();
+        }
+    }
+
+    private static String startedOrTold(Supplier<String> work) {
+        try {
+            return work.get();
+        } catch (NumberSeriesException told) {
+            return told.reason().name();
+        }
     }
 
     // ---- locks and races ----
@@ -325,7 +440,7 @@ class NumberSeriesIT extends SolutionSupport {
             writes.create(new Source("test", UUID.randomUUID(), new Chain(UUID.randomUUID(), 1, List.of())), OBJECT,
                     null, List.of(new Assignment("name", new Value.Literal("template")),
                             new Assignment("category", new Value.Literal("WI")),
-                            new Assignment("subCategory", new Value.Literal("PRD")),
+                            new Assignment("partA", new Value.Literal("PRD")),
                             new Assignment("number", new Value.Literal(number))));
             return number;
         });

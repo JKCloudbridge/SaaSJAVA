@@ -54,7 +54,7 @@ class TemplateFlowsLogsAreCleanIT extends TemplateSupport {
         String groupName = typed("group-name");
         String departmentName = typed("department-record");
         String cellText = typed("cell-text");
-        String partCode = "P" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String partB = "P" + UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
         String clashName = typed("clash-name");
         String process = process(setting.admin(), "OneStep", step("Only", user(approver.userId())));
         String group = group(setting.admin(), groupName, reader);
@@ -64,7 +64,7 @@ class TemplateFlowsLogsAreCleanIT extends TemplateSupport {
 
         // A counted template: made, written, sent, numbered, approved, published, taken back, republished.
         String counted = template(author.browser(), "{\"name\":\"" + name + "\",\"category\":\"WI\","
-                + "\"subCategory\":\"PRD\"}");
+                + "\"partA\":\"PRD\"}");
         int one = firstVersion(author.browser(), counted);
         Response read = version(author.browser(), counted, one);
         Response filled = saveGrid(author.browser(), counted, one, rowVersion(read),
@@ -79,7 +79,7 @@ class TemplateFlowsLogsAreCleanIT extends TemplateSupport {
 
         // A typed number: made from the part code, then a second template that would clash with it.
         String typedOne = template(author.browser(), "{\"name\":\"" + typed("typed-name") + "\",\"category\":\"CP\","
-                + "\"subCategory\":\"PRD\",\"partCode\":\"" + partCode + "\"}");
+                + "\"partA\":\"PRD\",\"partB\":\"" + partB + "\"}");
         fill(author.browser(), typedOne, firstVersion(author.browser(), typedOne));
         approve(approver.browser(), submitted(author.browser(), typedOne, process));
         String typedNumber = number(setting.admin(), typedOne);
@@ -88,7 +88,7 @@ class TemplateFlowsLogsAreCleanIT extends TemplateSupport {
         List<Response> refusals = new ArrayList<>();
         // The clash is found when the second template is saved (FA6C): its number is taken at Save.
         refusals.add(author.browser().postJson(RECORDS, "{\"fields\":{\"name\":\"" + clashName
-                + "\",\"category\":\"CP\",\"subCategory\":\"PRD\",\"partCode\":\"" + partCode + "\"}}"));
+                + "\",\"category\":\"CP\",\"partA\":\"PRD\",\"partB\":\"" + partB + "\"}}"));
         refusals.add(publish(approver.browser(), typedOne, null, "PLANT1/QLT"));
         refusals.add(publish(approver.browser(), typedOne, null, "HEAD/HR"));
         refusals.add(publish(author.browser(), typedOne, null, "PLANT1/PRD"));
@@ -104,9 +104,9 @@ class TemplateFlowsLogsAreCleanIT extends TemplateSupport {
             assertThat(ok.status()).as(ok.body()).isEqualTo(200);
         }
         assertThat(number).isEqualTo("WI/PRD/01");
-        assertThat(typedNumber).isEqualTo("CP/PRD/" + partCode);
+        assertThat(typedNumber).isEqualTo("CP/PRD/" + partB);
         assertThat(log).as("the log has content to check").contains("platform.http");
-        List<String> secrets = List.of(name, groupName, departmentName, cellText, partCode, clashName, number,
+        List<String> secrets = List.of(name, groupName, departmentName, cellText, partB, clashName, number,
                 typedNumber);
         for (String text : secrets) {
             assertThat(log).as("not logged: " + text).doesNotContain(text);
@@ -123,7 +123,7 @@ class TemplateFlowsLogsAreCleanIT extends TemplateSupport {
             }
         }
         for (Response answer : List.of(published, taken, again, retired)) {
-            for (String text : List.of(groupName, departmentName, cellText, partCode)) {
+            for (String text : List.of(groupName, departmentName, cellText, partB)) {
                 assertThat(answer.body()).as("the lifecycle view carries none of: " + text).doesNotContain(text);
             }
         }

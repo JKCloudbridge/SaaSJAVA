@@ -43,8 +43,8 @@ class TemplatePublishingIT extends TemplateSupport {
     }
 
     /** A template that has been through both steps and waits, approved, to be published. */
-    private String approved(Run run, String category, String subCategory) {
-        String template = templateWithSheet(run.author().browser(), category, subCategory);
+    private String approved(Run run, String category, String partA) {
+        String template = templateWithSheet(run.author().browser(), category, partA);
         String request = submitted(run.author().browser(), template, run.process());
         assertThat(approve(run.first().browser(), request).status()).isEqualTo(200);
         assertThat(approve(run.second().browser(), request).status()).isEqualTo(200);

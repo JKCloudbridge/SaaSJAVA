@@ -20,11 +20,13 @@ import java.util.UUID;
  * @param since when the task was created
  * @param decidedAt when the caller decided, or null
  * @param actions what the caller may do with this task now
+ * @param path where the screen opens the record when its owner has a page of its own for it (the same answer a bell
+ *        row gets), or null for the platform's plain record page; only given when the caller can read the record
  */
 public record ApprovalTaskView(@NotNull UUID assignmentId, @NotNull ApprovalInstanceSummaryView instance,
         String objectLabel, String recordTitle, @NotNull Boolean recordReadable, @NotNull String stepLabel,
         @NotNull String via, ApprovalPersonView forPerson, @NotNull String status, @NotNull Instant since,
-        Instant decidedAt, @NotNull ApprovalActionsView actions) {
+        Instant decidedAt, @NotNull ApprovalActionsView actions, String path) {
 
     @Override
     public String toString() {

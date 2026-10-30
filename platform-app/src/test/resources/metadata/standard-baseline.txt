@@ -83,9 +83,9 @@ InspectionTemplate.level PICKLIST codeValues organizationValues
 InspectionTemplate.documentType PICKLIST codeValues organizationValues dependsOn=level
 InspectionTemplate.retired BOOLEAN platformWritten
 InspectionTemplate.category PICKLIST codeValues organizationValues
-InspectionTemplate.subCategory PICKLIST codeValues organizationValues dependsOn=category
-InspectionTemplate.partCode TEXT
-InspectionTemplate.planYear TEXT
+InspectionTemplate.partA TEXT
+InspectionTemplate.partB TEXT
+InspectionTemplate.serial TEXT
 InspectionTemplate.number TEXT platformWritten
 InspectionTemplate.revision TEXT platformWritten
 InspectionTemplate.lastRevisedAt TEXT platformWritten

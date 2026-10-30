@@ -454,3 +454,50 @@ Decision: [ADR-0203](../adr/0203-the-application-grid-home-in-every-application-
   `ControlBar.test.tsx`, `AppLauncher.test.tsx`, `tokens.test.ts`. Real PostgreSQL: `QualityHomeIT` (the numbers equal the lists, no
   section for what cannot be read, filters, every period, cross-tenant, forged host, platform address, not signed in, feature missing, the two
   records), `QualityHomeBoundIT`, `QualityHomeLogsAreCleanIT`, `QualityHomeCostIT`; the isolation harness lists both new tables.
+
+## The template Details tab and the approval history by day (FA11A)
+
+Decision: ADR-0205. Frontend, one object file and documents; no migration, no API change.
+
+- **Names a person reads** (labels only; stored names, the API and the policies are unchanged): Document name (`name`), Document type
+  (`documentType`), Document number (`number`), Obsolete (`retired`), Revision number (`revision`). They are in `InspectionTemplate.yml`
+  and in the generated list `docs/standard-objects.md`.
+- **Two fixed columns** (`solutions/inspection/templateDetails.ts`, drawn by `RecordDetails` and `RecordForm` through the optional
+  `left` of a section): left Document name, Level, Document type, Identity category, Identity sub-category, then Part code or Plan year;
+  right Document number, Revision number, Obsolete (last). Reading shows Part code and Plan year only when the template has a value and
+  the Revision number only once a Revision is in use; editing shows every field the member can see. Revision number and the date are
+  never typed. **System information** holds "Last revised on" and the system fields. The generic record page is unchanged.
+- **Revision number:** the saved value, else the Revision in use read from the sheet (the Sheet tab's rule). **Last revised on** is stored
+  as text and shown as the date and time of the reader's own time zone (`formatInstant`).
+- **The read lists of every shipped policy** name the eleven fields of the tab when the policy opens a template (`SolutionLoaderTest`).
+- **The approvals of a template** (`TemplateApprovals` over `ApprovalHistoryList`) are one accordion item for each calendar day in the
+  reader's time zone, newest first and open, older days closed. A day is one card with its approvals newest first; each has a title,
+  the time of day, a note and the flow. `ApprovalHistoryList` has no other user.
+- **Tests.** No database: `templateDetails.test.ts`, `columns.test.ts`, `ApprovalHistoryList.test.tsx`, `SolutionLoaderTest`; frontend
+  `TemplatesPage.test.tsx` (the Details tab).
+
+## Identification, Part A and Part B, the typed start and the numbering information (FA11B)
+
+Decision: ADR-0206. One shipped object, the number patterns, two read endpoints, the template form; no migration.
+
+- **The fields.** `category` is labelled **Identification** and has 26 values (the ten of the spreadsheet were added: `R`, `REHS`,
+  `EHSAIR`, `EHSHIR`, `EHSAID`, `EHSHID`, `EHSAHID`, `PLEHS`, `EHSEMP`, `EHSOCP`). `partA` and `partB` are free text; `serial` carries the
+  first serial of a new combination. `subCategory`, `partCode` and `planYear` are gone. Only the Approver policy edits `partA`, `partB`
+  and `serial`; every policy that opens a template reads `partA` and `partB`.
+- **The patterns** (`numbering.yml`): Part A is the process or customer segment (WI, SOP, F, F/EHS, CSF, PPT, L, L/EHS, R, R/EHS,
+  EHS/AIR, EHS/HIR, EHS/AID, EHS/HID, EHS/AHID, PL/EHS), Part B the part code or the year (CP, PFC, FMEA use both, BP only Part B);
+  IMS, QSP, CORP-QSP, ESSP, EHS/EMP and EHS/OCP have only the serial. Literal text of a pattern is at most 10 characters in all
+  (`NumberFormat.MAX_LITERAL`).
+- **The form.** The Document number builds itself as the person types (`TemplateNumberFields.tsx`): the serial box is typable for a
+  combination that has no counter and disabled, with the next number, for one that has; a template that already has a number shows it
+  while the identity is unchanged. Part A and Part B are drawn, in reading and in editing, only when the numbering information says the
+  format reads them. The rows are in `templateDetails.ts`.
+- **The Save.** `TemplateIdentityWrites`: parts are checked (capitals, digits, hyphen), a blank part the pattern reads means no number
+  yet (the number is cleared), the typed serial starts a combination that has no counter, otherwise the counter's next number is taken.
+  A serial typed for a running combination is ignored. The audit says that a number was assigned, never the number or a part.
+- **The Numbering screen** lists the combinations that have a counter (read only, 50 to a page, `numbering.manage`).
+- **Setup for an added identification.** Add the value in Setup, Objects, Template, Identification; it takes the default pattern (the
+  identification, Part B when typed, a count) until a pattern is saved for it in Setup, Numbering.
+- **Tests.** See ADR-0206; the browser script `platform-web/browser-checks/sheet-grid.mjs` creates its template with Part A.
+
+**Reading hides the parts.** The Details tab in reading mode draws neither Part A nor Part B (`templateSections`, `editing` false): they are typed only to build the Document number, which already holds them. Editing is unchanged, and the stored values still feed the number and the first-approval check.

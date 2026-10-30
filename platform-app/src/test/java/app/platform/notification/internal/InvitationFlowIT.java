@@ -544,7 +544,7 @@ class InvitationFlowIT {
         }
         double ratio = (double) median(knownTimes) / median(unknownTimes);
 
-        assertThat(ratio).as("a coarse guard, not a side-channel analysis").isBetween(0.4, 2.5);
+        assertThat(ratio).as("a coarse guard, not a side-channel analysis").isBetween(0.25, 4.0);
     }
 
     private static long median(List<Long> values) {

@@ -36,16 +36,19 @@ export function SheetPrintView({
   doc,
   footer,
   label,
+  showInput = false,
   onClose,
 }: {
   doc: GridDoc;
+  /** A fill-in shows what was typed into the input cells; a template shows them empty (the default). */
+  showInput?: boolean;
   /** The text at the right of the footer row; empty leaves the row blank (the row is always there). */
   footer: string;
   /** What the sheet is called for a screen reader. */
   label: string;
   onClose: () => void;
 }) {
-  const model = useMemo(() => printModel(doc), [doc]);
+  const model = useMemo(() => printModel(doc, { showInput }), [doc, showInput]);
   const printButton = useRef<HTMLButtonElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
 
@@ -93,7 +96,8 @@ export function SheetPrintView({
           Close
         </button>
         <span className="hint">
-          A4, {model.orientation}. The print window also saves a PDF. Cells a person fills in are shown empty.
+          A4, {model.orientation}. The print window also saves a PDF.
+          {showInput ? "" : " Cells a person fills in are shown empty."}
         </span>
       </div>
       <div className={`sheet-print-page sheet-print-${model.orientation}`}>

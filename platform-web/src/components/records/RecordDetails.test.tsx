@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeApi, json } from "@/test/fakeApi";
 import { DEAL_FORM, deal } from "@/test/records";
@@ -10,12 +10,20 @@ vi.mock("next/link", () => ({
 
 const OWNER = "11111111-1111-1111-1111-111111111111";
 
-afterEach(() => {
+let calls: ReturnType<typeof fakeApi> = [];
+
+// The owner's name is asked for after the first draw. A test that ends before the answer would let it arrive after the
+// fake API is gone, and the reply then lands on a worker that is closing.
+afterEach(async () => {
+  await waitFor(() => expect(calls.some((one) => one.key.endsWith("/labels"))).toBe(true));
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
   vi.unstubAllGlobals();
 });
 
 function renderDetails(values: Record<string, unknown> = {}) {
-  fakeApi({ "POST /api/v1/objects/Deal__c/lookups/ownerId/labels": () => json({ data: { labels: { [OWNER]: "User A" } } }) });
+  calls = fakeApi({ "POST /api/v1/objects/Deal__c/lookups/ownerId/labels": () => json({ data: { labels: { [OWNER]: "User A" } } }) });
   return render(
     <RecordDetails objectApiName="Deal__c" form={DEAL_FORM} record={deal("r1", values)} recordHref={(o, id) => `/records/${o}/${id}`} />,
   );

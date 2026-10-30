@@ -6,18 +6,18 @@ import { NumberingPanel } from "./NumberingPanel";
 const { offers } = vi.hoisted(() => ({ offers: vi.fn(() => true) }));
 vi.mock("@/lib/session/SessionProvider", () => ({ useOffers: offers }));
 
-const format = "WI/{field:subCategory}/{seq:2}";
+const format = "WI/{field:partA}/{seq:2}";
 const series = {
-  key: "document", objectApiName: "InspectionTemplate", label: "Template", selector: "category", optionalField: "subCategory",
+  key: "document", objectApiName: "InspectionTemplate", label: "Template", selector: "category", optionalField: "partA",
   fields: [
-    { apiName: "category", label: "Identity category", values: [{ value: "WI", label: "WI", active: true }] },
-    { apiName: "subCategory", label: "Identity sub-category", values: [{ value: "PRD", label: "Production", active: true }] },
+    { apiName: "category", label: "Identification", values: [{ value: "WI", label: "WI", active: true }] },
+    { apiName: "partA", label: "Part A", values: [{ value: "PRD", label: "Production", active: true }] },
   ],
   settings: [{ kind: "CATEGORY", selectorValue: "WI", label: "Work instruction", active: true, format, source: "SHIPPED", version: 0, width: 2 }],
 };
 const preview = (ready: boolean, next = 1) => ({
   data: { example: ready ? `WI/PRD/${String(next).padStart(2, "0")}` : null, nextValue: ready ? next : null, width: 2,
-    fields: ["subCategory"], missingFields: ready ? [] : ["subCategory"], message: ready ? "An example, not a reservation." : "Choose the parts." },
+    fields: ["partA"], missingFields: ready ? [] : ["partA"], message: ready ? "An example, not a reservation." : "Choose the parts." },
 });
 
 beforeEach(() => {
@@ -31,18 +31,19 @@ function setup(saveResponse = () => json({ data: { ...series.settings[0], source
     "GET /api/v1/numbering": () => json({ data: { series: [series] } }),
     "POST /api/v1/numbering/document/preview": async (request) => {
       const body = await request.json();
-      return json(preview(Boolean(body.values.subCategory)));
+      return json(preview(Boolean(body.values.partA)));
     },
     "PUT /api/v1/numbering/document/formats": saveResponse,
     "POST /api/v1/numbering/document/counter": () => json(preview(true, 37)),
     "POST /api/v1/numbering/document/formats/reset": () => json({ data: { series: [series] } }),
+    "GET /api/v1/numbering/document/counters": () => json({ data: { counters: [], nextCursor: null } }),
   });
 }
 
 async function openAndPreview() {
   fireEvent.click(await screen.findByRole("button", { name: "Work instruction" }));
   fireEvent.click(screen.getByRole("button", { name: "Preview" }));
-  fireEvent.change(await screen.findByLabelText("Identity sub-category"), { target: { value: "PRD" } });
+  fireEvent.change(await screen.findByLabelText("Part A"), { target: { value: "PRD" } });
   fireEvent.click(screen.getByRole("button", { name: "Preview" }));
   await screen.findByText("WI/PRD/01");
 }
@@ -53,17 +54,37 @@ describe("NumberingPanel", () => {
     render(<NumberingPanel />);
     await openAndPreview();
     expect(screen.getByRole("button", { name: "Save format" })).toBeEnabled();
-    fireEvent.change(screen.getByLabelText("Number format"), { target: { value: "WI/{field:subCategory}/{seq:3}" } });
+    fireEvent.change(screen.getByLabelText("Number format"), { target: { value: "WI/{field:partA}/{seq:3}" } });
     expect(screen.getByRole("button", { name: "Save format" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
-    fireEvent.change(await screen.findByLabelText("Identity sub-category"), { target: { value: "PRD" } });
+    fireEvent.change(await screen.findByLabelText("Part A"), { target: { value: "PRD" } });
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Save format" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Save format" }));
     await waitFor(() => expect(calls.some((call) => call.key.startsWith("PUT "))).toBe(true));
     expect(JSON.parse(calls.find((call) => call.key.startsWith("PUT "))!.body)).toEqual({
-      kind: "CATEGORY", selectorValue: "WI", format: "WI/{field:subCategory}/{seq:3}", version: 0,
+      kind: "CATEGORY", selectorValue: "WI", format: "WI/{field:partA}/{seq:3}", version: 0,
     });
+  });
+
+  it("lists the combinations that already have numbers, read only, a page at a time (FA11B)", async () => {
+    const pages: Record<string, unknown> = {
+      "": { counters: [{ combination: "WI/PRD", nextValue: 6, lastIssued: 5 }], nextCursor: "50" },
+      "50": { counters: [{ combination: "WI/QLT", nextValue: 2, lastIssued: 1 }], nextCursor: null },
+    };
+    const calls = fakeApi({
+      "GET /api/v1/numbering": () => json({ data: { series: [series] } }),
+      "GET /api/v1/numbering/document/counters": (request) =>
+        json({ data: pages[new URL(request.url).searchParams.get("cursor") ?? ""] }),
+    });
+    render(<NumberingPanel />);
+
+    expect(await screen.findByText("WI/PRD")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Combinations that already have numbers/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+    expect(await screen.findByText("WI/QLT")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show more" })).not.toBeInTheDocument();
+    expect(calls.filter((call) => call.key.startsWith("GET /api/v1/numbering/document/counters"))).toHaveLength(2);
   });
 
   it("shows the server's refusal without claiming a save succeeded", async () => {
@@ -82,7 +103,7 @@ describe("NumberingPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Raise next count" }));
     await screen.findByText("WI/PRD/37");
     const sent = calls.find((call) => call.key.endsWith("/counter"));
-    expect(JSON.parse(sent!.body)).toEqual({ values: { category: "WI", subCategory: "PRD" }, nextValue: 37 });
+    expect(JSON.parse(sent!.body)).toEqual({ values: { category: "WI", partA: "PRD" }, nextValue: 37 });
     expect(calls.filter((call) => call.key.endsWith("/formats"))).toHaveLength(0);
   });
 

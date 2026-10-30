@@ -194,7 +194,7 @@ class TemplateLifecycleIT extends TemplateSupport {
         Response uncategorised = approve(run.first().browser(), request);
 
         assertThat(uncategorised.status()).isEqualTo(409);
-        assertThat(message(uncategorised)).contains("Choose the identity category (Edit)");
+        assertThat(message(uncategorised)).contains("Choose the identification (Edit)");
         assertThat(statuses(run.author().browser(), noCategory)).containsExactly("IN_REVIEW");
         assertThat(statusOf(run.first().browser(), request)).isEqualTo("PENDING");
         assertThat(number(run.setting().admin(), noCategory)).isNull();

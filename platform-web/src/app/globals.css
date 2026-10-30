@@ -1589,6 +1589,31 @@ a.control-tab:hover {
   grid-column: 1 / -1;
 }
 
+/* A section whose two columns are named by the screen (FA11A): each field says its column and row. */
+.record-grid-placed > * {
+  grid-column: var(--col);
+  grid-row: var(--row);
+}
+
+/* The Document number of a template as it builds itself while the identity is typed, ending in the serial box (FA11B). */
+.live-number {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2.25rem;
+}
+
+.live-number-text {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.live-number .serial-input {
+  width: 7rem;
+  font-family: var(--font-mono);
+}
+
 .record-field,
 .detail-item {
   min-width: 0;
@@ -1696,6 +1721,11 @@ a.control-tab:hover {
 @media (max-width: 48rem) {
   .record-grid-two {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .record-grid-placed > * {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .search-row input[type="search"] {
@@ -3526,6 +3556,37 @@ form + .detail-section {
   padding: var(--space-1) var(--space-4) var(--space-4);
 }
 
+/* One day is one card: its approvals sit in a list separated by a quiet rule, not in cards of their own (FA11A). */
+.approval-history-items {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.approval-history-item {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+}
+
+.approval-history-item + .approval-history-item {
+  border-top: 1px solid var(--color-border);
+}
+
+.approval-history-item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.approval-history-item-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
 @media (max-width: 40rem) {
   .approval-history-toggle {
     flex-direction: column;
@@ -3783,8 +3844,8 @@ form + .detail-section {
   box-shadow: var(--shadow-1);
   color: var(--color-text);
   text-decoration: none;
-  animation: app-tile-rise 420ms cubic-bezier(0.2, 1, 0.3, 1) both;
-  animation-delay: calc(var(--tile-order, 0) * 24ms);
+  animation: app-tile-rise 800ms cubic-bezier(0.2, 1, 0.3, 1) both;
+  animation-delay: calc(var(--tile-order, 0) * 60ms);
   transition:
     transform 220ms cubic-bezier(0.2, 1, 0.3, 1),
     box-shadow 220ms ease,
@@ -5267,12 +5328,76 @@ button.hrow {
   }
 }
 
-/* The names of the ring's segments sit side by side, as many to a row as fit. */
+/* The ring's legend stands beside it and is never taller than the ring: it scrolls inside if there are many names. */
+.chart-ring {
+  flex-wrap: nowrap;
+  justify-content: space-between;
+}
+
 .chart-ring .chart-legend {
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  gap: var(--space-1) var(--space-3);
+  flex: 1 1 0;
+  min-width: 0;
+  max-height: var(--chart-ring-size);
+  overflow-y: auto;
+  align-content: center;
+}
+
+@media (max-width: 30rem) {
+  .chart-ring {
+    flex-wrap: wrap;
+  }
 }
 
 .heat {
   grid-template-columns: minmax(4.5rem, 7rem) repeat(var(--heat-columns, 5), minmax(2.6rem, 1fr));
+}
+
+/* Fill-ins by department by template: the department's name on the left, its templates in rows on the right. */
+.chart-groups-aside {
+  gap: var(--space-2);
+}
+
+.chart-groups-aside .chart-group {
+  grid-template-columns: minmax(7rem, 12rem) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.chart-groups-aside .chart-group-title {
+  padding-top: var(--space-1);
+}
+
+@media (max-width: 40rem) {
+  .chart-groups-aside .chart-group {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The ring stands in the middle of its card and the names to the right of it. */
+.chart-ring {
+  justify-content: flex-start;
+}
+
+/* Free space on both sides of the ring is shared, so it sits in the middle of what the legend leaves. */
+.chart-ring .chart-ring-figure {
+  flex: 0 0 auto;
+  margin-inline: auto;
+}
+
+.chart-ring .chart-legend {
+  flex: 0 0 40%;
+}
+
+/* The start page sits close under the strip: no extra space above the grid window. */
+.shell-main:has(> .landing-window) {
+  padding-top: var(--space-3);
+}
+
+.landing-window {
+  margin-top: 0;
+}
+
+/* The soft wash behind the grid reaches past the page on purpose; inside the window it is cut to the rounded edge. */
+.landing-window {
+  overflow: hidden;
 }

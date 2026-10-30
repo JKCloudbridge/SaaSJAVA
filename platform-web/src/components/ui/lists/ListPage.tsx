@@ -81,6 +81,10 @@ export interface ListPageProps<T> {
   onNew?: () => void;
   newHref?: string;
   newLabel?: string;
+  /** When the API says New cannot work, the button is drawn greyed out with these words (a title and for screen readers). */
+  newDisabledReason?: string;
+  /** Draw the box first, then New, then the settings icon (a list whose main act sits beside the gear). */
+  newAfterSearch?: boolean;
   /** The settings icon at the right end of the band: what a person may do with the list. Without entries it is not drawn. */
   menu?: readonly ListMenuItem[];
   /** The screen's own extra buttons, next to New. */
@@ -173,10 +177,14 @@ export function ListPage<T>(props: ListPageProps<T>) {
   const label = props.searchLabel ?? `Search ${props.title.toLowerCase()}`;
   const newLabel = props.newLabel ?? "New";
 
-  const tools = (
+  const newButton = (
     <>
       {onNew ? (
         <button type="button" className="button" onClick={onNew}>
+          {newLabel}
+        </button>
+      ) : props.newDisabledReason ? (
+        <button type="button" className="button" disabled title={props.newDisabledReason}>
           {newLabel}
         </button>
       ) : null}
@@ -185,6 +193,11 @@ export function ListPage<T>(props: ListPageProps<T>) {
           {newLabel}
         </Link>
       ) : null}
+    </>
+  );
+  const tools = (
+    <>
+      {props.newAfterSearch ? null : newButton}
       {searchText || remote ? (
         <div className="search-box">
           <Icon name="search" className="search-box-icon" />
@@ -197,6 +210,7 @@ export function ListPage<T>(props: ListPageProps<T>) {
           />
         </div>
       ) : null}
+      {props.newAfterSearch ? newButton : null}
       {props.tools}
       {props.menu && props.menu.length > 0 ? <ActionMenu label={`${props.title} settings`} items={props.menu} icon="setup" /> : null}
     </>

@@ -39,6 +39,16 @@ describe("the print model of a sheet", () => {
     expect(body[2]?.cells[1]?.text).toBe("Yes");
   });
 
+  it("shows what a filler typed into the input cells when asked to (a fill-in)", () => {
+    const doc: GridDoc = {
+      ...sampleDoc(),
+      cells: { ...sampleDoc().cells, "r1:c2": { value: "typed by a filler", kind: "input" } },
+    };
+
+    expect(printModel(doc, { showInput: true }).body[0]?.cells[1]?.text).toBe("typed by a filler");
+    expect(printModel(doc).body[0]?.cells[1]?.text).toBe("");
+  });
+
   it("gives the columns shares of the page width that add up to the whole, so the sheet is fitted to it", () => {
     const model = printModel(sampleDoc());
 

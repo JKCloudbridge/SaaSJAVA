@@ -126,6 +126,27 @@ class SolutionLoaderTest {
         assertThat(bundle.removalNote()).contains("Nothing is deleted");
     }
 
+    /**
+     * The Details tab of a template (FA11A, FA11B) draws these fields. A field missing from a policy's list does
+     * not exist for the people it gives the template to (FA6A), so every policy that opens a template must name
+     * all of them, and a policy that does not open one must name none.
+     */
+    @Test
+    void everyPolicyThatOpensATemplateNamesTheFieldsOfItsDetailsTab() {
+        SolutionBundle bundle = SolutionLoader.load().stream().filter(candidate -> candidate.key().equals("inspection"))
+                .findFirst().orElseThrow();
+        List<String> details = List.of("name", "level", "documentType", "category", "partA", "partB",
+                "number", "retired", "revision", "lastRevisedAt");
+
+        for (SolutionBundle.Policy policy : bundle.policies()) {
+            boolean opensTemplates = policy.objects().containsKey("InspectionTemplate");
+            for (String field : details) {
+                assertThat(policy.fields().containsKey("InspectionTemplate." + field))
+                        .as("policy %s, field %s", policy.key(), field).isEqualTo(opensTemplates);
+            }
+        }
+    }
+
     private static SolutionBundle.Policy policy(SolutionBundle bundle, String key) {
         return bundle.policies().stream().filter(policy -> policy.key().equals(key)).findFirst().orElseThrow();
     }
