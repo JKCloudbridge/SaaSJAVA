@@ -730,6 +730,15 @@ public final class TenantScopedTables {
                     tenant, "probe-" + UUID.randomUUID().toString().substring(0, 8), ActorId.SYSTEM.value(),
                     ActorId.SYSTEM.value()));
 
+    /** The connections of an organization to external systems (Sprint 26). Every probe uses its own name. */
+    public static final TenantScopedTable INTEGRATION_CONNECTION = new TenantScopedTable("integration_connection",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into integration_connection (tenant_id, name, label, connector_type, connector_version, "
+                            + "base_url, auth_kind, definition_fingerprint, created_by, updated_by) values "
+                            + "(?, ?, 'Label', 'rest', 1, 'https://api.example.com', 'NONE', ?, ?, ?)",
+                    tenant, "probe-" + UUID.randomUUID().toString().substring(0, 8), "a".repeat(64),
+                    ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
     /** The counters of number series (FA2A). One live row per scope, so each call retires the live one first. */
     public static final TenantScopedTable NUMBER_SERIES_COUNTER = new TenantScopedTable("number_series_counter",
             (connection, tenant) -> {
@@ -908,6 +917,7 @@ public final class TenantScopedTables {
             APPROVAL_STEP_INSTANCE, APPROVAL_ASSIGNMENT, APPROVAL_HISTORY, APPROVAL_DELEGATION, NOTIFICATION,
             NOTIFICATION_PREFERENCE, NOTIFICATION_TEMPLATE, APPROVAL_STEP_TIMER, APPROVAL_REMINDER,
             ORGANIZATION_FIELD_VALUES, NUMBER_SERIES_COUNTER, NUMBERING_FORMAT, NUMBER_RESERVATION,
+            INTEGRATION_CONNECTION,
             SHEET_VERSION, SHEET_FILL,
             SHEET_FILL_VALUE,
             INSPECTION_PUBLICATION, INSPECTION_CHANGE_REQUEST, INSPECTION_CHANGE_COMMENT,

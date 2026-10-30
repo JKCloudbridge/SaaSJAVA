@@ -125,6 +125,12 @@ describe("the console rail", () => {
     );
     expect(linksOf(homeRail(["metadata.manage"])).some((entry) => entry.href === "/setup/numbering")).toBe(false);
   });
+  it("offers Integrations only to those who may see them", () => {
+    expect(linksOf(homeRail(["integrations.view"]))).toContainEqual(
+      expect.objectContaining({ href: "/setup/integrations", ability: "integrations.view" }),
+    );
+    expect(linksOf(homeRail(["integrations.manage", "integrations.test"])).some((entry) => entry.href === "/setup/integrations")).toBe(false);
+  });
   it("lists the seven sections of the console with the same addresses as before", () => {
     expect(consoleRail().map((entry) => [entry.label, entry.kind === "link" ? entry.href : ""])).toEqual([
       ["Organizations", "/console"],

@@ -186,7 +186,24 @@ public enum Ability {
     /** Change organization-specific numbering formats and raise counters (FA6B, ADR-0197). */
     NUMBERING_MANAGE("numbering.manage", "Manage numbering",
             "Set the organization's document number formats, preview a number, and raise a pair's next count. "
-                    + "Numbers already given never change.");
+                    + "Numbers already given never change."),
+
+    /** See the connections to external systems and the connector types (Sprint 26, ADR-0209). */
+    INTEGRATIONS_VIEW("integrations.view", "View integrations",
+            "See the organization's connections to external systems, their state and the result of their last test."),
+
+    /**
+     * Create, change, switch on or off and remove connections to external systems (Sprint 26, ADR-0209). It decides
+     * where the platform connects and what a connection may touch, so it is not part of the right to see them.
+     */
+    INTEGRATIONS_MANAGE("integrations.manage", "Manage integrations",
+            "Create, change, switch on or off and remove connections to external systems, choose which credential "
+                    + "a connection uses and what it may touch. Needs the ability to view integrations as well."),
+
+    /** Test a connection (Sprint 26, ADR-0210). A test makes a call to the external system, so it is its own right. */
+    INTEGRATIONS_TEST("integrations.test", "Test integrations",
+            "Test a connection: the platform calls the external system once and reports whether it answered. "
+                    + "Needs the ability to view integrations as well.");
 
     private final String key;
     private final String title;

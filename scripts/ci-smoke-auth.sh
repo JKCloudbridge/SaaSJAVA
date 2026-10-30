@@ -1250,4 +1250,27 @@ if [ -n "$mail" ]; then
   [ "$status" = "200" ] || fail "the failure view answered $status: $(cat "$body")"
   grep -Fq '"workflows.queued"' "$body" || fail "the failure view lacks the workflow counts: $(cat "$body")"
   echo "ok: the bell and the list answered, the floor of the switches was refused, a text was checked without being stored, an automation before a save set a field in the very save, and the failure view answered with counts"
+  # 31. The connector framework (Sprint 26, ADR-0207 to ADR-0211): the catalogue describes the connector types, a connection
+  # is made untested, cannot be switched on before a test, a private address is refused without being repeated, and a
+  # connection that is off is removed. The smoke job calls no outside service, so no test of a connection is made here.
+  # Written carefully and NOT claimed to work until this job has run it.
+  status="$(client_call "$base/api/v1/integrations/connector-types")"
+  [ "$status" = "200" ] || fail "the connector catalogue answered $status: $(cat "$body")"
+  grep -Fq '"settings"' "$body" || fail "the catalogue does not describe the settings of a connector type: $(cat "$body")"
+  connection_json='{"name":"smoke-link","label":"Smoke link","connectorType":"rest","baseUrl":"https://api.example.com","authKind":"NONE","settings":{},"subscriptions":[],"scope":[],"version":0}'
+  status="$(client_call -X POST -H "$group_json" -d "$connection_json" "$base/api/v1/integrations")"
+  [ "$status" = "201" ] || fail "making a connection answered $status: $(cat "$body")"
+  grep -Fq '"state":"UNTESTED"' "$body" || fail "a new connection is not untested: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"version":0}' "$base/api/v1/integrations/smoke-link/enable")"
+  [ "$status" = "409" ] || fail "an untested connection was switched on ($status): $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"smoke-private","label":"Private","connectorType":"rest","baseUrl":"https://10.1.2.3/secret-path","authKind":"NONE","settings":{},"subscriptions":[],"scope":[],"version":0}' \
+    "$base/api/v1/integrations")"
+  [ "$status" = "400" ] || fail "a private address was accepted ($status): $(cat "$body")"
+  if grep -Fq '10.1.2.3' "$body"; then fail "the refusal repeats the address: $(cat "$body")"; fi
+  status="$(client_call "$base/api/v1/integrations")"
+  [ "$status" = "200" ] || fail "listing the connections answered $status: $(cat "$body")"
+  grep -Fq '"name":"smoke-link"' "$body" || fail "the connection is not listed: $(cat "$body")"
+  status="$(client_call -X DELETE -H "$group_json" "$base/api/v1/integrations/smoke-link")"
+  [ "$status" = "200" ] || fail "removing the connection answered $status: $(cat "$body")"
+  echo "ok: the connector catalogue described its types, a connection was made untested, could not be switched on before a test, a private address was refused without being repeated, and the connection was removed"
 fi
