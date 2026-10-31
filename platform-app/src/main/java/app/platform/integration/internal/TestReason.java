@@ -29,6 +29,14 @@ enum TestReason {
             false),
     CREDENTIAL_CHANGED("credential_changed",
             "The credential was replaced or removed after the last test. Test the connection again.", false),
+    HOST_KEY_MISMATCH("host_key_mismatch",
+            "The server showed a key other than the one pinned for this connection, so the platform did not sign in.",
+            false),
+    SSH_FAILED("ssh_failed", "A secure shell session with the server could not be set up.", false),
+    PATH_NOT_FOUND("path_not_found", "A directory this connection uses does not exist on the server.", false),
+    PERMISSION_DENIED("permission_denied", "The server did not allow the platform to use a directory or a file.",
+            false),
+    FILE_FAILED("file_failed", "The server could not carry out a file operation.", false),
     UNEXPECTED("unexpected", "The test could not be completed.", false);
 
     private final String key;

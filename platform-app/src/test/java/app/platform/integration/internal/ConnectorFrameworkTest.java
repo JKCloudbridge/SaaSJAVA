@@ -207,7 +207,8 @@ class ConnectorFrameworkTest {
                         List.of(" 127.0.0.1 ", "LOCALHOST")),
                 new IntegrationProperties.Testing(Duration.ofSeconds(10), Duration.ofSeconds(5), 4),
                 new IntegrationProperties.Flow(16, Duration.ofSeconds(10), 262144, 65536, 262144,
-                        Duration.ofMinutes(5), 120, Duration.ofDays(30), Duration.ofMinutes(10)));
+                        Duration.ofMinutes(5), 120, Duration.ofDays(30), Duration.ofMinutes(10)),
+                IntegrationProperties.Reliability.defaults(), IntegrationProperties.Files.defaults());
         IntegrationModuleConfiguration configuration = new IntegrationModuleConfiguration();
         MockEnvironment production = new MockEnvironment();
         production.setActiveProfiles("prod");

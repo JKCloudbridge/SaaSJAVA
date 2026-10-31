@@ -41,7 +41,15 @@ public enum SystemScope {
      * names and, through it, the organization. The policy of {@code integration_connection} admits it for reading
      * and no other table does. The work itself always runs inside the organization’s own tenant context.
      */
-    INBOUND_LOOKUP("inbound_lookup", false);
+    INBOUND_LOOKUP("inbound_lookup", false),
+
+    /**
+     * The outbound worker of the integrations (Sprint 29, ADR-0231): finds the deliveries of every organization that
+     * are due and claims them, and counts the queue. The policies of {@code integration_delivery} admit it for reading
+     * and for the claim, and no other table does. The send itself always runs inside the organization's own tenant
+     * context.
+     */
+    INTEGRATION_DISPATCH("integration_dispatch", false);
 
     private final String settingValue;
     private final boolean audited;

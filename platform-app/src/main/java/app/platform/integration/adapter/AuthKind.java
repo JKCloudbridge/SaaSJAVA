@@ -19,7 +19,13 @@ public enum AuthKind {
     API_KEY_HEADER("API key in a header"),
 
     /** The credential is {@code user:password}, sent as {@code Authorization: Basic <encoded>}. */
-    BASIC("User name and password");
+    BASIC("User name and password"),
+
+    /**
+     * The credential is a user name on its first line and a private key (PEM text) on the lines after it; used by file
+     * transfer, never sent in a header (Sprint 29A, ADR-0239).
+     */
+    SSH_KEY("User name and private key");
 
     private final String label;
 

@@ -37,6 +37,12 @@ final class SettingsValidator {
 
     private static final Pattern TEXT = Pattern.compile("[A-Za-z0-9 ._-]{1,100}");
     private static final Pattern WHOLE = Pattern.compile("-?[0-9]{1,18}");
+    private static final Pattern URI = Pattern.compile("urn:[A-Za-z0-9._:-]{1,90}|https?://[A-Za-z0-9._~/-]{1,200}");
+
+    private static final Pattern FINGERPRINT = Pattern.compile("SHA256:[A-Za-z0-9+/]{43}");
+    private static final Pattern IDENTIFIER = Pattern.compile("[a-z][a-z0-9-]{0,39}");
+    // The root, or names joined by single slashes; a name is never made only of dots (checked beside this pattern).
+    private static final Pattern DIRECTORY = Pattern.compile("/|(/[A-Za-z0-9._-]{1,64}){1,20}");
 
     private SettingsValidator() {
     }
@@ -76,9 +82,24 @@ final class SettingsValidator {
                     : "Use a path that starts with a slash and has no dots, spaces or query.";
             case CHOICE -> spec.choices().stream().anyMatch(choice -> choice.key().equals(value)) ? null
                     : "Choose one of the offered values.";
+            case URI -> URI.matcher(value).matches() ? null
+                    : "Use a urn: name or a web address without a query, up to 200 characters.";
             case INTEGER -> integerProblem(spec, value);
             case BOOLEAN -> value.equals("true") || value.equals("false") ? null : "Choose yes or no.";
+            case FINGERPRINT -> FINGERPRINT.matcher(value).matches() ? null
+                    : "Use the fingerprint as the usual tools print it: SHA256: and 43 characters.";
+            case IDENTIFIER -> IDENTIFIER.matcher(value).matches() ? null
+                    : "Use lower case letters, digits and dashes, starting with a letter, up to 40 characters.";
+            case DIRECTORY -> directoryProblem(value);
         };
+    }
+
+    /** Slash separated names of plain characters; no empty or dot segment, no trailing slash except the root. */
+    private static String directoryProblem(String value) {
+        return DIRECTORY.matcher(value).matches() && value.length() <= 200 && !value.contains("/./")
+                && !value.contains("/../") && !value.endsWith("/.") && !value.endsWith("/..") ? null
+                : "Use a directory that starts with a slash and has names of letters, digits, dots, dashes and "
+                        + "underscores, with no dot-only names.";
     }
 
     private static String integerProblem(SettingSpec spec, String value) {

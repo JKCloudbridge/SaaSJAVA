@@ -46,6 +46,11 @@ export function PartField({ name, label, access, hint }: { name: string; label: 
   );
 }
 
+/** What the serial box shows while the first number is typed: the digits padded to the width, so the number reads as it will be. */
+function shownSerial(typed: string, width: number): string {
+  return typed === "" ? "" : typed.padStart(width, "0");
+}
+
 /** The Document number as it builds itself, with the serial box at its end when the number has a serial. */
 export function NumberField({
   access,
@@ -104,12 +109,12 @@ export function NumberField({
             className="serial-input"
             aria-label="Serial number"
             data-testid="serial-input"
-            value={access.value("serial")}
+            value={shownSerial(access.value("serial"), info.width)}
             placeholder={padSerial(1, info.width)}
             maxLength={12}
             autoComplete="off"
             aria-invalid={problems.length > 0 ? true : undefined}
-            onChange={(event) => access.set("serial", digitsOnly(event.target.value))}
+            onChange={(event) => access.set("serial", digitsOnly(event.target.value).replace(/^0+/, ""))}
           />
         </>
       );

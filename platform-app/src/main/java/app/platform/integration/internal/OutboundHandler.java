@@ -7,7 +7,6 @@ import app.platform.integration.internal.MappingStore.Live;
 import app.platform.sharedkernel.ActorId;
 import app.platform.sharedkernel.events.EventEnvelope;
 import app.platform.sharedkernel.events.EventHandler;
-import app.platform.tenant.TenantContexts;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.HashSet;
 import java.util.Optional;
@@ -16,15 +15,13 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Turns the event of a change to a record into sends (Sprint 28, ADR-0220): for every switched-on connection that
  * listens for the event on the object and has a live mapping for it, one delivery is started, once per event and
- * connection, and the send itself is handed to {@link OutboundSender} after this transaction commits.
+ * connection, and the send itself is made later by {@link OutboundWorker}, from the queue, on any instance.
  *
  * <p><strong>Cheap by construction.</strong> Every record write announces an event, so this handler runs for every
  * write of every organization. An organization with no switched-on connection that listens costs one read of the
@@ -32,8 +29,7 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <p><strong>No echo (ADR-0222).</strong> A change made by the receiver of a connection carries that connection in the
  * chain of its event, so the same connection is not sent its own change back: a delivery is recorded as skipped with
- * the
- * reason {@code echo}. Another connection that listens still gets it.
+ * the reason {@code echo}. Another connection that listens still gets it.
  *
  * <p>The event carries the names of the changed fields and never their values; the record is read when the send is
  * prepared. Nothing here logs a value; a payload this handler cannot read is counted and skipped.
@@ -49,19 +45,17 @@ class OutboundHandler implements EventHandler {
     private final MappingStore mappings;
     private final DeliveryStore deliveries;
     private final Integrations integrations;
-    private final OutboundSender sender;
-    private final TenantContexts contexts;
+    private final IntegrationProperties.Reliability reliability;
     private final MeterRegistry meters;
     private final JsonMapper json = JsonMapper.builder().build();
 
     OutboundHandler(ConnectionStore connections, MappingStore mappings, DeliveryStore deliveries,
-            Integrations integrations, OutboundSender sender, TenantContexts contexts, MeterRegistry meters) {
+            Integrations integrations, IntegrationProperties properties, MeterRegistry meters) {
         this.connections = connections;
         this.mappings = mappings;
         this.deliveries = deliveries;
         this.integrations = integrations;
-        this.sender = sender;
-        this.contexts = contexts;
+        this.reliability = properties.reliability();
         this.meters = meters;
     }
 
@@ -125,23 +119,30 @@ class OutboundHandler implements EventHandler {
             count("out_of_scope");
             return;
         }
+        int bound = reliability.queue().maxPerConnection();
+        if (deliveries.openCount(connection.id(), bound) >= bound) {
+            // Refused visibly, never dropped: the change is recorded as a dead letter that can be sent again.
+            Optional<UUID> refused = deliveries.deadLettered(connection.id(), version, kind, event.eventId(), object,
+                    record, FlowReason.QUEUE_FULL.key(), ACTOR);
+            if (refused.isPresent()) {
+                meters.counter("platform.integration.dead").increment();
+                count("queue_full");
+            }
+            return;
+        }
         Optional<UUID> started = deliveries.start(connection.id(), version, "OUT", kind, event.eventId(), object,
                 record, ACTOR);
         if (started.isEmpty()) {
             count("duplicate");
             return;
         }
-        OutboundSender.Work work = new OutboundSender.Work(contexts.require().tenantId(), started.get(),
-                connection.id(), version, event.type(), object, record);
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    sender.submit(work);
-                }
-            });
-        } else {
-            sender.submit(work);
+        if (!"CREATE".equals(kind)) {
+            // Latest state wins: a send reads the record as it is when it is made, so an older change that is still
+            // only waiting says nothing the newer one does not (ADR-0230).
+            int replaced = deliveries.supersedeOlder(connection.id(), object, record, started.get());
+            if (replaced > 0) {
+                meters.counter("platform.integration.superseded").increment(replaced);
+            }
         }
         count("started");
     }

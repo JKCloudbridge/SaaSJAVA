@@ -22,6 +22,7 @@ import {
   type SettingSpec,
 } from "@/lib/integrations/model";
 import { useOffers } from "@/lib/session/SessionProvider";
+import { IntegrationMonitor } from "./IntegrationMonitor";
 import { MappingDesigner } from "./MappingDesigner";
 
 type ObjectSummary = components["schemas"]["ObjectSummaryView"];
@@ -278,6 +279,7 @@ export function IntegrationsPanel() {
           </ul>
         </DetailSection>
         {offersMappings ? <MappingDesigner key={item.id} connection={item} /> : null}
+        <IntegrationMonitor key={`monitor-${item.id}`} connection={item} />
         <DetailSection title="May touch">
           {item.scope.length === 0 ? <p className="dl-value muted">Nothing.</p> : null}
           <ul data-testid="integration-scope">

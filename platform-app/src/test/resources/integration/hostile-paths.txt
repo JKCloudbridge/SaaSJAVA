@@ -1,0 +1,60 @@
+# Names and directories the platform must never use for a file on an external system (ADR-0240, ADR-0241).
+# One per line: kind | reason | text. kind is "name" (a name found in an inbox, which must never be picked up) or
+# "directory" (a directory setting, which must never be accepted). FilePathRulesTest tries every line and fails when
+# one is accepted. A new way round the rules adds a line here.
+name | parent directory | ..
+name | parent directory as a file | ../x.csv
+name | parent directory inside | a/../x.csv
+name | absolute path | /etc/passwd.csv
+name | windows drive | C:\x.csv
+name | windows separator | a\b.csv
+name | separator | a/b.csv
+name | leading dot (a partly written file) | .x.csv
+name | the platform's own temporary file | .d-1-g1.csv.0000.part
+name | dots only | ....csv
+name | two dots inside | a..b.csv
+name | trailing dot | x.csv.
+name | leading dash (looks like an option) | -x.csv
+name | leading space | " x.csv"
+name | space | a b.csv
+name | newline | a\nb.csv
+name | semicolon | a;b.csv
+name | pipe | a|b.csv
+name | backtick | a`b.csv
+name | dollar | a$b.csv
+name | glob star | a*.csv
+name | question mark | a?.csv
+name | percent escape | a%2e%2e.csv
+name | non-ASCII look-alike dot | a\u2024b.csv
+name | non-ASCII letter | caf\u00e9.csv
+name | control character | a\u0001b.csv
+name | right-to-left override | a\u202ecsv.csv
+name | empty |
+name | only the ending | .csv
+name | another ending | notes.txt
+name | double ending | orders.csv.exe
+name | the right ending hidden in the middle | orders.csv.bak
+name | longer than the bound | aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.csv
+directory | no leading slash | in
+directory | parent directory | /in/../etc
+directory | parent at the end | /in/..
+directory | current directory | /in/./x
+directory | current at the end | /in/.
+directory | empty segment | /a//b
+directory | trailing slash | /in/
+directory | space | /a b
+directory | backslash | /a\b
+directory | windows drive | C:/in
+directory | url | sftp://host/in
+directory | query | /in?x=1
+directory | fragment | /in#x
+directory | percent | /in%2e
+directory | glob | /in/*
+directory | variable | /in/${HOME}
+directory | semicolon | /in;rm
+directory | non-ASCII | /caf\u00e9
+directory | control character | /a\u0001b
+directory | too deep | /a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u
+directory | name too long | /aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+name | tab | a\tb.csv
+directory | tab | /a\tb

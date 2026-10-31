@@ -492,7 +492,7 @@ export function MappingDesigner({ connection }: { connection: Integration }) {
             <li key={one.id}>
               {one.direction === "OUT" ? "Sent" : "Received"} {one.kind.toLowerCase()} ({one.object}): {one.state.toLowerCase()}
               {one.words ? `, ${one.words}` : ""}
-              {one.stale ? " (interrupted)" : ""} {new Date(one.createdAt).toLocaleString()}
+              {one.stale ? " (overdue)" : ""} {new Date(one.createdAt).toLocaleString()}
             </li>
           ))}
         </ul>

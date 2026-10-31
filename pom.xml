@@ -54,6 +54,12 @@
     <json-schema-validator.version>3.0.8</json-schema-validator.version>
     <!-- Sprint 17: the client of the S3-compatible object storage that holds the bytes of files (ADR-0120). -->
     <awssdk.version>2.55.5</awssdk.version>
+    <!-- Sprint 29A: the SSH client behind file transfer (ADR-0238). A single jar with no further dependency, BSD licence.
+         2.28.6 and later carry the fix for the known-hosts parsing flaw (reported September 2026); the platform does not
+         use that code anyway, the host key is pinned in the connection. -->
+    <ssh-client.version>2.28.8</ssh-client.version>
+    <!-- Sprint 29A: a small in-process SSH and file transfer server, test scope only, so tests meet a real server. -->
+    <ssh-test-server.version>2.20.1</ssh-test-server.version>
 
     <!-- Build plugin versions. -->
     <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
@@ -119,6 +125,22 @@
         <groupId>org.bouncycastle</groupId>
         <artifactId>bcprov-jdk18on</artifactId>
         <version>${bouncycastle.version}</version>
+      </dependency>
+      <dependency>
+        <!-- File transfer over SSH (ADR-0238); used by one class of the integration module. -->
+        <groupId>com.github.mwiede</groupId>
+        <artifactId>jsch</artifactId>
+        <version>${ssh-client.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.sshd</groupId>
+        <artifactId>sshd-core</artifactId>
+        <version>${ssh-test-server.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.sshd</groupId>
+        <artifactId>sshd-sftp</artifactId>
+        <version>${ssh-test-server.version}</version>
       </dependency>
 
       <!-- Platform modules. -->

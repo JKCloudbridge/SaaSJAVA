@@ -30,6 +30,12 @@ class IntegrationAccess {
         this.entitlements = entitlements;
     }
 
+    /** Whether the caller, a member, holds the ability: for what a screen may offer, never a gate. */
+    boolean can(Ability ability) {
+        return contexts.current().filter(context -> context.membershipId() != null)
+                .map(caller -> permissions.has(caller.membershipId(), ability)).orElse(false);
+    }
+
     /** The caller, once they hold every one of the abilities and the organization has the feature. */
     TenantContext require(Ability... abilities) {
         TenantContext caller = contexts.current().filter(context -> context.membershipId() != null)

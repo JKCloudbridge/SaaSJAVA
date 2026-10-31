@@ -1,5 +1,6 @@
 package app.platform.integration.internal;
 
+import app.platform.integration.adapter.Transport;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
@@ -31,20 +32,38 @@ final class EndpointRules {
         }
     }
 
-    /** An accepted address. */
-    record Endpoint(boolean secure, String host, int port, String basePath, boolean development) {
+    /**
+     * An accepted address. {@code secure} means the connection is encrypted: true for {@code https} and {@code sftp}.
+     * The scheme tells the transport apart; for an address of the web it is the one the {@code secure} flag implies.
+     */
+    record Endpoint(boolean secure, String host, int port, String basePath, boolean development, String scheme) {
 
-        /** The value of the Host header: the port only when it is not the default of the scheme. */
+        /** An address of the web: {@code https} when secure, {@code http} (development hosts only) when not. */
+        Endpoint(boolean secure, String host, int port, String basePath, boolean development) {
+            this(secure, host, port, basePath, development, secure ? "https" : "http");
+        }
+
+        /** The value of the Host header and the written form of the address; the port only if it is not the default. */
         String hostHeader() {
             String name = host.contains(":") ? "[" + host + "]" : host;
-            return port == (secure ? 443 : 80) ? name : name + ":" + port;
+            return port == defaultPort(scheme) ? name : name + ":" + port;
         }
+    }
+
+    /** The port of a scheme when the address names none. */
+    static int defaultPort(String scheme) {
+        return switch (scheme) {
+            case "https" -> 443;
+            case "sftp" -> 22;
+            default -> 80;
+        };
     }
 
     /** A refusal with its stable key. */
     enum Refusal {
         INVALID("endpoint_invalid", "The address is not written in a form the platform accepts."),
         SCHEME("endpoint_scheme", "The address must start with https://."),
+        SCHEME_SFTP("endpoint_scheme_sftp", "The address must start with sftp://."),
         USER_INFORMATION("endpoint_user_information", "The address must not contain a user name or password."),
         HOST("endpoint_host", "The address must name a public host."),
         ADDRESS("endpoint_address", "The address points to a network the platform does not connect to."),
@@ -100,18 +119,29 @@ final class EndpointRules {
     private EndpointRules() {
     }
 
-    /** Reads an address as typed. */
+    /** Reads the address of a web service as typed. */
     static Result parse(String raw, Policy policy) {
+        return parse(raw, policy, Transport.HTTP);
+    }
+
+    /**
+     * Reads an address as typed, for the transport the connector type uses (Sprint 29A, ADR-0237). A web address is
+     * {@code https} (or {@code http} for a development host); a file transfer address is {@code sftp}, which is
+     * encrypted, so it needs no exception for plain text, and it names a host and perhaps a port and nothing else:
+     * the directories are settings. Every other rule, the public host above all, is the same for both.
+     */
+    static Result parse(String raw, Policy policy, Transport transport) {
         if (raw == null || raw.isEmpty() || raw.length() > MAX_LENGTH || !plainAscii(raw)) {
             return Result.refused(Refusal.INVALID);
         }
         int schemeEnd = raw.indexOf("://");
+        boolean files = transport == Transport.SFTP;
         if (schemeEnd < 1) {
-            return Result.refused(Refusal.SCHEME);
+            return Result.refused(files ? Refusal.SCHEME_SFTP : Refusal.SCHEME);
         }
         String scheme = raw.substring(0, schemeEnd).toLowerCase(Locale.ROOT);
-        if (!scheme.equals("https") && !scheme.equals("http")) {
-            return Result.refused(Refusal.SCHEME);
+        if (files ? !scheme.equals("sftp") : !scheme.equals("https") && !scheme.equals("http")) {
+            return Result.refused(files ? Refusal.SCHEME_SFTP : Refusal.SCHEME);
         }
         String rest = raw.substring(schemeEnd + 3);
         int authorityEnd = firstOf(rest, "/?#");
@@ -148,28 +178,29 @@ final class EndpointRules {
             }
         }
         host = host.toLowerCase(Locale.ROOT);
-        boolean secure = scheme.equals("https");
-        int port = secure ? 443 : 80;
+        boolean secure = !scheme.equals("http");
+        int port = defaultPort(scheme);
         if (portText != null) {
             if (!PORT.matcher(portText).matches() || Integer.parseInt(portText) > 65535) {
                 return Result.refused(Refusal.PORT);
             }
             port = Integer.parseInt(portText);
         }
-        if (!pathAllowed(tail, true)) {
+        if (files ? !(tail.isEmpty() || tail.equals("/")) : !pathAllowed(tail, true)) {
             return Result.refused(Refusal.PATH);
         }
-        String basePath = tail.length() > 1 && tail.endsWith("/") ? tail.substring(0, tail.length() - 1) : tail;
+        String basePath = files ? ""
+                : tail.length() > 1 && tail.endsWith("/") ? tail.substring(0, tail.length() - 1) : tail;
         if (policy.isDevelopmentHost(host)) {
             return DEV_HOST.matcher(host).matches()
-                    ? Result.accepted(new Endpoint(secure, host, port, basePath, true))
+                    ? Result.accepted(new Endpoint(secure, host, port, basePath, true, scheme))
                     : Result.refused(Refusal.HOST);
         }
         if (!secure) {
             return Result.refused(Refusal.SCHEME);
         }
         Refusal hostProblem = publicHost(authority.startsWith("["), host);
-        return hostProblem == null ? Result.accepted(new Endpoint(true, host, port, basePath, false))
+        return hostProblem == null ? Result.accepted(new Endpoint(true, host, port, basePath, false, scheme))
                 : Result.refused(hostProblem);
     }
 

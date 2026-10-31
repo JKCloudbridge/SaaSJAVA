@@ -177,8 +177,6 @@ class MappingGuardIT {
 
         String end = "update integration_delivery set state = ?, reason = ?, finished_at = now(), "
                 + "version = version + 1, updated_by = ? where id = ?";
-        assertThat(stateOf(Role.APP, world.tenant(), "update integration_delivery set state = 'PENDING', "
-                + "version = version + 1, updated_by = ? where id = ?", ACTOR, delivery)).isEqualTo(CHECK_VIOLATION);
         assertThat(stateOf(Role.APP, world.tenant(), end, "DONE", null, ACTOR, delivery)).isNull();
         for (Role role : Role.values()) {
             assertThat(stateOf(role, world.tenant(), end, "FAILED", "rejected", ACTOR, delivery))

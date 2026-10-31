@@ -17,6 +17,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.net.ssl.SNIHostName;
@@ -283,7 +284,17 @@ class EgressClient {
      * @param maxResponseBytes the most bytes of the answer's body that are read
      */
     record Call(Endpoint endpoint, String method, String path, Header auth, String contentType, byte[] body,
-            Duration timeout, int maxResponseBytes) {
+            Duration timeout, int maxResponseBytes, Map<String, String> headers) {
+
+        Call {
+            headers = headers == null ? Map.of() : Map.copyOf(headers);
+        }
+
+        /** A call with no extra header. */
+        Call(Endpoint endpoint, String method, String path, Header auth, String contentType, byte[] body,
+                Duration timeout, int maxResponseBytes) {
+            this(endpoint, method, path, auth, contentType, body, timeout, maxResponseBytes, Map.of());
+        }
 
         @Override
         public String toString() {
@@ -298,10 +309,15 @@ class EgressClient {
      * @param status the status code, or 0 when there is a failure
      * @param body the body, empty when there is none
      */
-    record Answer(TestReason failure, int status, byte[] body) {
+    record Answer(TestReason failure, int status, byte[] body, Integer retryAfterSeconds) {
+
+        /** An answer that carries no Retry-After. */
+        Answer(TestReason failure, int status, byte[] body) {
+            this(failure, status, body, null);
+        }
 
         static Answer failed(TestReason reason) {
-            return new Answer(reason, 0, new byte[0]);
+            return new Answer(reason, 0, new byte[0], null);
         }
 
         @Override
@@ -341,6 +357,71 @@ class EgressClient {
             }
         }
         return last;
+    }
+
+    /**
+     * A connection that was opened for a transport that speaks its own protocol over it (Sprint 29A, ADR-0237).
+     *
+     * @param socket the open socket, to be closed by the caller; null when there is a failure
+     * @param failure why there is none, or null
+     */
+    record Opened(Socket socket, TestReason failure) {
+
+        static Opened failed(TestReason reason) {
+            return new Opened(null, reason);
+        }
+    }
+
+    /**
+     * Resolves the name, requires <em>every</em> address it resolves to to be public (unless the host is a development
+     * host) and opens a socket to the address that was checked, exactly as {@link #call} does for the web. A transport
+     * of another protocol (the secure shell of file transfer) gets its socket here and nowhere else, so the same
+     * address rules hold for it: the library is handed a connection that is already open and never looks a name up
+     * itself.
+     */
+    Opened open(Endpoint endpoint, Duration timeout) {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        InetAddress[] addresses;
+        try {
+            addresses = resolver.resolve(endpoint.host());
+        } catch (UnknownHostException unknown) {
+            return Opened.failed(TestReason.NAME_NOT_FOUND);
+        }
+        if (addresses == null || addresses.length == 0) {
+            return Opened.failed(TestReason.NAME_NOT_FOUND);
+        }
+        if (!endpoint.development()) {
+            for (InetAddress address : addresses) {
+                if (!HostAddresses.isPublic(address)) {
+                    return Opened.failed(TestReason.ADDRESS_NOT_ALLOWED);
+                }
+            }
+        }
+        for (InetAddress address : addresses) {
+            long left = remaining(deadline);
+            if (left <= 0) {
+                return Opened.failed(TestReason.TIMED_OUT);
+            }
+            Socket socket = new Socket();
+            try {
+                socket.connect(new InetSocketAddress(address, endpoint.port()),
+                        (int) Math.max(1, Math.min(settings.connectTimeout().toMillis(), left)));
+                return new Opened(socket, null);
+            } catch (SocketTimeoutException slow) {
+                closeQuietly(socket);
+            } catch (IOException refused) {
+                closeQuietly(socket);
+            }
+        }
+        return Opened.failed(TestReason.CONNECT_FAILED);
+    }
+
+    private static void closeQuietly(Socket socket) {
+        try {
+            socket.close();
+        } catch (IOException ignored) {
+            // Nothing more can be done with a socket that will not close.
+        }
     }
 
     private Answer callExchange(Call call, InetAddress address, long deadline) {
@@ -385,6 +466,10 @@ class EgressClient {
         if (!"GET".equals(call.method()) && !"HEAD".equals(call.method()) && !"DELETE".equals(call.method())) {
             text.append("Content-Length: ").append(call.body().length).append("\r\n");
         }
+        for (Map.Entry<String, String> extra : call.headers().entrySet()) {
+            // Names and values were checked when the call was built (Header); a line break cannot get here.
+            text.append(extra.getKey()).append(": ").append(extra.getValue()).append("\r\n");
+        }
         if (call.auth() != null) {
             text.append(call.auth().name()).append(": ").append(call.auth().value()).append("\r\n");
         }
@@ -423,8 +508,9 @@ class EgressClient {
             return Answer.failed(status.failure());
         }
         int code = status.status();
+        Integer retryAfter = retryAfterOf(text);
         if (head || code == 204 || code == 304 || code < 200) {
-            return new Answer(null, code, new byte[0]);
+            return new Answer(null, code, new byte[0], retryAfter);
         }
         long declared = -1;
         boolean chunked = false;
@@ -448,7 +534,24 @@ class EgressClient {
         InputStream rest = new SequenceInputStream(new ByteArrayInputStream(buffer, end + 4, length - end - 4), in);
         wire.setSoTimeout((int) Math.max(1, Math.min(settings.readTimeout().toMillis(), remaining(deadline))));
         byte[] body = chunked ? readChunked(rest, maxBody) : readPlain(rest, declared, maxBody);
-        return body == null ? Answer.failed(TestReason.RESPONSE_TOO_LARGE) : new Answer(null, code, body);
+        return body == null ? Answer.failed(TestReason.RESPONSE_TOO_LARGE) : new Answer(null, code, body, retryAfter);
+    }
+
+    /**
+     * The wait the other side asked for with Retry-After, in whole seconds. Only the number-of-seconds form is read; a
+     * date, a negative or an absurd number is treated as no request (the caller bounds it by a ceiling anyway).
+     */
+    private static Integer retryAfterOf(String head) {
+        for (String line : head.split("\r\n")) {
+            int colon = line.indexOf(':');
+            if (colon > 0 && line.substring(0, colon).strip().equalsIgnoreCase("retry-after")) {
+                String value = line.substring(colon + 1).strip();
+                if (value.length() >= 1 && value.length() <= 9 && value.chars().allMatch(c -> c >= '0' && c <= '9')) {
+                    return Integer.parseInt(value);
+                }
+            }
+        }
+        return null;
     }
 
     /** Null when the body is longer than the limit. */

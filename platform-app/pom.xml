@@ -135,6 +135,24 @@
       <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
     </dependency>
 
+    <!-- File transfer over SSH (Sprint 29A, ADR-0238): referenced by one class of the integration module only. -->
+    <dependency>
+      <groupId>com.github.mwiede</groupId>
+      <artifactId>jsch</artifactId>
+    </dependency>
+
+    <!-- A real in-process SSH and file transfer server for the tests of the file flows; never shipped. -->
+    <dependency>
+      <groupId>org.apache.sshd</groupId>
+      <artifactId>sshd-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.sshd</groupId>
+      <artifactId>sshd-sftp</artifactId>
+      <scope>test</scope>
+    </dependency>
+
     <!-- Tests -->
     <dependency>
       <groupId>org.springframework.boot</groupId>

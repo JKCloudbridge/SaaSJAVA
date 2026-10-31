@@ -361,9 +361,10 @@ class SchemaConventionsIT {
                 "subscription_notice", "retained_object");
         assertThat(SchemaConventions.SYSTEM_SCOPE_TABLES)
                 .containsExactlyInAnyOrder("outbox_event", "processed_event", "membership", "workflow_execution",
-                        "workflow_schedule", "approval_step_timer", "integration_connection");
+                        "workflow_schedule", "approval_step_timer", "integration_connection",
+                        "integration_delivery", "integration_poll");
         assertThat(SchemaConventions.SYSTEM_SCOPES).containsExactlyInAnyOrder("outbox_relay", "membership_lookup",
-                "workflow_dispatch", "approval_timers", "inbound_lookup");
+                "workflow_dispatch", "approval_timers", "inbound_lookup", "integration_dispatch");
     }
 
     /**

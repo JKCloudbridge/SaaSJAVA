@@ -51,9 +51,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * </ol>
  *
  * <p>An unknown connection, a connection that is not switched on, a malformed header, a stale time, a replay and a
- * wrong
- * signature are <em>one</em> answer ({@code UNAUTHENTICATED}); the receiver cannot be used to learn which connections
- * exist. After the signature the sender is known and gets precise, fixed words. Nothing the caller sent, no record
+ * wrong signature are <em>one</em> answer ({@code UNAUTHENTICATED}); the receiver cannot be used to learn which
+ * connections exist. After the signature the sender is known and gets precise, fixed words. Nothing the caller sent, no
+ * record
  * value, no header and no signature is logged, audited or put in a metric tag.
  */
 @Service
@@ -120,7 +120,7 @@ class InboundService {
     }
 
     /** What the second step decides: the end of the delivery, the word the sender gets and the record touched. */
-    private record Outcome(String state, String reason, String word, UUID record) {
+    record Outcome(String state, String reason, String word, UUID record) {
 
         static Outcome failed(FlowReason reason) {
             return new Outcome("FAILED", reason.key(), null, null);
@@ -220,6 +220,18 @@ class InboundService {
         } catch (PayloadException unreadable) {
             return Outcome.failed(FlowReason.PAYLOAD_UNREADABLE);
         }
+        return applyEntity(connection, live, compiled.mapping(), incoming, change);
+    }
+
+    /**
+     * Applies one entity that was read from outside, through the same code as a signed change (Sprint 29A, ADR-0241):
+     * the same mapping, the same scope, the same link, the same write pipeline as the platform. The caller has already
+     * decided <em>who is asking</em>; this decides nothing about that. Run inside a transaction; the write itself is in
+     * a savepoint of its own, so a refused row undoes only itself.
+     */
+    Outcome applyEntity(Connection connection, Live live, CompiledMapping mapping, CanonicalEntity incoming,
+            UUID change) {
+        String object = live.mapping().object();
         String external = incoming.externalId();
         if (external == null || external.isEmpty() || external.length() > 200) {
             return Outcome.failed(FlowReason.ID_MISSING);
@@ -227,8 +239,17 @@ class InboundService {
         // Two changes for one entity are handled one after the other, so one entity never becomes two records.
         links.lock(connection.id(), external);
         Optional<Link> link = links.byExternal(connection.id(), object, external);
-        return link.isPresent() ? update(connection, live, compiled.mapping(), incoming, link.get(), change)
-                : create(connection, live, compiled.mapping(), incoming, external, change);
+        return link.isPresent() ? update(connection, live, mapping, incoming, link.get(), change)
+                : create(connection, live, mapping, incoming, external, change);
+    }
+
+    /**
+     * Whether the entity can be mapped at all, without writing anything: the stable reason it cannot, or null. Used to
+     * check a whole file before the first row of it is written.
+     */
+    String mappingProblem(CompiledMapping mapping, CanonicalEntity incoming) {
+        Inbound in = mapper.in(mapping, incoming, null, clock.instant());
+        return in.failure() == null ? null : in.failure().reason();
     }
 
     private Outcome update(Connection connection, Live live, CompiledMapping mapping, CanonicalEntity incoming,

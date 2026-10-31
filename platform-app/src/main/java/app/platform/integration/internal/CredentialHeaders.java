@@ -78,7 +78,8 @@ class CredentialHeaders {
                 case API_KEY_HEADER -> Header.printable(text) ? new Header(customName, text) : null;
                 case BASIC -> text.indexOf(':') > 0 ? new Header("Authorization", "Basic "
                         + Base64.getEncoder().encodeToString(text.getBytes(StandardCharsets.UTF_8))) : null;
-                case NONE -> null;
+                // A key is not sent in a header: it belongs to a file transfer connection (CredentialLogins).
+                case NONE, SSH_KEY -> null;
             };
         } finally {
             Arrays.fill(plain, '\0');
