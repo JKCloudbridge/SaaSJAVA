@@ -47,10 +47,16 @@ class MappingFlowIT extends MappingSupport {
         return JsonPath.read(made.body(), "$.data.id");
     }
 
-    private void awaitSent(String method, String path, int times) {
-        Awaitility.await().atMost(PATIENCE).pollInterval(Duration.ofMillis(100)).until(
-                () -> service.seen().stream().filter(one -> one.method().equals(method)
-                        && one.path().equals(path)).count() >= times);
+    private void awaitSent(Linked linked, String method, String path, int times) {
+        try {
+            Awaitility.await().atMost(PATIENCE).pollInterval(Duration.ofMillis(100)).until(
+                    () -> service.seen().stream().filter(one -> one.method().equals(method)
+                            && one.path().equals(path)).count() >= times);
+        } catch (org.awaitility.core.ConditionTimeoutException timedOut) {
+            // Facts only (states and stable reasons), so a failure in a shared test JVM says what happened.
+            throw new AssertionError("Nothing reached the service; the deliveries say: "
+                    + linked.admin().get(ROOT + "/" + linked.connection() + "/deliveries").body(), timedOut);
+        }
     }
 
     private static List<String> reasons(TestBrowser admin, String connection) {
@@ -67,7 +73,7 @@ class MappingFlowIT extends MappingSupport {
 
         // 1. outbound: the record appears at the other side, mapped, with the bearer credential, and is linked
         String record = created(admin, canary);
-        awaitSent("POST", "/api/item", 1);
+        awaitSent(linked, "POST", "/api/item", 1);
         var sent = service.seen().stream().filter(one -> one.method().equals("POST")).findFirst().orElseThrow();
         assertThat(sent.authorization()).isEqualTo("Bearer " + OUT_TOKEN);
         assertThat(sent.contentType()).isEqualTo("application/json");
@@ -78,7 +84,7 @@ class MappingFlowIT extends MappingSupport {
         Response patched = admin.request("PATCH", "/api/v1/objects/" + OBJECT + "/records/" + record,
                 "{\"version\":0,\"fields\":{\"" + TITLE_FIELD + "\":\"" + canary + "-v2\"}}");
         assertThat(patched.status()).as(patched.body()).isEqualTo(200);
-        awaitSent("PUT", "/api/item/ext-1", 1);
+        awaitSent(linked, "PUT", "/api/item/ext-1", 1);
         assertThat(JsonPath.<String>read(service.bodies("/api/item/ext-1").getFirst(), "$.title"))
                 .isEqualTo(canary + "-v2");
         assertThat(service.asked("/api/item")).as("one entity, one create").isEqualTo(1);
@@ -106,7 +112,7 @@ class MappingFlowIT extends MappingSupport {
         Response again = admin.request("PATCH", "/api/v1/objects/" + OBJECT + "/records/" + ids.getFirst(),
                 "{\"version\":0,\"fields\":{\"" + TITLE_FIELD + "\":\"changed-here\"}}");
         assertThat(again.status()).as(again.body()).isEqualTo(200);
-        awaitSent("PUT", "/api/item/ext-2", 1);
+        awaitSent(linked, "PUT", "/api/item/ext-2", 1);
         assertThat(service.asked("/api/item")).as("a link made by the receiver is used, no second create")
                 .isEqualTo(1);
 
@@ -120,7 +126,7 @@ class MappingFlowIT extends MappingSupport {
     void aReplayedUnsignedWronglySignedOrStaleChangeIsRefusedAlikeAndChangesNothing() throws Exception {
         Linked linked = linked(service, "EXTERNAL_WINS");
         String record = created(linked.admin(), "kept");
-        awaitSent("POST", "/api/item", 1);
+        awaitSent(linked, "POST", "/api/item", 1);
         String body = "{\"id\":\"ext-1\",\"title\":\"hostile\"}";
         long now = System.currentTimeMillis() / 1000;
         String nonce = "n-" + UUID.randomUUID().toString().replace("-", "");
