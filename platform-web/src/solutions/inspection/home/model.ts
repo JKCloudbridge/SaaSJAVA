@@ -1,3 +1,4 @@
+import { appBase, DEFAULT_APPLICATION } from "../appPaths";
 import type { components } from "@/lib/api/generated/schema";
 
 /**
@@ -296,16 +297,25 @@ export const PATTERNS = ["solid", "stripes", "dots", "cross", "wave", "grid"] as
 // ---- where a number leads ----
 
 /** The pages the tiles and graphs lead to. Each opens a list the person is allowed to see, and the list decides again. */
-export const HOME_LINKS = {
-  approvals: "/approvals",
-  requests: "/apps/inspection/s-change-requests",
-  templates: (state?: string): string =>
-    state ? `/apps/inspection/s-templates?state=${encodeURIComponent(state)}` : "/apps/inspection/s-templates",
-  fills: (status?: string): string =>
-    status ? `/apps/inspection/s-fill-ins?status=${encodeURIComponent(status)}` : "/apps/inspection/s-fill-ins",
-  fillsOfTemplate: (templateId: string): string =>
-    `/apps/inspection/s-fill-ins?template=${encodeURIComponent(templateId)}`,
-} as const;
+export function homeLinks(application: string) {
+  const base = appBase(application);
+  return {
+    approvals: "/approvals",
+    requests: `${base}/s-change-requests`,
+    templates: (state?: string): string =>
+      state ? `${base}/s-templates?state=${encodeURIComponent(state)}` : `${base}/s-templates`,
+    fills: (status?: string): string =>
+      status ? `${base}/s-fill-ins?status=${encodeURIComponent(status)}` : `${base}/s-fill-ins`,
+    fillsOfTemplate: (templateId: string): string =>
+      `${base}/s-fill-ins?template=${encodeURIComponent(templateId)}`,
+  } as const;
+}
+
+/** The links of one application's home page. */
+export type HomeLinks = ReturnType<typeof homeLinks>;
+
+/** The links of the first application that shows these pages (the default of a render outside an address). */
+export const HOME_LINKS = homeLinks(DEFAULT_APPLICATION);
 
 /** The state a status chart asks the list of templates for: the server's key for "no revision yet" is NONE in the list. */
 export function stateForList(key: string): string {
@@ -313,10 +323,14 @@ export function stateForList(key: string): string {
 }
 
 /** Where an item of the activity list leads: the template or the fill-in it is about. */
-export function activityHref(activity: Pick<HomeActivity, "about" | "id">): string {
+export function activityHref(
+  activity: Pick<HomeActivity, "about" | "id">,
+  application: string = DEFAULT_APPLICATION,
+): string {
+  const base = appBase(application);
   return activity.about === "fill-in"
-    ? `/apps/inspection/s-fill-ins?open=${encodeURIComponent(activity.id)}`
-    : `/apps/inspection/s-templates?open=${encodeURIComponent(activity.id)}`;
+    ? `${base}/s-fill-ins?open=${encodeURIComponent(activity.id)}`
+    : `${base}/s-templates?open=${encodeURIComponent(activity.id)}`;
 }
 
 /** What an item of the activity list says happened, in a few words. */

@@ -40,20 +40,21 @@ class ChangeRequestHeaders {
     /**
      * Makes the record of a new request.
      *
+     * @param set the set of records the template belongs to; the record is made in its change-request object
      * @param requester the user who asks; the owner of the record
      * @param templateOwner the owner of the template, who is given the right to read the record, or null
      * @param templateId the template the request is about
      * @param name the name shown for it in the approval inbox: that of the template at the time
      */
-    DataRecord create(UUID requester, UUID templateOwner, UUID templateId, String name) {
-        DataRecord made = writes.create(Source.solution("request.raise", templateId), RequestRecords.OBJECT,
+    DataRecord create(RecordSet set, UUID requester, UUID templateOwner, UUID templateId, String name) {
+        DataRecord made = writes.create(Source.solution("request.raise", templateId), set.request(),
                 requester, List.of(
                         new Assignment(RequestRecords.NAME, new Value.Literal(name)),
                         new Assignment(RequestRecords.TEMPLATE_ID, new Value.Literal(templateId.toString())),
                         new Assignment(RequestRecords.STATUS, new Value.Literal(ChangeRequestStatus.OPEN.name()))));
         // A refusal of the share would end the whole request, so a template owner who has left is not asked for.
         if (templateOwner != null && !templateOwner.equals(requester) && isMember(templateOwner)) {
-            shares.grantRead(RequestRecords.OBJECT, made.id(), new Grantee(Grantee.Kind.USER, templateOwner),
+            shares.grantRead(set.request(), made.id(), new Grantee(Grantee.Kind.USER, templateOwner),
                     requester);
         }
         return made;
@@ -65,8 +66,8 @@ class ChangeRequestHeaders {
     }
 
     /** Follows a move of the request on its record. */
-    void status(UUID headerId, ChangeRequestStatus status) {
-        writes.update(Source.solution("request.status", headerId), RequestRecords.OBJECT, headerId,
+    void status(RecordSet set, UUID headerId, ChangeRequestStatus status) {
+        writes.update(Source.solution("request.status", headerId), set.request(), headerId,
                 List.of(new Assignment(RequestRecords.STATUS, new Value.Literal(status.name()))));
     }
 }

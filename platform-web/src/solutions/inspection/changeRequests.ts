@@ -3,7 +3,9 @@ import { api } from "@/lib/api/client";
 import type { ApiFailure } from "@/lib/api/errors";
 import type { components } from "@/lib/api/generated/schema";
 import { call, type Outcome } from "@/lib/records/call";
+import { scopeQuery } from "./scope";
 import { revisionWords, versionTitle } from "@/lib/sheets/revision";
+import { appBase, DEFAULT_APPLICATION } from "./appPaths";
 import type { RegisterInput } from "./register";
 
 /**
@@ -34,7 +36,7 @@ function unwrap<T>(answer: Promise<Outcome<{ data: T } | undefined>>): Promise<O
 
 export function getChangeRequests(templateId: string): Promise<Outcome<ChangeRequestsView>> {
   return unwrap(
-    call(() => api.GET("/api/v1/templates/{templateId}/change-requests", { params: { path: { templateId } } })),
+    call(() => api.GET("/api/v1/templates/{templateId}/change-requests", { params: { path: { templateId }, query: scopeQuery() } })),
   );
 }
 
@@ -43,7 +45,7 @@ export function createChangeRequest(
   body: { versionNo: number; register: RegisterInput; comments: NewChangeComment[] },
 ): Promise<Outcome<ChangeRequestView>> {
   return unwrap(
-    call(() => api.POST("/api/v1/templates/{templateId}/change-requests", { params: { path: { templateId } }, body })),
+    call(() => api.POST("/api/v1/templates/{templateId}/change-requests", { params: { path: { templateId }, query: scopeQuery() }, body })),
   );
 }
 
@@ -55,7 +57,7 @@ export function addChangeComment(
   return unwrap(
     call(() =>
       api.POST("/api/v1/templates/{templateId}/change-requests/{requestId}/comments", {
-        params: { path: { templateId, requestId } },
+        params: { path: { templateId, requestId }, query: scopeQuery() },
         body,
       }),
     ),
@@ -70,7 +72,7 @@ export function createRevisedCopy(templateId: string, requestId: string): Promis
   return unwrap(
     call(() =>
       api.POST("/api/v1/templates/{templateId}/change-requests/{requestId}/revised-copy", {
-        params: { path: { templateId, requestId } },
+        params: { path: { templateId, requestId }, query: scopeQuery() },
       }),
     ),
   );
@@ -170,8 +172,8 @@ export interface ChangeRequestListRequest {
 }
 
 /** The address of a template's Change requests tab, with one request open when an identifier is given. */
-export function changeRequestsHref(templateId: string, open?: string): string {
-  const tab = `/apps/inspection/s-templates?open=${templateId}&tab=change-requests`;
+export function changeRequestsHref(templateId: string, open?: string, application: string = DEFAULT_APPLICATION): string {
+  const tab = `${appBase(application)}/s-templates?open=${templateId}&tab=change-requests`;
   return open ? `${tab}&request=${open}` : tab;
 }
 
@@ -183,6 +185,7 @@ export function queryChangeRequests(
   return unwrap(
     call(() =>
       api.POST("/api/v1/change-requests/query", {
+        params: { query: scopeQuery() },
         body: {
           search: request.search === "" ? undefined : request.search,
           sort: request.sort,
@@ -198,13 +201,13 @@ export function queryChangeRequests(
 /** One request by the identifier of the record its approval reviews (the choice of a step knows only that). */
 export function getChangeRequestByReview(reviewId: string): Promise<Outcome<ChangeRequestView>> {
   return unwrap(
-    call(() => api.GET("/api/v1/change-requests/by-review/{reviewId}", { params: { path: { reviewId } } })),
+    call(() => api.GET("/api/v1/change-requests/by-review/{reviewId}", { params: { path: { reviewId }, query: scopeQuery() } })),
   );
 }
 
 /** One request by its own identifier, for a page that was given the request and not its template. */
 export function getChangeRequestById(requestId: string): Promise<Outcome<ChangeRequestView>> {
-  return unwrap(call(() => api.GET("/api/v1/change-requests/{requestId}", { params: { path: { requestId } } })));
+  return unwrap(call(() => api.GET("/api/v1/change-requests/{requestId}", { params: { path: { requestId }, query: scopeQuery() } })));
 }
 
 export type ChangeRequestState =

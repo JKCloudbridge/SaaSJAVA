@@ -47,6 +47,8 @@ class SolutionBoundaryTest {
     /** Where the cluster's words may be written (paths relative to the repository root, with forward slashes). */
     private static final List<String> CLUSTER_PLACES = List.of(
             "platform-app/src/main/resources/solutions/inspection/",
+            "platform-app/src/main/resources/solutions/document-management/",
+            "platform-app/src/main/resources/solutions/environment-management/",
             "platform-app/src/main/resources/db/migration/V058__add_inspection_feature.sql",
             "platform-app/src/main/resources/db/migration/V066__create_inspection_publication.sql",
             "platform-app/src/main/resources/db/migration/V067__create_inspection_change_requests.sql",
@@ -56,6 +58,8 @@ class SolutionBoundaryTest {
             "platform-app/src/main/resources/db/migration/"
                     + "V081__rename_inspection_feature_and_add_process_applications.sql",
             "platform-app/src/main/resources/db/migration/V082__create_fill_departments_and_template_events.sql",
+            "platform-app/src/main/resources/db/migration/"
+                    + "V087__add_environment_management_feature_and_template_object.sql",
             "platform-web/src/solutions/",
             "platform-app/src/main/java/app/platform/inspection/");
 
@@ -202,6 +206,7 @@ class SolutionBoundaryTest {
         classes().that().implement("app.platform.sharedkernel.solution.ShippedApplications")
                 .or().implement("app.platform.sharedkernel.solution.FeatureNotes")
                 .or().implement("app.platform.sharedkernel.solution.NumberSeriesDeclarations")
+                .or().implement("app.platform.sharedkernel.solution.ObjectRoleDeclarations")
                 .should().resideInAPackage("app.platform.solution..").allowEmptyShould(true).check(platform);
     }
 

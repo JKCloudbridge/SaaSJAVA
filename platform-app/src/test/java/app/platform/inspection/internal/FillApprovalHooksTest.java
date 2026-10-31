@@ -38,6 +38,8 @@ import org.junit.jupiter.params.provider.CsvSource;
  */
 class FillApprovalHooksTest {
 
+    private static final String FILL_OBJECT = RecordSetsFixture.QMS.fill();
+    private static final String TEMPLATE_OBJECT = RecordSetsFixture.QMS.template();
     private static final UUID FILL = UUID.randomUUID();
     private static final UUID TEMPLATE = UUID.randomUUID();
     private static final UUID REQUEST = UUID.randomUUID();
@@ -46,7 +48,7 @@ class FillApprovalHooksTest {
     private final BackgroundRecords records = mock(BackgroundRecords.class);
     private final FillLifecycle fills = mock(FillLifecycle.class);
     private final FillHeaders headers = mock(FillHeaders.class);
-    private final FillApprovalHooks hook = new FillApprovalHooks(records, fills, headers);
+    private final FillApprovalHooks hook = new FillApprovalHooks(records, fills, headers, RecordSetsFixture.both());
 
     private static DataRecord record(String object, UUID id, Map<String, Object> fields) {
         Instant now = Instant.now();
@@ -54,21 +56,21 @@ class FillApprovalHooksTest {
     }
 
     private void headerOf(Object templateId) {
-        when(records.find(Fills.OBJECT, FILL)).thenReturn(Optional.of(record(Fills.OBJECT, FILL,
+        when(records.find(FILL_OBJECT, FILL)).thenReturn(Optional.of(record(FILL_OBJECT, FILL,
                 templateId == null ? Map.of() : Map.of(Fills.TEMPLATE_ID, templateId))));
     }
 
     private void template(boolean retired) {
-        when(records.find(Templates.OBJECT, TEMPLATE)).thenReturn(Optional.of(record(Templates.OBJECT, TEMPLATE,
+        when(records.find(TEMPLATE_OBJECT, TEMPLATE)).thenReturn(Optional.of(record(TEMPLATE_OBJECT, TEMPLATE,
                 Map.of(Templates.RETIRED, retired))));
     }
 
     private static SubmitContext submit() {
-        return new SubmitContext(REQUEST, Fills.OBJECT, FILL, "FillReview", 1, PERSON);
+        return new SubmitContext(REQUEST, FILL_OBJECT, FILL, "FillReview", 1, PERSON);
     }
 
     private static EndContext ended(ApprovalOutcome outcome) {
-        return new EndContext(REQUEST, Fills.OBJECT, FILL, "FillReview", 1, 3, outcome, PERSON);
+        return new EndContext(REQUEST, FILL_OBJECT, FILL, "FillReview", 1, 3, outcome, PERSON);
     }
 
     // ---- on submit ----
@@ -80,14 +82,38 @@ class FillApprovalHooksTest {
     }
 
     @Test
+    void itServesTheFillInObjectOfEverySetAndWorksOnTheSetTheCallNames() {
+        assertThat(hook.objects()).containsExactly("InspectionFill", "EnvironmentFill");
+        String fillObject = RecordSetsFixture.ENVIRONMENT.fill();
+        String templateObject = RecordSetsFixture.ENVIRONMENT.template();
+        when(records.find(fillObject, FILL)).thenReturn(Optional.of(record(fillObject, FILL,
+                Map.of(Fills.TEMPLATE_ID, TEMPLATE.toString()))));
+        when(records.find(templateObject, TEMPLATE)).thenReturn(Optional.of(record(templateObject, TEMPLATE,
+                Map.of(Templates.RETIRED, false))));
+
+        hook.onSubmit(new SubmitContext(REQUEST, fillObject, FILL, "FillReview", 1, PERSON));
+
+        verify(fills).submit(fillObject, FILL, REQUEST, PERSON);
+        verify(headers).status(fillObject, FILL, FillStatus.SUBMITTED);
+        verify(records, never()).find(TEMPLATE_OBJECT, TEMPLATE);
+    }
+
+    @Test
+    void aFillInOfAnObjectNoSetKnowsIsRefused() {
+        assertThatThrownBy(() -> hook.onSubmit(new SubmitContext(REQUEST, "Other__c", FILL, "FillReview", 1, PERSON)))
+                .isInstanceOfSatisfying(ApprovalHookRefusal.class,
+                        refusal -> assertThat(refusal.reason()).isEqualTo("fill_missing"));
+    }
+
+    @Test
     void aSubmitMovesTheFillInToReviewAndTheCopyOnTheHeaderFollows() {
         headerOf(TEMPLATE.toString());
         template(false);
 
         hook.onSubmit(submit());
 
-        verify(fills).submit(Fills.OBJECT, FILL, REQUEST, PERSON);
-        verify(headers).status(FILL, FillStatus.SUBMITTED);
+        verify(fills).submit(FILL_OBJECT, FILL, REQUEST, PERSON);
+        verify(headers).status(FILL_OBJECT, FILL, FillStatus.SUBMITTED);
     }
 
     @Test
@@ -101,7 +127,7 @@ class FillApprovalHooksTest {
                     assertThat(refusal.words()).contains("retired");
                 });
         verify(fills, never()).submit(any(), any(), any(), any());
-        verify(headers, never()).status(any(), any());
+        verify(headers, never()).status(any(), any(), any());
     }
 
     @Test
@@ -112,14 +138,14 @@ class FillApprovalHooksTest {
                 refusal -> assertThat(refusal.reason()).isEqualTo("template_retired"));
 
         headerOf(TEMPLATE.toString());
-        when(records.find(Templates.OBJECT, TEMPLATE)).thenReturn(Optional.empty());
+        when(records.find(TEMPLATE_OBJECT, TEMPLATE)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> hook.onSubmit(submit())).isInstanceOf(ApprovalHookRefusal.class);
         verify(fills, never()).submit(any(), any(), any(), any());
     }
 
     @Test
     void aHeaderThatIsGoneIsRefused() {
-        when(records.find(Fills.OBJECT, FILL)).thenReturn(Optional.empty());
+        when(records.find(FILL_OBJECT, FILL)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> hook.onSubmit(submit())).isInstanceOfSatisfying(ApprovalHookRefusal.class,
                 refusal -> assertThat(refusal.reason()).isEqualTo("fill_missing"));
@@ -140,7 +166,7 @@ class FillApprovalHooksTest {
             assertThat(thrown.reason()).isEqualTo(key);
             assertThat(thrown.words()).isEqualTo(refusal.getMessage());
         });
-        verify(headers, never()).status(any(), any());
+        verify(headers, never()).status(any(), any(), any());
     }
 
     @Test
@@ -148,9 +174,9 @@ class FillApprovalHooksTest {
         headerOf(TEMPLATE.toString());
         template(false);
 
-        hook.onSubmit(new SubmitContext(REQUEST, Fills.OBJECT, FILL, "FillReview", 1, null));
+        hook.onSubmit(new SubmitContext(REQUEST, FILL_OBJECT, FILL, "FillReview", 1, null));
 
-        verify(fills).submit(Fills.OBJECT, FILL, REQUEST, null);
+        verify(fills).submit(FILL_OBJECT, FILL, REQUEST, null);
     }
 
     // ---- when the request ends ----
@@ -158,28 +184,28 @@ class FillApprovalHooksTest {
     @ParameterizedTest
     @CsvSource({"APPROVED,APPROVED", "REJECTED,RETURNED", "RECALLED,DRAFT", "CANCELLED,DRAFT"})
     void eachWayAReviewEndsLeavesTheStatusItShould(ApprovalOutcome outcome, FillStatus status) {
-        when(fills.ended(Fills.OBJECT, FILL, REQUEST, status, PERSON)).thenReturn(true);
+        when(fills.ended(FILL_OBJECT, FILL, REQUEST, status, PERSON)).thenReturn(true);
 
         hook.onEnded(ended(outcome));
 
-        verify(fills).ended(Fills.OBJECT, FILL, REQUEST, status, PERSON);
-        verify(headers).status(FILL, status);
+        verify(fills).ended(FILL_OBJECT, FILL, REQUEST, status, PERSON);
+        verify(headers).status(FILL_OBJECT, FILL, status);
     }
 
     @Test
     void aRequestThatReviewedNoFillInLeavesTheHeaderAlone() {
-        when(fills.ended(eq(Fills.OBJECT), eq(FILL), eq(REQUEST), any(), any())).thenReturn(false);
+        when(fills.ended(eq(FILL_OBJECT), eq(FILL), eq(REQUEST), any(), any())).thenReturn(false);
 
         hook.onEnded(ended(ApprovalOutcome.APPROVED));
 
-        verify(headers, never()).status(any(), any());
+        verify(headers, never()).status(any(), any(), any());
     }
 
     @Test
     void whenTheHeaderCannotFollowTheWholeDecisionFailsWithoutAValue() {
         when(fills.ended(any(), any(), any(), any(), any())).thenReturn(true);
         doThrow(new BackgroundWriteException(BackgroundWriteException.Reason.RECORD_LOCKED)).when(headers)
-                .status(any(), any());
+                .status(any(), any(), any());
 
         assertThatThrownBy(() -> hook.onEnded(ended(ApprovalOutcome.REJECTED)))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("record_locked")

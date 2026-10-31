@@ -92,12 +92,14 @@ class ChangeRequestApprovalHooks implements ApprovalHooks {
     private final Permissions permissions;
     private final TenantContexts contexts;
     private final List<ReferenceLabels> labels;
+    private final RecordSets sets;
 
     ChangeRequestApprovalHooks(ChangeRequestStore store, ChangeRequestHeaders headers, ChangeRequestChanges changes,
             ChangeRequestNotices notices, BackgroundRecords records, SheetLifecycle sheets, RegisterStore registers,
             TemplatePublishing publishing, AudienceSuggestions suggestions, DepartmentAudiences audiences,
             ApprovalDecisions decisions, Permissions permissions, TenantContexts contexts,
-            List<ReferenceLabels> labels) {
+            List<ReferenceLabels> labels, RecordSets sets) {
+        this.sets = sets;
         this.store = store;
         this.headers = headers;
         this.changes = changes;
@@ -114,9 +116,21 @@ class ChangeRequestApprovalHooks implements ApprovalHooks {
         this.labels = labels;
     }
 
+    /** The review object of the first set; the hook serves the review object of every set ({@link #objects()}). */
     @Override
     public String object() {
-        return RequestRecords.OBJECT;
+        return sets.requests().get(0);
+    }
+
+    @Override
+    public java.util.Collection<String> objects() {
+        return sets.requests();
+    }
+
+    /** The set a request belongs to, by the template object it was made for. */
+    private RecordSet setOf(RequestRow row) {
+        return sets.ofTemplate(row.templateObject()).orElseThrow(() -> new ApprovalHookRefusal("set_missing",
+                "This change request cannot be found."));
     }
 
     @Override
@@ -127,7 +141,7 @@ class ChangeRequestApprovalHooks implements ApprovalHooks {
         // A request sent again after it was recalled is decided by a new approval request: the revised copy follows it.
         // At the first submit the change request does not exist yet and there is no copy.
         UUID actor = context.submitter() != null ? context.submitter() : ActorId.SYSTEM.value();
-        store.findByHeader(context.recordId()).ifPresent(row -> sheets.retargetHeldDraft(Templates.OBJECT,
+        store.findByHeader(context.recordId()).ifPresent(row -> sheets.retargetHeldDraft(setOf(row).template(),
                 row.templateId(), context.requestId(), actor));
     }
 
@@ -139,7 +153,7 @@ class ChangeRequestApprovalHooks implements ApprovalHooks {
         }
         if (!context.endsRequest()) {
             if (context.asksForChoice()) {
-                suggestions.accept(context, row.templateId());
+                suggestions.accept(setOf(row).template(), context, row.templateId());
             }
             return;
         }
@@ -168,25 +182,26 @@ class ChangeRequestApprovalHooks implements ApprovalHooks {
 
     /** The act of the last approval: see the class comment. Every refusal is a fixed sentence. */
     private void publish(DecisionContext context, RequestRow row) {
+        RecordSet set = setOf(row);
         UUID templateId = row.templateId();
         TenantContext member = contexts.current().orElse(null);
         if (member == null || member.membershipId() == null
                 || !permissions.has(member.membershipId(), Ability.SHEETS_PUBLISH)) {
             throw new ApprovalHookRefusal("publisher_needed", NOT_PUBLISHER_WORDS);
         }
-        DataRecord template = records.find(Templates.OBJECT, templateId)
+        DataRecord template = records.find(set.template(), templateId)
                 .orElseThrow(() -> new ApprovalHookRefusal("template_missing", "This template cannot be found."));
         if (Boolean.TRUE.equals(template.fields().get(Templates.RETIRED))) {
             throw new ApprovalHookRefusal("template_retired", RETIRED_WORDS);
         }
-        SheetLifecycle.HeldDraft copy = sheets.heldDraft(Templates.OBJECT, templateId)
+        SheetLifecycle.HeldDraft copy = sheets.heldDraft(set.template(), templateId)
                 .orElseThrow(() -> new ApprovalHookRefusal("no_revised_copy", NO_COPY_WORDS));
         AudienceChoices.Publish choice = AudienceChoices.parsePublish(context.choices());
         checkOffered(choice);
         UUID approver = context.approver();
         try {
-            sheets.submit(Templates.OBJECT, templateId, context.requestId(), approver);
-            sheets.reviewed(Templates.OBJECT, templateId, context.requestId(), SheetStatus.APPROVED, approver);
+            sheets.submit(set.template(), templateId, context.requestId(), approver);
+            sheets.reviewed(set.template(), templateId, context.requestId(), SheetStatus.APPROVED, approver);
         } catch (SheetMoveRefusal refusal) {
             throw new ApprovalHookRefusal("revised_copy_" + refusal.reason().name().toLowerCase(Locale.ROOT),
                     Templates.fit(refusal.getMessage()));
@@ -195,7 +210,7 @@ class ChangeRequestApprovalHooks implements ApprovalHooks {
         try {
             List<AudiencePick> picks = choice.places().stream()
                     .map(place -> new AudiencePick(place.location(), place.department())).toList();
-            made = publishing.publishRevised(templateId, copy.versionNo(), approver, picks, choice.viewOnly(),
+            made = publishing.publishRevised(set, templateId, copy.versionNo(), approver, picks, choice.viewOnly(),
                     choice.allowDownload());
         } catch (ApiException notReady) {
             throw new ApprovalHookRefusal("audience_not_ready", AUDIENCE_WORDS);
@@ -209,7 +224,7 @@ class ChangeRequestApprovalHooks implements ApprovalHooks {
         if (!store.answer(row.id(), row.state(), ChangeRequestStatus.DONE, null, copy.versionNo(), approver)) {
             throw new IllegalStateException("The change request moved while its last approval was given");
         }
-        changes.published(approver, templateId, row.id(), copy.versionNo(), made.revision(),
+        changes.published(set, approver, templateId, row.id(), copy.versionNo(), made.revision(),
                 choice.places().size());
     }
 
@@ -264,7 +279,7 @@ class ChangeRequestApprovalHooks implements ApprovalHooks {
             // before this release) must not look finished: the decision is undone.
             throw new IllegalStateException("A change request ended approved without being published");
         }
-        followOnRecord(context, ChangeRequestStatus.DONE);
+        followOnRecord(setOf(row), context, ChangeRequestStatus.DONE);
         tellBoth(row, actor, "done");
     }
 
@@ -273,22 +288,23 @@ class ChangeRequestApprovalHooks implements ApprovalHooks {
         if (!row.state().canMoveTo(ChangeRequestStatus.DECLINED)) {
             return;
         }
-        int copy = sheets.closeHeldDraft(Templates.OBJECT, row.templateId(), context.requestId(), copyEnds, actor);
+        RecordSet set = setOf(row);
+        int copy = sheets.closeHeldDraft(set.template(), row.templateId(), context.requestId(), copyEnds, actor);
         if (copy != 0) {
-            changes.copyDiscarded(actor, row.templateId(), row.id(), copy,
+            changes.copyDiscarded(set, actor, row.templateId(), row.id(), copy,
                     copyEnds == SheetStatus.REJECTED ? "rejected" : "withdrawn");
         }
         if (!store.answer(row.id(), row.state(), ChangeRequestStatus.DECLINED, null, null, actor)) {
             return;
         }
-        followOnRecord(context, ChangeRequestStatus.DECLINED);
-        changes.answered(actor, row.templateId(), row.id(), "declined");
+        followOnRecord(set, context, ChangeRequestStatus.DECLINED);
+        changes.answered(set, actor, row.templateId(), row.id(), "declined");
         tellBoth(row, actor, "declined");
     }
 
-    private void followOnRecord(EndContext context, ChangeRequestStatus to) {
+    private void followOnRecord(RecordSet set, EndContext context, ChangeRequestStatus to) {
         try {
-            headers.status(context.recordId(), to);
+            headers.status(set, context.recordId(), to);
         } catch (BackgroundWriteException refused) {
             // The record is the platform own, so this is a fault and not an answer for the person: the decision is
             // undone and the error tracking sees a failure without a value.
@@ -298,9 +314,10 @@ class ChangeRequestApprovalHooks implements ApprovalHooks {
     }
 
     private void tellBoth(RequestRow row, UUID actor, String act) {
-        notices.tell(row.createdBy(), actor, row.templateId(), row.id(), act, "chg:" + row.id() + ":" + act);
-        Optional<UUID> owner = records.find(Templates.OBJECT, row.templateId()).map(DataRecord::ownerId);
-        owner.ifPresent(one -> notices.tell(one, actor, row.templateId(), row.id(), act,
+        RecordSet set = setOf(row);
+        notices.tell(set, row.createdBy(), actor, row.templateId(), row.id(), act, "chg:" + row.id() + ":" + act);
+        Optional<UUID> owner = records.find(set.template(), row.templateId()).map(DataRecord::ownerId);
+        owner.ifPresent(one -> notices.tell(set, one, actor, row.templateId(), row.id(), act,
                 "chg:" + row.id() + ":" + act + ":owner"));
     }
 }

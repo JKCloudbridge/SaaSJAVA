@@ -56,6 +56,25 @@ final class YamlNode {
         return values.get(key) == null ? null : text(key);
     }
 
+    /** A list of texts; empty when the key is absent. */
+    List<String> textList(String key) {
+        Object value = values.get(key);
+        if (value == null) {
+            return List.of();
+        }
+        if (!(value instanceof List<?> items)) {
+            throw new IllegalStateException(where + ": '" + key + "' must be a list");
+        }
+        List<String> texts = new ArrayList<>();
+        for (Object item : items) {
+            if (!(item instanceof String text) || text.isBlank()) {
+                throw new IllegalStateException(where + ": '" + key + "' must list texts");
+            }
+            texts.add(text.strip());
+        }
+        return texts;
+    }
+
     /** A text, number or yes/no written without quotes, read as the text it was written as; null when absent. */
     String optionalScalar(String key) {
         Object value = values.get(key);

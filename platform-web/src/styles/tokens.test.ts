@@ -184,5 +184,21 @@ describe("design tokens", () => {
         expect(seen.size, `${name}: the six series are six different colours`).toBe(6);
       }
     });
+
+    it("gives the board look white text on its navy band and readable ink on a panel in both themes (FA13C)", () => {
+      for (const [name, block] of [
+        ["light", light],
+        ["dark", dark],
+      ] as const) {
+        expect(
+          contrast(role(block, "--board-band-text"), role(block, "--board-band")),
+          `${name}: text on the band`,
+        ).toBeGreaterThanOrEqual(4.5);
+        expect(
+          contrast(role(block, "--board-ink"), role(block, "--color-surface")),
+          `${name}: ink on a panel`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+    });
   });
 });

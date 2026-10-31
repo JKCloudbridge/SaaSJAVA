@@ -17,7 +17,10 @@ import { Tag } from "@/components/ui/lists/Tag";
 import { fillStatusTag } from "@/lib/sheets/fillTags";
 import { footerText } from "@/lib/sheets/revision";
 import type { FillSummary } from "@/lib/sheets/fillApi";
-import { FILL_OBJECT, submitFillIn } from "./fillIns";
+import { submitFillIn } from "./fillIns";
+import { useRecordObjects } from "./objects";
+import { useApplication } from "./application";
+import { appBase } from "./appPaths";
 import { text } from "./template";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
@@ -37,16 +40,18 @@ const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped:
  * drawn, and the decision is made in the inbox.
  */
 export function FillInDetail({ id, onBack }: { id: string; onBack: () => void }) {
+  const application = useApplication();
+  const objects = useRecordObjects();
   const beforeLeave = useRef<(next: () => void) => Promise<void>>(async (next) => next());
   const registerLeave = useCallback((leave: (next: () => void) => Promise<void>) => { beforeLeave.current = leave; }, []);
   const [refresh, setRefresh] = useState(0);
-  const record = useRecord(FILL_OBJECT, id, refresh);
+  const record = useRecord(objects.fill, id, refresh);
   const [approval, setApproval] = useState<ApprovalState>({ locked: false, mayOverride: false, mayApprove: false });
   const [dirty, setDirty] = useState(false);
   const [archived, setArchived] = useState(false);
   const onLoaded = useCallback((summary: FillSummary) => setArchived(Boolean(summary.archivedAt)), []);
   const decisions = useRecordApproval({
-    objectApiName: FILL_OBJECT,
+    objectApiName: objects.fill,
     recordId: id,
     refresh,
     onState: setApproval,
@@ -60,7 +65,7 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
   const tag = status ? fillStatusTag(status) : undefined;
   const templateId = text(fields.templateId);
   // The footer of the View page: the template's number and the revision the fill-in was made on (as the Sheet tab writes it).
-  const templateRecord = useRecord("InspectionTemplate", templateId || undefined, refresh);
+  const templateRecord = useRecord(objects.template, templateId || undefined, refresh);
   const templateNumber = templateRecord.status === "ready" ? text(templateRecord.record.fields.number) : "";
   const footer = (versionNo: number) => footerText(templateNumber, versionNo);
   // Only a hint for the buttons: a draft or returned fill-in takes files from the person who started it, a sent or approved
@@ -105,7 +110,7 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
           <DetailGrid>
             <DetailItem label="Template">
               {templateId ? (
-                <Link href={`/apps/inspection/s-templates?open=${templateId}`}>{name}</Link>
+                <Link href={`${appBase(application)}/s-templates?open=${templateId}`}>{name}</Link>
               ) : (
                 "Not available"
               )}
@@ -132,7 +137,7 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
             Photographs and documents that belong to this fill-in. Whoever can see the fill-in can open them; they are
             downloaded, never shown inside the page.
           </p>
-          <RecordFiles objectApiName={FILL_OBJECT} recordId={id} mayChange={mayChangeFiles} />
+          <RecordFiles objectApiName={objects.fill} recordId={id} mayChange={mayChangeFiles} />
         </DetailSection>
       ) : null}
 
@@ -143,7 +148,7 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
           </p>
         ) : null}
         <FillWorkspace
-          owner={{ object: FILL_OBJECT, id }}
+          owner={{ object: objects.fill, id }}
           label={name}
           refreshToken={refresh}
           onDirty={setDirty}
@@ -160,6 +165,7 @@ export function FillInDetail({ id, onBack }: { id: string; onBack: () => void })
 
 /** The ordinary record read supplies the stored number only while the caller may read it. */
 function TemplateNumber({ id, refresh }: { id: string; refresh: number }) {
-  const template = useRecord("InspectionTemplate", id, refresh);
+  const objects = useRecordObjects();
+  const template = useRecord(objects.template, id, refresh);
   return <DetailItem label="Template number">{template.status === "ready" ? text(template.record.fields.number) || "—" : "—"}</DetailItem>;
 }

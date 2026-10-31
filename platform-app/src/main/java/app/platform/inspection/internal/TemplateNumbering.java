@@ -41,19 +41,19 @@ class TemplateNumbering {
         this.decisions = decisions;
     }
 
-    NumberingInfoView info(NumberingInfoRequest request) {
+    NumberingInfoView info(RecordSet set, NumberingInfoRequest request) {
         Caller caller = access.member();
-        if (!decisions.can(caller.membershipId(), Templates.OBJECT, ObjectAction.READ).allowed()) {
+        if (!decisions.can(caller.membershipId(), set.template(), ObjectAction.READ).allowed()) {
             throw ApiException.notFound("This page does not exist.");
         }
-        boolean canStart = decisions.can(caller.membershipId(), Templates.OBJECT, Templates.CATEGORY,
+        boolean canStart = decisions.can(caller.membershipId(), set.template(), Templates.CATEGORY,
                 FieldAction.EDIT).allowed();
         Map<String, Object> values = new HashMap<>();
         put(values, Templates.CATEGORY, request.category());
         put(values, Templates.PART_A, request.partA());
         put(values, Templates.PART_B, request.partB());
         Optional<NumberSeries.Plan> plan = values.containsKey(Templates.CATEGORY)
-                ? numbers.plan(Templates.SERIES, values) : Optional.empty();
+                ? numbers.plan(set.series(), values) : Optional.empty();
         if (plan.isEmpty()) {
             return new NumberingInfoView(false, false, false, false, 0, "", false, false, canStart, null, null);
         }

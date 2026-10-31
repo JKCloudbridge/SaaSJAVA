@@ -19,7 +19,8 @@ functions, announced before they are built, so a demo can show every application
 Marketing - New Business Development; New Product Development; Production; QA; Top Management; Purchasing; Stores; Packing - Dispatch &
 Product Delivery; HR - Training; IT; Total Productive Maintenance; NPC; Tooling; Process Engineering; CVD. Their tabs are in
 `platform-app/src/main/resources/solutions/processes/solution.yml`. The Quality Management System is the existing application of the
-`inspection` solution and is not repeated here.
+`inspection` solution and is not repeated here. The five newer tiles (Document Management, CAPA, Audit Management, Supplier Management,
+Management Core, FA13A) are not in this bundle: each has its own folder and its own plan feature (see the table in [inspection.md](inspection.md)).
 
 ## For the contributor: turning a placeholder into a real tab
 

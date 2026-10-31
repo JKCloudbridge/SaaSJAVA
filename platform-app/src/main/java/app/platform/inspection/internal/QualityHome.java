@@ -207,11 +207,11 @@ class QualityHome {
      * @throws ApiException {@code NOT_FOUND} on the platform host and for an organization without the plan feature,
      *         {@code VALIDATION_ERROR} for a period, location or department that is not offered
      */
-    SummaryView summary(SummaryRequest request) {
+    SummaryView summary(RecordSet set, SummaryRequest request) {
         long started = System.nanoTime();
         String result = "refused";
         try {
-            SummaryView view = work(request);
+            SummaryView view = work(set, request);
             result = view.problems().isEmpty() ? "ok" : "partial";
             return view;
         } finally {
@@ -220,9 +220,9 @@ class QualityHome {
         }
     }
 
-    private SummaryView work(SummaryRequest request) {
+    private SummaryView work(RecordSet set, SummaryRequest request) {
         Caller caller = access.member();
-        if (metadata.object(Templates.OBJECT).isEmpty()) {
+        if (metadata.object(set.template()).isEmpty()) {
             throw ApiException.notFound("This page does not exist.");
         }
         Instant now = clock.instant();
@@ -231,14 +231,14 @@ class QualityHome {
         Chosen chosen = chosen(request, offered);
         List<String> problems = new ArrayList<>();
 
-        boolean readsTemplates = reads(caller, Templates.OBJECT);
-        boolean readsFills = reads(caller, Fills.OBJECT);
-        boolean readsRequests = reads(caller, RequestRecords.OBJECT);
+        boolean readsTemplates = reads(caller, set.template());
+        boolean readsFills = reads(caller, set.fill());
+        boolean readsRequests = reads(caller, set.request());
 
         TemplateResult templates = readsTemplates ? attempt("templates", problems,
-                () -> readTemplates(caller, window, now, chosen, readsRequests)) : null;
+                () -> readTemplates(set, caller, window, now, chosen, readsRequests)) : null;
         FillResult fillResult = readsFills ? attempt("fill-ins", problems,
-                () -> readFills(caller, window, now, chosen)) : null;
+                () -> readFills(set, caller, window, now, chosen)) : null;
 
         List<Activity> activity = activity(templates, fillResult);
         TilesView tiles = new TilesView(templates == null ? null : templates.activeTemplates(),
@@ -291,20 +291,20 @@ class QualityHome {
 
     // ---- the templates ----
 
-    private TemplateResult readTemplates(Caller caller, Window window, Instant now, Chosen chosen,
+    private TemplateResult readTemplates(RecordSet set, Caller caller, Window window, Instant now, Chosen chosen,
             boolean readsRequests) {
         boolean[] more = new boolean[1];
-        Map<UUID, TemplateFact> facts = scanTemplates(more);
+        Map<UUID, TemplateFact> facts = scanTemplates(set, more);
         List<UUID> ids = List.copyOf(facts.keySet());
         Instant since = HomePeriod.monthsStart(now, TREND_MONTHS).isBefore(window.previousFrom())
                 ? HomePeriod.monthsStart(now, TREND_MONTHS) : window.previousFrom();
         List<VersionDates> dates = new ArrayList<>();
         Map<UUID, Set<Place>> places = new HashMap<>();
         for (List<UUID> chunk : chunks(ids, CHUNK)) {
-            dates.addAll(sheets.dates(Templates.OBJECT, chunk, since));
+            dates.addAll(sheets.dates(set.template(), chunk, since));
             places.putAll(store.livePlaces(chunk));
         }
-        List<QualityHomeStore.Event> events = store.eventsSince(since, MOST_EVENTS).stream()
+        List<QualityHomeStore.Event> events = store.eventsSince(set.template(), since, MOST_EVENTS).stream()
                 .filter(event -> facts.containsKey(event.templateId())).toList();
 
         // Before this release no event was kept, so a version that went into use is also counted as published on the
@@ -331,7 +331,8 @@ class QualityHome {
         if (readsRequests) {
             long open = 0;
             for (List<UUID> chunk : chunks(ids, CHUNK)) {
-                open += requestCounts.waiting(caller, chunk).values().stream().mapToLong(Integer::longValue).sum();
+                open += requestCounts.waiting(set, caller, chunk).values().stream().mapToLong(Integer::longValue)
+                        .sum();
             }
             openRequests = new Tile((double) open, null, null, more[0], false, false);
         }
@@ -347,16 +348,16 @@ class QualityHome {
                 window::containsPrevious), null, more[0], false, false);
 
         return new TemplateResult(active, waiting, openRequests, published, average, rejected, byStatus(facts),
-                byLevelAndType(facts), stepDays(decided, window), perMonth(publishing, places, chosen, now),
+                byLevelAndType(set, facts), stepDays(decided, window), perMonth(publishing, places, chosen, now),
                 templateActivity(events, facts));
     }
 
-    private Map<UUID, TemplateFact> scanTemplates(boolean[] more) {
+    private Map<UUID, TemplateFact> scanTemplates(RecordSet set, boolean[] more) {
         Map<UUID, TemplateFact> found = new LinkedHashMap<>();
         Map<UUID, DataRecord> headers = new LinkedHashMap<>();
         String cursor = null;
         while (true) {
-            QueryResult page = records.query(Templates.OBJECT,
+            QueryResult page = records.query(set.template(),
                     new RecordQuery(null, List.of(), TEMPLATE_FIELDS, List.of(), 200, cursor));
             for (QueriedRecord one : page.records()) {
                 if (headers.size() >= properties.maxScanned()) {
@@ -373,7 +374,7 @@ class QualityHome {
         List<UUID> ids = List.copyOf(headers.keySet());
         Map<UUID, SheetLifecycle.Summary> summaries = new HashMap<>();
         for (List<UUID> chunk : chunks(ids, CHUNK)) {
-            summaries.putAll(sheets.summaries(Templates.OBJECT, chunk));
+            summaries.putAll(sheets.summaries(set.template(), chunk));
         }
         for (DataRecord header : headers.values()) {
             boolean retired = Boolean.TRUE.equals(header.fields().get(Templates.RETIRED));
@@ -420,9 +421,9 @@ class QualityHome {
                 STATE_WORDS.get(key), counts.getOrDefault(key, 0L))).toList();
     }
 
-    private List<LevelTypeCount> byLevelAndType(Map<UUID, TemplateFact> facts) {
-        Map<String, String> levels = picklistLabels(Templates.LEVEL);
-        Map<String, String> types = picklistLabels(Templates.DOCUMENT_TYPE);
+    private List<LevelTypeCount> byLevelAndType(RecordSet set, Map<UUID, TemplateFact> facts) {
+        Map<String, String> levels = picklistLabels(set, Templates.LEVEL);
+        Map<String, String> types = picklistLabels(set, Templates.DOCUMENT_TYPE);
         Map<List<String>, Long> counts = new TreeMap<>(Comparator.comparing((List<String> key) -> key.get(0))
                 .thenComparing(key -> key.get(1)));
         facts.values().stream().filter(one -> !one.retired())
@@ -434,9 +435,9 @@ class QualityHome {
         return result;
     }
 
-    private Map<String, String> picklistLabels(String field) {
+    private Map<String, String> picklistLabels(RecordSet set, String field) {
         Map<String, String> found = new LinkedHashMap<>();
-        metadata.object(Templates.OBJECT).flatMap(object -> object.field(field))
+        metadata.object(set.template()).flatMap(object -> object.field(field))
                 .filter(one -> one.configuration() instanceof PicklistConfiguration)
                 .ifPresent(one -> ((PicklistConfiguration) one.configuration()).values()
                         .forEach((PicklistValue value) -> found.put(value.value(), value.label())));
@@ -489,14 +490,14 @@ class QualityHome {
 
     // ---- the fill-ins ----
 
-    private FillResult readFills(Caller caller, Window window, Instant now, Chosen chosen) {
+    private FillResult readFills(RecordSet set, Caller caller, Window window, Instant now, Chosen chosen) {
         int max = properties.maxScanned();
-        List<Submission> sent = fills.submittedBetween(Fills.OBJECT, window.previousFrom(), window.to(), max + 1);
+        List<Submission> sent = fills.submittedBetween(set.fill(), window.previousFrom(), window.to(), max + 1);
         boolean more = sent.size() > max;
         if (more) {
             sent = sent.subList(0, max);
         }
-        Map<UUID, String> names = judge(sent.stream().map(Submission::fillId).toList());
+        Map<UUID, String> names = judge(set, sent.stream().map(Submission::fillId).toList());
         List<Submission> visible = sent.stream().filter(one -> names.containsKey(one.fillId())).toList();
         Map<UUID, Set<Place>> places = new HashMap<>();
         for (List<UUID> chunk : chunks(visible.stream().map(Submission::fillId).toList(), CHUNK)) {
@@ -530,7 +531,7 @@ class QualityHome {
         List<DepartmentTemplateCount> byDepartmentAndTemplate = byDepartmentAndTemplate(visible, window, chosen, places,
                 names);
 
-        Tile waiting = starter.available(Fills.OBJECT) ? waiting(chosen, max) : null;
+        Tile waiting = starter.available(set.fill()) ? waiting(set, chosen, max) : null;
 
         List<Raw> activity = visible.stream()
                 .sorted(Comparator.comparing(Submission::submittedAt).reversed())
@@ -542,11 +543,11 @@ class QualityHome {
     }
 
     /** The fill-ins that wait for a review, as many as the caller may see and the filters let through. */
-    private Tile waiting(Chosen chosen, int max) {
-        List<Submission> rows = fills.awaitingReview(Fills.OBJECT, max + 1);
+    private Tile waiting(RecordSet set, Chosen chosen, int max) {
+        List<Submission> rows = fills.awaitingReview(set.fill(), max + 1);
         boolean more = rows.size() > max;
         List<Submission> bounded = more ? rows.subList(0, max) : rows;
-        Map<UUID, String> names = judge(bounded.stream().map(Submission::fillId).toList());
+        Map<UUID, String> names = judge(set, bounded.stream().map(Submission::fillId).toList());
         Map<UUID, Set<Place>> places = new HashMap<>();
         for (List<UUID> chunk : chunks(names.keySet().stream().toList(), CHUNK)) {
             places.putAll(store.fillPlaces(chunk));
@@ -657,12 +658,12 @@ class QualityHome {
      * The fill-ins among these identifiers that the record store lets the caller see, with their names. This is where
      * "a number never includes a record the person may not read" is kept: the same query, the same stages.
      */
-    private Map<UUID, String> judge(Collection<UUID> ids) {
+    private Map<UUID, String> judge(RecordSet set, Collection<UUID> ids) {
         Map<UUID, String> visible = new HashMap<>();
         for (List<UUID> chunk : chunks(List.copyOf(ids), JUDGE)) {
             QueryFilter filter = QueryFilter.on("id", QueryFilter.Op.IN,
                     chunk.stream().map(UUID::toString).toArray());
-            QueryResult page = records.query(Fills.OBJECT,
+            QueryResult page = records.query(set.fill(),
                     new RecordQuery(filter, List.of(), List.of(Fills.NAME), List.of(), JUDGE, null));
             page.records().forEach(one -> visible.put(one.record().id(), text(one.record(), Fills.NAME)));
         }

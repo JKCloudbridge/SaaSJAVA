@@ -18,14 +18,17 @@ import org.springframework.stereotype.Component;
 class ChangeRequestNotices {
 
     private final Notices notices;
+    private final RecordSets sets;
 
-    ChangeRequestNotices(Notices notices) {
+    ChangeRequestNotices(Notices notices, RecordSets sets) {
         this.notices = notices;
+        this.sets = sets;
     }
 
     /**
      * Tells one person, unless it is the person who did it or there is nobody to tell.
      *
+     * @param set the set of records the template belongs to; the notice leads to an application that shows it
      * @param recipient the user to tell, or null
      * @param actor the user whose act it was, who is never told
      * @param templateId the template the request is about
@@ -33,12 +36,12 @@ class ChangeRequestNotices {
      * @param event a stable key: requested, commented, accepted, declined or done
      * @param key the dedupe key
      */
-    void tell(UUID recipient, UUID actor, UUID templateId, UUID requestId, String event, String key) {
+    void tell(RecordSet set, UUID recipient, UUID actor, UUID templateId, UUID requestId, String event, String key) {
         if (recipient == null || recipient.equals(actor)) {
             return;
         }
-        notices.notify(new NoticeRequest(NoticeKind.CHANGE_REQUEST, recipient, Templates.OBJECT, templateId,
-                Map.of("event", event, "application", Templates.APPLICATION, "entry", Templates.ENTRY,
+        notices.notify(new NoticeRequest(NoticeKind.CHANGE_REQUEST, recipient, set.template(), templateId,
+                Map.of("event", event, "application", sets.applicationFor(set), "entry", Templates.ENTRY,
                         "tab", RequestRecords.TAB, "request", requestId.toString()), key));
     }
 }

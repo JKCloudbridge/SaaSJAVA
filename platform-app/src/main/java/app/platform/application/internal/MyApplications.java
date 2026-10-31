@@ -112,7 +112,7 @@ class MyApplications {
                         : entries.stream().anyMatch(entry -> !"HEADING".equals(entry.type()));
                 if (leadsAnywhere) {
                     shown.add(new MyApplicationView(application.apiName(), application.label(), application.iconKey(),
-                            entries, application.group()));
+                            entries, application.group(), application.objectRoles()));
                 }
             }
         }

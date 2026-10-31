@@ -118,10 +118,10 @@ class FillIns {
 
     /** Whether the caller may start a fill-in on this template, for a screen to offer or hide the button. */
     @Transactional(readOnly = true)
-    FillInOptionsView options(UUID templateId) {
-        Caller caller = access.visible(templateId);
-        DataRecord template = template(templateId);
-        int active = activeVersion(templateId);
+    FillInOptionsView options(RecordSet set, UUID templateId) {
+        Caller caller = access.visible(set, templateId);
+        DataRecord template = template(set, templateId);
+        int active = activeVersion(set, templateId);
         String reason = why(caller, template, templateId, active);
         return new FillInOptionsView(reason == null, active, reason);
     }
@@ -132,14 +132,14 @@ class FillIns {
      * @throws ApiException {@code NOT_FOUND} (a template the caller cannot see), {@code FORBIDDEN} (no right to start
      *         fill-ins), {@code CONFLICT} (retired, no version in use, or the version moved while this ran)
      */
-    FillInStartedView start(UUID templateId) {
-        Caller caller = access.visible(templateId);
-        DataRecord template = template(templateId);
+    FillInStartedView start(RecordSet set, UUID templateId) {
+        Caller caller = access.visible(set, templateId);
+        DataRecord template = template(set, templateId);
         if (!access.has(caller, Ability.SHEETS_FILL)) {
             refuse("start", "forbidden");
             throw new ApiException(ErrorCode.FORBIDDEN);
         }
-        int active = activeVersion(templateId);
+        int active = activeVersion(set, templateId);
         String reason = why(caller, template, templateId, active);
         if (reason != null) {
             refuse("start", Boolean.TRUE.equals(template.fields().get(Templates.RETIRED)) ? "retired"
@@ -148,13 +148,13 @@ class FillIns {
         }
         DataRecord header;
         try {
-            header = headers.create(caller.userId(), templateId, nameOf(template));
+            header = headers.create(set, caller.userId(), templateId, nameOf(template));
         } catch (BackgroundWriteException refused) {
             refuse("start", refused.reason().key());
             throw new ApiException(ErrorCode.CONFLICT, "The fill-in could not be started right now.");
         }
         try {
-            fills.start(Fills.OBJECT, header.id(), Templates.OBJECT, templateId, active, caller.userId());
+            fills.start(set.fill(), header.id(), set.template(), templateId, active, caller.userId());
         } catch (FillRefusal refusal) {
             // The version in use moved between the read above and the insert; the header made above is undone with it.
             refuse("start", refusal.reason().name().toLowerCase(Locale.ROOT));
@@ -164,7 +164,7 @@ class FillIns {
         // The departments of the filler are kept as codes, once, so the home page can count fill-ins by department.
         home.recordFillPlaces(header.id(), departments.placesOf(caller.membershipId()), caller.userId());
         audit.record(AuditRecord.of("inspection.fill.started", AuditOutcome.SUCCESS).forUser(caller.userId())
-                .inTenant(contexts.require().tenantId()).onObject(Fills.OBJECT, header.id().toString())
+                .inTenant(contexts.require().tenantId()).onObject(set.fill(), header.id().toString())
                 .with("template", templateId.toString()).with("version_no", Integer.toString(active)));
         meters.counter("platform.inspection.fill", "act", "start", "result", "ok").increment();
         return new FillInStartedView(header.id(), templateId, active);
@@ -179,19 +179,19 @@ class FillIns {
      * @throws ApiException {@code NOT_FOUND} (a fill-in the caller cannot see), {@code FORBIDDEN} (they may see it but
      *         not change it), {@code CONFLICT} with the fixed words of the check that failed
      */
-    FillInSubmittedView submit(UUID fillId) {
-        records.get(Fills.OBJECT, fillId);
-        if (approvals.applies(Fills.OBJECT, fillId)) {
+    FillInSubmittedView submit(RecordSet set, UUID fillId) {
+        records.get(set.fill(), fillId);
+        if (approvals.applies(set.fill(), fillId)) {
             return new FillInSubmittedView("REVIEW_NEEDED");
         }
         try {
-            submission.submitWithoutReview(Fills.OBJECT, fillId);
+            submission.submitWithoutReview(set.fill(), fillId);
         } catch (FillRefusal refusal) {
             refuse("submit", refusal.reason().name().toLowerCase(Locale.ROOT));
             throw new ApiException(ErrorCode.CONFLICT, Templates.fit(refusal.getMessage()));
         }
         try {
-            headers.status(fillId, FillStatus.SUBMITTED);
+            headers.status(set.fill(), fillId, FillStatus.SUBMITTED);
         } catch (BackgroundWriteException refused) {
             // The header is the platform's own record: a failure here undoes the submit with this transaction.
             throw new IllegalStateException("The status of a fill-in could not follow its submit ("
@@ -211,8 +211,8 @@ class FillIns {
      * @param cursor the cursor of the previous page of the same question, or null
      */
     @Transactional(readOnly = true)
-    FillInPage page(UUID templateId, String status, Integer size, String cursor) {
-        return run(null, null, templateId, status, List.of(new QuerySort("createdAt", true)), size, cursor);
+    FillInPage page(RecordSet set, UUID templateId, String status, Integer size, String cursor) {
+        return run(set, null, null, templateId, status, List.of(new QuerySort("createdAt", true)), size, cursor);
     }
 
     /**
@@ -223,17 +223,18 @@ class FillIns {
      * @param query the question; everything in it may be null
      */
     @Transactional(readOnly = true)
-    FillInPage query(FillInViews.FillInQuery query) {
+    FillInPage query(RecordSet set, FillInViews.FillInQuery query) {
         QueryFilter filter = query.filter() == null ? null : QueryFilterNodes.toFilter(query.filter(), "filter");
         List<QuerySort> sort = query.sort() == null || query.sort().isEmpty()
                 ? List.of(new QuerySort("createdAt", true))
                 : query.sort().stream().map(key -> new QuerySort(key.field(), Boolean.TRUE.equals(key.descending())))
                         .toList();
-        return run(query.search(), filter, query.templateId(), query.status(), sort, query.size(), query.cursor());
+        return run(set, query.search(), filter, query.templateId(), query.status(), sort, query.size(),
+                query.cursor());
     }
 
-    private FillInPage run(String search, QueryFilter extra, UUID templateId, String status, List<QuerySort> sort,
-            Integer size, String cursor) {
+    private FillInPage run(RecordSet set, String search, QueryFilter extra, UUID templateId, String status,
+            List<QuerySort> sort, Integer size, String cursor) {
         access.member();
         String wantedStatus = status == null || status.isBlank() ? null : status.toUpperCase(Locale.ROOT);
         if (wantedStatus != null && !STATUSES.contains(wantedStatus)) {
@@ -242,8 +243,8 @@ class FillIns {
         int limit = size == null || size <= 0 ? DEFAULT_SIZE : Math.min(size, MOST);
         RecordQuery query = new RecordQuery(filter(templateId, wantedStatus, extra, searchFilter(search)), sort, FIELDS,
                 List.of(), limit, cursor);
-        QueryResult result = records.query(Fills.OBJECT, query);
-        return new FillInPage(rowsOf(result.records()), result.nextCursor());
+        QueryResult result = records.query(set.fill(), query);
+        return new FillInPage(rowsOf(set, result.records()), result.nextCursor());
     }
 
     /** The search text as a condition: part of the name, or the whole word of a status. */
@@ -270,9 +271,9 @@ class FillIns {
      * templates, no cells. A header with no fill-in row is left out. Used by the list and by the report.
      */
     @Transactional(readOnly = true)
-    List<FillInRow> rowsOf(List<QueriedRecord> visible) {
+    List<FillInRow> rowsOf(RecordSet set, List<QueriedRecord> visible) {
         List<UUID> ids = visible.stream().map(QueriedRecord::record).map(DataRecord::id).toList();
-        Map<UUID, FillLifecycle.Summary> summaries = fills.summaries(Fills.OBJECT, ids);
+        Map<UUID, FillLifecycle.Summary> summaries = fills.summaries(set.fill(), ids);
         Set<UUID> templates = new LinkedHashSet<>();
         visible.forEach(found -> {
             UUID id = Fills.templateOf(found.record().fields().get(Fills.TEMPLATE_ID));
@@ -280,8 +281,8 @@ class FillIns {
                 templates.add(id);
             }
         });
-        Map<UUID, SheetLifecycle.Summary> versions = sheets.summaries(Templates.OBJECT, templates);
-        Map<UUID, String> numbers = templateNumbers.of(templates);
+        Map<UUID, SheetLifecycle.Summary> versions = sheets.summaries(set.template(), templates);
+        Map<UUID, String> numbers = templateNumbers.of(set, templates);
         Map<UUID, String> people = people(visible);
         List<FillInRow> rows = new ArrayList<>();
         for (QueriedRecord found : visible) {
@@ -319,13 +320,13 @@ class FillIns {
         return null;
     }
 
-    private int activeVersion(UUID templateId) {
-        SheetLifecycle.Summary summary = sheets.summaries(Templates.OBJECT, List.of(templateId)).get(templateId);
+    private int activeVersion(RecordSet set, UUID templateId) {
+        SheetLifecycle.Summary summary = sheets.summaries(set.template(), List.of(templateId)).get(templateId);
         return summary == null ? 0 : summary.active();
     }
 
-    private DataRecord template(UUID templateId) {
-        return background.find(Templates.OBJECT, templateId)
+    private DataRecord template(RecordSet set, UUID templateId) {
+        return background.find(set.template(), templateId)
                 .orElseThrow(() -> ApiException.notFound("This template does not exist."));
     }
 

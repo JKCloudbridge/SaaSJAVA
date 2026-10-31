@@ -38,7 +38,8 @@ import { OpenRequestsMark } from "./OpenRequestsMark";
 import { PublishDialog } from "./PublishDialog";
 import { SheetOptionsDialog } from "./SheetOptionsDialog";
 import { TemplateApprovals } from "./TemplateApprovals";
-import { TEMPLATE_OBJECT, text } from "./template";
+import { text } from "./template";
+import { useRecordObjects } from "./objects";
 import { PartField, NumberField } from "./TemplateNumberFields";
 import { detailDisplay, templateSections } from "./templateDetails";
 import { hiddenIdentityFields, identityOf, sameIdentity, useNumberingInfo, type IdentityValues } from "./numbering";
@@ -69,14 +70,15 @@ const recordHref = (object: string, id: string) => `/records/${object}/${id}`;
  * opens by itself: approving and publishing are two acts of the server, done in one flow.
  */
 export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void }) {
+  const objects = useRecordObjects();
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const params = useSearchParams();
   const tab: TabId = TABS.find((entry) => entry.id === params?.get("tab"))?.id ?? "details";
 
   const [refresh, setRefresh] = useState(0);
-  const record = useRecord(TEMPLATE_OBJECT, id, refresh);
-  const { state: form } = useObjectForm(TEMPLATE_OBJECT, undefined, id);
+  const record = useRecord(objects.template, id, refresh);
+  const { state: form } = useObjectForm(objects.template, undefined, id);
   const { state: lifecycle, reload } = useLifecycle(id, refresh);
   const { state: requests, reload: reloadRequests } = useChangeRequests(id, refresh);
   const [approval, setApproval] = useState<ApprovalState>({ locked: false, mayOverride: false, mayApprove: false });
@@ -97,7 +99,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
   };
 
   const decisions = useRecordApproval({
-    objectApiName: TEMPLATE_OBJECT,
+    objectApiName: objects.template,
     recordId: id,
     refresh,
     onState: setApproval,
@@ -342,7 +344,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
                 <RecordForm
                   formId={FORM_ID}
                   hideActions
-                  objectApiName={TEMPLATE_OBJECT}
+                  objectApiName={objects.template}
                   form={templateSections(objectForm, view, true)}
                   display={detailDisplay(view, record.record)}
                   hide={hiddenFields}
@@ -375,7 +377,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
                 />
               ) : objectForm ? (
                 <RecordDetails
-                  objectApiName={TEMPLATE_OBJECT}
+                  objectApiName={objects.template}
                   form={templateSections(objectForm, view, false)}
                   hide={hiddenFields}
                   record={record.record}
@@ -437,7 +439,7 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
         {tab === "sheet" ? (
           <>
             <SheetWorkspace
-              owner={{ object: TEMPLATE_OBJECT, id }}
+              owner={{ object: objects.template, id }}
               label={name}
               correctInReview={approval.mayOverride}
               refreshToken={refresh}

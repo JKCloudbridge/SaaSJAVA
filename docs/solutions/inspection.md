@@ -6,6 +6,26 @@
 
 The first platform-shipped solution (Functional track). This page is for two readers: the **platform administrator and organization administrator** who switch it on and use it (section 1), and the **contributor** who extends it in the next sprints (section 2). The framework behind it is in [ADR-0181](../adr/0181-the-solution-framework.md); the decisions about the cluster itself are ADR-0172 to ADR-0180. The word "audit" in code still means the audit trail: the cluster is called `inspection` in code and "Audit maintenance" for people (ADR-0180).
 
+## Which application is which (read this first)
+
+The Quality Management System is the bundle `inspection` for good: its API name, page keys, folders and feature keep that name, and only the
+words people read differ. Document Management is a second tile on the **same code and the same data** (FA13A, ADR-0225), so it has no code of
+its own. This table lists every application that exists.
+
+| Label (what people read) | Key (API name) | Folders | Plan feature | What it is |
+|---|---|---|---|---|
+| Document Management | `document-management` | `solutions/document-management/` (a file only). Code and screens: those of `inspection` | `document-management` | Real: the same screens and the same records as the Quality Management System, sold on its own. [Page](document-management.md) |
+| CAPA | `capa` | `solutions/capa/` | `capa` | Tile only (Home). [Page](capa.md) |
+| Audit Management | `audit-management` | `solutions/audit-management/` | `audit-management` | Tile only (Home). [Page](audit-management.md) |
+| Supplier Management | `supplier-management` | `solutions/supplier-management/` | `supplier-management` | Announced tabs. [Page](supplier-management.md) |
+| Management Core | `management-core` | `solutions/management-core/` | `management-core` | Announced tabs. [Page](management-core.md) |
+| Quality Management System | `inspection` | `solutions/inspection/`, `platform-app/.../app/platform/inspection/`, `platform-web/src/solutions/inspection/` | `inspection` | Real: the whole of this page. It brings the four objects and the seven access policies |
+| Environment Management | `environment-management` | `solutions/environment-management/` (bundle, three objects, numbering; no code) | `environment-management` | Real: the same functions over records of its own. [Page](environment-management.md) |
+| the fifteen process applications | `marketing`, `qa`, ... | `solutions/processes/` | `process-applications` | Announced tabs. [Page](processes.md) |
+
+The grid lists them in this order: the first five by the number each file gives under `order`, then the Quality Management System, then the
+process applications. Folders are under `platform-app/src/main/resources/`. Environment Management stands sixth (FA13B).
+
 ## 1. For administrators
 
 ### What exists in this release (FF1): fill-ins
@@ -501,3 +521,17 @@ Decision: ADR-0206. One shipped object, the number patterns, two read endpoints,
 - **Tests.** See ADR-0206; the browser script `platform-web/browser-checks/sheet-grid.mjs` creates its template with Part A.
 
 **Reading hides the parts.** The Details tab in reading mode draws neither Part A nor Part B (`templateSections`, `editing` false): they are typed only to build the Document number, which already holds them. Editing is unchanged, and the stored values still feed the number and the first-approval check.
+
+## The board look of the home page (FA13C)
+
+Frontend only; no server, migration or API change. The home page has three looks, chosen with the "Option 1 / 2 / 3" control and
+remembered per browser (`look.ts`); the first stays the default.
+
+- **Option 3 is the board**: a title and tagline, a navy band of filters (the same `FilterBar`), six tiles with a picture, three
+  graphs (fill-ins per day, templates by status, templates by level and document type), six cards with two figures each, four
+  reminders and a message panel. `BoardLook.tsx` draws it; `board.ts` (pure, tested) chooses which of the page's own numbers stand
+  in the tiles and cards and writes the message lines from them. It adds up nothing: every figure is one the other looks already show.
+- **The wording is ours**: the reminders and the closing line are fixed; the message lines come only from the numbers and say plainly
+  when nothing waits. The deviations, CAPA, training and complaints of the picture it follows have no data here and are not drawn.
+- **Colours and sizes** are the `--board-*` tokens (light and dark, contrast checked in `tokens.test.ts`).
+- **Tests:** `board.test.ts`, `look.test.ts`, `QualityHome.test.tsx`, `tokens.test.ts`.

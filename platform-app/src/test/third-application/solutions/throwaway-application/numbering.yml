@@ -1,0 +1,13 @@
+# The numbers of the throwaway third application (FA13B, ADR-0226): files only, for ThirdApplicationIT.
+series:
+  - key: throwaway-document
+    object: ThrowawayTemplate
+    field: number
+    selector: category
+    defaults:
+      format: "{field:category}/{field:partB}/{seq:1}"
+      withoutOptional: "{field:category}/{seq:1}"
+      optionalField: partB
+    formats:
+      IMS: "IMS/{seq:2}"
+      QSP: "QSP-{seq:2}"

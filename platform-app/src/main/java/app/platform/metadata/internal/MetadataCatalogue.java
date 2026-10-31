@@ -126,12 +126,9 @@ class MetadataCatalogue implements Metadata {
     }
 
     private boolean entitled(ObjectDefinition object, Map<String, Boolean> asked) {
-        String feature = object.requiresFeature();
-        if (feature == null) {
-            return true;
-        }
-        return asked == null ? entitlements.enabled(feature)
-                : asked.computeIfAbsent(feature, entitlements::enabled);
+        // An object several applications use exists when any of their features is on (FA13A, ADR-0225).
+        return object.availableWith(asked == null ? entitlements::enabled
+                : feature -> asked.computeIfAbsent(feature, entitlements::enabled));
     }
 
     /** Whether the organization has the object (it exists and the plan feature it needs, if any, is on). */

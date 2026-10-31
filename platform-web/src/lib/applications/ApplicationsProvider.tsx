@@ -7,6 +7,7 @@ import { failureFromNetworkError } from "@/lib/api/errors";
 import { log } from "@/lib/log";
 import { useSession } from "@/lib/session/SessionProvider";
 import type { MyApplication } from "./entries";
+import { rememberApplications } from "./objectRoles";
 
 /** What the page knows about the member's applications. */
 export type ApplicationsState =
@@ -71,6 +72,7 @@ export function ApplicationsProvider({ children }: { children: ReactNode }) {
         }
         if (data) {
           loadedAt.current = Date.now();
+          rememberApplications(data.data);
           setState((current) =>
             // The same answer again changes nothing, so a screen that is open does not redraw for no reason.
             current.status !== "error" && sameApplications(current.applications, data.data)
@@ -128,6 +130,11 @@ export function ApplicationsProvider({ children }: { children: ReactNode }) {
 }
 
 /** The member's applications. Must be used inside {@link ApplicationsProvider}. */
+/** The same list, or undefined outside a provider: for a screen that only reads a label and works without one. */
+export function useOptionalApplications(): ApplicationsApi | undefined {
+  return useContext(ApplicationsContext);
+}
+
 export function useApplications(): ApplicationsApi {
   const context = useContext(ApplicationsContext);
   if (!context) {

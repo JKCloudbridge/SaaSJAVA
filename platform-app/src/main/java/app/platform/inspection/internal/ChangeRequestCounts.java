@@ -28,24 +28,25 @@ class ChangeRequestCounts {
     /**
      * The counts of these templates; a template with none is not in the map.
      *
+     * @param set the set of records the templates belong to
      * @param caller the member who asks
      * @param templateIds the templates of a page
      */
-    Map<UUID, Integer> waiting(TemplateAccess.Caller caller, Collection<UUID> templateIds) {
-        Map<UUID, Integer> all = store.toActCounts(templateIds, null);
+    Map<UUID, Integer> waiting(RecordSet set, TemplateAccess.Caller caller, Collection<UUID> templateIds) {
+        Map<UUID, Integer> all = store.toActCounts(set.template(), templateIds, null);
         if (all.isEmpty()) {
             return Map.of();
         }
         Map<UUID, Integer> visible = new HashMap<>();
         List<UUID> notReviewed = all.keySet().stream()
-                .filter(id -> !access.canReview(caller.membershipId(), id)).toList();
+                .filter(id -> !access.canReview(set, caller.membershipId(), id)).toList();
         all.forEach((id, count) -> {
             if (!notReviewed.contains(id)) {
                 visible.put(id, count);
             }
         });
         if (!notReviewed.isEmpty()) {
-            store.toActCounts(notReviewed, caller.userId()).forEach(visible::put);
+            store.toActCounts(set.template(), notReviewed, caller.userId()).forEach(visible::put);
         }
         return visible;
     }

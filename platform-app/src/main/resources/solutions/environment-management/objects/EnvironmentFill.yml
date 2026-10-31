@@ -1,0 +1,46 @@
+# Shipped object: EnvironmentFill, the header of a fill-in of the Environment Management application (FA13B, ADR-0226).
+# It plays the part "fill" in the solution file, exactly as InspectionFill does for the Quality Management System
+# application. A fill-in is what a person types into a template that was published to them. The header is a record so that
+# a fill-in has an owner, a place in the record store's lists, shares and an approval of its own; its cells and its status
+# are kept in the sheets module, pinned to the version of the template the fill-in was started on.
+#
+# Every field is one only the platform writes: a member never creates or changes a header (the Environment Filler policy
+# gives no create right and no field to edit). The fields are a copy of those of the other application on purpose (see
+# EnvironmentTemplate).
+#
+# requiresFeature: an organization without the plan feature does not have this object at all.
+# retainRecords:   no fill-in is ever deleted, restored over or purged, by anyone (business decision 10, ADR-0174
+#                  section 7).
+# extensible:      an organization cannot add fields of its own to a shipped object.
+# sharingDefault:  PRIVATE, fixed by the platform (ADR-0189).
+apiName: EnvironmentFill
+label: Fill-in
+pluralLabel: Fill-ins
+description: A fill-in of a template of the Environment Management application. Its records are kept for good.
+extensible: false
+requiresFeature: environment-management
+retainRecords: true
+sharingDefault: PRIVATE
+fields:
+  - apiName: name
+    label: Fill-in name
+    description: "The name the fill-in is shown by: that of the template when the fill-in was started."
+    type: TEXT
+    platformWritten: true
+    settings: { maxLength: 160 }
+
+  - apiName: templateId
+    label: Template
+    description: The template the fill-in was started on, as the text of its identifier. It never changes.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 36 }
+
+  - apiName: status
+    label: Status
+    description: Draft, submitted, returned or approved. A copy that follows the fill-in; the fill-in itself decides.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 20 }

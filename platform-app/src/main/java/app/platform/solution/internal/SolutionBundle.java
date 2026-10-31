@@ -21,9 +21,21 @@ import java.util.Set;
  *        solution's {@code objects} folder
  * @param sheetOwners the objects, among {@code objects}, whose records may own a sheet (FA3, ADR-0186)
  * @param policies the access policies the solution ships
+ * @param uses the objects another solution brings that this solution's applications use as they are (FA13A,
+ *        ADR-0225): nothing is stored twice, and the object exists for an organization when either solution's
+ *        feature is on
+ * @param order where the solution's applications stand in the grid, lowest first; 0 for no place, which stands
+ *        after every solution that has one (FA13A, ADR-0225)
+ * @param roles the object, among {@code objects} and {@code uses}, that plays each part of the solution's
+ *        applications, by the part's name (FA13B, ADR-0226); empty for a solution that declares none. The names of
+ *        the parts are the words of the module that owns the functions: this module only carries them
  */
 record SolutionBundle(String key, String feature, String label, String removalNote, List<Application> applications,
-        List<String> objects, List<String> sheetOwners, List<Policy> policies) {
+        List<String> objects, List<String> sheetOwners, List<Policy> policies, List<String> uses, int order,
+        Map<String, String> roles) {
+
+    /** The largest place a solution may ask for. */
+    static final int MOST_ORDER = 999;
 
     /** The prefix of the identity of a shipped policy: {@code <solution key>.<policy key>}. */
     static final String OWNER = "solution";
@@ -33,6 +45,20 @@ record SolutionBundle(String key, String feature, String label, String removalNo
         objects = List.copyOf(objects);
         sheetOwners = List.copyOf(sheetOwners);
         policies = List.copyOf(policies);
+        uses = List.copyOf(uses);
+        roles = Map.copyOf(roles);
+    }
+
+    /** A solution that declares no parts. */
+    SolutionBundle(String key, String feature, String label, String removalNote, List<Application> applications,
+            List<String> objects, List<String> sheetOwners, List<Policy> policies, List<String> uses, int order) {
+        this(key, feature, label, removalNote, applications, objects, sheetOwners, policies, uses, order, Map.of());
+    }
+
+    /** A solution that uses no object of another and asks for no place. */
+    SolutionBundle(String key, String feature, String label, String removalNote, List<Application> applications,
+            List<String> objects, List<String> sheetOwners, List<Policy> policies) {
+        this(key, feature, label, removalNote, applications, objects, sheetOwners, policies, List.of(), 0);
     }
 
     /** A solution with one application. */
@@ -101,14 +127,23 @@ record SolutionBundle(String key, String feature, String label, String removalNo
      * @param objects the rights it gives on objects
      * @param abilities the keys of the abilities it gives (FA4, ADR-0189)
      * @param fields the rights it gives on fields, by field key: the object, a dot, the field (FA4, ADR-0189)
+     * @param alsoAvailableWith the other solutions' plan features that also give an organization this policy
+     *        (FA13A, ADR-0225); it exists when the solution's feature or any of these is on
      */
     record Policy(String key, String name, String description, Map<String, Set<ObjectAction>> objects,
-            Set<String> abilities, Map<String, Set<FieldAction>> fields) {
+            Set<String> abilities, Map<String, Set<FieldAction>> fields, Set<String> alsoAvailableWith) {
 
         Policy {
             objects = Map.copyOf(objects);
             abilities = Set.copyOf(abilities);
             fields = Map.copyOf(fields);
+            alsoAvailableWith = Set.copyOf(alsoAvailableWith);
+        }
+
+        /** A policy only the solution's own feature gives. */
+        Policy(String key, String name, String description, Map<String, Set<ObjectAction>> objects,
+                Set<String> abilities, Map<String, Set<FieldAction>> fields) {
+            this(key, name, description, objects, abilities, fields, Set.of());
         }
 
         /** A policy that gives rights on objects and abilities and none on fields. */

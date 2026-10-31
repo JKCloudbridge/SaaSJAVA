@@ -1,0 +1,63 @@
+# The Document Management application (Functional track FA13A, ADR-0225): the same screens and the same documents as the
+# Quality Management System, sold on a plan feature of its own. A template made in one application is in the other,
+# because both show the same four objects; nothing is copied or stored twice.
+#
+# The bundle brings no object and no access policy. It uses the four objects of the Quality Management System bundle
+# (`uses`), whose files list this bundle's feature under `alsoAvailableWith`, and the access policies of that bundle,
+# which list the same feature: they exist while either application's feature is on. Licence, access policy and plan
+# feature stay three mechanisms, so anyone whose access policies open the tabs of one application opens the other's.
+key: document-management
+feature: document-management
+label: Document Management
+removalNote: >-
+  Taking this feature away hides the Document Management application from the organization at once. Nothing is deleted:
+  the documents are the same records the Quality Management System shows, and they stay. The application comes back
+  when the feature is given again.
+order: 1
+uses:
+  - InspectionTemplate
+  - InspectionFill
+  - InspectionChangeRequest
+  - DepartmentGroup
+# The same parts as the Quality Management System application, because this application shows the same records
+# (FA13B, ADR-0226).
+roles:
+  template: InspectionTemplate
+  fill: InspectionFill
+  changeRequest: InspectionChangeRequest
+application:
+  apiName: document-management
+  label: Document Management
+  iconKey: folder
+  group: Leadership
+  entries:
+    - type: PLATFORM
+      label: Home
+      pageKey: home
+      readsObject: InspectionTemplate
+    - type: PLATFORM
+      label: Document Control
+      pageKey: templates
+      readsObject: InspectionTemplate
+    - type: PLATFORM
+      label: Change requests
+      pageKey: change-requests
+      readsObject: InspectionChangeRequest
+    - type: PLATFORM
+      label: Record Control
+      pageKey: fill-ins
+      readsObject: InspectionFill
+    - type: PLATFORM
+      label: Report
+      pageKey: fill-in-report
+      readsObject: InspectionFill
+    - type: PLATFORM
+      label: Management Review
+      pageKey: management-review
+      placeholder: true
+    - type: PLATFORM
+      label: Internal Audit
+      pageKey: internal-audit
+      placeholder: true
+    - type: OBJECT
+      object: DepartmentGroup

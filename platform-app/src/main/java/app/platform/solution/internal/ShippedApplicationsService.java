@@ -5,8 +5,11 @@ import app.platform.sharedkernel.solution.ShippedApplicationView;
 import app.platform.sharedkernel.solution.ShippedApplications;
 import app.platform.sharedkernel.solution.ShippedEntryView;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Predicate;
 import org.springframework.stereotype.Service;
 
 /**
@@ -35,22 +38,25 @@ class ShippedApplicationsService implements ShippedApplications {
     @Override
     public List<ShippedApplicationView> forMember(UUID membershipId) {
         List<ShippedApplicationView> views = new ArrayList<>();
+        // Each feature is asked once per call, in the order the bundles stand in the grid (FA13A, ADR-0225).
+        Map<String, Boolean> asked = new HashMap<>();
+        Predicate<String> featureOn = feature -> asked.computeIfAbsent(feature, entitlements::enabled);
         for (SolutionBundle bundle : solutions.bundles()) {
-            if (!entitlements.enabled(bundle.feature())) {
-                continue;
+            // The policies another application shares exist while any of the features they belong to is on.
+            keeper.keep(bundle, featureOn);
+            if (featureOn.test(bundle.feature())) {
+                bundle.applications().forEach(application -> views.add(view(application, bundle.roles())));
             }
-            keeper.keep(bundle);
-            bundle.applications().forEach(application -> views.add(view(application)));
         }
         return views;
     }
 
-    private static ShippedApplicationView view(SolutionBundle.Application application) {
+    private static ShippedApplicationView view(SolutionBundle.Application application, Map<String, String> roles) {
         List<ShippedEntryView> entries = application.entries().stream().map(entry -> new ShippedEntryView(entry.kind(),
                 entry.label(), blankToNull(entry.object()), blankToNull(entry.pageKey()),
                 blankToNull(entry.readsObject()), entry.placeholder())).toList();
         return new ShippedApplicationView(application.apiName(), application.label(),
-                blankToNull(application.iconKey()), blankToNull(application.group()), entries);
+                blankToNull(application.iconKey()), blankToNull(application.group()), entries, roles);
     }
 
     private static String blankToNull(String text) {

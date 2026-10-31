@@ -37,7 +37,7 @@ const APPS: MyApplication[] = [
     entry("Enquiry Review", "enquiry-review", true),
   ]),
   application("stores", "Stores", "Supply chain", [home, entry("FIFO", "fifo", true), entry("Shelf Life", "shelf", true)]),
-  application("mine", "My own", undefined, [home]),
+  application("mine", "My own", undefined, [entry("Own page", "own-page")]),
 ];
 
 class MemoryStorage {
@@ -99,6 +99,13 @@ describe("the words on a tile", () => {
     expect(showsComingSoon(APPS[1]!)).toBe(true);
     expect(showsComingSoon(APPS[2]!)).toBe(true);
     expect(showsComingSoon(APPS[3]!)).toBe(false);
+  });
+
+  it("tags a shipped application that has nothing but its Home, and not an application without a Home (FA13A)", () => {
+    const tile = application("tile", "Tile only", "Operations", [home]);
+    expect(showsComingSoon(tile)).toBe(true);
+    expect(tabsLine(tile)).toBe("1 tab");
+    expect(showsComingSoon({ ...APPS[3]!, items: [] })).toBe(false);
   });
 
   it("says how many are shown after a search", () => {

@@ -67,6 +67,26 @@ DepartmentGroup.name TEXT
 DepartmentGroup.location PICKLIST codeValues organizationValues
 DepartmentGroup.department PICKLIST codeValues organizationValues dependsOn=location
 DepartmentGroup.groupId LOOKUP target=Group
+EnvironmentChangeRequest managedBy=none requiresFeature=environment-management retainRecords sharingDefault=PRIVATE
+EnvironmentChangeRequest.name TEXT platformWritten
+EnvironmentChangeRequest.templateId TEXT indexed platformWritten
+EnvironmentChangeRequest.status TEXT indexed platformWritten
+EnvironmentFill managedBy=none requiresFeature=environment-management retainRecords sharingDefault=PRIVATE
+EnvironmentFill.name TEXT platformWritten
+EnvironmentFill.templateId TEXT indexed platformWritten
+EnvironmentFill.status TEXT indexed platformWritten
+EnvironmentTemplate managedBy=none requiresFeature=environment-management retainRecords sharingDefault=PRIVATE
+EnvironmentTemplate.name TEXT
+EnvironmentTemplate.level PICKLIST codeValues organizationValues
+EnvironmentTemplate.documentType PICKLIST codeValues organizationValues dependsOn=level
+EnvironmentTemplate.retired BOOLEAN platformWritten
+EnvironmentTemplate.category PICKLIST codeValues organizationValues
+EnvironmentTemplate.partA TEXT
+EnvironmentTemplate.partB TEXT
+EnvironmentTemplate.serial TEXT
+EnvironmentTemplate.number TEXT platformWritten
+EnvironmentTemplate.revision TEXT platformWritten
+EnvironmentTemplate.lastRevisedAt TEXT platformWritten
 Group managedBy=security
 Group.name TEXT
 InspectionChangeRequest managedBy=none requiresFeature=inspection retainRecords sharingDefault=PRIVATE

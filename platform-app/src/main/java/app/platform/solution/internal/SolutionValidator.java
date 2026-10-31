@@ -15,7 +15,8 @@ import java.util.Set;
  * Checks the bundles against the rest of the platform (ADR-0181), the part of the checking {@link SolutionLoader}
  * cannot do from one file: the solution's feature exists, every object it names is a platform object that needs
  * exactly that feature, every shipped object belongs to one solution, no key or name is used by two solutions, and an
- * entry or a right names an object the solution brings. Messages name the solution and the part, never a text.
+ * entry or a right names an object the solution brings or, as FA13A allows, uses from another solution that lists it
+ * back (ADR-0225). Messages name the solution and the part, never a text.
  *
  * <p>Pure: it takes the facts as arguments, so a test can hand it any combination.
  */
@@ -75,9 +76,18 @@ final class SolutionValidator {
                             + "solution does not bring");
                 }
             }
-            checkEntries(bundle, where);
-            checkPolicies(bundle, platform, where);
         }
+        // The second pass needs every bundle's objects, so it runs when the first has seen them all (FA13A).
+        Map<String, SolutionBundle> byFeature = new HashMap<>();
+        bundles.forEach(bundle -> byFeature.put(bundle.feature(), bundle));
+        for (SolutionBundle bundle : bundles) {
+            String where = "solution '" + bundle.key() + "'";
+            checkUses(bundle, platform, ownerOfObject, where);
+            checkEntries(bundle, where);
+            checkPolicies(bundle, platform, byFeature, where);
+        }
+        checkSharing(byFeature, platform);
+        checkRoles(bundles);
         for (ObjectDefinition object : platform.all()) {
             if (object.requiresFeature() != null && !ownerOfObject.containsKey(object.apiName())) {
                 throw new IllegalStateException("the object '" + object.apiName() + "' requires a plan feature and "
@@ -89,8 +99,70 @@ final class SolutionValidator {
     /** The page key every shipped application opens on: its Home (FA9, ADR-0203). */
     static final String HOME = "home";
 
+    /**
+     * What a solution uses that another brings (FA13A, ADR-0225): the object is brought by another solution, the
+     * platform defines it, and its file says the solution's feature gives it too.
+     */
+    private static void checkUses(SolutionBundle bundle, PlatformObjects platform, Map<String, String> ownerOfObject,
+            String where) {
+        for (String object : bundle.uses()) {
+            String owner = ownerOfObject.get(object);
+            if (owner == null || owner.equals(bundle.key())) {
+                throw new IllegalStateException(where + ": 'uses' names '" + object + "', which no other "
+                        + "solution brings");
+            }
+            ObjectDefinition definition = platform.named(object).orElseThrow();
+            if (!definition.alsoAvailableWith().contains(bundle.feature())) {
+                throw new IllegalStateException(where + ": uses the object '" + object + "', whose file does not "
+                        + "list the solution's feature under 'alsoAvailableWith'");
+            }
+        }
+    }
+
+    /** The other direction: a feature an object lists is the feature of a solution that uses the object. */
+    private static void checkSharing(Map<String, SolutionBundle> byFeature, PlatformObjects platform) {
+        for (ObjectDefinition object : platform.all()) {
+            for (String feature : object.alsoAvailableWith()) {
+                SolutionBundle bundle = byFeature.get(feature);
+                if (bundle == null || !bundle.uses().contains(object.apiName())) {
+                    throw new IllegalStateException("the object '" + object.apiName() + "' is also available with "
+                            + "a feature of a solution that does not use it");
+                }
+            }
+        }
+    }
+
+    /**
+     * The parts of the applications (FA13B, ADR-0226). Two solutions may declare the very same parts (the second shows
+     * the first one's records, which it lists under {@code uses}); an object may not play a part in one and another
+     * part, or the same part among other objects, in the other. That would make two applications claim one object.
+     */
+    static void checkRoles(List<SolutionBundle> bundles) {
+        record Claim(String solution, String role, Map<String, String> combination) {
+        }
+        Map<String, Claim> claimed = new HashMap<>();
+        for (SolutionBundle bundle : bundles) {
+            for (Map.Entry<String, String> part : bundle.roles().entrySet()) {
+                Claim claim = new Claim(bundle.key(), part.getKey(), bundle.roles());
+                Claim earlier = claimed.putIfAbsent(part.getValue(), claim);
+                if (earlier != null && (!earlier.role().equals(claim.role())
+                        || !earlier.combination().equals(claim.combination()))) {
+                    throw new IllegalStateException("solution '" + bundle.key() + "': the object '" + part.getValue()
+                            + "' is claimed by solution '" + earlier.solution() + "' in another part or with other "
+                            + "objects");
+                }
+            }
+        }
+    }
+
+    private static Set<String> reachable(SolutionBundle bundle) {
+        Set<String> objects = new HashSet<>(bundle.objects());
+        objects.addAll(bundle.uses());
+        return objects;
+    }
+
     private static void checkEntries(SolutionBundle bundle, String where) {
-        Set<String> objects = Set.copyOf(bundle.objects());
+        Set<String> objects = reachable(bundle);
         for (SolutionBundle.Application application : bundle.applications()) {
             checkEntries(application, objects, where + ": application '" + application.apiName() + "'");
         }
@@ -133,11 +205,26 @@ final class SolutionValidator {
         }
     }
 
-    private static void checkPolicies(SolutionBundle bundle, PlatformObjects platform, String where) {
+    private static void checkPolicies(SolutionBundle bundle, PlatformObjects platform,
+            Map<String, SolutionBundle> byFeature, String where) {
         Set<String> names = new HashSet<>();
-        Set<String> objects = Set.copyOf(bundle.objects());
+        Set<String> objects = reachable(bundle);
         for (SolutionBundle.Policy policy : bundle.policies()) {
             String part = where + ": accessPolicies '" + policy.key() + "'";
+            for (String feature : policy.alsoAvailableWith()) {
+                SolutionBundle other = byFeature.get(feature);
+                if (other == null || other == bundle) {
+                    throw new IllegalStateException(part + ": 'alsoAvailableWith' names a feature that is not "
+                            + "another solution's");
+                }
+                // A policy must never give a right on an object the organization lacks when only that feature is on.
+                for (String object : policy.objects().keySet()) {
+                    if (!reachable(other).contains(object)) {
+                        throw new IllegalStateException(part + ": is also available with a feature whose solution "
+                                + "does not have '" + object + "', on which the policy gives a right");
+                    }
+                }
+            }
             if (!names.add(policy.name().toLowerCase(java.util.Locale.ROOT))) {
                 throw new IllegalStateException(part + ": the name is used by another policy of the solution");
             }

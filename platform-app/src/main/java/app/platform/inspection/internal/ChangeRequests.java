@@ -88,13 +88,15 @@ class ChangeRequests {
     private final TemplateOptionStore optionStore;
     private final Permissions permissions;
     private final TemplateRevisions revisions;
+    private final RecordSets sets;
 
     ChangeRequests(ChangeRequestAccess access, ChangeRequestStore store, ChangeRequestProperties properties,
             ChangeRequestChanges changes, SheetLifecycle sheets, BackgroundRecords records,
             ChangeRequestNotices notices, List<ReferenceLabels> labels, DepartmentAudiences departments,
             ChangeRequestHeaders headers, ApprovalStarter starter, ChangeRequestTasks tasks, RegisterStore registers,
             RegisterFacts facts, AudienceSuggestions suggestions, TemplateOptionStore optionStore,
-            Permissions permissions, TemplateRevisions revisions) {
+            Permissions permissions, TemplateRevisions revisions, RecordSets sets) {
+        this.sets = sets;
         this.access = access;
         this.store = store;
         this.properties = properties;
@@ -119,8 +121,8 @@ class ChangeRequests {
 
     /** The requests the caller may see on the template, newest first, with what the screen may offer. */
     @Transactional(readOnly = true)
-    ChangeRequestsView list(UUID templateId, String status) {
-        Reach reach = access.reach(templateId);
+    ChangeRequestsView list(RecordSet set, UUID templateId, String status) {
+        Reach reach = access.reach(set, templateId);
         Optional<ChangeRequestStatus> wanted = Optional.empty();
         if (status != null && !status.isBlank()) {
             wanted = Optional.of(ChangeRequestStatus.of(status).orElseThrow(() -> ApiException.validation("status",
@@ -141,8 +143,8 @@ class ChangeRequests {
 
     /** One request with its comments. */
     @Transactional(readOnly = true)
-    ChangeRequestView get(UUID templateId, UUID requestId) {
-        Reach reach = access.reach(templateId);
+    ChangeRequestView get(RecordSet set, UUID templateId, UUID requestId) {
+        Reach reach = access.reach(set, templateId);
         RequestRow row = access.request(reach, requestId);
         return view(frame(reach, List.of(row)), row);
     }
@@ -150,13 +152,14 @@ class ChangeRequests {
     /**
      * One request by its own identifier, for a screen that was given the request and not its template (the bell, the
      * approval inbox). The rest is as {@link #get}: a request of a template the caller cannot read, or one they may not
-     * see, does not exist.
+     * see, does not exist; and so does a request of another set than the application names.
      */
     @Transactional(readOnly = true)
-    ChangeRequestView getAnywhere(UUID requestId) {
+    ChangeRequestView getAnywhere(RecordSet set, UUID requestId) {
         access.member();
-        RequestRow row = store.findById(requestId).orElseThrow(() -> ApiException.notFound(NO_REQUEST));
-        return get(row.templateId(), requestId);
+        RequestRow row = store.findById(requestId).filter(found -> set.template().equals(found.templateObject()))
+                .orElseThrow(() -> ApiException.notFound(NO_REQUEST));
+        return get(set, row.templateId(), requestId);
     }
 
     /**
@@ -164,16 +167,21 @@ class ChangeRequests {
      * record under review, not the request). The rest is as {@link #get}.
      */
     @Transactional(readOnly = true)
-    ChangeRequestView getByReview(UUID reviewId) {
+    ChangeRequestView getByReview(RecordSet set, UUID reviewId) {
         access.member();
-        RequestRow row = store.findByHeader(reviewId).orElseThrow(() -> ApiException.notFound(NO_REQUEST));
-        return get(row.templateId(), row.id());
+        RequestRow row = store.findByHeader(reviewId).filter(found -> set.template().equals(found.templateObject()))
+                .orElseThrow(() -> ApiException.notFound(NO_REQUEST));
+        return get(set, row.templateId(), row.id());
     }
 
-    /** The page of the request a review record belongs to, for a bell row that names the record; nothing checked. */
+    /**
+     * The page of the request a review record belongs to, for a bell row that names the record; nothing checked. The
+     * application named is one of those that show the request's own set that the organization has.
+     */
     @Transactional(readOnly = true)
     Optional<String> pathOfReview(UUID reviewId) {
-        return store.findByHeader(reviewId).map(row -> RequestRecords.pathOf(row.templateId(), row.id()));
+        return store.findByHeader(reviewId).flatMap(row -> sets.ofTemplate(row.templateObject())
+                .map(set -> RequestRecords.pathOf(sets.applicationFor(set), row.templateId(), row.id())));
     }
 
     // ---- asking ----
@@ -183,15 +191,15 @@ class ChangeRequests {
      * they mean. Needs only the right to read the template. The version must be one that is or was in use, every place
      * a comment names must be in it, and no other change may be in progress on the template.
      */
-    ChangeRequestView create(UUID templateId, CreateChangeRequest request) {
-        Reach reach = access.reach(templateId);
+    ChangeRequestView create(RecordSet set, UUID templateId, CreateChangeRequest request) {
+        Reach reach = access.reach(set, templateId);
         store.lock(templateId);
-        DataRecord header = header(templateId);
+        DataRecord header = header(set, templateId);
         if (retired(header)) {
             refuse("create", "retired");
             throw new ApiException(ErrorCode.CONFLICT, RETIRED_WORDS);
         }
-        SheetLifecycle.Summary summary = summary(templateId);
+        SheetLifecycle.Summary summary = summary(set, templateId);
         if (summary.active() <= 0) {
             refuse("create", "nothing_in_use");
             throw new ApiException(ErrorCode.CONFLICT, "This template has no revision in use, so nothing can be asked "
@@ -204,7 +212,7 @@ class ChangeRequests {
         Map<String, List<String>> problems = new LinkedHashMap<>();
         Checked<Raised> form = RegisterRules.raise(request.register());
         form.problems().forEach((field, words) -> problems.put("register." + field, words));
-        Layout layout = readLayout(templateId, request.versionNo(), problems);
+        Layout layout = readLayout(set, templateId, request.versionNo(), problems);
         List<NewChangeComment> asked = request.comments() == null ? List.of() : request.comments();
         if (asked.size() > properties.maxFirstComments()) {
             problems.put("comments", List.of("A request starts with at most " + properties.maxFirstComments()
@@ -228,9 +236,9 @@ class ChangeRequests {
             throw new ApiException(ErrorCode.CONFLICT, "You already have " + properties.maxOpenPerPerson()
                     + " open requests on this template. Wait for an answer before asking for more.");
         }
-        Facts platform = facts.of(templateId, reach.userId(), reach.membershipId());
+        Facts platform = facts.of(set, templateId, reach.userId(), reach.membershipId());
         UUID reviewId = startReview(reach, templateId, header);
-        RequestRow made = store.insertRequest(templateId, request.versionNo(),
+        RequestRow made = store.insertRequest(set.template(), templateId, request.versionNo(),
                 RegisterRules.titleOf(form.value().changeRequested()), reach.userId(), platform.department(),
                 reviewId);
         registers.insert(made.id(), templateId, form.value(), platform, reach.userId());
@@ -243,8 +251,9 @@ class ChangeRequests {
                 places++;
             }
         }
-        changes.requested(reach.userId(), templateId, made.id(), made.versionNo(), asked.size(), places);
-        tell(header.ownerId(), reach.userId(), templateId, made.id(), "requested", "chg:" + made.id() + ":requested");
+        changes.requested(set, reach.userId(), templateId, made.id(), made.versionNo(), asked.size(), places);
+        tell(set, header.ownerId(), reach.userId(), templateId, made.id(), "requested",
+                "chg:" + made.id() + ":requested");
         return view(frame(reach, List.of(made)), made);
     }
 
@@ -258,16 +267,17 @@ class ChangeRequests {
      * @return the identifier of the record
      */
     private UUID startReview(Reach reach, UUID templateId, DataRecord template) {
-        if (!starter.available(RequestRecords.OBJECT)) {
+        RecordSet set = reach.set();
+        if (!starter.available(set.request())) {
             refuse("create", "no_process");
             throw new ApiException(ErrorCode.CONFLICT, NO_PROCESS_WORDS);
         }
         Object name = template.fields().get(Templates.NAME);
         String shown = name instanceof String text && !text.isBlank() ? text.strip() : "Template";
-        DataRecord review = headers.create(reach.userId(), template.ownerId(), templateId,
+        DataRecord review = headers.create(set, reach.userId(), template.ownerId(), templateId,
                 shown.length() > NAME_LIMIT ? shown.substring(0, NAME_LIMIT) : shown);
         try {
-            starter.startForPerson(RequestRecords.OBJECT, review.id(), reach.userId());
+            starter.startForPerson(set.request(), review.id(), reach.userId());
         } catch (ApprovalStartRefusal refused) {
             refuse("create", "review_" + refused.reason());
             throw new ApiException(ErrorCode.CONFLICT, refused.words());
@@ -276,8 +286,8 @@ class ChangeRequests {
     }
 
     /** Adds a comment to a request that is open: by the person who asked, or by a person who may review. */
-    ChangeRequestView comment(UUID templateId, UUID requestId, NewChangeComment comment) {
-        Reach reach = access.reach(templateId);
+    ChangeRequestView comment(RecordSet set, UUID templateId, UUID requestId, NewChangeComment comment) {
+        Reach reach = access.reach(set, templateId);
         store.lock(templateId);
         RequestRow row = access.request(reach, requestId);
         if (!row.state().takesComments()) {
@@ -290,7 +300,7 @@ class ChangeRequests {
                     + properties.maxCommentsPerRequest() + ").");
         }
         Map<String, List<String>> problems = new LinkedHashMap<>();
-        Layout layout = sheets.layoutOf(Templates.OBJECT, templateId, row.versionNo()).orElseThrow();
+        Layout layout = sheets.layoutOf(set.template(), templateId, row.versionNo()).orElseThrow();
         ChangeAnchor anchor = checkedComment("", comment, layout, problems);
         if (!problems.isEmpty()) {
             refuse("comment", "invalid");
@@ -298,11 +308,11 @@ class ChangeRequests {
         }
         CommentRow written = store.insertComment(requestId, templateId, anchor, anchor.label(layout),
                 ChangeText.clean(comment.text()), reach.userId());
-        changes.commented(reach.userId(), templateId, requestId, written.id(), anchor.kind().name());
+        changes.commented(set, reach.userId(), templateId, requestId, written.id(), anchor.kind().name());
         // The other side is told: the owner when the person who asked writes, the person who asked when anyone else
         // does.
-        UUID other = row.createdBy().equals(reach.userId()) ? header(templateId).ownerId() : row.createdBy();
-        tell(other, reach.userId(), templateId, requestId, "commented", "chg:" + written.id() + ":commented");
+        UUID other = row.createdBy().equals(reach.userId()) ? header(set, templateId).ownerId() : row.createdBy();
+        tell(set, other, reach.userId(), templateId, requestId, "commented", "chg:" + written.id() + ":commented");
         return view(frame(reach, List.of(row)), row);
     }
 
@@ -317,8 +327,8 @@ class ChangeRequests {
      * @throws ApiException {@code NOT_FOUND}, {@code FORBIDDEN}, {@code CONFLICT} (the request is not waiting for an
      *         approval, a copy already exists, no revision is in use, the sheet has the most versions it can have)
      */
-    ChangeRequestView createCopy(UUID templateId, UUID requestId) {
-        Reach reach = access.reach(templateId);
+    ChangeRequestView createCopy(RecordSet set, UUID templateId, UUID requestId) {
+        Reach reach = access.reach(set, templateId);
         store.lock(templateId);
         RequestRow row = access.request(reach, requestId);
         if (row.state() != ChangeRequestStatus.OPEN) {
@@ -335,14 +345,14 @@ class ChangeRequests {
             return new ApiException(ErrorCode.CONFLICT, "This request is not waiting for an approval. Send it for "
                     + "approval again, then make the copy.");
         });
-        SheetLifecycle.Summary summary = summary(templateId);
-        if (summary.active() <= 0 || retired(header(templateId))) {
+        SheetLifecycle.Summary summary = summary(set, templateId);
+        if (summary.active() <= 0 || retired(header(set, templateId))) {
             refuse("copy", "nothing_in_use");
             throw new ApiException(ErrorCode.CONFLICT, "This template has no revision in use to copy.");
         }
         SheetLifecycle.Started started;
         try {
-            started = sheets.startHeldDraft(Templates.OBJECT, templateId, summary.active(), pending, reach.userId());
+            started = sheets.startHeldDraft(set.template(), templateId, summary.active(), pending, reach.userId());
         } catch (SheetMoveRefusal refusal) {
             refuse("copy", refusal.reason().name().toLowerCase(java.util.Locale.ROOT));
             throw new ApiException(ErrorCode.CONFLICT, refusal.reason() == SheetMoveRefusal.Reason.DRAFT_EXISTS
@@ -350,16 +360,16 @@ class ChangeRequests {
                             + "withdraw it first."
                     : refusal.getMessage());
         }
-        changes.copied(reach.userId(), templateId, requestId, started.versionNo());
+        changes.copied(set, reach.userId(), templateId, requestId, started.versionNo());
         return view(frame(reach, List.of(row)), row);
     }
 
     // ---- rules ----
 
     /** The places of the version that was read; a problem is put in the map when it cannot be asked about. */
-    private Layout readLayout(UUID templateId, Integer versionNo, Map<String, List<String>> problems) {
+    private Layout readLayout(RecordSet set, UUID templateId, Integer versionNo, Map<String, List<String>> problems) {
         Optional<Layout> layout = versionNo == null ? Optional.empty()
-                : sheets.layoutOf(Templates.OBJECT, templateId, versionNo);
+                : sheets.layoutOf(set.template(), templateId, versionNo);
         // A version that nobody but its authors may read answers like one that does not exist.
         if (layout.isEmpty() || !layout.get().status().readableByReaders()) {
             problems.put("versionNo", List.of("There is no such revision to ask about."));
@@ -387,8 +397,9 @@ class ChangeRequests {
     // ---- telling people ----
 
     /** Tells one person, unless it is the person who did it or there is nobody to tell. */
-    private void tell(UUID recipient, UUID actor, UUID templateId, UUID requestId, String event, String key) {
-        notices.tell(recipient, actor, templateId, requestId, event, key);
+    private void tell(RecordSet set, UUID recipient, UUID actor, UUID templateId, UUID requestId, String event,
+            String key) {
+        notices.tell(set, recipient, actor, templateId, requestId, event, key);
     }
 
     // ---- views ----
@@ -411,11 +422,11 @@ class ChangeRequests {
 
         private Frame(Reach reach, List<RequestRow> rows) {
             this.reach = reach;
-            this.summary = summary(reach.templateId());
-            DataRecord template = header(reach.templateId());
+            this.summary = summary(reach.set(), reach.templateId());
+            DataRecord template = header(reach.set(), reach.templateId());
             this.canRequest = summary.active() > 0 && !retired(template);
             this.mayPublish = permissions.has(reach.membershipId(), Ability.SHEETS_PUBLISH);
-            this.held = sheets.heldDraft(Templates.OBJECT, reach.templateId());
+            this.held = sheets.heldDraft(reach.set().template(), reach.templateId());
             this.templateName = text(template, Templates.NAME);
             this.templateNumber = text(template, Templates.NUMBER);
             for (CommentRow comment : store.comments(rows.stream().map(RequestRow::id).toList())) {
@@ -430,7 +441,8 @@ class ChangeRequests {
         /** The places of the version in use, read the first time a comment asks. */
         private Optional<Layout> active() {
             if (!activeRead) {
-                active = summary.active() > 0 ? sheets.layoutOf(Templates.OBJECT, reach.templateId(), summary.active())
+                active = summary.active() > 0
+                        ? sheets.layoutOf(reach.set().template(), reach.templateId(), summary.active())
                         : Optional.empty();
                 activeRead = true;
             }
@@ -439,7 +451,7 @@ class ChangeRequests {
 
         private Optional<SheetStatus> statusOf(int versionNo) {
             return statuses.computeIfAbsent(versionNo,
-                    number -> sheets.statusOf(Templates.OBJECT, reach.templateId(), number));
+                    number -> sheets.statusOf(reach.set().template(), reach.templateId(), number));
         }
     }
 
@@ -478,7 +490,7 @@ class ChangeRequests {
         }
         Optional<SheetStatus> became = resulting == null ? Optional.empty() : frame.statusOf(resulting);
         Integer revision = status == ChangeRequestStatus.DONE && resulting != null
-                ? revisions.of(row.templateId(), resulting) : null;
+                ? revisions.of(frame.reach.set(), row.templateId(), resulting) : null;
         boolean canCreateCopy = asked && frame.canRequest && frame.held.isEmpty();
         boolean canChangeCopy = asked && frame.held.isPresent();
         return new ChangeRequestView(row.id(), row.title(), status.name(), row.versionNo(),
@@ -521,8 +533,8 @@ class ChangeRequests {
 
     // ---- helpers ----
 
-    private DataRecord header(UUID templateId) {
-        return records.find(Templates.OBJECT, templateId)
+    private DataRecord header(RecordSet set, UUID templateId) {
+        return records.find(set.template(), templateId)
                 .orElseThrow(() -> ApiException.notFound("This template does not exist."));
     }
 
@@ -530,8 +542,8 @@ class ChangeRequests {
         return Boolean.TRUE.equals(header.fields().get(Templates.RETIRED));
     }
 
-    private SheetLifecycle.Summary summary(UUID templateId) {
-        return sheets.summaries(Templates.OBJECT, List.of(templateId)).getOrDefault(templateId,
+    private SheetLifecycle.Summary summary(RecordSet set, UUID templateId) {
+        return sheets.summaries(set.template(), List.of(templateId)).getOrDefault(templateId,
                 new SheetLifecycle.Summary(0, 0, 0, 0, 0, 0, 0));
     }
 

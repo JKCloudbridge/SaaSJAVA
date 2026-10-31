@@ -1,0 +1,20 @@
+# The Audit Management application (Functional track FA13A, ADR-0225): announced before it is built. It has only its Home.
+# It brings no objects and no access policies, so there is nothing to read or to protect. It has a plan feature of its
+# own, so an organization can have it with or without any other application. A tab becomes a real page later by
+# changing only this file and registering its page in the web application.
+key: audit-management
+feature: audit-management
+label: Audit Management
+removalNote: >-
+  Taking this feature away hides the Audit Management application from the organization at once. It holds no data, so nothing is lost,
+  and it comes back when the feature is given again.
+order: 3
+application:
+  apiName: audit-management
+  label: Audit Management
+  iconKey: audit
+  group: Leadership
+  entries:
+    - type: PLATFORM
+      label: Home
+      pageKey: home

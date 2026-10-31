@@ -6,12 +6,29 @@ import java.util.Set;
 
 /** Trusted domain contributions inside the ordinary record pipeline, after member input has passed its checks. */
 public interface RecordWriteRule {
+
+    /** The API name of the object this rule serves; of the first, when it serves several ({@link #serves}). */
     String object();
+
+    /**
+     * Whether the rule serves the object (FA13B, ADR-0226). A rule that serves the objects of several applications of
+     * one kind answers for each of them; the default serves {@link #object()} alone.
+     */
+    default boolean serves(String objectApiName) {
+        return object().equals(objectApiName);
+    }
 
     /** Only declared platform-written fields may be contributed. */
     Set<String> writes();
 
-    Changes prepare(DataRecord current, Map<String, Object> merged, Set<String> editableFields, boolean platform);
+    /**
+     * What the rule contributes to a write.
+     *
+     * @param object the API name of the object being written, so a rule that serves several knows which
+     * @param current the record as it is, or null on a create
+     */
+    Changes prepare(String object, DataRecord current, Map<String, Object> merged, Set<String> editableFields,
+            boolean platform);
 
     default void stored(DataRecord before, DataRecord after) { }
 

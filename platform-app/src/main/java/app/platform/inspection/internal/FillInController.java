@@ -9,6 +9,7 @@ import app.platform.inspection.internal.FillInViews.ReportColumnsView;
 import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -38,12 +39,19 @@ class FillInController {
             + "and on the platform host (all alike). A template is visible by the rules of every record: the object "
             + "permission, the private default of a template, and the shares. ";
 
+    private static final String APPLICATION = "The application whose records are meant (its API name). It chooses "
+            + "among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application "
+            + "that does not exist, one the organization does not have and the platform host. What the caller may do "
+            + "inside the set is decided by the same rights as ever.";
+
     private final FillIns fillIns;
     private final FillReport report;
+    private final RecordSets sets;
 
-    FillInController(FillIns fillIns, FillReport report) {
+    FillInController(FillIns fillIns, FillReport report, RecordSets sets) {
         this.fillIns = fillIns;
         this.report = report;
+        this.sets = sets;
     }
 
     @GetMapping(ApiPaths.V1 + "/templates/{templateId}/fill-in-options")
@@ -54,8 +62,9 @@ class FillInController {
                     + "retired and a version is in use; activeVersion is the version a fill-in started now would be "
                     + "made on. When canStart is false, reason says why in words for a person. The flag only hides "
                     + "a button: starting is decided again. " + SEES)
-    ApiResponse<FillInOptionsView> options(@PathVariable UUID templateId) {
-        return ApiResponse.of(fillIns.options(templateId));
+    ApiResponse<FillInOptionsView> options(@PathVariable UUID templateId,
+            @RequestParam @Parameter(description = APPLICATION) String application) {
+        return ApiResponse.of(fillIns.options(sets.require(application), templateId));
     }
 
     @PostMapping(ApiPaths.V1 + "/templates/{templateId}/fill-ins")
@@ -68,8 +77,10 @@ class FillInController {
                     + "it, apart from the people who may view every fill-in. CONFLICT for a retired template, when "
                     + "no version is in use and when the version moved while the request ran. Audited by the "
                     + "identifiers and the version number. " + SEES)
-    ResponseEntity<ApiResponse<FillInStartedView>> start(@PathVariable UUID templateId) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(fillIns.start(templateId)));
+    ResponseEntity<ApiResponse<FillInStartedView>> start(@PathVariable UUID templateId,
+            @RequestParam @Parameter(description = APPLICATION) String application) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.of(fillIns.start(sets.require(application), templateId)));
     }
 
     @PostMapping(ApiPaths.V1 + "/fill-ins/{fillId}/submit")
@@ -84,8 +95,9 @@ class FillInController {
                     + "on the record follows. NOT_FOUND for a fill-in the caller cannot see, FORBIDDEN for one they "
                     + "may see but not change, CONFLICT with fixed words for a check that fails (the place is named "
                     + "by identifiers, never by what was typed). Audited by identifiers.")
-    ApiResponse<FillInSubmittedView> submit(@PathVariable UUID fillId) {
-        return ApiResponse.of(fillIns.submit(fillId));
+    ApiResponse<FillInSubmittedView> submit(@PathVariable UUID fillId,
+            @RequestParam @Parameter(description = APPLICATION) String application) {
+        return ApiResponse.of(fillIns.submit(sets.require(application), fillId));
     }
 
     @GetMapping(ApiPaths.V1 + "/fill-ins")
@@ -98,10 +110,10 @@ class FillInController {
                     + "their own, and all of them for a caller who may view every fill-in. Filters: templateId and "
                     + "status (DRAFT, SUBMITTED, RETURNED or APPROVED). A fill-in stays in the list after its "
                     + "template is unpublished or retired. size is at most 200 (50 when left out).")
-    ApiResponse<FillInPage> list(@RequestParam(required = false) UUID templateId,
-            @RequestParam(required = false) String status, @RequestParam(required = false) Integer size,
-            @RequestParam(required = false) String cursor) {
-        return ApiResponse.of(fillIns.page(templateId, status, size, cursor));
+    ApiResponse<FillInPage> list(@RequestParam @Parameter(description = APPLICATION) String application,
+            @RequestParam(required = false) UUID templateId, @RequestParam(required = false) String status,
+            @RequestParam(required = false) Integer size, @RequestParam(required = false) String cursor) {
+        return ApiResponse.of(fillIns.page(sets.require(application), templateId, status, size, cursor));
     }
 
     @PostMapping(ApiPaths.V1 + "/fill-ins/query")
@@ -113,8 +125,9 @@ class FillInController {
                     + "store, and the narrowing to one template or status. A post, because the filter does not "
                     + "belong in an address. The page is read through the record store, so the caller sees exactly "
                     + "the fill-ins they may see. Nothing typed is logged.")
-    ApiResponse<FillInPage> query(@Valid @RequestBody FillInViews.FillInQuery body) {
-        return ApiResponse.of(fillIns.query(body));
+    ApiResponse<FillInPage> query(@RequestParam @Parameter(description = APPLICATION) String application,
+            @Valid @RequestBody FillInViews.FillInQuery body) {
+        return ApiResponse.of(fillIns.query(sets.require(application), body));
     }
 
     @GetMapping(ApiPaths.V1 + "/fill-ins/report/columns")
@@ -125,9 +138,9 @@ class FillInController {
                     + "versionNo is left out), in the order of the sheet, with their type and, for a list column, "
                     + "its values. A version still being written or reviewed has none to show. Only to draw the "
                     + "report's choices: the report decides again. " + SEES)
-    ApiResponse<ReportColumnsView> reportColumns(@RequestParam UUID templateId,
-            @RequestParam(required = false) Integer versionNo) {
-        return ApiResponse.of(report.columns(templateId, versionNo));
+    ApiResponse<ReportColumnsView> reportColumns(@RequestParam @Parameter(description = APPLICATION) String application,
+            @RequestParam UUID templateId, @RequestParam(required = false) Integer versionNo) {
+        return ApiResponse.of(report.columns(sets.require(application), templateId, versionNo));
     }
 
     @PostMapping(ApiPaths.V1 + "/fill-ins/report")
@@ -143,7 +156,8 @@ class FillInController {
                     + "carry a nextCursor: only a missing nextCursor means the end. The value travels in the body "
                     + "and is never logged or audited. VALIDATION_ERROR names the field that is wrong, with fixed "
                     + "words. " + SEES)
-    ApiResponse<FillInPage> report(@Valid @RequestBody FillReportRequest request) {
-        return ApiResponse.of(report.run(request));
+    ApiResponse<FillInPage> report(@RequestParam @Parameter(description = APPLICATION) String application,
+            @Valid @RequestBody FillReportRequest request) {
+        return ApiResponse.of(report.run(sets.require(application), request));
     }
 }

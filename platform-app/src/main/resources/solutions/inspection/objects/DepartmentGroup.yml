@@ -17,6 +17,9 @@ pluralLabel: Department groups
 description: Says which group of people belongs to a department of a location, for publishing templates to them.
 extensible: false
 requiresFeature: inspection
+# The Document Management and Environment Management applications use the same department setup (FA13A, ADR-0225;
+# FA13B, ADR-0226): the object exists when any of their plan features is on, and nothing is stored twice.
+alsoAvailableWith: [document-management, environment-management]
 fields:
   - apiName: name
     label: Name

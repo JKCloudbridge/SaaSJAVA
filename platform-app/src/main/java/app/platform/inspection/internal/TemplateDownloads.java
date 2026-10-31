@@ -83,37 +83,38 @@ class TemplateDownloads {
     /**
      * The file of one revision.
      *
+     * @param set the set of records the template belongs to
      * @param templateId the template
      * @param versionNo the stored number of the revision, or null for the one in use
      * @throws ApiException {@code NOT_FOUND}, {@code FORBIDDEN} (download is not allowed), {@code PAYLOAD_TOO_LARGE}
      */
-    Download download(UUID templateId, Integer versionNo) {
-        Caller caller = access.visible(templateId);
-        Options set = options.find(templateId);
-        boolean heldCopy = versionNo != null && lifecycle.heldDraft(Templates.OBJECT, templateId)
+    Download download(RecordSet set, UUID templateId, Integer versionNo) {
+        Caller caller = access.visible(set, templateId);
+        Options chosen = options.find(templateId);
+        boolean heldCopy = versionNo != null && lifecycle.heldDraft(set.template(), templateId)
                 .filter(held -> held.versionNo() == versionNo).isPresent();
         // The revised copy of a change request may be downloaded by the people who change it, whatever the option says
         // (FA10, ADR-0204). The sheet rule asks again below, and it shows the held copy only to the people asked to
         // decide the request (and the organization's administrator): reading it and changing it are the same people.
-        if (!set.allowDownload() && !heldCopy && !access.has(caller, Ability.SHEETS_PUBLISH)) {
+        if (!chosen.allowDownload() && !heldCopy && !access.has(caller, Ability.SHEETS_PUBLISH)) {
             meters.counter("platform.inspection.template", "act", "download", "result", "not_allowed").increment();
             throw new ApiException(ErrorCode.FORBIDDEN, NOT_ALLOWED);
         }
-        SheetLifecycle.Summary summary = lifecycle.summaries(Templates.OBJECT, List.of(templateId))
+        SheetLifecycle.Summary summary = lifecycle.summaries(set.template(), List.of(templateId))
                 .getOrDefault(templateId, new SheetLifecycle.Summary(0, 0, 0, 0, 0, 0, 0));
         int wanted = versionNo != null ? versionNo : summary.active();
         if (wanted <= 0) {
             throw ApiException.notFound("This revision does not exist.");
         }
-        DataRecord header = records.find(Templates.OBJECT, templateId)
+        DataRecord header = records.find(set.template(), templateId)
                 .orElseThrow(() -> ApiException.notFound("This template does not exist."));
         Object number = header.fields().get(Templates.NUMBER);
         String numberText = number == null ? null : number.toString();
-        int shown = revisions.of(templateId, summary.active() > 0 ? summary.active() : wanted);
-        byte[] bytes = exports.xlsx(Templates.OBJECT, templateId, wanted,
+        int shown = revisions.of(set, templateId, summary.active() > 0 ? summary.active() : wanted);
+        byte[] bytes = exports.xlsx(set.template(), templateId, wanted,
                 TemplateSheetTexts.footer(numberText, shown));
         audit.record(AuditRecord.of("inspection.template.downloaded", AuditOutcome.SUCCESS).forUser(caller.userId())
-                .inTenant(contexts.require().tenantId()).onObject(Templates.OBJECT, templateId.toString())
+                .inTenant(contexts.require().tenantId()).onObject(set.template(), templateId.toString())
                 .with("version_no", Integer.toString(wanted)).with("bytes", Integer.toString(bytes.length)));
         meters.counter("platform.inspection.template", "act", "download", "result", "ok").increment();
         return new Download(bytes, TemplateSheetTexts.fileName(numberText, shown));

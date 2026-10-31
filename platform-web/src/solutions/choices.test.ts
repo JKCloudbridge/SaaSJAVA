@@ -27,4 +27,12 @@ describe("whether approving a step needs a choice (FA8)", () => {
     expect(choiceNeeded(undefined, false, true)).toBe(false);
     expect(choiceNeeded("Expense__c", false, true)).toBe(false);
   });
+
+  it("follows the part an object plays, so the objects of every application of the kind have their form (FA13B)", () => {
+    expect(choiceFormFor("EnvironmentTemplate")).toBeDefined();
+    expect(choiceFormFor("EnvironmentChangeRequest")).toBeDefined();
+    expect(choiceFormFor("EnvironmentFill")).toBeUndefined();
+    expect(choiceNeeded("EnvironmentChangeRequest", false, true)).toBe(true);
+    expect(choiceNeeded("EnvironmentTemplate", false, true)).toBe(false);
+  });
 });

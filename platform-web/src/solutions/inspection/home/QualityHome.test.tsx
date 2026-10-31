@@ -425,4 +425,45 @@ describe("the graphs of the home page", () => {
     fireEvent.click(screen.getByRole("radio", { name: "Option 1" }));
     window.localStorage.clear();
   });
+
+  it("offers a third look, the board, with six tiles, three graphs, six cards and a message, and keeps the first look as the default", async () => {
+    window.localStorage.clear();
+    open();
+    await screen.findByTestId("value-active-templates");
+    expect(screen.getByRole("radio", { name: "Option 1" })).toHaveAttribute("aria-checked", "true");
+
+    fireEvent.click(screen.getByRole("radio", { name: "Option 3" }));
+
+    expect(await screen.findByTestId("board-cards")).toBeInTheDocument();
+    expect(screen.getByTestId("quality-home")).toHaveAttribute("data-look", "3");
+    expect(screen.getByTestId("home-tiles").querySelectorAll(".board-tile")).toHaveLength(6);
+    expect(screen.getByTestId("value-active-templates")).toHaveTextContent("12");
+    expect(screen.getByTestId("chart-fills-per-day")).toBeInTheDocument();
+    expect(screen.getByTestId("chart-templates-by-status")).toBeInTheDocument();
+    expect(screen.getByTestId("chart-level-and-type")).toBeInTheDocument();
+    expect(screen.getByTestId("board-cards").querySelectorAll(".board-card")).toHaveLength(6);
+    expect(screen.getByTestId("board-message")).toHaveTextContent("3 templates are waiting for approval.");
+    expect(window.localStorage.getItem("home-look")).toBe("3");
+
+    fireEvent.click(screen.getByRole("radio", { name: "Option 1" }));
+    expect(await screen.findByTestId("tile-drafts")).toBeInTheDocument();
+    window.localStorage.clear();
+  });
+
+  it("offers a fourth look: the first look with every tile, drawn compact under a solid strip", async () => {
+    window.localStorage.clear();
+    open();
+    await screen.findByTestId("value-active-templates");
+
+    fireEvent.click(screen.getByRole("radio", { name: "Option 4" }));
+
+    expect(await screen.findByTestId("quality-home")).toHaveAttribute("data-look", "4");
+    expect(screen.getByTestId("quality-home")).toHaveClass("dash-compact");
+    expect(screen.getByTestId("tile-drafts")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "30 days" })).toBeInTheDocument();
+    expect(window.localStorage.getItem("home-look")).toBe("4");
+
+    fireEvent.click(screen.getByRole("radio", { name: "Option 1" }));
+    window.localStorage.clear();
+  });
 });

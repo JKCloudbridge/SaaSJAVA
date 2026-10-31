@@ -11,4 +11,18 @@ describe("the look of the home page", () => {
 
     expect(readHomeLook()).toBe(2);
   });
+
+  it("remembers the board look, and falls back to the first look for anything it does not know", () => {
+    writeHomeLook(3);
+
+    expect(readHomeLook()).toBe(3);
+
+    writeHomeLook(4);
+
+    expect(readHomeLook()).toBe(4);
+
+    window.localStorage.setItem("home-look", "9");
+
+    expect(readHomeLook()).toBe(1);
+  });
 });

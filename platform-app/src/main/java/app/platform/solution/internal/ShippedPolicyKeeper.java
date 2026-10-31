@@ -3,6 +3,7 @@ package app.platform.solution.internal;
 import app.platform.security.ShippedAccessPolicies;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
+import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -32,17 +33,30 @@ class ShippedPolicyKeeper {
 
     /** The declarations of the bundle in the shape the security module takes. */
     static List<ShippedAccessPolicies.Declaration> declarations(SolutionBundle bundle) {
-        return bundle.policies().stream().map(policy -> new ShippedAccessPolicies.Declaration(
+        return declarations(bundle.policies(), bundle);
+    }
+
+    /** The declarations of the given policies of the bundle. */
+    private static List<ShippedAccessPolicies.Declaration> declarations(List<SolutionBundle.Policy> policies,
+            SolutionBundle bundle) {
+        return policies.stream().map(policy -> new ShippedAccessPolicies.Declaration(
                 policy.managedKey(bundle.key()), policy.name(), policy.description(), policy.objects(),
                 policy.abilities(), policy.fields())).toList();
     }
 
-    /** Makes the policies of the solution the organization lacks; never throws. */
-    void keep(SolutionBundle bundle) {
-        if (bundle.policies().isEmpty()) {
+    /**
+     * Makes the policies of the solution the organization lacks; never throws. A policy is kept while the solution's
+     * own feature is on or any feature it is also available with is (FA13A, ADR-0225): an application that shares
+     * another's policies needs them although the other application is off.
+     */
+    void keep(SolutionBundle bundle, Predicate<String> featureOn) {
+        boolean own = featureOn.test(bundle.feature());
+        List<SolutionBundle.Policy> wanted = bundle.policies().stream()
+                .filter(policy -> own || policy.alsoAvailableWith().stream().anyMatch(featureOn)).toList();
+        if (wanted.isEmpty()) {
             return;
         }
-        List<ShippedAccessPolicies.Declaration> declared = declarations(bundle);
+        List<ShippedAccessPolicies.Declaration> declared = declarations(wanted, bundle);
         try {
             if (policies.upToDate(SolutionBundle.OWNER, declared)) {
                 return;

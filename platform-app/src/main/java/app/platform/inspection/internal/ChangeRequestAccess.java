@@ -34,8 +34,9 @@ class ChangeRequestAccess {
      * @param membershipId the membership of that user
      * @param templateId the template
      * @param canReview whether the member may change the template, and so answer requests and see all of them
+     * @param set the set of records the template belongs to
      */
-    record Reach(UUID userId, UUID membershipId, UUID templateId, boolean canReview) {
+    record Reach(UUID userId, UUID membershipId, UUID templateId, boolean canReview, RecordSet set) {
     }
 
     private static final String NO_REQUEST = "This change request does not exist.";
@@ -65,23 +66,23 @@ class ChangeRequestAccess {
     }
 
     /** The member's reach, for a template they can read; "not found" otherwise. */
-    Reach reach(UUID templateId) {
-        TemplateAccess.Caller caller = access.visible(templateId);
+    Reach reach(RecordSet set, UUID templateId) {
+        TemplateAccess.Caller caller = access.visible(set, templateId);
         return new Reach(caller.userId(), caller.membershipId(), templateId,
-                canReview(caller.membershipId(), templateId));
+                canReview(set, caller.membershipId(), templateId), set);
     }
 
     /**
      * Whether the member may change the template, so answer its requests and see all of them. The same question as
      * {@link #reach} asks, without reading the template again: for a list that judges many templates in one go.
      */
-    boolean canReview(UUID membershipId, UUID templateId) {
-        return decisions.can(membershipId, Templates.OBJECT, ObjectAction.UPDATE, new RecordRef(templateId)).allowed();
+    boolean canReview(RecordSet set, UUID membershipId, UUID templateId) {
+        return decisions.can(membershipId, set.template(), ObjectAction.UPDATE, new RecordRef(templateId)).allowed();
     }
 
-    /** Whether the member may change any template at all (the object right), a cheap first question. */
-    boolean mayReviewSome(UUID membershipId) {
-        return decisions.can(membershipId, Templates.OBJECT, ObjectAction.UPDATE).allowed();
+    /** Whether the member may change any template of the set at all (the object right), a cheap first question. */
+    boolean mayReviewSome(RecordSet set, UUID membershipId) {
+        return decisions.can(membershipId, set.template(), ObjectAction.UPDATE).allowed();
     }
 
     /** The member behind the request, for a list that is not about one template; "not found" on the platform host. */

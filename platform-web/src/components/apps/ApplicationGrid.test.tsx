@@ -207,4 +207,46 @@ describe("the grid of applications", () => {
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.queryByText(/could not be loaded/i)).toBeNull();
   });
+
+  it("draws the tiles in the order the API gave them and holds no order of its own (FA13A)", () => {
+    const tile = (apiName: string, label: string, group: string, tabs: NavigationEntry[]): MyApplication => ({
+      apiName,
+      label,
+      iconKey: "folder",
+      group,
+      items: tabs,
+    });
+    const documents = tile("document-management", "Document Management", "Leadership", [
+      page("Home", "home"),
+      page("Document Control", "templates"),
+    ]);
+    const capa = tile("capa", "CAPA", "Operations", [page("Home", "home")]);
+    const audit = tile("audit-management", "Audit Management", "Leadership", [page("Home", "home")]);
+    const supplier = tile("supplier-management", "Supplier Management", "Supply chain", [
+      page("Home", "home"),
+      page("Supplier Performance Monitoring", "supplier-performance-monitoring", true),
+      page("Supplier Portal", "supplier-portal", true),
+    ]);
+    const core = tile("management-core", "Management Core", "Leadership", [
+      page("Home", "home"),
+      page("KPI management", "kpi-management", true),
+    ]);
+
+    renderGrid({ applications: [documents, capa, audit, supplier, core, QUALITY, STORES, PURCHASING] });
+
+    const names = tilesOf().map((link) => link.getAttribute("href"));
+    expect(names).toEqual([
+      "/apps/document-management",
+      "/apps/capa",
+      "/apps/audit-management",
+      "/apps/supplier-management",
+      "/apps/management-core",
+      "/apps/quality",
+      "/apps/stores",
+      "/apps/purchasing",
+    ]);
+    expect(within(tilesOf()[3]!).getByText("3 tabs")).toBeInTheDocument();
+    expect(within(tilesOf()[1]!).getByText("Coming soon")).toBeInTheDocument();
+    expect(within(tilesOf()[0]!).queryByText("Coming soon")).toBeNull();
+  });
 });

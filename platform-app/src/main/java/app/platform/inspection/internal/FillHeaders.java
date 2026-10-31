@@ -33,20 +33,21 @@ class FillHeaders {
     /**
      * Makes the header of a new fill-in, owned by the person who starts it.
      *
+     * @param set the set of records the fill-in belongs to; the header is made in its fill-in object
      * @param owner the user who starts the fill-in
      * @param templateId the template it is started on
      * @param name the name shown for it: that of the template at the time
      */
-    DataRecord create(UUID owner, UUID templateId, String name) {
-        return writes.create(Source.solution("fill.start", templateId), Fills.OBJECT, owner, List.of(
+    DataRecord create(RecordSet set, UUID owner, UUID templateId, String name) {
+        return writes.create(Source.solution("fill.start", templateId), set.fill(), owner, List.of(
                 new Assignment(Fills.NAME, new Value.Literal(name)),
                 new Assignment(Fills.TEMPLATE_ID, new Value.Literal(templateId.toString())),
                 new Assignment(Fills.STATUS, new Value.Literal(FillStatus.DRAFT.name()))));
     }
 
     /** Follows a move of the fill-in on its header. */
-    void status(UUID fillId, FillStatus status) {
-        writes.update(Source.solution("fill.status", fillId), Fills.OBJECT, fillId,
+    void status(String fillObject, UUID fillId, FillStatus status) {
+        writes.update(Source.solution("fill.status", fillId), fillObject, fillId,
                 List.of(new Assignment(Fills.STATUS, new Value.Literal(status.name()))));
     }
 }

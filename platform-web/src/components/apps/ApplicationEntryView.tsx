@@ -45,6 +45,13 @@ export function ApplicationEntryView() {
   const application = findApplication(state.applications, address.application);
   const entry = application ? findEntry(application, address.entry) : undefined;
   const key = `${address.application}/${address.entry}`;
+  // The tab names the page and the application, so two applications that show the same screens are told apart (FA13A).
+  const title = application && entry?.label ? `${entry.label} - ${application.label}` : null;
+  useEffect(() => {
+    if (title) {
+      document.title = title;
+    }
+  }, [title]);
   // The address the list was last asked about again. An address that is not in the list may be in a newer one, so
   // the API is asked once more before the page says it is not available.
   const [lookedAgain, setLookedAgain] = useState<string | null>(null);

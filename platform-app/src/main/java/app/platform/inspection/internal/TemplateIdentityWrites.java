@@ -21,15 +21,29 @@ class TemplateIdentityWrites implements RecordWriteRule {
     static final String FIXED = "The identity fields are fixed after the first approval.";
     private final NumberSeries numbers;
     private final NumberAssignments assignments;
+    private final RecordSets sets;
 
-    TemplateIdentityWrites(NumberSeries numbers, NumberAssignments assignments) {
+    TemplateIdentityWrites(NumberSeries numbers, NumberAssignments assignments, RecordSets sets) {
         this.numbers = numbers;
         this.assignments = assignments;
+        this.sets = sets;
+    }
+
+    /** The template object of the first set; the rule serves the template object of every set ({@link #serves}). */
+    @Override
+    public String object() {
+        return sets.templates().get(0);
     }
 
     @Override
-    public String object() {
-        return Templates.OBJECT;
+    public boolean serves(String objectApiName) {
+        return sets.ofTemplate(objectApiName).isPresent();
+    }
+
+    /** The number series of the set whose template object this is. */
+    private String seriesOf(String object) {
+        return sets.ofTemplate(object).orElseThrow(() -> new IllegalStateException(
+                "A template rule was asked about an object that is not a template object")).series();
     }
 
     @Override
@@ -50,11 +64,14 @@ class TemplateIdentityWrites implements RecordWriteRule {
 
     @Override
     public Set<String> lockedFields(DataRecord current) {
-        return assignments.fixed(Templates.SERIES, current.id(), text(current)) ? IDENTITY : Set.of();
+        return assignments.fixed(seriesOf(current.objectApiName()), current.id(), text(current)) ? IDENTITY
+                : Set.of();
     }
 
     @Override
-    public Changes prepare(DataRecord current, Map<String, Object> merged, Set<String> editable, boolean platform) {
+    public Changes prepare(String object, DataRecord current, Map<String, Object> merged, Set<String> editable,
+            boolean platform) {
+        String series = seriesOf(object);
         Map<String, Object> held = current == null ? Map.of() : current.fields();
         boolean changed = IDENTITY.stream().anyMatch(name -> !Objects.equals(held.get(name), merged.get(name)));
         if (current != null && !lockedFields(current).isEmpty()) {
@@ -75,7 +92,7 @@ class TemplateIdentityWrites implements RecordWriteRule {
         }
         rejectUnusablePart(Templates.PART_A, "Part A", merged);
         rejectUnusablePart(Templates.PART_B, "Part B", merged);
-        var missing = numbers.missingParts(Templates.SERIES, merged);
+        var missing = numbers.missingParts(series, merged);
         if (missing.isEmpty()) {
             throw ApiException.validation(Templates.CATEGORY,
                     "This identification has no numbering yet. Ask your administrator.");
@@ -88,13 +105,13 @@ class TemplateIdentityWrites implements RecordWriteRule {
             throw ApiException.validation(Templates.SERIAL, "The serial number is digits only, for example 5.");
         }
         if (!Templates.isBlank(held.get(Templates.NUMBER))
-                && assignments.sameInputs(Templates.SERIES, held, merged)) {
+                && assignments.sameInputs(series, held, merged)) {
             return Changes.none();
         }
         try {
-            numbers.known(Templates.SERIES, merged).ifPresent(number ->
-                    assignments.checkAvailable(Templates.SERIES, current == null ? null : current.id(), number));
-            return new Changes(Map.of(Templates.NUMBER, take(merged, typed)), List.of());
+            numbers.known(series, merged).ifPresent(number ->
+                    assignments.checkAvailable(series, current == null ? null : current.id(), number));
+            return new Changes(Map.of(Templates.NUMBER, take(series, merged, typed)), List.of());
         } catch (NumberSeriesException unavailable) {
             switch (unavailable.reason()) {
                 case NUMBER_TAKEN -> throw ApiException.validation(Templates.NUMBER, uniqueWords(Templates.NUMBER));
@@ -110,11 +127,11 @@ class TemplateIdentityWrites implements RecordWriteRule {
      * takes the next one. A serial typed for a combination that already has numbers is not used (the screen shows it
      * disabled), so a stale value can never skip numbers.
      */
-    private String take(Map<String, Object> merged, Object typed) {
-        boolean starts = !Templates.isBlank(typed) && numbers.plan(Templates.SERIES, merged)
+    private String take(String series, Map<String, Object> merged, Object typed) {
+        boolean starts = !Templates.isBlank(typed) && numbers.plan(series, merged)
                 .map(plan -> plan.counted() && plan.next().isEmpty()).orElse(false);
-        return starts ? numbers.start(Templates.SERIES, merged, Long.parseLong((String) typed))
-                : numbers.next(Templates.SERIES, merged);
+        return starts ? numbers.start(series, merged, Long.parseLong((String) typed))
+                : numbers.next(series, merged);
     }
 
     /** A part is typed freehand; the server accepts capital letters, digits and a hyphen (1 to 10) and nothing else. */
@@ -130,7 +147,8 @@ class TemplateIdentityWrites implements RecordWriteRule {
         String number = text(after);
         if (number != null && (before == null || !number.equals(text(before)))) {
             try {
-                assignments.reserve(Templates.SERIES, Templates.OBJECT, after.id(), number, false);
+                assignments.reserve(seriesOf(after.objectApiName()), after.objectApiName(), after.id(), number,
+                        false);
             } catch (NumberSeriesException taken) {
                 throw ApiException.validation(Templates.NUMBER, uniqueWords(Templates.NUMBER));
             }

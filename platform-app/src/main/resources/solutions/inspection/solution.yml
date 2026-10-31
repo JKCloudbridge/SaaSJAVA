@@ -13,6 +13,13 @@
 key: inspection
 feature: inspection
 label: Quality Management System
+# The part each object plays in this application's functions (FA13B, ADR-0226). The code that carries the functions asks
+# these lines which objects an application means and names none; Document Management repeats them because it shows the
+# same records. Another application of the kind writes its own three lines.
+roles:
+  template: InspectionTemplate
+  fill: InspectionFill
+  changeRequest: InspectionChangeRequest
 removalNote: >-
   Taking this feature away hides the Quality Management System application and its objects from the organization at once.
   Nothing is deleted: the records, approvals in flight and access policies stay, and everything comes back when the
@@ -64,10 +71,14 @@ objects:
 # The records of these objects own a sheet: the grid of the template, kept in versions (FA3, ADR-0186).
 sheetOwners:
   - InspectionTemplate
+# The access policies below also exist while the Document Management application is on (FA13A, ADR-0225): that
+# application shows the same documents, so the same people need the same rights. Each policy says so with
+# alsoAvailableWith; a policy is never made twice.
 accessPolicies:
   - key: author
     name: Author
     description: Writes templates and sends them for approval. Comes with the Quality Management System application and cannot be changed.
+    alsoAvailableWith: [document-management]
     objects:
       InspectionTemplate: [create, read, update]
       InspectionChangeRequest: [read]
@@ -81,6 +92,7 @@ accessPolicies:
   - key: approver
     name: Approver
     description: Sees every template and change request, and changes a template that is in review. Does not publish or retire; that is the Publisher policy. Comes with the Quality Management System application and cannot be changed.
+    alsoAvailableWith: [document-management]
     objects:
       InspectionTemplate: [read, update, view-all, modify-all]
       InspectionFill: [read, update, view-all, modify-all]
@@ -99,6 +111,7 @@ accessPolicies:
   - key: publisher
     name: Publisher
     description: Publishes an approved template to departments, takes it back and retires it. Give it to the group that has the last word, for example Corporate QMS, or to Plant QMS in a flow with no Corporate step. Comes with the Quality Management System application and cannot be changed.
+    alsoAvailableWith: [document-management]
     objects:
       InspectionTemplate: [read, view-all]
     abilities:
@@ -111,6 +124,7 @@ accessPolicies:
   - key: reader
     name: Reader
     description: Reads the templates published to them. Comes with the Quality Management System application and cannot be changed.
+    alsoAvailableWith: [document-management]
     objects:
       InspectionTemplate: [read]
       InspectionChangeRequest: [read]
@@ -123,6 +137,7 @@ accessPolicies:
   - key: filler
     name: Filler
     description: Fills in published templates. Comes with the Quality Management System application and cannot be changed.
+    alsoAvailableWith: [document-management]
     objects:
       InspectionTemplate: [read]
       InspectionFill: [read, update]
@@ -140,6 +155,7 @@ accessPolicies:
   - key: reviewer
     name: Reviewer
     description: Sees every fill-in. Whether a person reviews one is decided by the approval process. Comes with the Quality Management System application and cannot be changed.
+    alsoAvailableWith: [document-management]
     objects:
       InspectionFill: [read, view-all]
     fields:
@@ -148,6 +164,7 @@ accessPolicies:
   - key: departments
     name: Department setup
     description: Says which group of people belongs to which department of which location. Comes with the Quality Management System application and cannot be changed.
+    alsoAvailableWith: [document-management, environment-management]
     objects:
       DepartmentGroup: [create, read, update, delete]
     fields:

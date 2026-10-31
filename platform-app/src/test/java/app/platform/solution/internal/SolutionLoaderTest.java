@@ -356,4 +356,53 @@ class SolutionLoaderTest {
                 Arguments.of("a number", "sheetOwners: [12]", "lists API names"),
                 Arguments.of("an owner twice", "sheetOwners: [Widget, Widget]", "is listed twice"));
     }
+
+    // ---- the parts of an application (FA13B, ADR-0226) ----
+
+    @Test
+    void aSolutionMayNameTheObjectThatPlaysEachPartOfItsApplications(@TempDir Path dir) throws IOException {
+        write(dir, "demo", GOOD.replace("objects: [Widget]\n", "objects: [Widget, Gadget, Gizmo]\n"
+                + "roles:\n  first: Widget\n  second: Gadget\n  third: Gizmo\n"));
+
+        assertThat(load(dir).get(0).roles()).containsEntry("first", "Widget").containsEntry("second", "Gadget")
+                .containsEntry("third", "Gizmo").hasSize(3);
+    }
+
+    @Test
+    void aSolutionThatNamesNoPartHasNone(@TempDir Path dir) throws IOException {
+        write(dir, "demo", GOOD);
+
+        assertThat(load(dir).get(0).roles()).isEmpty();
+    }
+
+    @Test
+    void aPartMayBePlayedByAnObjectTheSolutionUses(@TempDir Path dir) throws IOException {
+        write(dir, "demo", GOOD.replace("objects: [Widget]\n", "objects: [Widget]\nuses: [Other]\n"
+                + "roles:\n  first: Widget\n  second: Other\n"));
+
+        assertThat(load(dir).get(0).roles()).containsEntry("second", "Other");
+    }
+
+    @ParameterizedTest
+    @MethodSource("roleMistakes")
+    void aMistakeInThePartsStopsTheLoading(String what, String roles, String message, @TempDir Path dir)
+            throws IOException {
+        write(dir, "demo", GOOD.replace("objects: [Widget]\n", "objects: [Widget]\n" + roles + "\n"));
+
+        assertThatThrownBy(() -> load(dir)).as(what).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("solution 'demo'").hasMessageContaining(message);
+    }
+
+    static Stream<Arguments> roleMistakes() {
+        return Stream.of(
+                Arguments.of("not a mapping", "roles: Widget", "maps the name of a part"),
+                Arguments.of("empty", "roles: {}", "maps the name of a part"),
+                Arguments.of("a part name that is not a word", "roles: { First-One: Widget }", "lower camel case"),
+                Arguments.of("an object name that is not an API name", "roles: { first: widget }",
+                        "not shaped like one"),
+                Arguments.of("an object the solution neither brings nor uses", "roles: { first: Stranger }",
+                        "neither brings nor uses"),
+                Arguments.of("one object in two parts", "roles: { first: Widget, second: Widget }",
+                        "plays more than one part"));
+    }
 }

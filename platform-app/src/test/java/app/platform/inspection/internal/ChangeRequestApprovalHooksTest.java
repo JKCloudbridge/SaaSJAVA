@@ -51,7 +51,9 @@ import org.mockito.InOrder;
  */
 class ChangeRequestApprovalHooksTest {
 
-    private static final String OBJECT = RequestRecords.OBJECT;
+    private static final RecordSet SET = RecordSetsFixture.QMS;
+    private static final String OBJECT = SET.request();
+    private static final String TEMPLATE_OBJECT = SET.template();
     private static final UUID REVIEW = UUID.randomUUID();
     private static final UUID REQUEST = UUID.randomUUID();
     private static final UUID CHANGE = UUID.randomUUID();
@@ -92,11 +94,12 @@ class ChangeRequestApprovalHooksTest {
         permissions = mock(Permissions.class);
         contexts = mock(TenantContexts.class);
         hooks = new ChangeRequestApprovalHooks(store, headers, changes, notices, records, sheets, registers,
-                publishing, suggestions, audiences, decisions, permissions, contexts, List.of());
+                publishing, suggestions, audiences, decisions, permissions, contexts, List.of(),
+                RecordSetsFixture.both());
         when(contexts.current()).thenReturn(Optional.of(new TenantContext(new TenantId(UUID.randomUUID()), APPROVER,
                 MEMBERSHIP)));
         when(permissions.has(MEMBERSHIP, Ability.SHEETS_PUBLISH)).thenReturn(true);
-        when(records.find(eq(Templates.OBJECT), eq(TEMPLATE))).thenReturn(Optional.of(template()));
+        when(records.find(eq(TEMPLATE_OBJECT), eq(TEMPLATE))).thenReturn(Optional.of(template()));
         when(decisions.approvalsOf(REQUEST)).thenReturn(List.of());
         when(audiences.offered()).thenReturn(Map.of("PLANT1", List.of("PRD", "QLT")));
         when(store.findByHeader(REVIEW)).thenReturn(Optional.of(row(ChangeRequestStatus.OPEN)));
@@ -104,13 +107,13 @@ class ChangeRequestApprovalHooksTest {
     }
 
     private static DataRecord template() {
-        return new DataRecord(TEMPLATE, Templates.OBJECT, null, OWNER, Map.of("name", "Typed-by-an-author"), 0,
+        return new DataRecord(TEMPLATE, TEMPLATE_OBJECT, null, OWNER, Map.of("name", "Typed-by-an-author"), 0,
                 Instant.EPOCH, ASKER, Instant.EPOCH, ASKER, null, null);
     }
 
     private static RequestRow row(ChangeRequestStatus status) {
         return new RequestRow(CHANGE, TEMPLATE, 1, "Title", status.name(), null, null, null, null, 0, Instant.EPOCH,
-                ASKER, null, REVIEW);
+                ASKER, null, REVIEW, TEMPLATE_OBJECT);
     }
 
     private static List<Choice> publishChoice() {
@@ -150,7 +153,7 @@ class ChangeRequestApprovalHooksTest {
     void aRequestSentAgainPointsItsRevisedCopyAtTheNewApproval() {
         hooks.onSubmit(new SubmitContext(REQUEST, OBJECT, REVIEW, "process", 1, ASKER, false));
 
-        verify(sheets).retargetHeldDraft(Templates.OBJECT, TEMPLATE, REQUEST, ASKER);
+        verify(sheets).retargetHeldDraft(TEMPLATE_OBJECT, TEMPLATE, REQUEST, ASKER);
     }
 
     @Test
@@ -170,7 +173,7 @@ class ChangeRequestApprovalHooksTest {
 
         hooks.beforeApprove(asking, null);
 
-        verify(suggestions).accept(asking, TEMPLATE);
+        verify(suggestions).accept(TEMPLATE_OBJECT, asking, TEMPLATE);
         verifyNoInteractions(publishing);
     }
 
@@ -197,7 +200,7 @@ class ChangeRequestApprovalHooksTest {
 
     @Test
     void withoutTheRevisedCopyTheLastApprovalIsRefusedInFixedWords() {
-        when(sheets.heldDraft(Templates.OBJECT, TEMPLATE)).thenReturn(Optional.empty());
+        when(sheets.heldDraft(TEMPLATE_OBJECT, TEMPLATE)).thenReturn(Optional.empty());
 
         ApprovalHookRefusal refusal = refused(deciding(false, true, publishChoice()));
 
@@ -208,7 +211,7 @@ class ChangeRequestApprovalHooksTest {
 
     @Test
     void aPlaceTheListsNoLongerOfferIsRefusedBeforeAnythingMoves() {
-        when(sheets.heldDraft(Templates.OBJECT, TEMPLATE)).thenReturn(Optional.of(
+        when(sheets.heldDraft(TEMPLATE_OBJECT, TEMPLATE)).thenReturn(Optional.of(
                 new SheetLifecycle.HeldDraft(3, REQUEST)));
         List<Choice> gone = List.of(new Choice("location", "PLANT1"), new Choice("department", "PLANT1/GONE"));
 
@@ -220,7 +223,7 @@ class ChangeRequestApprovalHooksTest {
 
     @Test
     void aLocationWithoutADepartmentIsRefusedAsForATemplate() {
-        when(sheets.heldDraft(Templates.OBJECT, TEMPLATE)).thenReturn(Optional.of(
+        when(sheets.heldDraft(TEMPLATE_OBJECT, TEMPLATE)).thenReturn(Optional.of(
                 new SheetLifecycle.HeldDraft(3, REQUEST)));
 
         ApprovalHookRefusal refusal = refused(deciding(false, true, List.of(new Choice("location", "PLANT1"))));
@@ -230,9 +233,9 @@ class ChangeRequestApprovalHooksTest {
 
     @Test
     void aRevisedCopyThatCannotBeSentIsRefusedWithTheSheetsOwnFixedWords() {
-        when(sheets.heldDraft(Templates.OBJECT, TEMPLATE)).thenReturn(Optional.of(
+        when(sheets.heldDraft(TEMPLATE_OBJECT, TEMPLATE)).thenReturn(Optional.of(
                 new SheetLifecycle.HeldDraft(3, REQUEST)));
-        when(sheets.submit(Templates.OBJECT, TEMPLATE, REQUEST, APPROVER))
+        when(sheets.submit(TEMPLATE_OBJECT, TEMPLATE, REQUEST, APPROVER))
                 .thenThrow(new SheetMoveRefusal(SheetMoveRefusal.Reason.EMPTY));
 
         ApprovalHookRefusal refusal = refused(deciding(false, true, publishChoice()));
@@ -243,28 +246,29 @@ class ChangeRequestApprovalHooksTest {
 
     @Test
     void theLastApprovalSendsApprovesPublishesStampsAndFinishesInThatOrder() {
-        when(sheets.heldDraft(Templates.OBJECT, TEMPLATE)).thenReturn(Optional.of(
+        when(sheets.heldDraft(TEMPLATE_OBJECT, TEMPLATE)).thenReturn(Optional.of(
                 new SheetLifecycle.HeldDraft(3, REQUEST)));
-        when(publishing.publishRevised(eq(TEMPLATE), eq(3), eq(APPROVER), any(), anyBoolean(), anyBoolean()))
+        when(publishing.publishRevised(eq(SET), eq(TEMPLATE), eq(3), eq(APPROVER), any(), anyBoolean(),
+                anyBoolean()))
                 .thenReturn(new TemplatePublishing.Published(2, 2, 1));
 
         hooks.beforeApprove(deciding(false, true, publishChoice()), null);
 
         InOrder order = inOrder(sheets, publishing, registers, store, changes);
-        order.verify(sheets).submit(Templates.OBJECT, TEMPLATE, REQUEST, APPROVER);
-        order.verify(sheets).reviewed(Templates.OBJECT, TEMPLATE, REQUEST, SheetStatus.APPROVED, APPROVER);
-        order.verify(publishing).publishRevised(eq(TEMPLATE), eq(3), eq(APPROVER),
+        order.verify(sheets).submit(TEMPLATE_OBJECT, TEMPLATE, REQUEST, APPROVER);
+        order.verify(sheets).reviewed(TEMPLATE_OBJECT, TEMPLATE, REQUEST, SheetStatus.APPROVED, APPROVER);
+        order.verify(publishing).publishRevised(eq(SET), eq(TEMPLATE), eq(3), eq(APPROVER),
                 eq(List.of(new TemplateViews.AudiencePick("PLANT1", "PRD"))), eq(false), eq(true));
         order.verify(registers).stamp(eq(CHANGE), any(), eq(APPROVER));
         order.verify(store).answer(CHANGE, ChangeRequestStatus.OPEN, ChangeRequestStatus.DONE, null, 3, APPROVER);
-        order.verify(changes).published(APPROVER, TEMPLATE, CHANGE, 3, 2, 1);
+        order.verify(changes).published(SET, APPROVER, TEMPLATE, CHANGE, 3, 2, 1);
     }
 
     @Test
     void theNewRevisionIsStampedAsTwoDigitsAndTheSignatureNamesTheDay() {
-        when(sheets.heldDraft(Templates.OBJECT, TEMPLATE)).thenReturn(Optional.of(
+        when(sheets.heldDraft(TEMPLATE_OBJECT, TEMPLATE)).thenReturn(Optional.of(
                 new SheetLifecycle.HeldDraft(3, REQUEST)));
-        when(publishing.publishRevised(any(), anyInt(), any(), any(), anyBoolean(), anyBoolean()))
+        when(publishing.publishRevised(any(), any(), anyInt(), any(), any(), anyBoolean(), anyBoolean()))
                 .thenReturn(new TemplatePublishing.Published(1, 2, 1));
 
         hooks.beforeApprove(deciding(false, true, publishChoice()), null);
@@ -281,22 +285,22 @@ class ChangeRequestApprovalHooksTest {
 
     @Test
     void aRejectionDeclinesTheRequestForGoodAndEndsTheCopyAsRejected() {
-        when(sheets.closeHeldDraft(Templates.OBJECT, TEMPLATE, REQUEST, SheetStatus.REJECTED, APPROVER)).thenReturn(3);
+        when(sheets.closeHeldDraft(TEMPLATE_OBJECT, TEMPLATE, REQUEST, SheetStatus.REJECTED, APPROVER)).thenReturn(3);
 
         hooks.onEnded(ended(ApprovalOutcome.REJECTED));
 
-        verify(changes).copyDiscarded(APPROVER, TEMPLATE, CHANGE, 3, "rejected");
+        verify(changes).copyDiscarded(SET, APPROVER, TEMPLATE, CHANGE, 3, "rejected");
         verify(store).answer(CHANGE, ChangeRequestStatus.OPEN, ChangeRequestStatus.DECLINED, null, null, APPROVER);
-        verify(headers).status(REVIEW, ChangeRequestStatus.DECLINED);
-        verify(notices).tell(eq(ASKER), eq(APPROVER), eq(TEMPLATE), eq(CHANGE), eq("declined"), any());
+        verify(headers).status(SET, REVIEW, ChangeRequestStatus.DECLINED);
+        verify(notices).tell(eq(SET), eq(ASKER), eq(APPROVER), eq(TEMPLATE), eq(CHANGE), eq("declined"), any());
     }
 
     @Test
     void anAdministratorsCancelEndsTheCopyAsWithdrawn() {
         hooks.onEnded(ended(ApprovalOutcome.CANCELLED));
 
-        verify(sheets).closeHeldDraft(Templates.OBJECT, TEMPLATE, REQUEST, SheetStatus.WITHDRAWN, APPROVER);
-        verify(headers).status(REVIEW, ChangeRequestStatus.DECLINED);
+        verify(sheets).closeHeldDraft(TEMPLATE_OBJECT, TEMPLATE, REQUEST, SheetStatus.WITHDRAWN, APPROVER);
+        verify(headers).status(SET, REVIEW, ChangeRequestStatus.DECLINED);
     }
 
     @Test
@@ -313,15 +317,15 @@ class ChangeRequestApprovalHooksTest {
 
         hooks.onEnded(ended(ApprovalOutcome.APPROVED));
 
-        verify(headers).status(REVIEW, ChangeRequestStatus.DONE);
-        verify(notices).tell(eq(ASKER), eq(APPROVER), eq(TEMPLATE), eq(CHANGE), eq("done"), any());
+        verify(headers).status(SET, REVIEW, ChangeRequestStatus.DONE);
+        verify(notices).tell(eq(SET), eq(ASKER), eq(APPROVER), eq(TEMPLATE), eq(CHANGE), eq("done"), any());
     }
 
     @Test
     void anApprovedEndThatWasNeverPublishedUndoesTheDecision() {
         assertThatThrownBy(() -> hooks.onEnded(ended(ApprovalOutcome.APPROVED)))
                 .isInstanceOf(IllegalStateException.class);
-        verify(headers, never()).status(any(), any());
+        verify(headers, never()).status(any(), any(), any());
     }
 
     @Test

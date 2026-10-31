@@ -48,17 +48,17 @@ class RegisterFacts {
      * @throws ApiException {@code NOT_FOUND} for a template that does not exist, {@code CONFLICT} when no revision of
      *         it is in use
      */
-    Facts of(UUID templateId, UUID userId, UUID membershipId) {
-        DataRecord template = records.find(Templates.OBJECT, templateId)
+    Facts of(RecordSet set, UUID templateId, UUID userId, UUID membershipId) {
+        DataRecord template = records.find(set.template(), templateId)
                 .orElseThrow(() -> ApiException.notFound("This template does not exist."));
-        int active = sheets.summaries(Templates.OBJECT, List.of(templateId))
+        int active = sheets.summaries(set.template(), List.of(templateId))
                 .getOrDefault(templateId, new SheetLifecycle.Summary(0, 0, 0, 0, 0, 0, 0)).active();
         if (active <= 0) {
             throw new ApiException(app.platformapi.ErrorCode.CONFLICT,
                     "This template has no revision in use, so nothing can be asked about yet.");
         }
         return new Facts(cut(text(template, Templates.NAME), NAME_CHARS, "Template"),
-                cut(text(template, Templates.NUMBER), NUMBER_CHARS, null), revisions.showOf(templateId, active),
+                cut(text(template, Templates.NUMBER), NUMBER_CHARS, null), revisions.showOf(set, templateId, active),
                 cut(nameOf(userId), PERSON_CHARS, null), departments.departmentsOf(membershipId));
     }
 

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { setScope } from "./scope";
 import { FORGERY_COOKIE, FORGERY_HEADER } from "@/lib/api/forgery";
 import {
   EMPTY_REGISTER_INPUT,
@@ -54,6 +55,7 @@ describe("which files are offered to the reader of a register", () => {
 
 describe("sending a filled register file to be read", () => {
   it("posts the file as it is, as one raw body, with the forgery header, and returns the typed boxes", async () => {
+    setScope("inspection");
     document.cookie = `${FORGERY_COOKIE}=token-1; path=/`;
     const fetchMock = vi.fn(async () =>
       new Response(JSON.stringify({ data: { input: { requestNo: "DCN-1" }, notes: [] } }), {
@@ -68,7 +70,7 @@ describe("sending a filled register file to be read", () => {
 
     expect(outcome.ok).toBe(true);
     const [address, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(address).toBe("/api/v1/templates/t%201/change-requests/register/read");
+    expect(address).toBe("/api/v1/templates/t%201/change-requests/register/read?application=inspection");
     expect(init.method).toBe("POST");
     expect(init.body).toBe(file);
     expect(init.headers).toMatchObject({ "Content-Type": "application/octet-stream", [FORGERY_HEADER]: "token-1" });

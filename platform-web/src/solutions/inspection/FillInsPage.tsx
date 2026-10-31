@@ -1,5 +1,6 @@
 "use client";
 
+import { useRecordObjects } from "./objects";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { ListPage, type ListColumn } from "@/components/ui/lists/ListPage";
@@ -19,6 +20,7 @@ import {
   type FillInRow,
 } from "./fillIns";
 import { revisionNumber } from "@/lib/sheets/revision";
+import { useApplication } from "./application";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
 
@@ -57,6 +59,8 @@ function when(iso: string | null | undefined): string {
  * says a fill-in can be started on the version in use.
  */
 export function FillInsList({ templateId: given, embedded = false }: { templateId?: string; embedded?: boolean }) {
+  const application = useApplication();
+  const objects = useRecordObjects();
   const route = useListRoute({ keep: ["template", "status"] });
   const params = useSearchParams();
   const router = useRouter();
@@ -70,7 +74,7 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
   const [more, setMore] = useState(false);
 
   const views = useListViews({
-    objectApiName: "InspectionFill",
+    objectApiName: objects.fill,
     displayable: ["status"],
     defaults: ["status"],
     primaryField: "name",
@@ -121,7 +125,7 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
     const outcome = await startFillIn(templateId);
     setStarting(false);
     if (outcome.ok) {
-      router.push(fillInsHref(outcome.data.fillId));
+      router.push(fillInsHref(outcome.data.fillId, application));
       return;
     }
     setStartMessage(outcome.failure.message);
@@ -195,7 +199,7 @@ export function FillInsList({ templateId: given, embedded = false }: { templateI
       ]}
       embedded={embedded}
       onOpen={embedded ? undefined : (row) => route.open(row.fillId)}
-      openHref={embedded ? (row) => fillInsHref(row.fillId) : undefined}
+      openHref={embedded ? (row) => fillInsHref(row.fillId, application) : undefined}
       onNew={canStart && !starting ? () => void start() : undefined}
       newLabel="Start a fill-in"
       newAfterSearch

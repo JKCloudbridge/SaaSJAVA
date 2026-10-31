@@ -49,18 +49,21 @@ class TemplateAccess {
         return new Caller(context.userId(), context.membershipId());
     }
 
-    /** The member, for a template they can see. */
-    Caller visible(UUID templateId) {
+    /**
+     * The member, for a template of the set they can see. A template of another set is not found: the record store is
+     * asked about the set's own object, so an identifier from elsewhere is an unknown one.
+     */
+    Caller visible(RecordSet set, UUID templateId) {
         Caller caller = member();
-        if (templateId == null || !records.titlesOf(Templates.OBJECT, List.of(templateId)).containsKey(templateId)) {
+        if (templateId == null || !records.titlesOf(set.template(), List.of(templateId)).containsKey(templateId)) {
             throw ApiException.notFound(NO_TEMPLATE);
         }
         return caller;
     }
 
-    /** The member, for a template they can see, who holds the ability. */
-    Caller require(UUID templateId, Ability ability) {
-        Caller caller = visible(templateId);
+    /** The member, for a template of the set they can see, who holds the ability. */
+    Caller require(RecordSet set, UUID templateId, Ability ability) {
+        Caller caller = visible(set, templateId);
         if (!has(caller, ability)) {
             throw new ApiException(ErrorCode.FORBIDDEN);
         }

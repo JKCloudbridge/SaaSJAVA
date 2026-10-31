@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
  * to decide that request (FA8, ADR-0202). So nobody starts a draft of its sheet by hand: not as a blank draft, not as a
  * copy of a revision, not from an uploaded file. The first draft of a template that was never published is not touched
  * by this, and the draft a change request makes for itself does not ask: it goes through the sheet lifecycle contract.
+ * The rule holds for the template object of every set of records (FA13B, ADR-0226).
  * The property {@code platform.inspection.hold-published-templates} (default true) is switched off only by the tests of
  * the generic sheet module, which need a second draft of a sheet without a change request.
  */
@@ -24,14 +25,16 @@ class TemplateDraftRules implements SheetDraftRules {
             + "change on the Change requests tab of the template.";
 
     private final SheetLifecycle sheets;
+    private final RecordSets sets;
 
-    TemplateDraftRules(SheetLifecycle sheets) {
+    TemplateDraftRules(SheetLifecycle sheets, RecordSets sets) {
         this.sheets = sheets;
+        this.sets = sets;
     }
 
     @Override
     public Optional<String> refuseNewDraft(String ownerObject, UUID ownerId) {
-        if (!Templates.OBJECT.equals(ownerObject)) {
+        if (sets.ofTemplate(ownerObject).isEmpty()) {
             return Optional.empty();
         }
         return sheets.everPublished(ownerObject, ownerId) ? Optional.of(WORDS) : Optional.empty();

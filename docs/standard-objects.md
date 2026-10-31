@@ -137,6 +137,56 @@ Says which group of people belongs to a department of a location, for publishing
 | `department` | Department | PICKLIST | yes |  | the organization owns the list; starting values: PRD, QLT, MNT, STR, HR, FIN; depends on `location`; values are short codes |
 | `groupId` | Group | LOOKUP | yes |  | points to `Group` |
 
+## EnvironmentChangeRequest
+
+The record that sends a change request of the Environment Management application through its approval. Its records are kept for good.
+
+- Label: Change request / Change requests
+- Records managed by: the organization (ordinary data)
+- Own fields: no
+
+| API name | Label | Type | Required | Unique | Details |
+|----------|-------|------|----------|--------|---------|
+| `name` | Change request name | TEXT |  |  | up to 160 characters; written by the platform only |
+| `templateId` | Template | TEXT |  |  | up to 36 characters; written by the platform only |
+| `status` | Status | TEXT |  |  | up to 20 characters; written by the platform only |
+
+## EnvironmentFill
+
+A fill-in of a template of the Environment Management application. Its records are kept for good.
+
+- Label: Fill-in / Fill-ins
+- Records managed by: the organization (ordinary data)
+- Own fields: no
+
+| API name | Label | Type | Required | Unique | Details |
+|----------|-------|------|----------|--------|---------|
+| `name` | Fill-in name | TEXT |  |  | up to 160 characters; written by the platform only |
+| `templateId` | Template | TEXT |  |  | up to 36 characters; written by the platform only |
+| `status` | Status | TEXT |  |  | up to 20 characters; written by the platform only |
+
+## EnvironmentTemplate
+
+A template of the Environment Management application. Its records are kept for good.
+
+- Label: Template / Templates
+- Records managed by: the organization (ordinary data)
+- Own fields: no
+
+| API name | Label | Type | Required | Unique | Details |
+|----------|-------|------|----------|--------|---------|
+| `name` | Document name | TEXT | yes |  | up to 120 characters |
+| `level` | Level | PICKLIST |  |  | the organization owns the list; starting values: L1, L2; values are short codes |
+| `documentType` | Document type | PICKLIST |  |  | the organization owns the list; starting values: DOCA, DOCB, DOCC, DOCD; depends on `level`; values are short codes |
+| `retired` | Obsolete | BOOLEAN |  |  | written by the platform only |
+| `category` | Identification | PICKLIST |  |  | the organization owns the list; starting values: IMS, QSP, CORPQSP, ESSP, CP, WI, PFC, FMEA, SOP, BP, F, FEHS, CSF, PPT, L, LEHS, R, REHS, EHSAIR, EHSHIR, EHSAID, EHSHID, EHSAHID, PLEHS, EHSEMP, EHSOCP; values are short codes |
+| `partA` | Part A | TEXT |  |  | up to 10 characters |
+| `partB` | Part B | TEXT |  |  | up to 10 characters |
+| `serial` | Serial number | TEXT |  |  | up to 12 characters |
+| `number` | Document number | TEXT |  | yes | up to 40 characters; written by the platform only |
+| `revision` | Revision number | TEXT |  |  | up to 10 characters; written by the platform only |
+| `lastRevisedAt` | Last revised on | TEXT |  |  | up to 40 characters; written by the platform only |
+
 ## Group
 
 A set of people that access policies and shares can name.

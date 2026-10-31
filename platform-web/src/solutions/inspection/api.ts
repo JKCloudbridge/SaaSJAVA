@@ -4,6 +4,7 @@ import type { ApiFailure } from "@/lib/api/errors";
 import type { components } from "@/lib/api/generated/schema";
 import type { ListRequest } from "@/components/ui/lists/useListViews";
 import { call, type Outcome } from "@/lib/records/call";
+import { scopeQuery } from "./scope";
 
 /**
  * The calls of the template lifecycle (Functional track FA4, ADR-0188): the master list, the lifecycle of one template and
@@ -56,6 +57,7 @@ export function listTemplates(filters: ListFilters, cursor?: string): Promise<Ou
       api.GET("/api/v1/templates", {
         params: {
           query: {
+            ...scopeQuery(),
             search: blankToUndefined(filters.search),
             category: blankToUndefined(filters.category),
             partA: blankToUndefined(filters.partA),
@@ -82,6 +84,7 @@ export function queryTemplates(
   return unwrap(
     call(() =>
       api.POST("/api/v1/templates/query", {
+        params: { query: scopeQuery() },
         body: {
           search: request.search === "" ? undefined : request.search,
           filter: request.filter,
@@ -96,7 +99,7 @@ export function queryTemplates(
 
 export function getLifecycle(id: string): Promise<Outcome<TemplateLifecycleView>> {
   return unwrap(
-    call(() => api.GET("/api/v1/templates/{templateId}/lifecycle", { params: { path: { templateId: id } } })),
+    call(() => api.GET("/api/v1/templates/{templateId}/lifecycle", { params: { path: { templateId: id }, query: scopeQuery() } })),
   );
 }
 
@@ -106,17 +109,17 @@ export function getNumberingInfo(body: {
   partA?: string;
   partB?: string;
 }): Promise<Outcome<NumberingInfo>> {
-  return unwrap(call(() => api.POST("/api/v1/templates/numbering-info", { body })));
+  return unwrap(call(() => api.POST("/api/v1/templates/numbering-info", { params: { query: scopeQuery() }, body })));
 }
 
 export function getAudienceOptions(): Promise<Outcome<AudienceOptions>> {
-  return unwrap(call(() => api.GET("/api/v1/templates/audience-options")));
+  return unwrap(call(() => api.GET("/api/v1/templates/audience-options", { params: { query: scopeQuery() } })));
 }
 
 /** The lists the popup of an approval step that asks for an audience offers (needs only that the template is visible). */
 export function getSuggestionOptions(id: string): Promise<Outcome<AudienceOptions>> {
   return unwrap(
-    call(() => api.GET("/api/v1/templates/{templateId}/suggestion-options", { params: { path: { templateId: id } } })),
+    call(() => api.GET("/api/v1/templates/{templateId}/suggestion-options", { params: { path: { templateId: id }, query: scopeQuery() } })),
   );
 }
 
@@ -125,7 +128,7 @@ export function publishTemplate(
   body: { versionNo?: number; audiences: AudiencePick[]; viewOnly?: boolean; allowDownload?: boolean },
 ): Promise<Outcome<TemplateLifecycleView>> {
   return unwrap(
-    call(() => api.POST("/api/v1/templates/{templateId}/publish", { params: { path: { templateId: id } }, body })),
+    call(() => api.POST("/api/v1/templates/{templateId}/publish", { params: { path: { templateId: id }, query: scopeQuery() }, body })),
   );
 }
 
@@ -135,7 +138,7 @@ export function setSheetOptions(
   body: { viewOnly: boolean; allowDownload: boolean },
 ): Promise<Outcome<TemplateLifecycleView>> {
   return unwrap(
-    call(() => api.PUT("/api/v1/templates/{templateId}/options", { params: { path: { templateId: id } }, body })),
+    call(() => api.PUT("/api/v1/templates/{templateId}/options", { params: { path: { templateId: id }, query: scopeQuery() }, body })),
   );
 }
 
@@ -146,7 +149,7 @@ export function setSheetOptions(
 export function downloadTemplateSheet(id: string, versionNo: number): Promise<Outcome<Blob>> {
   return call(() =>
     api.GET("/api/v1/templates/{templateId}/download", {
-      params: { path: { templateId: id }, query: { versionNo } },
+      params: { path: { templateId: id }, query: { ...scopeQuery(), versionNo } },
       parseAs: "blob",
     }),
   ).then((outcome): Outcome<Blob> => (outcome.ok ? { ok: true, data: outcome.data as unknown as Blob } : outcome));
@@ -154,13 +157,13 @@ export function downloadTemplateSheet(id: string, versionNo: number): Promise<Ou
 
 export function unpublishTemplate(id: string): Promise<Outcome<TemplateLifecycleView>> {
   return unwrap(
-    call(() => api.POST("/api/v1/templates/{templateId}/unpublish", { params: { path: { templateId: id } } })),
+    call(() => api.POST("/api/v1/templates/{templateId}/unpublish", { params: { path: { templateId: id }, query: scopeQuery() } })),
   );
 }
 
 export function retireTemplate(id: string): Promise<Outcome<TemplateLifecycleView>> {
   return unwrap(
-    call(() => api.POST("/api/v1/templates/{templateId}/retire", { params: { path: { templateId: id } } })),
+    call(() => api.POST("/api/v1/templates/{templateId}/retire", { params: { path: { templateId: id }, query: scopeQuery() } })),
   );
 }
 

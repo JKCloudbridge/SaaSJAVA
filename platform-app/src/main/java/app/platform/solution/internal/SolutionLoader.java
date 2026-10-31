@@ -7,6 +7,7 @@ import app.platform.sharedkernel.solution.ShippedEntryView;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -32,7 +33,7 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
  */
 final class SolutionLoader {
 
-    static final String LOCATION = "classpath:solutions/*/solution.yml";
+    static final String LOCATION = "classpath*:solutions/*/solution.yml";
 
     private static final Pattern KEY = Pattern.compile("[a-z][a-z0-9-]{0,39}");
     private static final Pattern ICON = Pattern.compile("[a-z][a-z0-9-]{0,29}");
@@ -43,12 +44,14 @@ final class SolutionLoader {
     private static final Pattern PLAIN_TEXT = Pattern.compile("[\\p{L}\\p{N}][\\p{L}\\p{N} .,;:!?&'()/+-]{0,499}");
 
     private static final Set<String> BUNDLE_KEYS = Set.of("key", "feature", "label", "removalNote", "application",
-            "applications", "objects", "sheetOwners", "accessPolicies");
+            "applications", "objects", "sheetOwners", "accessPolicies", "uses", "order", "roles");
+    /** The name of a part (a role): a lower camel case word, chosen by the module that owns the functions. */
+    private static final Pattern ROLE = Pattern.compile("[a-z][A-Za-z0-9]{0,29}");
     private static final Set<String> APPLICATION_KEYS = Set.of("apiName", "label", "iconKey", "group", "entries");
     private static final Set<String> ENTRY_KEYS = Set.of("type", "label", "object", "pageKey", "readsObject",
             "placeholder");
     private static final Set<String> POLICY_KEYS = Set.of("key", "name", "description", "objects", "abilities",
-            "fields");
+            "fields", "alsoAvailableWith");
     private static final Pattern FIELD = Pattern.compile("[a-z][A-Za-z0-9]{0,39}");
     private static final Pattern ABILITY = Pattern.compile("[a-z][a-z0-9.-]{0,59}");
 
@@ -70,10 +73,20 @@ final class SolutionLoader {
                     throw new IllegalStateException("solution '" + bundle.key() + "': the key is used by two files");
                 }
             }
-            return List.copyOf(bundles.values());
+            return inGridOrder(bundles.values());
         } catch (IOException e) {
             throw new IllegalStateException("The solution files could not be read", e);
         }
+    }
+
+    /**
+     * The bundles in the order their applications stand in the grid (FA13A, ADR-0225): those that ask for a place,
+     * lowest first and by key when two ask for the same, then those that do not, by key. Data decides, never a name.
+     */
+    static List<SolutionBundle> inGridOrder(Collection<SolutionBundle> bundles) {
+        return bundles.stream().sorted(Comparator
+                .comparingInt((SolutionBundle bundle) -> bundle.order() == 0 ? Integer.MAX_VALUE : bundle.order())
+                .thenComparing(SolutionBundle::key)).toList();
     }
 
     private static SolutionBundle read(Resource file) throws IOException {
@@ -118,6 +131,28 @@ final class SolutionLoader {
             }
             objects.add(name);
         }
+        List<String> uses = new ArrayList<>();
+        for (Object item : node.list("uses")) {
+            String name = item instanceof String text ? text : "";
+            if (!OBJECT.matcher(name).matches()) {
+                throw new IllegalStateException(where + ": 'uses' lists API names (a capital letter, then "
+                        + "letters and digits)");
+            }
+            if (uses.contains(name) || objects.contains(name)) {
+                throw new IllegalStateException(where + ": the object '" + name + "' is listed twice or is both "
+                        + "brought and used");
+            }
+            uses.add(name);
+        }
+        int order = 0;
+        Object place = node.optional("order");
+        if (place != null) {
+            if (!(place instanceof Integer number) || number < 1 || number > SolutionBundle.MOST_ORDER) {
+                throw new IllegalStateException(where + ": 'order' is a whole number from 1 to "
+                        + SolutionBundle.MOST_ORDER + " or left out");
+            }
+            order = number;
+        }
         List<String> sheetOwners = new ArrayList<>();
         for (Object item : node.list("sheetOwners")) {
             String name = item instanceof String text ? text : "";
@@ -142,9 +177,48 @@ final class SolutionLoader {
             policies.add(new SolutionBundle.Policy(policyKey,
                     policy.pattern("name", PLAIN_LABEL, "a plain name of at most 80 characters"),
                     policy.pattern("description", PLAIN_TEXT, "plain text of at most 500 characters"),
-                    rights(policy), abilities(policy), fieldRights(policy)));
+                    rights(policy), abilities(policy), fieldRights(policy), alsoWith(policy)));
         }
-        return new SolutionBundle(key, feature, label, note, applications, objects, sheetOwners, policies);
+        return new SolutionBundle(key, feature, label, note, applications, objects, sheetOwners, policies, uses,
+                order, roles(node, where, objects, uses));
+    }
+
+    /**
+     * The parts of the solution's applications (FA13B, ADR-0226): a mapping of a part's name to the API name of the
+     * object that plays it. The object must be one the solution brings or uses, and plays one part only. Whether the
+     * owner of the functions finds every part it needs is that owner's check; whether two solutions agree is
+     * {@link SolutionValidator}'s.
+     */
+    private static Map<String, String> roles(Node node, String where, List<String> objects, List<String> uses) {
+        Object declared = node.optional("roles");
+        if (declared == null) {
+            return Map.of();
+        }
+        if (!(declared instanceof Map<?, ?> map) || map.isEmpty()) {
+            throw new IllegalStateException(where + ": 'roles' maps the name of a part to an object API name");
+        }
+        Map<String, String> roles = new TreeMap<>();
+        Set<String> played = new LinkedHashSet<>();
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            String role = String.valueOf(entry.getKey());
+            String object = entry.getValue() instanceof String text ? text.strip() : "";
+            if (!ROLE.matcher(role).matches()) {
+                throw new IllegalStateException(where + ": 'roles' names a part that is not a lower camel case word");
+            }
+            if (!OBJECT.matcher(object).matches()) {
+                throw new IllegalStateException(where + ": the part '" + role + "' names an API name that is not "
+                        + "shaped like one");
+            }
+            if (!objects.contains(object) && !uses.contains(object)) {
+                throw new IllegalStateException(where + ": the part '" + role + "' names '" + object + "', an object "
+                        + "the solution neither brings nor uses");
+            }
+            if (!played.add(object)) {
+                throw new IllegalStateException(where + ": the object '" + object + "' plays more than one part");
+            }
+            roles.put(role, object);
+        }
+        return roles;
     }
 
     private static SolutionBundle.Application application(Node node) {
@@ -274,6 +348,19 @@ final class SolutionLoader {
             }
         }
         return rights;
+    }
+
+    /** The other plan features that also give an organization a policy: feature keys, each once. */
+    private static Set<String> alsoWith(Node policy) {
+        Set<String> features = new LinkedHashSet<>();
+        for (Object item : policy.list("alsoAvailableWith")) {
+            String feature = item instanceof String text ? text : "";
+            if (!KEY.matcher(feature).matches() || !features.add(feature)) {
+                throw new IllegalStateException(policy.where() + ": 'alsoAvailableWith' lists plan feature "
+                        + "keys, each once");
+            }
+        }
+        return features;
     }
 
     /** The abilities a policy gives: keys of the platform's catalogue, each once. */

@@ -129,6 +129,15 @@
   --cream-grid: rgb(20 20 19 / 7%);
   --cream-axis: rgb(20 20 19 / 28%);
   --cream-muted-bar: rgb(20 20 19 / 20%);
+
+  /* the third look of the home page, the board (FA13C): a navy band and panel, white text on it, a tinted icon disc */
+  --board-band: #1f3a64;
+  --board-band-text: #ffffff;
+  --board-band-muted: rgb(255 255 255 / 80%);
+  --board-band-field: rgb(255 255 255 / 12%);
+  --board-band-line: rgb(255 255 255 / 30%);
+  --board-ink: #1f3a64;
+  --board-icon-bg: rgb(31 58 100 / 10%);
   --font-serif: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
 
   /* sizes of the application grid and of the dashboard (FA9) */
@@ -150,6 +159,13 @@
   --chart-label-width: 11rem;
   --chart-tip-offset: 0.625rem;
   --chart-chart-min-width: 22rem;
+
+  /* sizes of the board look (FA13C) */
+  --board-tile-min: 10rem;
+  --board-chart-min: 18rem;
+  --board-card-min: 14rem;
+  --board-icon-size: 2.25rem;
+  --board-quote-width: 24rem;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -198,5 +214,12 @@
     --cream-grid: rgb(240 238 232 / 9%);
     --cream-axis: rgb(240 238 232 / 30%);
     --cream-muted-bar: rgb(240 238 232 / 22%);
+    --board-band: #1d3557;
+    --board-band-text: #ffffff;
+    --board-band-muted: rgb(255 255 255 / 80%);
+    --board-band-field: rgb(255 255 255 / 12%);
+    --board-band-line: rgb(255 255 255 / 30%);
+    --board-ink: #b4cdf2;
+    --board-icon-bg: rgb(180 205 242 / 16%);
   }
 }

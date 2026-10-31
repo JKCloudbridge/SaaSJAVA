@@ -22,11 +22,13 @@ class ChangeRequestTasks {
     private final ApprovalDecisions decisions;
     private final ApprovalTasks tasks;
     private final Permissions permissions;
+    private final RecordSets sets;
 
-    ChangeRequestTasks(ApprovalDecisions decisions, ApprovalTasks tasks, Permissions permissions) {
+    ChangeRequestTasks(ApprovalDecisions decisions, ApprovalTasks tasks, Permissions permissions, RecordSets sets) {
         this.decisions = decisions;
         this.tasks = tasks;
         this.permissions = permissions;
+        this.sets = sets;
     }
 
     /** The approval request that waits on the request's review record, if there is one. */
@@ -34,7 +36,9 @@ class ChangeRequestTasks {
         if (request.headerId() == null) {
             return Optional.empty();
         }
-        return decisions.pendingRequest(RequestRecords.OBJECT, request.headerId());
+        // The review record lives in the change-request object of the request's own set.
+        return sets.ofTemplate(request.templateObject())
+                .flatMap(set -> decisions.pendingRequest(set.request(), request.headerId()));
     }
 
     /** Whether the person is asked to decide the request now, or manages access. */

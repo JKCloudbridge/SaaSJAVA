@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Icon } from "@/components/ui/Icon";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { areaPath, linePath, linePoints, niceMax, type Change, type Tone } from "./model";
 
 /** What a tile says; the page decides it from the server's numbers and this only draws it. */
@@ -26,6 +26,8 @@ export interface TileView {
   spark?: readonly number[];
   /** True when the tile is a call for attention (work that waits for someone). */
   attention?: boolean;
+  /** A picture drawn beside the label (the compact look); none in the other looks. */
+  icon?: IconName;
 }
 
 /**
@@ -37,7 +39,16 @@ export interface TileView {
 export function StatTile({ tile }: { tile: TileView }) {
   const body = (
     <>
-      <span className="stat-label">{tile.label}</span>
+      {tile.icon ? (
+        <span className="stat-head">
+          <span className="stat-icon" aria-hidden="true">
+            <Icon name={tile.icon} className="stat-icon-glyph" />
+          </span>
+          <span className="stat-label">{tile.label}</span>
+        </span>
+      ) : (
+        <span className="stat-label">{tile.label}</span>
+      )}
       {tile.value !== undefined ? (
         <span className="stat-value" data-testid={`value-${tile.id}`}>
           {tile.value}

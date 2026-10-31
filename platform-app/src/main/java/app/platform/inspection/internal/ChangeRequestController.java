@@ -15,6 +15,7 @@ import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
 import app.platformapi.ErrorCode;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -55,14 +56,22 @@ class ChangeRequestController {
             + "and on the platform host (all alike), and for a request the caller may not see. A person sees their "
             + "own requests; a person who may change the template sees all of them. ";
 
+    private static final String APPLICATION = "The application whose records are meant (its API name). It chooses "
+            + "among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application "
+            + "that does not exist, one the organization does not have and the platform host. What the caller may do "
+            + "inside the set is decided by the same rights as ever.";
+
     private final ChangeRequests requests;
     private final ChangeRequestList list;
     private final ChangeRequestRegisters registers;
+    private final RecordSets sets;
 
-    ChangeRequestController(ChangeRequests requests, ChangeRequestList list, ChangeRequestRegisters registers) {
+    ChangeRequestController(ChangeRequests requests, ChangeRequestList list, ChangeRequestRegisters registers,
+            RecordSets sets) {
         this.requests = requests;
         this.list = list;
         this.registers = registers;
+        this.sets = sets;
     }
 
     @PostMapping(ApiPaths.V1 + "/change-requests/query")
@@ -77,8 +86,9 @@ class ChangeRequestController {
                     + "organization's requests are never in the answer. A page may be short and still have a cursor "
                     + "because requests the caller may not see are skipped; only a missing cursor is the end. A "
                     + "post, because the text does not belong in an address. Nothing typed is logged.")
-    ApiResponse<ChangeRequestPage> query(@Valid @RequestBody ChangeRequestQuery body) {
-        return ApiResponse.of(list.query(body));
+    ApiResponse<ChangeRequestPage> query(@RequestParam @Parameter(description = APPLICATION) String application,
+            @Valid @RequestBody ChangeRequestQuery body) {
+        return ApiResponse.of(list.query(sets.require(application), body));
     }
 
     @GetMapping(ApiPaths.V1 + "/change-requests/{requestId}")
@@ -87,8 +97,9 @@ class ChangeRequestController {
             summary = "One change request by its identifier",
             description = "For a page that was given the request and not its template (the bell, the approval inbox). "
                     + "reviewId names the record whose approval panel decides it. " + SEES)
-    ApiResponse<ChangeRequestView> getById(@PathVariable UUID requestId) {
-        return ApiResponse.of(requests.getAnywhere(requestId));
+    ApiResponse<ChangeRequestView> getById(@PathVariable UUID requestId,
+            @RequestParam @Parameter(description = APPLICATION) String application) {
+        return ApiResponse.of(requests.getAnywhere(sets.require(application), requestId));
     }
 
     @GetMapping(ApiPaths.V1 + "/change-requests/by-review/{reviewId}")
@@ -97,8 +108,9 @@ class ChangeRequestController {
             summary = "One change request by the identifier of the record its approval reviews",
             description = "For the choice a step of the approval asks for, which knows the record under review and "
                     + "not the request or its template. " + SEES)
-    ApiResponse<ChangeRequestView> getByReview(@PathVariable UUID reviewId) {
-        return ApiResponse.of(requests.getByReview(reviewId));
+    ApiResponse<ChangeRequestView> getByReview(@PathVariable UUID reviewId,
+            @RequestParam @Parameter(description = APPLICATION) String application) {
+        return ApiResponse.of(requests.getByReview(sets.require(application), reviewId));
     }
 
     @GetMapping(BASE)
@@ -110,8 +122,10 @@ class ChangeRequestController {
                     + "use, the template is not retired and no other change is in progress); inProgress says that "
                     + "one is. The flags only hide buttons. status narrows the list (OPEN, DECLINED or DONE). A "
                     + "comment says whether its place is still in the revision in use. " + SEES)
-    ApiResponse<ChangeRequestsView> list(@PathVariable UUID templateId, @RequestParam(required = false) String status) {
-        return ApiResponse.of(requests.list(templateId, status));
+    ApiResponse<ChangeRequestsView> list(@PathVariable UUID templateId,
+            @RequestParam @Parameter(description = APPLICATION) String application,
+            @RequestParam(required = false) String status) {
+        return ApiResponse.of(requests.list(sets.require(application), templateId, status));
     }
 
     @GetMapping(BASE + "/{requestId}")
@@ -119,8 +133,9 @@ class ChangeRequestController {
             operationId = "getChangeRequest",
             summary = "One change request with its comments",
             description = SEES)
-    ApiResponse<ChangeRequestView> get(@PathVariable UUID templateId, @PathVariable UUID requestId) {
-        return ApiResponse.of(requests.get(templateId, requestId));
+    ApiResponse<ChangeRequestView> get(@PathVariable UUID templateId, @PathVariable UUID requestId,
+            @RequestParam @Parameter(description = APPLICATION) String application) {
+        return ApiResponse.of(requests.get(sets.require(application), templateId, requestId));
     }
 
     @PostMapping(BASE)
@@ -137,8 +152,10 @@ class ChangeRequestController {
                     + "revision is in use, when another change is in progress on the template, when the organization "
                     + "has no approval process for change requests, and when a limit is reached. " + SEES)
     ResponseEntity<ApiResponse<ChangeRequestView>> create(@PathVariable UUID templateId,
+            @RequestParam @Parameter(description = APPLICATION) String application,
             @Valid @RequestBody CreateChangeRequest body) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(requests.create(templateId, body)));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.of(requests.create(sets.require(application), templateId, body)));
     }
 
     @PostMapping(BASE + "/{requestId}/comments")
@@ -149,8 +166,9 @@ class ChangeRequestController {
                     + "in progress. The place is checked against the revision the request read. CONFLICT when the "
                     + "request is closed or has the most comments. " + SEES)
     ApiResponse<ChangeRequestView> comment(@PathVariable UUID templateId, @PathVariable UUID requestId,
+            @RequestParam @Parameter(description = APPLICATION) String application,
             @Valid @RequestBody NewChangeComment body) {
-        return ApiResponse.of(requests.comment(templateId, requestId, body));
+        return ApiResponse.of(requests.comment(sets.require(application), templateId, requestId, body));
     }
 
     @PostMapping(BASE + "/{requestId}/revised-copy")
@@ -163,8 +181,9 @@ class ChangeRequestController {
                     + "decide the request now (and the administrator) may. It is made on demand and only once. "
                     + "FORBIDDEN for anybody else. CONFLICT when the request is answered or not waiting for an "
                     + "approval, when a copy or another draft already exists, or when no revision is in use. " + SEES)
-    ApiResponse<ChangeRequestView> createCopy(@PathVariable UUID templateId, @PathVariable UUID requestId) {
-        return ApiResponse.of(requests.createCopy(templateId, requestId));
+    ApiResponse<ChangeRequestView> createCopy(@PathVariable UUID templateId, @PathVariable UUID requestId,
+            @RequestParam @Parameter(description = APPLICATION) String application) {
+        return ApiResponse.of(requests.createCopy(sets.require(application), templateId, requestId));
     }
 
     @GetMapping(BASE + "/{requestId}/register")
@@ -174,8 +193,9 @@ class ChangeRequestController {
             description = "The values of the Document Change Register form, one set of values for both views, with the "
                     + "form drawn as a sheet page for the Excel view. canComplete says whether the caller may "
                     + "complete the bottom of it now. " + SEES)
-    ApiResponse<RegisterView> register(@PathVariable UUID templateId, @PathVariable UUID requestId) {
-        return ApiResponse.of(registers.get(templateId, requestId));
+    ApiResponse<RegisterView> register(@PathVariable UUID templateId, @PathVariable UUID requestId,
+            @RequestParam @Parameter(description = APPLICATION) String application) {
+        return ApiResponse.of(registers.get(sets.require(application), templateId, requestId));
     }
 
     @PutMapping(BASE + "/{requestId}/register")
@@ -190,8 +210,9 @@ class ChangeRequestController {
                     + "request is answered, CONCURRENT_MODIFICATION when the register changed since it was read. "
                     + "Audited by the names of the boxes that changed, never by what was written. " + SEES)
     ApiResponse<RegisterView> complete(@PathVariable UUID templateId, @PathVariable UUID requestId,
+            @RequestParam @Parameter(description = APPLICATION) String application,
             @Valid @RequestBody RegisterCompletion body) {
-        return ApiResponse.of(registers.complete(templateId, requestId, body));
+        return ApiResponse.of(registers.complete(sets.require(application), templateId, requestId, body));
     }
 
     @GetMapping(BASE + "/{requestId}/register/file")
@@ -202,9 +223,10 @@ class ChangeRequestController {
                     + "formula. " + SEES)
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "The Excel file",
             content = @Content(mediaType = XLSX, schema = @Schema(type = "string", format = "binary")))
-    void registerFile(@PathVariable UUID templateId, @PathVariable UUID requestId, HttpServletResponse response)
+    void registerFile(@PathVariable UUID templateId, @PathVariable UUID requestId,
+            @RequestParam @Parameter(description = APPLICATION) String application, HttpServletResponse response)
             throws IOException {
-        send(response, registers.file(templateId, requestId));
+        send(response, registers.file(sets.require(application), templateId, requestId));
     }
 
     @PostMapping(BASE + "/register/page")
@@ -216,8 +238,10 @@ class ChangeRequestController {
                     + "the parts the platform fills (the document, the revision in use, who asks and the department). "
                     + "Nothing is stored or logged. CONFLICT when no revision is in use. NOT_FOUND for a template the "
                     + "caller cannot read.")
-    ApiResponse<RegisterView> draw(@PathVariable UUID templateId, @RequestBody RegisterInput body) {
-        return ApiResponse.of(registers.draft(templateId, body));
+    ApiResponse<RegisterView> draw(@PathVariable UUID templateId,
+            @RequestParam @Parameter(description = APPLICATION) String application,
+            @RequestBody RegisterInput body) {
+        return ApiResponse.of(registers.draft(sets.require(application), templateId, body));
     }
 
     @PostMapping(BASE + "/register/file")
@@ -229,9 +253,10 @@ class ChangeRequestController {
                     + "template the caller cannot read.")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "The Excel file",
             content = @Content(mediaType = XLSX, schema = @Schema(type = "string", format = "binary")))
-    void draftFile(@PathVariable UUID templateId, @RequestBody RegisterInput body, HttpServletResponse response)
-            throws IOException {
-        send(response, registers.draftFile(templateId, body));
+    void draftFile(@PathVariable UUID templateId,
+            @RequestParam @Parameter(description = APPLICATION) String application,
+            @RequestBody RegisterInput body, HttpServletResponse response) throws IOException {
+        send(response, registers.draftFile(sets.require(application), templateId, body));
     }
 
     @PostMapping(value = BASE + "/register/read", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE)
@@ -247,9 +272,10 @@ class ChangeRequestController {
                     + "cannot read.")
     @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(mediaType = "application/octet-stream",
             schema = @Schema(type = "string", format = "binary")))
-    ApiResponse<RegisterFileView> readFile(@PathVariable UUID templateId, HttpServletRequest request)
+    ApiResponse<RegisterFileView> readFile(@PathVariable UUID templateId,
+            @RequestParam @Parameter(description = APPLICATION) String application, HttpServletRequest request)
             throws IOException {
-        return ApiResponse.of(registers.read(templateId, readBounded(request)));
+        return ApiResponse.of(registers.read(sets.require(application), templateId, readBounded(request)));
     }
 
     private static byte[] readBounded(HttpServletRequest request) throws IOException {

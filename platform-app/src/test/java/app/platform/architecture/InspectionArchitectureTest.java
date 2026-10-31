@@ -8,6 +8,13 @@ import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.lang.ArchRule;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -163,6 +170,44 @@ class InspectionArchitectureTest {
                         "app.platform.sheets.internal..", "app.platform.security.internal..",
                         "app.platform.approval.internal..", "app.platform.metadata.internal..")
                 .because("a module uses only another module's root package (the module rules, ADR-0001)")
+                .allowEmptyShould(true).check(platform);
+    }
+
+    // ---- the objects an application of the kind uses are data (FA13B, ADR-0226) ----
+
+    /** A text that is the API name of one of the objects the shipped applications of the kind declare. */
+    private static final Pattern A_DECLARED_OBJECT = Pattern.compile(
+            "\"(Inspection|Environment)(Template|Fill|ChangeRequest)\"");
+
+    @Test
+    void noClassOfTheClusterNamesTheObjectOfAnApplicationAsAConstant() throws IOException {
+        Path cluster = Path.of("..", "platform-app", "src", "main", "java", "app", "platform", "inspection");
+        List<String> found = new ArrayList<>();
+        try (Stream<Path> files = Files.walk(cluster)) {
+            for (Path file : files.filter(path -> path.toString().endsWith(".java")).toList()) {
+                if (A_DECLARED_OBJECT.matcher(Files.readString(file)).find()) {
+                    found.add(file.getFileName().toString());
+                }
+            }
+        }
+
+        assertThat(found).as("the cluster asks RecordSets which objects an application means (ADR-0226); the "
+                + "objects are named in the solution files only").isEmpty();
+    }
+
+    @Test
+    void theScanForAnObjectNameCanFail() {
+        assertThat(A_DECLARED_OBJECT.matcher("static final String OBJECT = \"InspectionTemplate\";").find()).isTrue();
+        assertThat(A_DECLARED_OBJECT.matcher("\"EnvironmentFill\"").find()).isTrue();
+        assertThat(A_DECLARED_OBJECT.matcher("\"DepartmentGroup\"").find()).isFalse();
+    }
+
+    @Test
+    void noClassOutsideTheSolutionModuleReadsTheDeclarationsOfTheParts() {
+        classes().that().implement("app.platform.sharedkernel.solution.ObjectRoleDeclarations")
+                .should().resideInAPackage("app.platform.solution..")
+                .because("the parts of an application are read from the solution files by the module that loads them "
+                        + "(ADR-0226)")
                 .allowEmptyShould(true).check(platform);
     }
 }

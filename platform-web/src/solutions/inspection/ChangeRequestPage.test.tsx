@@ -187,12 +187,13 @@ describe("the two buttons of a request (FA10)", () => {
 
     const view = await screen.findByTestId("view-current");
     expect(view).toHaveTextContent("View Current Version");
-    expect(view).toHaveAttribute("href", `/apps/inspection/s-templates?open=${TEMPLATE}&tab=sheet`);
+    // The version the person read is the one in use while the request is open: the sheet opens on it, not on the list.
+    expect(view).toHaveAttribute("href", `/apps/inspection/s-templates?open=${TEMPLATE}&tab=sheet&version=1`);
     expect(screen.queryByTestId("create-copy")).toBeNull();
     expect(screen.queryByTestId("open-copy")).toBeNull();
   });
 
-  it("puts both buttons in one row", async () => {
+  it("puts the buttons in one row", async () => {
     fakeApi(answers(request({ canCreateCopy: true }), {}));
 
     render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
@@ -216,7 +217,7 @@ describe("the two buttons of a request (FA10)", () => {
     expect(calls.some((one) => one.key.endsWith("/revised-copy"))).toBe(true);
   });
 
-  it("says Open Revised Version once the copy exists and the person may change it, and goes to the same place", async () => {
+  it("says View Revised Version once the copy exists and the person may change it, and goes to the same place", async () => {
     fakeApi(
       answers(request({ canChangeCopy: true, resultingVersion: 2, resultingVersionStatus: "DRAFT" }), {
         canApprove: true,
@@ -227,7 +228,7 @@ describe("the two buttons of a request (FA10)", () => {
     render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
 
     const open = await screen.findByTestId("open-copy");
-    expect(open).toHaveTextContent("Open Revised Version");
+    expect(open).toHaveTextContent("View Revised Version");
     expect(open).toHaveAttribute("href", `/apps/inspection/s-templates?open=${TEMPLATE}&tab=sheet&version=2`);
     expect(screen.queryByTestId("create-copy")).toBeNull();
     expect(screen.getByTestId("request-became")).toHaveTextContent("The revised sheet (the revised copy, being prepared)");
@@ -243,7 +244,7 @@ describe("the two buttons of a request (FA10)", () => {
     expect(screen.queryByTestId("open-copy")).toBeNull();
   });
 
-  it("says that a published request made the revision in use, under the row, and draws no second button", async () => {
+  it("says nothing about the revision in use on a published request (the Details tab has it) and draws no second button", async () => {
     fakeApi(
       answers(
         request({ status: "DONE", resultingVersion: 2, resultingVersionStatus: "ACTIVE", resultingRevision: 1 }),
@@ -253,8 +254,12 @@ describe("the two buttons of a request (FA10)", () => {
 
     render(<ChangeRequestPage id={REQUEST} onBack={() => undefined} />);
 
-    expect(await screen.findByTestId("request-became")).toHaveTextContent("Revision 01, in use.");
-    expect(screen.getByTestId("revised-sheet-note")).toHaveTextContent("The revised sheet was published. It is the revision in use.");
+    const view = await screen.findByTestId("view-current");
+    // Once published, the version in use is the one this request made.
+    expect(view).toHaveAttribute("href", `/apps/inspection/s-templates?open=${TEMPLATE}&tab=sheet&version=2`);
+    expect(screen.queryByTestId("request-became")).toBeNull();
+    expect(screen.queryByTestId("revised-sheet-note")).toBeNull();
+    expect(screen.queryByText(/The revised sheet was published/)).toBeNull();
     expect(screen.getByText("Published")).toBeInTheDocument();
     expect(screen.queryByTestId("open-copy")).toBeNull();
   });

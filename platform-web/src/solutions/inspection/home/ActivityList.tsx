@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Icon } from "@/components/ui/Icon";
+import { useApplication } from "../application";
 import { activityHref, activityWords, momentLabel, type HomeActivity } from "./model";
 
 /**
@@ -10,6 +11,7 @@ import { activityHref, activityWords, momentLabel, type HomeActivity } from "./m
  * who has left is shown without a name rather than with a guess.
  */
 export function ActivityList({ items }: { items: readonly HomeActivity[] }) {
+  const application = useApplication();
   return (
     <ol className="chart-activity">
       {items.map((item) => (
@@ -18,7 +20,7 @@ export function ActivityList({ items }: { items: readonly HomeActivity[] }) {
             <Icon name={item.about === "fill-in" ? "clipboard" : "audit"} className="chart-activity-icon" />
           </span>
           <span className="chart-activity-text">
-            <Link href={activityHref(item)} className="chart-activity-name">
+            <Link href={activityHref(item, application)} className="chart-activity-name">
               {item.name || (item.about === "fill-in" ? "Fill-in" : "Template")}
             </Link>{" "}
             {activityWords(item.kind)}

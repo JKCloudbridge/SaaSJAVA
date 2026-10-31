@@ -1,7 +1,9 @@
 // The kept browser script of the application grid (Functional track FA9, ADR-0203). It drives the PRODUCTION BUILD of the
 // web application in a real Chromium-based browser against a RUNNING backend, the way a person would, and checks what a
 // jsdom test cannot: that the grid is drawn at the start address, that a placeholder tab says it is being prepared, that
-// the dashboard draws its tiles, and that the strip with its eight tabs does not push the page sideways at 1280 pixels.
+// the dashboard draws its tiles, that the strip with its eight tabs does not push the page sideways at 1280 pixels, and
+// (FA13A, ADR-0225) that the five new tiles stand first in the API's order, that Document Management opens the same
+// screens under its own name and that the announced applications open on Home.
 // It is not part of CI (it needs the services, the backend, a build and a browser). See README.md.
 //
 // It prints one line per check ("ok" or "FAIL"), writes screenshots to ./results, and exits with 1 if any check failed.
@@ -52,7 +54,25 @@ try {
   await page.goto(`${BASE}/`);
   await page.getByTestId("application-grid").waitFor({ timeout: 20000 });
   const tiles = await page.locator("[data-testid='application-grid'] a[href^='/apps/']").count();
-  check("the start address draws the grid with the applications", tiles >= 16, `${tiles} tiles`);
+  check("the start address draws the grid with the applications", tiles >= 22, `${tiles} tiles`);
+  const firstTiles = await page.locator("[data-testid='application-grid'] a[href^='/apps/']").evaluateAll((links) =>
+    links.slice(0, 8).map((link) => link.getAttribute("href")),
+  );
+  check(
+    "the five new tiles stand first, Environment Management sixth, then the Quality Management System",
+    JSON.stringify(firstTiles) ===
+      JSON.stringify([
+        "/apps/document-management",
+        "/apps/capa",
+        "/apps/audit-management",
+        "/apps/supplier-management",
+        "/apps/management-core",
+        "/apps/environment-management",
+        "/apps/inspection",
+        firstTiles[7],
+      ]),
+    firstTiles.join(", "),
+  );
   check("the address stays /", new URL(page.url()).pathname === "/", page.url());
   await shot(page, "application-grid");
 
@@ -68,7 +88,37 @@ try {
   const soon = await page.getByText("Coming soon").count();
   check("placeholder applications carry the tag", soon >= 1, `${soon} tags`);
 
+  // ---- the announced new tiles open on Home and say they are being prepared ----
+  for (const name of ["capa", "audit-management", "supplier-management", "management-core"]) {
+    await page.goto(`${BASE}/apps/${name}`);
+    await page.getByTestId("application-overview").waitFor({ timeout: 20000 });
+    const stripSideways = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    );
+    check(`${name} opens on its Home and the page does not scroll sideways at 1280 pixels`, !stripSideways);
+  }
+  await page.goto(`${BASE}/apps/supplier-management`);
+  await page.getByTestId("application-overview").waitFor({ timeout: 20000 });
+  await page.locator(".control-tabs a", { hasText: "Supplier Portal" }).first().click();
+  await page.getByTestId("placeholder-page").waitFor({ timeout: 20000 });
+  check("an announced tab of Supplier Management says it is being prepared", (await page.getByText(/being prepared/i).count()) >= 1);
+
+  // ---- Document Management shows the same screens under its own name ----
+  await page.goto(`${BASE}/`);
+  await page.getByTestId("application-grid").waitFor({ timeout: 20000 });
+  await page.getByRole("link", { name: /Document Management/ }).first().click();
+  await page.getByTestId("quality-home").waitFor({ timeout: 20000 });
+  check("Document Management opens the dashboard", new URL(page.url()).pathname.startsWith("/apps/document-management"), page.url());
+  check("the dashboard heading is the application's own", (await page.getByRole("heading", { name: "Document Management", includeHidden: true }).count()) >= 1);
+  check("the browser tab names the page and the application", (await page.title()).includes("Document Management"), await page.title());
+  await page.locator(".control-tabs a", { hasText: "Document Control" }).first().click();
+  await page.waitForURL((url) => url.pathname.startsWith("/apps/document-management/s-templates"), { timeout: 20000 });
+  check("Document Control stays inside Document Management", new URL(page.url()).pathname.startsWith("/apps/document-management/"), page.url());
+  await shot(page, "document-management-templates");
+
   // ---- the Quality Management System opens at Home, the dashboard ----
+  await page.goto(`${BASE}/`);
+  await page.getByTestId("application-grid").waitFor({ timeout: 20000 });
   await page.getByRole("link", { name: /Quality Management System/ }).first().click();
   await page.getByTestId("quality-home").waitFor({ timeout: 20000 });
   await page.getByTestId("home-tiles").waitFor({ timeout: 20000 });

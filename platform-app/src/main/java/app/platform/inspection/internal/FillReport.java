@@ -89,10 +89,10 @@ class FillReport {
      * @param versionNo the version, or null for the version in use
      * @throws ApiException {@code NOT_FOUND} for a template the caller cannot see
      */
-    ReportColumnsView columns(UUID templateId, Integer versionNo) {
-        access.visible(templateId);
-        int version = version(templateId, versionNo);
-        List<ReportColumnView> columns = reports.columns(Templates.OBJECT, templateId, version).stream()
+    ReportColumnsView columns(RecordSet set, UUID templateId, Integer versionNo) {
+        access.visible(set, templateId);
+        int version = version(set, templateId, versionNo);
+        List<ReportColumnView> columns = reports.columns(set.template(), templateId, version).stream()
                 .map(column -> new ReportColumnView(column.id(), column.label(), column.type(), column.values()))
                 .toList();
         return new ReportColumnsView(version, columns);
@@ -104,10 +104,10 @@ class FillReport {
      * @throws ApiException {@code NOT_FOUND} for a template the caller cannot see, {@code VALIDATION_ERROR} for a
      *         column that is not reportable, a condition that does not fit it, a status or a cursor that is not one
      */
-    FillInPage run(FillReportRequest request) {
-        access.visible(request.templateId());
+    FillInPage run(RecordSet set, FillReportRequest request) {
+        access.visible(set, request.templateId());
         String wantedStatus = status(request.status());
-        int version = version(request.templateId(), request.versionNo());
+        int version = version(set, request.templateId(), request.versionNo());
         int size = request.size() == null || request.size() <= 0 ? DEFAULT_SIZE : Math.min(request.size(), MOST);
         FillReports.Condition condition = new FillReports.Condition(operator(request.operator()),
                 request.values(), request.from(), request.to());
@@ -116,14 +116,14 @@ class FillReport {
         UUID scanned = after;
         boolean more = true;
         for (int batches = 0; batches < MOST_BATCHES && more && rows.size() < size; batches++) {
-            FillReports.Batch batch = reports.find(Fills.OBJECT, Templates.OBJECT, request.templateId(), version,
+            FillReports.Batch batch = reports.find(set.fill(), set.template(), request.templateId(), version,
                     request.columnId(), condition, scanned, BATCH);
             more = batch.more();
             if (batch.fillIds().isEmpty()) {
                 break;
             }
             scanned = batch.last();
-            rows.addAll(visible(batch.fillIds(), wantedStatus));
+            rows.addAll(visible(set, batch.fillIds(), wantedStatus));
         }
         String next;
         if (rows.size() > size) {
@@ -134,7 +134,7 @@ class FillReport {
             next = more && scanned != null ? scanned.toString() : null;
         }
         audit.record(AuditRecord.of("inspection.fill.report", AuditOutcome.SUCCESS)
-                .inTenant(contexts.require().tenantId()).onObject(Templates.OBJECT, request.templateId().toString())
+                .inTenant(contexts.require().tenantId()).onObject(set.template(), request.templateId().toString())
                 .with("version_no", Integer.toString(version)).with("column", request.columnId())
                 .with("rows", Integer.toString(rows.size())));
         meters.counter("platform.inspection.fill.report", "result", rows.isEmpty() ? "empty" : "ok").increment();
@@ -144,7 +144,7 @@ class FillReport {
     // ---- the pieces ----
 
     /** Of these headers, the rows of those the caller may see, in the order given (newest first). */
-    private List<FillInRow> visible(List<UUID> candidates, String status) {
+    private List<FillInRow> visible(RecordSet set, List<UUID> candidates, String status) {
         List<Object> ids = new ArrayList<>();
         candidates.forEach(id -> ids.add(id.toString()));
         QueryFilter byId = new QueryFilter(QueryFilter.Op.IN, null, "id", ids);
@@ -156,9 +156,9 @@ class FillReport {
         // One page is enough: it asks for at most as many as it was given, and the engine's page size bounds it.
         RecordQuery query = new RecordQuery(filter, List.of(new QuerySort("createdAt", true)), FIELDS, List.of(),
                 candidates.size(), null);
-        List<QueriedRecord> seen = records.query(Fills.OBJECT, query).records();
+        List<QueriedRecord> seen = records.query(set.fill(), query).records();
         Map<UUID, FillInRow> byHeader = new HashMap<>();
-        for (FillInRow row : fillIns.rowsOf(seen)) {
+        for (FillInRow row : fillIns.rowsOf(set, seen)) {
             byHeader.put(row.fillId(), row);
         }
         List<FillInRow> ordered = new ArrayList<>();
@@ -171,14 +171,14 @@ class FillReport {
         return ordered;
     }
 
-    private int version(UUID templateId, Integer requested) {
+    private int version(RecordSet set, UUID templateId, Integer requested) {
         if (requested != null) {
             if (requested < 1) {
                 throw ApiException.validation("versionNo", "Choose a version of the template.");
             }
             return requested;
         }
-        SheetLifecycle.Summary summary = sheets.summaries(Templates.OBJECT, List.of(templateId)).get(templateId);
+        SheetLifecycle.Summary summary = sheets.summaries(set.template(), List.of(templateId)).get(templateId);
         if (summary == null || summary.active() == 0) {
             throw ApiException.validation("versionNo", "This template has no version in use. Choose a version.");
         }

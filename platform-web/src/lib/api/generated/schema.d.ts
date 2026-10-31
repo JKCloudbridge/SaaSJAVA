@@ -7017,6 +7017,8 @@ export interface components {
             mine: boolean;
             requesterDepartment?: string;
             requesterName?: string;
+            /** Format: uuid */
+            reviewId?: string;
             status: string;
             /** Format: uuid */
             templateId: string;
@@ -8186,6 +8188,9 @@ export interface components {
             iconKey?: string;
             items: components["schemas"]["NavigationEntryView"][];
             label: string;
+            objectRoles?: {
+                [key: string]: string;
+            };
         };
         Named: {
             /** Format: uuid */
@@ -11279,7 +11284,10 @@ export interface operations {
     };
     getChangeRequestByReview: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 reviewId: string;
@@ -11310,7 +11318,10 @@ export interface operations {
     };
     queryChangeRequests: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -11343,7 +11354,10 @@ export interface operations {
     };
     getChangeRequestById: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 requestId: string;
@@ -11591,7 +11605,9 @@ export interface operations {
     };
     listFillIns: {
         parameters: {
-            query?: {
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
                 templateId?: string;
                 status?: string;
                 size?: number;
@@ -11625,7 +11641,10 @@ export interface operations {
     };
     queryFillIns: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -11658,7 +11677,10 @@ export interface operations {
     };
     reportFillIns: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -11692,6 +11714,8 @@ export interface operations {
     getFillInReportColumns: {
         parameters: {
             query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
                 templateId: string;
                 versionNo?: number;
             };
@@ -11723,7 +11747,10 @@ export interface operations {
     };
     submitFillIn: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 fillId: string;
@@ -19824,7 +19851,10 @@ export interface operations {
     };
     qualityHomeSummary: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are counted (its API name). It chooses among the sets of records only: NOT_FOUND, in the same words, for an application that does not exist or that the organization does not have. */
+                application: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -20608,7 +20638,9 @@ export interface operations {
     };
     listTemplates: {
         parameters: {
-            query?: {
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
                 search?: string;
                 category?: string;
                 partA?: string;
@@ -20646,7 +20678,10 @@ export interface operations {
     };
     templateAudienceOptions: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -20675,7 +20710,10 @@ export interface operations {
     };
     templateNumberingInfo: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -20708,7 +20746,10 @@ export interface operations {
     };
     queryTemplates: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -20741,7 +20782,9 @@ export interface operations {
     };
     listChangeRequests: {
         parameters: {
-            query?: {
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
                 status?: string;
             };
             header?: never;
@@ -20774,7 +20817,10 @@ export interface operations {
     };
     createChangeRequest: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 templateId: string;
@@ -20809,7 +20855,10 @@ export interface operations {
     };
     downloadChangeRequestRegisterDraft: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 templateId: string;
@@ -20844,7 +20893,10 @@ export interface operations {
     };
     drawChangeRequestRegister: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 templateId: string;
@@ -20879,7 +20931,10 @@ export interface operations {
     };
     readChangeRequestRegisterFile: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 templateId: string;
@@ -20914,7 +20969,10 @@ export interface operations {
     };
     getChangeRequest: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 templateId: string;
@@ -20946,7 +21004,10 @@ export interface operations {
     };
     addChangeComment: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 templateId: string;
@@ -20982,7 +21043,10 @@ export interface operations {
     };
     getChangeRequestRegister: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 templateId: string;
@@ -21014,7 +21078,10 @@ export interface operations {
     };
     completeChangeRequestRegister: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 templateId: string;
@@ -21050,7 +21117,10 @@ export interface operations {
     };
     downloadChangeRequestRegister: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 templateId: string;
@@ -21082,7 +21152,10 @@ export interface operations {
     };
     createRevisedCopy: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 templateId: string;
@@ -21114,7 +21187,9 @@ export interface operations {
     };
     downloadTemplateSheet: {
         parameters: {
-            query?: {
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
                 versionNo?: number;
             };
             header?: never;
@@ -21147,7 +21222,10 @@ export interface operations {
     };
     getFillInOptions: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 templateId: string;
@@ -21178,7 +21256,10 @@ export interface operations {
     };
     startFillIn: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 templateId: string;
@@ -21209,7 +21290,10 @@ export interface operations {
     };
     getTemplateLifecycle: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 templateId: string;
@@ -21240,7 +21324,10 @@ export interface operations {
     };
     setTemplateSheetOptions: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 templateId: string;
@@ -21275,7 +21362,10 @@ export interface operations {
     };
     publishTemplate: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 templateId: string;
@@ -21310,7 +21400,10 @@ export interface operations {
     };
     retireTemplate: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 templateId: string;
@@ -21341,7 +21434,10 @@ export interface operations {
     };
     templateSuggestionOptions: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 templateId: string;
@@ -21372,7 +21468,10 @@ export interface operations {
     };
     unpublishTemplate: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever. */
+                application: string;
+            };
             header?: never;
             path: {
                 templateId: string;

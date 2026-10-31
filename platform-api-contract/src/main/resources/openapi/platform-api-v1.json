@@ -1722,6 +1722,14 @@
             "type" : "string",
             "format" : "uuid"
           }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -1753,6 +1761,15 @@
       "post" : {
         "description" : "One page for the tab of change requests: search (a text matched against the title and the name of the person who asked), an order (date, version or status, with date newest first by default), a narrowing to one template or status, and a cursor. A person sees their own requests, and every request of the templates they may change; they reach a template's requests only while they can read the template, and the platform host and another organization's requests are never in the answer. A page may be short and still have a cursor because requests the caller may not see are skipped; only a missing cursor is the end. A post, because the text does not belong in an address. Nothing typed is logged.",
         "operationId" : "queryChangeRequests",
+        "parameters" : [ {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -1800,6 +1817,14 @@
           "schema" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "responses" : {
@@ -2084,6 +2109,14 @@
         "description" : "One page, without the cells (a list never reads them), paged by the key of the last one seen and never by an offset, so a page is as cheap at the thousandth as at the first. The page is read through the record store, so a caller sees exactly the fill-ins they may see: their own, and all of them for a caller who may view every fill-in. Filters: templateId and status (DRAFT, SUBMITTED, RETURNED or APPROVED). A fill-in stays in the list after its template is unpublished or retired. size is at most 200 (50 when left out).",
         "operationId" : "listFillIns",
         "parameters" : [ {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "in" : "query",
           "name" : "templateId",
           "required" : false,
@@ -2144,6 +2177,15 @@
       "post" : {
         "description" : "The same page as the list, for a question a list view holds: search (a name, or the whole word of a status), a filter and up to two sort keys in the closed query model of the record store, and the narrowing to one template or status. A post, because the filter does not belong in an address. The page is read through the record store, so the caller sees exactly the fill-ins they may see. Nothing typed is logged.",
         "operationId" : "queryFillIns",
+        "parameters" : [ {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -2184,6 +2226,15 @@
       "post" : {
         "description" : "One condition on one reportable column: EQUALS one value, ONE_OF up to 100 values, or BETWEEN two bounds (either may be left out) for a number or a date. The answer is a page of fill-ins in the form of the list, newest first, without the cells, paged by the key of the last one looked at and never by an offset. A caller sees exactly the fill-ins they see in the list: the same visibility, decided by the same code. Because a caller who sees few of many matches makes the search look through more of them, a page can be short and still carry a nextCursor: only a missing nextCursor means the end. The value travels in the body and is never logged or audited. VALIDATION_ERROR names the field that is wrong, with fixed words. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares. ",
         "operationId" : "reportFillIns",
+        "parameters" : [ {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -2225,6 +2276,14 @@
         "description" : "The columns the author flagged reportable in the version (the version in use when versionNo is left out), in the order of the sheet, with their type and, for a list column, its values. A version still being written or reviewed has none to show. Only to draw the report's choices: the report decides again. NOT_FOUND for a template the caller cannot see, for one that does not exist and on the platform host (all alike). A template is visible by the rules of every record: the object permission, the private default of a template, and the shares. ",
         "operationId" : "getFillInReportColumns",
         "parameters" : [ {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "in" : "query",
           "name" : "templateId",
           "required" : true,
@@ -2278,6 +2337,14 @@
           "schema" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "responses" : {
@@ -12788,6 +12855,15 @@
       "post" : {
         "description" : "One answer for the whole page: the tiles, the graphs and the lists, for a period (7d, 30d, 90d or 12m; 30d when left out) and optionally one location and one department the organization offers. A post, because the filters do not belong in an address. Needs no ability: every number is counted over the records the caller may see, through the same record store query the lists use, so the page agrees with the lists, and a section whose object the caller cannot read at all is null (never a zero). The record store gives no total, so the headers are read in pages up to a limit; a number that reached it says atLeast. A section that failed is named in problems and the others are still answered. Days are days in UTC. NOT_FOUND on the platform host and for an organization without the plan feature; VALIDATION_ERROR for a period, location or department that is not offered. Nothing typed, no name and no filter value is logged or audited.",
         "operationId" : "qualityHomeSummary",
+        "parameters" : [ {
+          "description" : "The application whose records are counted (its API name). It chooses among the sets of records only: NOT_FOUND, in the same words, for an application that does not exist or that the organization does not have.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -13836,6 +13912,14 @@
         "description" : "One page of templates, each with the numbers of its active, approved, in-review and draft versions and the state of the template as one word. The page is read through the record store, so a caller sees exactly the templates they may see: their own, all of them for a caller who may view every template, and those published to a group they are in. Filters: search (part of a name or a number), category (the identification), partA, retired and state. The state filter is applied to the page after it is read: a page can hold fewer rows than asked while nextCursor still goes on (filtered is true then). Sort: name, number or newest. canCreate says whether the screen may offer New; the request is decided again.",
         "operationId" : "listTemplates",
         "parameters" : [ {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "in" : "query",
           "name" : "search",
           "required" : false,
@@ -13923,6 +14007,15 @@
       "get" : {
         "description" : "Every location of the organization's list with the departments that go with it, and for each department whether an administrator has set up a group for it. Needs the ability to publish sheets (FORBIDDEN otherwise).",
         "operationId" : "templateAudienceOptions",
+        "parameters" : [ {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
         "responses" : {
           "200" : {
             "content" : {
@@ -13953,6 +14046,15 @@
       "post" : {
         "description" : "Takes the identification and the parts typed so far (all optional) and answers which of Part A and Part B the format of that identification reads, whether it ends in a serial, the number written so far, whether this combination already has numbers and, only for a caller who may set the identification, the next serial and the whole number. Advice only: nothing is reserved and the Save decides. NOT_FOUND for a caller who cannot read templates and on the platform host. A post, because what is typed does not belong in an address; nothing typed is logged.",
         "operationId" : "templateNumberingInfo",
+        "parameters" : [ {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -13993,6 +14095,15 @@
       "post" : {
         "description" : "The same page as the list, for a question a list view holds: search (a name or a number, or a whole identification code or Part A), a filter (the closed query model of the record store, conditions combined with AND or OR), up to two sort keys, and a lifecycle state. A post, because the filter does not belong in an address. A field the caller may not read is answered like a field that does not exist, and an order or a filter that cannot use an index is bounded by the query engine's scan limit (and refused above it, naming the field). The page is read through the record store, so the caller sees exactly the templates they may see. Nothing typed is logged.",
         "operationId" : "queryTemplates",
+        "parameters" : [ {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -14042,6 +14153,14 @@
             "format" : "uuid"
           }
         }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "in" : "query",
           "name" : "status",
           "required" : false,
@@ -14084,6 +14203,14 @@
           "schema" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "requestBody" : {
@@ -14133,6 +14260,14 @@
           "schema" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "requestBody" : {
@@ -14184,6 +14319,14 @@
             "type" : "string",
             "format" : "uuid"
           }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "requestBody" : {
           "content" : {
@@ -14232,6 +14375,14 @@
           "schema" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "requestBody" : {
@@ -14290,6 +14441,14 @@
             "type" : "string",
             "format" : "uuid"
           }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -14336,6 +14495,14 @@
           "schema" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "requestBody" : {
@@ -14394,6 +14561,14 @@
             "type" : "string",
             "format" : "uuid"
           }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -14438,6 +14613,14 @@
           "schema" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "requestBody" : {
@@ -14496,6 +14679,14 @@
             "type" : "string",
             "format" : "uuid"
           }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -14544,6 +14735,14 @@
             "type" : "string",
             "format" : "uuid"
           }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -14582,6 +14781,14 @@
           "schema" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
           }
         }, {
           "in" : "query",
@@ -14631,6 +14838,14 @@
             "type" : "string",
             "format" : "uuid"
           }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -14669,6 +14884,14 @@
           "schema" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "responses" : {
@@ -14709,6 +14932,14 @@
             "type" : "string",
             "format" : "uuid"
           }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -14747,6 +14978,14 @@
           "schema" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "requestBody" : {
@@ -14797,6 +15036,14 @@
             "type" : "string",
             "format" : "uuid"
           }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "requestBody" : {
           "content" : {
@@ -14846,6 +15093,14 @@
             "type" : "string",
             "format" : "uuid"
           }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -14885,6 +15140,14 @@
             "type" : "string",
             "format" : "uuid"
           }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -14923,6 +15186,14 @@
           "schema" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }, {
+          "description" : "The application whose records are meant (its API name). It chooses among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application that does not exist, one the organization does not have and the platform host. What the caller may do inside the set is decided by the same rights as ever.",
+          "in" : "query",
+          "name" : "application",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "responses" : {
@@ -18866,6 +19137,10 @@
           "requesterName" : {
             "type" : "string"
           },
+          "reviewId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
           "status" : {
             "type" : "string"
           },
@@ -22475,6 +22750,12 @@
           },
           "label" : {
             "type" : "string"
+          },
+          "objectRoles" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
           }
         },
         "required" : [ "apiName", "items", "label" ]

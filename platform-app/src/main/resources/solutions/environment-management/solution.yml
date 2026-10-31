@@ -1,0 +1,148 @@
+# The Environment Management solution, key environment-management (Functional track FA13B, ADR-0226).
+#
+# The same functions as the Quality Management System application (templates and their sheets, approval, numbering,
+# publishing to departments, revisions through change requests, fill-ins, the report and the home dashboard), over records
+# of its own. The code that carries the functions is shared; what makes this a separate application is only this file and
+# its folder: the three objects below play the parts named under `roles`, so a template, a fill-in or a change request made
+# here is never listed in the other application, and the reverse. Approval processes are not shipped: an administrator sets
+# them up in Setup like any other. Access policies carry names of their own, and holders of the other application's policies
+# get no access here until an administrator assigns these.
+#
+# To add a further application of this kind, copy this folder, give the objects, the series, the feature and the policies
+# new names and write the bundle: no code changes (docs/solutions/environment-management.md).
+key: environment-management
+feature: environment-management
+label: Environment Management
+removalNote: >-
+  Taking this feature away hides the Environment Management application and its objects from the organization at once.
+  Nothing is deleted: the templates, fill-ins, change requests, approvals in flight and access policies stay, and
+  everything comes back when the feature is given again.
+order: 6
+uses:
+  - DepartmentGroup
+roles:
+  template: EnvironmentTemplate
+  fill: EnvironmentFill
+  changeRequest: EnvironmentChangeRequest
+application:
+  apiName: environment-management
+  label: Environment Management
+  iconKey: shield
+  group: Leadership
+  entries:
+    - type: PLATFORM
+      label: Home
+      pageKey: home
+      readsObject: EnvironmentTemplate
+    - type: PLATFORM
+      label: Document Control
+      pageKey: templates
+      readsObject: EnvironmentTemplate
+    - type: PLATFORM
+      label: Change requests
+      pageKey: change-requests
+      readsObject: EnvironmentChangeRequest
+    - type: PLATFORM
+      label: Record Control
+      pageKey: fill-ins
+      readsObject: EnvironmentFill
+    - type: PLATFORM
+      label: Report
+      pageKey: fill-in-report
+      readsObject: EnvironmentFill
+    - type: PLATFORM
+      label: Management Review
+      pageKey: management-review
+      placeholder: true
+    - type: OBJECT
+      object: DepartmentGroup
+objects:
+  - EnvironmentTemplate
+  - EnvironmentFill
+  - EnvironmentChangeRequest
+# The records of this object own a sheet: the grid of the template, kept in versions (FA3, ADR-0186).
+sheetOwners:
+  - EnvironmentTemplate
+# The rights of the policies are those of the other application's, on this application's objects. Licence, access policy
+# and plan feature stay three mechanisms: these policies are not bound to a licence.
+accessPolicies:
+  - key: author
+    name: Environment Author
+    description: Writes templates and sends them for approval. Comes with the Environment Management application and cannot be changed.
+    objects:
+      EnvironmentTemplate: [create, read, update]
+      EnvironmentChangeRequest: [read]
+    fields:
+      EnvironmentTemplate:
+        edit: [name, level, documentType]
+        read: [id, category, partA, partB, number, retired, revision, lastRevisedAt, createdAt, updatedAt, ownerId,
+                createdById, updatedById]
+      EnvironmentChangeRequest:
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+  - key: approver
+    name: Environment Approver
+    description: Sees every template and change request, and changes a template that is in review. Does not publish or retire; that is the Environment Publisher policy. Comes with the Environment Management application and cannot be changed.
+    objects:
+      EnvironmentTemplate: [read, update, view-all, modify-all]
+      EnvironmentFill: [read, update, view-all, modify-all]
+      EnvironmentChangeRequest: [read, update, view-all, modify-all]
+    abilities:
+      - approvals.override-lock
+      - field-values.add
+    fields:
+      EnvironmentTemplate:
+        edit: [name, level, documentType, category, partA, partB, serial]
+        read: [id, number, retired, revision, lastRevisedAt, createdAt, updatedAt, ownerId, createdById, updatedById]
+      EnvironmentFill:
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+      EnvironmentChangeRequest:
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+  - key: publisher
+    name: Environment Publisher
+    description: Publishes an approved template to departments, takes it back and retires it. Give it to the group that has the last word. Comes with the Environment Management application and cannot be changed.
+    objects:
+      EnvironmentTemplate: [read, view-all]
+    abilities:
+      - sheets.publish
+      - sheets.retire
+    fields:
+      EnvironmentTemplate:
+        read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, createdAt,
+                updatedAt, ownerId, createdById, updatedById]
+  - key: reader
+    name: Environment Reader
+    description: Reads the templates published to them. Comes with the Environment Management application and cannot be changed.
+    objects:
+      EnvironmentTemplate: [read]
+      EnvironmentChangeRequest: [read]
+    fields:
+      EnvironmentTemplate:
+        read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, createdAt,
+                updatedAt, ownerId, createdById, updatedById]
+      EnvironmentChangeRequest:
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+  - key: filler
+    name: Environment Filler
+    description: Fills in published templates. Comes with the Environment Management application and cannot be changed.
+    objects:
+      EnvironmentTemplate: [read]
+      EnvironmentFill: [read, update]
+      EnvironmentChangeRequest: [read]
+    abilities:
+      - sheets.fill
+    fields:
+      EnvironmentTemplate:
+        read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, createdAt,
+                updatedAt, ownerId, createdById, updatedById]
+      EnvironmentFill:
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+      EnvironmentChangeRequest:
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+  - key: reviewer
+    name: Environment Reviewer
+    description: Sees every fill-in. Whether a person reviews one is decided by the approval process. Comes with the Environment Management application and cannot be changed.
+    objects:
+      EnvironmentFill: [read, view-all]
+    fields:
+      EnvironmentFill:
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]

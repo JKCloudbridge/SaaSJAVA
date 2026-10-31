@@ -34,8 +34,17 @@ import java.util.UUID;
  */
 public interface ApprovalHooks {
 
-    /** The API name of the object this hook serves. */
+    /** The API name of the object this hook serves; of the first, when it serves several ({@link #objects()}). */
     String object();
+
+    /**
+     * The API names of every object this hook serves (FA13B, ADR-0226). One hook that serves the objects of several
+     * applications of one kind is registered for each of them, and each call names the object it is about. Each name
+     * is held to the same rules as {@link #object()}; two hooks for one object still stop the start.
+     */
+    default java.util.Collection<String> objects() {
+        return List.of(object());
+    }
 
     /**
      * The API names of the fields {@link ApprovalHookWriter} may set; empty when the hook writes nothing. For an

@@ -51,8 +51,10 @@ class NumberingLoaderTest {
     void theRealSeriesLoadsAndBelongsToTheSolutionThatBringsItsObject() {
         List<NumberingLoader.Loaded> loaded = NumberingLoader.load();
 
-        assertThat(loaded).extracting(NumberingLoader.Loaded::solution).containsOnly("inspection");
-        NumberSeriesDeclaration series = loaded.get(0).declaration();
+        assertThat(loaded).extracting(NumberingLoader.Loaded::solution)
+                .containsExactlyInAnyOrder("inspection", "environment-management");
+        NumberSeriesDeclaration series = loaded.stream().filter(one -> one.solution().equals("inspection"))
+                .findFirst().orElseThrow().declaration();
         assertThat(series.key()).isEqualTo("document");
         assertThat(series.object()).isEqualTo("InspectionTemplate");
         assertThat(series.field()).isEqualTo("number");
