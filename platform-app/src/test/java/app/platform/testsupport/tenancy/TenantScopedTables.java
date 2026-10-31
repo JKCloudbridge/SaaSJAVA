@@ -739,6 +739,59 @@ public final class TenantScopedTables {
                     tenant, "probe-" + UUID.randomUUID().toString().substring(0, 8), "a".repeat(64),
                     ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
 
+    /** The mapping of one object of a connection (Sprint 28). A probe row needs its connection, which it creates. */
+    public static final TenantScopedTable INTEGRATION_MAPPING = new TenantScopedTable("integration_mapping",
+            (connection, tenant) -> probeMapping(connection, tenant));
+
+    /** A version of a mapping (Sprint 28). A probe row needs its mapping, which it creates. */
+    public static final TenantScopedTable INTEGRATION_MAPPING_VERSION = new TenantScopedTable(
+            "integration_mapping_version", (connection, tenant) -> {
+                UUID mapping = probeMapping(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into integration_mapping_version (tenant_id, mapping_id, number, definition, "
+                                + "definition_hash, created_by, updated_by) values (?, ?, 1, '{}'::jsonb, ?, ?, ?)",
+                        tenant, mapping, "b".repeat(64), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** The link between a record and an entity on the other side (Sprint 28). A probe row creates its connection. */
+    public static final TenantScopedTable INTEGRATION_LINK = new TenantScopedTable("integration_link",
+            (connection, tenant) -> {
+                UUID owner = probeConnection(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into integration_link (tenant_id, connection_id, object_api_name, record_id, "
+                                + "external_id, last_direction, created_by, updated_by) values "
+                                + "(?, ?, 'ObjectA__c', ?, ?, 'OUT', ?, ?)",
+                        tenant, owner, UUID.randomUUID(), "x-" + UUID.randomUUID(), ActorId.SYSTEM.value(),
+                        ActorId.SYSTEM.value());
+            });
+
+    /** One send or receive (Sprint 28). A probe row needs a connection and a mapping version, which it creates. */
+    public static final TenantScopedTable INTEGRATION_DELIVERY = new TenantScopedTable("integration_delivery",
+            (connection, tenant) -> {
+                UUID mapping = probeMapping(connection, tenant);
+                UUID version = UUID.randomUUID();
+                TenantFixtures.update(connection,
+                        "insert into integration_mapping_version (id, tenant_id, mapping_id, number, definition, "
+                                + "definition_hash, created_by, updated_by) values (?, ?, ?, 1, '{}'::jsonb, ?, ?, ?)",
+                        version, tenant, mapping, "b".repeat(64), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+                UUID owner = probeConnection(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into integration_delivery (tenant_id, connection_id, mapping_version_id, direction, "
+                                + "kind, event_id, object_api_name, created_by, updated_by) values "
+                                + "(?, ?, ?, 'OUT', 'CREATE', ?, 'ObjectA__c', ?, ?)",
+                        tenant, owner, version, UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** The hash of an accepted inbound nonce (Sprint 28). A probe row creates its connection. */
+    public static final TenantScopedTable INTEGRATION_INBOUND_SEEN = new TenantScopedTable(
+            "integration_inbound_seen", (connection, tenant) -> {
+                UUID owner = probeConnection(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into integration_inbound_seen (tenant_id, connection_id, nonce_hash, created_by, "
+                                + "updated_by) values (?, ?, ?, ?, ?)",
+                        tenant, owner, "c".repeat(64), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
     /** A named secret of an organization (Sprint 27). Every probe uses its own name. */
     public static final TenantScopedTable SECRET_ENTRY = new TenantScopedTable("secret_entry",
             (connection, tenant) -> probeSecret(connection, tenant));
@@ -943,7 +996,8 @@ public final class TenantScopedTables {
             APPROVAL_STEP_INSTANCE, APPROVAL_ASSIGNMENT, APPROVAL_HISTORY, APPROVAL_DELEGATION, NOTIFICATION,
             NOTIFICATION_PREFERENCE, NOTIFICATION_TEMPLATE, APPROVAL_STEP_TIMER, APPROVAL_REMINDER,
             ORGANIZATION_FIELD_VALUES, NUMBER_SERIES_COUNTER, NUMBERING_FORMAT, NUMBER_RESERVATION,
-            INTEGRATION_CONNECTION, SECRET_ENTRY, SECRET_VERSION, SECRET_USAGE,
+            INTEGRATION_CONNECTION, INTEGRATION_MAPPING, INTEGRATION_MAPPING_VERSION, INTEGRATION_LINK,
+            INTEGRATION_DELIVERY, INTEGRATION_INBOUND_SEEN, SECRET_ENTRY, SECRET_VERSION, SECRET_USAGE,
             SHEET_VERSION, SHEET_FILL,
             SHEET_FILL_VALUE,
             INSPECTION_PUBLICATION, INSPECTION_CHANGE_REQUEST, INSPECTION_CHANGE_COMMENT,
@@ -1014,6 +1068,29 @@ public final class TenantScopedTables {
                         + "as jsonb), cast('{}' as jsonb), ?, ?)",
                 version, tenant, process, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
         return version;
+    }
+
+    /** A connection of the tenant for a probe row; returns it. */
+    private static UUID probeConnection(java.sql.Connection connection, UUID tenant) throws java.sql.SQLException {
+        UUID id = UUID.randomUUID();
+        TenantFixtures.update(connection,
+                "insert into integration_connection (id, tenant_id, name, label, connector_type, connector_version, "
+                        + "base_url, auth_kind, definition_fingerprint, created_by, updated_by) values "
+                        + "(?, ?, ?, 'Label', 'rest', 1, 'https://api.example.com', 'NONE', ?, ?, ?)",
+                id, tenant, "probe-" + UUID.randomUUID().toString().substring(0, 8), "a".repeat(64),
+                ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        return id;
+    }
+
+    /** A mapping of the tenant for a probe row, with its connection; returns it. */
+    private static UUID probeMapping(java.sql.Connection connection, UUID tenant) throws java.sql.SQLException {
+        UUID owner = probeConnection(connection, tenant);
+        UUID id = UUID.randomUUID();
+        TenantFixtures.update(connection,
+                "insert into integration_mapping (id, tenant_id, connection_id, object_api_name, entity, "
+                        + "created_by, updated_by) values (?, ?, ?, 'ObjectA__c', 'item', ?, ?)",
+                id, tenant, owner, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+        return id;
     }
 
     /** A secret for a probe row; returns it. Every call makes a secret with its own name. */

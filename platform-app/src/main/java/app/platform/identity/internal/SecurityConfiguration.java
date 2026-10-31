@@ -74,8 +74,29 @@ class SecurityConfiguration {
         ApiPaths.AUTH_PASSWORD_RESET, ApiPaths.AUTH_INVITATION_PREVIEW, ApiPaths.AUTH_INVITATION_ACCEPT_NEW,
         ApiPaths.AUTH_SWITCH_COMPLETE};
 
+    /**
+     * The one public path that is not an exact match (Sprint 28, ADR-0221): the receiver of signed changes from an
+     * external system, {@code /api/v1/inbound/<connection identity>/<entity>}. It proves itself with a signature over
+     * the exact bytes of the body, so it needs no sign-in and, having no cookie to forge, no forgery check.
+     */
+    static boolean isInbound(HttpServletRequest request) {
+        if (!"POST".equals(request.getMethod())) {
+            return false;
+        }
+        String path = request.getRequestURI();
+        String prefix = ApiPaths.INBOUND + "/";
+        if (!path.startsWith(prefix)) {
+            return false;
+        }
+        String[] rest = path.substring(prefix.length()).split("/", -1);
+        return rest.length == 2 && !rest[0].isEmpty() && !rest[1].isEmpty();
+    }
+
     /** Whether the request is for one of the public endpoints (by method and path). */
     static boolean isPublic(HttpServletRequest request) {
+        if (isInbound(request)) {
+            return true;
+        }
         String path = request.getRequestURI();
         String[] publicPaths = "GET".equals(request.getMethod()) ? PUBLIC_GET
                 : "POST".equals(request.getMethod()) ? PUBLIC_POST : new String[0];
@@ -159,7 +180,7 @@ class SecurityConfiguration {
 
         http.cors(cors -> cors.configurationSource(new EmbeddedCors()))
                 .csrf(csrf -> csrf.csrfTokenRepository(csrfTokens).csrfTokenRequestHandler(csrfHandler)
-                        .ignoringRequestMatchers(hasAuthorizationHeader))
+                        .ignoringRequestMatchers(hasAuthorizationHeader, SecurityConfiguration::isInbound))
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .requestCache(cache -> cache.disable())
@@ -169,6 +190,7 @@ class SecurityConfiguration {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET).permitAll()
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST).permitAll()
+                        .requestMatchers(SecurityConfiguration::isInbound).permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resource -> resource
                         .bearerTokenResolver(new TokenAuthentication.Resolver())

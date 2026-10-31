@@ -29,13 +29,15 @@ import java.util.UUID;
  * @param canEnable whether switching on is possible now
  * @param canChange whether the definition can be changed now (a connection that is on is switched off first)
  * @param version the version to send back with a change
+ * @param inboundId the public identity the external system puts in the address of the changes it sends (Sprint 28,
+ *        ADR-0221); an address, not a secret: what proves a change is its signature
  */
 public record IntegrationView(@NotNull UUID id, @NotNull String name, @NotNull String label,
         @NotNull String connectorType, @NotNull String connectorTypeLabel, @NotNull Integer connectorVersion,
         @NotNull String baseUrl, @NotNull String authKind, String authHeaderName, String credentialName,
         @NotNull Map<String, String> settings, @NotNull List<Subscription> subscriptions,
         @NotNull List<ScopeEntry> scope, @NotNull String state, @NotNull String stateLabel, LastTest lastTest,
-        @NotNull Boolean canEnable, @NotNull Boolean canChange, @NotNull Long version) {
+        @NotNull Boolean canEnable, @NotNull Boolean canChange, @NotNull Long version, @NotNull String inboundId) {
 
     public IntegrationView {
         settings = Map.copyOf(settings);

@@ -9,8 +9,10 @@
  *
  * <p>Other modules may use only the types in this package (its public API). Everything in sub-packages is
  * internal. Allowed outgoing dependencies are declared below and verified by the architecture tests. Sprint 26 added
- * {@code licensing} (the plan feature) and {@code observability} (error tracking); the module still does not depend on
- * {@code data}, because nothing sends or receives a record before Sprint 28.
+ * {@code licensing} (the plan feature) and {@code observability} (error tracking). Sprint 28 uses the edges to
+ * {@code data} (the platform's own reads and writes of records), {@code metadata} (the fields of an object) and the new
+ * edge to {@code expression} (the transformations of a mapping): mapping, the links between a record and what it is on
+ * the other side, the outbound sends and the public receiver of signed changes (ADR-0216 to ADR-0224).
  */
 @ApplicationModule(
         displayName = "Integration",
@@ -21,6 +23,7 @@
             "security",
             "data",
             "licensing",
+            "expression",
             "observability"
         })
 package app.platform.integration;

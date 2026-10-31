@@ -74,7 +74,41 @@ Audit kinds `integration.created`, `.updated`, `.enabled`, `.disabled`, `.remove
 an address, a label or a credential name). A rise of `reason=tls_failed` or `timed_out` across organizations points at the
 network of the platform, not at one organization.
 
+## Sending and receiving records (Sprint 28)
+
+**What the platform does.** For a connection that is switched on, listens for `record.created|updated|deleted` on an object and has a live
+mapping, the platform makes **one attempt** for each event: it maps the record as it is when the send is prepared, calls the external
+system and records the result as a delivery (`DONE`, `FAILED` or `SKIPPED` with a stable reason). It does **not** retry, queue or break a
+circuit (Sprint 29). A send that was under way when an instance stopped stays `PENDING` and the list shows it as interrupted; it is not
+repeated, because it may have reached the other side. Deliveries are kept 30 days (`platform.integration.flow.delivery-retention`).
+
+**What the external system must do to send a change.** `POST /api/v1/inbound/<inboundId>/<entity>` (the `inboundId` is shown on the
+connection; it is an address, not a secret) with the headers `X-Platform-Timestamp` (whole seconds since 1970, within five minutes of now),
+`X-Platform-Nonce` (8 to 64 letters, digits, `-` or `_`, never repeated) and `X-Platform-Signature: sha256=<hex>`, where the hex is the HMAC-SHA256,
+keyed with the **value** of the credential named in the connection's setting `inboundCredential`, of the text `v1`, a line feed, the time, a line
+feed, the nonce, a line feed, the entity, a line feed and then the exact bytes of the body. Any failure of the proof (unknown connection,
+switched off, malformed headers, stale time, replay, wrong signature) is the same `401`. To rotate the signing value, write a new version of the
+credential and give the external system the new value; the connection keeps running and the old value stops working at once.
+
+**Public endpoint.** The receiver needs no sign-in and sits on the platform's own address. Put a size limit and an address-based rate limit at the
+proxy as for every public path; the application also refuses a body over `platform.integration.flow.max-inbound-bytes` (256 KiB) and allows
+`inbound-per-minute-per-source` (120) calls a minute from one address (per instance).
+
+**Settings** `platform.integration.flow.*`: `max-concurrent-sends` (16), `send-timeout` (10s), `max-request-bytes` (256 KiB),
+`max-response-bytes` (64 KiB), `max-inbound-bytes` (256 KiB), `replay-window` (5m), `inbound-per-minute-per-source` (120),
+`delivery-retention` (30d), `stale-after` (10m).
+
+**Metrics and audit.** `platform.integration.delivery{direction,result,reason}`, `platform.integration.send.duration{result}`,
+`platform.integration.outbound.events{result}`, `platform.integration.inbound{result}`, `platform.integration.mapping{action}`. Audit
+`integration.mapping.drafted|discarded|published|stopped` (identifiers and the number of fields) and the `data.record.*` records the receiver's
+writes leave (source `channel=inbound`, the connection's identifier). Never a record value, a payload, an external identifier, a header or a signature.
+
 ## What to do when
+
+- **Many `unauthenticated` on `platform.integration.inbound`:** a sender with the wrong signing value, a clock far from true time, or a probe. The answer is the same for all, by design; check the credential's last change and the sender's clock.
+- **Deliveries `FAILED` with `rejected`:** the external system answered with a failure status; look at its side. `authentication_rejected` is a 401 or 403.
+- **Deliveries `SKIPPED` with `echo`:** expected: a change that came from this connection is not sent back.
+- **A change refused with `write_record_locked`:** the record is under approval; the sender may try again after the approval ends.
 
 - **Every test of every organization fails with `name_not_found`:** the application's DNS. Check the resolver of the host.
 - **`credential_store_unavailable`:** the store could not open the credential; see [secrets.md](secrets.md). A test whose last result reads `credential_changed` only needs to be run again after a credential was replaced.

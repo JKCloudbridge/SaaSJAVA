@@ -59,9 +59,12 @@ class SecretsArchitectureTest {
     }
 
     @Test
-    void onlyTheStoreAndTheOneCallerAtTheMomentOfUseReadTheValueOfASecret() {
+    void onlyTheStoreAndTheTwoCallersAtTheMomentOfUseReadTheValueOfASecret() {
+        // Sprint 28 (ADR-0221, ADR-0223): the header of an outgoing call (the code that ConnectionTesting held in
+        // Sprint 27, now shared with the sender) and the check of the signature of an incoming one.
         noClasses().that().doNotHaveFullyQualifiedName("app.platform.secrets.internal.DatabaseSecretsStore")
-                .and().doNotHaveFullyQualifiedName("app.platform.integration.internal.ConnectionTesting")
+                .and().doNotHaveFullyQualifiedName("app.platform.integration.internal.CredentialHeaders")
+                .and().doNotHaveFullyQualifiedName("app.platform.integration.internal.InboundSignatures")
                 .and().resideOutsideOfPackage("app.platform.sharedkernel.secrets..")
                 .should().callMethod(SecretValue.class, "reveal")
                 .check(platform);

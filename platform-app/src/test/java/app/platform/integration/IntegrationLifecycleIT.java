@@ -219,6 +219,7 @@ class IntegrationLifecycleIT extends IntegrationSupport {
         assertThat(created.status()).as(created.body()).isEqualTo(201);
         assertThat(JsonPath.<String>read(created.body(), "$.data.credentialName")).isEqualTo("partner-login");
         assertThat(JsonPath.<String>read(created.body(), "$.data.authKind")).isEqualTo("BASIC");
-        assertThat(created.body()).doesNotContain("inbound").doesNotContain("fingerprint");
+        assertThat(created.body()).doesNotContain("fingerprint");
+        assertThat(JsonPath.<String>read(created.body(), "$.data.inboundId")).matches("[0-9a-f]{32}");
     }
 }

@@ -26,7 +26,8 @@ class IntegrationViews {
         return new IntegrationView(connection.id(), connection.name(), d.label(), connection.connectorType(),
                 typeLabel, d.connectorVersion(), d.baseUrl(), d.authKind(), d.authHeaderName(), d.credentialName(),
                 d.settings(), d.subscriptions(), d.scope(), connection.state().name(), connection.state().label(),
-                last, canEnable, ConnectionMachine.canChange(connection.state()), connection.version());
+                last, canEnable, ConnectionMachine.canChange(connection.state()), connection.version(),
+                connection.inboundId());
     }
 
     /** Whether the current definition has a successful test. The fact the switch-on and the database rest on. */

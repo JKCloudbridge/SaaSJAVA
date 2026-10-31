@@ -7,9 +7,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import app.platform.integration.adapter.AuthKind;
+import app.platform.integration.adapter.CanonicalEntity;
 import app.platform.integration.adapter.Connector;
 import app.platform.integration.adapter.ConnectorDescription;
 import app.platform.integration.adapter.ConnectorDescription.EventSpec;
+import app.platform.integration.adapter.Operation;
+import app.platform.integration.adapter.OutboundRequest;
+import app.platform.integration.adapter.PayloadException;
 import app.platform.integration.adapter.ProbeRequest;
 import app.platform.integration.adapter.rest.RestConnector;
 import app.platform.integration.internal.ConnectionStore.Definition;
@@ -51,6 +55,21 @@ class ConnectorFrameworkTest {
             public boolean accepts(Map<String, String> settings, int status) {
                 return status == 200;
             }
+
+            @Override
+            public OutboundRequest send(Map<String, String> settings, Operation operation, CanonicalEntity entity) {
+                throw new UnsupportedOperationException("A test connector sends nothing");
+            }
+
+            @Override
+            public boolean accepted(Map<String, String> settings, Operation operation, int status) {
+                return status == 200;
+            }
+
+            @Override
+            public CanonicalEntity receive(Map<String, String> settings, String kind, byte[] body) {
+                throw new PayloadException("A test connector reads nothing");
+            }
         };
     }
 
@@ -69,7 +88,8 @@ class ConnectorFrameworkTest {
         assertThat(rest.authKinds()).extracting(ConnectorTypeView.ConnectorChoice::label)
                 .allMatch(label -> !label.isBlank());
         assertThat(rest.settings()).extracting(ConnectorTypeView.Setting::key)
-                .containsExactly("healthPath", "probeMethod", "expect", "timeoutSeconds");
+                .containsExactly("healthPath", "probeMethod", "expect", "timeoutSeconds", "entityPath", "idField",
+                        "updateMethod", "inboundCredential");
         assertThat(rest.settings().get(3).min()).isEqualTo(1L);
         assertThat(rest.settings().get(3).max()).isEqualTo(10L);
         assertThat(rest.platformEvents()).extracting(ConnectorTypeView.ConnectorChoice::key)
@@ -185,7 +205,9 @@ class ConnectorFrameworkTest {
         IntegrationProperties withHost = new IntegrationProperties(new IntegrationProperties.Limits(20),
                 new IntegrationProperties.Egress(Duration.ofSeconds(3), Duration.ofSeconds(5), 16384,
                         List.of(" 127.0.0.1 ", "LOCALHOST")),
-                new IntegrationProperties.Testing(Duration.ofSeconds(10), Duration.ofSeconds(5), 4));
+                new IntegrationProperties.Testing(Duration.ofSeconds(10), Duration.ofSeconds(5), 4),
+                new IntegrationProperties.Flow(16, Duration.ofSeconds(10), 262144, 65536, 262144,
+                        Duration.ofMinutes(5), 120, Duration.ofDays(30), Duration.ofMinutes(10)));
         IntegrationModuleConfiguration configuration = new IntegrationModuleConfiguration();
         MockEnvironment production = new MockEnvironment();
         production.setActiveProfiles("prod");

@@ -33,6 +33,7 @@ export const KIND: ConnectorType = {
 };
 
 export const CONNECTION: Integration = {
+  inboundId: "0123456789abcdef0123456789abcdef",
   id: "11111111-1111-4111-8111-111111111111",
   name: "link-a",
   label: "Link A",

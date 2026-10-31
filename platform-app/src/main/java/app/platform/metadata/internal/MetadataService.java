@@ -7,6 +7,7 @@ import app.platform.metadata.FieldDefinition;
 import app.platform.metadata.FieldType;
 import app.platform.metadata.ObjectDefinition;
 import app.platform.metadata.ObjectUsage;
+import app.platform.sharedkernel.mapping.MappingUsage;
 import app.platform.security.DataPermissionCleanup;
 import app.platform.sharedkernel.ActorId;
 import app.platformapi.AddFieldValueRequest;
@@ -48,6 +49,7 @@ class MetadataService {
     private final MetadataAudit audit;
     private final DataPermissionCleanup cleanup;
     private final ObjectProvider<ObjectUsage> usage;
+    private final ObjectProvider<MappingUsage> mappings;
     private final MetadataProperties properties;
     private final RecordTypeStore recordTypeStore;
     private final ExpressionSupport support;
@@ -56,6 +58,7 @@ class MetadataService {
 
     MetadataService(MetadataStore store, MetadataCatalogue catalogue, MetadataVersions versions, ConfigCodec codec,
             MetadataAudit audit, DataPermissionCleanup cleanup, ObjectProvider<ObjectUsage> usage,
+            ObjectProvider<MappingUsage> mappings,
             MetadataProperties properties, RecordTypeStore recordTypeStore, ExpressionSupport support,
             OrganizationValues organizationValues, PicklistDependencyLimits dependencyLimits) {
         this.organizationValues = organizationValues;
@@ -69,6 +72,7 @@ class MetadataService {
         this.audit = audit;
         this.cleanup = cleanup;
         this.usage = usage;
+        this.mappings = mappings;
         this.properties = properties;
     }
 
@@ -153,6 +157,11 @@ class MetadataService {
                     + "yet: " + String.join(", ", references.stream().limit(5).toList())
                     + (references.size() > 5 ? " and " + (references.size() - 5) + " more" : "")
                     + ". Remove those fields first.");
+        }
+        MappingUsage mapped = mappings.getIfAvailable();
+        if (mapped != null && mapped.usesObject(apiName)) {
+            throw new ApiException(ErrorCode.CONFLICT, "A mapping to an external system uses this object, so it cannot "
+                    + "be removed. Stop the mapping first.");
         }
         ObjectUsage records = usage.getIfAvailable();
         if (records != null && records.hasRecords(apiName)) {
@@ -308,6 +317,11 @@ class MetadataService {
         // A field that records still hold values in keeps its definition: the values would stay in the records with
         // nothing to explain them (ADR-0062, ADR-0090). The type of a field never changes, so this is also what keeps
         // a field from being "retyped" by removing and adding it.
+        MappingUsage mapped = mappings.getIfAvailable();
+        if (mapped != null && mapped.usesField(objectApiName, fieldApiName)) {
+            throw new ApiException(ErrorCode.CONFLICT, "A mapping to an external system uses this field, so it cannot "
+                    + "be removed. Stop the mapping, or publish one that does not use the field, first.");
+        }
         ObjectUsage records = usage.getIfAvailable();
         if (records != null && records.hasValues(objectApiName, fieldApiName)) {
             throw new ApiException(ErrorCode.CONFLICT, "Records still hold values in this field, so it cannot be "

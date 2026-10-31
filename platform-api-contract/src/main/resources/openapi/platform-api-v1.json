@@ -2729,6 +2729,51 @@
         "tags" : [ "Access" ]
       }
     },
+    "/api/v1/inbound/{inboundId}/{entity}" : {
+      "post" : {
+        "description" : "Public: no sign-in. The caller proves itself with the headers X-Platform-Timestamp, X-Platform-Nonce and X-Platform-Signature (see the integrations runbook). An unknown connection, a connection that is off, a stale time, a replay and a wrong signature all get the same answer. Raw bytes in, at most the configured size.",
+        "operationId" : "receiveChange",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "inboundId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "entity",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInboundResultView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Receive a signed change from an external system",
+        "tags" : [ "Inbound" ]
+      }
+    },
     "/api/v1/integrations" : {
       "get" : {
         "description" : "Needs integrations.view. Never holds a secret: a credential is shown only as its name.",
@@ -2824,6 +2869,36 @@
           }
         },
         "summary" : "The kinds of external system that can be connected",
+        "tags" : [ "Integrations" ]
+      }
+    },
+    "/api/v1/integrations/mapping-catalogue" : {
+      "get" : {
+        "description" : "Needs integrations.view and mappings.view. The rules, directions, types and conversions the screens draw their choices from.",
+        "operationId" : "getMappingCatalogue",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMappingCatalogueView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "What a mapping can be made of",
         "tags" : [ "Integrations" ]
       }
     },
@@ -2947,6 +3022,53 @@
         "tags" : [ "Integrations" ]
       }
     },
+    "/api/v1/integrations/{name}/deliveries" : {
+      "get" : {
+        "description" : "Needs integrations.view and mappings.view. The newest first, at most 100. Identifiers, a stable reason and the platform's own sentence for it: never a record value or a payload.",
+        "operationId" : "listDeliveries",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListDeliveryView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "What was sent and received",
+        "tags" : [ "Integrations" ]
+      }
+    },
     "/api/v1/integrations/{name}/disable" : {
       "post" : {
         "description" : "Needs integrations.view and integrations.manage. Takes effect at once: the next question about the connection is answered as for a connection that is off.",
@@ -3030,6 +3152,350 @@
           }
         },
         "summary" : "Switch a tested connection on",
+        "tags" : [ "Integrations" ]
+      }
+    },
+    "/api/v1/integrations/{name}/mappings" : {
+      "get" : {
+        "description" : "Needs integrations.view and mappings.view. One mapping for each object, with its live version, its draft and the versions that were live before.",
+        "operationId" : "listMappings",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListMappingView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The mappings of a connection",
+        "tags" : [ "Integrations" ]
+      }
+    },
+    "/api/v1/integrations/{name}/mappings/{object}" : {
+      "get" : {
+        "description" : "Needs integrations.view and mappings.view.",
+        "operationId" : "getMapping",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "object",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMappingView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The mapping of one object",
+        "tags" : [ "Integrations" ]
+      },
+      "put" : {
+        "description" : "Needs integrations.view, mappings.view and mappings.manage. Checks the definition against the object as it is now and stores it as the draft; nothing is sent or received until it is published. The first save for an object makes the mapping and names its entity.",
+        "operationId" : "saveMappingDraft",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "object",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveMappingRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMappingView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Save the draft of a mapping",
+        "tags" : [ "Integrations" ]
+      }
+    },
+    "/api/v1/integrations/{name}/mappings/{object}/draft" : {
+      "delete" : {
+        "description" : "Needs integrations.view, mappings.view and mappings.manage and the version of the draft read.",
+        "operationId" : "discardMappingDraft",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "object",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "version",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseBoolean"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Discard the draft of a mapping",
+        "tags" : [ "Integrations" ]
+      }
+    },
+    "/api/v1/integrations/{name}/mappings/{object}/dry-run" : {
+      "post" : {
+        "description" : "Needs integrations.view, mappings.view and mappings.manage. The real mapper works on the sample the person typed; nothing is stored, sent, logged or audited.",
+        "operationId" : "tryMapping",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "object",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MappingDryRunRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMappingDryRunView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Try a definition on a sample",
+        "tags" : [ "Integrations" ]
+      }
+    },
+    "/api/v1/integrations/{name}/mappings/{object}/publish" : {
+      "post" : {
+        "description" : "Needs integrations.view, mappings.view and mappings.manage and the version of the draft read. Checked again against the object as it is now and against the scope of the connection. The version that was live ends; events already under way finish under the version they began with.",
+        "operationId" : "publishMapping",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "object",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MappingVersionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMappingView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Make the draft live",
+        "tags" : [ "Integrations" ]
+      }
+    },
+    "/api/v1/integrations/{name}/mappings/{object}/stop" : {
+      "post" : {
+        "description" : "Needs integrations.view, mappings.view and mappings.manage. Nothing is sent or received for the object until a draft is published again.",
+        "operationId" : "stopMapping",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "object",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMappingView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Stop the live version",
         "tags" : [ "Integrations" ]
       }
     },
@@ -15626,6 +16092,15 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseInboundResultView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/InboundResultView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseIntegrationTestView" : {
         "type" : "object",
         "properties" : {
@@ -15842,6 +16317,18 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListDeliveryView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DeliveryView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListFieldTypeView" : {
         "type" : "object",
         "properties" : {
@@ -15993,6 +16480,18 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/LookupOptionView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListMappingView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MappingView"
             }
           }
         },
@@ -16312,6 +16811,33 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/LookupLabelsView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseMappingCatalogueView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/MappingCatalogueView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseMappingDryRunView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/MappingDryRunView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseMappingView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/MappingView"
           }
         },
         "required" : [ "data" ]
@@ -19782,6 +20308,53 @@
         },
         "required" : [ "key", "value" ]
       },
+      "DeliveryView" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "direction" : {
+            "type" : "string"
+          },
+          "finishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "httpStatus" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "object" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "recordId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "stale" : {
+            "type" : "boolean"
+          },
+          "state" : {
+            "type" : "string"
+          },
+          "words" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "createdAt", "direction", "id", "kind", "object", "stale", "state" ]
+      },
       "DepartmentCount" : {
         "type" : "object",
         "properties" : {
@@ -20869,6 +21442,15 @@
         },
         "required" : [ "createdAt", "id", "object", "operation", "state" ]
       },
+      "InboundResultView" : {
+        "type" : "object",
+        "properties" : {
+          "result" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "result" ]
+      },
       "IntegrationTestView" : {
         "type" : "object",
         "properties" : {
@@ -20922,6 +21504,9 @@
             "type" : "string",
             "format" : "uuid"
           },
+          "inboundId" : {
+            "type" : "string"
+          },
           "label" : {
             "type" : "string"
           },
@@ -20960,7 +21545,7 @@
             "format" : "int64"
           }
         },
-        "required" : [ "authKind", "baseUrl", "canChange", "canEnable", "connectorType", "connectorTypeLabel", "connectorVersion", "id", "label", "name", "scope", "settings", "state", "stateLabel", "subscriptions", "version" ]
+        "required" : [ "authKind", "baseUrl", "canChange", "canEnable", "connectorType", "connectorTypeLabel", "connectorVersion", "id", "inboundId", "label", "name", "scope", "settings", "state", "stateLabel", "subscriptions", "version" ]
       },
       "InvitationAccepted" : {
         "type" : "object",
@@ -21442,6 +22027,308 @@
             "minLength" : 0
           }
         }
+      },
+      "MappingCatalogueView" : {
+        "type" : "object",
+        "properties" : {
+          "conflicts" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MappingChoice"
+            }
+          },
+          "conversions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MappingChoice"
+            }
+          },
+          "directions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MappingChoice"
+            }
+          },
+          "externalTypes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MappingChoice"
+            }
+          }
+        },
+        "required" : [ "conflicts", "conversions", "directions", "externalTypes" ]
+      },
+      "MappingChoice" : {
+        "type" : "object",
+        "properties" : {
+          "hint" : {
+            "type" : "string"
+          },
+          "input" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "hint", "key", "label" ]
+      },
+      "MappingDryRunRequest" : {
+        "type" : "object",
+        "properties" : {
+          "definition" : {
+            "$ref" : "#/components/schemas/MappingSpec"
+          },
+          "direction" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          },
+          "entity" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "values" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }
+        },
+        "required" : [ "definition", "direction", "entity", "values" ]
+      },
+      "MappingDryRunView" : {
+        "type" : "object",
+        "properties" : {
+          "direction" : {
+            "type" : "string"
+          },
+          "problems" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            }
+          },
+          "result" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "skipped" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MappingSkippedField"
+            }
+          }
+        },
+        "required" : [ "direction", "problems", "result", "skipped" ]
+      },
+      "MappingFieldSpec" : {
+        "type" : "object",
+        "properties" : {
+          "conversion" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "defaultValue" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "direction" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          },
+          "external" : {
+            "type" : "string",
+            "maxLength" : 64,
+            "minLength" : 0
+          },
+          "externalType" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          },
+          "inExpression" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "outExpression" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "platform" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "required" : {
+            "type" : "boolean"
+          },
+          "scale" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "valueMap" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MappingValuePair"
+            },
+            "maxItems" : 200,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "conversion", "direction", "external", "externalType", "platform", "required" ]
+      },
+      "MappingSkippedField" : {
+        "type" : "object",
+        "properties" : {
+          "field" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "words" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "field", "reason", "words" ]
+      },
+      "MappingSpec" : {
+        "type" : "object",
+        "properties" : {
+          "changedAtField" : {
+            "type" : "string",
+            "maxLength" : 64,
+            "minLength" : 0
+          },
+          "conflict" : {
+            "type" : "string",
+            "maxLength" : 30,
+            "minLength" : 0
+          },
+          "fields" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MappingFieldSpec"
+            },
+            "maxItems" : 100,
+            "minItems" : 0
+          },
+          "inboundCreate" : {
+            "type" : "boolean"
+          },
+          "inboundUpdate" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "conflict", "fields", "inboundCreate", "inboundUpdate" ]
+      },
+      "MappingValuePair" : {
+        "type" : "object",
+        "properties" : {
+          "external" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "platform" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "external", "platform" ]
+      },
+      "MappingVersionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "version" ]
+      },
+      "MappingVersionView" : {
+        "type" : "object",
+        "properties" : {
+          "definition" : {
+            "$ref" : "#/components/schemas/MappingSpec"
+          },
+          "hash" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "number" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "publishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "definition", "hash", "id", "number", "status", "version" ]
+      },
+      "MappingView" : {
+        "type" : "object",
+        "properties" : {
+          "canPublish" : {
+            "type" : "boolean"
+          },
+          "connection" : {
+            "type" : "string"
+          },
+          "draft" : {
+            "$ref" : "#/components/schemas/MappingVersionView"
+          },
+          "entity" : {
+            "type" : "string"
+          },
+          "history" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MappingVersionView"
+            }
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "live" : {
+            "$ref" : "#/components/schemas/MappingVersionView"
+          },
+          "object" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "canPublish", "connection", "entity", "history", "id", "object" ]
       },
       "MemberAccessView" : {
         "type" : "object",
@@ -24292,6 +25179,25 @@
           }
         },
         "required" : [ "authKind", "baseUrl", "connectorType", "label", "name", "scope", "settings", "subscriptions", "version" ]
+      },
+      "SaveMappingRequest" : {
+        "type" : "object",
+        "properties" : {
+          "definition" : {
+            "$ref" : "#/components/schemas/MappingSpec"
+          },
+          "entity" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "definition", "entity", "version" ]
       },
       "SaveNumberingFormatRequest" : {
         "type" : "object",

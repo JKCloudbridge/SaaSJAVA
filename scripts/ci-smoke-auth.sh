@@ -1299,4 +1299,20 @@ if [ -n "$mail" ]; then
   status="$(client_call "$base/api/v1/credentials")"
   if grep -Fq '"name":"smoke-credential"' "$body"; then fail "the credential is still listed after its removal: $(cat "$body")"; fi
   echo "ok: a credential was written, listed by name, replaced, rolled back and removed; no answer and no log line of the container held its value"
+  # 33. Mapping and the receiver (Sprint 28, ADR-0216 to ADR-0224): a mapping is drafted and checked, a draft naming a field the
+  # object lacks is refused without repeating it, the public receiver answers an unsigned call and an unknown connection alike
+  # with 401, and the catalogue the screens draw from is served. The signed flows are proved by MappingFlowIT, which can start
+  # a service of its own. Written carefully and NOT claimed to work until this job has run it.
+  status="$(client_call "$base/api/v1/integrations/mapping-catalogue")"
+  [ "$status" = "200" ] || fail "the mapping catalogue answered $status: $(cat "$body")"
+  grep -Fq '"conflicts"' "$body" || fail "the mapping catalogue has no rules: $(cat "$body")"
+  status="$(client_call -X PUT -H "$group_json" -d '{"entity":"item","definition":{"conflict":"EXTERNAL_WINS","inboundCreate":true,"inboundUpdate":true,"fields":[{"external":"title","platform":"smoke_missing__c","direction":"BOTH","externalType":"TEXT","required":false,"conversion":"NONE"}]},"version":0}' "$base/api/v1/integrations/smoke-link/mappings/ObjectA__c")"
+  case "$status" in 400|404) ;; *) fail "a mapping naming a missing field answered $status: $(cat "$body")" ;; esac
+  if grep -Fq "smoke_missing__c" "$body"; then fail "the refusal repeats the name that was typed: $(cat "$body")"; fi
+  unknown="$(printf '%032d' 0)"
+  status="$(call_host="" call -X POST -H 'Content-Type: application/json' -d '{"id":"x"}' "$base/api/v1/inbound/$unknown/item")"
+  [ "$status" = "401" ] || fail "an unsigned call to an unknown connection answered $status: $(cat "$body")"
+  status="$(call_host="" call -X POST -H 'Content-Type: application/json' -H 'X-Platform-Timestamp: 1' -H 'X-Platform-Nonce: abcdefgh' -H 'X-Platform-Signature: sha256=0000000000000000000000000000000000000000000000000000000000000000' -d '{"id":"x"}' "$base/api/v1/inbound/$unknown/item")"
+  [ "$status" = "401" ] || fail "a badly signed call to an unknown connection answered $status: $(cat "$body")"
+  echo "ok: the mapping catalogue was served, a mapping naming a missing field was refused without repeating it, and the public receiver refused unsigned and badly signed calls with one answer"
 fi

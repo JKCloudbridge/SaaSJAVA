@@ -22,7 +22,13 @@ public enum Purpose {
      * The entry criteria of an approval process (Sprint 24, ADR-0145): it must give true or false, and it may use the
      * clock because it is judged when a record is submitted, not stored.
      */
-    APPROVAL_ENTRY(true);
+    APPROVAL_ENTRY(true),
+
+    /**
+     * The transformation of one field of an integration mapping (Sprint 28, ADR-0218): any result type, the clock is
+     * not allowed because the same input must always map to the same output, so a mapping can be tried and replayed.
+     */
+    MAPPING_TRANSFORM(false);
 
     private final boolean clockAllowed;
 

@@ -64,6 +64,37 @@ class IntegrationArchitectureTest {
     }
 
     @Test
+    void onlyTheReceiverWritesRecordsAndNothingElseOfTheModuleCallsThePlatformsDoor() {
+        // Sprint 28 (ADR-0222): a change from outside is written by the receiver and by nothing else of this module,
+        // through the same pipeline as a workflow, as the platform, within the scope of the connection.
+        noClasses().that().resideInAPackage("app.platform.integration..")
+                .and().doNotHaveSimpleName("InboundService")
+                .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.data.BackgroundWrites")
+                .because("only InboundService may change a record on behalf of a connection")
+                .allowEmptyShould(true).check(platform);
+    }
+
+    @Test
+    void onlyTheSenderTheTesterAndTheirOwnTypesUseTheOutboundClient() {
+        noClasses().that().resideInAPackage("app.platform.integration..")
+                .and().haveNameNotMatching(".*EgressClient.*")
+                .and().doNotHaveSimpleName("OutboundSender").and().doNotHaveSimpleName("ConnectionTesting")
+                .should().dependOnClassesThat().haveFullyQualifiedName(
+                        "app.platform.integration.internal.EgressClient")
+                .allowEmptyShould(true).check(platform);
+    }
+
+    @Test
+    void theReceiverAndTheSenderNeverReadTheValueOfASecretThemselves() {
+        noClasses().that().haveSimpleName("InboundService").or().haveSimpleName("OutboundSender")
+                .or().haveSimpleName("InboundController").or().haveSimpleName("ConnectionTesting")
+                .should().dependOnClassesThat().haveFullyQualifiedName(
+                        "app.platform.sharedkernel.secrets.SecretValue")
+                .because("the value is read by the header builder and the signature check, which wipe it")
+                .allowEmptyShould(true).check(platform);
+    }
+
+    @Test
     void everyConnectorLivesInTheAdapterPackage() {
         classes().that().implement("app.platform.integration.adapter.Connector")
                 .should().resideInAPackage("app.platform.integration.adapter..")

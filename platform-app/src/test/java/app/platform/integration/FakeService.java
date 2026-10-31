@@ -21,11 +21,32 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public final class FakeService implements AutoCloseable {
 
     /** What the service was asked. Header values are kept so a test can see what the platform sent. */
-    public record Seen(String method, String path, String authorization, String apiKey) {
+    public record Seen(String method, String path, String authorization, String apiKey, String contentType,
+            String body) {
+
+        /** A request without a body (every request before Sprint 28). */
+        public Seen(String method, String path, String authorization, String apiKey) {
+            this(method, path, authorization, apiKey, null, "");
+        }
     }
 
     /** How the service answers one path. */
-    public record Reply(int status, Map<String, String> headers, long delayMillis) {
+    public record Reply(int status, Map<String, String> headers, long delayMillis, String body, boolean chunked) {
+
+        /** An answer that carries the platform's old fixed body (every answer before Sprint 28). */
+        public Reply(int status, Map<String, String> headers, long delayMillis) {
+            this(status, headers, delayMillis, null, false);
+        }
+
+        /** A success that carries this JSON, announced by its length. */
+        public static Reply json(int status, String body) {
+            return new Reply(status, Map.of("Content-Type", "application/json"), 0, body, false);
+        }
+
+        /** The same body sent in chunks, to prove the platform reads both ways of announcing a body. */
+        public static Reply chunkedJson(int status, String body) {
+            return new Reply(status, Map.of("Content-Type", "application/json"), 0, body, true);
+        }
 
         public static Reply status(int status) {
             return new Reply(status, Map.of(), 0);
@@ -67,6 +88,8 @@ public final class FakeService implements AutoCloseable {
             String[] line = in.readLine().split(" ");
             String authorization = null;
             String apiKey = null;
+            String contentType = null;
+            int length = 0;
             String header;
             while ((header = in.readLine()) != null && !header.isEmpty()) {
                 String lower = header.toLowerCase(java.util.Locale.ROOT);
@@ -74,22 +97,57 @@ public final class FakeService implements AutoCloseable {
                     authorization = header.substring(header.indexOf(':') + 1).strip();
                 } else if (lower.startsWith("x-api-key:")) {
                     apiKey = header.substring(header.indexOf(':') + 1).strip();
+                } else if (lower.startsWith("content-type:")) {
+                    contentType = header.substring(header.indexOf(':') + 1).strip();
+                } else if (lower.startsWith("content-length:")) {
+                    length = Integer.parseInt(header.substring(header.indexOf(':') + 1).strip());
                 }
             }
-            seen.add(new Seen(line[0], line[1], authorization, apiKey));
-            Reply reply = replies.getOrDefault(line[1], Reply.status(200));
+            char[] chars = new char[length];
+            int read = 0;
+            while (read < length) {
+                int more = in.read(chars, read, length - read);
+                if (more < 0) {
+                    break;
+                }
+                read += more;
+            }
+            String body = new String(chars, 0, read);
+            seen.add(new Seen(line[0], line[1], authorization, apiKey, contentType, body));
+            Reply reply = replies.getOrDefault(line[0] + " " + line[1], replies.getOrDefault(line[1],
+                    Reply.status(200)));
             if (reply.delayMillis() > 0) {
                 Thread.sleep(reply.delayMillis());
             }
             StringBuilder head = new StringBuilder("HTTP/1.1 ").append(reply.status()).append(" X\r\n");
             reply.headers().forEach((name, value) -> head.append(name).append(": ").append(value).append("\r\n"));
             boolean headOnly = line[0].equals("HEAD");
-            head.append("Content-Length: ").append(headOnly ? 0 : BODY.length());
+            String answer = reply.body() == null ? BODY : reply.body();
+            if (reply.chunked() && !headOnly) {
+                head.append("Transfer-Encoding: chunked");
+            } else {
+                head.append("Content-Length: ").append(headOnly ? 0 : answer.getBytes(StandardCharsets.UTF_8).length);
+            }
             head.append("\r\nConnection: close\r\n\r\n");
             OutputStream out = client.getOutputStream();
             out.write(head.toString().getBytes(StandardCharsets.ISO_8859_1));
             if (!headOnly) {
-                out.write(BODY.getBytes(StandardCharsets.ISO_8859_1));
+                byte[] bytes = answer.getBytes(StandardCharsets.UTF_8);
+                if (reply.chunked()) {
+                    int half = Math.max(1, bytes.length / 2);
+                    out.write((Integer.toHexString(half) + "\r\n").getBytes(StandardCharsets.ISO_8859_1));
+                    out.write(bytes, 0, half);
+                    out.write("\r\n".getBytes(StandardCharsets.ISO_8859_1));
+                    int rest = bytes.length - half;
+                    if (rest > 0) {
+                        out.write((Integer.toHexString(rest) + "\r\n").getBytes(StandardCharsets.ISO_8859_1));
+                        out.write(bytes, half, rest);
+                        out.write("\r\n".getBytes(StandardCharsets.ISO_8859_1));
+                    }
+                    out.write("0\r\n\r\n".getBytes(StandardCharsets.ISO_8859_1));
+                } else {
+                    out.write(bytes);
+                }
             }
             out.flush();
         } catch (IOException | InterruptedException | RuntimeException gone) {
@@ -111,6 +169,11 @@ public final class FakeService implements AutoCloseable {
     /** Everything it was asked, oldest first. */
     public List<Seen> seen() {
         return List.copyOf(seen);
+    }
+
+    /** The bodies the path was sent, oldest first. */
+    public List<String> bodies(String path) {
+        return seen.stream().filter(one -> one.path().equals(path)).map(Seen::body).toList();
     }
 
     /** How many times the path was asked. */

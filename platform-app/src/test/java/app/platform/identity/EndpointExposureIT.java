@@ -51,7 +51,12 @@ class EndpointExposureIT {
             // one-time, 60-second proof the other host handed out. All answer the same for every kind of bad token.
             "POST /api/v1/auth/invitations/preview",
             "POST /api/v1/auth/invitations/accept-new",
-            "POST /api/v1/auth/switch/complete");
+            "POST /api/v1/auth/switch/complete",
+            // Sprint 28 (ADR-0221): the receiver of changes from an external system. The caller is not a person and
+            // has no session; it proves itself with an HMAC over the exact bytes of the body, keyed with a credential
+            // of the organization, and an unknown connection, a switched-off one, a stale time, a replay and a wrong
+            // signature all get the same 401. The organization comes from the connection, never from the host.
+            "POST /api/v1/inbound/x/x");
 
     @LocalServerPort
     private int port;

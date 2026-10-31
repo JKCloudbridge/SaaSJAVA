@@ -22,6 +22,7 @@ import {
   type SettingSpec,
 } from "@/lib/integrations/model";
 import { useOffers } from "@/lib/session/SessionProvider";
+import { MappingDesigner } from "./MappingDesigner";
 
 type ObjectSummary = components["schemas"]["ObjectSummaryView"];
 
@@ -55,6 +56,7 @@ export function IntegrationsPanel() {
   const [editing, setEditing] = useState(false);
   const offersManage = useOffers("integrations.manage");
   const offersTest = useOffers("integrations.test");
+  const offersMappings = useOffers("mappings.view");
 
   const reload = useCallback(async () => {
     try {
@@ -275,6 +277,7 @@ export function IntegrationsPanel() {
             ))}
           </ul>
         </DetailSection>
+        {offersMappings ? <MappingDesigner key={item.id} connection={item} /> : null}
         <DetailSection title="May touch">
           {item.scope.length === 0 ? <p className="dl-value muted">Nothing.</p> : null}
           <ul data-testid="integration-scope">
