@@ -264,8 +264,9 @@ class ApprovalViews {
      * decides again with the caller's own read rights.
      */
     private String pathOf(InstanceRow instance) {
-        return destinations.orderedStream().filter(target -> target.object().equals(instance.objectApiName()))
-                .map(target -> target.readablePath(instance.recordId(), Map.of())).flatMap(Optional::stream)
+        return destinations.orderedStream().filter(target -> target.serves(instance.objectApiName()))
+                .map(target -> target.readablePath(instance.objectApiName(), instance.recordId(), Map.of()))
+                .flatMap(Optional::stream)
                 .findFirst().orElse(null);
     }
 

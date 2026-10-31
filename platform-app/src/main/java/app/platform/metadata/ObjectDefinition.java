@@ -21,6 +21,9 @@ import java.util.Optional;
  * @param requiresFeature the plan feature an organization needs for the object to exist for it, or null (Functional
  *        track FA1, ADR-0175). Asked when the object is looked up, never kept in the snapshot, so an organization
  *        without the feature gets "not found" exactly as for an unknown object.
+ * @param alsoAvailableWith other plan features that also give an organization the object, for an object that
+ *        several applications use (FA13A, ADR-0225); empty for an object of one application. The object exists
+ *        when its own feature or any of these is on
  * @param retainRecords whether every record of the object is kept: it cannot be deleted, restored over or purged,
  *        by anyone, and no delete right can be given on it (ADR-0174 section 7, ADR-0181)
  * @param sharingDefault the organization-wide default the platform fixes for the records of the object, or null when
@@ -30,11 +33,31 @@ import java.util.Optional;
  */
 public record ObjectDefinition(String apiName, String label, String pluralLabel, String description,
         DefinitionKind kind, String managedBy, boolean extensible, long version, List<FieldDefinition> fields,
-        String requiresFeature, boolean retainRecords, String sharingDefault) {
+        String requiresFeature, boolean retainRecords, String sharingDefault, List<String> alsoAvailableWith) {
 
     /** Copies what is given. */
     public ObjectDefinition {
         fields = List.copyOf(fields);
+        alsoAvailableWith = List.copyOf(alsoAvailableWith);
+    }
+
+    /** An object that exists only with its own plan feature (every object before Sprint FA13A). */
+    public ObjectDefinition(String apiName, String label, String pluralLabel, String description,
+            DefinitionKind kind, String managedBy, boolean extensible, long version, List<FieldDefinition> fields,
+            String requiresFeature, boolean retainRecords, String sharingDefault) {
+        this(apiName, label, pluralLabel, description, kind, managedBy, extensible, version, fields, requiresFeature,
+                retainRecords, sharingDefault, List.of());
+    }
+
+    /**
+     * Whether the organization has the object, given the plan features it has: the object needs none, or its own
+     * feature is on, or one of the other features it is also available with (FA13A, ADR-0225).
+     */
+    public boolean availableWith(java.util.function.Predicate<String> featureOn) {
+        if (requiresFeature == null || featureOn.test(requiresFeature)) {
+            return true;
+        }
+        return alsoAvailableWith.stream().anyMatch(featureOn);
     }
 
     /** An object whose sharing default an administrator chooses (every object before Sprint FA4). */
@@ -55,7 +78,7 @@ public record ObjectDefinition(String apiName, String label, String pluralLabel,
     /** The same object with other fields (the organization's own fields added to a standard object). */
     public ObjectDefinition withFields(List<FieldDefinition> other) {
         return new ObjectDefinition(apiName, label, pluralLabel, description, kind, managedBy, extensible, version,
-                other, requiresFeature, retainRecords, sharingDefault);
+                other, requiresFeature, retainRecords, sharingDefault, alsoAvailableWith);
     }
 
     /** The field with the API name, if the object has it. */

@@ -4,6 +4,7 @@ import type { ApiFailure } from "@/lib/api/errors";
 import { FORGERY_COOKIE, FORGERY_HEADER, readCookie } from "@/lib/api/forgery";
 import type { components } from "@/lib/api/generated/schema";
 import { call, type Outcome } from "@/lib/records/call";
+import { scopeQuery } from "./scope";
 
 /**
  * The calls of the register form of a change request (Functional track FA8, ADR-0202) and how it is written on a screen.
@@ -60,7 +61,7 @@ export function getRegister(templateId: string, requestId: string): Promise<Outc
   return unwrap(
     call(() =>
       api.GET("/api/v1/templates/{templateId}/change-requests/{requestId}/register", {
-        params: { path: { templateId, requestId } },
+        params: { path: { templateId, requestId }, query: scopeQuery() },
       }),
     ),
   );
@@ -75,7 +76,7 @@ export function completeRegister(
   return unwrap(
     call(() =>
       api.PUT("/api/v1/templates/{templateId}/change-requests/{requestId}/register", {
-        params: { path: { templateId, requestId } },
+        params: { path: { templateId, requestId }, query: scopeQuery() },
         body,
       }),
     ),
@@ -85,7 +86,7 @@ export function completeRegister(
 /** The register as it would be drawn for a request about the template with these typed boxes; nothing is stored. */
 export function drawRegister(templateId: string, body: RegisterInput): Promise<Outcome<RegisterView>> {
   return unwrap(
-    call(() => api.POST("/api/v1/templates/{templateId}/change-requests/register/page", { params: { path: { templateId } }, body })),
+    call(() => api.POST("/api/v1/templates/{templateId}/change-requests/register/page", { params: { path: { templateId }, query: scopeQuery() }, body })),
   );
 }
 
@@ -93,7 +94,7 @@ export function drawRegister(templateId: string, body: RegisterInput): Promise<O
 export function downloadRegister(templateId: string, requestId: string): Promise<Outcome<Blob>> {
   return call(() =>
     api.GET("/api/v1/templates/{templateId}/change-requests/{requestId}/register/file", {
-      params: { path: { templateId, requestId } },
+      params: { path: { templateId, requestId }, query: scopeQuery() },
       parseAs: "blob",
     }),
   ).then((outcome): Outcome<Blob> => (outcome.ok ? { ok: true, data: outcome.data as unknown as Blob } : outcome));
@@ -103,7 +104,7 @@ export function downloadRegister(templateId: string, requestId: string): Promise
 export function downloadRegisterDraft(templateId: string, body: RegisterInput): Promise<Outcome<Blob>> {
   return call(() =>
     api.POST("/api/v1/templates/{templateId}/change-requests/register/file", {
-      params: { path: { templateId } },
+      params: { path: { templateId }, query: scopeQuery() },
       body,
       parseAs: "blob",
     }),
@@ -115,7 +116,8 @@ export function downloadRegisterDraft(templateId: string, body: RegisterInput): 
  * one raw body (it cannot be one of the generated client's typed calls) and is kept nowhere.
  */
 export function readRegisterFile(templateId: string, file: Blob): Promise<Outcome<RegisterFileView>> {
-  const address = `/api/v1/templates/${encodeURIComponent(templateId)}/change-requests/register/read`;
+  const address = `/api/v1/templates/${encodeURIComponent(templateId)}/change-requests/register/read`
+    + `?application=${encodeURIComponent(scopeQuery().application)}`;
   return unwrap(
     call(async () => {
       const token = readCookie(FORGERY_COOKIE);

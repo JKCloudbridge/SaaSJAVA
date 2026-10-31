@@ -8,8 +8,7 @@ package app.platform.inspection.internal;
  */
 final class RequestRecords {
 
-    /** The record the engine reviews. */
-    static final String OBJECT = "InspectionChangeRequest";
+    // The object the engine reviews is a part the application's solution file declares: RecordSet.request().
     static final String NAME = "name";
     /** The template the request is about, as the text of its identifier. */
     static final String TEMPLATE_ID = "templateId";
@@ -26,8 +25,8 @@ final class RequestRecords {
      * Where a person goes to read one request: the template's own page, on its Change requests tab, request open.
      * The bell and the approval inbox lead here; the page decides again what the person may see.
      */
-    static String pathOf(java.util.UUID templateId, java.util.UUID requestId) {
-        return "/apps/" + Templates.APPLICATION + "/" + Templates.ENTRY + "?open=" + templateId
+    static String pathOf(String application, java.util.UUID templateId, java.util.UUID requestId) {
+        return "/apps/" + application + "/" + Templates.ENTRY + "?open=" + templateId
                 + "&tab=" + TAB + "&request=" + requestId;
     }
 

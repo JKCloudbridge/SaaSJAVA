@@ -14,6 +14,7 @@ import app.platformapi.PicklistDependency;
 import app.platformapi.PicklistOption;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -47,7 +48,7 @@ final class StandardMetadataLoader {
      * and knows nothing of what any solution is, so a solution's words never enter the metadata module. The module
      * that loads the solutions checks that every such file belongs to one of them.
      */
-    static final String SHIPPED_LOCATION = "classpath:solutions/*/objects/*.yml";
+    static final String SHIPPED_LOCATION = "classpath*:solutions/*/objects/*.yml";
     static final String SYSTEM_FIELDS_FILE = "_system-fields.yml";
 
     /** What a plan feature key looks like (the same shape the {@code feature} table checks). */
@@ -65,7 +66,8 @@ final class StandardMetadataLoader {
     private static final ExpressionEngine SYNTAX = new ExpressionEngine(Limits.standard());
 
     private static final Set<String> OBJECT_KEYS = Set.of("apiName", "label", "pluralLabel", "description",
-            "managedBy", "extensible", "requiresFeature", "retainRecords", "sharingDefault", "fields");
+            "managedBy", "extensible", "requiresFeature", "alsoAvailableWith", "retainRecords", "sharingDefault",
+            "fields");
     private static final Set<String> FILE_KEYS = Set.of("fields");
     private static final Set<String> FIELD_KEYS = Set.of("apiName", "label", "description", "type", "required",
             "unique", "indexed", "default", "settings", "retired", "organizationValues", "codeValues",
@@ -176,6 +178,18 @@ final class StandardMetadataLoader {
                 throw new IllegalStateException(where + ": 'requiresFeature' is a plan feature key (lower case "
                         + "letters, digits and hyphens)");
             }
+            List<String> alsoAvailableWith = node.textList("alsoAvailableWith");
+            if (!alsoAvailableWith.isEmpty() && requiresFeature == null) {
+                throw new IllegalStateException(where + ": 'alsoAvailableWith' only widens 'requiresFeature', which "
+                        + "is missing");
+            }
+            for (String feature : alsoAvailableWith) {
+                if (!FEATURE_KEY.matcher(feature).matches() || feature.equals(requiresFeature)
+                        || Collections.frequency(alsoAvailableWith, feature) > 1) {
+                    throw new IllegalStateException(where + ": 'alsoAvailableWith' lists plan feature keys, each "
+                            + "once and none the object's own");
+                }
+            }
             boolean retainRecords = node.flag("retainRecords", false);
             if (managedBy != null && (requiresFeature != null || retainRecords)) {
                 throw new IllegalStateException(where + ": an object another part of the platform owns cannot "
@@ -210,7 +224,8 @@ final class StandardMetadataLoader {
                 throw new IllegalStateException(where + ": more than " + MAX_FIELDS + " fields");
             }
             ObjectDefinition made = new ObjectDefinition(apiName, label, plural, description, DefinitionKind.STANDARD,
-                    managedBy, extensible, 0, all, requiresFeature, retainRecords, sharingDefault);
+                    managedBy, extensible, 0, all, requiresFeature, retainRecords, sharingDefault,
+                    alsoAvailableWith);
             checkDependencies(where, made);
             return made;
         }

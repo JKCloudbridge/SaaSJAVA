@@ -27,14 +27,32 @@ public final class TestHttp {
         this.defaultHeaders = defaultHeaders.clone();
     }
 
+    // The paths of the endpoints that need to be told which application's records they mean (FA13B, ADR-0226).
+    private static final java.util.List<String> APPLICATION_PATHS = java.util.List.of("/api/v1/templates",
+            "/api/v1/fill-ins", "/api/v1/change-requests", "/api/v1/quality-home");
+
+    /**
+     * The path with {@code application=inspection} added when it is an endpoint of the template, fill-in, change
+     * or dashboard kind that names none: the tests written before the second application mean the first, and say so
+     * here once instead of in every address. A test that means another application writes the parameter itself.
+     */
+    static String scoped(String path) {
+        boolean needs = APPLICATION_PATHS.stream().anyMatch(prefix -> path.startsWith(prefix + "/")
+                || path.startsWith(prefix + "?") || path.equals(prefix));
+        if (!needs || path.contains("application=")) {
+            return path;
+        }
+        return path + (path.contains("?") ? "&" : "?") + "application=inspection";
+    }
+
     /** Sends a GET request. {@code headers} are name/value pairs. */
     public Response get(String path, String... headers) {
-        return send(HttpRequest.newBuilder(URI.create(baseUrl + path)).GET(), headers);
+        return send(HttpRequest.newBuilder(URI.create(baseUrl + scoped(path))).GET(), headers);
     }
 
     /** Sends a POST request with a body. {@code headers} are name/value pairs. */
     public Response post(String path, String body, String... headers) {
-        return send(HttpRequest.newBuilder(URI.create(baseUrl + path))
+        return send(HttpRequest.newBuilder(URI.create(baseUrl + scoped(path)))
                 .POST(HttpRequest.BodyPublishers.ofString(body)), headers);
     }
 
@@ -42,7 +60,7 @@ public final class TestHttp {
     public Response request(String method, String path, String body, String... headers) {
         HttpRequest.BodyPublisher publisher = body == null || body.isEmpty()
                 ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(body);
-        return send(HttpRequest.newBuilder(URI.create(baseUrl + path)).method(method, publisher), headers);
+        return send(HttpRequest.newBuilder(URI.create(baseUrl + scoped(path))).method(method, publisher), headers);
     }
 
     private Response send(HttpRequest.Builder builder, String... headers) {
@@ -71,7 +89,7 @@ public final class TestHttp {
     public Response requestChunked(String method, String path, byte[] body, String... headers) {
         HttpRequest.BodyPublisher publisher = HttpRequest.BodyPublishers.fromPublisher(
                 HttpRequest.BodyPublishers.ofByteArray(body));
-        return send(HttpRequest.newBuilder(URI.create(baseUrl + path)).method(method, publisher), headers);
+        return send(HttpRequest.newBuilder(URI.create(baseUrl + scoped(path))).method(method, publisher), headers);
     }
 
     /**
@@ -83,7 +101,8 @@ public final class TestHttp {
     public BytesResponse requestBytes(String method, String path, byte[] body, String... headers) {
         HttpRequest.BodyPublisher publisher = body == null || body.length == 0
                 ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(body);
-        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(baseUrl + path)).method(method, publisher);
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(baseUrl + scoped(path)))
+                .method(method, publisher);
         for (int i = 0; i + 1 < defaultHeaders.length; i += 2) {
             builder.header(defaultHeaders[i], defaultHeaders[i + 1]);
         }

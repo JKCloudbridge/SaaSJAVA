@@ -44,7 +44,7 @@ class FillFileRulesTest {
     private final AuditRecorder audit = mock(AuditRecorder.class);
     private final TenantContexts contexts = new TenantContexts();
     private final FillFileRules rules = new FillFileRules(fills, permissions, audit, contexts,
-            new SimpleMeterRegistry());
+            new SimpleMeterRegistry(), RecordSetsFixture.both());
 
     private void state(FillStatus status, Instant archivedAt) {
         Instant now = Instant.now();
@@ -53,8 +53,12 @@ class FillFileRulesTest {
     }
 
     private void check(UUID person, Act act) {
+        check(person, act, "InspectionFill");
+    }
+
+    private void check(UUID person, Act act, String object) {
         contexts.run(TenantContext.of(new TenantId(UUID.randomUUID())),
-                () -> rules.check(new Change(act, FILL, person, MEMBERSHIP)));
+                () -> rules.check(new Change(act, FILL, person, MEMBERSHIP, object)));
     }
 
     private static RecordFileRefusal.Kind kindOf(Throwable thrown) {
@@ -106,5 +110,22 @@ class FillFileRulesTest {
         when(fills.summaries(eq("InspectionFill"), any())).thenReturn(Map.of());
 
         assertThatThrownBy(() -> check(FILLER, Act.ADD)).isInstanceOf(RecordFileRefusal.class);
+    }
+
+    @Test
+    void theRuleServesTheFillInObjectOfEverySetAndAskedAboutTheOneTheRecordBelongsTo() {
+        assertThat(rules.objects()).containsExactly("InspectionFill", "EnvironmentFill");
+        when(fills.summaries(eq("EnvironmentFill"), any())).thenReturn(Map.of(FILL, new FillLifecycle.Summary(1,
+                FillStatus.DRAFT, 0, 28, 0, Instant.now(), Instant.now(), null, null, FILLER, null)));
+
+        check(FILLER, Act.ADD, "EnvironmentFill");
+
+        verify(fills).summaries(eq("EnvironmentFill"), any());
+    }
+
+    @Test
+    void anObjectThatIsNoSetsFillInTakesNoFile() {
+        assertThatThrownBy(() -> check(FILLER, Act.ADD, "InspectionTemplate")).isInstanceOf(RecordFileRefusal.class);
+        assertThatThrownBy(() -> check(FILLER, Act.ADD, null)).isInstanceOf(RecordFileRefusal.class);
     }
 }

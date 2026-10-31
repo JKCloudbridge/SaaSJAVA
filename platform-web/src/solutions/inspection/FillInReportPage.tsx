@@ -9,6 +9,7 @@ import { listTemplates, NO_FILTERS, type TemplateRow } from "./api";
 import { fillInsHref, getReportColumns, runReport, type FillInRow, type ReportColumn } from "./fillIns";
 import { OPERATOR_WORDS, operatorsFor, toRequest, type ColumnType, type Operator } from "./report";
 import { revisionNumber } from "@/lib/sheets/revision";
+import { useApplication } from "./application";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
 
@@ -40,6 +41,7 @@ function when(iso: string | null | undefined): string {
  * the value typed goes to the server in a body, never into the address.
  */
 export function FillInReportPage() {
+  const application = useApplication();
   const router = useRouter();
   const [templates, setTemplates] = useState<TemplateRow[] | undefined>();
   const [problem, setProblem] = useState<string | undefined>();
@@ -333,7 +335,7 @@ export function FillInReportPage() {
           kind: "tag",
         },
       ]}
-      onOpen={(row) => router.push(fillInsHref(row.fillId))}
+      onOpen={(row) => router.push(fillInsHref(row.fillId, application))}
       above={form}
       below={
         ready?.next ? (

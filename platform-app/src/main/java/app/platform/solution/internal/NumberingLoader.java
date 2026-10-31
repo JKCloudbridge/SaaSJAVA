@@ -28,7 +28,7 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
  */
 final class NumberingLoader {
 
-    static final String LOCATION = "classpath:solutions/*/numbering.yml";
+    static final String LOCATION = "classpath*:solutions/*/numbering.yml";
 
     private static final Pattern KEY = Pattern.compile("[a-z][a-z0-9-]{0,39}");
     private static final Pattern NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_]{0,59}");

@@ -44,9 +44,11 @@ class FillFileRules implements RecordFileRules {
     private final AuditRecorder audit;
     private final TenantContexts contexts;
     private final MeterRegistry meters;
+    private final RecordSets sets;
 
     FillFileRules(FillLifecycle fills, Permissions permissions, AuditRecorder audit, TenantContexts contexts,
-            MeterRegistry meters) {
+            MeterRegistry meters, RecordSets sets) {
+        this.sets = sets;
         this.fills = fills;
         this.permissions = permissions;
         this.audit = audit;
@@ -54,16 +56,26 @@ class FillFileRules implements RecordFileRules {
         this.meters = meters;
     }
 
+    /** The fill-in object of the first set; the rule serves the fill-in object of every set ({@link #objects()}). */
     @Override
     public String object() {
-        return Fills.OBJECT;
+        return sets.fills().get(0);
+    }
+
+    @Override
+    public java.util.Collection<String> objects() {
+        return sets.fills();
     }
 
     @Override
     public void check(Change change) {
-        FillLifecycle.Summary summary = fills.summaries(Fills.OBJECT, List.of(change.recordId()))
-                .get(change.recordId());
         String act = change.act().name().toLowerCase(Locale.ROOT);
+        if (change.object() == null || sets.ofFill(change.object()).isEmpty()) {
+            refuse(act, "no_fill");
+            throw new RecordFileRefusal(RecordFileRefusal.Kind.CONFLICT, NO_FILL);
+        }
+        FillLifecycle.Summary summary = fills.summaries(change.object(), List.of(change.recordId()))
+                .get(change.recordId());
         if (summary == null) {
             refuse(act, "no_fill");
             throw new RecordFileRefusal(RecordFileRefusal.Kind.CONFLICT, NO_FILL);
@@ -90,7 +102,7 @@ class FillFileRules implements RecordFileRules {
     /** A person who may correct changed the files of a fill-in that was sent: counted, and audited without a name. */
     private void corrected(Change change, String act, FillStatus status) {
         audit.record(AuditRecord.of("inspection.fill.file.corrected", AuditOutcome.SUCCESS).forUser(change.userId())
-                .inTenant(contexts.require().tenantId()).onObject(Fills.OBJECT, change.recordId().toString())
+                .inTenant(contexts.require().tenantId()).onObject(change.object(), change.recordId().toString())
                 .with("act", act).with("status", status.name()));
         meters.counter("platform.inspection.fill.file", "act", act, "result", "corrected").increment();
     }

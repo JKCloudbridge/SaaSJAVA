@@ -21,8 +21,9 @@ final class RecordWriteRules {
             Set<String> editable, boolean platform) {
         var set = new java.util.LinkedHashMap<String, Object>();
         var clear = new java.util.ArrayList<String>();
-        rules.orderedStream().filter(rule -> rule.object().equals(object.apiName())).forEach(rule -> {
-            RecordWriteRule.Changes changes = rule.prepare(current, Map.copyOf(merged), editable, platform);
+        rules.orderedStream().filter(rule -> rule.serves(object.apiName())).forEach(rule -> {
+            RecordWriteRule.Changes changes = rule.prepare(object.apiName(), current, Map.copyOf(merged), editable,
+                    platform);
             Set<String> named = new java.util.HashSet<>(changes.set().keySet());
             named.addAll(changes.clear());
             for (String field : named) {
@@ -38,7 +39,7 @@ final class RecordWriteRules {
     }
 
     void stored(DataRecord before, DataRecord after) {
-        rules.orderedStream().filter(rule -> rule.object().equals(after.objectApiName()))
+        rules.orderedStream().filter(rule -> rule.serves(after.objectApiName()))
                 .forEach(rule -> rule.stored(before, after));
     }
 
@@ -47,7 +48,7 @@ final class RecordWriteRules {
         if (current == null) {
             return;
         }
-        rules.orderedStream().filter(rule -> rule.object().equals(object.apiName())).forEach(rule -> {
+        rules.orderedStream().filter(rule -> rule.serves(object.apiName())).forEach(rule -> {
             boolean changed = rule.lockedFields(current).stream().anyMatch(field ->
                     set.containsKey(field) && !WritePipeline.sameValue(current.fields().get(field), set.get(field))
                             || clear.contains(field) && current.fields().containsKey(field));
@@ -61,12 +62,12 @@ final class RecordWriteRules {
         if (current == null) {
             return Set.of();
         }
-        return rules.orderedStream().filter(rule -> rule.object().equals(current.objectApiName()))
+        return rules.orderedStream().filter(rule -> rule.serves(current.objectApiName()))
                 .flatMap(rule -> rule.lockedFields(current).stream()).collect(java.util.stream.Collectors.toSet());
     }
 
     String uniqueWords(String object, String field, String fallback) {
-        return rules.orderedStream().filter(rule -> rule.object().equals(object))
+        return rules.orderedStream().filter(rule -> rule.serves(object))
                 .map(rule -> rule.uniqueWords(field)).filter(java.util.Objects::nonNull).findFirst().orElse(fallback);
     }
 }

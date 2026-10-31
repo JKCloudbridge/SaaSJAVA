@@ -114,9 +114,9 @@ class TemplatePublishing {
 
     /** The lifecycle of one template with what a screen may offer the caller. */
     @Transactional(readOnly = true)
-    TemplateLifecycleView lifecycle(UUID templateId) {
-        Caller caller = access.visible(templateId);
-        return view(caller, templateId, header(templateId));
+    TemplateLifecycleView lifecycle(RecordSet set, UUID templateId) {
+        Caller caller = access.visible(set, templateId);
+        return view(set, caller, templateId, header(set, templateId));
     }
 
     /** What the publish dialog offers; needs the ability to publish. */
@@ -132,8 +132,8 @@ class TemplatePublishing {
      * organization's own words and nothing about the template or its groups.
      */
     @Transactional(readOnly = true)
-    AudienceOptionsView suggestionOptions(UUID templateId) {
-        access.visible(templateId);
+    AudienceOptionsView suggestionOptions(RecordSet set, UUID templateId) {
+        access.visible(set, templateId);
         return audiences.options();
     }
 
@@ -145,15 +145,15 @@ class TemplatePublishing {
      *         (a pair that has no group, several, a removed group or one with no members; the place names the pair),
      *         {@code CONFLICT} (retired, nothing to publish, the version is not approved)
      */
-    TemplateLifecycleView publish(UUID templateId, PublishTemplateRequest request) {
-        Caller caller = access.require(templateId, Ability.SHEETS_PUBLISH);
+    TemplateLifecycleView publish(RecordSet set, UUID templateId, PublishTemplateRequest request) {
+        Caller caller = access.require(set, templateId, Ability.SHEETS_PUBLISH);
         store.lock(templateId);
-        DataRecord header = header(templateId);
+        DataRecord header = header(set, templateId);
         if (retired(header)) {
             refuse("publish", "retired");
             throw new ApiException(ErrorCode.CONFLICT, RETIRED_WORDS + " It cannot be published.");
         }
-        SheetLifecycle.Summary summary = summary(templateId);
+        SheetLifecycle.Summary summary = summary(set, templateId);
         int wanted = request.versionNo() != null ? request.versionNo()
                 : summary.approved() > 0 ? summary.approved() : summary.active();
         if (wanted <= 0) {
@@ -164,24 +164,25 @@ class TemplatePublishing {
         int replaced = 0;
         if (wanted != summary.active()) {
             try {
-                replaced = sheets.publish(Templates.OBJECT, templateId, wanted, caller.userId());
+                replaced = sheets.publish(set.template(), templateId, wanted, caller.userId());
             } catch (SheetMoveRefusal refusal) {
                 refuse("publish", refusal.reason().name().toLowerCase(Locale.ROOT));
                 throw new ApiException(ErrorCode.CONFLICT, refusal.getMessage());
             }
-            int revision = stampRevision(templateId, wanted);
-            home.recordEvent(templateId, revision > 0 ? "REVISED" : "PUBLISHED", wanted, revision, caller.userId());
+            int revision = stampRevision(set, templateId, wanted);
+            home.recordEvent(set.template(), templateId, revision > 0 ? "REVISED" : "PUBLISHED", wanted, revision,
+                    caller.userId());
         }
-        Counts counts = shareWith(caller.userId(), templateId, wanted, resolved);
+        Counts counts = shareWith(set, caller.userId(), templateId, wanted, resolved);
         Options options = changedOptions(templateId, request.viewOnly(), request.allowDownload(), caller);
-        audit.record(base("inspection.template.published", caller, templateId).with("version_no",
+        audit.record(base(set, "inspection.template.published", caller, templateId).with("version_no",
                 Integer.toString(wanted)).with("replaced", Integer.toString(replaced))
                 .with("audiences", Integer.toString(resolved.size())).with("shares_made",
                         Integer.toString(counts.made())).with("shares_ended", Integer.toString(counts.ended()))
                 .with("view_only", Boolean.toString(options.viewOnly()))
                 .with("allow_download", Boolean.toString(options.allowDownload())));
         meters.counter("platform.inspection.template", "act", "publish", "result", "ok").increment();
-        return view(caller, templateId, header(templateId));
+        return view(set, caller, templateId, header(set, templateId));
     }
 
     /**
@@ -207,16 +208,17 @@ class TemplatePublishing {
      *         members)
      * @throws SheetMoveRefusal when the version is not an approved one
      */
-    Published publishRevised(UUID templateId, int versionNo, UUID actor, List<AudiencePick> picks, boolean viewOnly,
-            boolean allowDownload) {
+    Published publishRevised(RecordSet set, UUID templateId, int versionNo, UUID actor, List<AudiencePick> picks,
+            boolean viewOnly, boolean allowDownload) {
         store.lock(templateId);
         List<Resolved> resolved = audiences.resolve(picks);
-        int replaced = sheets.publish(Templates.OBJECT, templateId, versionNo, actor);
-        Counts counts = shareWith(actor, templateId, versionNo, resolved);
+        int replaced = sheets.publish(set.template(), templateId, versionNo, actor);
+        Counts counts = shareWith(set, actor, templateId, versionNo, resolved);
         optionStore.set(templateId, new Options(viewOnly, allowDownload), actor);
-        int revision = stampRevision(templateId, versionNo);
-        home.recordEvent(templateId, revision > 0 ? "REVISED" : "PUBLISHED", versionNo, revision, actor);
-        audit.record(base("inspection.template.published", actor, templateId)
+        int revision = stampRevision(set, templateId, versionNo);
+        home.recordEvent(set.template(), templateId, revision > 0 ? "REVISED" : "PUBLISHED", versionNo, revision,
+                actor);
+        audit.record(base(set, "inspection.template.published", actor, templateId)
                 .with("version_no", Integer.toString(versionNo)).with("replaced", Integer.toString(replaced))
                 .with("audiences", Integer.toString(resolved.size()))
                 .with("shares_made", Integer.toString(counts.made()))
@@ -231,10 +233,10 @@ class TemplatePublishing {
      * path of the platform writes. A record locked by a waiting approval is left as it is: the revision number is the
      * sheet own and the screens read it from there when the record does not say.
      */
-    private int stampRevision(UUID templateId, int versionNo) {
-        int revision = revisions.of(templateId, versionNo);
-        if (!locks.locked(Templates.OBJECT, templateId)) {
-            writes.update(Source.solution("revision", templateId), Templates.OBJECT, templateId, List.of(
+    private int stampRevision(RecordSet set, UUID templateId, int versionNo) {
+        int revision = revisions.of(set, templateId, versionNo);
+        if (!locks.locked(set.template(), templateId)) {
+            writes.update(Source.solution("revision", templateId), set.template(), templateId, List.of(
                     new Assignment(Templates.REVISION, new Value.Literal(TemplateRevisions.show(revision))),
                     new Assignment(Templates.LAST_REVISED_AT, new Value.Literal(Instant.now().toString()))));
         }
@@ -242,13 +244,13 @@ class TemplatePublishing {
     }
 
     /** Takes the template back from the people: the version in use is approved again and its shares are removed. */
-    TemplateLifecycleView unpublish(UUID templateId) {
-        Caller caller = access.require(templateId, Ability.SHEETS_PUBLISH);
+    TemplateLifecycleView unpublish(RecordSet set, UUID templateId) {
+        Caller caller = access.require(set, templateId, Ability.SHEETS_PUBLISH);
         store.lock(templateId);
-        DataRecord header = header(templateId);
+        DataRecord header = header(set, templateId);
         int version;
         try {
-            version = sheets.unpublish(Templates.OBJECT, templateId, caller.userId());
+            version = sheets.unpublish(set.template(), templateId, caller.userId());
         } catch (SheetMoveRefusal refusal) {
             refuse("unpublish", refusal.reason().name().toLowerCase(Locale.ROOT));
             throw new ApiException(ErrorCode.CONFLICT, "This template is not published.");
@@ -256,16 +258,16 @@ class TemplatePublishing {
         int ended = 0;
         for (PublicationStore.Row row : store.live(templateId)) {
             store.revoke(row.id(), "unpublished", caller.userId());
-            if (row.madeShare() && shares.revoke(Templates.OBJECT, templateId,
+            if (row.madeShare() && shares.revoke(set.template(), templateId,
                     new Grantee(Grantee.Kind.GROUP, row.groupId()), caller.userId())) {
                 ended++;
             }
         }
-        home.recordEvent(templateId, "UNPUBLISHED", version, null, caller.userId());
-        audit.record(base("inspection.template.unpublished", caller, templateId).with("version_no",
+        home.recordEvent(set.template(), templateId, "UNPUBLISHED", version, null, caller.userId());
+        audit.record(base(set, "inspection.template.unpublished", caller, templateId).with("version_no",
                 Integer.toString(version)).with("shares_ended", Integer.toString(ended)));
         meters.counter("platform.inspection.template", "act", "unpublish", "result", "ok").increment();
-        return view(caller, templateId, header);
+        return view(set, caller, templateId, header);
     }
 
     /**
@@ -274,17 +276,17 @@ class TemplatePublishing {
      * time, also while a revision is waiting for approval, because the options are not part of what is approved.
      * Audited by the template's identifier and the two yes or no values, never by a name.
      */
-    TemplateLifecycleView setOptions(UUID templateId, SheetOptionsRequest request) {
-        Caller caller = access.require(templateId, Ability.SHEETS_PUBLISH);
+    TemplateLifecycleView setOptions(RecordSet set, UUID templateId, SheetOptionsRequest request) {
+        Caller caller = access.require(set, templateId, Ability.SHEETS_PUBLISH);
         store.lock(templateId);
-        DataRecord header = header(templateId);
+        DataRecord header = header(set, templateId);
         Options options = new Options(request.viewOnly(), request.allowDownload());
         optionStore.set(templateId, options, caller.userId());
-        audit.record(base("inspection.template.options.changed", caller, templateId)
+        audit.record(base(set, "inspection.template.options.changed", caller, templateId)
                 .with("view_only", Boolean.toString(options.viewOnly()))
                 .with("allow_download", Boolean.toString(options.allowDownload())));
         meters.counter("platform.inspection.template", "act", "options", "result", "ok").increment();
-        return view(caller, templateId, header);
+        return view(set, caller, templateId, header);
     }
 
     /** The options after a publish: the two values the request carries, and the old one for a value it leaves out. */
@@ -303,16 +305,16 @@ class TemplatePublishing {
      * number stays with it and is never given again, and the people it was published to still read it. Refused while a
      * version is waiting for approval (the header is locked then).
      */
-    TemplateLifecycleView retire(UUID templateId) {
-        Caller caller = access.require(templateId, Ability.SHEETS_RETIRE);
+    TemplateLifecycleView retire(RecordSet set, UUID templateId) {
+        Caller caller = access.require(set, templateId, Ability.SHEETS_RETIRE);
         store.lock(templateId);
-        DataRecord header = header(templateId);
+        DataRecord header = header(set, templateId);
         if (retired(header)) {
             refuse("retire", "already_retired");
             throw new ApiException(ErrorCode.CONFLICT, RETIRED_WORDS);
         }
         try {
-            writes.update(Source.solution("retire", templateId), Templates.OBJECT, templateId,
+            writes.update(Source.solution("retire", templateId), set.template(), templateId,
                     List.of(new Assignment(Templates.RETIRED, new Value.Literal("true"))));
         } catch (BackgroundWriteException refused) {
             refuse("retire", refused.reason().key());
@@ -321,12 +323,12 @@ class TemplatePublishing {
                             + "then retire the template."
                     : "The template could not be retired right now.");
         }
-        int version = sheets.retire(Templates.OBJECT, templateId, caller.userId());
-        home.recordEvent(templateId, "RETIRED", version, null, caller.userId());
-        audit.record(base("inspection.template.retired", caller, templateId).with("version_no",
+        int version = sheets.retire(set.template(), templateId, caller.userId());
+        home.recordEvent(set.template(), templateId, "RETIRED", version, null, caller.userId());
+        audit.record(base(set, "inspection.template.retired", caller, templateId).with("version_no",
                 Integer.toString(version)));
         meters.counter("platform.inspection.template", "act", "retire", "result", "ok").increment();
-        return view(caller, templateId, header(templateId));
+        return view(set, caller, templateId, header(set, templateId));
     }
 
     // ---- the audience ----
@@ -339,7 +341,7 @@ class TemplatePublishing {
      * Brings the shares to the groups asked for. A group published to and not asked for any more is taken back; a group
      * asked for that is not yet published to is shared with; a group in both stays and its row follows the version.
      */
-    private Counts shareWith(UUID actor, UUID templateId, int version, List<Resolved> resolved) {
+    private Counts shareWith(RecordSet set, UUID actor, UUID templateId, int version, List<Resolved> resolved) {
         Map<UUID, Resolved> desired = new LinkedHashMap<>();
         resolved.forEach(one -> desired.putIfAbsent(one.groupId(), one));
         int made = 0;
@@ -353,7 +355,7 @@ class TemplatePublishing {
                 }
             } else {
                 store.revoke(row.id(), "changed", actor);
-                if (row.madeShare() && shares.revoke(Templates.OBJECT, templateId,
+                if (row.madeShare() && shares.revoke(set.template(), templateId,
                     new Grantee(Grantee.Kind.GROUP, row.groupId()), actor)) {
                     ended++;
                 }
@@ -363,7 +365,7 @@ class TemplatePublishing {
             if (already.contains(one.groupId())) {
                 continue;
             }
-            RecordShares.Granted granted = shares.grantRead(Templates.OBJECT, templateId,
+            RecordShares.Granted granted = shares.grantRead(set.template(), templateId,
                     new Grantee(Grantee.Kind.GROUP, one.groupId()), actor);
             boolean madeIt = granted == RecordShares.Granted.CREATED;
             store.insert(templateId, version, one.pick().location(), one.pick().department(), one.groupId(), madeIt,
@@ -380,9 +382,9 @@ class TemplatePublishing {
 
     // ---- the view ----
 
-    private TemplateLifecycleView view(Caller caller, UUID templateId, DataRecord header) {
+    private TemplateLifecycleView view(RecordSet set, Caller caller, UUID templateId, DataRecord header) {
         boolean retired = retired(header);
-        SheetLifecycle.Summary summary = summary(templateId);
+        SheetLifecycle.Summary summary = summary(set, templateId);
         Map<String, String> locationLabels = null;
         Map<String, String> departmentLabels = null;
         List<TemplateAudience> audience = new ArrayList<>();
@@ -400,14 +402,14 @@ class TemplatePublishing {
         boolean mayRetire = access.has(caller, Ability.SHEETS_RETIRE);
         boolean somethingToPublish = summary.approved() > 0 || summary.active() > 0;
         boolean mayPublishNow = mayPublish && somethingToPublish;
-        int waiting = requestCounts.waiting(caller, List.of(templateId)).getOrDefault(templateId, 0);
+        int waiting = requestCounts.waiting(set, caller, List.of(templateId)).getOrDefault(templateId, 0);
         Optional<String> whole = Optional.empty();
         Optional<String> start = Optional.empty();
         if (Templates.isBlank(header.fields().get(Templates.NUMBER)) && !retired) {
-            whole = numbers.known(Templates.SERIES, header.fields());
-            start = whole.isPresent() ? whole : numbers.prefix(Templates.SERIES, header.fields());
+            whole = numbers.known(set.series(), header.fields());
+            start = whole.isPresent() ? whole : numbers.prefix(set.series(), header.fields());
         }
-        List<VersionReview> reviews = reviews(templateId);
+        List<VersionReview> reviews = reviews(set, templateId);
         List<SuggestedAudience> suggested = List.of();
         int dropped = 0;
         if (mayPublishNow && !retired) {
@@ -444,8 +446,8 @@ class TemplatePublishing {
                         : departmentLabels.getOrDefault(place.department(), place.department()))).toList();
     }
 
-    private List<VersionReview> reviews(UUID templateId) {
-        return sheets.reviewRequests(Templates.OBJECT, templateId).entrySet().stream()
+    private List<VersionReview> reviews(RecordSet set, UUID templateId) {
+        return sheets.reviewRequests(set.template(), templateId).entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .map(entry -> new VersionReview(entry.getKey(), entry.getValue())).toList();
     }
@@ -474,8 +476,8 @@ class TemplatePublishing {
 
     // ---- helpers ----
 
-    private DataRecord header(UUID templateId) {
-        return records.find(Templates.OBJECT, templateId)
+    private DataRecord header(RecordSet set, UUID templateId) {
+        return records.find(set.template(), templateId)
                 .orElseThrow(() -> ApiException.notFound("This template does not exist."));
     }
 
@@ -483,18 +485,18 @@ class TemplatePublishing {
         return Boolean.TRUE.equals(header.fields().get(Templates.RETIRED));
     }
 
-    private SheetLifecycle.Summary summary(UUID templateId) {
-        return sheets.summaries(Templates.OBJECT, List.of(templateId)).getOrDefault(templateId,
+    private SheetLifecycle.Summary summary(RecordSet set, UUID templateId) {
+        return sheets.summaries(set.template(), List.of(templateId)).getOrDefault(templateId,
                 new SheetLifecycle.Summary(0, 0, 0, 0, 0, 0, 0));
     }
 
-    private AuditRecord base(String type, Caller caller, UUID templateId) {
-        return base(type, caller.userId(), templateId);
+    private AuditRecord base(RecordSet set, String type, Caller caller, UUID templateId) {
+        return base(set, type, caller.userId(), templateId);
     }
 
-    private AuditRecord base(String type, UUID actor, UUID templateId) {
+    private AuditRecord base(RecordSet set, String type, UUID actor, UUID templateId) {
         return AuditRecord.of(type, AuditOutcome.SUCCESS).forUser(actor)
-                .inTenant(contexts.require().tenantId()).onObject(Templates.OBJECT, templateId.toString());
+                .inTenant(contexts.require().tenantId()).onObject(set.template(), templateId.toString());
     }
 
     private void refuse(String act, String reason) {

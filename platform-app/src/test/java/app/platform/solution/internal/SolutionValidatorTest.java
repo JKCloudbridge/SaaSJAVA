@@ -329,4 +329,39 @@ class SolutionValidatorTest {
         assertThatThrownBy(() -> SolutionValidator.validate(List.of(bundle), platform(widgetWithFields()), null))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("gives no right");
     }
+
+    // ---- the parts of an application (FA13B, ADR-0226) ----
+
+    private static SolutionBundle withRoles(String key, String feature, String application, Map<String, String> roles) {
+        return new SolutionBundle(key, feature, "Label", "", List.of(new SolutionBundle.Application(application,
+                "App", "", good().application().entries())), List.of("Widget", "Gadget"), List.of(), List.of(),
+                List.of(), 0, roles);
+    }
+
+    private static final PlatformObjects TWO = platform(object("Widget", "demo-feature", true),
+            object("Gadget", "demo-feature", true));
+
+    @Test
+    void aSolutionThatDeclaresItsPartsPasses() {
+        SolutionBundle bundle = withRoles("demo", "demo-feature", "demo", Map.of("first", "Widget",
+                "second", "Gadget"));
+
+        assertThatCode(() -> SolutionValidator.validate(List.of(bundle), TWO, null)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void twoSolutionsMayDeclareTheSamePartsButNotClaimOneObjectInAnotherPartOrWithOtherObjects() {
+        SolutionBundle first = withRoles("demo", "demo-feature", "demo", Map.of("first", "Widget",
+                "second", "Gadget"));
+        SolutionBundle same = withRoles("copy", "copy-feature", "copy", Map.of("first", "Widget", "second", "Gadget"));
+        SolutionBundle otherPart = withRoles("other", "other-feature", "other", Map.of("second", "Widget"));
+        SolutionBundle otherCombination = withRoles("third", "third-feature", "third", Map.of("first", "Widget"));
+
+        assertThatCode(() -> SolutionValidator.checkRoles(List.of(first, same))).doesNotThrowAnyException();
+        assertThatThrownBy(() -> SolutionValidator.checkRoles(List.of(first, otherPart)))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("solution 'other'")
+                .hasMessageContaining("'Widget' is claimed by solution 'demo'");
+        assertThatThrownBy(() -> SolutionValidator.checkRoles(List.of(first, otherCombination)))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("'Widget' is claimed");
+    }
 }

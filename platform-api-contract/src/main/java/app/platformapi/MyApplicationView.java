@@ -2,6 +2,7 @@ package app.platformapi;
 
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
+import java.util.Map;
 
 /**
  * An application the signed-in member may use, with its navigation (Sprint 12). Items that point to something that
@@ -12,9 +13,17 @@ import java.util.List;
  * @param iconKey the icon to show, or null
  * @param items the navigation in order
  * @param group the plain word that gathers the application with others in the grid (FA9), or null
+ * @param objectRoles the object that plays each part of the application, by the part's name (FA13B, ADR-0226); empty
+ *        when the application declares none. The screens read the object names here and hardcode none
  */
 public record MyApplicationView(@NotNull String apiName, @NotNull String label, String iconKey,
-        @NotNull List<NavigationEntryView> items, String group) {
+        @NotNull List<NavigationEntryView> items, String group, Map<String, String> objectRoles) {
+
+    /** An application that declares no parts. */
+    public MyApplicationView(String apiName, String label, String iconKey, List<NavigationEntryView> items,
+            String group) {
+        this(apiName, label, iconKey, items, group, Map.of());
+    }
 
     /** An application that belongs to no group. */
     public MyApplicationView(String apiName, String label, String iconKey, List<NavigationEntryView> items) {
@@ -23,6 +32,7 @@ public record MyApplicationView(@NotNull String apiName, @NotNull String label, 
 
     public MyApplicationView {
         items = items == null ? List.of() : List.copyOf(items);
+        objectRoles = objectRoles == null ? Map.of() : Map.copyOf(objectRoles);
     }
 
     /** Prints nothing typed: the labels are text the organization chose (ADR-0012). */

@@ -31,18 +31,18 @@ class TemplateNumbers {
         this.contexts = contexts;
     }
 
-    Map<UUID, String> of(Set<UUID> ids) {
-        if (ids.isEmpty() || metadata.object(Templates.OBJECT).isEmpty()) {
+    Map<UUID, String> of(RecordSet set, Set<UUID> ids) {
+        if (ids.isEmpty() || metadata.object(set.template()).isEmpty()) {
             return Map.of();
         }
-        ObjectAccess access = decisions.accessTo(contexts.require().membershipId(), Templates.OBJECT);
+        ObjectAccess access = decisions.accessTo(contexts.require().membershipId(), set.template());
         if (!access.can(ObjectAction.READ) || !access.readableFields().contains(Templates.NUMBER)) {
             return Map.of();
         }
         QueryFilter filter = new QueryFilter(QueryFilter.Op.IN, null, "id",
                 ids.stream().map(UUID::toString).map(value -> (Object) value).toList());
         Map<UUID, String> result = new LinkedHashMap<>();
-        records.query(Templates.OBJECT, new RecordQuery(filter, List.of(), List.of(Templates.NUMBER), List.of(),
+        records.query(set.template(), new RecordQuery(filter, List.of(), List.of(Templates.NUMBER), List.of(),
                 200, null)).records().forEach(found -> {
                     Object number = found.record().fields().get(Templates.NUMBER);
                     if (number instanceof String text && !text.isEmpty()) {

@@ -47,13 +47,14 @@ final class ApprovalHookRegistry {
     ApprovalHookRegistry(List<ApprovalHooks> hooks, PlatformObjects platform) {
         Map<String, ApprovalHooks> checked = new LinkedHashMap<>();
         for (ApprovalHooks hook : hooks) {
-            String object = hook.object();
-            if (object == null || !NAME.matcher(object).matches()) {
-                throw new IllegalStateException("an approval hook names an object that is not shaped like one");
-            }
-            check(hook, object, platform);
-            if (checked.put(object, hook) != null) {
-                throw new IllegalStateException("object '" + object + "' has more than one approval hook");
+            for (String object : hook.objects()) {
+                if (object == null || !NAME.matcher(object).matches()) {
+                    throw new IllegalStateException("an approval hook names an object that is not shaped like one");
+                }
+                check(hook, object, platform);
+                if (checked.put(object, hook) != null) {
+                    throw new IllegalStateException("object '" + object + "' has more than one approval hook");
+                }
             }
         }
         this.byObject = Map.copyOf(checked);

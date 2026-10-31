@@ -4,6 +4,8 @@ import type { ApiFailure } from "@/lib/api/errors";
 import type { components } from "@/lib/api/generated/schema";
 import type { ListRequest } from "@/components/ui/lists/useListViews";
 import { call, type Outcome } from "@/lib/records/call";
+import { scopeQuery } from "./scope";
+import { appBase, DEFAULT_APPLICATION } from "./appPaths";
 
 /**
  * The calls of the fill-ins of the Quality Management System application (Functional track FF1, ADR-0192): whether a fill-in can be
@@ -22,11 +24,11 @@ export type ReportColumn = components["schemas"]["ReportColumnView"];
 export type ReportRequest = components["schemas"]["FillReportRequest"];
 
 /** The object that holds the fill-ins of the application (the header record; its cells are kept apart). */
-export const FILL_OBJECT = "InspectionFill";
 
 /** The address of the fill-ins page of the application, with one fill-in open when an identifier is given. */
-export function fillInsHref(open?: string): string {
-  return open ? `/apps/inspection/s-fill-ins?open=${open}` : "/apps/inspection/s-fill-ins";
+export function fillInsHref(open?: string, application: string = DEFAULT_APPLICATION): string {
+  const page = `${appBase(application)}/s-fill-ins`;
+  return open ? `${page}?open=${open}` : page;
 }
 
 /** What the list of fill-ins may be narrowed by; an empty text means no narrowing. */
@@ -58,6 +60,7 @@ export function listFillIns(filters: FillInFilters, cursor?: string): Promise<Ou
       api.GET("/api/v1/fill-ins", {
         params: {
           query: {
+            ...scopeQuery(),
             templateId: filters.templateId === "" ? undefined : filters.templateId,
             status: filters.status === "" ? undefined : filters.status,
             cursor,
@@ -78,6 +81,7 @@ export function queryFillIns(
   return unwrap(
     call(() =>
       api.POST("/api/v1/fill-ins/query", {
+        params: { query: scopeQuery() },
         body: {
           search: request.search === "" ? undefined : request.search,
           filter: request.filter,
@@ -93,13 +97,13 @@ export function queryFillIns(
 
 export function getFillInOptions(templateId: string): Promise<Outcome<FillInOptions>> {
   return unwrap(
-    call(() => api.GET("/api/v1/templates/{templateId}/fill-in-options", { params: { path: { templateId } } })),
+    call(() => api.GET("/api/v1/templates/{templateId}/fill-in-options", { params: { path: { templateId }, query: scopeQuery() } })),
   );
 }
 
 export function startFillIn(templateId: string): Promise<Outcome<FillInStarted>> {
   return unwrap(
-    call(() => api.POST("/api/v1/templates/{templateId}/fill-ins", { params: { path: { templateId } } })),
+    call(() => api.POST("/api/v1/templates/{templateId}/fill-ins", { params: { path: { templateId }, query: scopeQuery() } })),
   );
 }
 
@@ -108,13 +112,13 @@ export function startFillIn(templateId: string): Promise<Outcome<FillInStarted>>
  * `REVIEW_NEEDED` means a process applies, nothing was changed and the ordinary approval submit is the way.
  */
 export function submitFillIn(fillId: string): Promise<Outcome<FillInSubmitted>> {
-  return unwrap(call(() => api.POST("/api/v1/fill-ins/{fillId}/submit", { params: { path: { fillId } } })));
+  return unwrap(call(() => api.POST("/api/v1/fill-ins/{fillId}/submit", { params: { path: { fillId }, query: scopeQuery() } })));
 }
 
 /** The columns the author of a version flagged reportable (the version in use when none is named). */
 export function getReportColumns(templateId: string, versionNo?: number): Promise<Outcome<ReportColumns>> {
   return unwrap(
-    call(() => api.GET("/api/v1/fill-ins/report/columns", { params: { query: { templateId, versionNo } } })),
+    call(() => api.GET("/api/v1/fill-ins/report/columns", { params: { query: { ...scopeQuery(), templateId, versionNo } } })),
   );
 }
 
@@ -123,7 +127,7 @@ export function getReportColumns(templateId: string, versionNo?: number): Promis
  * the body, never in the address: it is text of the organization.
  */
 export function runReport(request: ReportRequest): Promise<Outcome<FillInPage>> {
-  return unwrap(call(() => api.POST("/api/v1/fill-ins/report", { body: request })));
+  return unwrap(call(() => api.POST("/api/v1/fill-ins/report", { params: { query: scopeQuery() }, body: request })));
 }
 
 export type OptionsState =

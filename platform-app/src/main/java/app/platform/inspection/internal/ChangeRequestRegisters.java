@@ -88,16 +88,16 @@ class ChangeRequestRegisters {
 
     /** The register of a request the caller may see. */
     @Transactional(readOnly = true)
-    RegisterView get(UUID templateId, UUID requestId) {
-        Reach reach = access.reach(templateId);
+    RegisterView get(RecordSet set, UUID templateId, UUID requestId) {
+        Reach reach = access.reach(set, templateId);
         RequestRow row = access.request(reach, requestId);
         return view(registerOf(row), tasks.mayAct(row, reach.userId(), reach.membershipId()));
     }
 
     /** The register as an Excel file. */
     @Transactional(readOnly = true)
-    Download file(UUID templateId, UUID requestId) {
-        Reach reach = access.reach(templateId);
+    Download file(RecordSet set, UUID templateId, UUID requestId) {
+        Reach reach = access.reach(set, templateId);
         RequestRow row = access.request(reach, requestId);
         RegisterRow register = registerOf(row);
         return new Download(pages.xlsx(RegisterLayout.page(register.values())),
@@ -111,8 +111,8 @@ class ChangeRequestRegisters {
      * @throws ApiException {@code NOT_FOUND}, {@code FORBIDDEN}, {@code CONFLICT} (not open),
      *         {@code VALIDATION_ERROR} (names the box), {@code CONCURRENT_MODIFICATION} (changed since it was read)
      */
-    RegisterView complete(UUID templateId, UUID requestId, RegisterCompletion body) {
-        Reach reach = access.reach(templateId);
+    RegisterView complete(RecordSet set, UUID templateId, UUID requestId, RegisterCompletion body) {
+        Reach reach = access.reach(set, templateId);
         requests.lock(templateId);
         RequestRow row = access.request(reach, requestId);
         if (row.state() != ChangeRequestStatus.OPEN) {
@@ -135,7 +135,8 @@ class ChangeRequestRegisters {
                     changes.refused("register", "conflict");
                     return new ApiException(ErrorCode.CONCURRENT_MODIFICATION);
                 });
-        changes.registerCompleted(reach.userId(), templateId, requestId, changedBoxes(before.values(), saved.values()));
+        changes.registerCompleted(set, reach.userId(), templateId, requestId,
+                changedBoxes(before.values(), saved.values()));
         return view(saved, true);
     }
 
@@ -146,8 +147,8 @@ class ChangeRequestRegisters {
      * filled in, nothing stored. For the screen that shows the Excel view while the person types.
      */
     @Transactional(readOnly = true)
-    RegisterView draft(UUID templateId, RegisterInput typed) {
-        RegisterValues values = draftValues(templateId, typed);
+    RegisterView draft(RecordSet set, UUID templateId, RegisterInput typed) {
+        RegisterValues values = draftValues(set, templateId, typed);
         return new RegisterView(nz(values.requestNo()), nz(values.documentName()), values.documentNo(),
                 nz(values.revNo()), RegisterRules.show(values.requestedOn()), values.requestedBy(),
                 nz(values.changeRequested()), values.basisForChange(), values.horizontalDeployment(), null, null, null,
@@ -158,8 +159,8 @@ class ChangeRequestRegisters {
 
     /** The register with these typed parts as an Excel file, for a person who prefers to fill it there. */
     @Transactional(readOnly = true)
-    Download draftFile(UUID templateId, RegisterInput typed) {
-        RegisterValues values = draftValues(templateId, typed);
+    Download draftFile(RecordSet set, UUID templateId, RegisterInput typed) {
+        RegisterValues values = draftValues(set, templateId, typed);
         return new Download(pages.xlsx(RegisterLayout.page(values)), fileName(values.requestNo()));
     }
 
@@ -168,8 +169,8 @@ class ChangeRequestRegisters {
      * person raises the request from it. Parts the platform writes or the approvers complete are not taken.
      */
     @Transactional(readOnly = true)
-    RegisterFileView read(UUID templateId, byte[] file) {
-        templates.visible(templateId);
+    RegisterFileView read(RecordSet set, UUID templateId, byte[] file) {
+        templates.visible(set, templateId);
         Parsed parsed = RegisterLayout.parse(pages.read(file));
         if (parsed.refusal() != null) {
             throw ApiException.validation("file", parsed.refusal());
@@ -196,9 +197,9 @@ class ChangeRequestRegisters {
         return store.find(row.id()).orElseThrow(() -> ApiException.notFound("This change request has no register."));
     }
 
-    private RegisterValues draftValues(UUID templateId, RegisterInput typed) {
-        TemplateAccess.Caller caller = templates.visible(templateId);
-        Facts platform = facts.of(templateId, caller.userId(), caller.membershipId());
+    private RegisterValues draftValues(RecordSet set, UUID templateId, RegisterInput typed) {
+        TemplateAccess.Caller caller = templates.visible(set, templateId);
+        Facts platform = facts.of(set, templateId, caller.userId(), caller.membershipId());
         return new RegisterValues(clean(typed.requestNo()), platform.documentName(), platform.documentNo(),
                 platform.revNo(), LocalDate.now(ZoneOffset.UTC), platform.requestedBy(),
                 clean(typed.changeRequested()), clean(typed.basisForChange()), clean(typed.horizontalDeployment()),

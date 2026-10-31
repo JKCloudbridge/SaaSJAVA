@@ -112,8 +112,15 @@ export function tabCount(application: MyApplication): number {
   return application.items.filter(isOpenable).length;
 }
 
-/** Whether every function of the application is still only announced (and there is at least one). */
+/**
+ * Whether the application is still only announced: every function it lists is announced, or it lists none besides its
+ * Home. A shipped application always has a Home, so one with nothing else is only a tile (FA13A, ADR-0225); an
+ * application without a Home is the organization's own and is never "coming soon".
+ */
 export function isComingSoon(application: MyApplication): boolean {
   const functions = functionEntries(application);
-  return functions.length > 0 && functions.every(isPlaceholder);
+  if (functions.length === 0) {
+    return application.items.some(isHomeEntry);
+  }
+  return functions.every(isPlaceholder);
 }

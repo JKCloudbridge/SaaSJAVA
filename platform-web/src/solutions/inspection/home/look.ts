@@ -1,12 +1,16 @@
-/** Which look of the home page the person chose (FA9): 1 is the Quality Management System look, 2 the cream look. */
-export type HomeLook = 1 | 2;
+/**
+ * Which look of the home page the person chose: 1 is the Quality Management System look (FA9), 2 the cream look, 3 the
+ * board (FA13C). The first stays the one a person gets until they choose another.
+ */
+export type HomeLook = 1 | 2 | 3 | 4;
 
 const KEY = "home-look";
 
 /** The remembered look; 1 when nothing is stored or storage is closed (a private window, blocked site data). */
 export function readHomeLook(): HomeLook {
   try {
-    return window.localStorage.getItem(KEY) === "2" ? 2 : 1;
+    const stored = window.localStorage.getItem(KEY);
+    return stored === "2" ? 2 : stored === "3" ? 3 : stored === "4" ? 4 : 1;
   } catch {
     return 1;
   }

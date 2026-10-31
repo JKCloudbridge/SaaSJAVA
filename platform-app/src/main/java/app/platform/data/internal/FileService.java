@@ -79,8 +79,10 @@ final class FileService {
         this.transaction = transaction;
         this.contexts = contexts;
         for (RecordFileRules rule : fileRules) {
-            if (rules.put(rule.object(), rule) != null) {
-                throw new IllegalStateException("Two file rules serve the object " + rule.object());
+            for (String object : rule.objects()) {
+                if (rules.put(object, rule) != null) {
+                    throw new IllegalStateException("Two file rules serve the object " + object);
+                }
             }
         }
     }
@@ -220,7 +222,8 @@ final class FileService {
             return;
         }
         try {
-            rule.check(new RecordFileRules.Change(act, recordId, passed.userId(), passed.membershipId()));
+            rule.check(new RecordFileRules.Change(act, recordId, passed.userId(), passed.membershipId(),
+                    passed.object().apiName()));
         } catch (RecordFileRefusal refusal) {
             throw new ApiException(refusal.kind() == RecordFileRefusal.Kind.FORBIDDEN ? ErrorCode.FORBIDDEN
                     : ErrorCode.CONFLICT, refusal.getMessage());

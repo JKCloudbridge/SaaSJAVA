@@ -36,12 +36,22 @@ public interface RecordFileRules {
      * @param recordId the record
      * @param userId the person
      * @param membershipId the person's membership in the organization
+     * @param object the API name of the record's object, so that a rule that serves several objects (FA13B,
+     *        ADR-0226) knows which one the record belongs to
      */
-    record Change(Act act, UUID recordId, UUID userId, UUID membershipId) {
+    record Change(Act act, UUID recordId, UUID userId, UUID membershipId, String object) {
     }
 
-    /** The API name of the object this rule serves. */
+    /** The API name of the object this rule serves; of the first, when it serves several ({@link #objects()}). */
     String object();
+
+    /**
+     * The API names of every object this rule serves (FA13B, ADR-0226). A rule that serves the objects of several
+     * applications of one kind is found for each of them; two rules for one object still stop the start.
+     */
+    default java.util.Collection<String> objects() {
+        return java.util.List.of(object());
+    }
 
     /**
      * Called before the act.

@@ -68,26 +68,27 @@ class ChangeRequestList {
     }
 
     /** One page of the requests the caller may see, in the order asked. */
-    ChangeRequestPage query(ChangeRequestQuery query) {
+    ChangeRequestPage query(RecordSet set, ChangeRequestQuery query) {
         TemplateAccess.Caller caller = access.member();
         Order order = orderOf(query.sort());
         boolean descending = query.descending() != null ? query.descending() : order == Order.DATE;
         int size = query.size() == null || query.size() <= 0 ? DEFAULT_SIZE : Math.min(query.size(), MOST);
-        UUID only = access.mayReviewSome(caller.membershipId()) ? null : caller.userId();
+        UUID only = access.mayReviewSome(set, caller.membershipId()) ? null : caller.userId();
         String text = query.search() == null ? "" : query.search().strip();
         String like = text.isEmpty() ? null : "%" + escape(text) + "%";
-        Set<UUID> people = text.isEmpty() ? Set.of() : peopleNamed(text, only);
+        Set<UUID> people = text.isEmpty() ? Set.of() : peopleNamed(set, text, only);
         String status = query.status() == null || query.status().isBlank() ? null : query.status();
 
         String[] position = decode(query.cursor(), order);
-        Judge judge = new Judge(caller);
+        Judge judge = new Judge(set, caller);
         List<RequestRow> kept = new ArrayList<>();
         RequestRow last = null;
         boolean exhausted = false;
         int scanned = 0;
         while (kept.size() < size && scanned < MOST_SCANNED && !exhausted) {
             ListFilter filter = new ListFilter(only, like, people, status, query.templateId(), order, descending,
-                    position == null ? null : position[0], position == null ? null : UUID.fromString(position[1]));
+                    position == null ? null : position[0], position == null ? null : UUID.fromString(position[1]),
+                    set.template());
             List<RequestRow> batch = store.page(filter, BATCH);
             for (RequestRow row : batch) {
                 scanned++;
@@ -123,7 +124,7 @@ class ChangeRequestList {
             Seen template = judge.template(row.templateId());
             rows.add(new ChangeRequestRow(row.id(), row.templateId(), template.name(), template.number(), row.title(),
                     row.status(), row.versionNo(), names.get(row.createdBy()), row.requesterDepartment(),
-                    row.createdBy().equals(caller.userId()), row.createdAt()));
+                    row.createdBy().equals(caller.userId()), row.createdAt(), row.headerId()));
         }
         return rows;
     }
@@ -135,10 +136,12 @@ class ChangeRequestList {
     /** Judges the rows of a call by the rule of {@link ChangeRequestAccess}, remembering each template. */
     private final class Judge {
 
+        private final RecordSet set;
         private final TemplateAccess.Caller caller;
         private final Map<UUID, Seen> templates = new HashMap<>();
 
-        private Judge(TemplateAccess.Caller caller) {
+        private Judge(RecordSet set, TemplateAccess.Caller caller) {
+            this.set = set;
             this.caller = caller;
         }
 
@@ -149,18 +152,18 @@ class ChangeRequestList {
 
         Seen template(UUID templateId) {
             return templates.computeIfAbsent(templateId, id -> {
-                if (!titles.titlesOf(Templates.OBJECT, List.of(id)).containsKey(id)) {
+                if (!titles.titlesOf(set.template(), List.of(id)).containsKey(id)) {
                     return new Seen(false, false, null, null);
                 }
-                DataRecord found = records.find(Templates.OBJECT, id).orElse(null);
-                return new Seen(true, access.canReview(caller.membershipId(), id), found == null ? null
+                DataRecord found = records.find(set.template(), id).orElse(null);
+                return new Seen(true, access.canReview(set, caller.membershipId(), id), found == null ? null
                         : text(found, Templates.NAME), found == null ? null : text(found, Templates.NUMBER));
             });
         }
     }
 
-    private Set<UUID> peopleNamed(String text, UUID only) {
-        Set<UUID> askers = new LinkedHashSet<>(store.requesters(only, MOST_PEOPLE));
+    private Set<UUID> peopleNamed(RecordSet set, String text, UUID only) {
+        Set<UUID> askers = new LinkedHashSet<>(store.requesters(set.template(), only, MOST_PEOPLE));
         String wanted = text.toLowerCase(Locale.ROOT);
         Set<UUID> matching = new LinkedHashSet<>();
         nameOf(askers).forEach((id, name) -> {

@@ -1,0 +1,43 @@
+# The numbers of the Environment Management solution (FA13B, ADR-0226). One series numbers the templates of the application.
+#
+# The series is a copy of the one of the other application on purpose: the starting patterns are the same, and each
+# organization sets its own in Setup, Numbering from then on. Its counters are the application's own: a combination that
+# has numbers in the other application starts again here, because the series key differs and a counter belongs to
+# a series (ADR-0184). The format language is closed: fixed text, {field:name} and exactly one {seq:N} (no clock, no
+# arithmetic, no code).
+series:
+  - key: environment-document
+    object: EnvironmentTemplate
+    field: number
+    selector: category
+    defaults:
+      format: "{field:category}/{field:partB}/{seq:1}"
+      withoutOptional: "{field:category}/{seq:1}"
+      optionalField: partB
+    formats:
+      IMS: "IMS/{seq:2}"
+      QSP: "QSP-{seq:2}"
+      CORPQSP: "CORP-QSP-{seq:2}"
+      ESSP: "ESSP-{seq:2}"
+      WI: "WI/{field:partA}/{seq:2}"
+      SOP: "SOP/{field:partA}/{seq:2}"
+      F: "F/{field:partA}/{seq:2}"
+      FEHS: "F/EHS/{field:partA}/{seq:2}"
+      CSF: "CSF/{field:partA}/{seq:2}"
+      PPT: "PPT/{field:partA}/{seq:2}"
+      L: "L/{field:partA}/{seq:2}"
+      LEHS: "L/EHS/{field:partA}/{seq:2}"
+      R: "R/{field:partA}/{seq:2}"
+      REHS: "R/EHS/{field:partA}/{seq:2}"
+      EHSAIR: "EHS/AIR/{field:partA}/{seq:2}"
+      EHSHIR: "EHS/HIR/{field:partA}/{seq:2}"
+      EHSAID: "EHS/AID/{field:partA}/{seq:2}"
+      EHSHID: "EHS/HID/{field:partA}/{seq:2}"
+      EHSAHID: "EHS/AHID/{field:partA}/{seq:2}"
+      PLEHS: "PL/EHS/{field:partA}/{seq:2}"
+      EHSEMP: "EHS/EMP/{seq:2}"
+      EHSOCP: "EHS/OCP/{seq:2}"
+      CP: "CP/{field:partA}/{field:partB}"
+      PFC: "PFC/{field:partA}/{field:partB}"
+      FMEA: "FMEA/{field:partA}/{field:partB}"
+      BP: "BP/{field:partB}"

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { findPlatformPage, SOLUTIONS } from "./index";
-import { PAGE_KEYS } from "./inspection/registry";
+import { documentManagement, inspection as inspectionPages, PAGE_KEYS } from "./inspection/registry";
 import { TemplatesPage } from "./inspection/TemplatesPage";
 
 describe("the pages a shipped solution registers", () => {
@@ -12,7 +12,11 @@ describe("the pages a shipped solution registers", () => {
 
   it("finds nothing for a key, an application or an empty key it does not know", () => {
     expect(findPlatformPage("inspection", "elsewhere")).toBeUndefined();
+    // An application that declares the parts finds a page by its key among the registered ones, so an application of
+    // the kind needs no registration (FA13B); one that declares none does not.
     expect(findPlatformPage("Field__c", "templates")).toBeUndefined();
+    expect(findPlatformPage("environment-management", "templates")).toBe(TemplatesPage);
+    expect(findPlatformPage("environment-management", "elsewhere")).toBeUndefined();
     expect(findPlatformPage("inspection", "")).toBeUndefined();
     expect(findPlatformPage("inspection", null)).toBeUndefined();
     expect(findPlatformPage("inspection", undefined)).toBeUndefined();
@@ -46,5 +50,26 @@ describe("the pages a shipped solution registers", () => {
     expect(named.length).toBeGreaterThan(0);
     const registered = [...PAGE_KEYS].filter((key) => key !== "home");
     expect([...new Set(named)].sort()).toEqual(registered.sort());
+  });
+
+  it("registers the same pages under Document Management, which shows the same documents (FA13A)", () => {
+    expect(findPlatformPage("document-management", "templates")).toBe(TemplatesPage);
+    expect(findPlatformPage("document-management", "elsewhere")).toBeUndefined();
+    expect(documentManagement.pages).toBe(inspectionPages.pages);
+    expect(SOLUTIONS.map((solution) => solution.application)).toEqual(["inspection", "document-management"]);
+  });
+
+  it("registers every page key Document Management's bundle names", () => {
+    const bundle = readFileSync(
+      resolve(__dirname, "../../../platform-app/src/main/resources/solutions/document-management/solution.yml"),
+      "utf-8",
+    );
+    const entries = bundle.split(/^\s*- type:/m).slice(1);
+    const named = entries
+      .filter((entry) => !/^\s*placeholder:\s*true\s*$/m.test(entry))
+      .map((entry) => /^\s*pageKey:\s*([a-z][a-z0-9-]*)\s*$/m.exec(entry)?.[1])
+      .filter((key): key is string => key !== undefined && key !== "home");
+    expect(named.length).toBeGreaterThan(0);
+    expect([...new Set(named)].sort()).toEqual([...PAGE_KEYS].filter((key) => key !== "home").sort());
   });
 });

@@ -37,7 +37,8 @@ class StandardMetadataLoaderTest {
         StandardMetadata standard = StandardMetadataLoader.load();
 
         assertThat(standard.objects()).extracting(ObjectDefinition::apiName).containsExactlyInAnyOrder(
-                "Account", "AccessPolicy", "AccessPolicyAssignment", "Case", "Contact", "DepartmentGroup", "Group",
+                "Account", "AccessPolicy", "AccessPolicyAssignment", "Case", "Contact", "DepartmentGroup",
+                "EnvironmentChangeRequest", "EnvironmentFill", "EnvironmentTemplate", "Group",
                 "InspectionChangeRequest", "InspectionFill", "InspectionTemplate", "LicenceType", "Opportunity",
                 "Profile",
                 "RecordType", "Role", "User")
@@ -161,6 +162,17 @@ class StandardMetadataLoaderTest {
                         "must be true or false"),
                 Arguments.of("a plan feature that is not a key", head + "requiresFeature: Not A Key\nfields: []\n",
                         "plan feature key"),
+                Arguments.of("a widening feature without an own feature", head
+                        + "alsoAvailableWith: [other-feature]\nfields: []\n", "only widens 'requiresFeature'"),
+                Arguments.of("a widening feature that is the object's own", head
+                        + "requiresFeature: some-feature\nalsoAvailableWith: [some-feature]\nfields: []\n",
+                        "each once and none the object's own"),
+                Arguments.of("a widening feature twice", head
+                        + "requiresFeature: some-feature\nalsoAvailableWith: [a-b, a-b]\nfields: []\n",
+                        "each once and none the object's own"),
+                Arguments.of("a widening feature that is not a key", head
+                        + "requiresFeature: some-feature\nalsoAvailableWith: [Not A Key]\nfields: []\n",
+                        "each once and none the object's own"),
                 Arguments.of("a kept flag written as text", head + "retainRecords: soon\nfields: []\n",
                         "must be true or false"),
                 Arguments.of("an object another part owns that is hidden by a feature", head
@@ -275,6 +287,29 @@ class StandardMetadataLoaderTest {
                 field -> assertThat(field.platformWritten()).as(field.apiName()).isTrue());
         assertThat(request.fields().stream().skip(standard.systemFields().size()).map(FieldDefinition::apiName))
                 .containsExactly("name", "templateId", "status");
+        // Document Management shows the same records (FA13A, ADR-0225): each object is also available with its feature.
+        for (String name : List.of("InspectionTemplate", "InspectionFill", "InspectionChangeRequest")) {
+            ObjectDefinition shared = standard.object(name).orElseThrow();
+            assertThat(shared.alsoAvailableWith()).as(name).containsExactly("document-management");
+            assertThat(shared.availableWith("document-management"::equals)).as(name).isTrue();
+            assertThat(shared.availableWith("inspection"::equals)).as(name).isTrue();
+            assertThat(shared.availableWith(feature -> false)).as(name).isFalse();
+        }
+        // The department setup is shared by the three applications that publish to departments (FA13B, ADR-0226).
+        ObjectDefinition shared = standard.object("DepartmentGroup").orElseThrow();
+        assertThat(shared.alsoAvailableWith()).containsExactlyInAnyOrder("document-management",
+                "environment-management");
+        assertThat(shared.availableWith("environment-management"::equals)).isTrue();
+        // Environment Management has records of its own: its objects need its feature alone and nothing else makes
+        // them available (FA13B, ADR-0226).
+        for (String name : List.of("EnvironmentTemplate", "EnvironmentFill", "EnvironmentChangeRequest")) {
+            ObjectDefinition own = standard.object(name).orElseThrow();
+            assertThat(own.requiresFeature()).as(name).isEqualTo("environment-management");
+            assertThat(own.alsoAvailableWith()).as(name).isEmpty();
+            assertThat(own.retainRecords()).as(name).isTrue();
+            assertThat(own.sharingDefault()).as(name).isEqualTo("PRIVATE");
+            assertThat(own.availableWith("inspection"::equals)).as(name).isFalse();
+        }
         ObjectDefinition departments = standard.object("DepartmentGroup").orElseThrow();
         assertThat(departments.requiresFeature()).isEqualTo("inspection");
         assertThat(departments.retainRecords()).isFalse();
@@ -286,7 +321,7 @@ class StandardMetadataLoaderTest {
         StandardMetadata standard = StandardMetadataLoader.load();
 
         Set<String> shipped = Set.of("InspectionTemplate", "InspectionFill", "InspectionChangeRequest",
-                "DepartmentGroup");
+                "EnvironmentTemplate", "EnvironmentFill", "EnvironmentChangeRequest", "DepartmentGroup");
         assertThat(standard.objects().stream().filter(object -> !shipped
                 .contains(object.apiName()))).allSatisfy(object -> {
                     assertThat(object.requiresFeature()).isNull();

@@ -21,6 +21,9 @@ pluralLabel: Fill-ins
 description: A fill-in of a template of the Quality Management System application. Its records are kept for good.
 extensible: false
 requiresFeature: inspection
+# The Document Management application shows the same records (FA13A, ADR-0225): the object exists when either
+# application's plan feature is on, and nothing is stored twice.
+alsoAvailableWith: [document-management]
 retainRecords: true
 sharingDefault: PRIVATE
 fields:

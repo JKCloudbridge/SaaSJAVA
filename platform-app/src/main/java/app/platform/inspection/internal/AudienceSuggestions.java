@@ -48,10 +48,11 @@ class AudienceSuggestions {
      * request's step that asks writes the suggestion; a later one (a step that needs everybody) is judged the same way
      * and leaves what was written untouched, so a suggestion is never changed after it is made.
      *
+     * @param templateObject the template object of the set the request belongs to (FA13B, ADR-0226)
      * @param templateId the template the request is about (for a change request the record under review is not it)
      * @throws ApprovalHookRefusal when no location was chosen or a chosen place is not offered
      */
-    void accept(DecisionContext context, UUID templateId) {
+    void accept(String templateObject, DecisionContext context, UUID templateId) {
         List<Place> places = AudienceChoices.parse(context.choices());
         Map<String, List<String>> offered = audiences.offered();
         for (Place place : places) {
@@ -66,7 +67,7 @@ class AudienceSuggestions {
         store.insert(context.requestId(), templateId, context.stepPosition(), places, context.approver());
         audit.record(AuditRecord.of("inspection.audience.suggested", AuditOutcome.SUCCESS)
                 .forUser(context.approver()).inTenant(contexts.require().tenantId())
-                .onObject(Templates.OBJECT, templateId.toString())
+                .onObject(templateObject, templateId.toString())
                 .with("places", Integer.toString(places.size())));
         meters.counter("platform.inspection.audience.suggestion", "result", "ok").increment();
     }

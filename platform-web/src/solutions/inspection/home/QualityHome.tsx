@@ -4,7 +4,10 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { readHomeLook, writeHomeLook, type HomeLook } from "./look";
 import { loadMyTasks, useSummary } from "./api";
+import { useApplication, useApplicationLabel } from "../application";
 import { ActivityList } from "./ActivityList";
+import { tileIcon } from "./board";
+import { BoardCharts, BoardFoot, BoardHeading, BoardTiles } from "./BoardLook";
 import { ChartCard } from "./ChartCard";
 import { AreaChart, DepartmentGroups, HBars, RingChart, type Bar, type DepartmentGroup, type Slice } from "./charts";
 import { creamSeries, HeatMap, HRows, VBars } from "./creamCharts";
@@ -16,7 +19,7 @@ import {
   formatCount,
   formatDays,
   formatPercent,
-  HOME_LINKS,
+  homeLinks,
   momentLabel,
   monthLabel,
   paramsFromFilters,
@@ -25,6 +28,7 @@ import {
   toneOf,
   dayLabel,
   type HomeFilters,
+  type HomeLinks,
   type HomeSummary,
   type HomeTile,
 } from "./model";
@@ -61,6 +65,9 @@ function HomeLoading() {
 }
 
 function HomeScreen() {
+  const application = useApplication();
+  const applicationLabel = useApplicationLabel(application);
+  const links = useMemo(() => homeLinks(application), [application]);
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname() ?? "";
@@ -94,18 +101,25 @@ function HomeScreen() {
   const summary = state.summary;
   const refreshing = state.status === "ready" ? state.refreshing : false;
   return (
-    <div className={look === 2 ? "dash dash-cream" : "dash"} data-look={look} data-testid="quality-home" aria-busy={state.status === "loading" || refreshing}>
+    <div
+      className={look === 2 ? "dash dash-cream" : look === 3 ? "dash dash-board" : look === 4 ? "dash dash-compact" : "dash"}
+      data-look={look}
+      data-testid="quality-home"
+      aria-busy={state.status === "loading" || refreshing}
+    >
       <header className="dash-head">
-        {look === 2 ? (
+        {look === 3 ? (
+          <BoardHeading label={applicationLabel} />
+        ) : look === 2 ? (
           <div className="dash-head-text">
             <h1 className="dash-title">Template approvals</h1>
             <p className="dash-lead">{headline(summary)}</p>
           </div>
         ) : (
-          <h1 className="visually-hidden">Quality Management System</h1>
+          <h1 className="visually-hidden">{applicationLabel}</h1>
         )}
         <div className="dash-look" role="radiogroup" aria-label="Look of this page">
-          {([1, 2] as const).map((option) => (
+          {([1, 2, 3, 4] as const).map((option) => (
             <button
               key={option}
               type="button"
@@ -130,7 +144,7 @@ function HomeScreen() {
         onRefresh={refresh}
         refreshing={refreshing || state.status === "loading"}
         updatedAt={summary?.generatedAt}
-        variant={look === 2 ? "select" : "bars"}
+        variant={look === 1 || look === 4 ? "bars" : "select"}
       />
 
       {state.status === "failed" ? (
@@ -142,11 +156,22 @@ function HomeScreen() {
         </div>
       ) : null}
 
-      <h2 className="visually-hidden">Numbers</h2>
-      {summary ? (
+      {look === 3 ? (
+        <BoardBody
+          summary={summary}
+          loading={state.status === "loading"}
+          tasks={tasks}
+          filters={filters}
+          links={links}
+          onOpen={(href) => router.push(href)}
+        />
+      ) : null}
+
+      {look !== 3 ? <h2 className="visually-hidden">Numbers</h2> : null}
+      {look === 3 ? null : summary ? (
         <ul className="dash-tiles" data-testid="home-tiles">
-          {orderedTiles(tilesOf(summary, tasks, filters), look).map((entry) =>
-            entry.failed ? <FailedTile key={entry.label} label={entry.label} /> : <StatTile key={entry.view.id} tile={entry.view} />,
+          {orderedTiles(tilesOf(summary, tasks, filters, links), look).map((entry) =>
+            entry.failed ? <FailedTile key={entry.label} label={entry.label} /> : <StatTile key={entry.view.id} tile={look === 4 ? { ...entry.view, icon: tileIcon(entry.view.id) } : entry.view} />,
           )}
         </ul>
       ) : state.status === "loading" ? (
@@ -157,18 +182,51 @@ function HomeScreen() {
         </ul>
       ) : null}
 
-      <h2 className="visually-hidden">Graphs</h2>
-      <div className="dash-charts" data-refreshing={refreshing ? "true" : undefined}>
-        <Charts
-          summary={summary}
-          loading={state.status === "loading"}
-          filters={filters}
-          onNarrow={go}
-          onOpen={(href) => router.push(href)}
-          look={look}
-        />
-      </div>
+      {look === 3 ? null : (
+        <>
+          <h2 className="visually-hidden">Graphs</h2>
+          <div className="dash-charts" data-refreshing={refreshing ? "true" : undefined}>
+            <Charts
+              summary={summary}
+              loading={state.status === "loading"}
+              filters={filters}
+              onNarrow={go}
+              onOpen={(href) => router.push(href)}
+              look={look}
+              links={links}
+            />
+          </div>
+        </>
+      )}
     </div>
+  );
+}
+
+/** The board look (FA13C): the six tiles, the three graphs, the cards and the message, from the numbers the page has. */
+function BoardBody({
+  summary,
+  loading,
+  tasks,
+  filters,
+  links,
+  onOpen,
+}: {
+  summary: HomeSummary | undefined;
+  loading: boolean;
+  tasks: number | null | undefined;
+  filters: HomeFilters;
+  links: HomeLinks;
+  onOpen: (href: string) => void;
+}) {
+  const entries = useMemo(() => (summary ? tilesOf(summary, tasks, filters, links) : undefined), [summary, tasks, filters, links]);
+  return (
+    <>
+      <h2 className="visually-hidden">Numbers</h2>
+      <BoardTiles entries={entries} loading={loading} />
+      <h2 className="visually-hidden">Graphs</h2>
+      <BoardCharts summary={summary} loading={loading} links={links} onOpen={onOpen} />
+      <BoardFoot entries={entries} summary={summary} tasks={tasks} />
+    </>
   );
 }
 
@@ -210,7 +268,12 @@ interface TileEntry {
 }
 
 /** The tiles in the order they are drawn: what waits for someone first, then the numbers of the period. */
-function tilesOf(summary: HomeSummary, tasks: number | null | undefined, filters: HomeFilters): TileEntry[] {
+function tilesOf(
+  summary: HomeSummary,
+  tasks: number | null | undefined,
+  filters: HomeFilters,
+  links: HomeLinks,
+): TileEntry[] {
   const { tiles, problems, applied } = summary;
   const period = summary.period.key;
   const words = periodWords(period);
@@ -239,7 +302,7 @@ function tilesOf(summary: HomeSummary, tasks: number | null | undefined, filters
     value: formatCount(tile.value, atLeast(tile)),
     empty: "",
     hint: tile.extra !== undefined && (tile.value ?? 0) > 0 ? `Oldest has waited ${formatDays(tile.extra)}` : undefined,
-    href: HOME_LINKS.templates("IN_REVIEW"),
+    href: links.templates("IN_REVIEW"),
     note: ignored(tile),
     attention: true,
   }));
@@ -253,7 +316,7 @@ function tilesOf(summary: HomeSummary, tasks: number | null | undefined, filters
         value: formatCount(tasks),
         empty: "",
         hint: tasks === 0 ? "Nothing waits for you" : undefined,
-        href: HOME_LINKS.approvals,
+        href: links.approvals,
         note: filters.location || filters.department ? "Not filtered by location or department" : undefined,
         attention: true,
       },
@@ -265,7 +328,7 @@ function tilesOf(summary: HomeSummary, tasks: number | null | undefined, filters
     value: formatCount(tile.value, atLeast(tile)),
     empty: "",
     hint: "Open or accepted",
-    href: HOME_LINKS.requests,
+    href: links.requests,
     note: ignored(tile),
     attention: true,
   }));
@@ -274,7 +337,7 @@ function tilesOf(summary: HomeSummary, tasks: number | null | undefined, filters
     label: "Fill-ins waiting for review",
     value: formatCount(tile.value, atLeast(tile)),
     empty: "",
-    href: HOME_LINKS.fills("SUBMITTED"),
+    href: links.fills("SUBMITTED"),
     note: ignored(tile),
     attention: true,
   }));
@@ -284,7 +347,7 @@ function tilesOf(summary: HomeSummary, tasks: number | null | undefined, filters
     value: formatCount(tile.value, atLeast(tile)),
     empty: "",
     hint: "In use now",
-    href: HOME_LINKS.templates("ACTIVE"),
+    href: links.templates("ACTIVE"),
     note: ignored(tile),
   }));
   add(tiles.fillsSubmitted, fillsFailed, "Fill-ins sent", (tile) => {
@@ -297,7 +360,7 @@ function tilesOf(summary: HomeSummary, tasks: number | null | undefined, filters
       hint: `In the last ${words}`,
       change,
       tone: toneOf(change.direction, "better"),
-      href: HOME_LINKS.fills("SUBMITTED"),
+      href: links.fills("SUBMITTED"),
       note: ignored(tile),
       spark: summary.charts.fillsPerDay?.days.map((day) => day.count),
     };
@@ -312,7 +375,7 @@ function tilesOf(summary: HomeSummary, tasks: number | null | undefined, filters
       hint: `In the last ${words}`,
       change,
       tone: toneOf(change.direction, "better"),
-      href: HOME_LINKS.templates("ACTIVE"),
+      href: links.templates("ACTIVE"),
       note: ignored(tile),
     };
   });
@@ -343,7 +406,7 @@ function tilesOf(summary: HomeSummary, tasks: number | null | undefined, filters
         value: formatCount(drafts),
         empty: "",
         hint: "Not yet sent for approval",
-        href: HOME_LINKS.templates("DRAFT"),
+        href: links.templates("DRAFT"),
       },
     });
   }
@@ -357,7 +420,7 @@ function tilesOf(summary: HomeSummary, tasks: number | null | undefined, filters
         value: formatCount(approved),
         empty: "",
         hint: "Waiting for the Publisher",
-        href: HOME_LINKS.templates("APPROVED"),
+        href: links.templates("APPROVED"),
         attention: true,
       },
     });
@@ -387,7 +450,9 @@ function Charts({
   onNarrow,
   onOpen,
   look,
+  links,
 }: {
+  links: HomeLinks;
   look: HomeLook;
   summary: HomeSummary | undefined;
   loading: boolean;
@@ -513,7 +578,7 @@ function Charts({
                 paint: creamSeries(index),
                 words: `${one.label}: ${formatCount(one.count)} templates`,
               }))}
-              onSelect={(key) => onOpen(HOME_LINKS.templates(stateForList(key)))}
+              onSelect={(key) => onOpen(links.templates(stateForList(key)))}
             />
           </ChartCard>
         ) : null}
@@ -555,7 +620,7 @@ function Charts({
                 <h4 className="hrows-heading">Top templates</h4>
                 <HRows
                   rows={(byTemplate ?? []).map((one) => ({ ...one, words: `${one.label}: ${formatCount(one.count)} fill-ins` }))}
-                  onSelect={(key) => onOpen(HOME_LINKS.fillsOfTemplate(key))}
+                  onSelect={(key) => onOpen(links.fillsOfTemplate(key))}
                 />
               </div>
               <div>
@@ -654,7 +719,7 @@ function Charts({
             <RingChart
               slices={statuses}
               unit="templates"
-              onSelect={(key) => onOpen(HOME_LINKS.templates(stateForList(key)))}
+              onSelect={(key) => onOpen(links.templates(stateForList(key)))}
             />
           ) : null}
         </ChartCard>
@@ -717,7 +782,7 @@ function Charts({
             bars={byTemplate ?? []}
             unit="fill-ins"
             seriesIndex={1}
-            onSelect={(key) => onOpen(HOME_LINKS.fillsOfTemplate(key))}
+            onSelect={(key) => onOpen(links.fillsOfTemplate(key))}
             selectWords="Open the fill-ins of this template"
           />
         </ChartCard>

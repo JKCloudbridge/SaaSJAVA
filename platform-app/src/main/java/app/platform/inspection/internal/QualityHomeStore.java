@@ -54,8 +54,8 @@ class QualityHomeStore {
     private static final String FILL_PLACES = "select fill_id, location, department from inspection_fill_department "
             + "where tenant_id = :tenant and fill_id in (:fills) and deleted_at is null";
     private static final String EVENTS = "select template_id, kind, version_no, revision_no, created_at, created_by "
-            + "from inspection_template_event where tenant_id = :tenant and created_at >= :since "
-            + "and deleted_at is null order by created_at desc, id desc limit :limit";
+            + "from inspection_template_event where tenant_id = :tenant and template_object = :object "
+            + "and created_at >= :since and deleted_at is null order by created_at desc, id desc limit :limit";
 
     private final JdbcClient jdbc;
     private final TenantContexts contexts;
@@ -81,12 +81,14 @@ class QualityHomeStore {
     }
 
     /** Writes what happened to a template, in the transaction of the act that did it. */
-    void recordEvent(UUID templateId, String kind, int versionNo, Integer revisionNo, UUID actor) {
+    void recordEvent(String templateObject, UUID templateId, String kind, int versionNo, Integer revisionNo,
+            UUID actor) {
         jdbc.sql("with allowed as (select set_config('platform.template_event_write', 'on', true)) "
                         + "insert into inspection_template_event (tenant_id, template_id, kind, version_no, "
-                        + "revision_no, created_by, updated_by) select :tenant, :template, :kind, :version, "
-                        + ":revision, :actor, :actor from allowed")
+                        + "revision_no, created_by, updated_by, template_object) select :tenant, :template, :kind, "
+                        + ":version, :revision, :actor, :actor, :object from allowed")
                 .param("tenant", tenant()).param("template", templateId).param("kind", kind)
+                .param("object", templateObject)
                 .param("version", versionNo).param("revision", revisionNo, java.sql.Types.INTEGER)
                 .param("actor", actor).update();
     }
@@ -101,10 +103,14 @@ class QualityHomeStore {
         return places(fillIds, FILL_PLACES, "fills", "fill_id");
     }
 
-    /** What happened to templates since a moment, newest first, at most the limit. */
-    List<Event> eventsSince(Instant since, int limit) {
-        return jdbc.sql(EVENTS).param("tenant", tenant()).param("since", java.sql.Timestamp.from(since))
-                .param("limit", limit).query(QualityHomeStore::event).list();
+    /**
+     * What happened to the templates of one set since a moment, newest first, at most the limit. Another set's events
+     * are never read, so they can neither show nor fill the bound (FA13B, ADR-0226).
+     */
+    List<Event> eventsSince(String templateObject, Instant since, int limit) {
+        return jdbc.sql(EVENTS).param("tenant", tenant()).param("object", templateObject)
+                .param("since", java.sql.Timestamp.from(since)).param("limit", limit)
+                .query(QualityHomeStore::event).list();
     }
 
     private Map<UUID, Set<Place>> places(Collection<UUID> ids, String sql, String param, String column) {

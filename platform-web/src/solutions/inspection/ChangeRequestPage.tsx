@@ -25,12 +25,14 @@ import {
 } from "./changeRequests";
 import { RegisterRequestPanel } from "./RegisterPanel";
 import { useRegister } from "./register";
-import { REQUEST_OBJECT } from "./template";
+import { useRecordObjects } from "./objects";
+import { useApplication } from "./application";
+import { appBase } from "./appPaths";
 
 const LABELS = { approve: "Approve", reject: "Decline" } as const;
 
-const templateHref = (templateId: string, tab?: string) =>
-  `/apps/inspection/s-templates?open=${templateId}${tab ? `&tab=${tab}` : ""}`;
+const templateHref = (application: string, templateId: string, tab?: string) =>
+  `${appBase(application)}/s-templates?open=${templateId}${tab ? `&tab=${tab}` : ""}`;
 
 /**
  * One change request on its own page (Functional track FA6E, ADR-0199; the register and the revised sheet since FA8,
@@ -94,9 +96,10 @@ function Reviewed({
   onChanged(): void;
   onBack(): void;
 }) {
+  const objects = useRecordObjects();
   const [, setApproval] = useState<ApprovalState>({ locked: false, mayOverride: false, mayApprove: false });
   const decisions = useRecordApproval({
-    objectApiName: REQUEST_OBJECT,
+    objectApiName: objects.changeRequest,
     recordId: reviewId,
     refresh,
     onState: setApproval,
@@ -130,6 +133,7 @@ function Body({
 }) {
   const ids = useId();
   const router = useRouter();
+  const application = useApplication();
   const [notice, setNotice] = useState<{ text: string; error: boolean } | undefined>();
   const [busy, setBusy] = useState(false);
   const [reply, setReply] = useState("");
@@ -153,13 +157,21 @@ function Body({
   };
   // The revised copy is changed on the Sheet tab of the template, opened on that version (FA10, ADR-0204).
   const openable = request.resultingVersion !== undefined && request.resultingVersion !== null && request.canChangeCopy;
-  const revisedHref = `${templateHref(request.templateId, "sheet")}&version=${request.resultingVersion ?? ""}`;
+  const revisedHref = `${templateHref(application, request.templateId, "sheet")}&version=${request.resultingVersion ?? ""}`;
+  // The version in use opens on its own sheet, not on the list of versions: while a request is open it is the version the
+  // person read; once published it is the version the request made (when that is still the one in use).
+  const inUse =
+    request.status === "OPEN"
+      ? request.versionNo
+      : request.status === "DONE" && request.resultingVersionStatus === "ACTIVE"
+        ? request.resultingVersion
+        : undefined;
+  const currentHref = `${templateHref(application, request.templateId, "sheet")}${inUse ? `&version=${inUse}` : ""}`;
+  // The revision in use is a field of the Details tab; only a request that ended without a publish says anything here.
   const endedNote =
-    request.status === "DONE"
-      ? "The revised sheet was published. It is the revision in use."
-      : request.status === "DECLINED"
-        ? "The request ended without being published, so the revision in use is unchanged."
-        : null;
+    request.status === "DECLINED"
+      ? "The request ended without being published, so the revision in use is unchanged."
+      : null;
   const makeCopy = async () => {
     setBusy(true);
     setNotice(undefined);
@@ -173,8 +185,8 @@ function Body({
     const made = outcome.data.resultingVersion;
     router.push(
       made === undefined || made === null
-        ? templateHref(request.templateId, "sheet")
-        : `${templateHref(request.templateId, "sheet")}&version=${made}`,
+        ? templateHref(application, request.templateId, "sheet")
+        : `${templateHref(application, request.templateId, "sheet")}&version=${made}`,
     );
   };
   const comment = () =>
@@ -187,7 +199,26 @@ function Body({
       return { ok: true, text: "Your comment was added." };
     });
 
-  const actions = <>{approval ? <ApprovalHeaderActions approval={approval} submitButton={false} /> : null}</>;
+  // The grey strip: the decision of the approval, then the sheet buttons at the right end, smaller than the usual button.
+  const actions = (
+    <>
+      {approval ? <ApprovalHeaderActions approval={approval} submitButton={false} /> : null}
+      <span className="row-decision" data-testid="request-sheet-buttons">
+        <Link href={currentHref} className="button button-secondary button-compact" data-testid="view-current">
+          View Current Version
+        </Link>
+        {request.canCreateCopy ? (
+          <button type="button" className="button button-compact" disabled={busy} onClick={() => void makeCopy()} data-testid="create-copy">
+            Create Revised Version
+          </button>
+        ) : openable ? (
+          <Link href={revisedHref} className="button button-compact" data-testid="open-copy">
+            View Revised Version
+          </Link>
+        ) : null}
+      </span>
+    </>
+  );
 
   return (
     <DetailPage
@@ -226,21 +257,7 @@ function Body({
             <DetailItem label="Request">{request.title}</DetailItem>
             <DetailItem label="Asked on">{formatInstant(request.createdAt)}</DetailItem>
           </DetailGrid>
-          <div className="split" data-testid="request-sheet-buttons">
-            <Link href={templateHref(request.templateId, "sheet")} className="button button-secondary" data-testid="view-current">
-              View Current Version
-            </Link>
-            {request.canCreateCopy ? (
-              <button type="button" className="button" disabled={busy} onClick={() => void makeCopy()} data-testid="create-copy">
-                Create Revised Version
-              </button>
-            ) : openable ? (
-              <Link href={revisedHref} className="button" data-testid="open-copy">
-                Open Revised Version
-              </Link>
-            ) : null}
-          </div>
-          {became ? <p data-testid="request-became">{became}.</p> : null}
+          {became && request.status !== "DONE" ? <p data-testid="request-became">{became}.</p> : null}
           {endedNote ? (
             <p className="hint" data-testid="revised-sheet-note">
               {endedNote}

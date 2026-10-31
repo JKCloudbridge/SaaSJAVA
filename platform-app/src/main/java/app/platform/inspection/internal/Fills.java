@@ -10,8 +10,7 @@ import java.util.UUID;
  */
 final class Fills {
 
-    /** The header record of a fill-in. */
-    static final String OBJECT = "InspectionFill";
+    // The fill-in object is a part the application's solution file declares (FA13B, ADR-0226): RecordSet.fill().
     static final String NAME = "name";
     /** The template the fill-in was started on, as the text of its identifier (a lookup a member could re-point). */
     static final String TEMPLATE_ID = "templateId";

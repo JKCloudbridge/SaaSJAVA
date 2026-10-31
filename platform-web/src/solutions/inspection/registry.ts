@@ -11,13 +11,24 @@ import { TemplatesPage } from "./TemplatesPage";
  */
 export const PAGE_KEYS = ["home", "templates", "fill-ins", "change-requests", "fill-in-report"] as const;
 
+const PAGES = {
+  home: QualityHomePage,
+  templates: TemplatesPage,
+  "fill-ins": FillInsPage,
+  "change-requests": ChangeRequestsPage,
+  "fill-in-report": FillInReportPage,
+};
+
 export const inspection: SolutionPages = {
   application: "inspection",
-  pages: {
-    home: QualityHomePage,
-    templates: TemplatesPage,
-    "fill-ins": FillInsPage,
-    "change-requests": ChangeRequestsPage,
-    "fill-in-report": FillInReportPage,
-  },
+  pages: PAGES,
+};
+
+/**
+ * The same pages under a second application name (FA13A, ADR-0225): Document Management shows the same documents, so
+ * it is one set of screens registered twice. The pages ask the address which application they are in.
+ */
+export const documentManagement: SolutionPages = {
+  application: "document-management",
+  pages: PAGES,
 };

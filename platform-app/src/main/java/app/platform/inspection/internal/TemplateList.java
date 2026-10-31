@@ -79,9 +79,9 @@ class TemplateList {
      * @param size the page size, at most 200; 0 or null is 50
      * @param cursor the cursor of the previous page of the same question, or null
      */
-    TemplatePage page(String search, String category, String partA, Boolean retired, String state, String sort,
-            Integer size, String cursor) {
-        return run(search, null, category, partA, retired, state, order(sort), size, cursor);
+    TemplatePage page(RecordSet set, String search, String category, String partA, Boolean retired, String state,
+            String sort, Integer size, String cursor) {
+        return run(set, search, null, category, partA, retired, state, order(sort), size, cursor);
     }
 
     /**
@@ -92,16 +92,16 @@ class TemplateList {
      *
      * @param query the question; its filter, sort, state, size and cursor may all be null
      */
-    TemplatePage query(TemplateViews.TemplateQuery query) {
+    TemplatePage query(RecordSet set, TemplateViews.TemplateQuery query) {
         QueryFilter filter = query.filter() == null ? null : QueryFilterNodes.toFilter(query.filter(), "filter");
         List<QuerySort> sort = query.sort() == null ? List.of() : query.sort().stream()
                 .map(key -> new QuerySort(key.field(), Boolean.TRUE.equals(key.descending()))).toList();
-        return run(query.search(), filter, null, null, null, query.state(), sort.isEmpty() ? order(null) : sort,
-                query.size(), query.cursor());
+        return run(set, query.search(), filter, null, null, null, query.state(),
+                sort.isEmpty() ? order(null) : sort, query.size(), query.cursor());
     }
 
-    private TemplatePage run(String search, QueryFilter extra, String category, String partA, Boolean retired,
-            String state, List<QuerySort> sort, Integer size, String cursor) {
+    private TemplatePage run(RecordSet set, String search, QueryFilter extra, String category, String partA,
+            Boolean retired, String state, List<QuerySort> sort, Integer size, String cursor) {
         Caller caller = access.member();
         String wantedState = state == null || state.isBlank() ? null : state.toUpperCase(Locale.ROOT);
         if (wantedState != null && !STATES.contains(wantedState)) {
@@ -110,10 +110,10 @@ class TemplateList {
         int limit = size == null || size <= 0 ? DEFAULT_SIZE : Math.min(size, MOST);
         RecordQuery query = new RecordQuery(filter(search, extra, category, partA, retired), sort, FIELDS,
                 List.of(), limit, cursor);
-        QueryResult result = records.query(Templates.OBJECT, query);
+        QueryResult result = records.query(set.template(), query);
         List<UUID> ids = result.records().stream().map(QueriedRecord::record).map(DataRecord::id).toList();
-        Map<UUID, SheetLifecycle.Summary> summaries = sheets.summaries(Templates.OBJECT, ids);
-        Map<UUID, Integer> waiting = counts.waiting(caller, ids);
+        Map<UUID, SheetLifecycle.Summary> summaries = sheets.summaries(set.template(), ids);
+        Map<UUID, Integer> waiting = counts.waiting(set, caller, ids);
         List<TemplateRow> rows = new ArrayList<>();
         for (QueriedRecord found : result.records()) {
             DataRecord header = found.record();
@@ -129,7 +129,7 @@ class TemplateList {
                         Templates.revisionShown(header.fields(), summary.active())));
             }
         }
-        boolean canCreate = decisions.can(caller.membershipId(), Templates.OBJECT, ObjectAction.CREATE).allowed();
+        boolean canCreate = decisions.can(caller.membershipId(), set.template(), ObjectAction.CREATE).allowed();
         return new TemplatePage(rows, result.nextCursor(), canCreate, wantedState != null);
     }
 

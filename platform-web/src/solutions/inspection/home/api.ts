@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api/client";
 import { call } from "@/lib/records/call";
+import { scopeQuery } from "../scope";
 import type { HomeFilters, HomeSummary } from "./model";
 
 /**
@@ -18,6 +19,7 @@ export type SummaryState =
 export async function loadSummary(filters: HomeFilters): Promise<{ ok: true; data: HomeSummary } | { ok: false; message: string }> {
   const outcome = await call(() =>
     api.POST("/api/v1/quality-home/summary", {
+      params: { query: scopeQuery() },
       body: {
         period: filters.period,
         location: filters.location === "" ? undefined : filters.location,

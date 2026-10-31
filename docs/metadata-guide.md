@@ -1252,3 +1252,75 @@ raised, never lowered, from the pattern's page (as before).
 **Who can type.** The people with the Approver policy (Plant QMS) edit the Identification, Part A, Part B and the serial; the Author does not.
 You can give another group the same right with an access policy of your own (the fields `category`, `partA`, `partB` and `serial` of the
 template). The shipped policies cannot be changed.
+
+## 43. Where an application stands, and applications that share objects (FA13A)
+
+Decision: [ADR-0225](adr/0225-the-order-of-applications-and-objects-and-policies-shared-between-solutions.md). This is for the people who
+write a solution bundle (`solutions/<key>/solution.yml`). The list of every application is at the top of
+[solutions/inspection.md](solutions/inspection.md).
+
+**Where the application stands in the grid.** Give the bundle `order: 3` (a whole number from 1 to 999). The grid lists the bundles in the
+order of that number, lowest first; two with the same number stand in the order of their keys; a bundle with no `order` stands after every bundle
+that has one, in the order of its key. The order is data: it never depends on a name, and the browser draws the list as the server sends it. Leave
+gaps (the first six places belong to Document Management, CAPA, Audit Management, Supplier Management, Management Core and, later, Environment
+Management) so a new application can be put between two without moving the others.
+
+**An application of its own that shows another bundle's records.** Do not copy the objects. The bundle that shows them says:
+
+```
+uses:
+  - InspectionTemplate
+```
+
+and the file of each of those objects (`objects/<Object>.yml` of the bundle that brings it) says which other features give an organization the
+object too:
+
+```
+requiresFeature: inspection
+alsoAvailableWith: [document-management]
+```
+
+Both sides must say it: the loader refuses a `uses` the object's file does not back, and a feature an object lists that belongs to a bundle that
+does not use it. The object then exists for an organization when its own feature **or any listed feature** is on; with none of them it is
+"not found", exactly like an unknown object. The using bundle's entries may name the objects it uses (`object`, `readsObject`); it brings none
+of its own for them. Its own feature decides whether **its tile** is shown; nothing is stored twice.
+
+**An access policy shared the same way.** A policy of the bundle that brings it may say `alsoAvailableWith: [document-management]`. It is then
+kept in an organization while the bundle's own feature or any listed feature is on, is made once, and is never removed. The loader refuses a
+listed feature that is not another bundle's, and a policy that gives a right on an object the other bundle neither brings nor uses. Because the
+policy is shared, a person who holds it sees every tile whose feature is on.
+
+**A tile with only its Home.** A bundle whose application lists only `home` is a tile: it says "Coming soon" in the grid and shows its name and
+"no tabs yet" on its Home. Add announced tabs with `placeholder: true`, as in the process applications.
+
+**Plan features.** Each application that can be sold alone needs a feature row (a migration like V086, expand only, in no plan by default).
+The bundle's `removalNote` is what the console shows before the feature is taken away.
+
+## 44. Applications of one kind, and how to add another (FA13B)
+
+Decision: [ADR-0226](adr/0226-applications-of-one-kind-on-shared-code-with-their-own-objects.md). The Quality Management System and Environment Management
+run the same code over records of their own. **To add another application of this kind you write files and nothing else.**
+
+**The recipe** (the example is `solutions/environment-management/`; copy it):
+
+1. Make `platform-app/src/main/resources/solutions/<key>/` with `solution.yml`, `numbering.yml` and `objects/` holding three object files: the
+   templates, the fill-ins and the review records of change requests. Give every name a new word: the objects (`<Word>Template`, `<Word>Fill`,
+   `<Word>ChangeRequest`), the series key, the feature key, the application name, the policy names.
+2. In `solution.yml`: `feature`, `label`, `order` (a free number), `uses: [DepartmentGroup]`, the three lines of `roles:` (`template`, `fill`,
+   `changeRequest`), `application:` with the same entries (page keys `home`, `templates`, `change-requests`, `fill-ins`, `fill-in-report`), `objects`,
+   `sheetOwners: [<the template object>]` and the access policies with names of their own.
+3. Each object file says `requiresFeature: <your feature>`, `retainRecords: true`, `sharingDefault: PRIVATE` and keeps the same field names as the
+   others (the functions read them). `numbering.yml` has one series whose `object` is the template object.
+4. Add the feature to the department setup: `environment-management` is listed under `alsoAvailableWith` on `DepartmentGroup` and on the policy
+   `departments` in `solutions/inspection/`; add yours there too if the new application publishes to departments.
+5. A migration inserts the plan feature row (copy V087's first statement). Nothing else in the database changes.
+6. Run the loader test, the baseline update and the document update of section 4, then `scripts/sync-migrations.ps1`.
+
+What you do **not** write: Java, web code, a page, an endpoint, a hook. The proof is `ThirdApplicationIT`.
+
+**What is separate between two applications:** templates, fill-ins, change requests, number series and counters, approval processes (set up per object in
+Setup), access policies, sharing, record locks, the lists, counts, search, report, dashboard, downloads, notices and the audit trail. **What is shared:**
+the department setup and the organization's groups.
+
+**The feature off:** an application whose plan feature is off is "not found" everywhere, exactly like an unknown one; a forged application name changes
+nothing.

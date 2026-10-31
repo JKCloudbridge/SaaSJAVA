@@ -290,7 +290,11 @@ class RetainedObjectsIT extends SolutionSupport {
                 + "and deleted_at is null")).isEqualTo(1);
         assertThat(ownerCount("select count(*) from retained_object where object_api_name = 'InspectionChangeRequest' "
                 + "and deleted_at is null")).isEqualTo(1);
-        assertThat(ownerCount("select count(*) from retained_object")).isEqualTo(3);
+        for (String object : new String[] {"EnvironmentTemplate", "EnvironmentFill", "EnvironmentChangeRequest"}) {
+            assertThat(ownerCount("select count(*) from retained_object where object_api_name = '" + object
+                    + "' and deleted_at is null")).isEqualTo(1);
+        }
+        assertThat(ownerCount("select count(*) from retained_object")).isEqualTo(6);
 
         assertThatThrownBy(() -> ownerRuns("update retained_object set version = version + 1, updated_by = '"
                 + UUID.randomUUID() + "'")).hasMessageContaining("only grows");
@@ -300,7 +304,7 @@ class RetainedObjectsIT extends SolutionSupport {
         assertThatThrownBy(() -> TenantFixtures.asNobody(connection -> TenantFixtures.update(connection,
                 "update retained_object set deleted_at = now(), deleted_by = ?, version = version + 1, updated_by = ?",
                 UUID.randomUUID(), UUID.randomUUID()))).hasMessageContaining("only grows");
-        assertThat(ownerCount("select count(*) from retained_object where deleted_at is null")).isEqualTo(3);
+        assertThat(ownerCount("select count(*) from retained_object where deleted_at is null")).isEqualTo(6);
     }
 
     // ---- the recycle-bin retention job ----

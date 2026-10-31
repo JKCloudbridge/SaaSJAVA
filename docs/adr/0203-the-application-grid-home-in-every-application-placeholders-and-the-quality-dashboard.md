@@ -1,6 +1,6 @@
 # ADR-0203: The application grid, Home in every application, the process applications as placeholders and the Quality Management System dashboard
 
-- **Status:** Accepted
+- **Status:** Accepted. **Amended by [ADR-0226](0226-applications-of-one-kind-on-shared-code-with-their-own-objects.md) (FA13B):** the dashboard endpoint takes the application and counts that application's own records. **Brought up to date in FA13A** (see "Changes after the first review" at the end); the order of applications and the sharing of objects between bundles are [ADR-0225](0225-the-order-of-applications-and-objects-and-policies-shared-between-solutions.md).
 - **Date:** 2026-10-26
 - **Track:** Functional (FA9, demo readiness). Two migrations (V081, V082), additive API fields (`group` on an application, `placeholder` on an
   entry), one additive endpoint of the cluster, two read methods of the generic sheets module. No new module edge, no new ability, no new
@@ -89,3 +89,29 @@ Dropped: "never submitted" (a fill-in is counted only once it is sent, as the pr
 - The department graph is honest only from this release on; older fill-ins are one bar, "Not recorded", and are left out when a filter is on.
 - "Published per month" counts from the release on (no event exists for earlier publishes).
 - A future generic Dashboards feature (D8) would not reuse this endpoint: this is the dashboard of one application.
+
+## Changes after the first review (checked in the code in FA13A)
+
+What the first review changed, as the code now stands. Nothing here moves a decision above; the API, the data and the addresses are as decided.
+
+- **The launcher is a window.** The three lines in the strip open the grid of applications in a rounded modal window with a cross
+  (`AppLauncher`, the shared `Modal`); the page behind stays where it was; Escape, the cross and choosing an application close it. The
+  grid at `/` is the same component. (Decision 6 first said the three lines were a link.)
+- **A tile with nothing but its Home is "coming soon".** Since FA13A a shipped application whose only entry is Home carries the tag (ADR-0225).
+- **Two looks of the dashboard.** A pair of buttons, Option 1 and Option 2, choose the look; the choice is remembered in the browser only
+  (`home-look` in local storage, closed storage falls back to Option 1). Option 1 is the look described above. Option 2 is the cream look:
+  a title (`Template approvals`) and a sentence of what waits and the slowest approval step above the filters, which become selects, its
+  own series colours, and the tiles in the order of its design.
+- **More tiles than the nine above.** Besides the nine, the page draws **Drafts in progress** and **Approved, not published**
+  (counts of the status chart, drawn only when no location or department filter is on). Option 2 keeps its own list of eleven in its order.
+- **More graphs.** A heat map of templates by level and by document type (a count in every cell, with a screen-reader sentence and a
+  tooltip), the fill-ins graphs **Fill-ins by template** and **Fill-ins by department by template** in Option 1 and **Fill-ins by template
+  and by department** in Option 2, and the days at each approval step; every graph keeps its table view.
+- **The published number counts versions that were in use before the events were kept.** A version that went into use (active, replaced or
+  retired) is counted as published on the day its approval ended when no event was written for it; a template that has both is counted once.
+  This is why "Templates published" is not zero for a template published before V082.
+- **The window and the background.** The grid page has a soft wash behind it (two blurred pools of the series colours, so the glass tiles
+  have something to be glass over); the welcome and "no application" pages sit in a bordered rounded window (`.landing-window`). Colours
+  come from the tokens only.
+- **Wording.** The application, its tabs and its fixed words are the ones of the business: Quality Management System, Document Control,
+  Record Control, Report, Management Review and Internal Audit (announced).

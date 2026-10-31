@@ -57,6 +57,8 @@ class TemplateApprovalHooksTest {
         boolean numberingFails;
         boolean writeFails;
         SheetMoveRefusal sheetRefusal;
+        /** The owner object the sheets module was last asked about. */
+        String lastOwnerObject;
         /** What the versions of the template add up to: by default a first Revision in draft, nothing else. */
         Summary summary = new Summary(0, 0, 0, 1, 0, 1, 1);
         int next = 1;
@@ -131,6 +133,7 @@ class TemplateApprovalHooksTest {
 
         @Override
         public int submit(String ownerObject, UUID ownerId, UUID requestId, UUID actor) {
+            lastOwnerObject = ownerObject;
             calls.add("submit:" + requestId + ":" + actor);
             if (sheetRefusal != null) {
                 throw sheetRefusal;
@@ -241,7 +244,7 @@ class TemplateApprovalHooksTest {
         var assignments = org.mockito.Mockito.mock(app.platform.data.NumberAssignments.class);
         org.mockito.Mockito.when(assignments.fixed(org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
-        return new TemplateApprovalHooks(fakes, fakes, fakes, assignments, null);
+        return new TemplateApprovalHooks(fakes, fakes, fakes, assignments, null, RecordSetsFixture.both());
     }
 
     private static Fakes withTemplate() {
@@ -281,6 +284,31 @@ class TemplateApprovalHooksTest {
 
         assertThat(hooks.object()).isEqualTo("InspectionTemplate");
         assertThat(hooks.writes()).containsExactly("number");
+    }
+
+    @Test
+    void itServesTheTemplateObjectOfEverySetAndMovesTheSheetOfTheSetTheCallNames() {
+        Fakes fakes = withTemplate();
+        TemplateApprovalHooks hooks = hooks(fakes);
+
+        assertThat(hooks.objects()).containsExactly("InspectionTemplate", "EnvironmentTemplate");
+
+        hooks.onSubmit(new SubmitContext(REQUEST, "EnvironmentTemplate", RECORD, "process", 1, PERSON));
+        assertThat(fakes.lastOwnerObject).isEqualTo("EnvironmentTemplate");
+
+        hooks.onSubmit(submit());
+        assertThat(fakes.lastOwnerObject).isEqualTo("InspectionTemplate");
+    }
+
+    @Test
+    void aTemplateOfAnObjectNoSetKnowsIsRefusedInFixedWords() {
+        Fakes fakes = withTemplate();
+
+        ApprovalHookRefusal refused = refusal(() -> hooks(fakes)
+                .onSubmit(new SubmitContext(REQUEST, "Other__c", RECORD, "process", 1, PERSON)));
+
+        assertThat(refused.reason()).isEqualTo("template_missing");
+        assertThat(fakes.calls).isEmpty();
     }
 
     // ---- submit ----

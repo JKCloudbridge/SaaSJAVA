@@ -1,0 +1,144 @@
+# The Throwaway Application solution, key throwaway-application (Functional track FA13B, ADR-0226).
+#
+# The same functions as the Quality Management System application (templates and their sheets, approval, numbering,
+# publishing to departments, revisions through change requests, fill-ins, the report and the home dashboard), over records
+# of its own. The code that carries the functions is shared; what makes this a separate application is only this file and
+# its folder: the three objects below play the parts named under `roles`, so a template, a fill-in or a change request made
+# here is never listed in the other application, and the reverse. Approval processes are not shipped: an administrator sets
+# them up in Setup like any other. Access policies carry names of their own, and holders of the other application's policies
+# get no access here until an administrator assigns these.
+#
+# To add a further application of this kind, copy this folder, give the objects, the series, the feature and the policies
+# new names and write the bundle: no code changes (docs/solutions/throwaway-application.md).
+key: throwaway-application
+feature: throwaway-application
+label: Throwaway Application
+removalNote: >-
+  Taking this feature away hides the Throwaway Application application and its objects from the organization at once.
+  Nothing is deleted: the templates, fill-ins, change requests, approvals in flight and access policies stay, and
+  everything comes back when the feature is given again.
+order: 7
+roles:
+  template: ThrowawayTemplate
+  fill: ThrowawayFill
+  changeRequest: ThrowawayChangeRequest
+application:
+  apiName: throwaway-application
+  label: Throwaway Application
+  iconKey: tag
+  group: Leadership
+  entries:
+    - type: PLATFORM
+      label: Home
+      pageKey: home
+      readsObject: ThrowawayTemplate
+    - type: PLATFORM
+      label: Document Control
+      pageKey: templates
+      readsObject: ThrowawayTemplate
+    - type: PLATFORM
+      label: Change requests
+      pageKey: change-requests
+      readsObject: ThrowawayChangeRequest
+    - type: PLATFORM
+      label: Record Control
+      pageKey: fill-ins
+      readsObject: ThrowawayFill
+    - type: PLATFORM
+      label: Report
+      pageKey: fill-in-report
+      readsObject: ThrowawayFill
+    - type: PLATFORM
+      label: Management Review
+      pageKey: management-review
+      placeholder: true
+objects:
+  - ThrowawayTemplate
+  - ThrowawayFill
+  - ThrowawayChangeRequest
+# The records of this object own a sheet: the grid of the template, kept in versions (FA3, ADR-0186).
+sheetOwners:
+  - ThrowawayTemplate
+# The rights of the policies are those of the other application's, on this application's objects. Licence, access policy
+# and plan feature stay three mechanisms: these policies are not bound to a licence.
+accessPolicies:
+  - key: author
+    name: Throwaway Author
+    description: Writes templates and sends them for approval. Comes with the Throwaway Application application and cannot be changed.
+    objects:
+      ThrowawayTemplate: [create, read, update]
+      ThrowawayChangeRequest: [read]
+    fields:
+      ThrowawayTemplate:
+        edit: [name, level, documentType]
+        read: [id, category, partA, partB, number, retired, revision, lastRevisedAt, createdAt, updatedAt, ownerId,
+                createdById, updatedById]
+      ThrowawayChangeRequest:
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+  - key: approver
+    name: Throwaway Approver
+    description: Sees every template and change request, and changes a template that is in review. Does not publish or retire; that is the Throwaway Publisher policy. Comes with the Throwaway Application application and cannot be changed.
+    objects:
+      ThrowawayTemplate: [read, update, view-all, modify-all]
+      ThrowawayFill: [read, update, view-all, modify-all]
+      ThrowawayChangeRequest: [read, update, view-all, modify-all]
+    abilities:
+      - approvals.override-lock
+      - field-values.add
+    fields:
+      ThrowawayTemplate:
+        edit: [name, level, documentType, category, partA, partB, serial]
+        read: [id, number, retired, revision, lastRevisedAt, createdAt, updatedAt, ownerId, createdById, updatedById]
+      ThrowawayFill:
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+      ThrowawayChangeRequest:
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+  - key: publisher
+    name: Throwaway Publisher
+    description: Publishes an approved template to departments, takes it back and retires it. Give it to the group that has the last word. Comes with the Throwaway Application application and cannot be changed.
+    objects:
+      ThrowawayTemplate: [read, view-all]
+    abilities:
+      - sheets.publish
+      - sheets.retire
+    fields:
+      ThrowawayTemplate:
+        read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, createdAt,
+                updatedAt, ownerId, createdById, updatedById]
+  - key: reader
+    name: Throwaway Reader
+    description: Reads the templates published to them. Comes with the Throwaway Application application and cannot be changed.
+    objects:
+      ThrowawayTemplate: [read]
+      ThrowawayChangeRequest: [read]
+    fields:
+      ThrowawayTemplate:
+        read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, createdAt,
+                updatedAt, ownerId, createdById, updatedById]
+      ThrowawayChangeRequest:
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+  - key: filler
+    name: Throwaway Filler
+    description: Fills in published templates. Comes with the Throwaway Application application and cannot be changed.
+    objects:
+      ThrowawayTemplate: [read]
+      ThrowawayFill: [read, update]
+      ThrowawayChangeRequest: [read]
+    abilities:
+      - sheets.fill
+    fields:
+      ThrowawayTemplate:
+        read: [id, name, number, level, documentType, category, partA, partB, retired, revision, lastRevisedAt, createdAt,
+                updatedAt, ownerId, createdById, updatedById]
+      ThrowawayFill:
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+      ThrowawayChangeRequest:
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]
+  - key: reviewer
+    name: Throwaway Reviewer
+    description: Sees every fill-in. Whether a person reviews one is decided by the approval process. Comes with the Throwaway Application application and cannot be changed.
+    objects:
+      ThrowawayFill: [read, view-all]
+    fields:
+      ThrowawayFill:
+        read: [id, name, templateId, status, createdAt, updatedAt, ownerId, createdById, updatedById]

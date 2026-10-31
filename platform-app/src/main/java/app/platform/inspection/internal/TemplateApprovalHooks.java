@@ -53,9 +53,11 @@ class TemplateApprovalHooks implements ApprovalHooks {
     private final SheetLifecycle sheets;
     private final NumberAssignments assignments;
     private final AudienceSuggestions suggestions;
+    private final RecordSets sets;
 
     TemplateApprovalHooks(BackgroundRecords records, NumberSeries numbers, SheetLifecycle sheets,
-            NumberAssignments assignments, AudienceSuggestions suggestions) {
+            NumberAssignments assignments, AudienceSuggestions suggestions, RecordSets sets) {
+        this.sets = sets;
         this.suggestions = suggestions;
         this.records = records;
         this.numbers = numbers;
@@ -63,9 +65,15 @@ class TemplateApprovalHooks implements ApprovalHooks {
         this.assignments = assignments;
     }
 
+    /** The template object of the first set; the hook serves the template object of every set ({@link #objects()}). */
     @Override
     public String object() {
-        return Templates.OBJECT;
+        return sets.templates().get(0);
+    }
+
+    @Override
+    public java.util.Collection<String> objects() {
+        return sets.templates();
     }
 
     @Override
@@ -73,18 +81,25 @@ class TemplateApprovalHooks implements ApprovalHooks {
         return NUMBER_FIELD;
     }
 
+    /** The set the call is about, by the object the engine names. */
+    private RecordSet setOf(String object) {
+        return sets.ofTemplate(object).orElseThrow(() -> new ApprovalHookRefusal("template_missing",
+                "This template cannot be found."));
+    }
+
     @Override
     public void onSubmit(SubmitContext context) {
-        DataRecord template = template(context.recordId());
+        RecordSet set = setOf(context.object());
+        DataRecord template = template(set, context.recordId());
         Map<String, Object> fields = template.fields();
         // The one rule of whether a template can be sent, which the lifecycle view asks too (FA10, ADR-0204).
-        SheetLifecycle.Summary summary = sheets.summaries(Templates.OBJECT, List.of(context.recordId()))
+        SheetLifecycle.Summary summary = sheets.summaries(set.template(), List.of(context.recordId()))
                 .getOrDefault(context.recordId(), new SheetLifecycle.Summary(0, 0, 0, 0, 0, 0, 0));
         TemplateSendRule.blocked(summary, Boolean.TRUE.equals(fields.get(Templates.RETIRED))).ifPresent(block -> {
             throw new ApprovalHookRefusal(block.reason(), block.words());
         });
         try {
-            sheets.submit(Templates.OBJECT, context.recordId(), context.requestId(), context.submitter());
+            sheets.submit(set.template(), context.recordId(), context.requestId(), context.submitter());
         } catch (SheetMoveRefusal refusal) {
             throw new ApprovalHookRefusal("sheet_" + refusal.reason().name().toLowerCase(Locale.ROOT),
                     Templates.fit(refusal.getMessage()));
@@ -93,24 +108,25 @@ class TemplateApprovalHooks implements ApprovalHooks {
 
     @Override
     public void beforeApprove(DecisionContext context, ApprovalHookWriter writer) {
+        RecordSet set = setOf(context.object());
         if (context.asksForChoice()) {
             // A step the process marks as asking for a choice: no approval without a location (FA6G, ADR-0200).
-            suggestions.accept(context, context.recordId());
+            suggestions.accept(set.template(), context, context.recordId());
         }
-        DataRecord template = template(context.recordId());
+        DataRecord template = template(set, context.recordId());
         if (!Templates.isBlank(template.fields().get(Templates.NUMBER))) {
-            if (!assignments.fixed(Templates.SERIES, template.id(),
+            if (!assignments.fixed(set.series(), template.id(),
                     (String) template.fields().get(Templates.NUMBER))) {
-                checkNumbering(template.fields(), template.id());
+                checkNumbering(set, template.fields(), template.id());
             }
-            assignments.reserve(Templates.SERIES, Templates.OBJECT, template.id(),
+            assignments.reserve(set.series(), set.template(), template.id(),
                     (String) template.fields().get(Templates.NUMBER), true);
             return;
         }
-        checkNumbering(template.fields(), template.id());
+        checkNumbering(set, template.fields(), template.id());
         String number;
         try {
-            number = numbers.next(Templates.SERIES, template.fields());
+            number = numbers.next(set.series(), template.fields());
         } catch (NumberSeriesException unavailable) {
             // The checks above passed a moment ago; a number that still cannot be made is told in the same words.
             throw new ApprovalHookRefusal("not_numbered", "This template cannot get a number yet: "
@@ -118,7 +134,7 @@ class TemplateApprovalHooks implements ApprovalHooks {
         }
         try {
             writer.set(Map.of(Templates.NUMBER, number));
-            assignments.reserve(Templates.SERIES, Templates.OBJECT, template.id(), number, true);
+            assignments.reserve(set.series(), set.template(), template.id(), number, true);
         } catch (ApprovalHookWriteException refused) {
             throw new ApprovalHookRefusal("number_in_use", "Another template already has the number this one would "
                     + "get. Change its identification, Part A or Part B (Edit), then approve again.");
@@ -133,17 +149,18 @@ class TemplateApprovalHooks implements ApprovalHooks {
             case RECALLED, CANCELLED -> SheetStatus.WITHDRAWN;
             default -> throw new IllegalStateException("Unreachable: every outcome is handled above");
         };
-        sheets.reviewed(Templates.OBJECT, context.recordId(), context.requestId(), result, context.endedBy());
+        sheets.reviewed(setOf(context.object()).template(), context.recordId(), context.requestId(), result,
+                context.endedBy());
     }
 
     // ---- the numbering checks of the first approval ----
 
-    private void checkNumbering(Map<String, Object> fields, UUID templateId) {
+    private void checkNumbering(RecordSet set, Map<String, Object> fields, UUID templateId) {
         if (Templates.isBlank(fields.get(Templates.CATEGORY))) {
             throw new ApprovalHookRefusal("category_needed", "Choose the identification (Edit), "
                     + "then approve again.");
         }
-        Optional<List<String>> missing = numbers.missingParts(Templates.SERIES, fields);
+        Optional<List<String>> missing = numbers.missingParts(set.series(), fields);
         if (missing.isEmpty()) {
             throw new ApprovalHookRefusal("category_not_numbered", "This identification has no numbering yet. Ask "
                     + "your administrator.");
@@ -156,14 +173,14 @@ class TemplateApprovalHooks implements ApprovalHooks {
                 throw new ApprovalHookRefusal("part_invalid", Templates.neededWords(List.of(part)));
             }
         }
-        Optional<String> known = numbers.known(Templates.SERIES, fields);
-        if (known.isPresent() && taken(known.get(), templateId)) {
+        Optional<String> known = numbers.known(set.series(), fields);
+        if (known.isPresent() && taken(set, known.get(), templateId)) {
             throw new ApprovalHookRefusal("number_in_use", "Another template already has the number this one would "
                     + "get. Change its identification, Part A or Part B (Edit), then approve again.");
         }
         if (known.isPresent()) {
             try {
-                assignments.checkAvailable(Templates.SERIES, templateId, known.get());
+                assignments.checkAvailable(set.series(), templateId, known.get());
             } catch (NumberSeriesException taken) {
                 throw new ApprovalHookRefusal("number_in_use", "Another template already has the number this one "
                         + "would get. Change its identification, Part A or Part B (Edit), then approve again.");
@@ -172,15 +189,15 @@ class TemplateApprovalHooks implements ApprovalHooks {
     }
 
     /** Whether another template already has the number: the unique index is the backstop, this says it in words. */
-    private boolean taken(String number, UUID templateId) {
+    private boolean taken(RecordSet set, String number, UUID templateId) {
         QueryFilterNode filter = new QueryFilterNode("EQ", null, Templates.NUMBER,
                 List.of(number));
-        return records.scan(Templates.OBJECT, filter, null, 2).stream()
+        return records.scan(set.template(), filter, null, 2).stream()
                 .anyMatch(other -> !other.id().equals(templateId));
     }
 
-    private DataRecord template(UUID id) {
-        return records.find(Templates.OBJECT, id).orElseThrow(() -> new ApprovalHookRefusal("template_missing",
+    private DataRecord template(RecordSet set, UUID id) {
+        return records.find(set.template(), id).orElseThrow(() -> new ApprovalHookRefusal("template_missing",
                 "This template cannot be found."));
     }
 }

@@ -8,6 +8,7 @@ import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
 import app.platform.inspection.internal.TemplateViews.SheetOptionsRequest;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -46,13 +47,20 @@ class TemplateController {
             + "and on the platform host (all alike). A template is visible by the rules of every record: the object "
             + "permission, the private default of a template, and the shares. ";
 
+    private static final String APPLICATION = "The application whose records are meant (its API name). It chooses "
+            + "among the sets of records only and proves nothing: NOT_FOUND, in the same words, for an application "
+            + "that does not exist, one the organization does not have and the platform host. What the caller may do "
+            + "inside the set is decided by the same rights as ever.";
+
     private final TemplateList list;
     private final TemplatePublishing publishing;
     private final TemplateDownloads downloads;
     private final TemplateNumbering numbering;
+    private final RecordSets sets;
 
     TemplateController(TemplateList list, TemplatePublishing publishing, TemplateDownloads downloads,
-            TemplateNumbering numbering) {
+            TemplateNumbering numbering, RecordSets sets) {
+        this.sets = sets;
         this.numbering = numbering;
         this.list = list;
         this.publishing = publishing;
@@ -72,12 +80,14 @@ class TemplateController {
                     + "The state filter is applied to the page after it is read: a page can hold fewer rows than asked "
                     + "while nextCursor still goes on (filtered is true then). Sort: name, number or newest. "
                     + "canCreate says whether the screen may offer New; the request is decided again.")
-    ApiResponse<TemplatePage> list(@RequestParam(required = false) String search,
+    ApiResponse<TemplatePage> list(@RequestParam @Parameter(description = APPLICATION) String application,
+            @RequestParam(required = false) String search,
             @RequestParam(required = false) String category, @RequestParam(required = false) String partA,
             @RequestParam(required = false) Boolean retired, @RequestParam(required = false) String state,
             @RequestParam(required = false) String sort, @RequestParam(required = false) Integer size,
             @RequestParam(required = false) String cursor) {
-        return ApiResponse.of(list.page(search, category, partA, retired, state, sort, size, cursor));
+        return ApiResponse.of(list.page(sets.require(application), search, category, partA, retired, state, sort,
+                size, cursor));
     }
 
     @PostMapping(BASE + "/query")
@@ -92,8 +102,9 @@ class TemplateController {
                     + "is bounded by the query engine's scan limit (and refused above it, naming the field). The "
                     + "page is read through the record store, so the caller sees exactly the templates they may see. "
                     + "Nothing typed is logged.")
-    ApiResponse<TemplatePage> query(@Valid @RequestBody TemplateViews.TemplateQuery body) {
-        return ApiResponse.of(list.query(body));
+    ApiResponse<TemplatePage> query(@RequestParam @Parameter(description = APPLICATION) String application,
+            @Valid @RequestBody TemplateViews.TemplateQuery body) {
+        return ApiResponse.of(list.query(sets.require(application), body));
     }
 
     @PostMapping(BASE + "/numbering-info")
@@ -108,8 +119,9 @@ class TemplateController {
                     + "platform host. A post, because what is typed does not belong in an address; nothing typed is "
                     + "logged.")
     ApiResponse<TemplateViews.NumberingInfoView> numberingInfo(
+            @RequestParam @Parameter(description = APPLICATION) String application,
             @Valid @RequestBody TemplateViews.NumberingInfoRequest body) {
-        return ApiResponse.of(numbering.info(body));
+        return ApiResponse.of(numbering.info(sets.require(application), body));
     }
 
     @GetMapping(BASE + "/audience-options")
@@ -119,7 +131,9 @@ class TemplateController {
             description = "Every location of the organization's list with the departments that go with it, and for "
                     + "each department whether an administrator has set up a group for it. Needs the ability to "
                     + "publish sheets (FORBIDDEN otherwise).")
-    ApiResponse<AudienceOptionsView> audienceOptions() {
+    ApiResponse<AudienceOptionsView> audienceOptions(
+            @RequestParam @Parameter(description = APPLICATION) String application) {
+        sets.require(application);
         return ApiResponse.of(publishing.audienceOptions());
     }
 
@@ -130,8 +144,9 @@ class TemplateController {
             description = "The same lists as the publish dialog, for the popup of an approval step that asks for an "
                     + "audience. Needs only that the caller can see the template (NOT_FOUND otherwise), not the "
                     + "ability to publish: a suggestion shares nothing. The lists are the organization's own words.")
-    ApiResponse<AudienceOptionsView> suggestionOptions(@PathVariable UUID templateId) {
-        return ApiResponse.of(publishing.suggestionOptions(templateId));
+    ApiResponse<AudienceOptionsView> suggestionOptions(@PathVariable UUID templateId,
+            @RequestParam @Parameter(description = APPLICATION) String application) {
+        return ApiResponse.of(publishing.suggestionOptions(sets.require(application), templateId));
     }
 
     @GetMapping(BASE + "/{templateId}/lifecycle")
@@ -141,8 +156,9 @@ class TemplateController {
             description = "The numbers of its versions by status, the groups it is published to, and the flags "
                     + "canPublish, canUnpublish and canRetire. The flags only hide buttons: each act is decided again. "
                     + SEES)
-    ApiResponse<TemplateLifecycleView> lifecycle(@PathVariable UUID templateId) {
-        return ApiResponse.of(publishing.lifecycle(templateId));
+    ApiResponse<TemplateLifecycleView> lifecycle(@PathVariable UUID templateId,
+            @RequestParam @Parameter(description = APPLICATION) String application) {
+        return ApiResponse.of(publishing.lifecycle(sets.require(application), templateId));
     }
 
     @PostMapping(BASE + "/{templateId}/publish")
@@ -159,8 +175,9 @@ class TemplateController {
                     + "approved to publish. Allowed while another version is in review. Audited by counts and "
                     + "version numbers, never by a name. " + SEES)
     ApiResponse<TemplateLifecycleView> publish(@PathVariable UUID templateId,
+            @RequestParam @Parameter(description = APPLICATION) String application,
             @Valid @RequestBody PublishTemplateRequest request) {
-        return ApiResponse.of(publishing.publish(templateId, request));
+        return ApiResponse.of(publishing.publish(sets.require(application), templateId, request));
     }
 
     @PutMapping(BASE + "/{templateId}/options")
@@ -173,8 +190,9 @@ class TemplateController {
                     + "to the template, not to a revision, and may be changed while a revision is waiting for "
                     + "approval. Audited by the template's identifier and the two values, never by a name. " + SEES)
     ApiResponse<TemplateLifecycleView> setOptions(@PathVariable UUID templateId,
+            @RequestParam @Parameter(description = APPLICATION) String application,
             @Valid @RequestBody SheetOptionsRequest request) {
-        return ApiResponse.of(publishing.setOptions(templateId, request));
+        return ApiResponse.of(publishing.setOptions(sets.require(application), templateId, request));
     }
 
     @GetMapping(BASE + "/{templateId}/download")
@@ -190,9 +208,10 @@ class TemplateController {
                     + "identifier, the revision number and the size. " + SEES)
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "The Excel file",
             content = @Content(mediaType = XLSX, schema = @Schema(type = "string", format = "binary")))
-    void download(@PathVariable UUID templateId, @RequestParam(required = false) Integer versionNo,
-            HttpServletResponse response) throws IOException {
-        TemplateDownloads.Download file = downloads.download(templateId, versionNo);
+    void download(@PathVariable UUID templateId,
+            @RequestParam @Parameter(description = APPLICATION) String application,
+            @RequestParam(required = false) Integer versionNo, HttpServletResponse response) throws IOException {
+        TemplateDownloads.Download file = downloads.download(sets.require(application), templateId, versionNo);
         response.setStatus(HttpStatus.OK.value());
         response.setContentType(XLSX);
         response.setContentLength(file.bytes().length);
@@ -210,8 +229,9 @@ class TemplateController {
             description = "Needs the ability to publish sheets. The version in use is approved again (not in use) and "
                     + "exactly the shares the publish made are removed; a share somebody gave by hand stays. "
                     + "CONFLICT when the template is not published. " + SEES)
-    ApiResponse<TemplateLifecycleView> unpublish(@PathVariable UUID templateId) {
-        return ApiResponse.of(publishing.unpublish(templateId));
+    ApiResponse<TemplateLifecycleView> unpublish(@PathVariable UUID templateId,
+            @RequestParam @Parameter(description = APPLICATION) String application) {
+        return ApiResponse.of(publishing.unpublish(sets.require(application), templateId));
     }
 
     @PostMapping(BASE + "/{templateId}/retire")
@@ -222,7 +242,8 @@ class TemplateController {
                     + "ends as retired; nothing is deleted, the number is never given again and the people it was "
                     + "published to still read it. CONFLICT while a version waits for approval (recall it or let "
                     + "it finish first) and for a template that is already retired. " + SEES)
-    ApiResponse<TemplateLifecycleView> retire(@PathVariable UUID templateId) {
-        return ApiResponse.of(publishing.retire(templateId));
+    ApiResponse<TemplateLifecycleView> retire(@PathVariable UUID templateId,
+            @RequestParam @Parameter(description = APPLICATION) String application) {
+        return ApiResponse.of(publishing.retire(sets.require(application), templateId));
     }
 }

@@ -2992,6 +2992,33 @@ form + .detail-section {
   background: var(--color-surface-sunken);
 }
 
+/* A smaller button for the tools of a title band, and the tick and cross of a row (change requests). */
+.button-compact {
+  padding: var(--space-1) var(--space-3);
+}
+
+.icon-button-small {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.icon-button-accent {
+  color: var(--color-accent);
+}
+
+.icon-button-danger {
+  color: var(--color-danger);
+}
+
+.icon-button-danger:hover {
+  color: var(--color-danger);
+}
+
+.row-decision {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
 .list-menu-icon {
   width: 1.125rem;
   height: 1.125rem;
@@ -5400,4 +5427,470 @@ button.hrow {
 /* The soft wash behind the grid reaches past the page on purpose; inside the window it is cut to the rounded edge. */
 .landing-window {
   overflow: hidden;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Option 3 of the home page, the board (FA13C): a navy band of filters, six tiles with a picture, three graphs, six
+ * cards with two figures each, a message panel and four reminders. Colours and sizes are tokens.
+ * ---------------------------------------------------------------------------------------------------------------- */
+
+.board-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-6);
+}
+
+.board-title {
+  margin: 0;
+  color: var(--board-ink);
+  font-size: var(--font-size-xl);
+  font-weight: 800;
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+}
+
+.board-tagline {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.board-quote {
+  max-width: var(--board-quote-width);
+  margin: 0;
+  padding-left: var(--space-3);
+  border-left: calc(var(--border-width) * 2) solid var(--board-ink);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-style: italic;
+}
+
+.dash-board .dash-filters {
+  position: static;
+  border-color: transparent;
+  border-radius: var(--radius-md);
+  background: var(--board-band);
+  color: var(--board-band-text);
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+.dash-board .dash-select-label,
+.dash-board .dash-updated {
+  color: var(--board-band-muted);
+}
+
+.dash-board .dash-select select,
+.dash-board .dash-refresh {
+  border: var(--border-width) solid var(--board-band-line);
+  background: var(--board-band-field);
+  color: var(--board-band-text);
+}
+
+.dash-board .dash-select select option {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.dash-board .dash-clear {
+  color: var(--board-band-text);
+}
+
+.board-tiles,
+.board-cards {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.board-tiles {
+  grid-template-columns: repeat(auto-fit, minmax(var(--board-tile-min), 1fr));
+}
+
+.board-cards {
+  grid-template-columns: repeat(auto-fit, minmax(var(--board-card-min), 1fr));
+}
+
+.board-item {
+  display: grid;
+}
+
+.board-tile {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1-5);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.board-tile-link:hover,
+.board-tile-link:focus-visible {
+  border-color: var(--board-ink);
+}
+
+.board-tile-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.board-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--board-icon-size);
+  height: var(--board-icon-size);
+  border-radius: var(--radius-pill);
+  background: var(--board-icon-bg);
+  color: var(--board-ink);
+}
+
+.board-icon-glyph {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.board-tile-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+}
+
+.board-tile-value {
+  color: var(--board-ink);
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.board-tile-empty,
+.board-tile-sub {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  text-align: center;
+}
+
+.board-tile-sub[data-tone="good"] {
+  color: var(--color-success);
+}
+
+.board-tile-sub[data-tone="bad"] {
+  color: var(--color-danger);
+}
+
+.board-arrow {
+  width: 0.8rem;
+  height: 0.8rem;
+  margin-right: var(--space-0-5);
+  vertical-align: -0.1em;
+}
+
+.board-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--board-chart-min), 1fr));
+  gap: var(--space-3);
+}
+
+.board-number {
+  text-align: right;
+}
+
+.board-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.board-card-title {
+  margin: 0;
+  color: var(--board-ink);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+}
+
+.board-figures {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-2) 0 0;
+  border-top: var(--border-width) solid var(--color-border);
+  list-style: none;
+}
+
+.board-figure {
+  display: grid;
+  gap: var(--space-0-5);
+  color: var(--color-text);
+  text-align: center;
+  text-decoration: none;
+}
+
+a.board-figure:hover .board-figure-value,
+a.board-figure:focus-visible .board-figure-value {
+  text-decoration: underline;
+}
+
+.board-figure-value {
+  color: var(--board-ink);
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+}
+
+.board-figure-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.board-foot {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--board-chart-min), 1fr));
+  gap: var(--space-3);
+}
+
+.board-takeaways,
+.board-message {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+}
+
+.board-takeaways {
+  border: var(--border-width) solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.board-takeaways ul,
+.board-message ul {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.board-takeaways ul {
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+.board-takeaways li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.board-takeaway-text {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.board-message {
+  background: var(--board-band);
+  color: var(--board-band-text);
+}
+
+.board-foot-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+}
+
+.board-takeaways .board-foot-title {
+  color: var(--board-ink);
+}
+
+.board-message li {
+  font-size: var(--font-size-sm);
+}
+
+.board-closing {
+  margin: var(--space-3) 0 0;
+  padding-top: var(--space-2);
+  border-top: var(--border-width) solid var(--board-band-line);
+  color: var(--board-band-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: var(--letter-spacing-caps);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* Option 4 of the home page (FA13C): the first look with compact tiles and a solid strip of the theme colour. */
+.dash-compact .dash-tiles {
+  grid-template-columns: repeat(auto-fit, minmax(var(--board-tile-min), 1fr));
+  gap: var(--space-2);
+}
+
+.dash-compact .stat-tile {
+  gap: var(--space-0-5);
+  padding: var(--space-2-5) var(--space-3);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+.dash-compact .stat-label {
+  font-size: var(--font-size-xs);
+}
+
+.dash-compact .stat-value {
+  font-size: var(--font-size-xl);
+}
+
+.dash-compact .stat-spark {
+  display: none;
+}
+
+.dash-compact .dash-filters {
+  position: static;
+  border-color: transparent;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+.dash-compact .dash-select-label,
+.dash-compact .dash-updated {
+  color: color-mix(in srgb, var(--color-accent-contrast) 85%, transparent);
+}
+
+.dash-compact .dash-periods {
+  border-color: color-mix(in srgb, var(--color-accent-contrast) 35%, transparent);
+  background: color-mix(in srgb, var(--color-accent-contrast) 14%, transparent);
+}
+
+.dash-compact .dash-period {
+  color: var(--color-accent-contrast);
+}
+
+.dash-compact .dash-period[aria-checked="true"] {
+  background: var(--color-accent-contrast);
+  color: var(--color-accent);
+}
+
+.dash-compact .dash-select select,
+.dash-compact .dash-refresh {
+  border: var(--border-width) solid color-mix(in srgb, var(--color-accent-contrast) 35%, transparent);
+  background: color-mix(in srgb, var(--color-accent-contrast) 14%, transparent);
+  color: var(--color-accent-contrast);
+}
+
+.dash-compact .dash-select select option {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.dash-compact .dash-clear {
+  color: var(--color-accent-contrast);
+}
+
+/* Option 4: six tiles in a row on a wide screen, each with the picture of the board look. */
+.dash-compact .dash-tiles {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 40rem) {
+  .dash-compact .dash-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 64rem) {
+  .dash-compact .dash-tiles {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+.stat-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.stat-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--board-icon-size);
+  height: var(--board-icon-size);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.stat-icon-glyph {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+/* Option 4: a row that is not full (the last tiles) is centred instead of sitting to the left. */
+.dash-compact .dash-tiles {
+  --tiles-per-row: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.dash-compact .stat-item {
+  flex: 0 0 calc((100% - (var(--tiles-per-row) - 1) * var(--space-2)) / var(--tiles-per-row));
+}
+
+@media (min-width: 40rem) {
+  .dash-compact .dash-tiles {
+    --tiles-per-row: 3;
+  }
+}
+
+@media (min-width: 64rem) {
+  .dash-compact .dash-tiles {
+    --tiles-per-row: 6;
+  }
+}
+
+/* Option 3: the six cards stand six to a row on a wide screen (3 on a tablet, 2 on a phone), content aligned to the top. */
+.board-cards {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 40rem) {
+  .board-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 64rem) {
+  .board-cards {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+.board-card {
+  align-content: start;
+}
+
+.board-figures {
+  grid-template-columns: 1fr;
 }

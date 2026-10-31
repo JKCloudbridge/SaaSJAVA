@@ -12,7 +12,8 @@ import { queryTemplates, type TemplateRow } from "./api";
 import { stateParam, stateParamWords, stateTag } from "./lifecycle";
 import { AddressFilterNote } from "./AddressFilterNote";
 import { TemplateDetail } from "./TemplateDetail";
-import { TEMPLATE_OBJECT, text } from "./template";
+import { text } from "./template";
+import { useRecordObjects } from "./objects";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
 
@@ -45,11 +46,12 @@ const FIELD_COLUMNS = ["number", "level", "documentType"] as const;
 const PRIMARY_FIELD = "name";
 
 function TemplatesScreen() {
+  const objects = useRecordObjects();
   const route = useListRoute({ keep: ["state"] });
   // A tile of the home page opens this list narrowed to one state (FA9): the address names it, the server filters.
   const state = stateParam(useSearchParams()?.get("state"));
   const views = useListViews({
-    objectApiName: TEMPLATE_OBJECT,
+    objectApiName: objects.template,
     displayable: FIELD_COLUMNS,
     defaults: FIELD_COLUMNS,
     primaryField: PRIMARY_FIELD,
@@ -179,7 +181,7 @@ function TemplatesScreen() {
       {route.creating ? (
         <Modal title="New template" onClose={() => route.close()}>
           <RecordFormPage
-            objectApiName={TEMPLATE_OBJECT}
+            objectApiName={objects.template}
             listHref=""
             recordHref={(object, id) => `/records/${object}/${id}`}
             dialog={{ onSaved: (id) => route.open(id), onCancel: () => route.close() }}

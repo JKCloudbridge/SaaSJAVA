@@ -1,6 +1,7 @@
 package app.platform.sharedkernel.solution;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -13,9 +14,17 @@ import java.util.Objects;
  * @param iconKey the icon to show, or null
  * @param group the plain word that gathers the application with others in the grid (FA9), or null
  * @param entries the navigation in order
+ * @param objectRoles the object that plays each part of the application, by the part's name (FA13B, ADR-0226); empty
+ *        for an application whose solution declares none. The browser reads the object names here and holds none
  */
 public record ShippedApplicationView(String apiName, String label, String iconKey, String group,
-        List<ShippedEntryView> entries) {
+        List<ShippedEntryView> entries, Map<String, String> objectRoles) {
+
+    /** An application that declares no parts. */
+    public ShippedApplicationView(String apiName, String label, String iconKey, String group,
+            List<ShippedEntryView> entries) {
+        this(apiName, label, iconKey, group, entries, Map.of());
+    }
 
     /** An application that belongs to no group. */
     public ShippedApplicationView(String apiName, String label, String iconKey, List<ShippedEntryView> entries) {
@@ -27,6 +36,7 @@ public record ShippedApplicationView(String apiName, String label, String iconKe
         Objects.requireNonNull(apiName, "apiName");
         Objects.requireNonNull(label, "label");
         entries = List.copyOf(entries);
+        objectRoles = objectRoles == null ? Map.of() : Map.copyOf(objectRoles);
     }
 
     /** Prints the identity only: the label is text the platform chose but is never needed in a log. */

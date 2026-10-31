@@ -96,8 +96,9 @@ class NotificationService {
         NoticeStore.Row row = store.find(member, id)
                 .orElseThrow(() -> ApiException.notFound("This notice does not exist."));
         store.markRead(member, id, member);
-        String path = destinations.orderedStream().filter(target -> target.object().equals(row.objectApiName()))
-                .map(target -> target.readablePath(row.recordId(), row.facts())).flatMap(java.util.Optional::stream)
+        String path = destinations.orderedStream().filter(target -> target.serves(row.objectApiName()))
+                .map(target -> target.readablePath(row.objectApiName(), row.recordId(), row.facts()))
+                .flatMap(java.util.Optional::stream)
                 .findFirst().orElse(null);
         return path == null ? new NotificationOpenView("/notifications",
                 "This notice has no record you can open here. It has been marked as read.")

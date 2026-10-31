@@ -11,10 +11,8 @@ import java.util.regex.Pattern;
  */
 final class Templates {
 
-    /** The header record of a template. */
-    static final String OBJECT = "InspectionTemplate";
-    /** The number series that numbers the templates (numbering.yml). */
-    static final String SERIES = "document";
+    // The object of the templates and the series that numbers them are parts the application's solution file declares
+    // (FA13B, ADR-0226): RecordSet.template() and RecordSet.series().
     static final String NAME = "name";
     static final String NUMBER = "number";
     static final String LEVEL = "level";
@@ -31,8 +29,7 @@ final class Templates {
     /** When the revision in use was published; written by the platform at that moment. */
     static final String LAST_REVISED_AT = "lastRevisedAt";
 
-    /** The application and the entry of it that opens a template with its change requests (a notice leads there). */
-    static final String APPLICATION = "inspection";
+    /** The entry, in every application of the kind, that opens a template with its change requests. */
     static final String ENTRY = "s-templates";
 
     /** The object that says which group belongs to a department of a location. */

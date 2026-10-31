@@ -13,6 +13,7 @@ vi.mock("next/navigation", async () => (await import("@/test/navigation")).navig
 const ONE = "0198f5c0-0000-7000-8000-0000000000a1";
 const TWO = "0198f5c0-0000-7000-8000-0000000000a2";
 const TEMPLATE = "0198f5c0-0000-7000-8000-000000000042";
+const REVIEW = "0198f5c0-0000-7000-8000-0000000000b1";
 
 function row(id: string, extra: Record<string, unknown> = {}) {
   return {
@@ -134,5 +135,43 @@ describe("the Change requests tab of one template (FA6E)", () => {
     expect(within(list).getAllByText("Wording of the walkway")).toHaveLength(2);
     fireEvent.click(within(list).getAllByText("Wording of the walkway")[0] as HTMLElement);
     expect(opened).toEqual([ONE]);
+  });
+});
+
+describe("the tick and the cross in a row (FA12)", () => {
+  const none = {
+    canApprove: false, canAssign: false, canCancel: false, canReapply: false,
+    canReassign: false, canRecall: false, canReject: false, canSubmit: false,
+  };
+  const approval = (actions: Record<string, boolean>): Record<string, Handler> => ({
+    [`GET /api/v1/objects/InspectionChangeRequest/records/${REVIEW}/approval`]: () =>
+      json({ data: { available: true, locked: true, processes: [], actions: { ...none, ...actions }, current: null } }),
+  });
+
+  it("offers a tick and a cross on an open request the person may decide, and a click on them does not open the request", async () => {
+    fakeApi({ ...answers([row(ONE, { reviewId: REVIEW })]), ...approval({ canApprove: true, canReject: true }) });
+
+    render(<ChangeRequestsPage />);
+
+    const accept = await screen.findByTestId("row-accept");
+    expect(accept).toHaveAccessibleName("Accept");
+    expect(screen.getByTestId("row-decline")).toHaveAccessibleName("Decline");
+    fireEvent.click(accept);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(currentUrl()).not.toContain("open=");
+  });
+
+  it("draws nothing for a person with no task, and nothing on a request that is not open", async () => {
+    fakeApi({
+      ...answers([row(ONE, { reviewId: REVIEW }), row(TWO, { status: "DECLINED", reviewId: REVIEW })]),
+      ...approval({}),
+    });
+
+    render(<ChangeRequestsPage />);
+
+    await screen.findByTestId("change-requests-list");
+    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(3));
+    expect(screen.queryByTestId("row-accept")).toBeNull();
+    expect(screen.queryByTestId("row-decline")).toBeNull();
   });
 });

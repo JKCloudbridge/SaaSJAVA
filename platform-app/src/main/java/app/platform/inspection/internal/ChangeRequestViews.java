@@ -142,10 +142,13 @@ public final class ChangeRequestViews {
      * @param requesterDepartment the department of the person when they asked, or null
      * @param mine whether the caller asked
      * @param createdAt when it was made
+     * @param reviewId the record the approval engine reviews for this request, so a row can offer the decision of its
+     *        approval (a tick and a cross) without opening the request; null for a request with no approval
      */
     public record ChangeRequestRow(@NotNull UUID id, @NotNull UUID templateId, String templateName,
             String templateNumber, @NotNull String title, @NotNull String status, @NotNull Integer versionNo,
-            String requesterName, String requesterDepartment, @NotNull Boolean mine, @NotNull Instant createdAt) {
+            String requesterName, String requesterDepartment, @NotNull Boolean mine, @NotNull Instant createdAt,
+            UUID reviewId) {
 
         /** Prints a marker only: the text in it is the organization's and never reaches a log. */
         @Override

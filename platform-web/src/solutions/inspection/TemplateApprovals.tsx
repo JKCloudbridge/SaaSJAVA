@@ -4,7 +4,7 @@ import { ApprovalHistoryList, type ApprovalHistoryEntry } from "@/components/rec
 import { useApprovalHistory } from "@/lib/approvals/history";
 import { becameWords, type ChangeRequestsView } from "./changeRequests";
 import type { TemplateLifecycleView } from "./api";
-import { REQUEST_OBJECT, TEMPLATE_OBJECT } from "./template";
+import { useRecordObjects } from "./objects";
 import { revisionNumber, revisionWords } from "@/lib/sheets/revision";
 
 /** The most change requests whose approval is drawn; the newest are the ones people look for. */
@@ -29,10 +29,11 @@ export function TemplateApprovals({
   requests: ChangeRequestsView | undefined;
   refresh: number;
 }) {
+  const objects = useRecordObjects();
   const reviewed = (requests?.requests ?? []).filter((request) => request.reviewId).slice(0, MOST_REQUESTS);
   const reviewIds = reviewed.map((request) => request.reviewId as string);
-  const templateHistory = useApprovalHistory(TEMPLATE_OBJECT, [templateId], refresh);
-  const requestHistory = useApprovalHistory(REQUEST_OBJECT, reviewIds, refresh);
+  const templateHistory = useApprovalHistory(objects.template, [templateId], refresh);
+  const requestHistory = useApprovalHistory(objects.changeRequest, reviewIds, refresh);
 
   const versionOf = new Map((lifecycle?.versionReviews ?? []).map((one) => [one.requestId, one.versionNo]));
   const entries: ApprovalHistoryEntry[] = [];

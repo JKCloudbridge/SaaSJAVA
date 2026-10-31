@@ -206,6 +206,30 @@
               <goal>integration-test</goal>
               <goal>verify</goal>
             </goals>
+            <configuration>
+              <!-- The throwaway third application has its own execution below: its files must not be on the classpath
+                   of any other test (FA13B, ADR-0226). -->
+              <excludes>
+                <exclude>**/ThirdApplicationIT.java</exclude>
+              </excludes>
+            </configuration>
+          </execution>
+          <execution>
+            <!-- The proof that an application of the kind is data only: ThirdApplicationIT runs with the files of an
+                 application made of nothing else (src/test/third-application) added to the classpath. -->
+            <id>third-application</id>
+            <goals>
+              <goal>integration-test</goal>
+            </goals>
+            <configuration>
+              <includes>
+                <include>**/ThirdApplicationIT.java</include>
+              </includes>
+              <additionalClasspathElements>
+                <additionalClasspathElement>${project.basedir}/src/test/third-application/</additionalClasspathElement>
+              </additionalClasspathElements>
+              <reportNameSuffix>third-application</reportNameSuffix>
+            </configuration>
           </execution>
         </executions>
       </plugin>

@@ -1,10 +1,12 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { ApprovalDialogs, useRecordApproval } from "@/components/records/ApprovalPanel";
 import { ListPage, type ListColumn, type ListRemote } from "@/components/ui/lists/ListPage";
 import { Tag } from "@/components/ui/lists/Tag";
 import { useListRoute } from "@/components/ui/lists/useListRoute";
 import { ChangeRequestPage } from "./ChangeRequestPage";
+import { useRecordObjects } from "./objects";
 import {
   queryChangeRequests,
   statusWords,
@@ -50,6 +52,64 @@ function when(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
+const LABELS = { approve: "Accept", reject: "Decline" } as const;
+const noState = () => {};
+
+/**
+ * The tick and the cross of a request that waits for the person (FA12). They are the approval's own buttons for the review
+ * record of the request, drawn small in the row, and open the same popup as the request page (the step that asks for a choice
+ * asks for it there). Nothing is drawn unless the server says the person may decide now; the server judges the decision again.
+ */
+function RowDecision({ reviewId, onChanged }: { reviewId: string; onChanged: () => void }) {
+  const objects = useRecordObjects();
+  const approval = useRecordApproval({
+    objectApiName: objects.changeRequest,
+    recordId: reviewId,
+    refresh: 0,
+    onState: noState,
+    onChanged,
+    labels: LABELS,
+  });
+  const actions = approval.panel?.available ? approval.panel.actions : undefined;
+  if (!actions || (!actions.canApprove && !actions.canReject && !approval.acting)) {
+    return null;
+  }
+  // The popup sits inside the row: a click in it must not open the request.
+  return (
+    <span className="row-decision" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+      {actions.canApprove ? (
+        <button
+          type="button"
+          className="icon-button icon-button-small icon-button-accent"
+          aria-label={LABELS.approve}
+          title={LABELS.approve}
+          onClick={() => approval.setActing("approve")}
+          data-testid="row-accept"
+        >
+          <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M4 10.5l4 4 8-9" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      ) : null}
+      {actions.canReject ? (
+        <button
+          type="button"
+          className="icon-button icon-button-small icon-button-danger"
+          aria-label={LABELS.reject}
+          title={LABELS.reject}
+          onClick={() => approval.setActing("reject")}
+          data-testid="row-decline"
+        >
+          <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
+          </svg>
+        </button>
+      ) : null}
+      {approval.acting ? <ApprovalDialogs approval={approval} recordVersion={0} /> : null}
+    </span>
+  );
+}
+
 /**
  * The list itself and the request page it opens. Which request is open is the caller's: the entry keeps it in its address,
  * the tab of a template keeps it in the template's address. With `templateId` the list holds one template's requests and
@@ -72,6 +132,8 @@ export function ChangeRequestsList({
   const [order, setOrder] = useState<ListRemote["order"]>(null);
   const [result, setResult] = useState<{ key: string; loaded: Loaded } | null>(null);
   const [more, setMore] = useState(false);
+  // Raised after a decision made in a row, so the list is read again (the status and the ticks have moved on).
+  const [decided, setDecided] = useState(0);
 
   const sort = order ? (ORDER_KEYS[order.key] ?? "date") : "date";
   // With no order chosen the newest comes first; a chosen order is high to low on the first click, as everywhere.
@@ -98,7 +160,7 @@ export function ChangeRequestsList({
     return () => {
       live = false;
     };
-  }, [search, sort, descending, templateId, key, openId]);
+  }, [search, sort, descending, templateId, key, openId, decided]);
 
   const showMore = async () => {
     if (loaded.status !== "ready" || !loaded.next) {
@@ -132,6 +194,22 @@ export function ChangeRequestsList({
       },
       kind: "tag",
       sort: (row) => row.status,
+    },
+    {
+      key: "decide",
+      header: "Decide",
+      kind: "actions",
+      cell: (row) =>
+        row.status === "OPEN" && row.reviewId ? (
+          <RowDecision
+            key={row.reviewId}
+            reviewId={row.reviewId}
+            onChanged={() => {
+              setDecided((now) => now + 1);
+              onChanged?.();
+            }}
+          />
+        ) : null,
     },
   ];
   const ready = loaded.status === "ready" ? loaded : undefined;

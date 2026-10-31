@@ -22,8 +22,8 @@ class TemplateRevisions {
     }
 
     /** The revision number of a version: its stored one, else the version number minus one. */
-    int of(UUID templateId, int versionNo) {
-        return sheets.revisionOf(Templates.OBJECT, templateId, versionNo).orElse(Math.max(0, versionNo - 1));
+    int of(RecordSet set, UUID templateId, int versionNo) {
+        return sheets.revisionOf(set.template(), templateId, versionNo).orElse(Math.max(0, versionNo - 1));
     }
 
     /** The revision as people read it: two digits at least. */
@@ -32,7 +32,7 @@ class TemplateRevisions {
     }
 
     /** The revision of a version as people read it. */
-    String showOf(UUID templateId, int versionNo) {
-        return show(of(templateId, versionNo));
+    String showOf(RecordSet set, UUID templateId, int versionNo) {
+        return show(of(set, templateId, versionNo));
     }
 }
