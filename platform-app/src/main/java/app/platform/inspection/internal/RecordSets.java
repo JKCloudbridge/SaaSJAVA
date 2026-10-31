@@ -31,7 +31,7 @@ import org.springframework.stereotype.Component;
  * store and the decision API.
  */
 @Component
-class RecordSets {
+final class RecordSets {
 
     /** The names of the parts the cluster needs; they are written in the solution files. */
     static final String TEMPLATE = "template";
