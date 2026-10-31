@@ -3,12 +3,16 @@ package app.platform.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.platform.testsupport.TestBrowser;
+import app.platform.testsupport.TestDatabase;
 import app.platform.testsupport.TestHttp.Response;
 import app.platform.testsupport.TestOrganizations.Organization;
 import app.platform.testsupport.TestSignIn;
 import com.jayway.jsonpath.JsonPath;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -94,6 +98,7 @@ public abstract class MappingSupport extends IntegrationSupport {
      */
     protected Linked linked(FakeService service, String conflict) throws Exception {
         Organization organization = organization();
+        setAsideOtherOrganizationsEvents(organization);
         TestBrowser admin = adminOf(organization);
         // Written through the real store, not an in-memory one: any application context that shares the database may
         // claim the outbox event, and each must find the credential.
@@ -121,6 +126,22 @@ public abstract class MappingSupport extends IntegrationSupport {
         Response live = publish(admin, "partner-link", draftVersion(saved));
         assertThat(live.status()).as(live.body()).isEqualTo(200);
         return new Linked(organization, admin, "partner-link", inbound);
+    }
+
+    /**
+     * Events that earlier tests left pending (their contexts ran no relay) are claimed oldest first, so the first relay
+     * to start would work through all of them before it reached this test's event. They belong to finished tests; they
+     * are marked delivered so the wait here depends on this test alone.
+     */
+    private static void setAsideOtherOrganizationsEvents(Organization organization) {
+        try (Connection owner = TestDatabase.ownerConnection();
+                PreparedStatement statement = owner.prepareStatement("update outbox_event set status = 'DELIVERED', "
+                        + "delivered_at = now(), version = version + 1 where status = 'PENDING' and tenant_id <> ?")) {
+            statement.setObject(1, organization.id().value());
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new IllegalStateException("The old events could not be set aside: " + e.getSQLState(), e);
+        }
     }
 
     // ---- the receiver, called the way the external system would ----
