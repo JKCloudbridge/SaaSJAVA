@@ -11,6 +11,7 @@ import app.platform.testsupport.tenancy.TenantFixtures;
 import com.jayway.jsonpath.JsonPath;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -344,7 +345,12 @@ class WorkflowReplayIT extends ActionsSupport {
 
         List<String> audits = owner("select attributes::text from audit_record where event_type = "
                 + "'workflow.execution.replayed' and attributes ->> 'execution' = ?", setup.execution());
-        assertThat(audits).singleElement().satisfies(audit -> assertThat(audit).contains(replayed)
-                .contains("REPLAYED").doesNotContain("hello").doesNotContain("bad"));
+        // Only identifiers and the outcome: judged by the keys, because a random identifier can contain any three
+        // hexadecimal letters (such as "bad"), so a search for a typed word would fail by chance.
+        assertThat(audits).singleElement().satisfies(audit -> {
+            Map<String, Object> attributes = JsonPath.read(audit, "$");
+            assertThat(attributes).containsOnlyKeys("replay", "outcome", "execution");
+            assertThat(attributes).containsEntry("replay", replayed).containsEntry("outcome", "REPLAYED");
+        });
     }
 }
