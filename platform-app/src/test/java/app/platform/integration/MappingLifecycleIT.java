@@ -14,7 +14,6 @@ import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.Import;
 
 /**
  * The life of a mapping and who may touch it (Sprint 28, ADR-0217): a draft is checked against the object and does
@@ -23,7 +22,6 @@ import org.springframework.context.annotation.Import;
  * organization, a platform person and a stranger.
  */
 @PlatformIntegrationTest
-@Import(TestSecrets.class)
 class MappingLifecycleIT extends MappingSupport {
 
     private FakeService service;

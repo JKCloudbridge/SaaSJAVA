@@ -2,8 +2,6 @@ package app.platform.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import app.platform.sharedkernel.secrets.SecretRef;
-import app.platform.sharedkernel.secrets.SecretValue;
 import app.platform.testsupport.TestBrowser;
 import app.platform.testsupport.TestHttp.Response;
 import app.platform.testsupport.TestOrganizations.Organization;
@@ -18,7 +16,6 @@ import java.util.Map;
 import java.util.UUID;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * What the tests of mapping, sending and receiving share (Sprint 28): a connection to the simulated external system
@@ -33,9 +30,6 @@ public abstract class MappingSupport extends IntegrationSupport {
     protected static final String NOTE_FIELD = "fieldB__c";
     protected static final String OUT_TOKEN = "out-token-" + UUID.randomUUID();
     protected static final String SIGNING_SECRET = "signing-secret-" + UUID.randomUUID();
-
-    @Autowired
-    protected TestSecrets.Store secrets;
 
     /** A connection that is tested, switched on, and has a mapping that is live; everything a flow test needs. */
     protected record Linked(Organization organization, TestBrowser admin, String connection, String inboundId) {
@@ -101,8 +95,13 @@ public abstract class MappingSupport extends IntegrationSupport {
     protected Linked linked(FakeService service, String conflict) throws Exception {
         Organization organization = organization();
         TestBrowser admin = adminOf(organization);
-        secrets.put(SecretRef.forTenant(organization.id(), "partner-token"), SecretValue.of(OUT_TOKEN));
-        secrets.put(SecretRef.forTenant(organization.id(), "partner-signing"), SecretValue.of(SIGNING_SECRET));
+        // Written through the real store, not an in-memory one: any application context that shares the database may
+        // claim the outbox event, and each must find the credential.
+        for (String[] credential : new String[][] {{"partner-token", OUT_TOKEN}, {"partner-signing", SIGNING_SECRET}}) {
+            Response written = admin.request("PUT", "/api/v1/credentials/" + credential[0],
+                    "{\"value\":\"" + credential[1] + "\"}");
+            assertThat(written.status()).as(written.body()).isEqualTo(200);
+        }
         Map<String, Object> body = definition("partner-link", service.url());
         body.put("authKind", "BEARER_TOKEN");
         body.put("credentialName", "partner-token");

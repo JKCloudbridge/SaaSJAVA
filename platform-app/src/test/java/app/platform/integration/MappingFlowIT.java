@@ -13,7 +13,6 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.Import;
 
 /**
  * The exit test of Sprint 28 (ADR-0216 to ADR-0222): a record created in the platform appears in the simulated external
@@ -22,7 +21,6 @@ import org.springframework.context.annotation.Import;
  * platform makes goes out as a change of the same entity, never as a second entity.
  */
 @PlatformIntegrationTest
-@Import(TestSecrets.class)
 @org.springframework.test.context.TestPropertySource(properties = "platform.outbox.enabled=true")
 class MappingFlowIT extends MappingSupport {
 

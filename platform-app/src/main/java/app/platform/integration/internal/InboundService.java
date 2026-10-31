@@ -154,8 +154,12 @@ class InboundService {
                 () -> transaction.execute(status -> connections.findById(known.connection()).orElse(null)));
         String credential = connection == null ? null
                 : connection.definition().settings().get("inboundCredential");
-        boolean signed = signatures.verify(tenant, credential, shaped ? entity : "", body, headers, clock.instant(),
-                flow.replayWindow());
+        // In the connection's own context: a call that arrives on another organization's host must still find the
+        // credential of the connection it names, and no other.
+        java.util.function.Supplier<Boolean> check = () -> signatures.verify(tenant, credential,
+                shaped ? entity : "", body, headers, clock.instant(), flow.replayWindow());
+        boolean signed = Boolean.TRUE.equals(tenant == null ? check.get()
+                : contexts.call(TenantContext.of(tenant), check));
         if (connection == null || !signed || !registry.find(connection.connectorType()).isPresent()) {
             count("unauthenticated");
             throw new ApiException(ErrorCode.UNAUTHENTICATED);

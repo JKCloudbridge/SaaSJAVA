@@ -18,7 +18,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 
 /**
@@ -31,7 +30,6 @@ import org.springframework.test.context.TestPropertySource;
  * counts.
  */
 @PlatformIntegrationTest
-@Import(TestSecrets.class)
 @TestPropertySource(properties = {
     "platform.outbox.enabled=true",
     "logging.file.name=" + MappingFlowsLogsAreCleanIT.LOG_FILE,
