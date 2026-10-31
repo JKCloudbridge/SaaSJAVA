@@ -129,7 +129,17 @@ fi
 echo "ok: the failed sign-in is audited with its true reason, and no password is in the table"
 
 # 9. Redis is really in use by the image: the rate-limit counters are there.
-keys="$(docker exec "$redis" redis-cli -a "$redis_password" --no-auth-warning --scan --pattern 'platform:identity:*' | head -1)"
+# If Redis was not yet reachable when the image started, the application counts per instance for a short pause and
+# writes nothing there: send a few further failed sign-ins and look again for a while before calling it a failure.
+keys=""
+for attempt in $(seq 1 20); do
+  keys="$(docker exec "$redis" redis-cli -a "$redis_password" --no-auth-warning --scan --pattern 'platform:identity:*' | head -1)"
+  [ -n "$keys" ] && break
+  if [ "$attempt" -le 3 ]; then # only a few, so the sign-in limits of the later steps are not used up
+    call -X POST -H 'Content-Type: application/json' -H "Cookie: XSRF-TOKEN=$token" -H "X-XSRF-TOKEN: $token"       -d "$payload" "$base/api/v1/auth/sign-in" > /dev/null
+  fi
+  sleep 2
+done
 [ -n "$keys" ] || fail "the image wrote no rate-limit counter to Redis"
 echo "ok: the rate-limit counters live in Redis"
 
