@@ -95,7 +95,8 @@ class NotificationArchitectureTest {
     @Test
     void theAutomationHealthCollectorsAreTheTwoControllersAndTheSourcesAreBeans() {
         noClasses().that().resideOutsideOfPackages("app.platform.workflow..", "app.platform.platformadmin..",
-                        "app.platform.approval..", "app.platform.notification..", "app.platform.sharedkernel..")
+                        "app.platform.approval..", "app.platform.notification..", "app.platform.sharedkernel..",
+                        "app.platform.integration..")
                 .should().dependOnClassesThat().haveFullyQualifiedName(
                         "app.platform.sharedkernel.health.AutomationHealthSource")
                 .allowEmptyShould(true)

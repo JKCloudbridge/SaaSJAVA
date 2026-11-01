@@ -222,7 +222,8 @@ class FileTransferConnectorTest {
         assertThat(problemOf(() -> lines(""))).isEqualTo(Problem.EMPTY);
         assertThat(problemOf(() -> lines("[1,2]\n"))).as("a list").isEqualTo(Problem.ROW_INVALID);
         assertThat(problemOf(() -> lines("not json\n"))).isEqualTo(Problem.ROW_INVALID);
-        assertThat(problemOf(() -> lines("{\"id\":\"1\",\"n\":{\"a\":1}}\n"))).as("nested").isEqualTo(Problem.ROW_INVALID);
+        assertThat(problemOf(() -> lines("{\"id\":\"1\",\"n\":{\"a\":1}}\n"))).as("nested")
+                .isEqualTo(Problem.ROW_INVALID);
         assertThat(problemOf(() -> lines("{\"id\":\"1\",\"n\":[1]}\n"))).as("a list inside")
                 .isEqualTo(Problem.ROW_INVALID);
         assertThat(problemOf(() -> lines("{\"title\":\"x\"}\n"))).as("no identifier").isEqualTo(Problem.ROW_INVALID);

@@ -200,7 +200,8 @@ class FileFlowIT extends FileSupport {
         assertThat(contents).anySatisfy(text -> assertThat(text).contains(",create,").contains(title));
         assertThat(contents).anySatisfy(text -> assertThat(text).contains(",update,").contains(changed));
         String everything = deliveries(admin, site.connection()).body() + health(admin, site.connection()).body();
-        assertThat(everything).doesNotContain(title).doesNotContain(changed).doesNotContain(".csv").doesNotContain("-g1");
+        assertThat(everything).doesNotContain(title).doesNotContain(changed).doesNotContain(".csv")
+                .doesNotContain("-g1");
     }
 
     @Test
