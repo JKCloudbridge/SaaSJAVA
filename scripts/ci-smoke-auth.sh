@@ -1380,7 +1380,8 @@ if [ -n "$mail" ]; then
   status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/integrations/smoke-files/test")"
   [ "$status" = "200" ] || fail "testing a file connection answered $status: $(cat "$body")"
   grep -Fq '"result":"FAILED"' "$body" || fail "a test against a server that is not there did not fail: $(cat "$body")"
-  if grep -Fq "files.example.com" "$body"; then fail "the test answer repeats the address: $(cat "$body")"; fi
+  # The answer carries the connection as the administrator typed it, so only the words of the result are looked at.
+  if grep -o '"words":"[^"]*"' "$body" | grep -Fq "files.example.com"; then fail "the test words repeat the address: $(cat "$body")"; fi
   status="$(client_call -X DELETE -H "$group_json" "$base/api/v1/integrations/smoke-files")"
   [ "$status" = "200" ] || [ "$status" = "204" ] || fail "removing the file connection answered $status: $(cat "$body")"
   status="$(client_call -X DELETE -H "$group_json" "$base/api/v1/credentials/smoke-file-login")"
