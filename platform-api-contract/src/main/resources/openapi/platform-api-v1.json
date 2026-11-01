@@ -2841,6 +2841,36 @@
         "tags" : [ "Inbound" ]
       }
     },
+    "/api/v1/integration-health" : {
+      "get" : {
+        "description" : "Needs integrations.view. One entry per connection of the organization.",
+        "operationId" : "listIntegrationHealth",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListIntegrationHealthView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "How the flows of every connection stand",
+        "tags" : [ "Integrations" ]
+      }
+    },
     "/api/v1/integrations" : {
       "get" : {
         "description" : "Needs integrations.view. Never holds a secret: a credential is shown only as its name.",
@@ -3089,9 +3119,93 @@
         "tags" : [ "Integrations" ]
       }
     },
+    "/api/v1/integrations/{name}/circuit" : {
+      "get" : {
+        "description" : "Needs integrations.view. Where the circuit stands and what the caller may do about it.",
+        "operationId" : "getCircuit",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCircuitView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The circuit breaker of a connection",
+        "tags" : [ "Integrations" ]
+      },
+      "post" : {
+        "description" : "Needs integrations.view and integrations.operate. The action is one the circuit's own answer offers. Forcing it open sends nothing and loses nothing: changes wait in the queue.",
+        "operationId" : "actOnCircuit",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CircuitRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCircuitView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Force the circuit open or closed, or back to automatic",
+        "tags" : [ "Integrations" ]
+      }
+    },
     "/api/v1/integrations/{name}/deliveries" : {
       "get" : {
-        "description" : "Needs integrations.view and mappings.view. The newest first, at most 100. Identifiers, a stable reason and the platform's own sentence for it: never a record value or a payload.",
+        "description" : "Needs integrations.view and mappings.view. The newest first, at most 100; the optional state parameter (repeatable) keeps only deliveries in those states. Identifiers, a stable reason and the platform's own sentence for it: never a record value or a payload.",
         "operationId" : "listDeliveries",
         "parameters" : [ {
           "in" : "path",
@@ -3108,6 +3222,17 @@
             "type" : "integer",
             "format" : "int32",
             "default" : 50
+          }
+        }, {
+          "in" : "query",
+          "name" : "state",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "default" : [ ],
+            "items" : {
+              "type" : "string"
+            }
           }
         } ],
         "responses" : {
@@ -3133,6 +3258,146 @@
           }
         },
         "summary" : "What was sent and received",
+        "tags" : [ "Integrations" ]
+      }
+    },
+    "/api/v1/integrations/{name}/deliveries/replay" : {
+      "post" : {
+        "description" : "Needs integrations.view and integrations.replay. At most the limit (1 to 500, 100 when absent), the oldest first.",
+        "operationId" : "replayDeliveries",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReplayRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseReplayView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Send the oldest dead letters again",
+        "tags" : [ "Integrations" ]
+      }
+    },
+    "/api/v1/integrations/{name}/deliveries/{delivery}/attempts" : {
+      "get" : {
+        "description" : "Needs integrations.view and mappings.view. When each attempt began, how long it took, how it ended, a stable reason and a class of status. Never a payload, a header, an address or an identifier of the other system.",
+        "operationId" : "listDeliveryAttempts",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "delivery",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListAttemptView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The attempts made to send one delivery",
+        "tags" : [ "Integrations" ]
+      }
+    },
+    "/api/v1/integrations/{name}/deliveries/{delivery}/replay" : {
+      "post" : {
+        "description" : "Needs integrations.view and integrations.replay. Only a delivery that was set aside: it becomes a new attempt series that reads the record as it is now and never repeats what the link says was done. Two clicks make one.",
+        "operationId" : "replayDelivery",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "delivery",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDeliveryView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Send one dead letter again",
         "tags" : [ "Integrations" ]
       }
     },
@@ -3219,6 +3484,92 @@
           }
         },
         "summary" : "Switch a tested connection on",
+        "tags" : [ "Integrations" ]
+      }
+    },
+    "/api/v1/integrations/{name}/health" : {
+      "get" : {
+        "description" : "Needs integrations.view. The circuit, the queue by state, the limits and the last signs of life: counts and times only.",
+        "operationId" : "getIntegrationHealth",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseIntegrationHealthView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "How the flows of one connection stand",
+        "tags" : [ "Integrations" ]
+      }
+    },
+    "/api/v1/integrations/{name}/limits" : {
+      "put" : {
+        "description" : "Needs integrations.view and integrations.operate. A number above the platform's ceiling is refused; an absent one leaves the platform's default in force.",
+        "operationId" : "setFlowLimits",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/FlowLimitsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseFlowLimitsView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "Set how fast a connection sends",
         "tags" : [ "Integrations" ]
       }
     },
@@ -16201,6 +16552,15 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseCircuitView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CircuitView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseCredentialView" : {
         "type" : "object",
         "properties" : {
@@ -16260,6 +16620,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/DataCatalogue"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseDeliveryView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/DeliveryView"
           }
         },
         "required" : [ "data" ]
@@ -16336,6 +16705,15 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseFlowLimitsView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/FlowLimitsView"
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseFormulaRecalculationView" : {
         "type" : "object",
         "properties" : {
@@ -16368,6 +16746,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/InboundResultView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseIntegrationHealthView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/IntegrationHealthView"
           }
         },
         "required" : [ "data" ]
@@ -16516,6 +16903,18 @@
         },
         "required" : [ "data" ]
       },
+      "ApiResponseListAttemptView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AttemptView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
       "ApiResponseListAuthorshipView" : {
         "type" : "object",
         "properties" : {
@@ -16655,6 +17054,18 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/ImportJobView"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseListIntegrationHealthView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IntegrationHealthView"
             }
           }
         },
@@ -17451,6 +17862,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/ReleaseView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseReplayView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ReplayView"
           }
         },
         "required" : [ "data" ]
@@ -18468,6 +18888,44 @@
             "format" : "uuid"
           }
         }
+      },
+      "AttemptView" : {
+        "type" : "object",
+        "properties" : {
+          "attempt" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "durationMs" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "generation" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "httpStatus" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "statusClass" : {
+            "type" : "string"
+          },
+          "words" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "attempt", "durationMs", "generation", "outcome", "startedAt", "statusClass" ]
       },
       "AudienceDepartment" : {
         "type" : "object",
@@ -19575,6 +20033,79 @@
         },
         "required" : [ "code", "summary" ]
       },
+      "CircuitAction" : {
+        "type" : "object",
+        "properties" : {
+          "effect" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "effect", "key", "label" ]
+      },
+      "CircuitRequest" : {
+        "type" : "object",
+        "properties" : {
+          "action" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "action" ]
+      },
+      "CircuitView" : {
+        "type" : "object",
+        "properties" : {
+          "actions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CircuitAction"
+            }
+          },
+          "consecutiveFailures" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "forced" : {
+            "type" : "string"
+          },
+          "lastFailureAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastFailureReason" : {
+            "type" : "string"
+          },
+          "lastFailureWords" : {
+            "type" : "string"
+          },
+          "lastSuccessAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "openUntil" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "openedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "state" : {
+            "type" : "string"
+          },
+          "words" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "actions", "consecutiveFailures", "state", "words" ]
+      },
       "CompleteSignUpRequest" : {
         "type" : "object",
         "properties" : {
@@ -20586,6 +21117,13 @@
       "DeliveryView" : {
         "type" : "object",
         "properties" : {
+          "attempts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "canReplay" : {
+            "type" : "boolean"
+          },
           "createdAt" : {
             "type" : "string",
             "format" : "date-time"
@@ -20597,6 +21135,10 @@
             "type" : "string",
             "format" : "date-time"
           },
+          "generation" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "httpStatus" : {
             "type" : "integer",
             "format" : "int32"
@@ -20607,6 +21149,10 @@
           },
           "kind" : {
             "type" : "string"
+          },
+          "nextAttemptAt" : {
+            "type" : "string",
+            "format" : "date-time"
           },
           "object" : {
             "type" : "string"
@@ -20624,11 +21170,20 @@
           "state" : {
             "type" : "string"
           },
+          "statusClass" : {
+            "type" : "string"
+          },
+          "waitingFor" : {
+            "type" : "string"
+          },
+          "waitingWords" : {
+            "type" : "string"
+          },
           "words" : {
             "type" : "string"
           }
         },
-        "required" : [ "createdAt", "direction", "id", "kind", "object", "stale", "state" ]
+        "required" : [ "attempts", "canReplay", "createdAt", "direction", "generation", "id", "kind", "object", "stale", "state" ]
       },
       "DepartmentCount" : {
         "type" : "object",
@@ -21050,6 +21605,45 @@
         },
         "required" : [ "apiName", "description", "editable", "kind", "label", "required", "retired", "settings", "type", "unique", "version" ]
       },
+      "FileFlowView" : {
+        "type" : "object",
+        "properties" : {
+          "filesDone" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "filesInProgress" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "filesSetAside" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "filesWaiting" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "lastLookAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastReason" : {
+            "type" : "string"
+          },
+          "lastReasonWords" : {
+            "type" : "string"
+          },
+          "lastResult" : {
+            "type" : "string"
+          },
+          "nextLookAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "filesDone", "filesInProgress", "filesSetAside", "filesWaiting", "nextLookAt" ]
+      },
       "FillInOptionsView" : {
         "type" : "object",
         "properties" : {
@@ -21285,6 +21879,51 @@
           }
         },
         "required" : [ "email" ]
+      },
+      "FlowLimitsRequest" : {
+        "type" : "object",
+        "properties" : {
+          "maxConcurrent" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 256,
+            "minimum" : 1
+          },
+          "ratePerMinute" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 600000,
+            "minimum" : 1
+          }
+        }
+      },
+      "FlowLimitsView" : {
+        "type" : "object",
+        "properties" : {
+          "maxConcurrent" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxConcurrentCeiling" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxConcurrentIsDefault" : {
+            "type" : "boolean"
+          },
+          "ratePerMinute" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "ratePerMinuteCeiling" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "ratePerMinuteIsDefault" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "maxConcurrent", "maxConcurrentCeiling", "maxConcurrentIsDefault", "ratePerMinute", "ratePerMinuteCeiling", "ratePerMinuteIsDefault" ]
       },
       "ForgotPasswordRequest" : {
         "type" : "object",
@@ -21725,6 +22364,62 @@
           }
         },
         "required" : [ "result" ]
+      },
+      "IntegrationHealthView" : {
+        "type" : "object",
+        "properties" : {
+          "circuit" : {
+            "$ref" : "#/components/schemas/CircuitView"
+          },
+          "connectionState" : {
+            "type" : "string"
+          },
+          "deadLettered" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "done" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "files" : {
+            "$ref" : "#/components/schemas/FileFlowView"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "lastDeadLetterAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastDoneAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "limits" : {
+            "$ref" : "#/components/schemas/FlowLimitsView"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "oldestOpenSince" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "sending" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "waiting" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "waitingRemote" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "circuit", "connectionState", "deadLettered", "done", "label", "limits", "name", "sending", "waiting", "waitingRemote" ]
       },
       "IntegrationTestView" : {
         "type" : "object",
@@ -25159,6 +25854,31 @@
           }
         },
         "required" : [ "createdAt", "items", "kind", "latest", "number" ]
+      },
+      "ReplayRequest" : {
+        "type" : "object",
+        "properties" : {
+          "limit" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 500,
+            "minimum" : 1
+          }
+        }
+      },
+      "ReplayView" : {
+        "type" : "object",
+        "properties" : {
+          "remaining" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "replayed" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "remaining", "replayed" ]
       },
       "ReportColumnView" : {
         "type" : "object",

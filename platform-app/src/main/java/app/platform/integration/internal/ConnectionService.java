@@ -1,6 +1,7 @@
 package app.platform.integration.internal;
 
 import app.platform.integration.adapter.Connector;
+import app.platform.integration.adapter.FileFlowConnector;
 import app.platform.integration.internal.ConnectionMachine.Event;
 import app.platform.integration.internal.ConnectionMachine.State;
 import app.platform.integration.internal.ConnectionStore.Connection;
@@ -41,10 +42,12 @@ class ConnectionService {
     private final IntegrationProperties properties;
     private final AuditRecorder audit;
     private final MeterRegistry meters;
+    private final PollStore polls;
 
     ConnectionService(ConnectionStore store, ConnectorRegistry registry, DefinitionChecks checks,
             IntegrationAccess access, IntegrationViews views, IntegrationProperties properties, AuditRecorder audit,
-            MeterRegistry meters) {
+            MeterRegistry meters, PollStore polls) {
+        this.polls = polls;
         this.views = views;
         this.store = store;
         this.registry = registry;
@@ -136,6 +139,12 @@ class ConnectionService {
         }
         if (!store.setState(current.id(), version, State.ENABLED, caller.userId())) {
             throw new ApiException(ErrorCode.CONCURRENT_MODIFICATION);
+        }
+        if (registry.find(current.connectorType()).orElse(null) instanceof FileFlowConnector files
+                && files.layout(current.definition().settings()).pulls()) {
+            // A connection that picks up files is looked at on a schedule: its poll is made when it is first switched
+            // on.
+            polls.ensure(current.id());
         }
         Connection saved = named(name);
         changed("enabled", caller, saved);

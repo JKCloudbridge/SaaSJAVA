@@ -66,6 +66,17 @@ describe("the Document number as it builds itself (FA11B)", () => {
     expect(screen.queryByText(/type the serial it starts at/)).toBeNull();
   });
 
+  it("pads the typed serial inside the box as it is typed, so the number reads as it will be", () => {
+    const { given, set } = access({ serial: "5" });
+    render(<NumberField access={given} info={info()} savedNumber={undefined} />);
+
+    const box = screen.getByTestId("serial-input");
+    expect(box).toHaveValue("05");
+    expect(screen.queryByTestId("live-number-full")).toBeNull();
+    fireEvent.change(box, { target: { value: "053" } });
+    expect(set).toHaveBeenCalledWith("serial", "53");
+  });
+
   it("shows the next serial, disabled, for a combination that already has numbers", () => {
     render(<NumberField access={access().given} info={info({ started: true, nextSerial: 7 })} savedNumber={undefined} />);
 

@@ -53,9 +53,11 @@ class IntegrationArchitectureTest {
     }
 
     @Test
-    void onlyTheEgressClientOpensASocketAndNothingUsesTheJdkHttpClient() {
+    void onlyTheEgressClientAndTheSshTransportHoldASocketAndNothingUsesTheJdkHttpClient() {
+        // Sprint 29A (ADR-0238): exactly one class more. The transport gets its socket from EgressClient.open, so the
+        // address rules are the same, and it is the one class that hands a socket to the SSH library.
         noClasses().that().resideInAPackage("app.platform.integration..")
-                .and().doNotHaveSimpleName("EgressClient")
+                .and().haveNameNotMatching(".*EgressClient.*").and().haveNameNotMatching(".*SftpTransport.*")
                 .should().dependOnClassesThat().haveFullyQualifiedName("java.net.Socket")
                 .check(platform);
         noClasses().that().resideInAPackage("app.platform.integration..")
@@ -75,10 +77,45 @@ class IntegrationArchitectureTest {
     }
 
     @Test
+    void onlyTheSshTransportNamesTheSshLibrary() {
+        noClasses().that().resideOutsideOfPackage("app.platform.integration..")
+                .should().dependOnClassesThat().resideInAPackage("com.jcraft..")
+                .allowEmptyShould(true).check(platform);
+        noClasses().that().resideInAPackage("app.platform.integration..")
+                .and().haveNameNotMatching(".*SftpTransport.*")
+                .should().dependOnClassesThat().resideInAPackage("com.jcraft..")
+                .because("the library is used by one class, behind FileTransport (ADR-0238)")
+                .allowEmptyShould(true).check(platform);
+    }
+
+    @Test
+    void onlyTheWorkerClaimsDuePollsAndTheLoginIsBuiltInOnePlace() {
+        noClasses().that().doNotHaveSimpleName("OutboundWorker").and().doNotHaveSimpleName("PollStore")
+                .should().callMethod("app.platform.integration.internal.PollStore", "claimDue", "int",
+                        "java.time.Duration")
+                .because("the claim reads the due polls of every organization (ADR-0242)")
+                .allowEmptyShould(true).check(platform);
+        noClasses().that().resideInAPackage("app.platform.integration..")
+                .and().doNotHaveSimpleName("OutboundWorker").and().doNotHaveSimpleName("ConnectionTesting")
+                .and().doNotHaveSimpleName("FilePoller").and().doNotHaveSimpleName("CredentialLogins")
+                .should().dependOnClassesThat().haveFullyQualifiedName(
+                        "app.platform.integration.internal.CredentialLogins")
+                .allowEmptyShould(true).check(platform);
+    }
+
+    @Test
+    void theFileConnectorIsReachedOnlyThroughTheConnectorInterface() {
+        noClasses().that().resideOutsideOfPackage("app.platform.integration.adapter.file..")
+                .should().dependOnClassesThat().resideInAPackage("app.platform.integration.adapter.file..")
+                .allowEmptyShould(true).check(platform);
+    }
+
+    @Test
     void onlyTheSenderTheTesterAndTheirOwnTypesUseTheOutboundClient() {
         noClasses().that().resideInAPackage("app.platform.integration..")
                 .and().haveNameNotMatching(".*EgressClient.*")
-                .and().doNotHaveSimpleName("OutboundSender").and().doNotHaveSimpleName("ConnectionTesting")
+                .and().doNotHaveSimpleName("SftpTransport")
+                .and().doNotHaveSimpleName("OutboundWorker").and().doNotHaveSimpleName("ConnectionTesting")
                 .should().dependOnClassesThat().haveFullyQualifiedName(
                         "app.platform.integration.internal.EgressClient")
                 .allowEmptyShould(true).check(platform);
@@ -86,7 +123,7 @@ class IntegrationArchitectureTest {
 
     @Test
     void theReceiverAndTheSenderNeverReadTheValueOfASecretThemselves() {
-        noClasses().that().haveSimpleName("InboundService").or().haveSimpleName("OutboundSender")
+        noClasses().that().haveSimpleName("InboundService").or().haveSimpleName("OutboundWorker")
                 .or().haveSimpleName("InboundController").or().haveSimpleName("ConnectionTesting")
                 .should().dependOnClassesThat().haveFullyQualifiedName(
                         "app.platform.sharedkernel.secrets.SecretValue")
@@ -98,6 +135,29 @@ class IntegrationArchitectureTest {
     void everyConnectorLivesInTheAdapterPackage() {
         classes().that().implement("app.platform.integration.adapter.Connector")
                 .should().resideInAPackage("app.platform.integration.adapter..")
+                .allowEmptyShould(true).check(platform);
+    }
+
+    @Test
+    void onlyTheWorkerEntersTheDispatchScope() {
+        noClasses().that().doNotHaveSimpleName("OutboundWorker").and().doNotHaveSimpleName("SystemScope")
+                .should().accessField("app.platform.tenant.SystemScope", "INTEGRATION_DISPATCH")
+                .because("the scope lets one statement claim the deliveries of every organization (ADR-0231)")
+                .allowEmptyShould(true).check(platform);
+    }
+
+    @Test
+    void theBreakerThePolicyAndTheLimiterArePure() {
+        noClasses().that().resideInAPackage("app.platform.integration..").and().haveSimpleName("CircuitBreaker")
+                .or().resideInAPackage("app.platform.integration..").and().haveSimpleName("RetryPolicy")
+                .or().resideInAPackage("app.platform.integration..").and().haveSimpleName("RateLimiter")
+                .or().resideInAPackage("app.platform.integration..").and().haveSimpleName("DeliveryState")
+                .or().resideInAPackage("app.platform.integration..").and().haveSimpleName("FilePaths")
+                .or().resideInAPackage("app.platform.integration..").and().haveSimpleName("FileBatchPlan")
+                .or().resideInAPackage("app.platform.integration..").and().haveSimpleName("SshOutcome")
+                .should().dependOnClassesThat().resideInAnyPackage("org.springframework..", "java.sql..", "java.net..",
+                        "javax.sql..")
+                .because("they are state machines and arithmetic, tested as properties (ADR-0229)")
                 .allowEmptyShould(true).check(platform);
     }
 }

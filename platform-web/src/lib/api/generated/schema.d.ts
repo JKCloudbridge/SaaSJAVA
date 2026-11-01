@@ -1236,6 +1236,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/integration-health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How the flows of every connection stand
+         * @description Needs integrations.view. One entry per connection of the organization.
+         */
+        get: operations["listIntegrationHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/integrations": {
         parameters: {
             query?: never;
@@ -1328,6 +1348,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/integrations/{name}/circuit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The circuit breaker of a connection
+         * @description Needs integrations.view. Where the circuit stands and what the caller may do about it.
+         */
+        get: operations["getCircuit"];
+        put?: never;
+        /**
+         * Force the circuit open or closed, or back to automatic
+         * @description Needs integrations.view and integrations.operate. The action is one the circuit's own answer offers. Forcing it open sends nothing and loses nothing: changes wait in the queue.
+         */
+        post: operations["actOnCircuit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/integrations/{name}/deliveries": {
         parameters: {
             query?: never;
@@ -1337,11 +1381,71 @@ export interface paths {
         };
         /**
          * What was sent and received
-         * @description Needs integrations.view and mappings.view. The newest first, at most 100. Identifiers, a stable reason and the platform's own sentence for it: never a record value or a payload.
+         * @description Needs integrations.view and mappings.view. The newest first, at most 100; the optional state parameter (repeatable) keeps only deliveries in those states. Identifiers, a stable reason and the platform's own sentence for it: never a record value or a payload.
          */
         get: operations["listDeliveries"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/{name}/deliveries/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the oldest dead letters again
+         * @description Needs integrations.view and integrations.replay. At most the limit (1 to 500, 100 when absent), the oldest first.
+         */
+        post: operations["replayDeliveries"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/{name}/deliveries/{delivery}/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The attempts made to send one delivery
+         * @description Needs integrations.view and mappings.view. When each attempt began, how long it took, how it ended, a stable reason and a class of status. Never a payload, a header, an address or an identifier of the other system.
+         */
+        get: operations["listDeliveryAttempts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/{name}/deliveries/{delivery}/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send one dead letter again
+         * @description Needs integrations.view and integrations.replay. Only a delivery that was set aside: it becomes a new attempt series that reads the record as it is now and never repeats what the link says was done. Two clicks make one.
+         */
+        post: operations["replayDelivery"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1382,6 +1486,46 @@ export interface paths {
          * @description Needs integrations.view, integrations.manage and the version read. Only after a successful test of exactly the current settings.
          */
         post: operations["enableIntegration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/{name}/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How the flows of one connection stand
+         * @description Needs integrations.view. The circuit, the queue by state, the limits and the last signs of life: counts and times only.
+         */
+        get: operations["getIntegrationHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/{name}/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set how fast a connection sends
+         * @description Needs integrations.view and integrations.operate. A number above the platform's ceiling is refused; an absent one leaves the platform's default in force.
+         */
+        put: operations["setFlowLimits"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6093,6 +6237,9 @@ export interface components {
         ApiResponseChangeSetView: {
             data: components["schemas"]["ChangeSetView"];
         };
+        ApiResponseCircuitView: {
+            data: components["schemas"]["CircuitView"];
+        };
         ApiResponseCredentialView: {
             data: components["schemas"]["CredentialView"];
         };
@@ -6113,6 +6260,9 @@ export interface components {
         };
         ApiResponseDataCatalogue: {
             data: components["schemas"]["DataCatalogue"];
+        };
+        ApiResponseDeliveryView: {
+            data: components["schemas"]["DeliveryView"];
         };
         ApiResponseEmbeddedTokenView: {
             data: components["schemas"]["EmbeddedTokenView"];
@@ -6138,6 +6288,9 @@ export interface components {
         ApiResponseFillInSubmittedView: {
             data: components["schemas"]["FillInSubmittedView"];
         };
+        ApiResponseFlowLimitsView: {
+            data: components["schemas"]["FlowLimitsView"];
+        };
         ApiResponseFormulaRecalculationView: {
             data: components["schemas"]["FormulaRecalculationView"];
         };
@@ -6149,6 +6302,9 @@ export interface components {
         };
         ApiResponseInboundResultView: {
             data: components["schemas"]["InboundResultView"];
+        };
+        ApiResponseIntegrationHealthView: {
+            data: components["schemas"]["IntegrationHealthView"];
         };
         ApiResponseIntegrationTestView: {
             data: components["schemas"]["IntegrationTestView"];
@@ -6192,6 +6348,9 @@ export interface components {
         ApiResponseListApprovalProcessView: {
             data: components["schemas"]["ApprovalProcessView"][];
         };
+        ApiResponseListAttemptView: {
+            data: components["schemas"]["AttemptView"][];
+        };
         ApiResponseListAuthorshipView: {
             data: components["schemas"]["AuthorshipView"][];
         };
@@ -6227,6 +6386,9 @@ export interface components {
         };
         ApiResponseListImportJobView: {
             data: components["schemas"]["ImportJobView"][];
+        };
+        ApiResponseListIntegrationHealthView: {
+            data: components["schemas"]["IntegrationHealthView"][];
         };
         ApiResponseListIntegrationView: {
             data: components["schemas"]["IntegrationView"][];
@@ -6458,6 +6620,9 @@ export interface components {
         };
         ApiResponseReleaseView: {
             data: components["schemas"]["ReleaseView"];
+        };
+        ApiResponseReplayView: {
+            data: components["schemas"]["ReplayView"];
         };
         ApiResponseReportColumnsView: {
             data: components["schemas"]["ReportColumnsView"];
@@ -6791,6 +6956,22 @@ export interface components {
         AssignRoleRequest: {
             /** Format: uuid */
             roleId?: string;
+        };
+        AttemptView: {
+            /** Format: int32 */
+            attempt: number;
+            /** Format: int32 */
+            durationMs: number;
+            /** Format: int32 */
+            generation: number;
+            /** Format: int32 */
+            httpStatus?: number;
+            outcome: string;
+            reason?: string;
+            /** Format: date-time */
+            startedAt: string;
+            statusClass: string;
+            words?: string;
         };
         AudienceDepartment: {
             configured: boolean;
@@ -7155,6 +7336,32 @@ export interface components {
             code: string;
             summary: string;
         };
+        CircuitAction: {
+            effect: string;
+            key: string;
+            label: string;
+        };
+        CircuitRequest: {
+            action: string;
+        };
+        CircuitView: {
+            actions: components["schemas"]["CircuitAction"][];
+            /** Format: int32 */
+            consecutiveFailures: number;
+            forced?: string;
+            /** Format: date-time */
+            lastFailureAt?: string;
+            lastFailureReason?: string;
+            lastFailureWords?: string;
+            /** Format: date-time */
+            lastSuccessAt?: string;
+            /** Format: date-time */
+            openUntil?: string;
+            /** Format: date-time */
+            openedAt?: string;
+            state: string;
+            words: string;
+        };
         CompleteSignUpRequest: {
             displayName: string;
             password: string;
@@ -7444,22 +7651,32 @@ export interface components {
             value: string;
         };
         DeliveryView: {
+            /** Format: int32 */
+            attempts: number;
+            canReplay: boolean;
             /** Format: date-time */
             createdAt: string;
             direction: string;
             /** Format: date-time */
             finishedAt?: string;
             /** Format: int32 */
+            generation: number;
+            /** Format: int32 */
             httpStatus?: number;
             /** Format: uuid */
             id: string;
             kind: string;
+            /** Format: date-time */
+            nextAttemptAt?: string;
             object: string;
             reason?: string;
             /** Format: uuid */
             recordId?: string;
             stale: boolean;
             state: string;
+            statusClass?: string;
+            waitingFor?: string;
+            waitingWords?: string;
             words?: string;
         };
         DepartmentCount: {
@@ -7610,6 +7827,23 @@ export interface components {
             /** Format: int64 */
             version: number;
         };
+        FileFlowView: {
+            /** Format: int64 */
+            filesDone: number;
+            /** Format: int64 */
+            filesInProgress: number;
+            /** Format: int64 */
+            filesSetAside: number;
+            /** Format: int64 */
+            filesWaiting: number;
+            /** Format: date-time */
+            lastLookAt?: string;
+            lastReason?: string;
+            lastReasonWords?: string;
+            lastResult?: string;
+            /** Format: date-time */
+            nextLookAt: string;
+        };
         FillInOptionsView: {
             /** Format: int32 */
             activeVersion: number;
@@ -7694,6 +7928,24 @@ export interface components {
         };
         FirstAdministratorRequest: {
             email: string;
+        };
+        FlowLimitsRequest: {
+            /** Format: int32 */
+            maxConcurrent?: number;
+            /** Format: int32 */
+            ratePerMinute?: number;
+        };
+        FlowLimitsView: {
+            /** Format: int32 */
+            maxConcurrent: number;
+            /** Format: int32 */
+            maxConcurrentCeiling: number;
+            maxConcurrentIsDefault: boolean;
+            /** Format: int32 */
+            ratePerMinute: number;
+            /** Format: int32 */
+            ratePerMinuteCeiling: number;
+            ratePerMinuteIsDefault: boolean;
         };
         ForgotPasswordRequest: {
             email: string;
@@ -7848,6 +8100,30 @@ export interface components {
         };
         InboundResultView: {
             result: string;
+        };
+        IntegrationHealthView: {
+            circuit: components["schemas"]["CircuitView"];
+            connectionState: string;
+            /** Format: int64 */
+            deadLettered: number;
+            /** Format: int64 */
+            done: number;
+            files?: components["schemas"]["FileFlowView"];
+            label: string;
+            /** Format: date-time */
+            lastDeadLetterAt?: string;
+            /** Format: date-time */
+            lastDoneAt?: string;
+            limits: components["schemas"]["FlowLimitsView"];
+            name: string;
+            /** Format: date-time */
+            oldestOpenSince?: string;
+            /** Format: int64 */
+            sending: number;
+            /** Format: int64 */
+            waiting: number;
+            /** Format: int64 */
+            waitingRemote: number;
         };
         IntegrationTestView: {
             integration: components["schemas"]["IntegrationView"];
@@ -8909,6 +9185,16 @@ export interface components {
             rolledBackBy?: number;
             /** Format: int64 */
             undoesRelease?: number;
+        };
+        ReplayRequest: {
+            /** Format: int32 */
+            limit?: number;
+        };
+        ReplayView: {
+            /** Format: int64 */
+            remaining: number;
+            /** Format: int32 */
+            replayed: number;
         };
         ReportColumnView: {
             id: string;
@@ -12134,6 +12420,35 @@ export interface operations {
             };
         };
     };
+    listIntegrationHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListIntegrationHealthView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     listIntegrations: {
         parameters: {
             query?: never;
@@ -12351,10 +12666,77 @@ export interface operations {
             };
         };
     };
+    getCircuit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCircuitView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    actOnCircuit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CircuitRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseCircuitView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     listDeliveries: {
         parameters: {
             query?: {
                 limit?: number;
+                state?: string[];
             };
             header?: never;
             path: {
@@ -12371,6 +12753,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseListDeliveryView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    replayDeliveries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplayRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseReplayView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    listDeliveryAttempts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                delivery: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseListAttemptView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    replayDelivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                delivery: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseDeliveryView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */
@@ -12437,6 +12918,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseIntegrationView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    getIntegrationHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseIntegrationHealthView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    setFlowLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FlowLimitsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseFlowLimitsView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

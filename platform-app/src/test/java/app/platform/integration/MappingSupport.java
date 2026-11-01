@@ -23,9 +23,8 @@ import javax.crypto.spec.SecretKeySpec;
 
 /**
  * What the tests of mapping, sending and receiving share (Sprint 28): a connection to the simulated external system
- * that
- * is tested and switched on, the short ways to define and publish a mapping, and a caller that signs a change the way
- * the external system would. Names, addresses and values are generic; the canary values are made up per test.
+ * that is tested and switched on, the short ways to define and publish a mapping, and a caller that signs a change the
+ * way the external system would. Names, addresses and values are generic; the canary values are made up per test.
  */
 public abstract class MappingSupport extends IntegrationSupport {
 
@@ -133,7 +132,7 @@ public abstract class MappingSupport extends IntegrationSupport {
      * to start would work through all of them before it reached this test's event. They belong to finished tests; they
      * are marked delivered so the wait here depends on this test alone.
      */
-    private static void setAsideOtherOrganizationsEvents(Organization organization) {
+    protected static void setAsideOtherOrganizationsEvents(Organization organization) {
         try (Connection owner = TestDatabase.ownerConnection();
                 PreparedStatement statement = owner.prepareStatement("update outbox_event set status = 'DELIVERED', "
                         + "delivered_at = now(), version = version + 1 where status = 'PENDING' and tenant_id <> ?")) {

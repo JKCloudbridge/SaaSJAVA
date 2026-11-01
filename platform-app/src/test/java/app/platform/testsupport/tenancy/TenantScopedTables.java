@@ -782,6 +782,60 @@ public final class TenantScopedTables {
                         tenant, owner, version, UUID.randomUUID(), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
             });
 
+    /** One attempt to send (Sprint 29). A probe row needs a delivery, which it creates. */
+    public static final TenantScopedTable INTEGRATION_ATTEMPT = new TenantScopedTable("integration_attempt",
+            (connection, tenant) -> {
+                UUID mapping = probeMapping(connection, tenant);
+                UUID version = UUID.randomUUID();
+                TenantFixtures.update(connection,
+                        "insert into integration_mapping_version (id, tenant_id, mapping_id, number, definition, "
+                                + "definition_hash, created_by, updated_by) values (?, ?, ?, 1, '{}'::jsonb, ?, ?, ?)",
+                        version, tenant, mapping, "d".repeat(64), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+                UUID owner = probeConnection(connection, tenant);
+                UUID delivery = UUID.randomUUID();
+                TenantFixtures.update(connection,
+                        "insert into integration_delivery (id, tenant_id, connection_id, mapping_version_id, "
+                                + "direction, kind, event_id, object_api_name, created_by, updated_by) values "
+                                + "(?, ?, ?, ?, 'OUT', 'CREATE', ?, 'ObjectA__c', ?, ?)",
+                        delivery, tenant, owner, version, UUID.randomUUID(), ActorId.SYSTEM.value(),
+                        ActorId.SYSTEM.value());
+                TenantFixtures.update(connection,
+                        "insert into integration_attempt (tenant_id, delivery_id, connection_id, generation, "
+                                + "attempt_no, started_at, outcome, reason, created_by, updated_by) values "
+                                + "(?, ?, ?, 1, 1, now(), 'RETRY', 'timed_out', ?, ?)",
+                        tenant, delivery, owner, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** The breaker, bucket and limits of a connection (Sprint 29). A probe row creates its connection. */
+    public static final TenantScopedTable INTEGRATION_FLOW_STATE = new TenantScopedTable("integration_flow_state",
+            (connection, tenant) -> {
+                UUID owner = probeConnection(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into integration_flow_state (tenant_id, connection_id, created_by, updated_by) "
+                                + "values (?, ?, ?, ?)",
+                        tenant, owner, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** When a file transfer connection next looks at its inbox (Sprint 29A). A probe row creates its connection. */
+    public static final TenantScopedTable INTEGRATION_POLL = new TenantScopedTable("integration_poll",
+            (connection, tenant) -> {
+                UUID owner = probeConnection(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into integration_poll (tenant_id, connection_id, created_by, updated_by) "
+                                + "values (?, ?, ?, ?)",
+                        tenant, owner, ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
+    /** The ledger of the files picked up from an inbox (Sprint 29A). A probe row creates its connection. */
+    public static final TenantScopedTable INTEGRATION_FILE = new TenantScopedTable("integration_file",
+            (connection, tenant) -> {
+                UUID owner = probeConnection(connection, tenant);
+                TenantFixtures.update(connection,
+                        "insert into integration_file (tenant_id, connection_id, file_key, size_bytes, created_by, "
+                                + "updated_by) values (?, ?, ?, 10, ?, ?)",
+                        tenant, owner, "e".repeat(64), ActorId.SYSTEM.value(), ActorId.SYSTEM.value());
+            });
+
     /** The hash of an accepted inbound nonce (Sprint 28). A probe row creates its connection. */
     public static final TenantScopedTable INTEGRATION_INBOUND_SEEN = new TenantScopedTable(
             "integration_inbound_seen", (connection, tenant) -> {
@@ -997,7 +1051,8 @@ public final class TenantScopedTables {
             NOTIFICATION_PREFERENCE, NOTIFICATION_TEMPLATE, APPROVAL_STEP_TIMER, APPROVAL_REMINDER,
             ORGANIZATION_FIELD_VALUES, NUMBER_SERIES_COUNTER, NUMBERING_FORMAT, NUMBER_RESERVATION,
             INTEGRATION_CONNECTION, INTEGRATION_MAPPING, INTEGRATION_MAPPING_VERSION, INTEGRATION_LINK,
-            INTEGRATION_DELIVERY, INTEGRATION_INBOUND_SEEN, SECRET_ENTRY, SECRET_VERSION, SECRET_USAGE,
+            INTEGRATION_DELIVERY, INTEGRATION_ATTEMPT, INTEGRATION_FLOW_STATE, INTEGRATION_POLL, INTEGRATION_FILE,
+            INTEGRATION_INBOUND_SEEN, SECRET_ENTRY, SECRET_VERSION, SECRET_USAGE,
             SHEET_VERSION, SHEET_FILL,
             SHEET_FILL_VALUE,
             INSPECTION_PUBLICATION, INSPECTION_CHANGE_REQUEST, INSPECTION_CHANGE_COMMENT,

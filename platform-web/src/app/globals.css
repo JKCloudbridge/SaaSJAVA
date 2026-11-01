@@ -1609,8 +1609,17 @@ a.control-tab:hover {
   overflow-wrap: anywhere;
 }
 
-.live-number .serial-input {
-  width: 7rem;
+.field .live-number {
+  flex-wrap: nowrap;
+  gap: 0;
+}
+
+/* The serial box sits at the end of the number on the same line, so the whole number reads as one (it must out-rank the
+   general width of a field's input). */
+.field .live-number .serial-input {
+  width: 9ch;
+  min-width: 0;
+  padding-inline: var(--space-1);
   font-family: var(--font-mono);
 }
 

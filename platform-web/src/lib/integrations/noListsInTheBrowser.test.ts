@@ -9,6 +9,7 @@ const FILES = [
   "components/setup/IntegrationsPanel.tsx",
   "lib/integrations/model.ts",
   "components/setup/MappingDesigner.tsx",
+  "components/setup/IntegrationMonitor.tsx",
   "lib/integrations/mappingModel.ts",
 ];
 
@@ -62,5 +63,21 @@ describe("the integration screens", () => {
     for (const { file, text } of sources) {
       expect(text, file).not.toMatch(/service answered|could not connect|did not answer in time/i);
     }
+  });
+
+  it("hold no reason, circuit state, action or protocol of the reliability screens: the API's words and flags are shown", () => {
+    for (const { file, text } of sources) {
+      expect(text, file).not.toMatch(
+        /\b(circuit_open|throttled|throttled_by_service|backoff|queue_full|superseded|interrupted|remote_failed|remote_expired|server_error|bad_gateway|gateway_timeout|connection_off)\b/,
+      );
+      expect(text, file).not.toMatch(/["'`](OPEN|CLOSED|HALF_OPEN|force-open|force-closed|automatic)["'`]/);
+      expect(text, file).not.toMatch(/["'`](soap|sftp|message-queue)["'`]/i);
+    }
+  });
+
+  it("send back only the key of an action the API offered", () => {
+    const monitor = sources.find((one) => one.file.endsWith("IntegrationMonitor.tsx"))?.text ?? "";
+    expect(monitor).toContain("action: action.key");
+    expect(monitor).not.toMatch(/action:\s*["'`]/);
   });
 });

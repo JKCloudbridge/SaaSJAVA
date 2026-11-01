@@ -275,6 +275,27 @@ public final class ApiPaths {
     /** The sends of a connection and how each ended (Sprint 28, ADR-0220). */
     public static final String DELIVERIES = INTEGRATIONS + "/{name}/deliveries";
 
+    /** The attempts made to send one delivery (Sprint 29, ADR-0234). */
+    public static final String DELIVERY_ATTEMPTS = DELIVERIES + "/{delivery}/attempts";
+
+    /** Sends one dead letter again (Sprint 29, ADR-0231). */
+    public static final String DELIVERY_REPLAY = DELIVERIES + "/{delivery}/replay";
+
+    /** Sends the oldest dead letters of a connection again, a bounded number (Sprint 29, ADR-0231). */
+    public static final String DELIVERIES_REPLAY = DELIVERIES + "/replay";
+
+    /** The circuit breaker of a connection: read, force open, force closed, back to automatic (Sprint 29, ADR-0229). */
+    public static final String CIRCUIT = INTEGRATIONS + "/{name}/circuit";
+
+    /** The limits on how fast a connection sends (Sprint 29, ADR-0232). */
+    public static final String FLOW_LIMITS = INTEGRATIONS + "/{name}/limits";
+
+    /** How the flows of one connection stand (Sprint 29, ADR-0235). */
+    public static final String CONNECTION_HEALTH = INTEGRATIONS + "/{name}/health";
+
+    /** How the flows of every connection of the organization stand (Sprint 29, ADR-0235). */
+    public static final String INTEGRATION_HEALTH = V1 + "/integration-health";
+
     /**
      * The one public receiver of changes from an external system (Sprint 28, ADR-0221): the address ends with the
      * connection’s unguessable inbound identity and the name of the entity. The organization is found from the

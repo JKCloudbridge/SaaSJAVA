@@ -105,6 +105,8 @@ class PlatformRulesTest {
                         "app.platform.identity..", "app.platform.workflow..", "app.platform.approval..")
                 // Sprint 28 (ADR-0221): the one class of integration that finds a connection by its public identity.
                 .and().doNotHaveFullyQualifiedName("app.platform.integration.internal.InboundDirectory")
+                // Sprint 29 (ADR-0228): the one class that claims queued deliveries and polls across organizations.
+                .and().doNotHaveFullyQualifiedName("app.platform.integration.internal.OutboundWorker")
                 .should().dependOnClassesThat().haveFullyQualifiedName("app.platform.tenant.SystemScope")
                 .because("system scopes are platform infrastructure")
                 .allowEmptyShould(true)

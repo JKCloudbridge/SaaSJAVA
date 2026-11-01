@@ -114,10 +114,11 @@ class MappingController {
 
     @GetMapping(ApiPaths.DELIVERIES)
     @Operation(operationId = "listDeliveries", summary = "What was sent and received",
-            description = "Needs integrations.view and mappings.view. The newest first, at most 100. Identifiers, a "
-                    + "stable reason and the platform's own sentence for it: never a record value or a payload.")
+            description = "Needs integrations.view and mappings.view. The newest first, at most 100; the optional "
+                    + "state parameter (repeatable) keeps only deliveries in those states. Identifiers, a stable "
+                    + "reason and the platform's own sentence for it: never a record value or a payload.")
     ApiResponse<List<DeliveryView>> deliveries(@PathVariable String name,
-            @RequestParam(defaultValue = "50") int limit) {
-        return ApiResponse.of(deliveries.recent(name, limit));
+            @RequestParam(defaultValue = "50") int limit, @RequestParam(defaultValue = "") List<String> state) {
+        return ApiResponse.of(deliveries.recent(name, state, limit));
     }
 }

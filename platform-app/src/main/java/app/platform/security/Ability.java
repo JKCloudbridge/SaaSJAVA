@@ -206,6 +206,23 @@ public enum Ability {
                     + "Needs the ability to view integrations as well."),
 
     /**
+     * Send dead letters again (Sprint 29, ADR-0231). A replay sends a record to an outside system a second time, so it
+     * is its own right and apart from seeing the flows.
+     */
+    INTEGRATIONS_REPLAY("integrations.replay", "Send failed deliveries again",
+            "Send a delivery that was set aside after its attempts again, one at a time or the oldest ones in bulk. "
+                    + "Needs the ability to view integrations as well."),
+
+    /**
+     * Operate the flows of a connection (Sprint 29, ADR-0229, ADR-0232): force the circuit breaker open or closed and
+     * set how fast the connection sends. It decides whether records reach an outside system, so it is apart from
+     * managing the connection and from seeing it.
+     */
+    INTEGRATIONS_OPERATE("integrations.operate", "Operate integration flows",
+            "Pause sending to a connection by forcing its circuit open, force it closed, return it to automatic, and "
+                    + "set how fast the connection sends. Needs the ability to view integrations as well."),
+
+    /**
      * See the organization's credentials: their names, versions and dates, and how many connections use each
      * (Sprint 27, ADR-0213). Never the value: no ability can show it.
      */

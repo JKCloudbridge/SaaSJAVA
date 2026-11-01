@@ -65,6 +65,8 @@ class SecretsArchitectureTest {
         noClasses().that().doNotHaveFullyQualifiedName("app.platform.secrets.internal.DatabaseSecretsStore")
                 .and().doNotHaveFullyQualifiedName("app.platform.integration.internal.CredentialHeaders")
                 .and().doNotHaveFullyQualifiedName("app.platform.integration.internal.InboundSignatures")
+                // Sprint 29A (ADR-0239): the sign-in of a file transfer connection, the sibling of the header builder.
+                .and().doNotHaveFullyQualifiedName("app.platform.integration.internal.CredentialLogins")
                 .and().resideOutsideOfPackage("app.platform.sharedkernel.secrets..")
                 .should().callMethod(SecretValue.class, "reveal")
                 .check(platform);

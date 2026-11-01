@@ -51,4 +51,52 @@ public interface Connector {
      * @throws PayloadException when the payload is not one this kind of system sends
      */
     CanonicalEntity receive(Map<String, String> settings, String kind, byte[] body);
+
+    /**
+     * The name of the header that carries the key which makes a send safe to repeat (Sprint 29, ADR-0228), or null when
+     * this kind of system has no such thing. The framework fills it with a key that is the same for every attempt of
+     * one send and different for every other send, so a service that honours it makes an entity once however many
+     * times an answer was lost.
+     */
+    default String idempotencyHeader(Map<String, String> settings) {
+        return null;
+    }
+
+    /**
+     * Whether the answer to a send says "accepted, ask later", and if so the path to ask about it (Sprint 29,
+     * ADR-0233). Empty for a system that answers at once, which is the default.
+     *
+     * @param status the status code of the answer
+     * @param body the bytes of the answer, bounded by the framework
+     */
+    default java.util.Optional<String> remoteJob(Map<String, String> settings, Operation operation, int status,
+            byte[] body) {
+        return java.util.Optional.empty();
+    }
+
+    /** The question that asks how a job stands: a read of the path {@link #remoteJob} gave. */
+    default ProbeRequest jobRequest(Map<String, String> settings, String jobPath) {
+        throw new UnsupportedOperationException("This kind of system has no long-running operations");
+    }
+
+    /** What the answer to the question about a job says. */
+    default JobState jobState(Map<String, String> settings, int status, byte[] body) {
+        return JobState.FAILED;
+    }
+
+    /**
+     * How this kind of system is reached (Sprint 29A, ADR-0237). The web is the default; the framework carries out the
+     * others and asks the adapter only to describe and to read or write the content.
+     */
+    default Transport transport() {
+        return Transport.HTTP;
+    }
+
+    /**
+     * What is wrong with the settings as a whole, once each one has passed its own check: a fixed sentence by the key
+     * of the setting it belongs to. Empty when all is well. Never repeats a value.
+     */
+    default Map<String, String> settingProblems(Map<String, String> settings) {
+        return Map.of();
+    }
 }

@@ -57,7 +57,7 @@ class DefinitionChecks {
         }
 
         String baseUrl = request.baseUrl();
-        EndpointRules.Result address = EndpointRules.parse(baseUrl.strip(), policy);
+        EndpointRules.Result address = EndpointRules.parse(baseUrl.strip(), policy, connector.transport());
         if (address.ok()) {
             baseUrl = canonical(address.endpoint());
         } else {
@@ -76,6 +76,11 @@ class DefinitionChecks {
 
         SettingsValidator.Result settings = SettingsValidator.validate(description, request.settings());
         problems.putAll(settings.problems());
+        if (settings.ok()) {
+            // The checks that need several settings at once, once each one is known to be well formed (Sprint 29A).
+            connector.settingProblems(settings.values())
+                    .forEach((place, sentence) -> problems.put(place, List.of(sentence)));
+        }
         List<IntegrationView.Subscription> subscriptions = subscriptions(request, description, problems);
         List<IntegrationView.ScopeEntry> scope = scope(request, problems);
 
@@ -155,7 +160,7 @@ class DefinitionChecks {
 
     /** The address written one way, so the same address always gives the same fingerprint. */
     static String canonical(Endpoint endpoint) {
-        return (endpoint.secure() ? "https://" : "http://") + endpoint.hostHeader() + endpoint.basePath();
+        return endpoint.scheme() + "://" + endpoint.hostHeader() + endpoint.basePath();
     }
 
     private static boolean unsafeText(int codePoint) {

@@ -8,25 +8,45 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * The external system of the connector tests: a small web service started by the test on this machine, answering as
  * it is told and remembering what it was asked. It is no real service and has no name; the sample connector talks to it
  * over plain HTTP because the test profile names its address as a development host.
+ *
+ * <p>Since Sprint 29 it can be put into an outage and back ({@link #outage}, {@link #up}), and it honours an
+ * idempotency key the way a careful service does: a key it has seen gets the answer it gave the first time and no
+ * second effect. {@link #effects()} counts what really happened on its side, so a test can tell "the platform sent it
+ * twice" from "the service did it twice".
  */
 public final class FakeService implements AutoCloseable {
 
     /** What the service was asked. Header values are kept so a test can see what the platform sent. */
     public record Seen(String method, String path, String authorization, String apiKey, String contentType,
-            String body) {
+            String body, Map<String, String> headers) {
+
+        /** A request without extra headers. */
+        public Seen(String method, String path, String authorization, String apiKey, String contentType,
+                String body) {
+            this(method, path, authorization, apiKey, contentType, body, Map.of());
+        }
 
         /** A request without a body (every request before Sprint 28). */
         public Seen(String method, String path, String authorization, String apiKey) {
             this(method, path, authorization, apiKey, null, "");
+        }
+
+        /** The value of a header the request carried, by lower case name, or null. */
+        public String header(String lowerCaseName) {
+            return headers.get(lowerCaseName);
         }
     }
 
@@ -61,14 +81,33 @@ public final class FakeService implements AutoCloseable {
         }
     }
 
+    /** The ways the service can be down. */
+    public enum Outage {
+        /** The connection is opened and closed at once: a reset. */
+        REFUSE,
+        /** The request is read and never answered: the platform's deadline ends it. */
+        HANG,
+        /** Every request gets this status (and headers, such as Retry-After); nothing takes effect. */
+        STATUS,
+        /** The request takes effect and the connection is closed before the answer: the answer is lost. */
+        LOSE_ANSWER
+    }
+
     private static final String BODY = "the body is never read by the platform";
 
     private final ServerSocket server;
     private final Map<String, Reply> replies = new ConcurrentHashMap<>();
+    private final Map<String, ConcurrentLinkedDeque<Reply>> sequences = new ConcurrentHashMap<>();
+    private final Map<String, String> creations = new ConcurrentHashMap<>();
+    private final Map<String, Reply> byKey = new ConcurrentHashMap<>();
     private final List<Seen> seen = new CopyOnWriteArrayList<>();
+    private final List<String> effectLog = new CopyOnWriteArrayList<>();
+    private final AtomicInteger created = new AtomicInteger();
+    private volatile Outage outage;
+    private volatile Reply outageReply;
 
     public FakeService() throws IOException {
-        server = new ServerSocket(0, 20, InetAddress.getByName("127.0.0.1"));
+        server = new ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"));
         Thread.ofVirtual().start(() -> {
             while (!server.isClosed()) {
                 try {
@@ -85,22 +124,36 @@ public final class FakeService implements AutoCloseable {
         try (client) {
             BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream(),
                     StandardCharsets.ISO_8859_1));
-            String[] line = in.readLine().split(" ");
+            String requestLine = in.readLine();
+            if (requestLine == null) {
+                return;
+            }
+            String[] line = requestLine.split(" ");
+            if (outage == Outage.REFUSE) {
+                return;
+            }
             String authorization = null;
             String apiKey = null;
             String contentType = null;
             int length = 0;
+            Map<String, String> headers = new HashMap<>();
             String header;
             while ((header = in.readLine()) != null && !header.isEmpty()) {
-                String lower = header.toLowerCase(java.util.Locale.ROOT);
-                if (lower.startsWith("authorization:")) {
-                    authorization = header.substring(header.indexOf(':') + 1).strip();
-                } else if (lower.startsWith("x-api-key:")) {
-                    apiKey = header.substring(header.indexOf(':') + 1).strip();
-                } else if (lower.startsWith("content-type:")) {
-                    contentType = header.substring(header.indexOf(':') + 1).strip();
-                } else if (lower.startsWith("content-length:")) {
-                    length = Integer.parseInt(header.substring(header.indexOf(':') + 1).strip());
+                int colon = header.indexOf(':');
+                if (colon <= 0) {
+                    continue;
+                }
+                String name = header.substring(0, colon).strip().toLowerCase(Locale.ROOT);
+                String value = header.substring(colon + 1).strip();
+                headers.put(name, value);
+                switch (name) {
+                    case "authorization" -> authorization = value;
+                    case "x-api-key" -> apiKey = value;
+                    case "content-type" -> contentType = value;
+                    case "content-length" -> length = Integer.parseInt(value);
+                    default -> {
+                        // Kept in the map for a test that wants to see it.
+                    }
                 }
             }
             char[] chars = new char[length];
@@ -113,9 +166,14 @@ public final class FakeService implements AutoCloseable {
                 read += more;
             }
             String body = new String(chars, 0, read);
-            seen.add(new Seen(line[0], line[1], authorization, apiKey, contentType, body));
-            Reply reply = replies.getOrDefault(line[0] + " " + line[1], replies.getOrDefault(line[1],
-                    Reply.status(200)));
+            seen.add(new Seen(line[0], line[1], authorization, apiKey, contentType, body, Map.copyOf(headers)));
+            Reply reply = decide(line[0], line[1], headers.get("idempotency-key"));
+            if (reply == null) {
+                if (outage == Outage.HANG) {
+                    Thread.sleep(60_000);
+                }
+                return;
+            }
             if (reply.delayMillis() > 0) {
                 Thread.sleep(reply.delayMillis());
             }
@@ -155,6 +213,51 @@ public final class FakeService implements AutoCloseable {
         }
     }
 
+    /** What to answer, or null to drop the connection without an answer. */
+    private Reply decide(String method, String path, String key) {
+        Outage down = outage;
+        if (down == Outage.HANG) {
+            return null;
+        }
+        if (down == Outage.STATUS) {
+            return outageReply;
+        }
+        boolean mutates = !method.equals("GET") && !method.equals("HEAD");
+        Reply reply;
+        if (mutates && key != null && byKey.containsKey(key)) {
+            // A key it has seen: the answer it gave then, and no second effect.
+            reply = byKey.get(key);
+        } else {
+            reply = configured(method, path);
+            if (mutates) {
+                String id = creations.get(path);
+                if (id != null && method.equals("POST") && reply.status() < 300) {
+                    reply = Reply.json(201, "{\"id\":\"" + id + "-" + created.incrementAndGet() + "\"}");
+                }
+                if (reply.status() < 300) {
+                    effectLog.add(method + " " + path);
+                    if (key != null) {
+                        byKey.put(key, reply);
+                    }
+                }
+            }
+        }
+        return down == Outage.LOSE_ANSWER && mutates ? null : reply;
+    }
+
+    private Reply configured(String method, String path) {
+        for (String name : new String[] {method + " " + path, path}) {
+            ConcurrentLinkedDeque<Reply> queue = sequences.get(name);
+            if (queue != null) {
+                Reply next = queue.size() > 1 ? queue.pollFirst() : queue.peekFirst();
+                if (next != null) {
+                    return next;
+                }
+            }
+        }
+        return replies.getOrDefault(method + " " + path, replies.getOrDefault(path, Reply.status(200)));
+    }
+
     /** The address to give a connection: plain HTTP on this machine. */
     public String url() {
         return "http://127.0.0.1:" + server.getLocalPort();
@@ -163,6 +266,36 @@ public final class FakeService implements AutoCloseable {
     /** Answers the path in this way from now on. */
     public FakeService answer(String path, Reply reply) {
         replies.put(path, reply);
+        return this;
+    }
+
+    /** Answers the path with these replies in turn; the last is repeated. */
+    public FakeService answerInTurn(String path, Reply... inTurn) {
+        sequences.put(path, new ConcurrentLinkedDeque<>(List.of(inTurn)));
+        return this;
+    }
+
+    /** Makes every successful POST to the path create a new entity, named {@code prefix-1}, {@code prefix-2}, ... */
+    public FakeService creates(String path, String prefix) {
+        creations.put(path, prefix);
+        return this;
+    }
+
+    /** Puts the service into an outage. {@code reply} is used by {@link Outage#STATUS} only. */
+    public FakeService outage(Outage kind, Reply reply) {
+        outageReply = reply;
+        outage = kind;
+        return this;
+    }
+
+    /** The same, for a kind that needs no reply. */
+    public FakeService outage(Outage kind) {
+        return outage(kind, Reply.status(503));
+    }
+
+    /** Brings the service back. */
+    public FakeService up() {
+        outage = null;
         return this;
     }
 
@@ -179,6 +312,16 @@ public final class FakeService implements AutoCloseable {
     /** How many times the path was asked. */
     public long asked(String path) {
         return seen.stream().filter(one -> one.path().equals(path)).count();
+    }
+
+    /** How many requests really took effect on this side, as {@code METHOD path}, oldest first. */
+    public List<String> effects() {
+        return List.copyOf(effectLog);
+    }
+
+    /** How many times a request with this method and path took effect. */
+    public long effectsOf(String method, String path) {
+        return effectLog.stream().filter((method + " " + path)::equals).count();
     }
 
     @Override

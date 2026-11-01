@@ -4,6 +4,7 @@ import app.platform.integration.adapter.AuthKind;
 import app.platform.integration.adapter.CanonicalEntity;
 import app.platform.integration.adapter.Connector;
 import app.platform.integration.adapter.ConnectorDescription;
+import app.platform.integration.adapter.JobState;
 import app.platform.integration.adapter.ConnectorDescription.EventSpec;
 import app.platform.integration.adapter.Operation;
 import app.platform.integration.adapter.OutboundRequest;
@@ -17,6 +18,7 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -47,6 +49,7 @@ public final class RestConnector implements Connector {
     private static final String SUCCESS = "success";
     private static final String EXACT = "exact";
     private static final String JSON = "application/json";
+    private static final String STATUS_PATH = "statusPath";
 
     private static final ConnectorDescription DESCRIPTION = new ConnectorDescription(KEY, "REST service",
             "A web service that answers a plain request and speaks JSON. The platform asks one safe question to see "
@@ -142,6 +145,54 @@ public final class RestConnector implements Connector {
             fields.put(entry.getKey(), read);
         }
         return new CanonicalEntity(kind, id, fields);
+    }
+
+    @Override
+    public String idempotencyHeader(Map<String, String> settings) {
+        return "Idempotency-Key";
+    }
+
+    /**
+     * A service that answers {@code 202} with {@code {"statusPath": "/some/path"}} has accepted the work and says where
+     * to ask about it (ADR-0233). Any other answer is final at once.
+     */
+    @Override
+    public Optional<String> remoteJob(Map<String, String> settings, Operation operation, int status, byte[] body) {
+        if (status != 202) {
+            return Optional.empty();
+        }
+        try {
+            JsonNode root = json.readTree(body);
+            JsonNode path = root == null ? null : root.get(STATUS_PATH);
+            return path != null && path.isString() ? Optional.of(path.asString()) : Optional.empty();
+        } catch (RuntimeException unreadable) {
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public ProbeRequest jobRequest(Map<String, String> settings, String jobPath) {
+        return new ProbeRequest(ProbeRequest.Method.GET, jobPath,
+                Duration.ofSeconds(Long.parseLong(settings.get(TIMEOUT))));
+    }
+
+    /** {@code {"state": "running" | "done" | "failed"}}; anything else counts as failed. */
+    @Override
+    public JobState jobState(Map<String, String> settings, int status, byte[] body) {
+        if (status < 200 || status >= 300) {
+            return JobState.FAILED;
+        }
+        try {
+            JsonNode state = json.readTree(body).get("state");
+            String text = state != null && state.isString() ? state.asString() : "";
+            return switch (text) {
+                case "running", "pending", "queued" -> JobState.RUNNING;
+                case "done", "completed" -> JobState.DONE;
+                default -> JobState.FAILED;
+            };
+        } catch (RuntimeException unreadable) {
+            return JobState.FAILED;
+        }
     }
 
     /** A JSON scalar as text, a number or a yes and no; anything nested or null is not read. */

@@ -29,12 +29,20 @@ public record SettingSpec(String key, String label, String hint, Kind kind, bool
         TEXT,
         /** A path on the external system: starts with a slash, no dot segments, no query. */
         PATH,
+        /** A name for a namespace: a {@code urn:} name or a web address without query or fragment. Never contacted. */
+        URI,
         /** One of a fixed list. */
         CHOICE,
         /** A whole number inside bounds. */
         INTEGER,
         /** {@code true} or {@code false}. */
-        BOOLEAN
+        BOOLEAN,
+        /** The fingerprint of a server's public key as the usual tools write it: {@code SHA256:} and 43 characters. */
+        FINGERPRINT,
+        /** A lower case name of letters, digits and dashes, starting with a letter (up to 40 characters). */
+        IDENTIFIER,
+        /** A directory on the external system: slash separated names of letters, digits, dots, dashes, underscores. */
+        DIRECTORY
     }
 
     /**
@@ -72,6 +80,16 @@ public record SettingSpec(String key, String label, String hint, Kind kind, bool
     /** A path setting with a default. */
     public static SettingSpec path(String key, String label, String hint, String defaultValue) {
         return new SettingSpec(key, label, hint, Kind.PATH, false, defaultValue, List.of(), null, null);
+    }
+
+    /** A directory setting with a default. */
+    public static SettingSpec directory(String key, String label, String hint, String defaultValue) {
+        return new SettingSpec(key, label, hint, Kind.DIRECTORY, false, defaultValue, List.of(), null, null);
+    }
+
+    /** A setting that is a value of one of the closed kinds that take no default, required or not. */
+    public static SettingSpec of(String key, String label, String hint, Kind kind, boolean required) {
+        return new SettingSpec(key, label, hint, kind, required, null, List.of(), null, null);
     }
 
     /** A setting that is one of a fixed list. */

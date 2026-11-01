@@ -2,7 +2,10 @@ package app.platform.integration.internal;
 
 import app.platform.integration.adapter.AuthKind;
 import app.platform.integration.adapter.Connector;
+import app.platform.integration.adapter.FileFlowConnector;
+import app.platform.integration.adapter.FileLayout;
 import app.platform.integration.adapter.ProbeRequest;
+import app.platform.integration.adapter.Transport;
 import app.platform.integration.internal.ConnectionMachine.Event;
 import app.platform.integration.internal.ConnectionMachine.State;
 import app.platform.integration.internal.ConnectionStore.Connection;
@@ -23,6 +26,8 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import jakarta.annotation.PreDestroy;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -47,7 +52,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  *
  * <p>This is the one deliberate call made inside an administrator's request: it is explicit, rare, rate limited and
  * bounded, and nothing a person's save, approval or other record work does ever waits for an external system. The
- * queue that moves such calls off the request arrives with Sprint 29.
+ * sending of records goes through the queue and the worker (Sprint 29), never through a request.
  */
 @Service
 class ConnectionTesting {
@@ -61,6 +66,8 @@ class ConnectionTesting {
     private final EndpointRules.Policy policy;
     private final IntegrationProperties properties;
     private final CredentialHeaders credentials;
+    private final CredentialLogins logins;
+    private final FileTransport fileTransport;
     private final AuditRecorder audit;
     private final ErrorTracker tracker;
     private final MeterRegistry meters;
@@ -69,8 +76,8 @@ class ConnectionTesting {
 
     ConnectionTesting(PlatformTransactionManager transactions, ConnectionStore store, ConnectorRegistry registry,
             IntegrationAccess access, IntegrationViews views, EgressClient egress, EndpointRules.Policy policy,
-            IntegrationProperties properties, CredentialHeaders credentials, AuditRecorder audit,
-            ErrorTracker tracker, MeterRegistry meters) {
+            IntegrationProperties properties, CredentialHeaders credentials, CredentialLogins logins,
+            FileTransport fileTransport, AuditRecorder audit, ErrorTracker tracker, MeterRegistry meters) {
         this.transactions = transactions;
         this.store = store;
         this.registry = registry;
@@ -80,6 +87,8 @@ class ConnectionTesting {
         this.policy = policy;
         this.properties = properties;
         this.credentials = credentials;
+        this.logins = logins;
+        this.fileTransport = fileTransport;
         this.audit = audit;
         this.tracker = tracker;
         this.meters = meters;
@@ -159,6 +168,9 @@ class ConnectionTesting {
     private TestReason probe(Connection connection, TenantId tenant) {
         Connector connector = registry.find(connection.connectorType()).orElseThrow();
         var definition = connection.definition();
+        if (connector instanceof FileFlowConnector files) {
+            return visit(files, connection, tenant);
+        }
         ProbeRequest probe = connector.probe(definition.settings());
         if (!EndpointRules.validPath(probe.path())) {
             return TestReason.UNEXPECTED;
@@ -189,6 +201,43 @@ class ConnectionTesting {
         }
         return auth != AuthKind.NONE && (status == 401 || status == 403) ? TestReason.AUTHENTICATION_REJECTED
                 : TestReason.UNEXPECTED_STATUS;
+    }
+
+    /**
+     * Tests a file transfer connection (Sprint 29A, ADR-0237): a real visit to the server, which checks the address,
+     * the pinned key and the credential, then looks into every directory the connection uses. It writes nothing,
+     * because the
+     * platform never deletes anything on the server and so could not tidy a test file away; a right to write that is
+     * missing shows up at the first send, as its own stable reason.
+     */
+    private TestReason visit(FileFlowConnector files, Connection connection, TenantId tenant) {
+        var definition = connection.definition();
+        EndpointRules.Result address = EndpointRules.parse(definition.baseUrl(), policy, Transport.SFTP);
+        if (!address.ok()) {
+            return TestReason.ADDRESS_NOT_ALLOWED;
+        }
+        CredentialLogins.Resolved resolved = logins.resolve(tenant, definition);
+        if (resolved.failure() != null) {
+            return resolved.failure();
+        }
+        FileLayout layout = files.layout(definition.settings());
+        Duration timeout = layout.operationTimeout().compareTo(properties.test().timeout()) < 0
+                ? layout.operationTimeout() : properties.test().timeout();
+        List<String> directories = new ArrayList<>(List.of(layout.outbox()));
+        if (layout.pulls()) {
+            directories.addAll(List.of(layout.inbox(), layout.processing(), layout.done(), layout.error()));
+        }
+        try (FileVisit visit = fileTransport.open(new FileTransport.Target(address.endpoint(),
+                definition.settings().get("hostKey"), timeout), resolved.login())) {
+            for (String directory : directories) {
+                visit.list(directory, 1);
+            }
+            return TestReason.OK;
+        } catch (TransportFailure failure) {
+            return failure.reason();
+        } finally {
+            resolved.login().destroy();
+        }
     }
 
     private IntegrationTestView finish(Claimed claimed, TestReason reason) {

@@ -1325,4 +1325,65 @@ if [ -n "$mail" ]; then
   status="$(call_host="" call -X POST -H 'Content-Type: application/json' -H 'X-Platform-Timestamp: 1' -H 'X-Platform-Nonce: abcdefgh' -H 'X-Platform-Signature: sha256=0000000000000000000000000000000000000000000000000000000000000000' -d '{"id":"x"}' "$base/api/v1/inbound/$unknown/item")"
   [ "$status" = "401" ] || fail "a badly signed call to an unknown connection answered $status: $(cat "$body")"
   echo "ok: the mapping catalogue was served, a mapping naming a missing field was refused without repeating it, and the public receiver refused unsigned and badly signed calls with one answer"
+  # 34. Reliability of the flows (Sprint 29, ADR-0227 to ADR-0236): the health of a connection is served with its circuit and
+  # limits, the circuit can be forced open and back to automatic with the action it offers and only with such an action, a
+  # limit above the platform's ceiling is refused with the ceiling in the words, and sending dead letters again answers with
+  # counts. The outage, the backoff and the recovery are proved by OutageRecoveryIT, which can start a service of its own.
+  # Written carefully and NOT claimed to work until this job has run it.
+  # Step 31 removed its connection, so this step makes its own and removes it at the end.
+  flow_json='{"name":"smoke-flow","label":"Smoke flow","connectorType":"rest","baseUrl":"https://api.example.com","authKind":"NONE","settings":{},"subscriptions":[],"scope":[],"version":0}'
+  status="$(client_call -X POST -H "$group_json" -d "$flow_json" "$base/api/v1/integrations")"
+  [ "$status" = "201" ] || fail "making the connection of the reliability step answered $status: $(cat "$body")"
+  status="$(client_call "$base/api/v1/integrations/smoke-flow/health")"
+  [ "$status" = "200" ] || fail "the health of a connection answered $status: $(cat "$body")"
+  grep -Fq '"circuit"' "$body" || fail "the health has no circuit: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"action":"force-open"}' "$base/api/v1/integrations/smoke-flow/circuit")"
+  [ "$status" = "200" ] || fail "forcing the circuit open answered $status: $(cat "$body")"
+  grep -Fq '"forced":"OPEN"' "$body" || fail "the circuit does not say it was forced: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"action":"nonsense"}' "$base/api/v1/integrations/smoke-flow/circuit")"
+  [ "$status" = "400" ] || fail "an action the circuit does not offer answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"action":"automatic"}' "$base/api/v1/integrations/smoke-flow/circuit")"
+  [ "$status" = "200" ] || fail "returning the circuit to automatic answered $status: $(cat "$body")"
+  grep -Fq '"state":"CLOSED"' "$body" || fail "the circuit is not closed after going back to automatic: $(cat "$body")"
+  status="$(client_call -X PUT -H "$group_json" -d '{"ratePerMinute":600000,"maxConcurrent":2}' "$base/api/v1/integrations/smoke-flow/limits")"
+  [ "$status" = "400" ] || fail "a limit above the ceiling answered $status: $(cat "$body")"
+  grep -Fq "at most" "$body" || fail "the refusal does not name the ceiling: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/integrations/smoke-flow/deliveries/replay")"
+  [ "$status" = "200" ] || fail "sending dead letters again answered $status: $(cat "$body")"
+  grep -Fq '"replayed"' "$body" || fail "the answer has no count: $(cat "$body")"
+  status="$(client_call -X DELETE -H "$group_json" "$base/api/v1/integrations/smoke-flow")"
+  [ "$status" = "200" ] || fail "removing the connection of the reliability step answered $status: $(cat "$body")"
+  echo "ok: the health and the circuit of a connection were served, the circuit was forced open and back to automatic with the actions it offers only, a limit above the ceiling was refused, and a bulk replay answered with counts"
+  # 35. File transfer (Sprint 29A, ADR-0237 to ADR-0243): the catalogue offers the file transfer type with its pinned server key,
+  # a file address is sftp:// and nothing else, a key that is not a fingerprint is refused without repeating it, a connection
+  # that picks up files shows how its files stand, and a test against a server that is not there fails with a stable reason and
+  # without the address. The flows with a real server are proved by FileFlowIT, FileOutageIT and FileSecurityIT, which start
+  # one of their own. Written carefully and NOT claimed to work until this job has run it.
+  status="$(client_call "$base/api/v1/integrations/connector-types")"
+  [ "$status" = "200" ] || fail "the connector types answered $status: $(cat "$body")"
+  grep -Fq '"key":"file-transfer"' "$body" || fail "the file transfer type is not offered: $(cat "$body")"
+  grep -Fq '"key":"hostKey"' "$body" || fail "the file transfer type does not ask for the server key: $(cat "$body")"
+  status="$(client_call -X PUT -H "$group_json" -d '{"value":"user-a:smoke-file-password"}' "$base/api/v1/credentials/smoke-file-login")"
+  [ "$status" = "200" ] || fail "writing the file login answered $status: $(cat "$body")"
+  fingerprint="SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  file_json='{"name":"smoke-files","label":"Smoke files","connectorType":"file-transfer","baseUrl":"sftp://files.example.com","authKind":"BASIC","credentialName":"smoke-file-login","settings":{"hostKey":"'"$fingerprint"'","inboundEntity":"item"},"subscriptions":[],"scope":[],"version":0}'
+  status="$(client_call -X POST -H "$group_json" -d "$file_json" "$base/api/v1/integrations")"
+  [ "$status" = "201" ] || fail "creating a file connection answered $status: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d "${file_json/sftp:\/\/files.example.com/https:\/\/files.example.com}" "$base/api/v1/integrations")"
+  [ "$status" = "400" ] || fail "a file connection with a web address was accepted ($status): $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{"name":"smoke-bad-key","label":"Bad key","connectorType":"file-transfer","baseUrl":"sftp://files.example.com","authKind":"BASIC","credentialName":"smoke-file-login","settings":{"hostKey":"not-a-fingerprint-canary"},"subscriptions":[],"scope":[],"version":0}' "$base/api/v1/integrations")"
+  [ "$status" = "400" ] || fail "a key that is not a fingerprint was accepted ($status): $(cat "$body")"
+  if grep -Fq "not-a-fingerprint-canary" "$body"; then fail "the refusal repeats what was typed: $(cat "$body")"; fi
+  status="$(client_call "$base/api/v1/integrations/smoke-files/health")"
+  [ "$status" = "200" ] || fail "the health of a file connection answered $status: $(cat "$body")"
+  grep -Fq '"files"' "$body" || fail "the health shows nothing about the files: $(cat "$body")"
+  status="$(client_call -X POST -H "$group_json" -d '{}' "$base/api/v1/integrations/smoke-files/test")"
+  [ "$status" = "200" ] || fail "testing a file connection answered $status: $(cat "$body")"
+  grep -Fq '"result":"FAILED"' "$body" || fail "a test against a server that is not there did not fail: $(cat "$body")"
+  # The answer carries the connection as the administrator typed it, so only the words of the result are looked at.
+  if grep -o '"words":"[^"]*"' "$body" | grep -Fq "files.example.com"; then fail "the test words repeat the address: $(cat "$body")"; fi
+  status="$(client_call -X DELETE -H "$group_json" "$base/api/v1/integrations/smoke-files")"
+  [ "$status" = "200" ] || [ "$status" = "204" ] || fail "removing the file connection answered $status: $(cat "$body")"
+  status="$(client_call -X DELETE -H "$group_json" "$base/api/v1/credentials/smoke-file-login")"
+  echo "ok: the file transfer type was offered, only an sftp:// address and a fingerprint were accepted without repeating what was typed, the files of a connection were shown, and a test against a server that is not there failed without its address"
 fi
