@@ -69,7 +69,7 @@ class DeliveryStore {
                                  and b.object_api_name = c.object_api_name and b.record_id = c.record_id
                                  and b.direction = 'OUT' and b.state in (%s) and b.deleted_at is null
                                  and (b.created_at, b.id) < (c.created_at, c.id))
-            """.formatted(OPEN, OPEN);
+            """.replace("%s", OPEN);
 
     /**
      * Claims fairly (ADR-0164, ADR-0231): the organizations that have something due are found by a skip scan, each
@@ -110,7 +110,7 @@ class DeliveryStore {
             returning e.id, e.tenant_id, e.connection_id, e.mapping_version_id, e.kind, e.event_id,
                       e.object_api_name, e.record_id, e.state, e.attempts, e.generation, e.remote_ref, e.deadline_at,
                       e.version, e.run_at
-            """.formatted(DUE);
+            """.replace("%1$s", DUE);
 
     private final JdbcClient jdbc;
     private final TenantContexts contexts;

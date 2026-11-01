@@ -233,7 +233,6 @@ class FilePoller {
     // ---- the look itself: no transaction is held while the server is talked to ----
 
     private Looked look(Begun begun, Login login) {
-        FileFlowConnector connector = begun.connector();
         FileLayout layout = begun.layout();
         FileTransport.Target target = new FileTransport.Target(begun.endpoint(),
                 begun.connection().definition().settings().get("hostKey"), layout.operationTimeout());
@@ -361,7 +360,7 @@ class FilePoller {
         }
         // CLAIMED: apply what is left.
         if (processingName == null) {
-            return reject(begun, entry, processingName, FlowReason.FILE_VANISHED.key());
+            return reject(begun, entry, null, FlowReason.FILE_VANISHED.key());
         }
         if (entry.sizeBytes() > settings.maxFileBytes()) {
             return reject(begun, entry, processingName, FlowReason.FILE_TOO_LARGE.key());
@@ -410,13 +409,9 @@ class FilePoller {
                 // Out of time: what is written stays written, and the next look resumes at the next row.
                 return null;
             }
-            Boolean applied = applyBatch(begun, entry.id(), rows, batch);
-            if (applied == null) {
-                // The connection was switched off in the middle: stop here; the rest is resumed when it is on.
-                return null;
-            }
-            if (!applied) {
-                // The ledger moved under us (it cannot, with the lease): stop without writing anything more.
+            if (!applyBatch(begun, entry.id(), rows, batch)) {
+                // The connection was switched off in the middle (the rest is resumed when it is on), or the ledger
+                // moved under us (it cannot, with the lease): stop without writing anything more.
                 return null;
             }
             done = batch.to();
@@ -431,12 +426,12 @@ class FilePoller {
                 refused ? FlowReason.FILE_ROWS_REFUSED.key() : null);
     }
 
-    /** One batch in one transaction, with its progress. Null when the connection is no longer usable. */
-    private Boolean applyBatch(Begun begun, UUID id, List<CanonicalEntity> rows, Batch batch) {
+    /** One batch in one transaction, with its progress. False when the connection is unusable or the ledger moved. */
+    private boolean applyBatch(Begun begun, UUID id, List<CanonicalEntity> rows, Batch batch) {
         return transaction.execute(status -> {
             Connection fresh = connections.findById(begun.connection().id()).orElse(null);
             if (fresh == null || !ConnectionMachine.isUsable(fresh.state())) {
-                return null;
+                return false;
             }
             int applied = 0;
             int skipped = 0;

@@ -117,7 +117,8 @@ class MultiInstanceIT extends ReliabilitySupport {
         assertThat(service.effectsOf("POST", "/api/item")).as("nothing has been sent yet").isZero();
 
         // The connection is switched on again; the lease of the row has ended, so an instance takes it over.
-        assertThat(test(admin, connection).status()).isEqualTo(200);
+        // The set-up tested the connection a moment ago; a second test inside the minimum interval answers 429.
+        await(linked, "the connection to be testable again", () -> test(admin, connection).status() == 200);
         assertThat(enable(admin, connection, versionOf(admin, connection)).status()).isEqualTo(200);
         await(linked, "the held delivery to be taken over", () -> count(admin, connection, "DONE") == 1);
 
