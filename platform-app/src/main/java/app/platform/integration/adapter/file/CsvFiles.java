@@ -23,7 +23,8 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * Comma separated values, read and written by hand (Sprint 29A, ADR-0240). The rules are strict and small so that a file
+ * Comma separated values, read and written by hand (Sprint 29A, ADR-0240). The rules are strict and small so that a
+ * file
  * is either read as the connection says or refused as a whole: UTF-8 text only (a leading byte order mark is accepted),
  * double quotes for a value that holds a comma, a quote or a line break, a first line that names the columns, every
  * row as long as the first, bounds on the number of columns, the number of rows and the length of a value. Nothing a
