@@ -56,7 +56,10 @@ class EndpointExposureIT {
             // has no session; it proves itself with an HMAC over the exact bytes of the body, keyed with a credential
             // of the organization, and an unknown connection, a switched-off one, a stale time, a replay and a wrong
             // signature all get the same 401. The organization comes from the connection, never from the host.
-            "POST /api/v1/inbound/x/x");
+            "POST /api/v1/inbound/x/x",
+            // Sprint 30 (ADR-0248): the contract document of the public API, so that an integrator can read it before
+            // holding any credential. It shows shapes and words, never data, and names no host.
+            "GET /api/public/v1/openapi");
 
     @LocalServerPort
     private int port;
@@ -79,7 +82,8 @@ class EndpointExposureIT {
             }
             for (var pattern : info.getPathPatternsCondition().getPatterns()) {
                 String path = pattern.getPatternString().replaceAll("\\{[^}]+}", "x");
-                if (!path.startsWith("/api/v1/")) {
+                // The public API (Sprint 30, ADR-0244) is walked too: a prefix that no rule looked at would be open.
+                if (!path.startsWith("/api/v1/") && !path.startsWith("/api/public/v1/")) {
                     continue;
                 }
                 Set<RequestMethod> methods = info.getMethodsCondition().getMethods();
@@ -126,6 +130,7 @@ class EndpointExposureIT {
         TestBrowser anonymous = new TestBrowser(port, TestSignIn.PLATFORM_HOST);
 
         assertThat(anonymous.get("/api/v1/does-not-exist").status()).isEqualTo(401);
+        assertThat(anonymous.get("/api/public/v1/does-not-exist").status()).isEqualTo(401);
         assertThat(anonymous.get("/something-outside-the-api").status()).isEqualTo(401);
     }
 }

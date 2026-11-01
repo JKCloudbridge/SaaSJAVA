@@ -5,5 +5,5 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ./mvnw -B -ntp -pl platform-app -am verify -Pintegration-only \
-  -Dit.test=OpenApiContractIT -Dsurefire.failIfNoSpecifiedTests=false -Dopenapi.update=true
-echo "Updated platform-api-contract/src/main/resources/openapi/platform-api-v1.json"
+  -Dit.test=OpenApiContractIT,PublicOpenApiContractIT -Dsurefire.failIfNoSpecifiedTests=false -Dopenapi.update=true
+echo "Updated platform-api-contract/src/main/resources/openapi/platform-api-v1.json and platform-public-api-v1.json"

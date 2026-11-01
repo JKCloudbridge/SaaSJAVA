@@ -119,6 +119,11 @@ jobs:
       - name: Generated API client is current
         run: npm run api:check
 
+      # The published contract of the public API (Sprint 30) must produce a client that type-checks against a sample that
+      # calls every operation: a document a generator cannot turn into a usable client fails the build.
+      - name: Public API contract produces a usable client
+        run: npm run api:public:check
+
       - name: Build
         run: npm run build
 

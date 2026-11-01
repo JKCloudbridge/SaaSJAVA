@@ -57,7 +57,7 @@ class SecurityConfiguration {
     /** The only public API paths. Anything else under {@code /api/v1} needs a signed-in caller. */
     static final String[] PUBLIC_GET = {
         ApiPaths.PLATFORM_STATUS, ApiPaths.OPENAPI, ApiPaths.TENANT_CURRENT, ApiPaths.AUTH_CSRF, ApiPaths.AUTH_START,
-        ApiPaths.AUTH_CALLBACK, "/error"
+        ApiPaths.AUTH_CALLBACK, "/error", ApiPaths.PUBLIC_OPENAPI
     };
 
     /**
@@ -92,9 +92,18 @@ class SecurityConfiguration {
         return rest.length == 2 && !rest[0].isEmpty() && !rest[1].isEmpty();
     }
 
+    /**
+     * A request to the public API (Sprint 30, ADR-0249). It proves itself with a bearer token in the header and with
+     * nothing else: the session cookie is never turned into a token for it (and the browser does not send that cookie
+     * to this prefix at all), so there is no cookie to forge a request with and no forgery check to ask for.
+     */
+    static boolean isPublicApi(HttpServletRequest request) {
+        return ApiPaths.isPublicApiPath(request.getRequestURI());
+    }
+
     /** Whether the request is for one of the public endpoints (by method and path). */
     static boolean isPublic(HttpServletRequest request) {
-        if (isInbound(request)) {
+        if (isInbound(request) || isPublicApi(request)) {
             return true;
         }
         String path = request.getRequestURI();
@@ -180,7 +189,8 @@ class SecurityConfiguration {
 
         http.cors(cors -> cors.configurationSource(new EmbeddedCors()))
                 .csrf(csrf -> csrf.csrfTokenRepository(csrfTokens).csrfTokenRequestHandler(csrfHandler)
-                        .ignoringRequestMatchers(hasAuthorizationHeader, SecurityConfiguration::isInbound))
+                        .ignoringRequestMatchers(hasAuthorizationHeader, SecurityConfiguration::isInbound,
+                                SecurityConfiguration::isPublicApi))
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .requestCache(cache -> cache.disable())
@@ -206,6 +216,8 @@ class SecurityConfiguration {
                         BearerTokenAuthenticationFilter.class)
                 // The token of a custom page's script reaches the data interface and nothing else (ADR-0127).
                 .addFilterAfter(new EmbeddedAccessFilter(denied), BearerTokenAuthenticationFilter.class)
+                // What a token may reach of the public API: the seam Sprint 31 fills with scopes (ADR-0249).
+                .addFilterAfter(new PublicApiAccessFilter(denied), EmbeddedAccessFilter.class)
                 .addFilterAfter(new UserContextFilter(contexts), BearerTokenAuthenticationFilter.class)
                 // Once the caller is a known member: a stranger cannot use up an organization's turns (ADR-0108).
                 .addFilterAfter(limits.requestFilter(), UserContextFilter.class);

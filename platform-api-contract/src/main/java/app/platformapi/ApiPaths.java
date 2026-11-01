@@ -303,6 +303,32 @@ public final class ApiPaths {
      */
     public static final String INBOUND = V1 + "/inbound";
 
+    /**
+     * Prefix of every operation of the public API (Sprint 30, ADR-0244): a small, stable interface beside the internal
+     * one, with its own version. A breaking change would introduce {@code /api/public/v2} beside it.
+     */
+    public static final String PUBLIC_V1 = "/api/public/v1";
+
+    /** The published description of the public API: no sign-in, served in every profile (Sprint 30, ADR-0248). */
+    public static final String PUBLIC_OPENAPI = PUBLIC_V1 + "/openapi";
+
+    /** The objects of the public API. */
+    public static final String PUBLIC_OBJECTS = PUBLIC_V1 + "/objects";
+
+    /**
+     * Whether the path belongs to an API of the platform that resolves the organization from the host and takes part
+     * in the limits of an organization: the internal API and the public API. Every rule that used to look for the
+     * internal prefix alone asks this, so a new prefix cannot be forgotten in one of them (Sprint 30, ADR-0244).
+     */
+    public static boolean isApiPath(String path) {
+        return path != null && (path.startsWith(V1 + "/") || path.startsWith(PUBLIC_V1 + "/"));
+    }
+
+    /** Whether the path belongs to the public API. */
+    public static boolean isPublicApiPath(String path) {
+        return path != null && path.startsWith(PUBLIC_V1 + "/");
+    }
+
     private ApiPaths() {
     }
 }

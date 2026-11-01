@@ -47,7 +47,8 @@ class TenantResolutionFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !request.getRequestURI().startsWith(ApiPaths.V1 + "/");
+        // The public API (Sprint 30, ADR-0244) resolves its organization exactly like the internal one: from the host.
+        return !ApiPaths.isApiPath(request.getRequestURI());
     }
 
     @Override

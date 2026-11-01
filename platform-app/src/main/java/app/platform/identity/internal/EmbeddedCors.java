@@ -1,5 +1,6 @@
 package app.platform.identity.internal;
 
+import app.platformapi.ApiPaths;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import org.springframework.web.cors.CorsConfiguration;
@@ -26,6 +27,11 @@ final class EmbeddedCors implements CorsConfigurationSource {
 
     @Override
     public CorsConfiguration getCorsConfiguration(HttpServletRequest request) {
+        // The public API has no cross-origin rule at all (Sprint 30, ADR-0249): it is for servers, and a page of the
+        // platform reaches the internal API, which is the one its sandboxed scripts are allowed to call.
+        if (ApiPaths.isPublicApiPath(request.getRequestURI())) {
+            return null;
+        }
         return SANDBOXED_ORIGIN.equals(request.getHeader("Origin")) ? configuration : null;
     }
 

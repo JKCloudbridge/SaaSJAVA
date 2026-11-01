@@ -1,21 +1,30 @@
 package app.platform.data.internal;
 
 import app.platform.data.DataRecord;
+import app.platform.data.IdempotentWrites;
+import app.platform.data.RecordBulk;
 import app.platform.data.Records;
 import app.platform.security.ObjectAction;
 import app.platform.tenant.TenantContexts;
 import app.platformapi.ApiException;
+import app.platformapi.ErrorCode;
 import app.platformapi.BulkRecordItem;
 import app.platformapi.BulkRecordResult;
 import app.platformapi.BulkRecordsRequest;
 import app.platformapi.BulkRecordsResponse;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Creates, changes or deletes many records in one call (Sprint 17, ADR-0122). There is no private path: every record
@@ -32,9 +41,15 @@ import org.springframework.transaction.support.TransactionTemplate;
  *
  * <p>One audit record per call says what the call did and how many records it saved and refused; it is written in its
  * own transaction so that it exists also when the call was rolled back. No value of any record is in it.
+ *
+ * <p><strong>Keyed calls</strong> (Sprint 30, ADR-0246). A call that carries an {@link IdempotentWrites.Claim} asks
+ * the memory of keyed writes inside its own transaction, after the gate: a call the caller has made before is not
+ * carried out again but answered from the memory, and a call that saved something writes its memory in the same
+ * transaction, so the memory exists exactly when the records do. An all-or-none call that was rolled back writes
+ * nothing.
  */
 @Service
-class BulkRecords {
+class BulkRecords implements RecordBulk {
 
     private enum Operation { CREATE, UPDATE, DELETE }
 
@@ -46,9 +61,11 @@ class BulkRecords {
     private final RecordChanges changes;
     private final BulkProperties properties;
     private final TenantContexts contexts;
+    private final IdempotencyStore memory;
+    private final JsonMapper json = JsonMapper.builder().build();
 
     BulkRecords(Records records, RecordGate gate, PlatformTransactionManager transactions, RecordChanges changes,
-            BulkProperties properties, TenantContexts contexts) {
+            BulkProperties properties, TenantContexts contexts, IdempotencyStore memory) {
         this.records = records;
         this.gate = gate;
         this.call = new TransactionTemplate(transactions);
@@ -59,6 +76,7 @@ class BulkRecords {
         this.changes = changes;
         this.properties = properties;
         this.contexts = contexts;
+        this.memory = memory;
     }
 
     /**
@@ -68,7 +86,20 @@ class BulkRecords {
      *         allows, and whatever the first record's gate refuses for the object itself (an object the caller may not
      *         use is {@code NOT_FOUND}, as everywhere)
      */
-    BulkRecordsResponse run(String objectApiName, BulkRecordsRequest request) {
+    @Override
+    public BulkRecordsResponse run(String objectApiName, BulkRecordsRequest request) {
+        return run(objectApiName, request, null).response();
+    }
+
+    /**
+     * Runs the call, or answers the earlier outcome of the same keyed call.
+     *
+     * @param claim the key of the caller, or null for a call without one
+     * @throws ApiException as {@link #run(String, BulkRecordsRequest)}, and {@code CONFLICT} when the key was used for
+     *         another request
+     */
+    IdempotentWrites.BulkOutcome run(String objectApiName, BulkRecordsRequest request,
+            IdempotentWrites.Claim claim) {
         Operation operation = operation(request.operation());
         if (request.records().size() > properties.maxRecords()) {
             throw ApiException.validation("records", "A call carries at most " + properties.maxRecords()
@@ -76,6 +107,7 @@ class BulkRecords {
         }
         boolean allOrNone = Boolean.TRUE.equals(request.allOrNone());
         List<BulkRecordResult> results = new ArrayList<>();
+        AtomicReference<BulkRecordsResponse> replay = new AtomicReference<>();
         Boolean committed = call.execute(status -> {
             // The object and the operation are judged once for the whole call, as a single request would be: a
             // caller who may not do this to the object gets the refusal, not a list of identical failures. Inside
@@ -86,6 +118,15 @@ class BulkRecords {
                 case UPDATE -> ObjectAction.UPDATE;
                 case DELETE -> ObjectAction.DELETE;
             });
+            if (claim != null) {
+                // After the gate, so that a repeat never tells a caller who may no longer use the object anything.
+                memory.lock(claim.caller(), claim.keyHash());
+                Optional<IdempotencyStore.Row> earlier = memory.find(claim.caller(), claim.keyHash());
+                if (earlier.isPresent()) {
+                    replay.set(replayed(earlier.get(), claim, operation, allOrNone));
+                    return true;
+                }
+            }
             boolean failed = false;
             for (int position = 0; position < request.records().size(); position++) {
                 BulkRecordResult result = one(objectApiName, operation, position, request.records().get(position));
@@ -96,8 +137,14 @@ class BulkRecords {
                 status.setRollbackOnly();
                 return false;
             }
+            if (claim != null && results.stream().anyMatch(result -> !"FAILED".equals(result.status()))) {
+                memory.insert(claim, "BULK_RECORDS", objectApiName, outcomeOf(operation, allOrNone, results));
+            }
             return true;
         });
+        if (replay.get() != null) {
+            return new IdempotentWrites.BulkOutcome(replay.get(), true);
+        }
         boolean saved = Boolean.TRUE.equals(committed);
         List<BulkRecordResult> outcome = saved ? results : rolledBack(results);
         int succeeded = saved ? (int) results.stream().filter(result -> !"FAILED".equals(result.status())).count() : 0;
@@ -105,7 +152,57 @@ class BulkRecords {
         UUID actor = contexts.current().map(context -> context.userId()).orElse(null);
         own.executeWithoutResult(status -> changes.bulkSummary(actor, objectApiName, operation.name(),
                 request.records().size(), succeeded, failed, allOrNone, saved));
-        return new BulkRecordsResponse(operation.name(), allOrNone, saved, succeeded, failed, outcome);
+        return new IdempotentWrites.BulkOutcome(
+                new BulkRecordsResponse(operation.name(), allOrNone, saved, succeeded, failed, outcome), false);
+    }
+
+    /** What the memory keeps of a call: the status, identifier, version and code of each position, nothing else. */
+    private String outcomeOf(Operation operation, boolean allOrNone, List<BulkRecordResult> results) {
+        Map<String, Object> outcome = new LinkedHashMap<>();
+        outcome.put("operation", operation.name());
+        outcome.put("allOrNone", allOrNone);
+        List<Map<String, Object>> kept = new ArrayList<>();
+        for (BulkRecordResult result : results) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("position", result.position());
+            item.put("status", result.status());
+            if (result.id() != null) {
+                item.put("id", result.id().toString());
+            }
+            if (result.version() != null) {
+                item.put("version", result.version());
+            }
+            if (result.code() != null) {
+                item.put("code", result.code());
+            }
+            kept.add(item);
+        }
+        outcome.put("results", kept);
+        return json.writeValueAsString(outcome);
+    }
+
+    /** The answer of a call that was made before, rebuilt from the memory; a refusal keeps its code, not its words. */
+    private BulkRecordsResponse replayed(IdempotencyStore.Row earlier, IdempotentWrites.Claim claim,
+            Operation operation, boolean allOrNone) {
+        if (!"BULK_RECORDS".equals(earlier.operation()) || !claim.requestHash().equals(earlier.requestHash())) {
+            throw new ApiException(ErrorCode.CONFLICT, DefaultIdempotentWrites.KEY_REUSED);
+        }
+        JsonNode stored = json.readTree(earlier.outcome());
+        List<BulkRecordResult> results = new ArrayList<>();
+        for (JsonNode item : stored.path("results")) {
+            String status = item.path("status").asString();
+            UUID id = item.has("id") ? UUID.fromString(item.path("id").asString()) : null;
+            Long version = item.has("version") ? item.path("version").asLong() : null;
+            if ("FAILED".equals(status)) {
+                results.add(new BulkRecordResult(item.path("position").asInt(), status, null, null,
+                        item.path("code").asString(), DefaultIdempotentWrites.REFUSED_BEFORE, null));
+            } else {
+                results.add(new BulkRecordResult(item.path("position").asInt(), status, id, version, null, null,
+                        null));
+            }
+        }
+        int failed = (int) results.stream().filter(result -> "FAILED".equals(result.status())).count();
+        return new BulkRecordsResponse(operation.name(), allOrNone, true, results.size() - failed, failed, results);
     }
 
     private BulkRecordResult one(String object, Operation operation, int position, BulkRecordItem item) {
