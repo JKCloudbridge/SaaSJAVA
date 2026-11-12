@@ -1,0 +1,32 @@
+{
+  "compare": {
+    "formulas": 22,
+    "equalToExcelStoredValue": 20,
+    "differences": [
+      {
+        "cell": "4:14",
+        "excelKind": "e",
+        "univer": "object"
+      },
+      {
+        "cell": "4:35",
+        "excelKind": "e",
+        "univer": "object"
+      }
+    ]
+  },
+  "typedFormula": {
+    "value": 10,
+    "formula": "=SUM(1,2,3)+MIN(5,4)"
+  },
+  "insertRow": {
+    "patternFormulaPresentOnRow4": true,
+    "newRowHasFormula": false,
+    "row4Unchanged": true
+  },
+  "fillDown": {
+    "how": "autoFill",
+    "row5HasFormula": true,
+    "referencesMovedWithTheRow": true
+  }
+}

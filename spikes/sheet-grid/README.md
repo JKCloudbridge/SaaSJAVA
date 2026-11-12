@@ -46,3 +46,32 @@ Do not use the machine for anything heavy while the matrix runs: the timings are
 - The proxy in `lib/serve.mjs` sets the content security policy per run (none, relaxed, strict) in front of the production build.
 - Library pages are client-only. The key presses are paced like a person's (the libraries register keys after a programmatic selection only once their own state has settled; the first version of the script had no pause and blamed the libraries for it).
 - `pg/measure.mjs` runs as the application role `platform_app` with the tenant setting (`app.current_tenant`) in each transaction, so forced row level security applies. It reads the local credentials from `infra/local/.env` and never prints them.
+
+## POC 1 (2026-11-12): the spreadsheet engine proof of concept
+
+Added on top of the FA0 harness; the FA0 results in `results/` were measured with Univer 1.1.0 and are **kept unchanged**. This folder now pins Univer **1.4.0** and three of its presets (conditional formatting, find and replace,
+data validation); to repeat the FA0 matrix exactly, restore `package.json` and `package-lock.json` from the commit before POC 1.
+
+| File | What |
+|---|---|
+| `components/Poc1Univer.jsx`, `app/poc1/univer/page.jsx`, `adapters/poc1Univer.mjs` | Univer under test: a real workbook (fixture) or a synthetic sheet of fixed, filler and reviewer cells, with the guards |
+| `components/Poc1OwnGrid.jsx`, `app/poc1/own/page.jsx`, `lib/poc1Closed.mjs`, `scripts/poc1-gen-css.mjs`, `app/poc1-own.css` | our own grid, extended (closed lists, styles, frozen header, conditional colour, formulas) |
+| `lib/poc1Formula.mjs`, `lib/poc1Formula.test.mjs` | the evaluator and the translators for formulas stored by identifier |
+| `lib/poc1Layout.mjs` | the random layouts of cell classes |
+| `poc1-univer-basic.mjs`, `poc1-univer-formulas.mjs`, `poc1-univer-classes.mjs`, `poc1-extras.mjs`, `poc1-closed-lists.mjs` | the measurements; they print counts and times only |
+| `poc1-serve.mjs` | serves the pages and the fixtures for looking by hand |
+
+The two real workbooks are **never** in this folder. The Java spike writes a neutral JSON of each (`ExportNeutral`) into a folder you choose (`POC1_DATA`); it holds the owner's text and must stay outside the repository.
+Commands: `docs/spikes/spreadsheet-engine-spike.md`, section 5.
+
+## POC 2 additions (fidelity and the fill-in model)
+
+| File | What |
+|---|---|
+| `components/Poc2OwnGrid.jsx`, `app/poc2/own/page.jsx`, `app/poc2-own.css`, `scripts/poc2-gen-css.mjs` | the own grid with a tab bar for several sheets, three looks (a: POC 1 closed lists, b: wider closed lists, c: any checked colour), and the check boxes, Yes/No pairs and embedded-file places the extras reader found |
+| `lib/poc2Look.mjs`, `poc2-look.mjs` | the candidate looks (written before measuring) and the distance of each to the two real forms |
+| `poc2-look-shots.mjs`, `results/poc2-look.json` | every tab of both forms drawn three ways under the strict style policy (violations, colours against the file), and the pictures written OUTSIDE the repository |
+| `lib/poc2Formula.mjs`, `lib/poc2Formula.test.mjs`, `lib/poc2-formula-cases.txt` | the larger function set, the growing range `@{COL,*}`, and 225 cases shared with the Java side (POI) |
+| `poc2-serve.mjs` | serves the pages and the fixtures (including `plant-extras.json`, positions only) for looking by hand |
+
+Commands: `docs/spikes/spreadsheet-fidelity-spike.md`, section 5.

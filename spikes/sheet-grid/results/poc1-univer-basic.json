@@ -1,0 +1,152 @@
+{
+  "univer": "1.4.0",
+  "runs": 5,
+  "policies": {
+    "none": {
+      "started": true,
+      "violations": {},
+      "canvases": 2,
+      "foreign": [],
+      "afterReady": [],
+      "pageErrors": []
+    },
+    "none+presets": {
+      "started": true,
+      "violations": {},
+      "canvases": 2,
+      "foreign": [],
+      "afterReady": [],
+      "pageErrors": []
+    },
+    "relaxed": {
+      "started": true,
+      "violations": {},
+      "canvases": 2,
+      "foreign": [],
+      "afterReady": [],
+      "pageErrors": []
+    },
+    "relaxed+presets": {
+      "started": true,
+      "violations": {},
+      "canvases": 2,
+      "foreign": [],
+      "afterReady": [],
+      "pageErrors": []
+    },
+    "strict": {
+      "started": true,
+      "violations": {
+        "style-src-attr:inline": 1,
+        "style-src-elem:inline": 4
+      },
+      "canvases": 2,
+      "foreign": [],
+      "afterReady": [],
+      "pageErrors": []
+    },
+    "strict+presets": {
+      "started": true,
+      "violations": {
+        "style-src-attr:inline": 1,
+        "style-src-elem:inline": 4
+      },
+      "canvases": 2,
+      "foreign": [],
+      "afterReady": [],
+      "pageErrors": []
+    }
+  },
+  "core": {
+    "readyMs": [
+      1391,
+      1137,
+      1323,
+      1204,
+      2823
+    ],
+    "readyMedian": 1323,
+    "readyMax": 2823,
+    "weight": {
+      "jsKb": 7648,
+      "jsGzipKb": 1966,
+      "cssKb": 127
+    },
+    "typingP95": [
+      19.4,
+      30,
+      19.4,
+      18.1,
+      18.1
+    ],
+    "typingP50": [
+      12.4,
+      12.3,
+      12.1,
+      12.5,
+      11.4
+    ],
+    "typingKeys": 26,
+    "scrollOver50msPerRun": [
+      1,
+      0,
+      0,
+      0,
+      0
+    ],
+    "scrollLongTasksPerRun": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "heapMb": 30.1
+  },
+  "withPresets": {
+    "readyMs": [
+      1186,
+      1147,
+      2082,
+      1135,
+      2538
+    ],
+    "readyMedian": 1186,
+    "readyMax": 2538,
+    "weight": {
+      "jsKb": 7917,
+      "jsGzipKb": 2028,
+      "cssKb": 136
+    },
+    "typingP95": [
+      18.3,
+      48.7,
+      30.7,
+      43.9,
+      18.3
+    ],
+    "typingP50": [
+      12.4,
+      13,
+      12.6,
+      12.7,
+      11.9
+    ],
+    "typingKeys": 26,
+    "scrollOver50msPerRun": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "scrollLongTasksPerRun": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "heapMb": 30.7
+  }
+}

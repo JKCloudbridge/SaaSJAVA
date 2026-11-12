@@ -1,0 +1,102 @@
+{
+  "univer": {
+    "readyMs": 4100,
+    "accessibilityRoles": {
+      "main": 1,
+      "tablist": 2,
+      "tab": 6,
+      "toolbar": 1,
+      "button": 44,
+      "img": 45,
+      "text": 3,
+      "textbox": 4,
+      "complementary": 2,
+      "slider": 1,
+      "region": 1,
+      "alert": 1
+    },
+    "accessibleCellNames": 0,
+    "tabStopsDistinct": 1,
+    "tabStopsSample": [
+      "div||"
+    ],
+    "cspViolations": [],
+    "keyboardOnly": {
+      "arrowsMove": true,
+      "typeCommits": true,
+      "boldShortcut": false,
+      "undoRedo": true,
+      "findDialogOpens": true
+    },
+    "autosavePatchCells": [
+      "6,2"
+    ],
+    "dark": {
+      "lightBrightness": 0.9,
+      "darkByMediaQuery": 0.78,
+      "darkByLibraryCall": 0.21
+    },
+    "phone": {
+      "pageScrollWidth": 390,
+      "viewport": 390,
+      "canvases": 3,
+      "buttons": 59
+    }
+  },
+  "own": {
+    "readyMs": 1229,
+    "accessibilityRoles": {
+      "alert": 1,
+      "main": 1,
+      "text": 1,
+      "textbox": 1,
+      "grid": 1,
+      "gridcell": 743,
+      "row": 15
+    },
+    "accessibleCellNames": 743,
+    "tabStopsDistinct": 3,
+    "tabStopsSample": [
+      "input||Formula bar",
+      "div|grid|Sheet",
+      "body||"
+    ],
+    "cspViolations": [],
+    "typing": {
+      "n": 26,
+      "p50": 14.4,
+      "p95": 21.5
+    },
+    "recalculation": {
+      "changedCellsAfterTypingThreeInputs": 2,
+      "shownAfter": [
+        "100",
+        "75",
+        "100",
+        "100"
+      ]
+    },
+    "typedFormulaShows": "10",
+    "refusedFormulaMessage": "This formula is not accepted (function_not_allowed).",
+    "arrowKeysMoveSelection": true,
+    "dark": {
+      "lightBrightness": 0.94,
+      "darkByMediaQuery": 0.15,
+      "darkByLibraryCall": null
+    },
+    "phone": {
+      "pageScrollWidth": 390,
+      "viewport": 390,
+      "canvases": 0,
+      "buttons": 0
+    }
+  },
+  "severalSheets": {
+    "workbookWithSevenWorksheetsOfWhichThreeHidden": {
+      "sheets": 4,
+      "switched": "Sheet 3",
+      "frozenAfterSwitch": 3,
+      "tabButtonsInDom": 4
+    }
+  }
+}

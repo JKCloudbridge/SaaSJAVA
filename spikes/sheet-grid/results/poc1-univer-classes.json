@@ -1,0 +1,472 @@
+{
+  "none": {
+    "type into a forbidden cell": {
+      "leak": 8,
+      "blocked": 0,
+      "filtered": 0,
+      "error": 0,
+      "sample": [
+        {
+          "seed": 1,
+          "role": "filler"
+        },
+        {
+          "seed": 2,
+          "role": "reviewer"
+        }
+      ]
+    },
+    "type into a permitted cell (must still work)": {
+      "leak": 0,
+      "blocked": 0,
+      "filtered": 8,
+      "error": 0,
+      "sample": []
+    },
+    "Delete over a mixed block": {
+      "leak": 8,
+      "blocked": 0,
+      "filtered": 0,
+      "error": 0,
+      "sample": [
+        {
+          "seed": 1,
+          "role": "filler"
+        },
+        {
+          "seed": 2,
+          "role": "reviewer"
+        }
+      ]
+    },
+    "cut a mixed block and paste": {
+      "leak": 8,
+      "blocked": 0,
+      "filtered": 0,
+      "error": 0,
+      "sample": [
+        {
+          "seed": 1,
+          "role": "filler"
+        },
+        {
+          "seed": 2,
+          "role": "reviewer"
+        }
+      ]
+    },
+    "copy a mixed block and paste over a mixed block": {
+      "leak": 8,
+      "blocked": 0,
+      "filtered": 0,
+      "error": 0,
+      "sample": [
+        {
+          "seed": 1,
+          "role": "filler"
+        },
+        {
+          "seed": 2,
+          "role": "reviewer"
+        }
+      ]
+    },
+    "paste text from outside over a mixed block": {
+      "leak": 8,
+      "blocked": 0,
+      "filtered": 0,
+      "error": 0,
+      "sample": [
+        {
+          "seed": 1,
+          "role": "filler"
+        },
+        {
+          "seed": 2,
+          "role": "reviewer"
+        }
+      ]
+    },
+    "drag-fill over a mixed block (API)": {
+      "leak": 8,
+      "blocked": 0,
+      "filtered": 0,
+      "error": 0,
+      "sample": [
+        {
+          "seed": 1,
+          "role": "filler"
+        },
+        {
+          "seed": 2,
+          "role": "reviewer"
+        }
+      ]
+    },
+    "undo and redo": {
+      "leak": 0,
+      "blocked": 8,
+      "filtered": 0,
+      "error": 0,
+      "sample": []
+    },
+    "find and replace (API)": {
+      "leak": 0,
+      "blocked": 8,
+      "filtered": 0,
+      "error": 0,
+      "sample": []
+    },
+    "delete a row that holds forbidden cells (API)": {
+      "leak": 8,
+      "blocked": 0,
+      "filtered": 0,
+      "error": 0,
+      "sample": [
+        {
+          "seed": 1,
+          "role": "filler"
+        },
+        {
+          "seed": 2,
+          "role": "reviewer"
+        }
+      ]
+    },
+    "merge a mixed block (API)": {
+      "leak": 8,
+      "blocked": 0,
+      "filtered": 0,
+      "error": 0,
+      "sample": [
+        {
+          "seed": 1,
+          "role": "filler"
+        },
+        {
+          "seed": 2,
+          "role": "reviewer"
+        }
+      ]
+    }
+  },
+  "events": {
+    "type into a forbidden cell": {
+      "leak": 0,
+      "blocked": 20,
+      "filtered": 0,
+      "error": 0,
+      "sample": []
+    },
+    "type into a permitted cell (must still work)": {
+      "leak": 0,
+      "blocked": 0,
+      "filtered": 20,
+      "error": 0,
+      "sample": []
+    },
+    "Delete over a mixed block": {
+      "leak": 0,
+      "blocked": 0,
+      "filtered": 20,
+      "error": 0,
+      "sample": []
+    },
+    "cut a mixed block and paste": {
+      "leak": 0,
+      "blocked": 14,
+      "filtered": 6,
+      "error": 0,
+      "sample": []
+    },
+    "copy a mixed block and paste over a mixed block": {
+      "leak": 0,
+      "blocked": 2,
+      "filtered": 18,
+      "error": 0,
+      "sample": []
+    },
+    "paste text from outside over a mixed block": {
+      "leak": 0,
+      "blocked": 2,
+      "filtered": 18,
+      "error": 0,
+      "sample": []
+    },
+    "drag-fill over a mixed block (API)": {
+      "leak": 0,
+      "blocked": 0,
+      "filtered": 20,
+      "error": 0,
+      "sample": []
+    },
+    "undo and redo": {
+      "leak": 0,
+      "blocked": 20,
+      "filtered": 0,
+      "error": 0,
+      "sample": []
+    },
+    "find and replace (API)": {
+      "leak": 0,
+      "blocked": 20,
+      "filtered": 0,
+      "error": 0,
+      "sample": []
+    },
+    "delete a row that holds forbidden cells (API)": {
+      "leak": 0,
+      "blocked": 20,
+      "filtered": 0,
+      "error": 0,
+      "sample": []
+    },
+    "merge a mixed block (API)": {
+      "leak": 0,
+      "blocked": 20,
+      "filtered": 0,
+      "error": 0,
+      "sample": []
+    }
+  },
+  "block": {
+    "type into a forbidden cell": {
+      "leak": 0,
+      "blocked": 20,
+      "filtered": 0,
+      "error": 0,
+      "sample": []
+    },
+    "type into a permitted cell (must still work)": {
+      "leak": 0,
+      "blocked": 0,
+      "filtered": 20,
+      "error": 0,
+      "sample": []
+    },
+    "Delete over a mixed block": {
+      "leak": 0,
+      "blocked": 20,
+      "filtered": 0,
+      "error": 0,
+      "sample": []
+    },
+    "cut a mixed block and paste": {
+      "leak": 0,
+      "blocked": 20,
+      "filtered": 0,
+      "error": 0,
+      "sample": []
+    },
+    "copy a mixed block and paste over a mixed block": {
+      "leak": 0,
+      "blocked": 20,
+      "filtered": 0,
+      "error": 0,
+      "sample": []
+    },
+    "paste text from outside over a mixed block": {
+      "leak": 0,
+      "blocked": 19,
+      "filtered": 1,
+      "error": 0,
+      "sample": []
+    },
+    "drag-fill over a mixed block (API)": {
+      "leak": 0,
+      "blocked": 20,
+      "filtered": 0,
+      "error": 0,
+      "sample": []
+    },
+    "undo and redo": {
+      "leak": 0,
+      "blocked": 20,
+      "filtered": 0,
+      "error": 0,
+      "sample": []
+    },
+    "find and replace (API)": {
+      "leak": 0,
+      "blocked": 20,
+      "filtered": 0,
+      "error": 0,
+      "sample": []
+    },
+    "delete a row that holds forbidden cells (API)": {
+      "leak": 0,
+      "blocked": 20,
+      "filtered": 0,
+      "error": 0,
+      "sample": []
+    },
+    "merge a mixed block (API)": {
+      "leak": 0,
+      "blocked": 20,
+      "filtered": 0,
+      "error": 0,
+      "sample": []
+    }
+  },
+  "builtin": {
+    "type into a forbidden cell": {
+      "leak": 20,
+      "blocked": 0,
+      "filtered": 0,
+      "error": 0,
+      "sample": [
+        {
+          "seed": 1,
+          "role": "filler"
+        },
+        {
+          "seed": 2,
+          "role": "reviewer"
+        }
+      ]
+    },
+    "type into a permitted cell (must still work)": {
+      "leak": 0,
+      "blocked": 0,
+      "filtered": 20,
+      "error": 0,
+      "sample": []
+    },
+    "Delete over a mixed block": {
+      "leak": 20,
+      "blocked": 0,
+      "filtered": 0,
+      "error": 0,
+      "sample": [
+        {
+          "seed": 1,
+          "role": "filler"
+        },
+        {
+          "seed": 2,
+          "role": "reviewer"
+        }
+      ]
+    },
+    "cut a mixed block and paste": {
+      "leak": 19,
+      "blocked": 1,
+      "filtered": 0,
+      "error": 0,
+      "sample": [
+        {
+          "seed": 1,
+          "role": "filler"
+        },
+        {
+          "seed": 2,
+          "role": "reviewer"
+        }
+      ]
+    },
+    "copy a mixed block and paste over a mixed block": {
+      "leak": 20,
+      "blocked": 0,
+      "filtered": 0,
+      "error": 0,
+      "sample": [
+        {
+          "seed": 1,
+          "role": "filler"
+        },
+        {
+          "seed": 2,
+          "role": "reviewer"
+        }
+      ]
+    },
+    "paste text from outside over a mixed block": {
+      "leak": 19,
+      "blocked": 0,
+      "filtered": 1,
+      "error": 0,
+      "sample": [
+        {
+          "seed": 1,
+          "role": "filler"
+        },
+        {
+          "seed": 2,
+          "role": "reviewer"
+        }
+      ]
+    },
+    "drag-fill over a mixed block (API)": {
+      "leak": 20,
+      "blocked": 0,
+      "filtered": 0,
+      "error": 0,
+      "sample": [
+        {
+          "seed": 1,
+          "role": "filler"
+        },
+        {
+          "seed": 2,
+          "role": "reviewer"
+        }
+      ]
+    },
+    "undo and redo": {
+      "leak": 0,
+      "blocked": 20,
+      "filtered": 0,
+      "error": 0,
+      "sample": []
+    },
+    "find and replace (API)": {
+      "leak": 2,
+      "blocked": 18,
+      "filtered": 0,
+      "error": 0,
+      "sample": [
+        {
+          "seed": 15,
+          "role": "filler"
+        },
+        {
+          "seed": 18,
+          "role": "reviewer"
+        }
+      ]
+    },
+    "delete a row that holds forbidden cells (API)": {
+      "leak": 20,
+      "blocked": 0,
+      "filtered": 0,
+      "error": 0,
+      "sample": [
+        {
+          "seed": 1,
+          "role": "filler"
+        },
+        {
+          "seed": 2,
+          "role": "reviewer"
+        }
+      ]
+    },
+    "merge a mixed block (API)": {
+      "leak": 20,
+      "blocked": 0,
+      "filtered": 0,
+      "error": 0,
+      "sample": [
+        {
+          "seed": 1,
+          "role": "filler"
+        },
+        {
+          "seed": 2,
+          "role": "reviewer"
+        }
+      ]
+    },
+    "builtinSetup": "protected 35"
+  }
+}
