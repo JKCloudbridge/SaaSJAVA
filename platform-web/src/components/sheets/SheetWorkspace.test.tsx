@@ -265,7 +265,8 @@ describe("a revision that is not a draft", () => {
     });
     draw();
 
-    expect(await screen.findByText(/Revision 00 is active and cannot be changed/)).toBeInTheDocument();
+    await screen.findByTestId("version-editor");
+    expect(screen.queryByText(/cannot be changed/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
     expect(screen.queryByRole("toolbar")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "New revision from revision 00" }));
@@ -349,7 +350,8 @@ describe("opening another version", () => {
     expect(screen.getByRole("textbox", { name: "Label of column 1" })).toHaveValue("Unsaved");
     fireEvent.click(screen.getByRole("button", { name: "Open revision 00" }));
     fireEvent.click(screen.getByRole("button", { name: "Discard the changes and open it" }));
-    expect(await screen.findByRole("note")).toHaveTextContent("Revision 00 is active");
+    await screen.findByTestId("version-editor");
+    expect(screen.queryByText(/Revision 00 is active/)).toBeNull();
   });
 });
 
@@ -456,7 +458,7 @@ describe("a revision in review (FA4)", () => {
 
     await screen.findByText("All changes are saved.");
     expect(calls.some((c) => c.key === `PUT ${BASE}/2/grid`)).toBe(true);
-    expect(await screen.findByText(/corrected once while in review/)).toBeInTheDocument();
+    expect(screen.queryByText(/corrected once while in review/)).toBeNull();
   });
 
   it("shows the API's words when it refuses the correction, and keeps the work", async () => {
@@ -488,7 +490,8 @@ describe("a revision in review (FA4)", () => {
     });
     render(<SheetWorkspace owner={OWNER} label="Fire checks" correctInReview />);
 
-    expect(await screen.findByText(/Revision 00 is active and cannot be changed/)).toBeInTheDocument();
+    await screen.findByTestId("version-editor");
+    expect(screen.queryByText(/cannot be changed/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
   });
 });

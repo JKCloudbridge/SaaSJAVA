@@ -99,8 +99,11 @@ export function saveGrid(
 export interface ImportOptions {
   /** The kind of file, from its name; the server checks the bytes and does not trust it. */
   format: "xlsx" | "csv";
-  /** Whether the first row with text names the columns. */
-  firstRowLabels: boolean;
+  /**
+   * Whether the first row names the columns. Left out, the server decides (no when the first row is a title) and its
+   * answer says which it applied (FA14): the screen never decides it.
+   */
+  firstRowLabels?: boolean;
   /** True to ask what the file would give and save nothing. */
   preview: boolean;
   /**
@@ -118,7 +121,9 @@ export interface ImportOptions {
 export function importSpreadsheet(owner: SheetOwner, file: Blob, options: ImportOptions): Promise<Outcome<ImportResult>> {
   const address =
     `/api/v1/sheets/${encodeURIComponent(owner.object)}/${encodeURIComponent(owner.id)}/versions/import` +
-    `?format=${options.format}&firstRowLabels=${options.firstRowLabels}&preview=${options.preview}` +
+    `?format=${options.format}` +
+    (options.firstRowLabels === undefined ? "" : `&firstRowLabels=${options.firstRowLabels}`) +
+    `&preview=${options.preview}` +
     (options.replace ? "&replace=true" : "");
   return unwrap(
     call(async () => {

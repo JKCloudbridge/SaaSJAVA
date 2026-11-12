@@ -39,7 +39,7 @@ class SpreadsheetCorpusTest {
     /** Every code the reader answers with that a file can cause; each must have a line in the corpus. */
     private static final Set<String> CODES = new TreeSet<>(Set.of("not_xlsx", "old_format", "no_sheet", "not_csv",
             "not_utf8", "macros", "file_too_large", "inflated", "entries", "cells", "too_many_merges",
-            "too_many_columns", "too_many_rows", "text_too_long", "unsafe_text", "empty_file"));
+            "too_many_columns", "too_many_rows", "text_too_long", "unsafe_text", "empty_file", "styles"));
 
     /** One line of the corpus. */
     record Construct(int line, String expected, String format, String generator, String reason) {
@@ -148,6 +148,11 @@ class SpreadsheetCorpusTest {
             case "label-201" -> new Made(bytes("HOSTILEMARK" + "x".repeat(201) + "\nb\n"), standard);
             case "cell-1001-in-workbook" -> new Made(new XlsxFile().row(1, XlsxFile.text("A1", "h"))
                     .row(2, XlsxFile.text("A2", "HOSTILEMARK" + "x".repeat(1_001))).bytes(), standard);
+            case "bordered-blank-column-101" -> new Made(new XlsxFile().row(1, XlsxFile.text("A1", "h"),
+                    XlsxFile.boxed(SheetImportBuilder.letters(100) + "1")).bytes(), standard);
+            case "bordered-blank-rows-501" -> new Made(borderedRows(502), standard);
+            case "bordered-all-over" -> new Made(borderedAllOver(), SMALL);
+            case "too-many-borders" -> new Made(manyBorders(), standard);
             case "markup" -> new Made(bytes("h\n<b>HOSTILEMARK</b>\n"), standard);
             case "direction-override-in-workbook" -> new Made(new XlsxFile().row(1, XlsxFile.text("A1", "h"))
                     .row(2, "<c r=\"A2\" t=\"inlineStr\"><is><t>HOSTILEMARK&#x202E;</t></is></c>").bytes(),
@@ -209,6 +214,36 @@ class SpreadsheetCorpusTest {
             file.row(row, XlsxFile.text("A" + row, "x"), XlsxFile.text("B" + row, "y"));
         }
         return file.bytes();
+    }
+
+    /** A header, then bordered blank rows down to the given row number. */
+    private static byte[] borderedRows(int lastRow) {
+        XlsxFile file = new XlsxFile().row(1, XlsxFile.text("A1", "h"));
+        for (int row = 2; row <= lastRow; row++) {
+            file.row(row, XlsxFile.boxed("A" + row));
+        }
+        return file.bytes();
+    }
+
+    /** Eleven rows of eleven bordered blank cells: more cells and rows than the small settings read. */
+    private static byte[] borderedAllOver() {
+        XlsxFile file = new XlsxFile();
+        for (int row = 1; row <= 11; row++) {
+            String[] cells = new String[11];
+            for (int column = 0; column < cells.length; column++) {
+                cells[column] = XlsxFile.boxed(SheetImportBuilder.letters(column) + row);
+            }
+            file.row(row, cells);
+        }
+        return file.row(12, XlsxFile.text("A12", "x")).bytes();
+    }
+
+    /** A styles part with 64,001 borders, one more than the 64,000 formats a workbook can have. */
+    private static byte[] manyBorders() {
+        String styles = "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">"
+                + "<borders count=\"64001\">" + "<border/>".repeat(64_001) + "</borders>"
+                + "<cellXfs count=\"1\"><xf borderId=\"0\"/></cellXfs></styleSheet>";
+        return new XlsxFile().styles(styles).row(1, XlsxFile.text("A1", "h")).bytes();
     }
 
     private static byte[] merges() {

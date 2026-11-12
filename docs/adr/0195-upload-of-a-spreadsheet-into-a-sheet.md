@@ -91,3 +91,6 @@ that is not what its name says), and its content is the organization's text.
   read from the file (a number or a date column), which must never be applied silently; reading more than the first sheet;
   filling an existing draft from a file; the legacy binary format; styles beyond bold, italic and the four sizes.
 - A change to the reader needs a line in the corpus for any new refusal and a case in `SpreadsheetImporterTest`.
+- **Amended by [ADR-0250](0250-a-spreadsheet-comes-in-as-it-looks-borders-blank-cells-and-the-title-row.md) (FA14):** the
+  reader no longer ignores every cell that has no text: a cell with a border is part of the table; a merged title across the whole width is kept as the first row and the box "first row holds the names" then
+  starts unticked, decided by the server. Styles beyond bold, italic and the sizes remain left out.

@@ -61,4 +61,21 @@ describe("the words for what a file gives", () => {
     expect(leftOut(REPORT).map((note) => note.code)).toEqual(["images"]);
     expect(changedOnTheWay(REPORT).map((note) => note.code)).toEqual(["dates"]);
   });
+
+  it("shows the kept blank cells and the title row with what came in, never with what was left out", () => {
+    const report: ImportReport = {
+      ...REPORT,
+      firstRowLabels: false,
+      firstRowIsTitle: true,
+      notes: [
+        { code: "bordered_blanks", count: 19, leftOut: false, words: "19 blank cells with a border were kept as cells to be filled in." },
+        { code: "title_row", count: 1, leftOut: false, words: "1 title row was found." },
+        { code: "images", count: 1, leftOut: true, words: "1 image was left out." },
+      ],
+    };
+
+    expect(changedOnTheWay(report).map((note) => note.code)).toEqual(["bordered_blanks", "title_row"]);
+    expect(leftOut(report).map((note) => note.code)).toEqual(["images"]);
+    expect(reportSummary(report)).toBe("12 columns, 80 rows, 3 merged areas");
+  });
 });

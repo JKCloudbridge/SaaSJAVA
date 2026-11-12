@@ -91,10 +91,107 @@ describe("the upload of a spreadsheet", () => {
     await waitFor(() => expect(urls).toHaveLength(2));
 
     expect(urls[0]).toContain("format=csv");
-    expect(urls[0]).toContain("firstRowLabels=true");
+    expect(urls[0]).not.toContain("firstRowLabels");
     expect(urls[1]).toContain("firstRowLabels=false");
     expect(urls[0]).not.toContain("Fire");
     expect(urls[0]).toContain("preview=true");
+  });
+
+  it("starts the box unticked when the server says the first row is a title, and says so in words", async () => {
+    const urls: string[] = [];
+    fakeApi({
+      [IMPORT]: (request) => {
+        urls.push(request.url);
+        const labels = new URL(request.url).searchParams.get("firstRowLabels");
+        const ticked = labels === null ? false : labels === "true";
+        return new URL(request.url).searchParams.get("preview") === "true"
+          ? json({
+              data: {
+                saved: false,
+                report: {
+                  ...REPORT,
+                  firstRowLabels: ticked,
+                  firstRowIsTitle: true,
+                  notes: [
+                    ...REPORT.notes,
+                    ...(ticked
+                      ? []
+                      : [
+                          {
+                            code: "title_row",
+                            count: 1,
+                            leftOut: false,
+                            words: "1 title row was found (it is kept as the first row of the sheet and does not name a column).",
+                          },
+                        ]),
+                  ],
+                },
+              },
+            })
+          : json({ data: { saved: true, version: DRAFT, report: REPORT } }, 201);
+      },
+    });
+    const onSaved = draw();
+
+    pick("Form.xlsx");
+
+    const box = await screen.findByRole("checkbox", { name: "The first row holds the names of the columns" });
+    expect(await screen.findByText(/The first row looks like a title\./)).toBeInTheDocument();
+    expect(box).not.toBeChecked();
+    expect(screen.getByText(/1 title row was found/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save as a new draft" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(DRAFT));
+    expect(urls[urls.length - 1]).toContain("preview=false");
+    expect(urls[urls.length - 1]).toContain("firstRowLabels=false");
+  });
+
+  it("lets the person tick the box for a file with a title, and asks the server again", async () => {
+    const urls: string[] = [];
+    fakeApi({
+      [IMPORT]: (request) => {
+        urls.push(request.url);
+        const labels = new URL(request.url).searchParams.get("firstRowLabels");
+        return json({
+          data: { saved: false, report: { ...REPORT, firstRowLabels: labels === "true", firstRowIsTitle: true } },
+        });
+      },
+    });
+    draw();
+
+    pick("Form.xlsx");
+    const box = await screen.findByRole("checkbox", { name: "The first row holds the names of the columns" });
+    await screen.findByText(/The first row looks like a title\./);
+    fireEvent.click(box);
+
+    await waitFor(() => expect(urls).toHaveLength(2));
+    expect(urls[1]).toContain("firstRowLabels=true");
+    expect(await screen.findByText(/Because the box is ticked it will name the first column\./)).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "The first row holds the names of the columns" })).toBeChecked();
+  });
+
+  it("keeps the box ticked and says nothing about a title for a file without one", async () => {
+    fakeApi({
+      [IMPORT]: () => json({ data: { saved: false, report: { ...REPORT, firstRowLabels: true, firstRowIsTitle: false } } }),
+    });
+    draw();
+
+    pick("Plain.xlsx");
+
+    const box = await screen.findByRole("checkbox", { name: "The first row holds the names of the columns" });
+    await screen.findByText(/The file gives/);
+    expect(box).toBeChecked();
+    expect(screen.queryByText(/looks like a title/)).toBeNull();
+  });
+
+  it("keeps the box ticked when an older server answers without the new fields", async () => {
+    fakeApi({ [IMPORT]: () => json({ data: { saved: false, report: REPORT } }) });
+    draw();
+
+    pick("Old.xlsx");
+
+    await screen.findByText(/The file gives/);
+    expect(screen.getByRole("checkbox", { name: "The first row holds the names of the columns" })).toBeChecked();
   });
 
   it("shows the server's own words for a refusal, and offers no save", async () => {

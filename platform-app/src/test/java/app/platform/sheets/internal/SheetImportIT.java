@@ -125,6 +125,78 @@ class SheetImportIT extends SheetSupport {
     }
 
     @Test
+    void aFormWithBorderedBlankCellsAndATitleComesInAsItLooksAndTheServerLeavesTheBoxUnticked() {
+        Setting setting = setting();
+        String owner = template(setting.admin());
+        TestBrowser author = as(setting.organization(), author(setting, owner));
+
+        BytesResponse preview = upload(author, owner, SampleForms.analysisForm(), "?format=xlsx&preview=true");
+
+        assertThat(preview.status()).as(preview.text()).isEqualTo(200);
+        assertThat(JsonPath.<Boolean>read(preview.text(), "$.data.report.firstRowIsTitle")).isTrue();
+        assertThat(JsonPath.<Boolean>read(preview.text(), "$.data.report.firstRowLabels")).isFalse();
+        assertThat(JsonPath.<Integer>read(preview.text(), "$.data.report.columns")).isEqualTo(SampleForms.COLUMNS);
+        assertThat(JsonPath.<Integer>read(preview.text(), "$.data.report.rows")).isEqualTo(SampleForms.ROWS);
+        assertThat(JsonPath.<Integer>read(preview.text(), "$.data.report.mergedAreas")).isEqualTo(2);
+        assertThat(JsonPath.<List<String>>read(preview.text(), "$.data.report.notes[*].code"))
+                .contains("bordered_blanks", "title_row");
+        assertThat(JsonPath.<List<String>>read(preview.text(),
+                "$.data.report.notes[?(@.code=='bordered_blanks')].words")).singleElement().asString()
+                .startsWith(SampleForms.BORDERED_BLANKS + " blank cells with a border were kept");
+        assertThat(countRows(setting.organization(), owner)).as("a preview saves nothing").isZero();
+
+        BytesResponse made = xlsx(author, owner, SampleForms.analysisForm());
+
+        assertThat(made.status()).as(made.text()).isEqualTo(201);
+        var opened = read(author, owner, 1);
+        assertThat(JsonPath.<List<String>>read(opened.body(), "$.data.grid.columns[*].label"))
+                .containsExactly("Column 1", "Column 2", "Column 3");
+        assertThat(JsonPath.<List<Object>>read(opened.body(), "$.data.grid.rows")).hasSize(SampleForms.ROWS);
+        assertThat(JsonPath.<List<Object>>read(opened.body(), "$.data.grid.merges")).hasSize(2);
+        assertThat(JsonPath.<java.util.Map<String, Object>>read(opened.body(), "$.data.grid.cells"))
+                .as("only the texts are values: the blank cells are for the filler").hasSize(SampleForms.TEXT_CELLS);
+        assertThat(opened.body()).contains(SampleForms.TITLE);
+        assertThat(countRows(setting.organization(), owner)).isEqualTo(1);
+    }
+
+    @Test
+    void thePersonCanTickTheBoxForTheFormAndTheTitleThenNamesTheFirstColumn() {
+        Setting setting = setting();
+        String owner = template(setting.admin());
+
+        BytesResponse ticked = upload(setting.admin(), owner, SampleForms.analysisForm(),
+                "?format=xlsx&preview=true&firstRowLabels=true");
+
+        assertThat(ticked.status()).as(ticked.text()).isEqualTo(200);
+        assertThat(JsonPath.<Boolean>read(ticked.text(), "$.data.report.firstRowLabels")).isTrue();
+        assertThat(JsonPath.<Boolean>read(ticked.text(), "$.data.report.firstRowIsTitle")).isTrue();
+        assertThat(JsonPath.<Integer>read(ticked.text(), "$.data.report.rows")).isEqualTo(SampleForms.ROWS - 1);
+
+        BytesResponse made = upload(setting.admin(), owner, SampleForms.analysisForm(),
+                "?format=xlsx&firstRowLabels=true");
+
+        assertThat(made.status()).as(made.text()).isEqualTo(201);
+        var opened = read(setting.admin(), owner, 1);
+        assertThat(JsonPath.<String>read(opened.body(), "$.data.grid.columns[0].label")).isEqualTo(SampleForms.TITLE);
+    }
+
+    @Test
+    void aFormBorderedPastTheLimitsOfASheetIsRefusedWithTheNumberAndNothingIsStored() {
+        Setting setting = setting();
+        String owner = template(setting.admin());
+        XlsxFile file = new XlsxFile().row(1, XlsxFile.text("A1", "h"));
+        for (int row = 2; row <= 502; row++) {
+            file.row(row, XlsxFile.boxed("A" + row));
+        }
+
+        BytesResponse refused = xlsx(setting.admin(), owner, file.bytes());
+
+        assertThat(refused.status()).as(refused.text()).isEqualTo(400);
+        assertThat(refused.text()).contains("501").contains("500");
+        assertThat(countRows(setting.organization(), owner)).isZero();
+    }
+
+    @Test
     void aSheetThatHasVersionsKeepsItsShapeAndOnlyTheColumnNamesComeIn() {
         Setting setting = setting();
         String owner = template(setting.admin());

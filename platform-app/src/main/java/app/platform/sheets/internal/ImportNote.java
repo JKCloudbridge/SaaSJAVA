@@ -25,7 +25,11 @@ enum ImportNote {
     FOOTER_ROW(true, "footer row", "footer rows",
             "left out (the platform adds it when it shows or downloads a sheet)"),
     FORMULAS(false, "formula", "formulas", "read as its last value"),
-    DATES(false, "date", "dates", "written year-month-day");
+    DATES(false, "date", "dates", "written year-month-day"),
+    BORDERED_BLANKS(false, "blank cell with a border", "blank cells with a border",
+            "kept as cells to be filled in (a blank cell with no border is not part of the table)"),
+    TITLE_ROW(false, "title row", "title rows",
+            "found (it is kept as the first row of the sheet and does not name a column)");
 
     private final boolean leftOut;
     private final String one;
