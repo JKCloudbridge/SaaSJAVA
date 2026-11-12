@@ -13,6 +13,8 @@ export default defineConfig([
     "next-env.d.ts",
     // Generated from the OpenAPI document; never edited by hand.
     "src/lib/api/generated/**",
+    // The sample that proves the public contract produces a usable client, and what it generates (Sprint 30).
+    "contract-checks/**/.generated/**",
   ]),
   {
     rules: {
@@ -21,7 +23,7 @@ export default defineConfig([
     },
   },
   {
-    files: ["src/lib/log.ts", "scripts/**", "browser-checks/**"],
+    files: ["src/lib/log.ts", "scripts/**", "browser-checks/**", "contract-checks/**"],
     rules: { "no-console": "off" },
   },
 ]);

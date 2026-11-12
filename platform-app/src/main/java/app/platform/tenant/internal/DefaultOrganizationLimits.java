@@ -94,7 +94,7 @@ class DefaultOrganizationLimits implements OrganizationLimits {
 
         @Override
         protected boolean shouldNotFilter(HttpServletRequest request) {
-            return !settings.enabled() || !request.getRequestURI().startsWith(ApiPaths.V1 + "/");
+            return !settings.enabled() || !ApiPaths.isApiPath(request.getRequestURI());
         }
 
         @Override

@@ -15,7 +15,8 @@
     "test": "vitest run",
     "api:generate": "node scripts/api-client.mjs",
     "api:check": "node scripts/api-client.mjs --check",
-    "verify": "npm run lint && npm run typecheck && npm run test && npm run api:check && npm run build"
+    "api:public:check": "node contract-checks/public-api/check.mjs",
+    "verify": "npm run lint && npm run typecheck && npm run test && npm run api:check && npm run api:public:check && npm run build"
   },
   "dependencies": {
     "@opentelemetry/api": "1.9.1",

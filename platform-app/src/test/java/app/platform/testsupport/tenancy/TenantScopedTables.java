@@ -730,6 +730,17 @@ public final class TenantScopedTables {
                     tenant, "probe-" + UUID.randomUUID().toString().substring(0, 8), ActorId.SYSTEM.value(),
                     ActorId.SYSTEM.value()));
 
+    /** The outcomes of keyed writes of the public API (Sprint 30, ADR-0246). Every probe uses its own key. */
+    public static final TenantScopedTable IDEMPOTENCY_RECORD = new TenantScopedTable("idempotency_record",
+            (connection, tenant) -> TenantFixtures.update(connection,
+                    "insert into idempotency_record (tenant_id, caller_id, key_hash, request_hash, operation, "
+                            + "object_api_name, outcome, expires_at, created_by, updated_by) values (?, ?, ?, ?, "
+                            + "'CREATE_RECORD', 'Probe__c', '{}'::jsonb, now() + interval '1 day', ?, ?)",
+                    tenant, ActorId.SYSTEM.value(),
+                    UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", ""),
+                    UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", ""),
+                    ActorId.SYSTEM.value(), ActorId.SYSTEM.value()));
+
     /** The connections of an organization to external systems (Sprint 26). Every probe uses its own name. */
     public static final TenantScopedTable INTEGRATION_CONNECTION = new TenantScopedTable("integration_connection",
             (connection, tenant) -> TenantFixtures.update(connection,
@@ -1052,7 +1063,7 @@ public final class TenantScopedTables {
             ORGANIZATION_FIELD_VALUES, NUMBER_SERIES_COUNTER, NUMBERING_FORMAT, NUMBER_RESERVATION,
             INTEGRATION_CONNECTION, INTEGRATION_MAPPING, INTEGRATION_MAPPING_VERSION, INTEGRATION_LINK,
             INTEGRATION_DELIVERY, INTEGRATION_ATTEMPT, INTEGRATION_FLOW_STATE, INTEGRATION_POLL, INTEGRATION_FILE,
-            INTEGRATION_INBOUND_SEEN, SECRET_ENTRY, SECRET_VERSION, SECRET_USAGE,
+            INTEGRATION_INBOUND_SEEN, SECRET_ENTRY, SECRET_VERSION, SECRET_USAGE, IDEMPOTENCY_RECORD,
             SHEET_VERSION, SHEET_FILL,
             SHEET_FILL_VALUE,
             INSPECTION_PUBLICATION, INSPECTION_CHANGE_REQUEST, INSPECTION_CHANGE_COMMENT,

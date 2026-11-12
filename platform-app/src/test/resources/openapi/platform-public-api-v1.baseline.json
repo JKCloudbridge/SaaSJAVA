@@ -1,0 +1,3331 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "description" : "The public API of the platform: create, read, change, delete, restore, query and bulk-write the records of the objects of an organization, for the software of that organization. Standard and custom objects are used in exactly the same way. Every successful body is {\"data\": ...} (a page adds \"pagination\"); every failure is {\"error\": {code, message, fields?, requestId, traceId?}}; branch on the code, never on the message. Inside version v1 a change only adds; a breaking change is a new version beside this one, and anything that is retired is announced at least 12 months before it goes. Who may see or change what is decided on every request by the permissions of the user the token belongs to, exactly as in the application.",
+    "title" : "Public API",
+    "version" : "v1"
+  },
+  "servers" : [ {
+    "url" : "/"
+  } ],
+  "security" : [ {
+    "bearerAuth" : [ ]
+  } ],
+  "tags" : [ {
+    "description" : "Which objects exist for the caller, and their fields.",
+    "name" : "Objects"
+  }, {
+    "description" : "Create, read, change, delete, restore, query and bulk.",
+    "name" : "Records"
+  }, {
+    "description" : "This document.",
+    "name" : "Description"
+  } ],
+  "paths" : {
+    "/api/public/v1/objects" : {
+      "get" : {
+        "description" : "Every object of the organization whose records the caller may read, standard and custom alike, by API name, with what the caller may do with its records. The API name is what the address of every other operation takes. Objects the platform itself owns, and objects the caller may not read, are not listed. NOT_FOUND on the platform host.",
+        "operationId" : "listObjects",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListPublicObjectSummary"
+                }
+              }
+            },
+            "description" : "OK",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid bearer token was sent, or it has expired or was revoked.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization, object or record does not exist, or the caller may not know that it exists. The three answer alike. Also the answer of every address when the public API is switched off.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "429" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "An unexpected failure. Nothing about the cause is disclosed; quote the request ID.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "A dependency of the service is unavailable. Try again after the Retry-After header, or later.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        },
+        "summary" : "The objects the caller may read",
+        "tags" : [ "Objects" ]
+      }
+    },
+    "/api/public/v1/objects/{object}" : {
+      "get" : {
+        "description" : "The fields the caller may read with their types, limits and choices, which of them the caller may write, and for each the comparisons a filter accepts and whether a query can order by it. Read the lists from here; do not copy them. A field the caller may not read is not listed, and writing it is answered like writing a field that does not exist. Also the record types the caller may use. NOT_FOUND for an object that does not exist, that the platform itself owns (a user, a profile ...), that belongs to another organization or that the caller may not read: all four answer alike. ",
+        "operationId" : "describeObject",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "object",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicObjectDescription"
+                }
+              }
+            },
+            "description" : "OK",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid bearer token was sent, or it has expired or was revoked.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization, object or record does not exist, or the caller may not know that it exists. The three answer alike. Also the answer of every address when the public API is switched off.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "429" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "An unexpected failure. Nothing about the cause is disclosed; quote the request ID.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "A dependency of the service is unavailable. Try again after the Retry-After header, or later.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        },
+        "summary" : "One object and the fields of it the caller may read",
+        "tags" : [ "Objects" ]
+      }
+    },
+    "/api/public/v1/objects/{object}/records" : {
+      "post" : {
+        "description" : "The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the shape (every key must be a field of the object that the caller may write; a field the caller may not read is answered like a field that does not exist), the record type, the field permission, the type of each value (a number must be a JSON number), the required fields, the linked records (only to a record the caller can read), the unique fields (the answer says the value is in use and never whose record holds it), the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. The caller owns the record. The answer is the record as the caller may read it, with `Location` and the `ETag` (the version). Send an `Idempotency-Key` to make the call safe to repeat: the same key with the same request, from the same user, makes one record whatever the number of attempts, and the repeat is answered with `Idempotent-Replayed: true` and the record as it is now; the same key with another request is CONFLICT. A key is good for 24 hours. A refused request leaves nothing behind, so it can be sent again. NOT_FOUND for an object that does not exist, that the platform itself owns, that belongs to another organization or that the caller may not read: all alike. FORBIDDEN for a caller who may read the object but not create in it.",
+        "operationId" : "createRecord",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "object",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Your own key for this create, 8 to 255 characters. See the description.",
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PublicCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "The record was created (or, with `Idempotent-Replayed: true`, was created by an earlier request with the same key).",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "VALIDATION_ERROR with the problems and their places; MALFORMED_REQUEST for a body that is not JSON. A property the contract does not have is refused with its place.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid bearer token was sent, or it has expired or was revoked.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller may read the object but not create in it.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization, object or record does not exist, or the caller may not know that it exists. The three answer alike. Also the answer of every address when the public API is switched off.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "CONFLICT: the Idempotency-Key was used for another request, or the record the first request made cannot be read any more.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "413" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "PAYLOAD_TOO_LARGE: the body is over 1 MiB.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "415" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "UNSUPPORTED_MEDIA_TYPE: send application/json.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "429" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "An unexpected failure. Nothing about the cause is disclosed; quote the request ID.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "A dependency of the service is unavailable. Try again after the Retry-After header, or later.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        },
+        "summary" : "Create a record",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/public/v1/objects/{object}/records/bulk" : {
+      "post" : {
+        "description" : "Every record goes through exactly the steps the same single request goes through (the gate, field permissions, types, required fields, links, unique values, validation rules, formulas, auto-numbers) and is audited and announced like it, once for each record; there is no faster private path. The answer gives the outcome of each record at its position in the request: CREATED, UPDATED, DELETED, FAILED (with the error a single request would have answered) or ROLLED_BACK. By default each record stands on its own: one that is refused is undone alone and the others are saved. With `allOrNone` one refusal undoes the whole call (`committed` is false, nothing is saved). A change carries, in its item, the version that was read (there is no If-Match here); a conflict is the outcome of that record. At most 200 records and 8 MiB per call. Send an `Idempotency-Key` to make the call safe to repeat: the same key with the same request, from the same user, is answered with the outcome of the first time (`Idempotent-Replayed: true`; a refused record keeps its code, with fixed words) instead of being carried out again; an all-or-none call that was rolled back leaves nothing behind. NOT_FOUND for an object that does not exist, that the platform itself owns or that the caller may not read; FORBIDDEN for a caller who may read the object but not do the operation in it (decided once for the whole call). Whether the caller may change or delete a particular record is judged for each record like a single request.",
+        "operationId" : "bulkRecords",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "object",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Your own key for this call, 8 to 255 characters. See the description.",
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PublicBulkRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicBulkResponse"
+                }
+              }
+            },
+            "description" : "The outcome of every record. The call itself succeeded even when records in it were refused: read `results`.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicBulkResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_ERROR for more than 200 records or an unknown property, or MALFORMED_REQUEST.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid bearer token was sent, or it has expired or was revoked.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicBulkResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller may not do this operation in this object.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization, object or record does not exist, or the caller may not know that it exists. The three answer alike. Also the answer of every address when the public API is switched off.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicBulkResponse"
+                }
+              }
+            },
+            "description" : "CONFLICT: the Idempotency-Key was used for another request.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "413" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicBulkResponse"
+                }
+              }
+            },
+            "description" : "PAYLOAD_TOO_LARGE: the body is over 8 MiB.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "415" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicBulkResponse"
+                }
+              }
+            },
+            "description" : "UNSUPPORTED_MEDIA_TYPE: send application/json.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "429" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "An unexpected failure. Nothing about the cause is disclosed; quote the request ID.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "A dependency of the service is unavailable. Try again after the Retry-After header, or later.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        },
+        "summary" : "Create, change or delete many records of an object in one call",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/public/v1/objects/{object}/records/query" : {
+      "post" : {
+        "description" : "The body is a query model, never SQL: a tree of conditions (AND, OR and comparisons by the kind of field; at most 50 nodes), at most two sort keys, the fields to bring and the links to follow (one level). Names are looked up in the metadata and values are data. A field the caller may not read is answered like a field that does not exist, in a filter, an order, a field list or a link, so the answer never reveals what the caller may not see; records leave out such fields. The first stage that finds problems answers VALIDATION_ERROR with all its problems and their places, in the order: shape, fields, operators and values. A filter or an order on a field without a complete index is allowed only on an object with few records (20,000 unless the deployment says otherwise); on a larger one the answer is VALIDATION_ERROR at `query` saying which field to flag as indexed, never a slow request. A formula field can be used in a filter or an order while its stored results are current. Records without a value come last in both directions; ties are broken by the identifier. Sorting by `updatedAt` is not offered. There is no total: the page says whether another follows and gives a cursor that is good only for the same query; a page may be short and still have a cursor, only no cursor is the end. Only the records the caller may reach are searched. NOT_FOUND for an object that does not exist, that the platform itself owns, that belongs to another organization or that the caller may not read: all alike.",
+        "operationId" : "queryRecords",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "object",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PublicQueryRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiPageResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "One page of records and the pagination.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiPageResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "VALIDATION_ERROR with the problems and their places, or MALFORMED_REQUEST.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid bearer token was sent, or it has expired or was revoked.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization, object or record does not exist, or the caller may not know that it exists. The three answer alike. Also the answer of every address when the public API is switched off.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "413" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiPageResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "PAYLOAD_TOO_LARGE: the body is over 1 MiB.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "415" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiPageResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "UNSUPPORTED_MEDIA_TYPE: send application/json.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "429" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "An unexpected failure. Nothing about the cause is disclosed; quote the request ID.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "A dependency of the service is unavailable. Try again after the Retry-After header, or later.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        },
+        "summary" : "Ask a question of the records of an object: filter, order, fields, links, one page at a time",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/public/v1/objects/{object}/records/{id}" : {
+      "delete" : {
+        "description" : "The record can be restored for the retention period (30 days unless the deployment says otherwise), then it is removed for good. A second delete of the same record is CONFLICT: it is already in the recycle bin. A master takes its details with it only when the caller may delete them too. The records of some objects are kept: deleting one is CONFLICT. NOT_FOUND for an object that does not exist, that the platform itself owns, that belongs to another organization or that the caller may not read: all alike. FORBIDDEN without permission to delete in the object, or for a record the caller can read but may not delete; NOT_FOUND for a record the caller cannot read. RECORD_LOCKED (409) while an approval has the record locked.",
+        "operationId" : "deleteRecord",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "object",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "The record is in the recycle bin.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid bearer token was sent, or it has expired or was revoked.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "FORBIDDEN: the caller may not delete this record or in this object.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization, object or record does not exist, or the caller may not know that it exists. The three answer alike. Also the answer of every address when the public API is switched off.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "CONFLICT (already in the recycle bin, or a record that is kept) or RECORD_LOCKED.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "429" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "An unexpected failure. Nothing about the cause is disclosed; quote the request ID.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "A dependency of the service is unavailable. Try again after the Retry-After header, or later.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        },
+        "summary" : "Move a record to the recycle bin",
+        "tags" : [ "Records" ]
+      },
+      "get" : {
+        "description" : "The record as the caller may read it: a field the caller may not read is absent. The `ETag` is the version of the record. NOT_FOUND for an object that does not exist, that the platform itself owns, that belongs to another organization or that the caller may not read: all alike. NOT_FOUND also for a record that does not exist in this organization, that is in the recycle bin, or that the caller may not read (the default of the object, the role hierarchy, sharing rules and shares decide): all alike. An identifier that is not an identifier is VALIDATION_ERROR.",
+        "operationId" : "getRecord",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "object",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "The record.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid bearer token was sent, or it has expired or was revoked.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization, object or record does not exist, or the caller may not know that it exists. The three answer alike. Also the answer of every address when the public API is switched off.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "429" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "An unexpected failure. Nothing about the cause is disclosed; quote the request ID.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "A dependency of the service is unavailable. Try again after the Retry-After header, or later.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        },
+        "summary" : "Read one record",
+        "tags" : [ "Records" ]
+      },
+      "patch" : {
+        "description" : "The write goes through these stages in this order, and the first stage that finds problems answers VALIDATION_ERROR with all of its problems, each with its place, and saves nothing: the shape (every key must be a field of the object that the caller may write; a field the caller may not read is answered like a field that does not exist), the record type, the field permission, the type of each value (a number must be a JSON number), the required fields, the linked records (only to a record the caller can read), the unique fields (the answer says the value is in use and never whose record holds it), the validation rules, then the formulas, which are calculated and stored. Defaults and auto-numbers are applied on create. A merge: only the fields named change; a null value or a name in `clear` removes a value. The version the change is based on is sent in the `If-Match` header, as the `ETag` of the read (`\"3\"`); it is required. CONCURRENT_MODIFICATION (409) when the record has another version now, and nothing is changed: read it again and decide. CONFLICT (409) when the record is in the recycle bin. RECORD_LOCKED (409) while an approval has the record locked. Before any value is judged, a change is judged like a read of the record: NOT_FOUND when the caller cannot read it, FORBIDDEN when they can read it but may not change it. NOT_FOUND for an object that does not exist, that the platform itself owns, that belongs to another organization or that the caller may not read: all alike. ",
+        "operationId" : "updateRecord",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "object",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "The ETag of the version you read, for example \"3\".",
+          "example" : "3",
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PublicUpdateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "The record after the change, with its new `ETag`.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "VALIDATION_ERROR (including a missing or malformed If-Match), or MALFORMED_REQUEST.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid bearer token was sent, or it has expired or was revoked.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller may not change this record or this object.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization, object or record does not exist, or the caller may not know that it exists. The three answer alike. Also the answer of every address when the public API is switched off.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "CONCURRENT_MODIFICATION, CONFLICT or RECORD_LOCKED.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "413" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "PAYLOAD_TOO_LARGE: the body is over 1 MiB.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "415" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "UNSUPPORTED_MEDIA_TYPE: send application/json.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "429" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "An unexpected failure. Nothing about the cause is disclosed; quote the request ID.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "A dependency of the service is unavailable. Try again after the Retry-After header, or later.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        },
+        "summary" : "Change some values of a record",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/public/v1/objects/{object}/records/{id}/restore" : {
+      "post" : {
+        "description" : "Needs permission to delete in the object and the right to delete the record: NOT_FOUND for a record the caller cannot read, FORBIDDEN for one they can read but may not delete. CONFLICT (409) for a record that is not in the recycle bin, or whose value in a unique field is in use now. The answer is the live record with its `ETag`. NOT_FOUND for an object that does not exist, that the platform itself owns, that belongs to another organization or that the caller may not read: all alike. ",
+        "operationId" : "restoreRecord",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "object",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "The live record.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid bearer token was sent, or it has expired or was revoked.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller may not delete this record or in this object.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization, object or record does not exist, or the caller may not know that it exists. The three answer alike. Also the answer of every address when the public API is switched off.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublicRecord"
+                }
+              }
+            },
+            "description" : "CONFLICT: not in the recycle bin, or a unique value is in use now.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "429" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "An unexpected failure. Nothing about the cause is disclosed; quote the request ID.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "A dependency of the service is unavailable. Try again after the Retry-After header, or later.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        },
+        "summary" : "Take a record out of the recycle bin",
+        "tags" : [ "Records" ]
+      }
+    },
+    "/api/public/v1/openapi" : {
+      "get" : {
+        "description" : "No sign-in is needed. The document is the same in every environment and names no host. It changes only by adding, inside version v1, and is cacheable: send `If-None-Match` with the `ETag` you have to get 304 when it has not changed.",
+        "operationId" : "getPublicApiDescription",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "If-None-Match",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "byte"
+                }
+              }
+            },
+            "description" : "The OpenAPI document.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "304" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "byte"
+                }
+              }
+            },
+            "description" : "The document has not changed since the ETag you sent.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization, object or record does not exist, or the caller may not know that it exists. The three answer alike. Also the answer of every address when the public API is switched off.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "429" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "The organization has too many requests in progress. Try again after the number of seconds in the Retry-After header.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "An unexpected failure. Nothing about the cause is disclosed; quote the request ID.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "A dependency of the service is unavailable. Try again after the Retry-After header, or later.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show.",
+            "headers" : {
+              "API-Version" : {
+                "description" : "The major version of the public API that answered.",
+                "schema" : {
+                  "type" : "string",
+                  "example" : "v1"
+                }
+              },
+              "X-Request-ID" : {
+                "description" : "Identifies the request. Send your own (8 to 64 letters, digits, dot, underscore or hyphen) or one is made. Quote it when asking for support.",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ],
+        "summary" : "The contract of the public API (OpenAPI document)",
+        "tags" : [ "Description" ]
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "ApiError" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "$ref" : "#/components/schemas/ErrorCode"
+          },
+          "fields" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            }
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "requestId" : {
+            "type" : "string"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "message", "requestId" ]
+      },
+      "ApiErrorResponse" : {
+        "type" : "object",
+        "properties" : {
+          "error" : {
+            "$ref" : "#/components/schemas/ApiError"
+          }
+        },
+        "required" : [ "error" ]
+      },
+      "ApiPageResponsePublicRecord" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PublicRecord"
+            }
+          },
+          "pagination" : {
+            "$ref" : "#/components/schemas/Pagination"
+          }
+        },
+        "required" : [ "data", "pagination" ]
+      },
+      "ApiResponseListPublicObjectSummary" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PublicObjectSummary"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponsePublicBulkResponse" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PublicBulkResponse"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponsePublicObjectDescription" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PublicObjectDescription"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponsePublicRecord" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PublicRecord"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ErrorCode" : {
+        "type" : "string",
+        "description" : "Stable machine-readable error code. Branch on this, never on the message.",
+        "enum" : [ "VALIDATION_ERROR", "MALFORMED_REQUEST", "UNAUTHENTICATED", "FORBIDDEN", "NOT_FOUND", "METHOD_NOT_ALLOWED", "NOT_ACCEPTABLE", "CONFLICT", "CONCURRENT_MODIFICATION", "PAYLOAD_TOO_LARGE", "UNSUPPORTED_MEDIA_TYPE", "RATE_LIMITED", "INTERNAL_ERROR", "SERVICE_UNAVAILABLE", "TENANT_UNAVAILABLE", "RECORD_LOCKED" ]
+      },
+      "Pagination" : {
+        "type" : "object",
+        "properties" : {
+          "hasMore" : {
+            "type" : "boolean"
+          },
+          "limit" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "nextCursor" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "hasMore", "limit" ]
+      },
+      "PublicBulkError" : {
+        "type" : "object",
+        "description" : "The error a single request for this record would have answered.",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "description" : "The stable error code, one of the values of `ErrorCode`.",
+            "example" : "VALIDATION_ERROR"
+          },
+          "fields" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            },
+            "description" : "For a validation error: the problems, by the place that is wrong."
+          },
+          "message" : {
+            "type" : "string",
+            "description" : "A safe message in English."
+          }
+        },
+        "required" : [ "code", "message" ]
+      },
+      "PublicBulkItem" : {
+        "type" : "object",
+        "description" : "One record of a bulk call. CREATE needs `fields` (and no `id`); UPDATE needs `id`, `version` and the `fields` to set or `clear`; DELETE needs `id`.",
+        "properties" : {
+          "clear" : {
+            "type" : "array",
+            "description" : "API names of fields that lose their value (UPDATE).",
+            "items" : {
+              "type" : "string"
+            },
+            "maxItems" : 500,
+            "minItems" : 0
+          },
+          "fields" : {
+            "type" : "object",
+            "additionalProperties" : { },
+            "description" : "The values by field API name. A null value clears the field in an UPDATE."
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The record (UPDATE and DELETE)."
+          },
+          "recordType" : {
+            "type" : "string",
+            "description" : "The record type to create the record with, or to move it to.",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The version the change is based on (UPDATE).",
+            "example" : 3
+          }
+        }
+      },
+      "PublicBulkRequest" : {
+        "type" : "object",
+        "description" : "Every record goes through exactly the steps the same single request goes through, and is audited and announced like it. By default each record stands on its own: one that is refused is undone alone and the others are saved. With `allOrNone` one refusal undoes the whole call. At most 200 records and 8 MiB per call.",
+        "properties" : {
+          "allOrNone" : {
+            "type" : "boolean",
+            "description" : "When true, one refused record undoes the whole call (`committed` is false and nothing is saved). Left out: false."
+          },
+          "operation" : {
+            "type" : "string",
+            "description" : "What the call does to every record.",
+            "enum" : [ "CREATE", "UPDATE", "DELETE" ]
+          },
+          "records" : {
+            "type" : "array",
+            "description" : "The records, at most 200. The answer has one result for each, in this order.",
+            "items" : {
+              "$ref" : "#/components/schemas/PublicBulkItem"
+            },
+            "maxItems" : 200,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "operation", "records" ]
+      },
+      "PublicBulkResponse" : {
+        "type" : "object",
+        "description" : "The outcome of a bulk call.",
+        "properties" : {
+          "allOrNone" : {
+            "type" : "boolean",
+            "description" : "Whether the call was all-or-none."
+          },
+          "committed" : {
+            "type" : "boolean",
+            "description" : "Whether anything was saved. False only for an all-or-none call that failed."
+          },
+          "failed" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "How many records were refused."
+          },
+          "operation" : {
+            "type" : "string",
+            "description" : "What the call did.",
+            "enum" : [ "CREATE", "UPDATE", "DELETE" ]
+          },
+          "results" : {
+            "type" : "array",
+            "description" : "The outcome of each record, in the order of the request.",
+            "items" : {
+              "$ref" : "#/components/schemas/PublicBulkResult"
+            }
+          },
+          "succeeded" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "How many records were written. 0 when nothing was committed."
+          }
+        },
+        "required" : [ "allOrNone", "committed", "failed", "operation", "results", "succeeded" ]
+      },
+      "PublicBulkResult" : {
+        "type" : "object",
+        "description" : "The outcome of one record, at its position in the request.",
+        "properties" : {
+          "error" : {
+            "$ref" : "#/components/schemas/PublicBulkError",
+            "description" : "Why the record was refused. Present only when `status` is FAILED."
+          },
+          "id" : {
+            "type" : "string",
+            "description" : "The identifier of the record. Absent for a failed create."
+          },
+          "position" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The place of the record in the request, from 0.",
+            "example" : 0
+          },
+          "status" : {
+            "type" : "string",
+            "description" : "What happened to the record.",
+            "enum" : [ "CREATED", "UPDATED", "DELETED", "FAILED", "ROLLED_BACK" ]
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The version of the record after the change. Absent for a failure."
+          }
+        },
+        "required" : [ "position", "status" ]
+      },
+      "PublicCreateRequest" : {
+        "type" : "object",
+        "description" : "The values of a new record. Every key of `fields` must be a field of the object that the caller may edit and that people can write (not a system, calculated or retired field). A number is written as a JSON number, never as text.",
+        "properties" : {
+          "fields" : {
+            "type" : "object",
+            "additionalProperties" : { },
+            "description" : "The values by field API name. A number must be a JSON number: a number written as text is refused. Keep every digit: write a decimal with the digits you mean (`1250.50`), and do not let a program that rounds to 15 digits write it.",
+            "example" : {
+              "Name" : "A. Example",
+              "Salary__c" : 1250.5
+            }
+          },
+          "recordType" : {
+            "type" : "string",
+            "description" : "The API name of the record type. Left out, the default one is used.",
+            "maxLength" : 80,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "fields" ]
+      },
+      "PublicField" : {
+        "type" : "object",
+        "description" : "A field of an object, as far as the caller may use it.",
+        "properties" : {
+          "apiName" : {
+            "type" : "string",
+            "description" : "The permanent API name: the key of the field in a record.",
+            "example" : "Salary__c"
+          },
+          "calculated" : {
+            "type" : "boolean",
+            "description" : "Whether the platform works the value out (a formula or an auto-number)."
+          },
+          "description" : {
+            "type" : "string",
+            "description" : "What the field is for. May be empty."
+          },
+          "digits" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The most digits of a whole number."
+          },
+          "editable" : {
+            "type" : "boolean",
+            "description" : "Whether the caller may write this field."
+          },
+          "externalId" : {
+            "type" : "boolean",
+            "description" : "Whether the field holds the identifier the record has in another system."
+          },
+          "filterOperators" : {
+            "type" : "array",
+            "description" : "The comparisons a filter on this field accepts. Empty when it cannot be filtered. Read this list; do not copy it.",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "kind" : {
+            "type" : "string",
+            "description" : "SYSTEM (kept by the platform: the owner and the times, which are the system properties of a record), STANDARD (defined by the platform) or CUSTOM (defined by the organization).",
+            "enum" : [ "SYSTEM", "STANDARD", "CUSTOM" ]
+          },
+          "label" : {
+            "type" : "string",
+            "description" : "The label people read."
+          },
+          "maxLength" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The most characters of a text value."
+          },
+          "precision" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The most digits of a decimal, currency or percent value."
+          },
+          "required" : {
+            "type" : "boolean",
+            "description" : "Whether a record must have a value."
+          },
+          "resultType" : {
+            "type" : "string",
+            "description" : "For a formula: the type of its result."
+          },
+          "scale" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "How many of those digits come after the point."
+          },
+          "searchable" : {
+            "type" : "boolean",
+            "description" : "Whether the object's search covers the field."
+          },
+          "sortable" : {
+            "type" : "boolean",
+            "description" : "Whether a query can order by this field."
+          },
+          "targetObject" : {
+            "type" : "string",
+            "description" : "For a lookup or master-detail: the API name of the object it points to."
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "The field type, for example TEXT, DECIMAL, PICKLIST, LOOKUP, FORMULA.",
+            "example" : "DECIMAL"
+          },
+          "unique" : {
+            "type" : "boolean",
+            "description" : "Whether no two records may have the same value."
+          },
+          "values" : {
+            "type" : "array",
+            "description" : "For a picklist: the choices.",
+            "items" : {
+              "$ref" : "#/components/schemas/PublicPicklistValue"
+            }
+          }
+        },
+        "required" : [ "apiName", "calculated", "description", "editable", "externalId", "filterOperators", "kind", "label", "required", "searchable", "sortable", "type", "unique" ]
+      },
+      "PublicFilter" : {
+        "type" : "object",
+        "description" : "A group (`AND` or `OR` of `items`) or one condition on one field. A text is compared exactly: upper and lower case differ. `NE` matches only records that have a value. `STARTS_WITH` and `CONTAINS` are for text. The comparisons a field takes are listed in its description (`filterOperators`).",
+        "properties" : {
+          "field" : {
+            "type" : "string",
+            "description" : "For a condition: the API name of the field. A field the caller may not read is answered like a field that does not exist.",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "items" : {
+            "type" : "array",
+            "description" : "For a group: the nodes combined, at least one.",
+            "items" : {
+              "$ref" : "#/components/schemas/PublicFilter"
+            }
+          },
+          "op" : {
+            "type" : "string",
+            "description" : "The comparison, or AND / OR for a group.",
+            "enum" : [ "AND", "OR", "EQ", "NE", "GT", "GTE", "LT", "LTE", "BETWEEN", "IN", "IS_EMPTY", "IS_NOT_EMPTY", "STARTS_WITH", "CONTAINS" ]
+          },
+          "values" : {
+            "type" : "array",
+            "description" : "For a condition: none for IS_EMPTY and IS_NOT_EMPTY, two for BETWEEN, one or more for IN (at most 100), one otherwise. Text as text, a number as a number, a checkbox as true or false, a day as `2026-10-31`, a day and time as `2026-10-31T09:30:00Z`, a link as the identifier of the record.",
+            "items" : { },
+            "maxItems" : 1000,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "op" ]
+      },
+      "PublicLinkedRecord" : {
+        "type" : "object",
+        "description" : "The record a link points at, as far as the caller may see it.",
+        "properties" : {
+          "fields" : {
+            "type" : "object",
+            "additionalProperties" : { },
+            "description" : "The fields asked for of the linked record that the caller may read. Empty when there is nothing the caller may see, whatever the reason."
+          },
+          "id" : {
+            "type" : "string",
+            "description" : "The identifier the link holds."
+          }
+        },
+        "required" : [ "fields", "id" ]
+      },
+      "PublicObjectDescription" : {
+        "type" : "object",
+        "description" : "An object and the fields of it the caller may read. A field the caller may not read is not listed, and writing it is answered like writing a field that does not exist.",
+        "properties" : {
+          "apiName" : {
+            "type" : "string",
+            "description" : "The permanent API name.",
+            "example" : "Employee__c"
+          },
+          "canCreate" : {
+            "type" : "boolean",
+            "description" : "Whether the caller may create records."
+          },
+          "canDelete" : {
+            "type" : "boolean",
+            "description" : "Whether the caller may delete records."
+          },
+          "canUpdate" : {
+            "type" : "boolean",
+            "description" : "Whether the caller may change records."
+          },
+          "fields" : {
+            "type" : "array",
+            "description" : "The fields the caller may read, in the object's order.",
+            "items" : {
+              "$ref" : "#/components/schemas/PublicField"
+            }
+          },
+          "label" : {
+            "type" : "string",
+            "description" : "The label for one record."
+          },
+          "pluralLabel" : {
+            "type" : "string",
+            "description" : "The label for many records."
+          },
+          "recordTypes" : {
+            "type" : "array",
+            "description" : "The record types the caller may use. Empty when the object has none.",
+            "items" : {
+              "$ref" : "#/components/schemas/PublicRecordType"
+            }
+          }
+        },
+        "required" : [ "apiName", "canCreate", "canDelete", "canUpdate", "fields", "label", "pluralLabel", "recordTypes" ]
+      },
+      "PublicObjectSummary" : {
+        "type" : "object",
+        "description" : "An object whose records the caller may read. Standard and custom objects are used in exactly the same way.",
+        "properties" : {
+          "apiName" : {
+            "type" : "string",
+            "description" : "The permanent API name, used in the address of every operation.",
+            "example" : "Employee__c"
+          },
+          "canCreate" : {
+            "type" : "boolean",
+            "description" : "Whether the caller may create records. Presentation of the caller's rights: every request is decided again."
+          },
+          "canDelete" : {
+            "type" : "boolean",
+            "description" : "Whether the caller may delete records."
+          },
+          "canUpdate" : {
+            "type" : "boolean",
+            "description" : "Whether the caller may change records."
+          },
+          "kind" : {
+            "type" : "string",
+            "description" : "STANDARD or CUSTOM.",
+            "enum" : [ "STANDARD", "CUSTOM" ]
+          },
+          "label" : {
+            "type" : "string",
+            "description" : "The label for one record.",
+            "example" : "Employee"
+          },
+          "pluralLabel" : {
+            "type" : "string",
+            "description" : "The label for many records.",
+            "example" : "Employees"
+          }
+        },
+        "required" : [ "apiName", "canCreate", "canDelete", "canUpdate", "kind", "label", "pluralLabel" ]
+      },
+      "PublicPicklistValue" : {
+        "type" : "object",
+        "description" : "One choice of a picklist.",
+        "properties" : {
+          "active" : {
+            "type" : "boolean",
+            "description" : "Whether the value can be chosen for new records."
+          },
+          "label" : {
+            "type" : "string",
+            "description" : "The label people read."
+          },
+          "value" : {
+            "type" : "string",
+            "description" : "The value to send."
+          }
+        },
+        "required" : [ "active", "label", "value" ]
+      },
+      "PublicQueryRequest" : {
+        "type" : "object",
+        "description" : "A query. There is no total in the answer: a page says whether another follows and gives a cursor that is good only for the same query. A filter or an order on a field without a complete index is allowed only on an object with few records; on a larger one the answer is a validation error that says which field to flag as indexed. Sorting by `updatedAt` is not offered.",
+        "properties" : {
+          "cursor" : {
+            "type" : "string",
+            "description" : "The `nextCursor` of the previous page of this same query.",
+            "maxLength" : 4096,
+            "minLength" : 0
+          },
+          "fields" : {
+            "type" : "array",
+            "description" : "The fields to bring (API names). Left out: every field the caller may read.",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 80,
+              "minLength" : 0
+            },
+            "maxItems" : 500,
+            "minItems" : 0
+          },
+          "filter" : {
+            "$ref" : "#/components/schemas/PublicFilter"
+          },
+          "limit" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The page size, 1 to 200. Left out: 50.",
+            "example" : 50,
+            "maximum" : 200,
+            "minimum" : 1
+          },
+          "resolve" : {
+            "type" : "array",
+            "description" : "Links to follow, one level.",
+            "items" : {
+              "$ref" : "#/components/schemas/PublicResolve"
+            },
+            "maxItems" : 500,
+            "minItems" : 0
+          },
+          "sort" : {
+            "type" : "array",
+            "description" : "At most two keys. Records without a value come last in both directions; ties are broken by the identifier.",
+            "items" : {
+              "$ref" : "#/components/schemas/PublicSortKey"
+            },
+            "maxItems" : 2,
+            "minItems" : 0
+          }
+        }
+      },
+      "PublicRecord" : {
+        "type" : "object",
+        "description" : "One record. The properties above `fields` are the system properties; the values of the object's own fields are in `fields`.",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "When the record was created, in UTC.",
+            "example" : "2026-10-31T09:30:00Z"
+          },
+          "deletedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "When the record was moved to the recycle bin. Left out for a live record."
+          },
+          "fields" : {
+            "type" : "object",
+            "additionalProperties" : { },
+            "description" : "The values by field API name. A field without a value, and a field the caller may not read, are left out (never null, never masked). A number is a JSON number with exactly the digits stored; a day is `2026-10-31`; a day and time is UTC ISO-8601; a link is the identifier of the record it points to.",
+            "example" : {
+              "Name" : "A. Example",
+              "Salary__c" : 1250.5
+            }
+          },
+          "id" : {
+            "type" : "string",
+            "description" : "The identifier of the record: opaque and never a count.",
+            "example" : "0194f2a8-6c1e-7a3b-9d52-3f1c8e2b7a40"
+          },
+          "linked" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/PublicLinkedRecord"
+            },
+            "description" : "Only in the answer of a query that asked to follow links: for each link field, the identifier it holds and the fields asked for of the record it points to. A link to a record the caller cannot read, or that is deleted, has the identifier alone."
+          },
+          "object" : {
+            "type" : "string",
+            "description" : "The API name of the object.",
+            "example" : "Employee__c"
+          },
+          "ownerId" : {
+            "type" : "string",
+            "description" : "The user who owns the record.",
+            "example" : "0194f2a8-1111-7a3b-9d52-3f1c8e2b7a40"
+          },
+          "recordType" : {
+            "type" : "string",
+            "description" : "The API name of the record type. Left out when the record has none."
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "When the record was last changed, in UTC.",
+            "example" : "2026-10-31T09:45:12.250Z"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The version of the record. It is also the ETag of the record, and the value to send in If-Match when changing it.",
+            "example" : 3
+          }
+        },
+        "required" : [ "createdAt", "fields", "id", "object", "ownerId", "updatedAt", "version" ]
+      },
+      "PublicRecordType" : {
+        "type" : "object",
+        "description" : "A variant of an object that offers some of its fields and some of its picklist choices.",
+        "properties" : {
+          "apiName" : {
+            "type" : "string",
+            "description" : "The API name: the value to send as `recordType`."
+          },
+          "isDefault" : {
+            "type" : "boolean",
+            "description" : "Whether a new record gets it when no record type is chosen."
+          },
+          "label" : {
+            "type" : "string",
+            "description" : "The label people read."
+          }
+        },
+        "required" : [ "apiName", "isDefault", "label" ]
+      },
+      "PublicResolve" : {
+        "type" : "object",
+        "description" : "Brings some fields of the record a link points at, one level, with the caller's own rights on the linked object. A link that points at nothing, at a deleted record, at an object the caller may not read or at an object the platform owns gets the same answer: the identifier alone.",
+        "properties" : {
+          "field" : {
+            "type" : "string",
+            "description" : "The API name of a lookup or master-detail field of the queried object.",
+            "maxLength" : 80,
+            "minLength" : 0
+          },
+          "fields" : {
+            "type" : "array",
+            "description" : "The API names of the fields of the linked object to bring. A name that is not a field the caller may read is left out without a word.",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 80,
+              "minLength" : 0
+            },
+            "maxItems" : 100,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "field", "fields" ]
+      },
+      "PublicSortKey" : {
+        "type" : "object",
+        "description" : "One key of the order of a query. Records without a value come last in both directions.",
+        "properties" : {
+          "descending" : {
+            "type" : "boolean",
+            "description" : "Whether the largest comes first. Left out: smallest first."
+          },
+          "field" : {
+            "type" : "string",
+            "description" : "The API name of the field. Only a field whose description says `sortable` can be used.",
+            "maxLength" : 80,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "field" ]
+      },
+      "PublicUpdateRequest" : {
+        "type" : "object",
+        "description" : "A merge: only the fields named change, the others keep their value. A null value, or a name in `clear`, removes a value. The version the change is based on is sent in the If-Match header.",
+        "properties" : {
+          "clear" : {
+            "type" : "array",
+            "description" : "API names of fields that lose their value.",
+            "items" : {
+              "type" : "string"
+            },
+            "maxItems" : 500,
+            "minItems" : 0
+          },
+          "fields" : {
+            "type" : "object",
+            "additionalProperties" : { },
+            "description" : "The new values by field API name. A null value clears the field.",
+            "example" : {
+              "Salary__c" : 1300
+            }
+          },
+          "recordType" : {
+            "type" : "string",
+            "description" : "The API name of the record type to move the record to.",
+            "maxLength" : 80,
+            "minLength" : 0
+          }
+        }
+      }
+    },
+    "securitySchemes" : {
+      "bearerAuth" : {
+        "description" : "The access token of a signed-in user, sent as `Authorization: Bearer <token>`. The organization is always the one the host name of the request names; a token never chooses it. Tokens for software itself (client credentials, scopes) are added by a later release; no static key exists or will.",
+        "scheme" : "bearer",
+        "type" : "http"
+      }
+    }
+  }
+}

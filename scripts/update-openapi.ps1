@@ -7,6 +7,6 @@
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 ./mvnw -B -ntp -pl platform-app -am verify -Pintegration-only `
-    '-Dit.test=OpenApiContractIT' '-Dsurefire.failIfNoSpecifiedTests=false' '-Dopenapi.update=true'
+    '-Dit.test=OpenApiContractIT,PublicOpenApiContractIT' '-Dsurefire.failIfNoSpecifiedTests=false' '-Dopenapi.update=true'
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-Write-Host 'Updated platform-api-contract/src/main/resources/openapi/platform-api-v1.json'
+Write-Host 'Updated platform-api-contract/src/main/resources/openapi/platform-api-v1.json and platform-public-api-v1.json'

@@ -323,3 +323,14 @@ platform:
           public-key-file: ${PLATFORM_SIGNING_PUBLIC_KEY_FILE:}
     seed:
       password: ${LOCAL_SEED_PASSWORD:}
+  publicapi:
+    # The public API (Sprint 30, ADR-0244): a small, stable interface for other people's software under
+    # /api/public/v1. false answers the whole prefix, the description included, with NOT_FOUND (the kill switch).
+    enabled: ${PLATFORM_PUBLIC_API_ENABLED:true}
+    # How long a key sent in Idempotency-Key keeps its outcome (ADR-0246): one minute to seven days.
+    idempotency:
+      retention: 24h
+    # What a request may weigh: refused as soon as it is over, announced or counted (ADR-0245).
+    limits:
+      max-body-bytes: 1048576
+      max-bulk-body-bytes: 8388608
