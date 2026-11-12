@@ -94,4 +94,43 @@ class SheetImportLogsAreCleanIT extends SheetSupport {
         assertThat(trail).as("the trail shows a draft was made from a file, by counts and sizes")
                 .contains("sheets.version.imported");
     }
+
+    /** FA14: a file with a title and cells that have a border and no text, the text beside them, and a refusal. */
+    @Test
+    void theTextBesideBorderedBlankCellsAndATitleIsNeverLoggedOrEchoed() throws IOException {
+        Setting setting = setting();
+        String owner = template(setting.admin());
+        String title = typed("title-text");
+        String neighbour = typed("neighbour-text");
+        String wide = typed("wide-text");
+
+        byte[] good = new XlsxFile()
+                .row(1, XlsxFile.text("A1", title, XlsxFile.TITLE_BOX), XlsxFile.boxed("B1"))
+                .row(2, XlsxFile.boxedText("A2", neighbour), XlsxFile.boxed("B2"))
+                .row(3, XlsxFile.boxed("A3"), XlsxFile.boxed("B3")).merge("A1:B1").bytes();
+        byte[] tooWide = new XlsxFile()
+                .row(1, XlsxFile.text("A1", wide), XlsxFile.boxed(SheetImportBuilder.letters(100) + "1")).bytes();
+        BytesResponse preview = setting.admin().bytes("POST", versions(owner) + "/import?format=xlsx&preview=true",
+                good, "Content-Type", "application/octet-stream");
+        BytesResponse refused = setting.admin().bytes("POST", versions(owner) + "/import?format=xlsx", tooWide,
+                "Content-Type", "application/octet-stream");
+        BytesResponse made = setting.admin().bytes("POST", versions(owner) + "/import?format=xlsx", good,
+                "Content-Type", "application/octet-stream");
+        var listed = setting.admin().get(versions(owner));
+        String trail = setting.admin().get("/api/v1/audit-events?limit=200").body();
+
+        String log = Files.readString(Path.of(LOG_FILE));
+        assertThat(preview.status()).as(preview.text()).isEqualTo(200);
+        assertThat(made.status()).as(made.text()).isEqualTo(201);
+        assertThat(refused.status()).as(refused.text()).isEqualTo(400);
+        assertThat(preview.text()).as("counts of what came in, never the text").contains("bordered_blanks")
+                .contains("title_row");
+        for (String text : List.of(title, neighbour, wide)) {
+            assertThat(log).as("typed text is not logged: " + text).doesNotContain(text);
+            assertThat(trail).as("typed text is not in the audit trail: " + text).doesNotContain(text);
+            for (String answer : List.of(preview.text(), made.text(), refused.text(), listed.body())) {
+                assertThat(answer).as("only the call that reads a grid carries its text").doesNotContain(text);
+            }
+        }
+    }
 }

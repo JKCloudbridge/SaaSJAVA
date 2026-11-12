@@ -39,6 +39,11 @@ cells	csv	too-many-values	more values than can be read
 too_many_merges	xlsx	too-many-merges	more merged areas than a sheet may have
 too_many_columns	csv	columns-101	one column over the limit
 too_many_rows	csv	rows-501	one row over the limit
+@@ ---- cells with a border and no text (FA14, ADR-0250) ----
+too_many_columns	xlsx	bordered-blank-column-101	a bordered blank cell in column 101, with no text there
+too_many_rows	xlsx	bordered-blank-rows-501	501 bordered blank rows under the first
+cells	xlsx	bordered-all-over	a sheet bordered all over: more cells than can be read
+styles	xlsx	too-many-borders	a styles part with one border more than a workbook can have
 @@ ---- what a person typed ----
 text_too_long	csv	cell-1001	a text of 1,001 characters
 text_too_long	csv	label-201	a column name of 201 characters

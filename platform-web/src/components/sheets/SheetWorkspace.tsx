@@ -14,7 +14,7 @@ import {
 import { explainPlace, hintsFor, problemsFromFields } from "@/lib/sheets/hints";
 import { defaultVersion, useVersion, useVersions } from "@/lib/sheets/hooks";
 import { revisionWords, versionTitle } from "@/lib/sheets/revision";
-import { isDraft, statusTag } from "@/lib/sheets/tags";
+import { isDraft } from "@/lib/sheets/tags";
 import type { GridDoc, Problem, SheetLimits } from "@/lib/sheets/types";
 import { FormView } from "./FormView";
 import { GridView } from "./GridView";
@@ -411,11 +411,10 @@ function VersionEditor({
   // A draft held for a change request is changed by the people asked to decide it, not by whoever may change the record.
   const mayEdit = draft && summary.held ? canChangeHeld : canChange;
   const readOnly = !mayEdit || !(draft || correcting);
-  const tag = statusTag(summary.status);
   const readOnlyReason = !(draft || correcting)
     ? inReview
       ? `${sentenceName(summary)} is in review. Only the people who approve it can correct it; everyone else reads it.`
-      : `${sentenceName(summary)} is ${tag.text.toLowerCase()} and cannot be changed.`
+      : undefined
     : !mayEdit
       ? summary.held
         ? "This is the revised copy of a change request. Only the people asked to decide the request can change it."
@@ -540,11 +539,6 @@ function VersionEditor({
   return (
     <div className="stack sheet-editor" data-testid="version-editor">
       {toolbarSlot === undefined ? bar : toolbarSlot ? createPortal(bar, toolbarSlot) : null}
-      {summary.reviewEdits > 0 ? (
-        <p className="hint">
-          This revision was corrected {summary.reviewEdits === 1 ? "once" : `${summary.reviewEdits} times`} while in review.
-        </p>
-      ) : null}
       {readOnly && readOnlyReason ? (
         <p className="hint" role="note">
           {readOnlyReason}

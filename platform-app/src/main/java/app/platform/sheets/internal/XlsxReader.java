@@ -44,6 +44,8 @@ final class XlsxReader {
     private static final int MAX_COLUMN = 16_384;
     private static final int MAX_ROW = 1_048_576;
     private static final int MAX_STRINGS = 1_000_000;
+    /** The most cell formats a workbook can have (64,000), so also the most borders any of them can use. */
+    private static final int MAX_BORDERS = 64_000;
     private static final String SHEETS = "xl/worksheets/";
     private static final Set<String> WANTED = Set.of("[Content_Types].xml", "xl/workbook.xml",
             "xl/_rels/workbook.xml.rels", "xl/sharedStrings.xml", "xl/styles.xml");
@@ -302,10 +304,17 @@ final class XlsxReader {
     private record Font(boolean bold, boolean italic, int points) {
     }
 
-    /** What a cell style says that a sheet keeps: bold, italic, a size, and whether the number is a date. */
-    private record Styles(List<Font> fonts, List<Integer> fontOf, List<Boolean> date) {
+    /**
+     * What a cell style says that a sheet keeps: bold, italic, a size, whether the number is a date, and whether the
+     * cell has a border on any side (FA14).
+     */
+    private record Styles(List<Font> fonts, List<Integer> fontOf, List<Boolean> date, List<Boolean> bordered) {
 
-        static final Styles NONE = new Styles(List.of(), List.of(), List.of());
+        static final Styles NONE = new Styles(List.of(), List.of(), List.of(), List.of());
+
+        boolean hasBorder(int style) {
+            return style >= 0 && style < bordered.size() && bordered.get(style);
+        }
 
         Font fontFor(int style) {
             if (style < 0 || style >= fontOf.size()) {
@@ -325,6 +334,11 @@ final class XlsxReader {
         List<Font> fonts = new ArrayList<>();
         List<Integer> fontOf = new ArrayList<>();
         List<Integer> formatOf = new ArrayList<>();
+        List<Boolean> borders = new ArrayList<>();
+        List<Integer> borderOf = new ArrayList<>();
+        boolean inBorders = false;
+        boolean inBorder = false;
+        boolean sided = false;
         boolean inFonts = false;
         boolean inXfs = false;
         boolean inFont = false;
@@ -357,13 +371,31 @@ final class XlsxReader {
                             Double size = number(r.getAttributeValue(null, "val"));
                             points = inFont && size != null ? (int) Math.round(size) : 0;
                         }
+                        case "borders" -> inBorders = true;
+                        case "border" -> {
+                            // Only the list of borders: a border inside a conditional format is not a cell's.
+                            if (inBorders) {
+                                if (borders.size() >= MAX_BORDERS) {
+                                    throw tooLarge("styles", "The file has more cell border styles than a workbook "
+                                            + "is allowed to have (" + MAX_BORDERS + ").");
+                                }
+                                inBorder = true;
+                                sided = false;
+                            }
+                        }
+                        case "left", "right", "top", "bottom", "start", "end" -> {
+                            String style = r.getAttributeValue(null, "style");
+                            sided = sided || inBorder && style != null && !style.isBlank() && !"none".equals(style);
+                        }
                         case "cellXfs" -> inXfs = true;
                         case "xf" -> {
                             if (inXfs && fontOf.size() < 100_000) {
                                 Integer font = integer(r.getAttributeValue(null, "fontId"));
                                 Integer format = integer(r.getAttributeValue(null, "numFmtId"));
+                                Integer border = integer(r.getAttributeValue(null, "borderId"));
                                 fontOf.add(font == null ? Integer.valueOf(-1) : font);
                                 formatOf.add(format == null ? Integer.valueOf(0) : format);
+                                borderOf.add(border == null ? Integer.valueOf(-1) : border);
                             }
                         }
                         default -> {
@@ -378,6 +410,11 @@ final class XlsxReader {
                         inFont = false;
                     } else if ("fonts".equals(name)) {
                         inFonts = false;
+                    } else if ("border".equals(name) && inBorder) {
+                        borders.add(sided);
+                        inBorder = false;
+                    } else if ("borders".equals(name)) {
+                        inBorders = false;
                     } else if ("cellXfs".equals(name)) {
                         inXfs = false;
                     }
@@ -393,7 +430,11 @@ final class XlsxReader {
             String code = formats.get(format);
             date.add(code == null ? BUILT_IN_DATES.contains(format) : isDateFormat(code));
         }
-        return new Styles(fonts, fontOf, date);
+        List<Boolean> bordered = new ArrayList<>();
+        for (int border : borderOf) {
+            bordered.add(border >= 0 && border < borders.size() && borders.get(border));
+        }
+        return new Styles(fonts, fontOf, date, bordered);
     }
 
     /** Whether a number format shows a date or a time: it names a day, month, year, hour or second outside quotes. */
@@ -571,7 +612,7 @@ final class XlsxReader {
         sheet.merges.add(new RawSheet.Area(from[0], from[1], to[0], to[1]));
     }
 
-    private static void finish(RawSheet sheet, Pending cell, List<String> strings, Styles styles, boolean date1904) {
+    private void finish(RawSheet sheet, Pending cell, List<String> strings, Styles styles, boolean date1904) {
         String value = cell.value.toString();
         String type = cell.type;
         String text;
@@ -582,6 +623,7 @@ final class XlsxReader {
             text = cell.inline.toString();
         } else if ("e".equals(type)) {
             sheet.notes.add(ImportNote.ERROR_CELLS);
+            keepBorder(sheet, cell, styles);
             return;
         } else if ("b".equals(type)) {
             text = value.isBlank() ? null : "1".equals(value.trim()) ? "TRUE" : "FALSE";
@@ -591,6 +633,7 @@ final class XlsxReader {
             text = numberText(value, cell.style, styles, date1904, sheet);
         }
         if (text == null || text.isBlank()) {
+            keepBorder(sheet, cell, styles);
             return;
         }
         if (cell.formula) {
@@ -599,6 +642,20 @@ final class XlsxReader {
         Font font = styles.fontFor(cell.style);
         sheet.put(cell.row, cell.column, font == null ? new RawSheet.Cell(text, false, false, 0)
                 : new RawSheet.Cell(text, font.bold(), font.italic(), font.points()));
+    }
+
+    /**
+     * A cell with no text but a border on some side is part of the table (FA14, ADR-0250). A column past the sheet's
+     * limit is refused at once, with the number, so the file cannot make this reader hold more than that.
+     */
+    private void keepBorder(RawSheet sheet, Pending cell, Styles styles) {
+        if (!styles.hasBorder(cell.style)) {
+            return;
+        }
+        if (cell.column >= limits.maxColumns()) {
+            throw SheetImportBuilder.tooManyColumns(cell.column + 1, limits.maxColumns());
+        }
+        sheet.border(cell.row, cell.column);
     }
 
     /** A number as the text of its digits, or as a date when its style shows one. */

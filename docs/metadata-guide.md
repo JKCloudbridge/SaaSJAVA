@@ -812,6 +812,16 @@ What comes in: the first sheet of the workbook; every text as fixed text of the 
 
 When it is refused, the window says why and where ("Row 12, column C has a text longer than the allowed 1000 characters."); nothing is cut and nothing is saved. A file with macros, an older .xls file, a file protected by a password, a text file that is not UTF-8 and a file over the size limit are refused with the way to fix them. A draft that exists refuses the upload and tells you its number: continue with it, or send it for approval first. On a sheet whose filler adds the rows, only the names of the columns come in. The file itself is not kept.
 
+#### What comes in and what does not (a form with boxes and a title)
+
+A spreadsheet that is a form (boxes to write in, a title across the page) now comes in as it looks.
+
+- **A cell with a border is part of the table, even when it has no text.** One line on any side is enough (a line below an answer, a box). Such a cell becomes a cell the person who fills the sheet in types into, and the sheet is as wide and as tall as the boxes reach. A cell with **no** border is not part of the table: the empty cells to the right of or below the table stay out. The window says how many blank cells with a border were kept.
+- **A merged area with a border keeps its whole area** (a merged answer area of three columns and five rows comes in as that merge).
+- **A title across the page.** When the first row is one merged cell across the whole width of the table, the window says "The first row looks like a title" and the box **The first row holds the names of the columns** starts **unticked**. The title is the first row of the sheet (its text, bold and size, and its merge), and the columns are called Column 1, Column 2 and so on. Tick the box if you do want that row to name the columns. A merged first row over only part of the width is an ordinary row. A text file (.csv) has no merges and is never a title.
+- **If the whole page is boxed** (thousands of empty boxes), the file is refused with the limit and its number (500 rows, 100 columns, 200,000 cells read); nothing is cut. Remove the boxes from the unused area in the spreadsheet and upload again.
+- **Not read:** a border you gave to a whole row or a whole column in one step may be stored as a style of that row, not as cells; select the table itself and give it the border. Border colour and thickness are not kept.
+
 ### 27.4 For contributors: another owner of a sheet
 
 Name the object in `sheetOwners` in the `solution.yml` of the solution that brings it (it must be one of its `objects`); the page passes `{object, id}` to `SheetWorkspace`. Nothing else in `sheets` or in `components/sheets` changes, and no cluster word may enter them (`SolutionBoundaryTest`). Who may read or change the sheet is the owner record's own answer (read, update): never write a second rule. To change the **format** of the grid: change `platform-api-contract/src/main/resources/schemas/sheet-grid.json`, the validator and its corpus (`src/test/resources/sheets/hostile-grids.txt`), regenerate the OpenAPI document and the client, and decide whether it needs a new `formatVersion` (a new reader plus a migration of stored versions, never an in-place change).

@@ -102,7 +102,11 @@ class SheetController {
                     + "the four sizes and merged areas come with it. Formulas come in as their last values and dates "
                     + "as text written year-month-day. Images, charts, other sheets and links to other files are "
                     + "left out and counted in the report, which says what was left out in plain words. "
-                    + "firstRowLabels (default true) makes the first row with text the names of the columns. A "
+                    + "firstRowLabels makes the first row of the table the names of the columns; when it is left "
+                    + "out the server decides: no when that row is a title (one merged area across the whole width "
+                    + "of the table), yes otherwise, and the report says which it applied. A cell with a border on "
+                    + "any side is part of the table even when it holds no text, and becomes a cell to be filled "
+                    + "in; a blank cell with no border does not extend the table. A "
                     + "sheet that has no version yet is made in the shape where the sheet names its rows; a sheet "
                     + "that has versions keeps its shape (where the filler adds the rows, only the names of the "
                     + "columns come in). preview=true answers with the report and saves nothing. The size is "
@@ -121,7 +125,7 @@ class SheetController {
             schema = @Schema(type = "string", format = "binary")))
     ResponseEntity<ApiResponse<SheetImportResultView>> importFile(@PathVariable String ownerObject,
             @PathVariable UUID ownerId, @RequestParam String format,
-            @RequestParam(defaultValue = "true") boolean firstRowLabels,
+            @RequestParam(required = false) Boolean firstRowLabels,
             @RequestParam(defaultValue = "false") boolean preview,
             @RequestParam(defaultValue = "false") boolean replace, HttpServletRequest request) {
         SpreadsheetImporter.Format kind = SpreadsheetImporter.Format.of(format)
@@ -147,7 +151,8 @@ class SheetController {
     private static SheetImportReportView view(SheetImportBuilder.Report report) {
         return new SheetImportReportView(report.columns(), report.rows(), report.mergedAreas(),
                 report.notes().stream().map(entry -> new SheetImportNoteView(entry.note().code(), entry.count(),
-                        entry.note().leftOut(), entry.note().words(entry.count()))).toList());
+                        entry.note().leftOut(), entry.note().words(entry.count()))).toList(),
+                report.firstRowLabels(), report.firstRowIsTitle());
     }
 
     private static ApiException refusal(ImportRefusal e) {

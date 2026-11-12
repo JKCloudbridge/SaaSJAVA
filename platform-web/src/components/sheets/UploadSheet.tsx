@@ -61,12 +61,16 @@ export function UploadSheet({
   const [firstRowLabels, setFirstRowLabels] = useState(true);
   const [phase, setPhase] = useState<Phase>({ step: "reading" });
 
-  const preview = async (blob: File, kind: FileKind, labels: boolean) => {
+  /** `labels` undefined is the first look at a file: the server says whether the first row names the columns. */
+  const preview = async (blob: File, kind: FileKind, labels: boolean | undefined) => {
     const ticket = ++latest.current;
     setPhase({ step: "reading" });
     const outcome = await importSpreadsheet(owner, blob, { format: kind, firstRowLabels: labels, preview: true, replace });
     if (ticket !== latest.current) {
       return;
+    }
+    if (outcome.ok && labels === undefined) {
+      setFirstRowLabels(outcome.data.report.firstRowLabels ?? true);
     }
     setPhase(
       outcome.ok
@@ -91,7 +95,7 @@ export function UploadSheet({
       return;
     }
     setFile({ blob, kind });
-    void preview(blob, kind, true);
+    void preview(blob, kind, undefined);
   };
 
   const close = () => {
@@ -160,6 +164,14 @@ export function UploadSheet({
               />
               <span>The first row holds the names of the columns</span>
             </label>
+            {report?.firstRowIsTitle ? (
+              <p className="hint" data-testid="upload-title-note">
+                The first row looks like a title.{" "}
+                {firstRowLabels
+                  ? "Because the box is ticked it will name the first column."
+                  : "It is kept as the first row of the sheet and does not name a column. Tick the box to use it as the names of the columns instead."}
+              </p>
+            ) : null}
             {phase.step === "reading" ? (
               <p role="status" className="hint">
                 Reading the file…

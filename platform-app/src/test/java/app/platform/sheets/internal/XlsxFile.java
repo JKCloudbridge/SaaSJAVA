@@ -20,6 +20,12 @@ final class XlsxFile {
     static final int BOLD = 1;
     static final int DATE = 2;
     static final int TITLE = 3;
+    static final int BOXED = 4;
+    static final int UNDERLINED = 5;
+    static final int BORDER_NONE = 6;
+    /** A large bold italic title in a box with a heavier line. */
+    static final int TITLE_BOX = 7;
+    static final int STRAY = 8;
 
     private static final String MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
     private static final String RELS = "http://schemas.openxmlformats.org/package/2006/relationships";
@@ -38,6 +44,7 @@ final class XlsxFile {
     private String sheetPrefix = "";
     private int mergeCount;
     private boolean date1904;
+    private String styles = STYLES;
 
     /** One row; a height in points makes it a custom height. */
     XlsxFile row(int number, Integer heightPoints, String... cells) {
@@ -92,6 +99,31 @@ final class XlsxFile {
         return "<c r=\"" + ref + "\" s=\"1\"/>";
     }
 
+    /** A cell with no text and a line on all four sides (FA14). */
+    static String boxed(String ref) {
+        return "<c r=\"" + ref + "\" s=\"" + BOXED + "\"/>";
+    }
+
+    /** A cell with no text and a line below it only: a border on one side is enough (FA14). */
+    static String underlined(String ref) {
+        return "<c r=\"" + ref + "\" s=\"" + UNDERLINED + "\"/>";
+    }
+
+    /** A cell with no text whose border names the style "none": it has no border (FA14). */
+    static String noBorder(String ref) {
+        return "<c r=\"" + ref + "\" s=\"" + BORDER_NONE + "\"/>";
+    }
+
+    /** A cell with no text whose style points at a border that the file does not have (FA14). */
+    static String strayBorder(String ref) {
+        return "<c r=\"" + ref + "\" s=\"" + STRAY + "\"/>";
+    }
+
+    /** A cell that holds text and is boxed. */
+    static String boxedText(String ref, String text) {
+        return text(ref, text, BOXED);
+    }
+
     XlsxFile widths(int first, int last, double width) {
         cols += "<col min=\"" + first + "\" max=\"" + last + "\" width=\"" + width + "\" customWidth=\"1\"/>";
         return this;
@@ -140,6 +172,12 @@ final class XlsxFile {
         return this;
     }
 
+    /** Replaces the styles part, for a file whose styles are hostile or have no list of borders. */
+    XlsxFile styles(String xml) {
+        styles = xml;
+        return this;
+    }
+
     byte[] bytes() {
         Map<String, byte[]> parts = new LinkedHashMap<>();
         parts.put("[Content_Types].xml", contentTypes.getBytes(StandardCharsets.UTF_8));
@@ -149,7 +187,7 @@ final class XlsxFile {
         parts.put("xl/_rels/workbook.xml.rels", ("<Relationships xmlns=\"" + RELS + "\"><Relationship Id=\"rId1\" "
                 + "Type=\"worksheet\" Target=\"worksheets/sheet1.xml\"/><Relationship Id=\"rId2\" Type=\"worksheet\" "
                 + "Target=\"worksheets/sheet2.xml\"/></Relationships>").getBytes(StandardCharsets.UTF_8));
-        parts.put("xl/styles.xml", STYLES.getBytes(StandardCharsets.UTF_8));
+        parts.put("xl/styles.xml", styles.getBytes(StandardCharsets.UTF_8));
         if (sharedStrings != null) {
             parts.put("xl/sharedStrings.xml", sharedStrings.getBytes(StandardCharsets.UTF_8));
         }
@@ -179,9 +217,33 @@ final class XlsxFile {
         return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
-    private static final String STYLES = "<styleSheet xmlns=\"" + MAIN + "\"><fonts count=\"3\">"
+    /** The same styles as {@link #STYLES} without the list of borders: every cell has none (FA14). */
+    static final String STYLES_WITHOUT_BORDERS = "<styleSheet xmlns=\"" + MAIN + "\"><fonts count=\"3\">"
             + "<font><sz val=\"11\"/></font><font><b/><sz val=\"11\"/></font>"
             + "<font><b/><i/><sz val=\"18\"/></font></fonts><cellXfs count=\"4\">"
             + "<xf numFmtId=\"0\" fontId=\"0\"/><xf numFmtId=\"0\" fontId=\"1\"/><xf numFmtId=\"14\" fontId=\"0\"/>"
             + "<xf numFmtId=\"0\" fontId=\"2\"/></cellXfs></styleSheet>";
+
+    /**
+     * The borders of the styles part: 0 none, 1 a thin line on all four sides, 2 a line below only, 3 a side that
+     * names the style "none" (so no border), 4 a bold title box.
+     */
+    private static final String BORDER_LIST = "<borders count=\"5\">"
+            + "<border><left/><right/><top/><bottom/><diagonal/></border>"
+            + "<border><left style=\"thin\"><color auto=\"1\"/></left><right style=\"thin\"><color auto=\"1\"/></right>"
+            + "<top style=\"thin\"><color auto=\"1\"/></top><bottom style=\"thin\"><color auto=\"1\"/></bottom>"
+            + "<diagonal/></border>"
+            + "<border><left/><right/><top/><bottom style=\"thin\"><color auto=\"1\"/></bottom><diagonal/></border>"
+            + "<border><left style=\"none\"/><right/><top/><bottom/><diagonal/></border>"
+            + "<border><left style=\"medium\"/><right style=\"medium\"/><top style=\"medium\"/>"
+            + "<bottom style=\"medium\"/><diagonal/></border></borders>";
+
+    private static final String STYLES = "<styleSheet xmlns=\"" + MAIN + "\"><fonts count=\"3\">"
+            + "<font><sz val=\"11\"/></font><font><b/><sz val=\"11\"/></font>"
+            + "<font><b/><i/><sz val=\"18\"/></font></fonts>" + BORDER_LIST + "<cellXfs count=\"9\">"
+            + "<xf numFmtId=\"0\" fontId=\"0\" borderId=\"0\"/><xf numFmtId=\"0\" fontId=\"1\" borderId=\"0\"/>"
+            + "<xf numFmtId=\"14\" fontId=\"0\" borderId=\"0\"/><xf numFmtId=\"0\" fontId=\"2\" borderId=\"0\"/>"
+            + "<xf numFmtId=\"0\" fontId=\"0\" borderId=\"1\"/><xf numFmtId=\"0\" fontId=\"0\" borderId=\"2\"/>"
+            + "<xf numFmtId=\"0\" fontId=\"0\" borderId=\"3\"/><xf numFmtId=\"0\" fontId=\"2\" borderId=\"4\"/>"
+            + "<xf numFmtId=\"0\" fontId=\"0\" borderId=\"99\"/></cellXfs></styleSheet>";
 }

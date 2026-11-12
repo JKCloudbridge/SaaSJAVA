@@ -29,11 +29,12 @@ final class SheetImportBuilder {
     /**
      * How the grid is made.
      *
-     * @param firstRowLabels whether the first row with text names the columns
+     * @param firstRowLabels whether the first row of the table names the columns; null leaves the choice to the
+     *         server, which says no when that row is a title (FA14) and yes otherwise
      * @param dimension the shape of the sheet: 2 when the sheet names its rows, 1 when the filler adds them
      * @param rowsMode the rows mode that goes with the dimension
      */
-    record Options(boolean firstRowLabels, int dimension, RowsMode rowsMode) {
+    record Options(Boolean firstRowLabels, int dimension, RowsMode rowsMode) {
     }
 
     /**
@@ -43,8 +44,11 @@ final class SheetImportBuilder {
      * @param rows the rows of the grid (0 for a sheet whose filler adds the rows)
      * @param mergedAreas the merged areas that came in
      * @param notes what was left out or came in another form, each with a count
+     * @param firstRowLabels whether the first row names the columns in this grid (the choice that was applied)
+     * @param firstRowIsTitle whether the first row of the table is a title: one merged area across its whole width
      */
-    record Report(int columns, int rows, int mergedAreas, List<ImportNote.Entry> notes) {
+    record Report(int columns, int rows, int mergedAreas, List<ImportNote.Entry> notes, boolean firstRowLabels,
+            boolean firstRowIsTitle) {
     }
 
     /**
@@ -72,29 +76,29 @@ final class SheetImportBuilder {
             throw new ImportRefusal("empty_file", "The file holds no text, so there is nothing to make a sheet "
                     + "from.");
         }
-        int minRow = raw.rows.firstKey();
-        int maxRow = raw.rows.lastKey();
-        int maxColumn = 0;
-        for (NavigableMap<Integer, RawSheet.Cell> row : raw.rows.values()) {
-            maxColumn = Math.max(maxColumn, row.lastKey());
-        }
+        // The table is every cell with text or a border (FA14, ADR-0250): a bordered blank cell extends it, a blank
+        // cell with no border does not.
+        RawSheet.Extent extent = raw.extent();
+        int minRow = extent.top();
+        int maxRow = extent.bottom();
+        int maxColumn = extent.right();
         int columnCount = maxColumn + 1;
         if (columnCount > limits.maxColumns()) {
-            throw new ImportRefusal("too_many_columns", "The file has " + columnCount + " columns; a sheet may have "
-                    + "at most " + limits.maxColumns() + ".");
+            throw tooManyColumns(columnCount, limits.maxColumns());
         }
+        boolean title = isTitle(raw, extent);
+        boolean labels = options.firstRowLabels() == null ? !title : options.firstRowLabels();
         boolean dimension2 = options.dimension() == 2;
-        int bodyStart = options.firstRowLabels() ? minRow + 1 : minRow;
+        int bodyStart = labels ? minRow + 1 : minRow;
         int bodyCount = Math.max(0, maxRow - bodyStart + 1);
         if (dimension2 && bodyCount > limits.maxRows()) {
             throw new ImportRefusal("too_many_rows", "The file has " + bodyCount + " rows"
-                    + (options.firstRowLabels() ? " below the first" : "") + "; a sheet may have at most "
-                    + limits.maxRows() + ".");
+                    + (labels ? " below the first" : "") + "; a sheet may have at most " + limits.maxRows() + ".");
         }
-        checkTexts(raw, options, bodyStart, dimension2);
+        checkTexts(raw, labels, minRow, bodyStart, dimension2);
 
         ImportNote.Counts notes = raw.notes;
-        List<Column> columns = columns(raw, options, minRow, columnCount);
+        List<Column> columns = columns(raw, labels, minRow, columnCount);
         List<String> rowIds = new ArrayList<>();
         List<Line> lines = new ArrayList<>();
         if (dimension2) {
@@ -114,8 +118,9 @@ final class SheetImportBuilder {
         }
         List<Merge> merges = new ArrayList<>();
         Set<Long> covered = new HashSet<>();
+        List<RawSheet.Area> accepted = List.of();
         if (dimension2) {
-            merges(raw, bodyStart, maxRow, maxColumn, columns, rowIds, merges, covered, notes);
+            accepted = merges(raw, bodyStart, maxRow, maxColumn, columns, rowIds, merges, covered, notes);
         } else {
             notes.add(ImportNote.MERGES_LEFT_OUT, raw.merges.size());
         }
@@ -133,14 +138,66 @@ final class SheetImportBuilder {
                 }
             }
         }
+        if (dimension2) {
+            notes.add(ImportNote.BORDERED_BLANKS, blankBorderedCells(raw, bodyStart, accepted));
+            if (title && !labels) {
+                notes.add(ImportNote.TITLE_ROW);
+            }
+        }
         SheetGrid grid = new SheetGrid(options.dimension(), options.rowsMode(), columns, List.of(), lines, cells,
                 merges);
-        return new Built(grid, new Report(columns.size(), lines.size(), merges.size(), notes.entries()));
+        return new Built(grid, new Report(columns.size(), lines.size(), merges.size(), notes.entries(), labels,
+                title));
+    }
+
+    /** The refusal for a table wider than a sheet may be, shared with the reader that stops a file early. */
+    static ImportRefusal tooManyColumns(int count, int most) {
+        return new ImportRefusal("too_many_columns", "The file has " + count + " columns; a sheet may have at most "
+                + most + ".");
+    }
+
+    /**
+     * Whether the first row of the table is a title (FA14, ADR-0250): the only text in that row is in its first
+     * column, and that cell is a merged area of this one row that spans the whole width of the table, which is at
+     * least two columns wide. A merge over part of the width is an ordinary row.
+     */
+    private static boolean isTitle(RawSheet raw, RawSheet.Extent extent) {
+        NavigableMap<Integer, RawSheet.Cell> first = raw.rows.get(extent.top());
+        if (extent.right() < 1 || first == null || first.size() != 1 || first.firstKey() != 0) {
+            return false;
+        }
+        for (RawSheet.Area area : raw.merges) {
+            if (area.top() == extent.top() && area.bottom() == extent.top() && area.left() == 0
+                    && area.right() == extent.right()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * How many cells with a border and no text lie in the rows that become the body of the sheet, not counting the
+     * ones under a merged area that came in (a merged area is one cell, its top left).
+     */
+    private static int blankBorderedCells(RawSheet raw, int bodyStart, List<RawSheet.Area> accepted) {
+        int count = 0;
+        for (java.util.BitSet columns : raw.bordered.tailMap(bodyStart).values()) {
+            count += columns.cardinality();
+        }
+        for (RawSheet.Area area : accepted) {
+            for (Map.Entry<Integer, java.util.BitSet> row : raw.bordered
+                    .subMap(area.top(), true, area.bottom(), true).entrySet()) {
+                int inside = row.getValue().get(area.left(), area.right() + 1).cardinality();
+                boolean anchor = row.getKey() == area.top() && row.getValue().get(area.left());
+                count -= inside - (anchor ? 1 : 0);
+            }
+        }
+        return count;
     }
 
     // ---- the columns ----
 
-    private List<Column> columns(RawSheet raw, Options options, int minRow, int count) {
+    private List<Column> columns(RawSheet raw, boolean labels, int minRow, int count) {
         List<Column> columns = new ArrayList<>();
         Integer[] widths = new Integer[count];
         for (RawSheet.Width width : raw.widths) {
@@ -148,7 +205,7 @@ final class SheetImportBuilder {
                 widths[c] = width.pixels();
             }
         }
-        NavigableMap<Integer, RawSheet.Cell> labelRow = options.firstRowLabels() ? raw.rows.get(minRow) : null;
+        NavigableMap<Integer, RawSheet.Cell> labelRow = labels ? raw.rows.get(minRow) : null;
         for (int c = 0; c < count; c++) {
             RawSheet.Cell label = labelRow == null ? null : labelRow.get(c);
             String text = label == null ? "Column " + (c + 1) : label.text().strip();
@@ -160,7 +217,7 @@ final class SheetImportBuilder {
 
     // ---- merged areas ----
 
-    private void merges(RawSheet raw, int bodyStart, int maxRow, int maxColumn, List<Column> columns,
+    private List<RawSheet.Area> merges(RawSheet raw, int bodyStart, int maxRow, int maxColumn, List<Column> columns,
             List<String> rowIds, List<Merge> merges, Set<Long> covered, ImportNote.Counts notes) {
         List<RawSheet.Area> accepted = new ArrayList<>();
         int leftOut = 0;
@@ -186,6 +243,7 @@ final class SheetImportBuilder {
         }
         notes.add(ImportNote.MERGES_LEFT_OUT, leftOut);
         notes.add(ImportNote.COVERED_CELLS, under);
+        return accepted;
     }
 
     private static boolean overlaps(List<RawSheet.Area> accepted, RawSheet.Area area) {
@@ -205,12 +263,11 @@ final class SheetImportBuilder {
     // ---- what a position can say ----
 
     /** Refuses the first text that is too long or unsafe, naming its row and column in the file. */
-    private void checkTexts(RawSheet raw, Options options, int bodyStart, boolean dimension2) {
-        int minRow = raw.rows.firstKey();
+    private void checkTexts(RawSheet raw, boolean labels, int minRow, int bodyStart, boolean dimension2) {
         int problems = 0;
         ImportRefusal first = null;
         for (Map.Entry<Integer, java.util.TreeMap<Integer, RawSheet.Cell>> row : raw.rows.entrySet()) {
-            boolean label = options.firstRowLabels() && row.getKey() == minRow;
+            boolean label = labels && row.getKey() == minRow;
             if (!label && (!dimension2 || row.getKey() < bodyStart)) {
                 continue;
             }
