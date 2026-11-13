@@ -15,6 +15,8 @@ import type { GridDoc } from "./types";
 export type VersionsView = components["schemas"]["SheetVersionsView"];
 export type VersionSummary = components["schemas"]["SheetVersionSummaryView"];
 export type VersionView = components["schemas"]["SheetVersionView"];
+/** How the sheet is set up for paper: the description the file is written from and the print view is drawn from. */
+export type PrintDescription = components["schemas"]["SheetPrintView"];
 export type ImportResult = components["schemas"]["SheetImportResultView"];
 export type ImportReport = components["schemas"]["SheetImportReportView"];
 export type ImportNote = components["schemas"]["SheetImportNoteView"];

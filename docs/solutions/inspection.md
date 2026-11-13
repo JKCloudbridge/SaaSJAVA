@@ -353,9 +353,9 @@ administrator's view is [metadata-guide.md](../metadata-guide.md) section 39.
   from `SheetExports.xlsx` (module `sheets`, cluster only, an architecture test names it) which asks `SheetVersions.readable`, the rule of
   the Sheet tab. The footer text and the file name are `TemplateSheetTexts` (pure). The audit record is `inspection.template.downloaded`
   (template identifier, revision number, bytes); never the number or the file name.
-- **The file** is `XlsxWriter` in `sheets` (no library): inline strings only, the quote prefix on a text that starts with `=`, `+`, `-` or
+- **The file** was `XlsxWriter` (retired in SH3; `WorkbookWriter` over the library writes it now, see the last section): inline strings only, the quote prefix on a text that starts with `=`, `+`, `-` or
   `@`, no formula element, six parts, a bound of 5,000,000 bytes, the input cells empty, landscape when the columns add up to more than
-  720 pixels. A new rule about what the file holds is a case in `XlsxWriterTest`, which also reads the file back with the reader of ADR-0195.
+  720 pixels. A new rule about what the file holds is a case in `WorkbookWriterTest` (SH3), which also reads the file back with the reader of the upload.
 - **The footer row** is not in the stored grid. `SheetGrid` takes a `footer` text (absent: no row; empty: a blank row) and draws one more row;
   `SheetWorkspace` takes `footer` (a text, or a function of the revision that is open) and `actions` (extra buttons beside View);
   `TemplateDetail` builds the text with `footerText(number, activeRevision)` from `lib/sheets/revision.ts`, the same rule as
@@ -365,7 +365,7 @@ administrator's view is [metadata-guide.md](../metadata-guide.md) section 39.
   `--sheet-page-*` tokens; the page is white in both themes. It is in the generic sheets components and knows no business word.
 - **Revision**: `Revisions` (server) and `revision.ts` (browser) are the only places that turn a stored number into what people read. Do not
   write `version` followed by a number in any sentence a person reads.
-- **Tests.** No database: `XlsxWriterTest`, `TemplateSheetTextsTest`, `InspectionArchitectureTest`, `SolutionBoundaryTest`. Real PostgreSQL:
+- **Tests.** No database: `WorkbookWriterTest` (was `XlsxWriterTest`), `TemplateSheetTextsTest`, `InspectionArchitectureTest`, `SolutionBoundaryTest`. Real PostgreSQL:
   `TemplateSheetOptionsIT` (the options, who may change them, view only, download allowed and refused, another organization, the footer, the
   clean trail); the isolation harness lists the table. Frontend: `revision.test.ts`, `print.test.ts`, `SheetPrintView.test.tsx`,
   `SheetGridFooter.test.tsx`, `SheetWorkspaceView.test.tsx`, `SheetOptionsDialog.test.tsx`, `PublishDialog.test.tsx`.
@@ -442,7 +442,7 @@ sheet drawn inside the request page.
   `TemplateApprovalHooks.onSubmit`. The fill-in page and the change request page draw no Submit.
 - **View of the register** (`RegisterPrintView`, opened by the *View* button of `RegisterRequestPanel`): the shared `Modal` (new `wide`
   option), `printModel(doc, { labels: false })` for the cells, and the server's `RegisterView.print` (`SheetPages.PrintSettings`,
-  produced by `XlsxWriter.printSettings`, the method the file writer reads) for the size of the paper, the orientation and the margins.
+  produced by `PrintRules` since SH3, the class the file writer reads; was `XlsxWriter.printSettings`) for the size of the paper, the orientation and the margins.
   The raise popup has no View button.
 - **The asterisk** (`OpenRequestsMark`, `.open-requests-mark`) is inline after the word of the tab.
 - **Tests.** No database: `TemplateSendRuleTest`, `TemplateApprovalHooksTest` (the refusal words equal the rule's), `OpenRequestsMark.test.tsx`
@@ -577,5 +577,10 @@ Short form; the decision is ADR-0252 (Accepted, with its "Built in SH2" note), t
 - **A new refusal reason** needs the words in `FormulaWords` (and `types.ts`), a line in `hostile-grids.txt` (kind `two`, code `formula_<reason>`) and the code in the set of `SheetHostileCorpusTest`.
 - **Never log, audit or put in a metric** a formula, a text in it, a number typed or an answer; counts and codes only (`SheetsLogsAreCleanIT`, `SheetImportLogsAreCleanIT`).
 - **The growing token** `@{COL,*}` is accepted only in a sheet where the filler adds all the rows; the translator never writes it elsewhere.
-- **Download.** `DefaultSheetExports` writes the answer of each formula cell as text (SH3 writes formulas); `XlsxWriter` still writes any text starting with `=` as text.
+- **Download.** Until SH3 `DefaultSheetExports` wrote the answer of each formula cell as text; SH3 writes formulas as formulas (last section), and a text starting with `=` is still written as text.
 - **Tests.** No database: `FormulaCasesTest`, `FormulaHostileTest`, `FormulaPropertyTest`, `SheetFormulaDocumentTest`, `SheetCalculatorTest`, `FormulaImportTest`, `DefaultSheetExportsTest`, `SheetHostileCorpusTest` (the `formula_*` lines), `RealWorkbooksFormulaReportTest` (counts only, runs when `-DrealWorkbooks=` names the files). Real PostgreSQL: `SheetFormulaIT`, `SheetsLogsAreCleanIT`. Frontend: `formula/cases.test.ts`, `formula/edit.test.ts`, `FormulaBar.test.tsx`.
+
+
+## The download writes the look and the formulas (SH3)
+
+The download (`TemplateDownloads` then `SheetExports`) is unchanged in who may have it; the file is now written by `WorkbookWriter` from the stored version: a format version 2 sheet carries its look, number formats, borders, frozen pane, conditional colours, page set-up, links and **formulas as formulas with their answers**, with drop-down lists for Yes/No and picklist cells. The two "not yet" notes are gone; the file's information says "Made by the platform. Revision NN.". The Excel page of a change request (`SheetPages`) uses the same writer in its plain mode (no band, no footer). The page set-up of the template print view now comes from the server (`print` on the version). Left out: a print area, the date in the footer stamp (MC1). Tests: see the engineering guide section "The file out (SH3)".

@@ -82,3 +82,14 @@ The details are in [ADR-0255](0255-the-workbook-reader-the-look-it-keeps-conditi
 - **Decision 8 (one second of class loading)** was accepted by the owner and no warm-up was built.
 - **The amendment's check boxes** are built as proved, with one rule added: a box over a cell that holds text does not replace the text and is reported.
 - **The old reader `XlsxReader` is retired** after a side-by-side run; the writer `XlsxWriter` stays until SH3.
+
+## Built in SH3 (2026-11-13, Functional track, sheet engine part 4)
+
+Decision 7 (writing) is built. Where the build differs from the text above or adds to it:
+
+- **The whole-workbook object writes, not the streaming writer.** Only it can store the answer of a formula beside the formula, and the streaming writer writes temporary files. Measured at 500 rows by 100 columns: about 1 second warm (3.2 s for the first file after a start), about 100 MB while the workbook is held, 394 KB of file. The number of files written at once is bounded (`platform.sheets.exports.*`: 2 at once, 250,000 cells, 20 seconds, 5,000,000 bytes).
+- **A file is built from our typed model alone** (`WorkbookWriter`, the only class that names the library's writing parts): a formula comes only from the stored formula property (drawn by `FormulaTranslator`, checked once more by the library's parser; one the library does not know is written as its answer and counted), every other text is a string, and one that starts with `=`, `+`, `-` or `@` also has the quote prefix. A font key is one fixed family (`FontFamilies`, held to `FontKeys` by a test), a number format key one fixed code, a colour `#rrggbb`. The only link is the cell's own `https` link. A drop-down list is written for Yes/No and picklist cells (left out, and counted, for a value with a comma or a list over 255 characters).
+- **`XlsxWriter` is retired** after a side-by-side run (the corpus, the sample forms and a register page, read back by the reader of the upload: cells, bold, italic, underline, size, alignment, colour, borders, merges, widths, heights, page set-up, footer: equal). Its guards were ported.
+- **One page description** (`PrintRules`) feeds the file, the register's print view and, new, the `print` field of the version the screen reads.
+- **Not written, because the stored format does not hold it:** a print area. A column width is written with the 5 pixels of padding the reader undoes, so it comes back within 5 pixels.
+- **Reverses in part:** ADR-0201 decision 5 and the "own writer" of ADR-0204 (the page set-up now comes from `PrintRules`, not `XlsxWriter.printSettings`).

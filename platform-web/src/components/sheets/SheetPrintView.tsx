@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import type { PrintDescription } from "@/lib/sheets/api";
 import { ALIGN_CLASS, COLOUR_CLASS, printModel, SIZE_CLASS, type PrintCell } from "@/lib/sheets/print";
 import type { GridDoc } from "@/lib/sheets/types";
 
@@ -34,12 +35,19 @@ function classesOf(cell: PrintCell): string {
  */
 export function SheetPrintView({
   doc,
+  print,
   footer,
   label,
   showInput = false,
   onClose,
 }: {
   doc: GridDoc;
+  /**
+   * How the page is set up, as the server describes it (SH3): the same description the Excel file is written from, so the
+   * view and the file cannot disagree. A sheet whose description is not at hand (a fill-in, until its own release) is
+   * drawn with the model's own orientation, as before.
+   */
+  print?: PrintDescription;
   /** A fill-in shows what was typed into the input cells; a template shows them empty (the default). */
   showInput?: boolean;
   /** The text at the right of the footer row; empty leaves the row blank (the row is always there). */
@@ -49,6 +57,10 @@ export function SheetPrintView({
   onClose: () => void;
 }) {
   const model = useMemo(() => printModel(doc, { showInput }), [doc, showInput]);
+  const orientation = print ? print.orientation : model.orientation;
+  const paper = print ? print.paper : "A4";
+  // A paper other than A4 is the server's own size in millimetres; the A4 widths are the tokens'.
+  const pageStyle = print && print.paper !== "A4" ? ({ width: `${print.pageWidthMm}mm` } as CSSProperties) : undefined;
   const printButton = useRef<HTMLButtonElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
 
@@ -87,7 +99,7 @@ export function SheetPrintView({
   const page = (
     <div className="sheet-print-root" role="dialog" aria-modal="true" aria-label={`View of ${label}`} data-testid="sheet-print-view">
       {/* The paper size is the one thing a style rule cannot get from a class: a fixed sentence of two possible values. */}
-      <style>{`@page { size: A4 ${model.orientation}; margin: 12mm; }`}</style>
+      <style>{`@page { size: ${paper} ${orientation}; margin: 12mm; }`}</style>
       <div className="sheet-print-bar">
         <button type="button" className="button" ref={printButton} onClick={() => window.print()}>
           Print
@@ -96,11 +108,11 @@ export function SheetPrintView({
           Close
         </button>
         <span className="hint">
-          A4, {model.orientation}. The print window also saves a PDF.
+          {paper}, {orientation}. The print window also saves a PDF.
           {showInput ? "" : " Cells a person fills in are shown empty."}
         </span>
       </div>
-      <div className={`sheet-print-page sheet-print-${model.orientation}`}>
+      <div className={`sheet-print-page sheet-print-${orientation}`} style={pageStyle}>
         <table className="sheet-print-table" aria-label={label}>
           <colgroup>
             {model.columns.map((column) => (

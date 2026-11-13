@@ -27497,6 +27497,42 @@
         },
         "required" : [ "fitToWidth", "orientation", "paper", "repeatHeaderRows" ]
       },
+      "SheetPrintView" : {
+        "type" : "object",
+        "properties" : {
+          "marginBottom" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "marginLeft" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "marginRight" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "marginTop" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "orientation" : {
+            "type" : "string"
+          },
+          "pageHeightMm" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pageWidthMm" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "paper" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "marginBottom", "marginLeft", "marginRight", "marginTop", "orientation", "pageHeightMm", "pageWidthMm", "paper" ]
+      },
       "SheetRowDefinition" : {
         "type" : "object",
         "additionalProperties" : false,
@@ -27778,6 +27814,9 @@
             }, {
               "$ref" : "#/components/schemas/SheetDocument"
             } ]
+          },
+          "print" : {
+            "$ref" : "#/components/schemas/SheetPrintView"
           },
           "version" : {
             "$ref" : "#/components/schemas/SheetVersionSummaryView"

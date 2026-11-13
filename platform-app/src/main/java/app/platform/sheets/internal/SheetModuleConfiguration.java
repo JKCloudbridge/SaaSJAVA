@@ -16,7 +16,7 @@ import tools.jackson.databind.JsonNode;
  */
 @Configuration
 @EnableConfigurationProperties({SheetProperties.class, FormulaProperties.class, FillProperties.class,
-        FillArchiveProperties.class, ImportProperties.class})
+        FillArchiveProperties.class, ImportProperties.class, ExportProperties.class})
 class SheetModuleConfiguration {
 
     @Bean

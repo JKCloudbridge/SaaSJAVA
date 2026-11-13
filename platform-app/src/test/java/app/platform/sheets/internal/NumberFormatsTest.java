@@ -58,7 +58,8 @@ class NumberFormatsTest {
     @ParameterizedTest
     @CsvSource(delimiter = '|', value = {
         "Arial|SANS_NEUTRAL|EXACT", "Arial Black|DISPLAY_HEAVY|EXACT", "Arial Unicode MS|SANS_UNICODE|EXACT",
-        "Calibri Light|SANS_HUMANIST|EXACT", "Segoe UI|SANS_HUMANIST|ALIAS", "Tahoma|SANS_WIDE|ALIAS",
+        "Calibri Light|SANS_HUMANIST|EXACT", "Segoe UI|SANS_UI|EXACT", "Segoe Print|SANS_HUMANIST|ALIAS",
+        "Tahoma|SANS_WIDE|ALIAS",
         "Times New Roman|SERIF_TEXT|EXACT", "Courier New|MONO_CLASSIC|EXACT", "Lucida Console|MONO_CODE|ALIAS",
         "Zorbian Script|SANS|FALLBACK", "Some Mono Face|MONO|FALLBACK", "Old Roman Face|SERIF|FALLBACK",
         "Sans Roman|SANS|FALLBACK"})

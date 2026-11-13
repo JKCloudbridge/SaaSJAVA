@@ -51,15 +51,23 @@ class TemplateSheetOptionsIT extends FillSupport {
                 + "context_tenant_id = ?", type, organization.id().value()));
     }
 
+    /** The sheet and the strings of the workbook (the text of a cell is a shared string in the file). */
     private static String sheetXml(byte[] file) throws Exception {
+        StringBuilder out = new StringBuilder();
+        boolean sheet = false;
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(file))) {
             for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
-                if (entry.getName().equals("xl/worksheets/sheet1.xml")) {
-                    return new String(zip.readAllBytes(), StandardCharsets.UTF_8);
+                if (entry.getName().equals("xl/worksheets/sheet1.xml")
+                        || entry.getName().equals("xl/sharedStrings.xml")) {
+                    sheet |= entry.getName().equals("xl/worksheets/sheet1.xml");
+                    out.append(new String(zip.readAllBytes(), StandardCharsets.UTF_8));
                 }
             }
         }
-        throw new AssertionError("the workbook has no sheet");
+        if (!sheet) {
+            throw new AssertionError("the workbook has no sheet");
+        }
+        return out.toString();
     }
 
     // ---- the options ----

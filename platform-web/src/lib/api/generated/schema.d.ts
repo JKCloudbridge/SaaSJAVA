@@ -9783,6 +9783,22 @@ export interface components {
             paper: "A4" | "A3" | "LETTER";
             repeatHeaderRows: boolean;
         };
+        SheetPrintView: {
+            /** Format: double */
+            marginBottom: number;
+            /** Format: double */
+            marginLeft: number;
+            /** Format: double */
+            marginRight: number;
+            /** Format: double */
+            marginTop: number;
+            orientation: string;
+            /** Format: int32 */
+            pageHeightMm: number;
+            /** Format: int32 */
+            pageWidthMm: number;
+            paper: string;
+        };
         SheetRowDefinition: {
             height?: number;
             id: components["schemas"]["SheetId"];
@@ -9878,6 +9894,7 @@ export interface components {
         };
         SheetVersionView: {
             grid: components["schemas"]["SheetGrid"] | components["schemas"]["SheetDocument"];
+            print?: components["schemas"]["SheetPrintView"];
             version: components["schemas"]["SheetVersionSummaryView"];
         };
         SheetVersionsView: {

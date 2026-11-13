@@ -29,7 +29,8 @@ import org.junit.jupiter.api.Test;
 class DefaultSheetPagesTest {
 
     private final DefaultSheetPages pages = new DefaultSheetPages(
-            SpreadsheetImporterTest.importer(ImportProperties.standard()));
+            SpreadsheetImporterTest.importer(ImportProperties.standard()),
+            new WorkbookWriter(ExportProperties.standard()));
 
     private static Page page() {
         return new Page(List.of(300, 200), List.of(40, 30, 60),
@@ -67,8 +68,8 @@ class DefaultSheetPagesTest {
         String sheet = part(file, "xl/worksheets/sheet1.xml");
 
         assertThat(sheet).doesNotContain("<f>").doesNotContain("<f ");
-        assertThat(sheet).contains(">=1+1<").contains(">@SUM(A1)<");
-        assertThat(part(file, "xl/styles.xml")).contains("quotePrefix=\"1\"");
+        assertThat(part(file, "xl/sharedStrings.xml")).contains(">=1+1<").contains(">@SUM(A1)<");
+        assertThat(part(file, "xl/styles.xml")).contains("quotePrefix=\"true\"");
     }
 
     @Test

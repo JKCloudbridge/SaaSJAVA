@@ -65,3 +65,6 @@ After the controlled change of ADR-0202 was clicked through, five things were fo
   "Change requests" section under the sheet were removed or rewritten with the features.
 - Not decided here and left as it was: places in the stored data (kept), the register's Excel page (still read only), the Revision
   shown on fill-in and report screens (a known gap of FA8).
+
+
+**Note (SH3, 2026-11-13):** the file is no longer written by `XlsxWriter`; see [ADR-0253](0253-workbook-files-through-a-library-reading-by-stream-guards-first-and-what-it-reverses.md), section "Built in SH3". The decisions about who may download, the footer row and the page description stand; the page description now comes from `PrintRules`.

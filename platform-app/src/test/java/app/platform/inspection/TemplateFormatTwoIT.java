@@ -176,7 +176,7 @@ class TemplateFormatTwoIT extends FillSupport {
     // ---- the download ----
 
     @Test
-    void theDownloadWritesWhatFormatVersionOneWritesAndSaysInTheFileThatTheLookIsNotInItYet() throws Exception {
+    void theDownloadCarriesTheSheetAndTheInformationOfTheFileSaysOnlyThatThePlatformMadeIt() throws Exception {
         Run run = draft();
         String request = submitted(run.author().browser(), run.template(), run.process());
         assertThat(approve(run.approver().browser(), request).status()).isEqualTo(200);
@@ -188,12 +188,11 @@ class TemplateFormatTwoIT extends FillSupport {
                 null);
 
         assertThat(file.status()).isEqualTo(200);
-        String sheet = part(file.body(), "xl/worksheets/sheet1.xml");
-        // What format version 1 writes: the texts of the cells, and a column 8 pixels wide as the narrow one it is.
-        assertThat(sheet).contains("Item", "Guide").contains("width=\"1.0\"");
+        // The texts of the cells are strings of the workbook (SH3).
+        assertThat(part(file.body(), "xl/sharedStrings.xml")).contains("Item", "Guide");
         String info = part(file.body(), "docProps/core.xml");
-        assertThat(info).contains("Made from a sheet in the new format")
-                .contains("not in this file yet");
+        assertThat(info).contains("Made by the platform. Revision ").doesNotContain("not in this file yet")
+                .doesNotContain("new format");
         assertThat(part(file.body(), "[Content_Types].xml")).contains("/docProps/core.xml");
     }
 
