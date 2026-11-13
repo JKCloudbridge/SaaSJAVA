@@ -40,7 +40,11 @@ final class XlsxFile {
     private String contentTypes = "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">"
             + "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument."
             + "spreadsheetml.sheet.main+xml\"/></Types>";
-    private String workbookExtra = "";
+    private final StringBuilder workbookExtra = new StringBuilder();
+    private final StringBuilder workbookRels = new StringBuilder();
+    private String beforeData = "";
+    private String afterMerges = "";
+    private int extraSheets;
     private String sheetPrefix = "";
     private int mergeCount;
     private boolean date1904;
@@ -161,9 +165,40 @@ final class XlsxFile {
     }
 
     XlsxFile secondSheet() {
-        workbookExtra = "<sheet name=\"Two\" sheetId=\"2\" r:id=\"rId2\"/>";
-        extra.put("xl/worksheets/sheet2.xml", ("<worksheet xmlns=\"" + MAIN + "\"><sheetData/></worksheet>")
-                .getBytes(StandardCharsets.UTF_8));
+        return extraSheet("Two", null, "<worksheet xmlns=\"" + MAIN + "\"><sheetData/></worksheet>");
+    }
+
+    /**
+     * Another worksheet after the first, with the XML it holds; {@code state} is null for a visible one, otherwise
+     * {@code hidden} or {@code veryHidden}.
+     */
+    XlsxFile extraSheet(String name, String state, String xml) {
+        int number = extraSheets + 2;
+        extraSheets++;
+        workbookExtra.append("<sheet name=\"").append(escape(name)).append("\" sheetId=\"").append(number)
+                .append('"').append(state == null ? "" : " state=\"" + state + "\"").append(" r:id=\"rId")
+                .append(number).append("\"/>");
+        workbookRels.append("<Relationship Id=\"rId").append(number).append("\" Type=\"worksheet\" Target="
+                + "\"worksheets/sheet").append(number).append(".xml\"/>");
+        extra.put("xl/worksheets/sheet" + number + ".xml", xml.getBytes(StandardCharsets.UTF_8));
+        return this;
+    }
+
+    /** The XML of a worksheet that holds the given rows, as text, for {@link #extraSheet}. */
+    static String sheetXml(String rows) {
+        return "<worksheet xmlns=\"" + MAIN + "\" xmlns:r=\"" + DOC_RELS + "\"><sheetData>" + rows
+                + "</sheetData></worksheet>";
+    }
+
+    /** Elements before the data of the first sheet: the sheet properties, its views and its default sizes. */
+    XlsxFile beforeData(String xml) {
+        beforeData = xml;
+        return this;
+    }
+
+    /** Elements after the merged areas of the first sheet: conditional formats, links, the page set-up. */
+    XlsxFile afterMerges(String xml) {
+        afterMerges = xml;
         return this;
     }
 
@@ -185,16 +220,17 @@ final class XlsxFile {
                 + (date1904 ? "<workbookPr date1904=\"1\"/>" : "") + "<sheets><sheet name=\"One\" sheetId=\"1\" "
                 + "r:id=\"rId1\"/>" + workbookExtra + "</sheets></workbook>").getBytes(StandardCharsets.UTF_8));
         parts.put("xl/_rels/workbook.xml.rels", ("<Relationships xmlns=\"" + RELS + "\"><Relationship Id=\"rId1\" "
-                + "Type=\"worksheet\" Target=\"worksheets/sheet1.xml\"/><Relationship Id=\"rId2\" Type=\"worksheet\" "
-                + "Target=\"worksheets/sheet2.xml\"/></Relationships>").getBytes(StandardCharsets.UTF_8));
+                + "Type=\"worksheet\" Target=\"worksheets/sheet1.xml\"/>" + workbookRels
+                        + "</Relationships>").getBytes(StandardCharsets.UTF_8));
         parts.put("xl/styles.xml", styles.getBytes(StandardCharsets.UTF_8));
         if (sharedStrings != null) {
             parts.put("xl/sharedStrings.xml", sharedStrings.getBytes(StandardCharsets.UTF_8));
         }
-        parts.put("xl/worksheets/sheet1.xml", (sheetPrefix + "<worksheet xmlns=\"" + MAIN + "\">"
+        parts.put("xl/worksheets/sheet1.xml", (sheetPrefix + "<worksheet xmlns=\"" + MAIN + "\" xmlns:r=\"" + DOC_RELS
+                + "\">" + beforeData
                 + (cols.isEmpty() ? "" : "<cols>" + cols + "</cols>") + "<sheetData>" + rows + "</sheetData>"
                 + (mergeCount == 0 ? "" : "<mergeCells count=\"" + mergeCount + "\">" + merges + "</mergeCells>")
-                + "</worksheet>").getBytes(StandardCharsets.UTF_8));
+                + afterMerges + "</worksheet>").getBytes(StandardCharsets.UTF_8));
         parts.putAll(extra);
         return zip(parts);
     }

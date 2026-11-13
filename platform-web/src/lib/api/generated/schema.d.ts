@@ -5295,7 +5295,7 @@ export interface paths {
         put?: never;
         /**
          * Make a new draft version from an uploaded spreadsheet file
-         * @description The body is the file itself (an .xlsx workbook or a UTF-8 text file with comma, semicolon or tab separated values) and nothing else; format says which. The file is read on the server and kept nowhere. The first sheet of a workbook is read; text becomes fixed text of the sheet, a cell with no text is left to be typed into, and column widths, row heights, bold, italic, the four sizes and merged areas come with it. Formulas come in as their last values and dates as text written year-month-day. Images, charts, other sheets and links to other files are left out and counted in the report, which says what was left out in plain words. firstRowLabels makes the first row of the table the names of the columns; when it is left out the server decides: no when that row is a title (one merged area across the whole width of the table), yes otherwise, and the report says which it applied. A cell with a border on any side is part of the table even when it holds no text, and becomes a cell to be filled in; a blank cell with no border does not extend the table. A sheet that has no version yet is made in the shape where the sheet names its rows; a sheet that has versions keeps its shape (where the filler adds the rows, only the names of the columns come in). preview=true answers with the report and saves nothing. The size is checked before anything is read, from the announced length and again on the bytes read: PAYLOAD_TOO_LARGE (also for a file that unpacks to more than is allowed). VALIDATION_ERROR for a file that is not what its format says, a workbook with macros, a limit of the sheet that the file goes over (it is named, with the row and column when a cell is the reason) or a text that holds markup; nothing is cut. CONFLICT names the number of the draft when one exists, or when the sheet has the most versions it can have. RATE_LIMITED when other files are being read at the same moment. FORBIDDEN for a caller who may read the record but not update it. replace=true puts the grid in the draft that is held for a change request, in place, instead of making a draft: only for the people asked to decide that request. Audited by the format, the sizes and the counts, never by what the file held. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record.
+         * @description The body is the file itself (an .xlsx workbook or a UTF-8 text file with comma, semicolon or tab separated values) and nothing else; format says which. The file is read on the server and kept nowhere. One worksheet of a workbook is read: worksheet is its number among the visible worksheets counted from zero, and when it is left out the first visible worksheet that holds anything is read (hidden worksheets are skipped and counted; the report lists the visible ones by title so a person can choose). Text becomes fixed text of the sheet, a cell with no text is left to be typed into, and column widths, row heights, bold, italic, underline, alignment and merged areas come with it. When format version 2 is on, the look of the file comes too: fonts mapped to a closed list, sizes, text and fill colours, borders, number formats, wrapping, frozen panes, the page set-up, conditional colours that compare a value with a number, links to secure web addresses and check boxes turned into yes/no cells; otherwise the four sizes of format version 1 come. Formulas come in as their last values and dates as text written year-month-day. Images, charts, other worksheets, embedded files, shapes and links to other files are left out and counted in the report, which says what was left out in plain words and where embedded files stood. firstRowLabels makes the first row of the table the names of the columns; when it is left out the server decides: no when that row is a title (one merged area across the whole width of the table), yes otherwise, and the report says which it applied. A cell with a border on any side is part of the table even when it holds no text, and becomes a cell to be filled in; a blank cell with no border does not extend the table. A sheet that has no version yet is made in the shape where the sheet names its rows; a sheet that has versions keeps its shape (where the filler adds the rows, only the names of the columns come in). preview=true answers with the report and saves nothing. The size is checked before anything is read, from the announced length and again on the bytes read: PAYLOAD_TOO_LARGE (also for a file that unpacks to more than is allowed). VALIDATION_ERROR for a file that is not what its format says, a workbook with macros, a limit of the sheet that the file goes over (it is named, with the row and column when a cell is the reason) or a text that holds markup; nothing is cut. CONFLICT names the number of the draft when one exists, or when the sheet has the most versions it can have. RATE_LIMITED when other files are being read at the same moment. FORBIDDEN for a caller who may read the record but not update it. replace=true puts the grid in the draft that is held for a change request, in place, instead of making a draft: only for the people asked to decide that request. Audited by the format, the sizes and the counts, never by what the file held. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record.
          */
         post: operations["importSheetVersion"];
         delete?: never;
@@ -9411,6 +9411,17 @@ export interface components {
             /** Format: int64 */
             version?: number;
         };
+        /**
+         * @description The style of one side. A side with no border is absent.
+         * @enum {string}
+         */
+        SheetBorderStyle: "THIN" | "MEDIUM" | "THICK" | "DOTTED" | "DASHED" | "DOUBLE";
+        SheetBorders: {
+            bottom?: components["schemas"]["SheetBorderStyle"];
+            left?: components["schemas"]["SheetBorderStyle"];
+            right?: components["schemas"]["SheetBorderStyle"];
+            top?: components["schemas"]["SheetBorderStyle"];
+        };
         SheetCell: {
             /**
              * @description A header cell is always fixed. A body cell that holds a value and has no kind is fixed text; otherwise it is an input cell.
@@ -9455,6 +9466,29 @@ export interface components {
              */
             type: "text" | "number" | "date" | "picklist" | "boolean";
             width?: number;
+        };
+        /** @description Paints the cells of a range whose value meets a comparison with a number. A closed rule: a comparison and one or two plain numbers, never a formula or other executable text. */
+        SheetCondition: {
+            /** @description The text colour. A rule paints a fill, a text colour, or both. */
+            colour?: string;
+            fill?: string;
+            from: components["schemas"]["SheetCellRef"];
+            /** @enum {string} */
+            operator: "LT" | "LTE" | "EQ" | "NEQ" | "GTE" | "GT" | "BETWEEN" | "NOT_BETWEEN";
+            to: components["schemas"]["SheetCellRef"];
+            /** @description The number compared with, as a plain decimal text. */
+            value: string;
+            /** @description The upper number of BETWEEN and NOT_BETWEEN; absent for every other operator. */
+            value2?: string;
+        };
+        /** @description Format version 2 of a sheet (SH1A, ADR-0251): a list of sheets. Format version 1 (SheetGrid) is not changed and is still read as it always was. A template holds one sheet for now (a setting, platform.sheets.limits.max-sheets). The order of the sheets is the order of the tabs and is part of the document's hash. */
+        SheetDocument: {
+            /**
+             * @description The format of this document.
+             * @constant
+             */
+            formatVersion: 2;
+            sheets: components["schemas"]["SheetTab"][];
         };
         SheetFillLimitsView: {
             /** Format: int32 */
@@ -9504,6 +9538,12 @@ export interface components {
             grid: components["schemas"]["SheetGrid"];
             limits: components["schemas"]["SheetFillLimitsView"];
         };
+        SheetFreeze: {
+            /** @description Columns kept in view, counted from the left. */
+            columns: number;
+            /** @description Rows kept in view, counted from the top, header rows first. */
+            rows: number;
+        };
         /** @description The grid of one version: named columns of five types, header rows (a title over merged columns), optionally named body rows, merged cells, and the cells that hold fixed text or a style. Stored sparsely: a body cell that holds nothing is an input cell and is not stored. */
         SheetGrid: {
             /** @description Sparse: only a cell that holds something or has a style is stored. The key is the row identifier, a colon and the column identifier. */
@@ -9541,29 +9581,75 @@ export interface components {
             leftOut: boolean;
             words: string;
         };
+        SheetImportPlaceView: {
+            column: string;
+            /** Format: int32 */
+            row: number;
+        };
         SheetImportReportView: {
             /** Format: int32 */
             columns: number;
+            embeddedFilePlaces?: components["schemas"]["SheetImportPlaceView"][];
             firstRowIsTitle?: boolean;
             firstRowLabels?: boolean;
+            formatTwo?: boolean;
             /** Format: int32 */
             mergedAreas: number;
             notes: components["schemas"]["SheetImportNoteView"][];
             /** Format: int32 */
             rows: number;
+            /** Format: int32 */
+            worksheet?: number;
+            worksheets?: components["schemas"]["SheetImportWorksheetView"][];
         };
         SheetImportResultView: {
             report: components["schemas"]["SheetImportReportView"];
             saved: boolean;
             version?: components["schemas"]["SheetVersionSummaryView"];
         };
+        SheetImportWorksheetView: {
+            /** Format: int32 */
+            columns: number;
+            /** Format: int32 */
+            index: number;
+            /** Format: int32 */
+            rows: number;
+            title?: string;
+        };
+        /** @description What the author states about one input cell; whatever is absent is as its column says. A merged input area is one cell, stated at its top left cell. The class is a field of the format; the server enforces the reviewer class from a later release (SH5). */
+        SheetInput: {
+            /**
+             * @description Who fills the cell. Absent means filler.
+             * @enum {string}
+             */
+            class?: "filler" | "reviewer";
+            /** @description The most files an attachment cell holds. Absent means 5. */
+            maxFiles?: number;
+            /** @description The values of a cell whose type is picklist. */
+            picklist?: {
+                values: string[];
+            };
+            required?: boolean;
+            /**
+             * @description Overrides the type of the column. An attachment cell holds a list of file identifiers of the fill-in (ADR-0254).
+             * @enum {string}
+             */
+            type?: "text" | "number" | "date" | "picklist" | "boolean" | "attachment";
+        };
         SheetLimitsView: {
+            formatTwoEnabled: boolean;
             /** Format: int32 */
             maxBytes: number;
             /** Format: int32 */
             maxCellChars: number;
             /** Format: int32 */
+            maxColumnWidth: number;
+            /** Format: int32 */
             maxColumns: number;
+            /** Format: int32 */
+            maxFilesPerCell: number;
+            /** Format: int32 */
+            maxFixedTextChars: number;
             /** Format: int32 */
             maxHeaderRows: number;
             /** Format: int32 */
@@ -9571,11 +9657,47 @@ export interface components {
             /** Format: int32 */
             maxLabelChars: number;
             /** Format: int32 */
+            maxLinkChars: number;
+            /** Format: int32 */
             maxMerges: number;
             /** Format: int32 */
             maxPicklistValues: number;
             /** Format: int32 */
+            maxRowHeight: number;
+            /** Format: int32 */
             maxRows: number;
+            /** Format: int32 */
+            maxSheets: number;
+            /** Format: int32 */
+            minColumnWidth: number;
+            /** Format: int32 */
+            minRowHeight: number;
+        };
+        /** @description How a cell looks, beyond the bold, italic, underline, alignment, text colour name and size name of its style. Every part is a key of a closed list or a checked value, never a name or a style taken from a file. A colour is written #rrggbb; the server stores it in lower case. A cell may not state both a text colour name in its style and a text colour here, nor both a size name in its style and a size here. Input cells may carry a look (their boxes are drawn) but no style. */
+        SheetLook: {
+            borders?: components["schemas"]["SheetBorders"];
+            /** @description The text colour. */
+            colour?: string;
+            /** @description The background colour. */
+            fill?: string;
+            /**
+             * @description A key of the closed list of fonts. The page decides which fonts each key stands for.
+             * @enum {string}
+             */
+            font?: "SANS_NEUTRAL" | "SANS_HUMANIST" | "SANS_WIDE" | "SANS_FRIENDLY" | "SANS_UNICODE" | "DISPLAY_HEAVY" | "DISPLAY_IMPACT" | "SERIF_TEXT" | "SERIF_SCREEN" | "SERIF_SLAB" | "MONO_CLASSIC" | "MONO_CODE" | "SANS_UI" | "SANS" | "SERIF" | "MONO";
+            /**
+             * @description A key of the closed list of number formats. Absent means GENERAL.
+             * @enum {string}
+             */
+            numberFormat?: "GENERAL" | "WHOLE" | "TWO_DECIMALS" | "PERCENT" | "PERCENT_TWO_DECIMALS" | "THOUSANDS" | "THOUSANDS_TWO_DECIMALS" | "ACCOUNTING" | "MONTH_YEAR" | "SHORT_DATE";
+            /** @description Whole points. */
+            size?: number;
+            /**
+             * @description Absent means BOTTOM.
+             * @enum {string}
+             */
+            verticalAlignment?: "TOP" | "MIDDLE" | "BOTTOM";
+            wrap?: boolean;
         };
         /** @description Two cells, top left and bottom right, inside one zone (header rows or body), never overlapping another merge. Only the top left cell keeps content. */
         SheetMerge: {
@@ -9586,7 +9708,72 @@ export interface components {
             allowDownload: boolean;
             viewOnly: boolean;
         };
+        SheetPrint: {
+            fitToWidth: boolean;
+            /** @enum {string} */
+            orientation: "PORTRAIT" | "LANDSCAPE";
+            /** @enum {string} */
+            paper: "A4" | "A3" | "LETTER";
+            repeatHeaderRows: boolean;
+        };
         SheetRowDefinition: {
+            height?: number;
+            id: components["schemas"]["SheetId"];
+            label?: string;
+        };
+        /** @description One sheet of a version 2 document: the whole body of a version 1 grid (dimension, rows mode, columns, header rows, rows, cells, merges) plus a key, a title, whether it is filled in, the frozen panes, the page set-up, and the cells whose type, requirement or class is stated one by one. Identifiers are unique inside one sheet. */
+        SheetTab: {
+            cells: {
+                [key: string]: components["schemas"]["SheetTabCell"];
+            };
+            columns: components["schemas"]["SheetTabColumn"][];
+            /** @description Conditional colours: a cell value compared with a number paints the cell. At most 50, in the order they are applied (the first that holds wins). Only a sheet that names its rows (dimension 2) has them. */
+            conditions?: components["schemas"]["SheetCondition"][];
+            /** @enum {integer} */
+            dimension: 1 | 2;
+            /** @description False for an information tab: no fill-in cell belongs to it. Absent means true. */
+            fillable?: boolean;
+            freeze?: components["schemas"]["SheetFreeze"];
+            headerRows?: components["schemas"]["SheetTabRow"][];
+            /** @description Input cells that state their own type, requirement or class, by cell reference. Only a sheet that names its rows (dimension 2) has them. */
+            inputs?: {
+                [key: string]: components["schemas"]["SheetInput"];
+            };
+            /** @description The permanent name of the sheet inside the template, unique in the document. Generated, never typed. */
+            key: string;
+            merges: components["schemas"]["SheetMerge"][];
+            print?: components["schemas"]["SheetPrint"];
+            rows: components["schemas"]["SheetTabRow"][];
+            /** @enum {string} */
+            rowsMode: "FIXED" | "REPEATABLE" | "FIXED_AND_REPEATABLE";
+            /** @description The name of the tab: at most 31 characters, no markup. */
+            title?: string;
+        };
+        SheetTabCell: {
+            /** @enum {string} */
+            kind?: "fixed" | "input";
+            /** @description An https address the text of a fixed cell opens. A property of the cell, never its value: the cell's text is what a person reads. Every other kind of address is refused. */
+            link?: string;
+            look?: components["schemas"]["SheetLook"];
+            style?: components["schemas"]["SheetCellStyle"];
+            value?: string | boolean | null;
+        };
+        SheetTabColumn: {
+            default?: string | boolean | null;
+            id: components["schemas"]["SheetId"];
+            label: string;
+            picklist?: {
+                values: string[];
+            } | null;
+            reportable?: boolean;
+            required?: boolean;
+            /** @enum {string} */
+            type: "text" | "number" | "date" | "picklist" | "boolean";
+            /** @description In pixels. Version 2 allows narrower columns than version 1 (the real forms have them); the platform setting may narrow the range further. */
+            width?: number;
+        };
+        SheetTabRow: {
+            /** @description In pixels. Version 2 allows shorter rows than version 1. */
             height?: number;
             id: components["schemas"]["SheetId"];
             label?: string;
@@ -9619,7 +9806,7 @@ export interface components {
             versionNo: number;
         };
         SheetVersionView: {
-            grid: components["schemas"]["SheetGrid"];
+            grid: components["schemas"]["SheetGrid"] | components["schemas"]["SheetDocument"];
             version: components["schemas"]["SheetVersionSummaryView"];
         };
         SheetVersionsView: {
@@ -20959,6 +21146,7 @@ export interface operations {
                 firstRowLabels?: boolean;
                 preview?: boolean;
                 replace?: boolean;
+                worksheet?: number;
             };
             header?: never;
             path: {

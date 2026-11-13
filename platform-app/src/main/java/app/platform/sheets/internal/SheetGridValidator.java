@@ -66,12 +66,24 @@ final class SheetGridValidator {
     /**
      * An accepted grid.
      *
-     * @param grid the normalised model
+     * @param grid the normalised model; for format version 2 the body of its first sheet, which is what the stored
+     *        row's dimension and rows mode are copies of
      * @param canonical the canonical JSON text
      * @param hash the SHA-256 of the canonical text as UTF-8
      * @param bytes the length of the canonical text as UTF-8
+     * @param document the whole document when it is of format version 2, or null for format version 1
      */
-    record Checked(SheetGrid grid, String canonical, byte[] hash, int bytes) {
+    record Checked(SheetGrid grid, String canonical, byte[] hash, int bytes, SheetDocument document) {
+
+        /** A grid of format version 1. */
+        Checked(SheetGrid grid, String canonical, byte[] hash, int bytes) {
+            this(grid, canonical, hash, bytes, null);
+        }
+
+        /** The format number of the stored document. */
+        int formatVersion() {
+            return document == null ? SheetGrid.FORMAT_VERSION : SheetDocument.FORMAT_VERSION;
+        }
 
         @Override
         public String toString() {
@@ -94,15 +106,48 @@ final class SheetGridValidator {
 
     private final SheetProperties.Limits limits;
     private final SheetSchemas schemas;
+    private final boolean formatTwoEnabled;
+    private final SheetDocumentValidator two;
     private final JsonMapper json = JsonMapper.builder().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build();
 
+    /** A validator that refuses every document of format version 2 (the switch is off). */
     SheetGridValidator(SheetProperties.Limits limits, SheetSchemas schemas) {
-        this.limits = limits;
-        this.schemas = schemas;
+        this(limits, schemas, false);
     }
 
-    /** Checks the bytes of a grid as they arrived. */
+    /**
+     * A validator for both formats.
+     *
+     * @param formatTwoEnabled whether a document of format version 2 may be accepted at all (SH1A, ADR-0251): with
+     *        the switch off such a document is refused before anything else is looked at
+     */
+    SheetGridValidator(SheetProperties.Limits limits, SheetSchemas schemas, boolean formatTwoEnabled) {
+        this.limits = limits;
+        this.schemas = schemas;
+        this.formatTwoEnabled = formatTwoEnabled;
+        this.two = new SheetDocumentValidator(limits, schemas);
+    }
+
+    /**
+     * Checks the bytes of a grid as they arrived. A document of format version 2 goes to its own stages; every other
+     * document goes through the stages of format version 1, which are the ones that existed before version 2.
+     */
     Result check(byte[] raw) {
+        return check(raw, true);
+    }
+
+    /** Checks the bytes as format version 1 only: a document of format version 2 is refused as an unknown format. */
+    Result checkVersionOne(byte[] raw) {
+        return check(raw, false);
+    }
+
+    /** Whether a parsed document states format version 2. */
+    static boolean isFormatTwo(JsonNode document) {
+        return document != null && document.isObject() && document.path("formatVersion").isInt()
+                && document.path("formatVersion").asInt() == SheetDocument.FORMAT_VERSION;
+    }
+
+    private Result check(byte[] raw, boolean dispatch) {
         if (raw.length > limits.maxBytes()) {
             return rejected(new Problem("too_large", "grid", "The grid is larger than the allowed size of "
                     + limits.maxBytes() + " bytes."));
@@ -121,6 +166,12 @@ final class SheetGridValidator {
         if (document == null || document.isMissingNode() || document.isNull()) {
             return rejected(new Problem("not_json", "grid", "The grid is not valid JSON, or it repeats a key."));
         }
+        if (dispatch && isFormatTwo(document)) {
+            if (!formatTwoEnabled) {
+                return rejected(new Problem("format_two_off", "grid", SheetFormats.EARLIER_FORMAT));
+            }
+            return two.check(document);
+        }
         List<Problem> shape = new ArrayList<>();
         for (SheetSchemas.Issue issue : schemas.validate(document, "grid")) {
             shape.add(new Problem("shape", issue.place(), issue.message()));
@@ -133,14 +184,9 @@ final class SheetGridValidator {
 
     /** Checks a model that was built from a document that fits the schema. */
     Result check(SheetGrid grid) {
-        Context context = new Context(grid);
-        List<Supplier<List<Problem>>> stages = List.of(context::limitProblems, context::textProblems,
-                context::structureProblems, context::cellProblems, context::mergeProblems);
-        for (Supplier<List<Problem>> next : stages) {
-            List<Problem> stage = next.get();
-            if (!stage.isEmpty()) {
-                return new Result(null, stage.size() > MOST_PROBLEMS ? stage.subList(0, MOST_PROBLEMS) : stage);
-            }
+        List<Problem> problems = bodyProblems(grid, limits);
+        if (!problems.isEmpty()) {
+            return new Result(null, problems);
         }
         SheetGrid normal = SheetGridNormalizer.normalize(grid);
         String canonical = SheetGridWriter.write(normal);
@@ -150,6 +196,25 @@ final class SheetGridValidator {
                     + limits.maxBytes() + " bytes."));
         }
         return new Result(new Checked(normal, canonical, SheetGridWriter.sha256(bytes), bytes.length), List.of());
+    }
+
+    /**
+     * The problems of the first stage that finds any in the body of a grid (limits, text, structure, cells, merges),
+     * at most twenty; empty when the body is clean. The stages are the same for a grid of format version 1 and for
+     * every sheet of format version 2: there is one set of rules for the part they share, and each caller states the
+     * limits it works under.
+     */
+    static List<Problem> bodyProblems(SheetGrid grid, SheetProperties.Limits limits) {
+        Context context = new Context(grid, limits);
+        List<Supplier<List<Problem>>> stages = List.of(context::limitProblems, context::textProblems,
+                context::structureProblems, context::cellProblems, context::mergeProblems);
+        for (Supplier<List<Problem>> next : stages) {
+            List<Problem> stage = next.get();
+            if (!stage.isEmpty()) {
+                return stage.size() > MOST_PROBLEMS ? stage.subList(0, MOST_PROBLEMS) : stage;
+            }
+        }
+        return List.of();
     }
 
     private static Result rejected(Problem problem) {
@@ -184,16 +249,18 @@ final class SheetGridValidator {
     }
 
     /** The stages that need the model, sharing what they look up. */
-    private final class Context {
+    private static final class Context {
 
         private final SheetGrid grid;
+        private final SheetProperties.Limits limits;
         private final Map<String, Integer> columnPositions = new HashMap<>();
         private final Map<String, Integer> rowPositions = new HashMap<>();
         private final Set<String> headerIds = new HashSet<>();
         private final List<String> rowOrder = new ArrayList<>();
 
-        Context(SheetGrid grid) {
+        Context(SheetGrid grid, SheetProperties.Limits limits) {
             this.grid = grid;
+            this.limits = limits;
             for (int i = 0; i < grid.columns().size(); i++) {
                 columnPositions.putIfAbsent(grid.columns().get(i).id(), i);
             }

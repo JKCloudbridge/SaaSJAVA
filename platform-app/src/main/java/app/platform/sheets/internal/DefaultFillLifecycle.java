@@ -59,6 +59,12 @@ class DefaultFillLifecycle implements FillLifecycle {
         if (store.find(fillObject, fillId).isPresent()) {
             throw refused("start", Reason.ALREADY_STARTED);
         }
+        // A fill-in of a sheet in format version 2 comes with fill format 3 (SH5): until then it is refused here, the
+        // one place a fill-in is made, and nothing else of the fill-in code needs to know the second format exists.
+        if (versions.findGrid(ownerObject, ownerId, versionNo)
+                .map(found -> SheetFormats.isFormatTwo(json.readTree(found.grid()))).orElse(false)) {
+            throw refused("start", Reason.FORMAT_NOT_FILLABLE);
+        }
         try {
             store.insert(fillObject, fillId, ownerObject, ownerId, versionNo, actor);
         } catch (DuplicateKeyException e) {

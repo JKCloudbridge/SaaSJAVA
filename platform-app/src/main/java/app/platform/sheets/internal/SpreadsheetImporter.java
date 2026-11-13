@@ -1,5 +1,6 @@
 package app.platform.sheets.internal;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.Semaphore;
@@ -82,11 +83,18 @@ final class SpreadsheetImporter {
                     + "again in a moment.");
         }
         try {
-            RawSheet raw = format == Format.XLSX ? new XlsxReader(settings, limits).read(file)
+            RawSheet raw = format == Format.XLSX
+                    ? new WorkbookReader(settings, limits).read(file, options.worksheet())
                     : new SheetCsvReader(settings, limits).read(file);
             raw.dropFooter();
-            SheetImportBuilder.Built built = new SheetImportBuilder(limits).build(raw, options);
-            SheetGridValidator.Result result = validator.check(built.grid());
+            // A text file holds nothing that format version 2 adds, so it is always made as it always was.
+            SheetImportBuilder.Options used = format == Format.XLSX ? options : new SheetImportBuilder.Options(
+                    options.firstRowLabels(), options.dimension(), options.rowsMode(), options.worksheet(), false);
+            SheetImportBuilder.Built built = new SheetImportBuilder(limits).build(raw, used);
+            // A document of format version 2 goes through the validator as its text, the way a stored one does, so the
+            // switch and every rule of the format are asked in the one place.
+            SheetGridValidator.Result result = built.document() == null ? validator.check(built.grid())
+                    : validator.check(SheetDocumentWriter.write(built.document()).getBytes(StandardCharsets.UTF_8));
             if (!result.accepted()) {
                 // The words of a problem are fixed and repeat nothing; the place names generated identifiers and is
                 // left out.
@@ -117,7 +125,7 @@ final class SpreadsheetImporter {
                     + "again in a moment.");
         }
         try {
-            return new XlsxReader(settings, limits).read(file);
+            return new WorkbookReader(settings, limits).read(file, null);
         } finally {
             places.release();
         }

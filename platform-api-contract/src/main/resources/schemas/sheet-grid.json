@@ -249,6 +249,394 @@
         }
       },
       "description": "Two cells, top left and bottom right, inside one zone (header rows or body), never overlapping another merge. Only the top left cell keeps content."
+    },
+    "SheetDocument": {
+      "type": "object",
+      "description": "Format version 2 of a sheet (SH1A, ADR-0251): a list of sheets. Format version 1 (SheetGrid) is not changed and is still read as it always was. A template holds one sheet for now (a setting, platform.sheets.limits.max-sheets). The order of the sheets is the order of the tabs and is part of the document's hash.",
+      "additionalProperties": false,
+      "required": ["formatVersion", "sheets"],
+      "properties": {
+        "formatVersion": {
+          "const": 2,
+          "description": "The format of this document."
+        },
+        "sheets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/components/schemas/SheetTab"
+          }
+        }
+      }
+    },
+    "SheetTab": {
+      "type": "object",
+      "description": "One sheet of a version 2 document: the whole body of a version 1 grid (dimension, rows mode, columns, header rows, rows, cells, merges) plus a key, a title, whether it is filled in, the frozen panes, the page set-up, and the cells whose type, requirement or class is stated one by one. Identifiers are unique inside one sheet.",
+      "additionalProperties": false,
+      "required": ["key", "dimension", "rowsMode", "columns", "rows", "cells", "merges"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+          "description": "The permanent name of the sheet inside the template, unique in the document. Generated, never typed."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 31,
+          "description": "The name of the tab: at most 31 characters, no markup."
+        },
+        "fillable": {
+          "type": "boolean",
+          "description": "False for an information tab: no fill-in cell belongs to it. Absent means true."
+        },
+        "freeze": {
+          "$ref": "#/components/schemas/SheetFreeze"
+        },
+        "print": {
+          "$ref": "#/components/schemas/SheetPrint"
+        },
+        "inputs": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/components/schemas/SheetCellRef"
+          },
+          "additionalProperties": {
+            "$ref": "#/components/schemas/SheetInput"
+          },
+          "description": "Input cells that state their own type, requirement or class, by cell reference. Only a sheet that names its rows (dimension 2) has them."
+        },
+        "dimension": {
+          "type": "integer",
+          "enum": [1, 2]
+        },
+        "rowsMode": {
+          "type": "string",
+          "enum": ["FIXED", "REPEATABLE", "FIXED_AND_REPEATABLE"]
+        },
+        "columns": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/components/schemas/SheetTabColumn"
+          }
+        },
+        "headerRows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/SheetTabRow"
+          }
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/SheetTabRow"
+          }
+        },
+        "cells": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/components/schemas/SheetCellRef"
+          },
+          "additionalProperties": {
+            "$ref": "#/components/schemas/SheetTabCell"
+          }
+        },
+        "merges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/SheetMerge"
+          }
+        },
+        "conditions": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/components/schemas/SheetCondition"
+          },
+          "description": "Conditional colours: a cell value compared with a number paints the cell. At most 50, in the order they are applied (the first that holds wins). Only a sheet that names its rows (dimension 2) has them."
+        }
+      }
+    },
+    "SheetCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to", "operator", "value"],
+      "description": "Paints the cells of a range whose value meets a comparison with a number. A closed rule: a comparison and one or two plain numbers, never a formula or other executable text.",
+      "properties": {
+        "from": {
+          "$ref": "#/components/schemas/SheetCellRef"
+        },
+        "to": {
+          "$ref": "#/components/schemas/SheetCellRef"
+        },
+        "operator": {
+          "type": "string",
+          "enum": ["LT", "LTE", "EQ", "NEQ", "GTE", "GT", "BETWEEN", "NOT_BETWEEN"]
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^-?[0-9]{1,15}(\\.[0-9]{1,10})?$",
+          "description": "The number compared with, as a plain decimal text."
+        },
+        "value2": {
+          "type": "string",
+          "pattern": "^-?[0-9]{1,15}(\\.[0-9]{1,10})?$",
+          "description": "The upper number of BETWEEN and NOT_BETWEEN; absent for every other operator."
+        },
+        "fill": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "colour": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "The text colour. A rule paints a fill, a text colour, or both."
+        }
+      }
+    },
+    "SheetTabColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "type"],
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/SheetId"
+        },
+        "label": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["text", "number", "date", "picklist", "boolean"]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "reportable": {
+          "type": "boolean"
+        },
+        "default": {
+          "type": ["string", "boolean", "null"]
+        },
+        "picklist": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["values"],
+          "properties": {
+            "values": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              }
+            }
+          }
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 1000,
+          "description": "In pixels. Version 2 allows narrower columns than version 1 (the real forms have them); the platform setting may narrow the range further."
+        }
+      }
+    },
+    "SheetTabRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "$ref": "#/components/schemas/SheetId"
+        },
+        "label": {
+          "type": "string"
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 600,
+          "description": "In pixels. Version 2 allows shorter rows than version 1."
+        }
+      }
+    },
+    "SheetTabCell": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "type": ["string", "boolean", "null"]
+        },
+        "style": {
+          "$ref": "#/components/schemas/SheetCellStyle"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["fixed", "input"]
+        },
+        "look": {
+          "$ref": "#/components/schemas/SheetLook"
+        },
+        "link": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "An https address the text of a fixed cell opens. A property of the cell, never its value: the cell's text is what a person reads. Every other kind of address is refused."
+        }
+      }
+    },
+    "SheetLook": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How a cell looks, beyond the bold, italic, underline, alignment, text colour name and size name of its style. Every part is a key of a closed list or a checked value, never a name or a style taken from a file. A colour is written #rrggbb; the server stores it in lower case. A cell may not state both a text colour name in its style and a text colour here, nor both a size name in its style and a size here. Input cells may carry a look (their boxes are drawn) but no style.",
+      "properties": {
+        "font": {
+          "type": "string",
+          "enum": ["SANS_NEUTRAL", "SANS_HUMANIST", "SANS_WIDE", "SANS_FRIENDLY", "SANS_UNICODE", "DISPLAY_HEAVY", "DISPLAY_IMPACT", "SERIF_TEXT", "SERIF_SCREEN", "SERIF_SLAB", "MONO_CLASSIC", "MONO_CODE", "SANS_UI", "SANS", "SERIF", "MONO"],
+          "description": "A key of the closed list of fonts. The page decides which fonts each key stands for."
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 28,
+          "description": "Whole points."
+        },
+        "colour": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "The text colour."
+        },
+        "fill": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "The background colour."
+        },
+        "wrap": {
+          "type": "boolean"
+        },
+        "verticalAlignment": {
+          "type": "string",
+          "enum": ["TOP", "MIDDLE", "BOTTOM"],
+          "description": "Absent means BOTTOM."
+        },
+        "borders": {
+          "$ref": "#/components/schemas/SheetBorders"
+        },
+        "numberFormat": {
+          "type": "string",
+          "enum": ["GENERAL", "WHOLE", "TWO_DECIMALS", "PERCENT", "PERCENT_TWO_DECIMALS", "THOUSANDS", "THOUSANDS_TWO_DECIMALS", "ACCOUNTING", "MONTH_YEAR", "SHORT_DATE"],
+          "description": "A key of the closed list of number formats. Absent means GENERAL."
+        }
+      }
+    },
+    "SheetBorders": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "top": {
+          "$ref": "#/components/schemas/SheetBorderStyle"
+        },
+        "right": {
+          "$ref": "#/components/schemas/SheetBorderStyle"
+        },
+        "bottom": {
+          "$ref": "#/components/schemas/SheetBorderStyle"
+        },
+        "left": {
+          "$ref": "#/components/schemas/SheetBorderStyle"
+        }
+      }
+    },
+    "SheetBorderStyle": {
+      "type": "string",
+      "enum": ["THIN", "MEDIUM", "THICK", "DOTTED", "DASHED", "DOUBLE"],
+      "description": "The style of one side. A side with no border is absent."
+    },
+    "SheetFreeze": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rows", "columns"],
+      "properties": {
+        "rows": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50,
+          "description": "Rows kept in view, counted from the top, header rows first."
+        },
+        "columns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 20,
+          "description": "Columns kept in view, counted from the left."
+        }
+      }
+    },
+    "SheetPrint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["paper", "orientation", "fitToWidth", "repeatHeaderRows"],
+      "properties": {
+        "paper": {
+          "type": "string",
+          "enum": ["A4", "A3", "LETTER"]
+        },
+        "orientation": {
+          "type": "string",
+          "enum": ["PORTRAIT", "LANDSCAPE"]
+        },
+        "fitToWidth": {
+          "type": "boolean"
+        },
+        "repeatHeaderRows": {
+          "type": "boolean"
+        }
+      }
+    },
+    "SheetInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What the author states about one input cell; whatever is absent is as its column says. A merged input area is one cell, stated at its top left cell. The class is a field of the format; the server enforces the reviewer class from a later release (SH5).",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["text", "number", "date", "picklist", "boolean", "attachment"],
+          "description": "Overrides the type of the column. An attachment cell holds a list of file identifiers of the fill-in (ADR-0254)."
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "class": {
+          "type": "string",
+          "enum": ["filler", "reviewer"],
+          "description": "Who fills the cell. Absent means filler."
+        },
+        "picklist": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["values"],
+          "properties": {
+            "values": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              }
+            }
+          },
+          "description": "The values of a cell whose type is picklist."
+        },
+        "maxFiles": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "The most files an attachment cell holds. Absent means 5."
+        }
+      }
     }
   }
 }

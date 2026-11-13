@@ -6,8 +6,10 @@ import app.platformapi.ApiResponse;
 import app.platformapi.ErrorCode;
 import app.platformapi.NewSheetVersionRequest;
 import app.platformapi.SheetImportNoteView;
+import app.platformapi.SheetImportPlaceView;
 import app.platformapi.SheetImportReportView;
 import app.platformapi.SheetImportResultView;
+import app.platformapi.SheetImportWorksheetView;
 import app.platformapi.SheetVersionSummaryView;
 import app.platformapi.SheetVersionView;
 import app.platformapi.SheetVersionsView;
@@ -97,11 +99,19 @@ class SheetController {
             summary = "Make a new draft version from an uploaded spreadsheet file",
             description = "The body is the file itself (an .xlsx workbook or a UTF-8 text file with comma, semicolon "
                     + "or tab separated values) and nothing else; format says which. The file is read on the server "
-                    + "and kept nowhere. The first sheet of a workbook is read; text becomes fixed text of the sheet, "
-                    + "a cell with no text is left to be typed into, and column widths, row heights, bold, italic, "
-                    + "the four sizes and merged areas come with it. Formulas come in as their last values and dates "
-                    + "as text written year-month-day. Images, charts, other sheets and links to other files are "
-                    + "left out and counted in the report, which says what was left out in plain words. "
+                    + "and kept nowhere. One worksheet of a workbook is read: worksheet is its number among the "
+                    + "visible worksheets counted from zero, and when it is left out the first visible worksheet that "
+                    + "holds anything is read (hidden worksheets are skipped and counted; the report lists the "
+                    + "visible ones by title so a person can choose). Text becomes fixed text of the sheet, a cell "
+                    + "with no text is left to be typed into, and column widths, row heights, bold, italic, "
+                    + "underline, alignment and merged areas come with it. When format version 2 is on, the look of "
+                    + "the file comes too: fonts mapped to a closed list, sizes, text and fill colours, borders, "
+                    + "number formats, wrapping, frozen panes, the page set-up, conditional colours that compare a "
+                    + "value with a number, links to secure web addresses and check boxes turned into yes/no cells; "
+                    + "otherwise the four sizes of format version 1 come. Formulas come in as their last values and "
+                    + "dates as text written year-month-day. Images, charts, other worksheets, embedded files, "
+                    + "shapes and links to other files are left out and counted in the report, which says what was "
+                    + "left out in plain words and where embedded files stood. "
                     + "firstRowLabels makes the first row of the table the names of the columns; when it is left "
                     + "out the server decides: no when that row is a title (one merged area across the whole width "
                     + "of the table), yes otherwise, and the report says which it applied. A cell with a border on "
@@ -127,7 +137,8 @@ class SheetController {
             @PathVariable UUID ownerId, @RequestParam String format,
             @RequestParam(required = false) Boolean firstRowLabels,
             @RequestParam(defaultValue = "false") boolean preview,
-            @RequestParam(defaultValue = "false") boolean replace, HttpServletRequest request) {
+            @RequestParam(defaultValue = "false") boolean replace,
+            @RequestParam(required = false) Integer worksheet, HttpServletRequest request) {
         SpreadsheetImporter.Format kind = SpreadsheetImporter.Format.of(format)
                 .orElseThrow(() -> ApiException.validation("format", "Choose xlsx or csv."));
         // Before the body is read: who may change the sheet, and whether a draft can be started at all.
@@ -136,7 +147,7 @@ class SheetController {
         SpreadsheetImporter.Imported imported;
         try {
             imported = importer.read(file, kind, new SheetImportBuilder.Options(firstRowLabels, plan.dimension(),
-                    plan.rowsMode()));
+                    plan.rowsMode(), worksheet, properties.formatTwo().enabled()));
         } catch (ImportRefusal e) {
             imports.refused(e.code());
             throw refusal(e);
@@ -145,14 +156,20 @@ class SheetController {
                 kind.name().toLowerCase(java.util.Locale.ROOT), file.length);
         return ResponseEntity.status(preview ? HttpStatus.OK : HttpStatus.CREATED)
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
-                .body(ApiResponse.of(new SheetImportResultView(!preview, saved, view(imported.report()))));
+                .body(ApiResponse.of(new SheetImportResultView(!preview, saved,
+                        view(imported.report(), imported.checked().document() != null))));
     }
 
-    private static SheetImportReportView view(SheetImportBuilder.Report report) {
+    private static SheetImportReportView view(SheetImportBuilder.Report report, boolean formatTwo) {
         return new SheetImportReportView(report.columns(), report.rows(), report.mergedAreas(),
                 report.notes().stream().map(entry -> new SheetImportNoteView(entry.note().code(), entry.count(),
                         entry.note().leftOut(), entry.note().words(entry.count()))).toList(),
-                report.firstRowLabels(), report.firstRowIsTitle());
+                report.firstRowLabels(), report.firstRowIsTitle(),
+                report.worksheets().stream().map(one -> new SheetImportWorksheetView(one.index(), one.title(),
+                        one.rows(), one.columns())).toList(),
+                report.worksheet() < 0 ? null : report.worksheet(),
+                report.embeddedFilePlaces().stream().map(place -> new SheetImportPlaceView(place.row() + 1,
+                        SheetImportBuilder.letters(place.column()))).toList(), formatTwo);
     }
 
     private static ApiException refusal(ImportRefusal e) {

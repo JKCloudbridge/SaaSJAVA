@@ -28,7 +28,7 @@ import java.util.zip.ZipOutputStream;
 
 /**
  * Writes a grid as an .xlsx workbook with the JDK's own zip stream and no library (FA7, ADR-0201), the counterpart of
- * {@link XlsxReader}. The workbook is the sheet as a person reads it on the screen: the band of column labels, the
+ * {@link WorkbookReader}. The workbook is the sheet as a person reads it on the screen: the band of column labels, the
  * header rows, the named rows (or, when the filler adds the rows, the same blank sample rows the screen shows), every
  * cell bordered, merged areas, column widths and row heights, bold, italic, underline, the four sizes, alignment and
  * the named text colours, and one footer row across the full width with the given text at its right.
@@ -60,6 +60,7 @@ final class XlsxWriter {
     private static final String MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
     private static final String RELS = "http://schemas.openxmlformats.org/package/2006/relationships";
     private static final String OFFICE_RELS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+    private static final String CORE = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties";
     private static final String SHEET_NAME = "Sheet1";
     private static final String DECLARATION = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>";
     private static final String TYPES = "http://schemas.openxmlformats.org/package/2006/content-types";
@@ -121,6 +122,16 @@ final class XlsxWriter {
      *        row below, so the first row of the grid is the first row of the sheet
      */
     byte[] write(SheetGrid grid, String footerRight, boolean plain) {
+        return write(grid, footerRight, plain, null);
+    }
+
+    /**
+     * The workbook for a grid, with a note in the file's information when the sheet is in a format whose look this
+     * writer does not write yet (SH1A, ADR-0251; SH3 writes it).
+     *
+     * @param note fixed words for the file's description, or null for none
+     */
+    byte[] write(SheetGrid grid, String footerRight, boolean plain, String note) {
         fonts.clear();
         formats.clear();
         List<Row> rows = rowsOf(grid);
@@ -147,10 +158,20 @@ final class XlsxWriter {
                     + "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"" + KIND_SHEET
                     + ".worksheet+xml\"/>"
                     + "<Override PartName=\"/xl/styles.xml\" ContentType=\"" + KIND_SHEET + ".styles+xml\"/>"
+                    + (note == null ? "" : "<Override PartName=\"/docProps/core.xml\" ContentType=\"" + KIND
+                            + "-package.core-properties+xml\"/>")
                     + "</Types>");
             put(zip, "_rels/.rels", DECLARATION + "<Relationships xmlns=\"" + RELS + "\">"
                     + "<Relationship Id=\"rId1\" Type=\"" + OFFICE_RELS + "/officeDocument\" "
-                    + "Target=\"xl/workbook.xml\"/></Relationships>");
+                    + "Target=\"xl/workbook.xml\"/>"
+                    + (note == null ? "" : "<Relationship Id=\"rId2\" Type=\"" + RELS
+                            + "/metadata/core-properties\" Target=\"docProps/core.xml\"/>")
+                    + "</Relationships>");
+            if (note != null) {
+                put(zip, "docProps/core.xml", DECLARATION + "<cp:coreProperties xmlns:cp=\"" + CORE
+                        + "\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\"><dc:description>" + note
+                        + "</dc:description></cp:coreProperties>");
+            }
             put(zip, "xl/workbook.xml", DECLARATION + "<workbook xmlns=\"" + MAIN + "\" xmlns:r=\"" + OFFICE_RELS
                     + "\"><sheets><sheet name=\"" + SHEET_NAME + "\" sheetId=\"1\" r:id=\"rId1\"/></sheets>"
                     + (plain ? "" : "<definedNames><definedName name=\"_xlnm.Print_Titles\" localSheetId=\"0\">"

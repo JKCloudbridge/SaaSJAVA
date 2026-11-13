@@ -28,6 +28,27 @@ final class ImportRefusal extends RuntimeException {
         this.kind = kind;
     }
 
+    /** The file is not a workbook, whatever its name says. The library's own message is never repeated. */
+    static ImportRefusal notXlsx() {
+        return new ImportRefusal("not_xlsx", "The file cannot be read as an .xlsx workbook, whatever its name says.");
+    }
+
+    /** The workbook carries macros, which are never read (ADR-0253). */
+    static ImportRefusal macros() {
+        return new ImportRefusal("macros", "The workbook contains macros, which are never read. Save a copy as "
+                + ".xlsx without macros and upload that.");
+    }
+
+    /** A limit of the file itself was reached (size, parts, cells). */
+    static ImportRefusal tooLarge(String code, String words) {
+        return new ImportRefusal(Kind.TOO_LARGE, code, words);
+    }
+
+    /** The unpacked size of the file, or of one of its parts, is over the limit. */
+    static ImportRefusal unpackedTooLarge() {
+        return tooLarge("inflated", "The file is larger than it is allowed to be once it is unpacked.");
+    }
+
     /** A lower case code for tests and metrics. */
     String code() {
         return code;

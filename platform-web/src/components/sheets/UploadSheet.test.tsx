@@ -257,6 +257,58 @@ describe("the upload of a spreadsheet", () => {
     expect(await screen.findByText(/This sheet will name its rows/)).toBeInTheDocument();
   });
 
+  it("offers the visible worksheets, asks again for the one chosen and saves that one", async () => {
+    const urls: string[] = [];
+    const worksheets = [
+      { index: 0, title: "Notes", rows: 10, columns: 3 },
+      { index: 1, title: "Data", rows: 60, columns: 22 },
+    ];
+    fakeApi({
+      [IMPORT]: (request) => {
+        urls.push(request.url);
+        const sheet = new URL(request.url).searchParams.get("worksheet");
+        const report = {
+          ...REPORT,
+          worksheets,
+          worksheet: sheet === null ? 0 : Number(sheet),
+          embeddedFilePlaces: [{ row: 12, column: "B" }],
+        };
+        return new URL(request.url).searchParams.get("preview") === "true"
+          ? json({ data: { saved: false, report } })
+          : json({ data: { saved: true, version: DRAFT, report } }, 201);
+      },
+    });
+    const onSaved = draw();
+
+    pick("Workbook.xlsx");
+    const choice = await screen.findByRole("combobox");
+    expect(screen.getByRole("option", { name: "Data (about 60 rows, 22 columns)" })).toBeInTheDocument();
+    expect(screen.getByTestId("upload-embedded-places")).toHaveTextContent("B12");
+    expect(urls[0]).not.toContain("worksheet=");
+
+    fireEvent.change(choice, { target: { value: "1" } });
+    await waitFor(() => expect(urls.some((url) => url.includes("worksheet=1"))).toBe(true));
+    await screen.findByText(/The file gives/);
+    fireEvent.click(screen.getByRole("button", { name: "Save as a new draft" }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(DRAFT));
+    expect(urls[urls.length - 1]).toContain("worksheet=1");
+    expect(urls[urls.length - 1]).toContain("preview=false");
+  });
+
+  it("offers no choice for a workbook with one visible worksheet", async () => {
+    fakeApi({
+      [IMPORT]: () =>
+        json({ data: { saved: false, report: { ...REPORT, worksheets: [{ index: 0, title: "Only", rows: 5, columns: 2 }] } } }),
+    });
+    draw();
+
+    pick("Single.xlsx");
+    await screen.findByText(/The file gives/);
+
+    expect(screen.queryByRole("combobox")).toBeNull();
+  });
+
   it("is switched off when the screen says so", () => {
     draw({ disabled: true });
 

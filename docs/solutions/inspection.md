@@ -545,3 +545,24 @@ remembered per browser (`look.ts`); the first stays the default.
   when nothing waits. The deviations, CAPA, training and complaints of the picture it follows have no data here and are not drawn.
 - **Colours and sizes** are the `--board-*` tokens (light and dark, contrast checked in `tokens.test.ts`).
 - **Tests:** `board.test.ts`, `look.test.ts`, `QualityHome.test.tsx`, `tokens.test.ts`.
+
+## A template whose sheet is in the new format (SH1A)
+
+Short form; the decision is ADR-0251 and the administrator's view is [../metadata-guide.md](../metadata-guide.md) section 45. This page is for whoever works on the cluster.
+
+- **Nothing in the cluster reads a cell.** The lifecycle of a template (draft, review, the first approval's number, the correction of an approver, publish, unpublish, retire, the revised copy of a change request and its last approval that publishes) acts on a version and its status, so it works for a template in format version 2 without a change. `TemplateFormatTwoIT` runs the whole life on the real database: the grid and its hash are the same after every move, the next Revision replaces the one in use, a retire follows.
+- **A fill-in cannot be started on it yet.** `FillIns.start` makes the header record, then `FillLifecycle.start` refuses in fixed words and the transaction undoes the header (the list of the filler stays empty). The screen offers Start and shows the refusal; the call that tells whether a fill-in can be started does not know the format on purpose, so no business rule is repeated. SH5 builds fill format 3 and removes the refusal.
+- **The download** (`TemplateDownloads`, `SheetExports`) writes the text, widths, heights, merges and the footer of the first sheet, and the file's information says that the look is not in it yet. SH3 writes the look and one worksheet for each sheet.
+- **The register page and the places of a change request** read the first sheet's body (`SheetGridReader.read`), which is a version 1 grid; they are not changed. The places a request names are the grid's own identifiers, so they hold across the formats.
+- **With the switch off** (`platform.sheets.format-two.enabled`, the default) a revised copy of a version 2 template cannot be made and a save in that format is refused; a template already in the format is still read and published.
+
+## The upload reads a workbook as it looks (SH1B)
+
+Short form; the decisions are ADR-0255 and ADR-0253 (with its "Built in SH1B" note), the author's view is [../metadata-guide.md](../metadata-guide.md) section 27.3a. This page is for whoever works on the cluster.
+
+- **One reader, two builders.** `WorkbookReader` reads one worksheet into `RawSheet` (the cells with their style, the blank cells that show a fill or a border, widths and heights as the file states them, merged areas, panes, page set-up, conditional rules, links, check boxes, embedded places). `SheetImportBuilder` makes the version 1 grid it always made, or, with `Options.formatTwo`, a `SheetDocument` around it. The importer decides: a workbook with the switch on is format version 2; a text file and the switch off are version 1.
+- **Our guards come first.** `XlsxArchive` scans the archive (duplicate and unsafe part names, macros, sizes counted while inflating); `StyleBook` is the only class that names the library and maps what it says to the closed look; `ExtrasReader` reads what the library does not give. An architecture test (`WorkbookLibraryRulesTest`) keeps the library inside the sheets module, keeps the scratchpad module out, and keeps every class of the module from opening or writing a file.
+- **A new refusal needs a hostile line.** `hostile-spreadsheets.txt` (one construct per line, with the generator in `SpreadsheetCorpusTest`) for the codes a file can cause; `ExtrasHostileTest` for what is read from drawings, controls and links; `hostile-grids.txt` (kind `two`) for the conditional colours.
+- **Never log or audit** a cell, a label, a worksheet name, a file name, a font family or a link address. The name of a worksheet is returned to the person who chooses and nowhere else (`SheetImportLogsAreCleanIT`).
+- **The worksheet is chosen by number among the visible ones**; the report lists them (`SheetImportWorksheetView`) and the places where embedded files stood (`SheetImportPlaceView`).
+- **Tests.** No database: `WorkbookReaderTest`, `ImportFormatTwoTest`, `CheckBoxTest`, `ExtrasHostileTest`, `NumberFormatsTest`, `SpreadsheetCorpusTest`, `SheetHostileCorpusTest`, `WorkbookLibraryRulesTest`. Real PostgreSQL: `SheetImportFormatTwoIT` (switch on), `SheetImportIT` (switch off), `SheetImportLogsAreCleanIT`. Frontend: `UploadSheet.test.tsx`, `upload.test.ts`, `adapterTwo.test.ts`. `RealWorkbooksReportTest` writes counts of real workbooks when `-DrealWorkbooks=<paths>` is given.

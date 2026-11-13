@@ -25,8 +25,21 @@ final class SheetGridReader {
     private SheetGridReader() {
     }
 
-    /** The model of the document. */
+    /**
+     * The grid of a stored document. A document of format version 2 is read as the body of its first sheet, which is a
+     * version 1 grid with the same text, widths, heights and merges: every reader that knows only format version 1
+     * (the download, the layout of the places, the register) therefore keeps working. A template holds one sheet for
+     * now; the release that raises that limit must revisit each of these readers.
+     */
     static SheetGrid read(JsonNode root) {
+        if (SheetGridValidator.isFormatTwo(root)) {
+            return SheetDocumentReader.firstBody(root);
+        }
+        return readBody(root);
+    }
+
+    /** The body of a grid or of one sheet: the parts both formats have. */
+    static SheetGrid readBody(JsonNode root) {
         List<Column> columns = new ArrayList<>();
         for (JsonNode column : root.path("columns")) {
             columns.add(column(column));

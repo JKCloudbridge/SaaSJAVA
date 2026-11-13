@@ -39,7 +39,8 @@ class SpreadsheetCorpusTest {
     /** Every code the reader answers with that a file can cause; each must have a line in the corpus. */
     private static final Set<String> CODES = new TreeSet<>(Set.of("not_xlsx", "old_format", "no_sheet", "not_csv",
             "not_utf8", "macros", "file_too_large", "inflated", "entries", "cells", "too_many_merges",
-            "too_many_columns", "too_many_rows", "text_too_long", "unsafe_text", "empty_file", "styles"));
+            "too_many_columns", "too_many_rows", "text_too_long", "unsafe_text", "empty_file", "styles",
+            "duplicate_part", "unsafe_part_name", "formula_too_long", "formula_too_deep", "doctype"));
 
     /** One line of the corpus. */
     record Construct(int line, String expected, String format, String generator, String reason) {
@@ -51,7 +52,7 @@ class SpreadsheetCorpusTest {
     }
 
     /** A made file with the settings it is read under. */
-    private record Made(byte[] bytes, ImportProperties settings) {
+    record Made(byte[] bytes, ImportProperties settings) {
     }
 
     static List<Construct> constructs() throws IOException {
@@ -111,7 +112,7 @@ class SpreadsheetCorpusTest {
 
     // ---- making the files ----
 
-    private static Made made(String name) {
+    static Made made(String name) {
         ImportProperties standard = ImportProperties.standard();
         return switch (name) {
             case "text-named-xlsx" -> new Made(bytes("this is not a workbook"), standard);
@@ -153,6 +154,21 @@ class SpreadsheetCorpusTest {
             case "bordered-blank-rows-501" -> new Made(borderedRows(502), standard);
             case "bordered-all-over" -> new Made(borderedAllOver(), SMALL);
             case "too-many-borders" -> new Made(manyBorders(), standard);
+            case "duplicate-part-exact" -> new Made(duplicatePart(), standard);
+            case "duplicate-part-case" -> new Made(new XlsxFile().row(1, XlsxFile.text("A1", "h"))
+                    .part("xl/media/a.bin", new byte[] {1}).part("xl/media/A.bin", new byte[] {2}).bytes(), standard);
+            case "part-name-dotdot" -> new Made(new XlsxFile().row(1, XlsxFile.text("A1", "h"))
+                    .part("xl/../evil.xml", new byte[] {1}).bytes(), standard);
+            case "part-name-backslash" -> new Made(new XlsxFile().row(1, XlsxFile.text("A1", "h"))
+                    .part("xl\\evil.xml", new byte[] {1}).bytes(), standard);
+            case "formula-4001" -> new Made(formula("1+".repeat(2_000) + "1"), standard);
+            case "formula-flat-sum" -> new Made(formula("1+".repeat(50_000) + "1"), standard);
+            case "formula-nested-33" -> new Made(formula("(".repeat(33) + "1" + ")".repeat(33)), standard);
+            case "merges-300000" -> new Made(manyMerges(300_000), standard);
+            case "far-away-cell" -> new Made(new XlsxFile().row(1, XlsxFile.text("XFD1048576", "x")).bytes(),
+                    standard);
+            case "doctype-in-sheet" -> new Made(new XlsxFile().sheetPrefix("<!DOCTYPE x [<!ENTITY a \"b\">]>")
+                    .row(1, XlsxFile.text("A1", "h")).bytes(), standard);
             case "markup" -> new Made(bytes("h\n<b>HOSTILEMARK</b>\n"), standard);
             case "direction-override-in-workbook" -> new Made(new XlsxFile().row(1, XlsxFile.text("A1", "h"))
                     .row(2, "<c r=\"A2\" t=\"inlineStr\"><is><t>HOSTILEMARK&#x202E;</t></is></c>").bytes(),
@@ -244,6 +260,32 @@ class SpreadsheetCorpusTest {
                 + "<borders count=\"64001\">" + "<border/>".repeat(64_001) + "</borders>"
                 + "<cellXfs count=\"1\"><xf borderId=\"0\"/></cellXfs></styleSheet>";
         return new XlsxFile().styles(styles).row(1, XlsxFile.text("A1", "h")).bytes();
+    }
+
+    /** Two parts named alike except for one letter, made one name by rewriting the name in the archive. */
+    private static byte[] duplicatePart() {
+        byte[] file = new XlsxFile().row(1, XlsxFile.text("A1", "h")).part("xl/media/aa.bin", new byte[] {1})
+                .part("xl/media/ab.bin", new byte[] {2}).bytes();
+        byte[] from = bytes("xl/media/ab.bin");
+        byte[] to = bytes("xl/media/aa.bin");
+        for (int i = 0; i + from.length <= file.length; i++) {
+            if (Arrays.equals(file, i, i + from.length, from, 0, from.length)) {
+                System.arraycopy(to, 0, file, i, to.length);
+            }
+        }
+        return file;
+    }
+
+    private static byte[] formula(String text) {
+        return new XlsxFile().row(1, XlsxFile.formula("A1", text, "1")).bytes();
+    }
+
+    private static byte[] manyMerges(int count) {
+        XlsxFile file = new XlsxFile().row(1, XlsxFile.text("A1", "h"));
+        for (int i = 0; i < count; i++) {
+            file.merge("A" + (2 + i) + ":B" + (2 + i));
+        }
+        return file.bytes();
     }
 
     private static byte[] merges() {

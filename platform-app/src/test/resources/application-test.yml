@@ -37,6 +37,10 @@ spring:
           writetimeout: 3000
 
 platform:
+  sheets:
+    # The new sheet format is on in tests; a test of the switch starts an instance with it off (SH1A, ADR-0251).
+    format-two:
+      enabled: true
   tenancy:
     base-domain: platform.example.test
     # The limits of one organization are far out of the way, so that tests that run many requests at once are not

@@ -26,7 +26,7 @@ class SheetModuleConfiguration {
 
     @Bean
     SheetGridValidator sheetGridValidator(SheetProperties properties, SheetSchemas schemas) {
-        return new SheetGridValidator(properties.limits(), schemas);
+        return new SheetGridValidator(properties.limits(), schemas, properties.formatTwo().enabled());
     }
 
     @Bean
@@ -43,10 +43,24 @@ class SheetModuleConfiguration {
             for (String name : java.util.List.of("SheetVersionView", "SheetFillView")) {
                 Schema<?> holder = openApi.getComponents().getSchemas().get(name);
                 if (holder != null && holder.getProperties() != null) {
-                    holder.getProperties().put("grid", new Schema<>().$ref("#/components/schemas/SheetGrid"));
+                    holder.getProperties().put("grid", gridOf(name));
                 }
             }
         };
+    }
+
+    /**
+     * The schema of the grid in a view. A version of a sheet is of either format; a fill-in is pinned to a version
+     * that can be filled in, which is format version 1 until the release that builds fill format 3 (SH5).
+     */
+    private static Schema<?> gridOf(String view) {
+        if ("SheetVersionView".equals(view)) {
+            Schema<?> either = new Schema<>();
+            either.addOneOfItem(new Schema<>().$ref("#/components/schemas/SheetGrid"));
+            either.addOneOfItem(new Schema<>().$ref("#/components/schemas/SheetDocument"));
+            return either;
+        }
+        return new Schema<>().$ref("#/components/schemas/SheetGrid");
     }
 
     private static Schema<?> parse(JsonNode node) {

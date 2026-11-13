@@ -55,8 +55,41 @@ export interface GridMerge {
   to: string;
 }
 
+/**
+ * What a cell of a sheet in format version 2 has that the editor does not know (SH1A, ADR-0251): its look and its link.
+ * Kept exactly as the server sent it, beside the cell, and written back with it.
+ */
+export interface CellExtras {
+  look?: Record<string, unknown>;
+  link?: string;
+}
+
+/**
+ * The parts of a sheet in format version 2 that the present editor does not know, kept exactly as they were so that an
+ * author who changes a text, a width or a merge does not destroy the rest. The editor never reads these; the adapter
+ * puts them back when the document is written (`toApi`). A part that points at a row or a column that no longer exists
+ * is dropped when it is written, because the server would refuse it.
+ */
+export interface SheetExtras {
+  key: string;
+  title?: string;
+  /** False for an information tab. Absent means true. */
+  fillable?: boolean;
+  freeze?: Record<string, unknown>;
+  print?: Record<string, unknown>;
+  /** The input cells that state their own type, requirement or class, by cell key. */
+  inputs?: Record<string, unknown>;
+  /** The conditional colours (SH1B), in the order they are applied, each pointing at a range by two cell keys. */
+  conditions?: Record<string, unknown>[];
+  /** The look and the link of cells, by cell key. */
+  cells: Record<string, CellExtras>;
+  /** The sheets after the first, untouched: a template holds one for now. */
+  otherSheets?: unknown[];
+}
+
 export interface GridDoc {
-  formatVersion: 1;
+  /** 2 when the document was read from a sheet in format version 2; `sheet` then holds what the editor does not know. */
+  formatVersion: 1 | 2;
   dimension: 1 | 2;
   rowsMode: RowsMode;
   columns: GridColumn[];
@@ -64,6 +97,7 @@ export interface GridDoc {
   rows: GridLine[];
   cells: Record<string, GridCell>;
   merges: GridMerge[];
+  sheet?: SheetExtras;
 }
 
 /** What a grid may hold in this installation, as the API says (the server checks again on every save). */

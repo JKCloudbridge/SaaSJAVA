@@ -64,7 +64,7 @@ class XlsxWriterTest {
     }
 
     private static RawSheet read(byte[] file) {
-        return new XlsxReader(ImportProperties.standard(), LIMITS).read(file);
+        return new WorkbookReader(ImportProperties.standard(), LIMITS).read(file, null);
     }
 
     private static String part(byte[] file, String name) throws IOException {

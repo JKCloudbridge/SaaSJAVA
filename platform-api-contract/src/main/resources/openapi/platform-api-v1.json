@@ -13913,7 +13913,7 @@
     },
     "/api/v1/sheets/{ownerObject}/{ownerId}/versions/import" : {
       "post" : {
-        "description" : "The body is the file itself (an .xlsx workbook or a UTF-8 text file with comma, semicolon or tab separated values) and nothing else; format says which. The file is read on the server and kept nowhere. The first sheet of a workbook is read; text becomes fixed text of the sheet, a cell with no text is left to be typed into, and column widths, row heights, bold, italic, the four sizes and merged areas come with it. Formulas come in as their last values and dates as text written year-month-day. Images, charts, other sheets and links to other files are left out and counted in the report, which says what was left out in plain words. firstRowLabels makes the first row of the table the names of the columns; when it is left out the server decides: no when that row is a title (one merged area across the whole width of the table), yes otherwise, and the report says which it applied. A cell with a border on any side is part of the table even when it holds no text, and becomes a cell to be filled in; a blank cell with no border does not extend the table. A sheet that has no version yet is made in the shape where the sheet names its rows; a sheet that has versions keeps its shape (where the filler adds the rows, only the names of the columns come in). preview=true answers with the report and saves nothing. The size is checked before anything is read, from the announced length and again on the bytes read: PAYLOAD_TOO_LARGE (also for a file that unpacks to more than is allowed). VALIDATION_ERROR for a file that is not what its format says, a workbook with macros, a limit of the sheet that the file goes over (it is named, with the row and column when a cell is the reason) or a text that holds markup; nothing is cut. CONFLICT names the number of the draft when one exists, or when the sheet has the most versions it can have. RATE_LIMITED when other files are being read at the same moment. FORBIDDEN for a caller who may read the record but not update it. replace=true puts the grid in the draft that is held for a change request, in place, instead of making a draft: only for the people asked to decide that request. Audited by the format, the sizes and the counts, never by what the file held. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record. ",
+        "description" : "The body is the file itself (an .xlsx workbook or a UTF-8 text file with comma, semicolon or tab separated values) and nothing else; format says which. The file is read on the server and kept nowhere. One worksheet of a workbook is read: worksheet is its number among the visible worksheets counted from zero, and when it is left out the first visible worksheet that holds anything is read (hidden worksheets are skipped and counted; the report lists the visible ones by title so a person can choose). Text becomes fixed text of the sheet, a cell with no text is left to be typed into, and column widths, row heights, bold, italic, underline, alignment and merged areas come with it. When format version 2 is on, the look of the file comes too: fonts mapped to a closed list, sizes, text and fill colours, borders, number formats, wrapping, frozen panes, the page set-up, conditional colours that compare a value with a number, links to secure web addresses and check boxes turned into yes/no cells; otherwise the four sizes of format version 1 come. Formulas come in as their last values and dates as text written year-month-day. Images, charts, other worksheets, embedded files, shapes and links to other files are left out and counted in the report, which says what was left out in plain words and where embedded files stood. firstRowLabels makes the first row of the table the names of the columns; when it is left out the server decides: no when that row is a title (one merged area across the whole width of the table), yes otherwise, and the report says which it applied. A cell with a border on any side is part of the table even when it holds no text, and becomes a cell to be filled in; a blank cell with no border does not extend the table. A sheet that has no version yet is made in the shape where the sheet names its rows; a sheet that has versions keeps its shape (where the filler adds the rows, only the names of the columns come in). preview=true answers with the report and saves nothing. The size is checked before anything is read, from the announced length and again on the bytes read: PAYLOAD_TOO_LARGE (also for a file that unpacks to more than is allowed). VALIDATION_ERROR for a file that is not what its format says, a workbook with macros, a limit of the sheet that the file goes over (it is named, with the row and column when a cell is the reason) or a text that holds markup; nothing is cut. CONFLICT names the number of the draft when one exists, or when the sheet has the most versions it can have. RATE_LIMITED when other files are being read at the same moment. FORBIDDEN for a caller who may read the record but not update it. replace=true puts the grid in the draft that is held for a change request, in place, instead of making a draft: only for the people asked to decide that request. Audited by the format, the sizes and the counts, never by what the file held. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record. ",
         "operationId" : "importSheetVersion",
         "parameters" : [ {
           "in" : "path",
@@ -13959,6 +13959,14 @@
           "schema" : {
             "type" : "boolean",
             "default" : false
+          }
+        }, {
+          "in" : "query",
+          "name" : "worksheet",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         } ],
         "requestBody" : {
@@ -26597,6 +26605,29 @@
         },
         "required" : [ "accessLevel", "id", "kind", "name", "object", "targetId", "targetType" ]
       },
+      "SheetBorderStyle" : {
+        "type" : "string",
+        "description" : "The style of one side. A side with no border is absent.",
+        "enum" : [ "THIN", "MEDIUM", "THICK", "DOTTED", "DASHED", "DOUBLE" ]
+      },
+      "SheetBorders" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "bottom" : {
+            "$ref" : "#/components/schemas/SheetBorderStyle"
+          },
+          "left" : {
+            "$ref" : "#/components/schemas/SheetBorderStyle"
+          },
+          "right" : {
+            "$ref" : "#/components/schemas/SheetBorderStyle"
+          },
+          "top" : {
+            "$ref" : "#/components/schemas/SheetBorderStyle"
+          }
+        }
+      },
       "SheetCell" : {
         "type" : "object",
         "additionalProperties" : false,
@@ -26698,6 +26729,63 @@
           }
         },
         "required" : [ "id", "label", "type" ]
+      },
+      "SheetCondition" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "description" : "Paints the cells of a range whose value meets a comparison with a number. A closed rule: a comparison and one or two plain numbers, never a formula or other executable text.",
+        "properties" : {
+          "colour" : {
+            "type" : "string",
+            "description" : "The text colour. A rule paints a fill, a text colour, or both.",
+            "pattern" : "^#[0-9a-fA-F]{6}$"
+          },
+          "fill" : {
+            "type" : "string",
+            "pattern" : "^#[0-9a-fA-F]{6}$"
+          },
+          "from" : {
+            "$ref" : "#/components/schemas/SheetCellRef"
+          },
+          "operator" : {
+            "type" : "string",
+            "enum" : [ "LT", "LTE", "EQ", "NEQ", "GTE", "GT", "BETWEEN", "NOT_BETWEEN" ]
+          },
+          "to" : {
+            "$ref" : "#/components/schemas/SheetCellRef"
+          },
+          "value" : {
+            "type" : "string",
+            "description" : "The number compared with, as a plain decimal text.",
+            "pattern" : "^-?[0-9]{1,15}(\\.[0-9]{1,10})?$"
+          },
+          "value2" : {
+            "type" : "string",
+            "description" : "The upper number of BETWEEN and NOT_BETWEEN; absent for every other operator.",
+            "pattern" : "^-?[0-9]{1,15}(\\.[0-9]{1,10})?$"
+          }
+        },
+        "required" : [ "from", "operator", "to", "value" ]
+      },
+      "SheetDocument" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "description" : "Format version 2 of a sheet (SH1A, ADR-0251): a list of sheets. Format version 1 (SheetGrid) is not changed and is still read as it always was. A template holds one sheet for now (a setting, platform.sheets.limits.max-sheets). The order of the sheets is the order of the tabs and is part of the document's hash.",
+        "properties" : {
+          "formatVersion" : {
+            "const" : 2,
+            "description" : "The format of this document."
+          },
+          "sheets" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetTab"
+            },
+            "maxItems" : 8,
+            "minItems" : 1
+          }
+        },
+        "required" : [ "formatVersion", "sheets" ]
       },
       "SheetFillLimitsView" : {
         "type" : "object",
@@ -26808,6 +26896,25 @@
         },
         "required" : [ "canEdit", "cells", "correction", "fill", "grid", "limits" ]
       },
+      "SheetFreeze" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "columns" : {
+            "type" : "integer",
+            "description" : "Columns kept in view, counted from the left.",
+            "maximum" : 20,
+            "minimum" : 0
+          },
+          "rows" : {
+            "type" : "integer",
+            "description" : "Rows kept in view, counted from the top, header rows first.",
+            "maximum" : 50,
+            "minimum" : 0
+          }
+        },
+        "required" : [ "columns", "rows" ]
+      },
       "SheetGrid" : {
         "type" : "object",
         "additionalProperties" : false,
@@ -26891,6 +26998,19 @@
         },
         "required" : [ "code", "count", "leftOut", "words" ]
       },
+      "SheetImportPlaceView" : {
+        "type" : "object",
+        "properties" : {
+          "column" : {
+            "type" : "string"
+          },
+          "row" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "column", "row" ]
+      },
       "SheetImportReportView" : {
         "type" : "object",
         "properties" : {
@@ -26898,10 +27018,19 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "embeddedFilePlaces" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetImportPlaceView"
+            }
+          },
           "firstRowIsTitle" : {
             "type" : "boolean"
           },
           "firstRowLabels" : {
+            "type" : "boolean"
+          },
+          "formatTwo" : {
             "type" : "boolean"
           },
           "mergedAreas" : {
@@ -26917,6 +27046,16 @@
           "rows" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "worksheet" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "worksheets" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetImportWorksheetView"
+            }
           }
         },
         "required" : [ "columns", "mergedAreas", "notes", "rows" ]
@@ -26936,9 +27075,76 @@
         },
         "required" : [ "report", "saved" ]
       },
+      "SheetImportWorksheetView" : {
+        "type" : "object",
+        "properties" : {
+          "columns" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "index" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "rows" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "columns", "index", "rows" ]
+      },
+      "SheetInput" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "description" : "What the author states about one input cell; whatever is absent is as its column says. A merged input area is one cell, stated at its top left cell. The class is a field of the format; the server enforces the reviewer class from a later release (SH5).",
+        "properties" : {
+          "class" : {
+            "type" : "string",
+            "description" : "Who fills the cell. Absent means filler.",
+            "enum" : [ "filler", "reviewer" ]
+          },
+          "maxFiles" : {
+            "type" : "integer",
+            "description" : "The most files an attachment cell holds. Absent means 5.",
+            "maximum" : 5,
+            "minimum" : 1
+          },
+          "picklist" : {
+            "type" : "object",
+            "additionalProperties" : false,
+            "description" : "The values of a cell whose type is picklist.",
+            "properties" : {
+              "values" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "string",
+                  "maxLength" : 100,
+                  "minLength" : 1
+                },
+                "minItems" : 1
+              }
+            },
+            "required" : [ "values" ]
+          },
+          "required" : {
+            "type" : "boolean"
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "Overrides the type of the column. An attachment cell holds a list of file identifiers of the fill-in (ADR-0254).",
+            "enum" : [ "text", "number", "date", "picklist", "boolean", "attachment" ]
+          }
+        }
+      },
       "SheetLimitsView" : {
         "type" : "object",
         "properties" : {
+          "formatTwoEnabled" : {
+            "type" : "boolean"
+          },
           "maxBytes" : {
             "type" : "integer",
             "format" : "int32"
@@ -26947,7 +27153,19 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "maxColumnWidth" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "maxColumns" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxFilesPerCell" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxFixedTextChars" : {
             "type" : "integer",
             "format" : "int32"
           },
@@ -26963,6 +27181,10 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "maxLinkChars" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "maxMerges" : {
             "type" : "integer",
             "format" : "int32"
@@ -26971,12 +27193,72 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "maxRowHeight" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "maxRows" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxSheets" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "minColumnWidth" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "minRowHeight" : {
             "type" : "integer",
             "format" : "int32"
           }
         },
-        "required" : [ "maxBytes", "maxCellChars", "maxColumns", "maxHeaderRows", "maxImportBytes", "maxLabelChars", "maxMerges", "maxPicklistValues", "maxRows" ]
+        "required" : [ "formatTwoEnabled", "maxBytes", "maxCellChars", "maxColumnWidth", "maxColumns", "maxFilesPerCell", "maxFixedTextChars", "maxHeaderRows", "maxImportBytes", "maxLabelChars", "maxLinkChars", "maxMerges", "maxPicklistValues", "maxRowHeight", "maxRows", "maxSheets", "minColumnWidth", "minRowHeight" ]
+      },
+      "SheetLook" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "description" : "How a cell looks, beyond the bold, italic, underline, alignment, text colour name and size name of its style. Every part is a key of a closed list or a checked value, never a name or a style taken from a file. A colour is written #rrggbb; the server stores it in lower case. A cell may not state both a text colour name in its style and a text colour here, nor both a size name in its style and a size here. Input cells may carry a look (their boxes are drawn) but no style.",
+        "properties" : {
+          "borders" : {
+            "$ref" : "#/components/schemas/SheetBorders"
+          },
+          "colour" : {
+            "type" : "string",
+            "description" : "The text colour.",
+            "pattern" : "^#[0-9a-fA-F]{6}$"
+          },
+          "fill" : {
+            "type" : "string",
+            "description" : "The background colour.",
+            "pattern" : "^#[0-9a-fA-F]{6}$"
+          },
+          "font" : {
+            "type" : "string",
+            "description" : "A key of the closed list of fonts. The page decides which fonts each key stands for.",
+            "enum" : [ "SANS_NEUTRAL", "SANS_HUMANIST", "SANS_WIDE", "SANS_FRIENDLY", "SANS_UNICODE", "DISPLAY_HEAVY", "DISPLAY_IMPACT", "SERIF_TEXT", "SERIF_SCREEN", "SERIF_SLAB", "MONO_CLASSIC", "MONO_CODE", "SANS_UI", "SANS", "SERIF", "MONO" ]
+          },
+          "numberFormat" : {
+            "type" : "string",
+            "description" : "A key of the closed list of number formats. Absent means GENERAL.",
+            "enum" : [ "GENERAL", "WHOLE", "TWO_DECIMALS", "PERCENT", "PERCENT_TWO_DECIMALS", "THOUSANDS", "THOUSANDS_TWO_DECIMALS", "ACCOUNTING", "MONTH_YEAR", "SHORT_DATE" ]
+          },
+          "size" : {
+            "type" : "integer",
+            "description" : "Whole points.",
+            "maximum" : 28,
+            "minimum" : 8
+          },
+          "verticalAlignment" : {
+            "type" : "string",
+            "description" : "Absent means BOTTOM.",
+            "enum" : [ "TOP", "MIDDLE", "BOTTOM" ]
+          },
+          "wrap" : {
+            "type" : "boolean"
+          }
+        }
       },
       "SheetMerge" : {
         "type" : "object",
@@ -27004,6 +27286,27 @@
         },
         "required" : [ "allowDownload", "viewOnly" ]
       },
+      "SheetPrint" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "fitToWidth" : {
+            "type" : "boolean"
+          },
+          "orientation" : {
+            "type" : "string",
+            "enum" : [ "PORTRAIT", "LANDSCAPE" ]
+          },
+          "paper" : {
+            "type" : "string",
+            "enum" : [ "A4", "A3", "LETTER" ]
+          },
+          "repeatHeaderRows" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "fitToWidth", "orientation", "paper", "repeatHeaderRows" ]
+      },
       "SheetRowDefinition" : {
         "type" : "object",
         "additionalProperties" : false,
@@ -27012,6 +27315,187 @@
             "type" : "integer",
             "maximum" : 400,
             "minimum" : 16
+          },
+          "id" : {
+            "$ref" : "#/components/schemas/SheetId"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id" ]
+      },
+      "SheetTab" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "description" : "One sheet of a version 2 document: the whole body of a version 1 grid (dimension, rows mode, columns, header rows, rows, cells, merges) plus a key, a title, whether it is filled in, the frozen panes, the page set-up, and the cells whose type, requirement or class is stated one by one. Identifiers are unique inside one sheet.",
+        "properties" : {
+          "cells" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/SheetTabCell"
+            },
+            "propertyNames" : {
+              "$ref" : "#/components/schemas/SheetCellRef"
+            }
+          },
+          "columns" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetTabColumn"
+            },
+            "minItems" : 1
+          },
+          "conditions" : {
+            "type" : "array",
+            "description" : "Conditional colours: a cell value compared with a number paints the cell. At most 50, in the order they are applied (the first that holds wins). Only a sheet that names its rows (dimension 2) has them.",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetCondition"
+            },
+            "maxItems" : 50
+          },
+          "dimension" : {
+            "type" : "integer",
+            "enum" : [ 1, 2 ]
+          },
+          "fillable" : {
+            "type" : "boolean",
+            "description" : "False for an information tab: no fill-in cell belongs to it. Absent means true."
+          },
+          "freeze" : {
+            "$ref" : "#/components/schemas/SheetFreeze"
+          },
+          "headerRows" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetTabRow"
+            }
+          },
+          "inputs" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/SheetInput"
+            },
+            "description" : "Input cells that state their own type, requirement or class, by cell reference. Only a sheet that names its rows (dimension 2) has them.",
+            "propertyNames" : {
+              "$ref" : "#/components/schemas/SheetCellRef"
+            }
+          },
+          "key" : {
+            "type" : "string",
+            "description" : "The permanent name of the sheet inside the template, unique in the document. Generated, never typed.",
+            "pattern" : "^[a-z0-9][a-z0-9_-]{0,39}$"
+          },
+          "merges" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetMerge"
+            }
+          },
+          "print" : {
+            "$ref" : "#/components/schemas/SheetPrint"
+          },
+          "rows" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetTabRow"
+            }
+          },
+          "rowsMode" : {
+            "type" : "string",
+            "enum" : [ "FIXED", "REPEATABLE", "FIXED_AND_REPEATABLE" ]
+          },
+          "title" : {
+            "type" : "string",
+            "description" : "The name of the tab: at most 31 characters, no markup.",
+            "maxLength" : 31,
+            "minLength" : 1
+          }
+        },
+        "required" : [ "cells", "columns", "dimension", "key", "merges", "rows", "rowsMode" ]
+      },
+      "SheetTabCell" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "fixed", "input" ]
+          },
+          "link" : {
+            "type" : "string",
+            "description" : "An https address the text of a fixed cell opens. A property of the cell, never its value: the cell's text is what a person reads. Every other kind of address is refused.",
+            "maxLength" : 2000,
+            "minLength" : 1
+          },
+          "look" : {
+            "$ref" : "#/components/schemas/SheetLook"
+          },
+          "style" : {
+            "$ref" : "#/components/schemas/SheetCellStyle"
+          },
+          "value" : {
+            "type" : [ "string", "boolean", "null" ]
+          }
+        }
+      },
+      "SheetTabColumn" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "default" : {
+            "type" : [ "string", "boolean", "null" ]
+          },
+          "id" : {
+            "$ref" : "#/components/schemas/SheetId"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "picklist" : {
+            "type" : [ "object", "null" ],
+            "additionalProperties" : false,
+            "properties" : {
+              "values" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "string",
+                  "maxLength" : 100,
+                  "minLength" : 1
+                },
+                "minItems" : 1
+              }
+            },
+            "required" : [ "values" ]
+          },
+          "reportable" : {
+            "type" : "boolean"
+          },
+          "required" : {
+            "type" : "boolean"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "text", "number", "date", "picklist", "boolean" ]
+          },
+          "width" : {
+            "type" : "integer",
+            "description" : "In pixels. Version 2 allows narrower columns than version 1 (the real forms have them); the platform setting may narrow the range further.",
+            "maximum" : 1000,
+            "minimum" : 8
+          }
+        },
+        "required" : [ "id", "label", "type" ]
+      },
+      "SheetTabRow" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "height" : {
+            "type" : "integer",
+            "description" : "In pixels. Version 2 allows shorter rows than version 1.",
+            "maximum" : 600,
+            "minimum" : 4
           },
           "id" : {
             "$ref" : "#/components/schemas/SheetId"
@@ -27087,7 +27571,11 @@
         "type" : "object",
         "properties" : {
           "grid" : {
-            "$ref" : "#/components/schemas/SheetGrid"
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/SheetGrid"
+            }, {
+              "$ref" : "#/components/schemas/SheetDocument"
+            } ]
           },
           "version" : {
             "$ref" : "#/components/schemas/SheetVersionSummaryView"
