@@ -93,7 +93,8 @@ class RealWorkbooksReportTest {
             }
             for (RawSheet.Area area : raw.merges) {
                 if (cell.row() >= area.top() && cell.row() <= area.bottom() && cell.column() >= area.left()
-                        && cell.column() <= area.right() && (cell.row() != area.top() || cell.column() != area.left())) {
+                        && cell.column() <= area.right()
+                        && (cell.row() != area.top() || cell.column() != area.left())) {
                     covered++;
                     break;
                 }
@@ -107,11 +108,11 @@ class RealWorkbooksReportTest {
         int longText = 0;
         for (RawSheet.YesNo cell : raw.yesNo) {
             var held = raw.rows.get(cell.row());
-            String held_text = held == null || held.get(cell.column()) == null ? "" : held.get(cell.column()).text();
-            String bare = held_text.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z]", "");
+            String heldText = held == null || held.get(cell.column()) == null ? "" : held.get(cell.column()).text();
+            String bare = heldText.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z]", "");
             if (bare.equals("yes") || bare.equals("no") || bare.equals("yesno") || bare.equals("noyes")) {
                 onlyYesNo++;
-            } else if (held_text.length() <= 30) {
+            } else if (heldText.length() <= 30) {
                 shortText++;
             } else {
                 longText++;
@@ -119,7 +120,8 @@ class RealWorkbooksReportTest {
         }
         out.append("    held_text in them: ").append(onlyYesNo).append(" only Yes/No words, ").append(shortText)
                 .append(" up to 30 characters, ").append(longText).append(" longer\n");
-        out.append("    yes/no cells: ").append(withText).append(", yes/no cells on text, ").append(covered).append(" under a merge, ")
+        out.append("    yes/no cells: ").append(withText).append(", yes/no cells on text, ").append(covered)
+                .append(" under a merge, ")
                 .append(inFirstRow).append(" in the first row\n");
         out.append("    notes:");
         raw.notes.entries().forEach(entry -> out.append(' ').append(entry.note().code()).append('=')

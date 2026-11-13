@@ -263,13 +263,13 @@ class SheetFormatTwoValidatorTest {
     @Test
     void widthsAndHeightsFollowTheSettingsInsideTheRangeTheSchemaAllows() {
         Map<String, Object> narrow = with(sheet -> GridDocs.list(sheet, "columns").get(0).put("width", 8));
-        Map<String, Object> short_ = with(sheet -> GridDocs.list(sheet, "rows").get(0).put("height", 4));
+        Map<String, Object> shortRow = with(sheet -> GridDocs.list(sheet, "rows").get(0).put("height", 4));
 
         assertThat(check(narrow).problems()).isEmpty();
-        assertThat(check(short_).problems()).isEmpty();
+        assertThat(check(shortRow).problems()).isEmpty();
         assertThat(firstCode(checkWith(limits(5_000, 40, 1_000, 4, 600, 1, 5, 2_000), narrow)))
                 .isEqualTo("width_range");
-        assertThat(firstCode(checkWith(limits(5_000, 8, 1_000, 16, 400, 1, 5, 2_000), short_)))
+        assertThat(firstCode(checkWith(limits(5_000, 8, 1_000, 16, 400, 1, 5, 2_000), shortRow)))
                 .isEqualTo("height_range");
     }
 

@@ -637,6 +637,7 @@ final class WorkbookWriter {
                     cell.setT(STCellType.E);
                     cell.setV(answer.value());
                 }
+                default -> { }
             }
         }
 

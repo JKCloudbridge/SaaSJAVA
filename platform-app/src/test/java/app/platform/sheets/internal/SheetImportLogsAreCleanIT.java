@@ -135,7 +135,7 @@ class SheetImportLogsAreCleanIT extends SheetSupport {
     }
 
     /**
-     * SH1B: the name of a worksheet, the family of a font and the address of a link are the organization's own text. 
+     * SH1B: the name of a worksheet, the family of a font and the address of a link are the organization's own text.
      */
     @Test
     void theNameOfAWorksheetAFontFamilyAndALinkAreNeverLoggedOrWrittenToTheTrail() throws IOException {
