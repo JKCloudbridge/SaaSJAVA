@@ -1,0 +1,485 @@
+# SH2, ADR-0252. The one file of formula cases that BOTH evaluators read: the Java tests (server) and the TypeScript tests
+# (browser). Nothing here is the text of a real form. A new function needs cases here, in both evaluators, and a line in [refuse].
+#
+# [eval]       name | formula (spreadsheet style, evaluated at K1) | inputs | expected
+#              inputs: A1=1; A2="text"; A3=TRUE; A4=#N/A     (a cell not listed is blank; A1="" is the empty text)
+#              expected: a number (tolerance 1e-9), "text", TRUE, FALSE or an error code. The expected value is the DOCUMENTED
+#              behaviour of the spreadsheet function, written before any engine ran.
+# [refuse]     name | formula (spreadsheet style, at K1) | the stable reason it is refused with (by the translator or the gate)
+# [canonical]  typed (spreadsheet style, at K1) | the one canonical stored form: the text, translated, parsed and printed
+# [growing]    name | body rows now | row of the formula | spreadsheet style | stored | drawn now | body rows later | drawn later
+#
+# The layout of [eval], [refuse] and [canonical]: thirty columns c1..c30 (A..AD) and sixty rows r1..r60, the formula in K1.
+# The layout of [growing]: one header row h1, thirty columns, the filler adds all the rows after the header.
+
+[eval]
+# ---- arithmetic
+abs negative | ABS(-3) | | 3
+abs of a cell | ABS(A1) | A1=-2.5 | 2.5
+abs of blank | ABS(A1) | | 0
+abs of text | ABS(A1) | A1="x" | #VALUE!
+abs of number text | ABS("-4") | | 4
+abs of error | ABS(A1) | A1=#DIV/0! | #DIV/0!
+abs of true | ABS(TRUE) | | 1
+mod positive | MOD(10,3) | | 1
+mod negative dividend | MOD(-10,3) | | 2
+mod negative divisor | MOD(10,-3) | | -2
+mod by zero | MOD(5,0) | | #DIV/0!
+mod decimal | MOD(5.5,2) | | 1.5
+mod of blank | MOD(A1,3) | | 0
+mod of text | MOD(A1,2) | A1="x" | #VALUE!
+int positive | INT(2.7) | | 2
+int negative | INT(-2.1) | | -3
+int of blank | INT(A1) | | 0
+int of number text | INT("3.9") | | 3
+int of text | INT(A1) | A1="x" | #VALUE!
+roundup positive | ROUNDUP(2.1,0) | | 3
+roundup negative | ROUNDUP(-2.1,0) | | -3
+roundup digits | ROUNDUP(2.123,2) | | 2.13
+roundup tens | ROUNDUP(1234,-2) | | 1300
+roundup exact | ROUNDUP(2,2) | | 2
+rounddown positive | ROUNDDOWN(2.9,0) | | 2
+rounddown negative | ROUNDDOWN(-2.9,0) | | -2
+rounddown digits | ROUNDDOWN(2.129,2) | | 2.12
+rounddown tens | ROUNDDOWN(1299,-2) | | 1200
+round half up | ROUND(2.5,0) | | 3
+round negative half | ROUND(-2.5,0) | | -3
+round digits | ROUND(2.675,2) | | 2.68
+round tens | ROUND(1250,-2) | | 1300
+sqrt | SQRT(16) | | 4
+sqrt irrational | SQRT(2) | | 1.4142135623730951
+sqrt negative | SQRT(-1) | | #NUM!
+sqrt zero | SQRT(0) | | 0
+sqrt of text | SQRT(A1) | A1="x" | #VALUE!
+sqrt of blank | SQRT(A1) | | 0
+power | POWER(2,10) | | 1024
+power negative exponent | POWER(2,-1) | | 0.5
+power root | POWER(4,0.5) | | 2
+power zero zero | POWER(0,0) | | #NUM!
+power zero negative | POWER(0,-1) | | #DIV/0!
+power of text | POWER(A1,2) | A1="x" | #VALUE!
+caret | 2^3 | | 8
+caret negative exponent | 2^-1 | | 0.5
+caret chain left to right | 2^3^2 | | 64
+caret zero zero | 0^0 | | #NUM!
+unary minus before caret | -2^2 | | 4
+percent | 10% | | 0.1
+percent of cell | A1% | A1=50 | 0.5
+product | PRODUCT(2,3,4) | | 24
+product ignores text in a range | PRODUCT(A1:A3) | A1=2; A2="x"; A3=3 | 6
+product of blanks | PRODUCT(A1:A2) | | 0
+product of number text | PRODUCT("2",3) | | 6
+product of text | PRODUCT("x",3) | | #VALUE!
+product with error in range | PRODUCT(A1:A2) | A1=2; A2=#N/A | #N/A
+product of a cell | PRODUCT(A1,A2) | A1=2; A2=5 | 10
+
+# ---- conditional
+iferror catches division | IFERROR(1/0,"x") | | "x"
+iferror passes a value | IFERROR(5,"x") | | 5
+iferror catches a cell error | IFERROR(A1,0) | A1=#N/A | 0
+iferror catches a nested error | IFERROR(A1/B1,"n/a") | A1=1; B1=0 | "n/a"
+iferror passes text | IFERROR(A1,"x") | A1="ok" | "ok"
+iferror with value error | IFERROR(A1+1,-1) | A1="t" | -1
+not of blank | NOT(A1) | | TRUE
+not of number | NOT(0) | | TRUE
+and over a range ignores text | AND(A1:A3) | A1=TRUE; A2="x"; A3=TRUE | TRUE
+and of a range of only text | AND(A1:A2) | A1="x"; A2="y" | #VALUE!
+and mixed | AND(1,0) | | FALSE
+or true | OR(FALSE,1) | | TRUE
+or of a range with an error | OR(A1:A2) | A1=TRUE; A2=#DIV/0! | #DIV/0!
+if true branch | IF(A1>1,"big","small") | A1=5 | "big"
+if false branch without else | IF(A1>1,"big") | A1=0 | FALSE
+if with text condition | IF(A1,1,2) | A1="x" | #VALUE!
+isnumber number | ISNUMBER(5) | | TRUE
+isnumber number text | ISNUMBER("5") | | FALSE
+isnumber cell number | ISNUMBER(A1) | A1=5 | TRUE
+isnumber blank | ISNUMBER(A1) | | FALSE
+isnumber text cell | ISNUMBER(A1) | A1="x" | FALSE
+isnumber boolean | ISNUMBER(A1) | A1=TRUE | FALSE
+isnumber error cell | ISNUMBER(A1) | A1=#N/A | FALSE
+isnumber error expression | ISNUMBER(1/0) | | FALSE
+istext literal | ISTEXT("a") | | TRUE
+istext cell | ISTEXT(A1) | A1="x" | TRUE
+istext number cell | ISTEXT(A1) | A1=5 | FALSE
+istext blank | ISTEXT(A1) | | FALSE
+istext empty text | ISTEXT("") | | TRUE
+istext error cell | ISTEXT(A1) | A1=#N/A | FALSE
+isblank blank | ISBLANK(A1) | | TRUE
+isblank number | ISBLANK(A1) | A1=0 | FALSE
+isblank text | ISBLANK(A1) | A1="x" | FALSE
+countif greater | COUNTIF(A1:A4,">2") | A1=1; A2=2; A3=3; A4=4 | 2
+countif equal text | COUNTIF(A1:A3,"x") | A1="x"; A2="y"; A3="x" | 2
+countif ignores case | COUNTIF(A1:A3,"X") | A1="x"; A2="y"; A3="x" | 2
+countif not equal | COUNTIF(A1:A4,"<>2") | A1=1; A2=2; A3=3; A4="x" | 3
+countif number criterion | COUNTIF(A1:A4,2) | A1=1; A2=2; A3=3; A4=2 | 2
+countif at least | COUNTIF(A1:A4,">=2") | A1=1; A2=2; A3=3; A4="x" | 2
+countif wildcard star | COUNTIF(A1:A3,"a*") | A1="apple"; A2="banana"; A3="avocado" | 2
+countif wildcard question | COUNTIF(A1:A3,"?pple") | A1="apple"; A2="banana"; A3="avocado" | 1
+countif criterion in a cell | COUNTIF(A1:A4,B1) | A1=1; A2=2; A3=3; A4=2; B1=2 | 2
+countif less than | COUNTIF(A1:A4,"<3") | A1=1; A2=2; A3=3; A4=4 | 2
+sumif greater | SUMIF(A1:A4,">1") | A1=1; A2=2; A3=3; A4="x" | 5
+sumif with a sum range | SUMIF(A1:A4,">1",B1:B4) | A1=1; A2=2; A3=3; A4=4; B1=10; B2=20; B3=30; B4=40 | 90
+sumif text criterion | SUMIF(A1:A3,"x",B1:B3) | A1="x"; A2="y"; A3="x"; B1=1; B2=2; B3=3 | 4
+sumif sum range with text | SUMIF(A1:A3,">0",B1:B3) | A1=1; A2=2; A3=3; B1=5; B2="t"; B3=7 | 12
+sumif nothing matches | SUMIF(A1:A3,">10") | A1=1; A2=2; A3=3 | 0
+averageif greater | AVERAGEIF(A1:A4,">1") | A1=1; A2=2; A3=3; A4="x" | 2.5
+averageif nothing matches | AVERAGEIF(A1:A3,">10") | A1=1; A2=2; A3=3 | #DIV/0!
+averageif with an average range | AVERAGEIF(A1:A3,"x",B1:B3) | A1="x"; A2="y"; A3="x"; B1=1; B2=2; B3=5 | 3
+ifs first true | IFS(A1>5,"a",A1>2,"b",TRUE,"c") | A1=3 | "b"
+ifs none true | IFS(A1>5,"a",A1>2,"b") | A1=1 | #N/A
+ifs error in condition | IFS(A1>5,"a",TRUE,"c") | A1=#N/A | #N/A
+switch match | SWITCH(A1,1,"one",2,"two") | A1=2 | "two"
+switch default | SWITCH(A1,1,"one",2,"two","other") | A1=9 | "other"
+switch no match | SWITCH(A1,1,"one") | A1=9 | #N/A
+switch text ignores case | SWITCH(A1,"a",1,"b",2) | A1="B" | 2
+
+# ---- statistical
+sum range ignores text | SUM(A1:A4) | A1=1; A2="x"; A3=2; A4=TRUE | 3
+sum direct number text | SUM("5",1) | | 6
+sum with an error | SUM(A1:A2) | A1=1; A2=#DIV/0! | #DIV/0!
+sum of blanks | SUM(A1:A3) | | 0
+average ignores text and blank | AVERAGE(A1:A4) | A1=1; A2=3; A3="x" | 2
+average of blanks | AVERAGE(A1:A2) | | #DIV/0!
+average direct | AVERAGE(1,"3") | | 2
+average of text | AVERAGE("x") | | #VALUE!
+average with error | AVERAGE(A1:A2) | A1=1; A2=#N/A | #N/A
+average direct boolean | AVERAGE(TRUE,3) | | 2
+median odd | MEDIAN(1,3,2) | | 2
+median even | MEDIAN(1,2,3,4) | | 2.5
+median ignores text | MEDIAN(A1:A4) | A1=1; A2="x"; A3=3 | 2
+median of blanks | MEDIAN(A1:A2) | | #NUM!
+mode | MODE(1,2,2,3) | | 2
+mode none repeated | MODE(1,2,3) | | #N/A
+mode tie first | MODE(1,1,2,2) | | 1
+mode in a range | MODE(A1:A4) | A1=5; A2="x"; A3=5; A4=7 | 5
+count range | COUNT(A1:A4) | A1=1; A2="x"; A3=TRUE | 1
+count error cell | COUNT(A1) | A1=#N/A | 0
+count blanks | COUNT(A1:A3) | | 0
+counta range | COUNTA(A1:A4) | A1=1; A2="x"; A3=TRUE | 3
+counta counts errors | COUNTA(A1:A2) | A1=#N/A; A2=1 | 2
+counta empty text direct | COUNTA("") | | 1
+counta all blank | COUNTA(A1:A3) | | 0
+min all text | MIN(A1:A3) | A1="x"; A2="y" | 0
+min direct number text | MIN(3,"2") | | 2
+min of text | MIN("x") | | #VALUE!
+min ignores text in range | MIN(A1:A3) | A1=4; A2="x"; A3=2 | 2
+max ignores text in range | MAX(A1:A3) | A1=1; A2=5; A3="x" | 5
+max negative | MAX(-3,-1) | | -1
+max with error | MAX(A1:A2) | A1=1; A2=#VALUE! | #VALUE!
+large first | LARGE(A1:A4,1) | A1=3; A2=1; A3=4; A4=2 | 4
+large second | LARGE(A1:A4,2) | A1=3; A2=1; A3=4; A4=2 | 3
+large too far | LARGE(A1:A4,5) | A1=3; A2=1; A3=4; A4=2 | #NUM!
+large zero | LARGE(A1:A4,0) | A1=3; A2=1; A3=4; A4=2 | #NUM!
+large ignores text | LARGE(A1:A3,1) | A1=5; A2="x"; A3=9 | 9
+large text k | LARGE(A1:A3,"x") | A1=5; A2=6; A3=9 | #VALUE!
+small first | SMALL(A1:A4,1) | A1=3; A2=1; A3=4; A4=2 | 1
+small third | SMALL(A1:A4,3) | A1=3; A2=1; A3=4; A4=2 | 3
+small too far | SMALL(A1:A4,9) | A1=3; A2=1; A3=4; A4=2 | #NUM!
+
+# ---- casting and text
+value integer text | VALUE("12") | | 12
+value decimal text | VALUE("12.5") | | 12.5
+value of text | VALUE("x") | | #VALUE!
+value of a number | VALUE(5) | | 5
+value of a blank cell | VALUE(A1) | | 0
+value of a number cell | VALUE(A1) | A1=7 | 7
+value of a boolean | VALUE(TRUE) | | #VALUE!
+value negative | VALUE("-3") | | -3
+text two decimals | TEXT(1234.567,"0.00") | | "1234.57"
+text percent | TEXT(0.256,"0%") | | "26%"
+text percent one decimal | TEXT(0.2567,"0.0%") | | "25.7%"
+text thousands | TEXT(1234567.891,"#,##0") | | "1,234,568"
+text thousands decimals | TEXT(1234.5,"#,##0.00") | | "1,234.50"
+text three decimals | TEXT(5,"0.000") | | "5.000"
+text negative half | TEXT(-1.5,"0") | | "-2"
+text half up | TEXT(2.5,"0") | | "3"
+text of text | TEXT(A1,"0.00") | A1="x" | "x"
+text of blank | TEXT(A1,"0.0") | | "0.0"
+concatenate parts | CONCATENATE("a","b",1) | | "ab1"
+concatenate blanks | CONCATENATE(A1,A2) | | ""
+concatenate boolean | CONCATENATE(TRUE,"x") | | "TRUEx"
+concatenate decimal | CONCATENATE(1.5,"") | | "1.5"
+concatenate error | CONCATENATE("a",A1) | A1=#N/A | #N/A
+concatenate float sum | CONCATENATE(0.1+0.2,"x") | | "0.3x"
+concatenate cells | CONCATENATE(A1,"-",A2) | A1="p"; A2=9 | "p-9"
+left | LEFT("hello",2) | | "he"
+left default | LEFT("hello") | | "h"
+left longer than text | LEFT("hi",5) | | "hi"
+left negative | LEFT("hi",-1) | | #VALUE!
+left of a number | LEFT(12345,2) | | "12"
+left of blank | LEFT(A1,2) | | ""
+left zero | LEFT("hi",0) | | ""
+right | RIGHT("hello",2) | | "lo"
+right default | RIGHT("hello") | | "o"
+right longer than text | RIGHT("hi",5) | | "hi"
+right negative | RIGHT("hi",-1) | | #VALUE!
+right of a number | RIGHT(12345,2) | | "45"
+len | LEN("hello") | | 5
+len empty | LEN("") | | 0
+len blank | LEN(A1) | | 0
+len number | LEN(12345) | | 5
+len boolean | LEN(TRUE) | | 4
+upper | UPPER("abc") | | "ABC"
+upper blank | UPPER(A1) | | ""
+upper number | UPPER(12) | | "12"
+trim | TRIM("  a   b  ") | | "a b"
+trim blank | TRIM(A1) | | ""
+trim number | TRIM(5) | | "5"
+
+# ---- combinations the forms use
+supplier pattern | IF(A1="","",MIN(100,((B1/A1)+(0.5*(C1-B1)/A1))*100)) | A1=10; B1=9; C1=10 | 95
+supplier pattern blank | IF(A1="","",MIN(100,((B1/A1)+(0.5*(C1-B1)/A1))*100)) | B1=5; C1=6 | ""
+guarded average | IF(COUNT(A1:A3)=0,"",AVERAGE(A1:A3)) | A1=2; A2=4 | 3
+guarded average empty | IF(COUNT(A1:A3)=0,"",AVERAGE(A1:A3)) | | ""
+percent of total | ROUND(A1/SUM(A1:A3)*100,1) | A1=1; A2=1; A3=1 | 33.3
+
+# ---- the small cases of the first proof of concept
+blank in arithmetic | A1+1 | | 1
+number as text in arithmetic | "5"+1 | | 6
+text cell in arithmetic | A1+1 | A1="abc" | #VALUE!
+divide by zero | 1/0 | | #DIV/0!
+error through if condition | IF(1/0>0,1,2) | | #DIV/0!
+blank guard blank | IF(A1="","",A1*2) | | ""
+blank guard number | IF(A1="","",A1*2) | A1=4 | 8
+sum range ignores text and blank | SUM(A1:A3) | A1=1 | 1
+sum direct text | SUM("5",1) | | 6
+min of blanks | MIN(A1:A2) | | 0
+max ignores blank | MAX(A1:A2) | A1=-3 | -3
+min with a division error inside | MIN(100,(B1/A1)*100) | A1=0; B1=5 | #DIV/0!
+round half up | ROUND(2.5,0) | | 3
+round half away from zero | ROUND(-2.5,0) | | -3
+round 2.675 | ROUND(2.675,2) | | 2.68
+round 1.005 | ROUND(1.005,2) | | 1.01
+and ignores a blank reference | AND(TRUE,A1) | | TRUE
+or of false | OR(FALSE,FALSE) | | FALSE
+and of numbers | AND(1,0) | | FALSE
+isblank of blank | ISBLANK(A1) | | TRUE
+blank equals zero | A1=0 | | TRUE
+zero is not the empty text | A1="" | A1=0 | FALSE
+text comparison ignores case | "a"="A" | | TRUE
+if with text condition | IF(A1,1,2) | A1="x" | #VALUE!
+true counts as one | 1+TRUE | | 2
+binary floating point | 0.1+0.2 | | 0.3
+empty text constant in arithmetic | A1*2 | A1="" | #VALUE!
+supplier pattern values | IF(A1="","",MIN(100,((B1/A1)+(0.5*(C1-B1)/A1))*100)) | A1=10; B1=9; C1=10 | 95
+supplier pattern capped | IF(A1="","",MIN(100,((B1/A1)+(0.5*(C1-B1)/A1))*100)) | A1=10; B1=10; C1=12 | 100
+supplier pattern below the cap | IF(A1="","",MIN(100,((B1/A1)+(0.5*(C1-B1)/A1))*100)) | A1=10; B1=7; C1=8 | 75
+percent literal | 50%*2 | | 1
+unary minus binds tighter than power | -2^2 | | 4
+comparison of text and number | "a">1 | | TRUE
+
+# ---- values the arithmetic must not leave the range of numbers with
+overflow multiply | A1*A2 | A1=1e308; A2=10 | #NUM!
+overflow sum | SUM(A1:A2) | A1=1e308; A2=1e308 | #NUM!
+overflow power | POWER(A1,2) | A1=1e308 | #NUM!
+division of tiny | A1/A2 | A1=1; A2=3 | 0.3333333333333333
+blank times number | A1*5 | | 0
+text number in comparison | A1>A2 | A1="a"; A2=5 | TRUE
+boolean above text | A1>A2 | A1=TRUE; A2="z" | TRUE
+round negative digits large | ROUND(A1,-30) | A1=123456789012345678 | 0
+round many digits | ROUND(A1,40) | A1=0.125 | 0.125
+text of a negative percent | TEXT(-0.005,"0%") | | "-1%"
+text of zero percent | TEXT(0,"0.0%") | | "0.0%"
+text negative that rounds to zero | TEXT(-0.001,"0.00") | | "0.00"
+concatenate number | CONCATENATE(A1,"") | A1=1234567.5 | "1234567.5"
+concatenate tiny number | CONCATENATE(A1,"") | A1=0.0000005 | "5e-7"
+concatenate big number | CONCATENATE(A1,"") | A1=1e21 | "1e+21"
+average of sum of float | AVERAGE(0.1,0.2) | | 0.15
+min of empty cell and numbers | MIN(A1,A2) | A2=3 | 3
+len of emoji | LEN(A1) | A1="a😀" | 2
+upper of sharp s | UPPER(A1) | A1="straße" | "STRASSE"
+trim non-breaking space | TRIM(A1) | A1="  a  " | "a"
+countif criterion with blank | COUNTIF(A1:A3,B1) | A1=0; A2=1; A3="x" | 1
+nested if chain | IF(A1<0,"neg",IF(A1=0,"zero","pos")) | A1=0 | "zero"
+sum of own row range | SUM(A1:C1) | A1=1; B1=2; C1=3 | 6
+sum of a rectangle | SUM(A1:B2) | A1=1; B1=2; A2=3; B2=4 | 10
+reversed rectangle | SUM(B2:A1) | A1=1; B1=2; A2=3; B2=4 | 10
+
+[refuse]
+# name | formula (spreadsheet style, at K1) | the stable reason it is refused with
+indirect | INDIRECT("A1") | function_not_allowed
+webservice | WEBSERVICE("http://example.invalid/") | function_not_allowed
+hyperlink | HYPERLINK("http://example.invalid/","x") | function_not_allowed
+exec | EXEC("calc") | function_not_allowed
+offset | OFFSET(A1,1,1) | function_not_allowed
+now | NOW() | function_not_allowed
+today | TODAY() | function_not_allowed
+rand | RAND() | function_not_allowed
+randbetween | RANDBETWEEN(1,2) | function_not_allowed
+sumproduct | SUMPRODUCT(A1:A3,B1:B3) | function_not_allowed
+vlookup | VLOOKUP(A1,A1:B3,2,FALSE) | function_not_allowed
+cell function | CELL("filename") | function_not_allowed
+info function | INFO("x") | function_not_allowed
+encodeurl | ENCODEURL(A1) | function_not_allowed
+filterxml | FILTERXML(A1,"//a") | function_not_allowed
+evaluate | MOD(A1,3)+EVALUATE("1") | function_not_allowed
+call function | CALL("x") | function_not_allowed
+hidden in an argument | SUM(A1:A3)+INDIRECT("B1") | function_not_allowed
+hidden in iferror | IFERROR(INDIRECT("A1"),0) | function_not_allowed
+hidden in sumif | SUMIF(A1:A3,">1",INDIRECT("B1:B3")) | function_not_allowed
+hidden in concatenate | CONCATENATE(A1,HYPERLINK("x")) | function_not_allowed
+hidden in ifs | IFS(NOW()>0,1) | function_not_allowed
+hidden in switch | SWITCH(RAND(),1,2) | function_not_allowed
+hidden in large | LARGE(OFFSET(A1,0,0,3,1),1) | function_not_allowed
+stdev left out | STDEV(A1:A3) | function_not_allowed
+var left out | VAR(A1:A3) | function_not_allowed
+rank left out | RANK(A1,A1:A5) | function_not_allowed
+n left out | N(A1) | function_not_allowed
+log10 is a function | LOG10(A1) | function_not_allowed
+other sheet | Sheet2!A1 | character_not_allowed
+other workbook | [1]Sheet1!A1 | character_not_allowed
+quoted sheet | 'Sheet 2'!A1 | character_not_allowed
+file path | 'file:///C:/x.xlsx'!A1 | character_not_allowed
+command string | cmd' /C calc'!A0 | character_not_allowed
+other sheet function | Sheet2!IFERROR(1,2) | character_not_allowed
+other sheet range | AVERAGEIF(A1:A3,"x",Sheet2!B1:B3) | character_not_allowed
+at sign | A1+@ | character_not_allowed
+brace | {1,2} | character_not_allowed
+joining with ampersand | "a"&"b" | character_not_allowed
+joining cells | LEN(A1)&LEN(B1) | character_not_allowed
+semicolon | SUM(1;2) | character_not_allowed
+error literal | #REF!+1 | character_not_allowed
+dollar alone | $+1 | character_not_allowed
+a name | Defined | name_not_allowed
+a name in arithmetic | MyName*2 | name_not_allowed
+a function name alone | IFS+1 | name_not_allowed
+intersection | A1:A3 B1:B3 | unexpected_token
+two values | A1 B1 | unexpected_token
+union | SUM((A1,B1)) | missing_bracket
+union in a call | MEDIAN(A1:A3 B1:B3) | missing_bracket
+leading equals sign | =1 | unexpected_token
+text not closed | "abc | unclosed_text
+text not closed in a call | IF(A1="x,1,2) | unclosed_text
+bracket not closed | (1+2 | missing_bracket
+bracket too many | 1+2) | unexpected_token
+call not closed | SUM(A1 | missing_bracket
+ends too soon | 1+ | unexpected_end
+empty formula part | () | unexpected_token
+empty argument | SUM(A1,) | empty_argument
+empty first argument | SUM(,A1) | empty_argument
+no argument | SUM() | wrong_argument_count
+too few arguments | IF(1) | wrong_argument_count
+too few for round | ROUND(1) | wrong_argument_count
+too many arguments | ABS(1,2) | wrong_argument_count
+too few for switch | SWITCH(1,2) | wrong_argument_count
+true with brackets | TRUE() | unexpected_token
+range without end | SUM(A1:) | bad_range
+range to a number | SUM(A1:5) | bad_range
+count of an expression | COUNT(A1+1) | count_needs_cells
+count of numbers | COUNT(1,2) | count_needs_cells
+count of mixed | COUNT(A1,"x") | count_needs_cells
+text with date format | TEXT(A1,"dd/mm/yyyy") | text_format_not_allowed
+text with a cell as format | TEXT(A1,B1) | text_format_not_allowed
+text with another format | TEXT(A1,"0.0000") | text_format_not_allowed
+column outside the sheet | ZZ1+1 | column_outside_sheet
+row zero | A0+1 | row_outside_sheet
+row outside the sheet | A61+1 | row_outside_sheet
+range outside the sheet | SUM(A1:A99) | row_outside_sheet
+number too far | 1E400 | number_range
+number with many digits | 0.123456789012345678901 | number_range
+number too small | 0.0000000000000000000000000000001 | number_range
+deep signs | -----------------------------------------1 | too_deep
+deep brackets | ((((((((((((((((((((((((((((((((((1)))))))))))))))))))))))))))))))))) | too_deep
+deep calls | IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(IF(1,1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1),1,1) | too_deep
+
+[canonical]
+# typed (spreadsheet style, at K1) | the canonical stored form
+sum(a1:a3) | SUM(@{c1}:@{c1,r3})
+ sum( a1 : a3 ) | SUM(@{c1}:@{c1,r3})
+if(a1="" , "" , a1*2) | IF(@{c1}="","",@{c1}*2)
+iferror(a1/b1, 0) | IFERROR(@{c1}/@{c2},0)
+1.0+.5+01+5E-1 | 1+0.5+1+0.5
+1.50E+1 | 15
+00.50 | 0.5
+.0 | 0
+100 | 100
+1E2 | 100
+IF(true,1,2) | IF(TRUE,1,2)
+IF(False,1,2) | IF(FALSE,1,2)
++5+-A1 | 5+-@{c1}
+- - 1 | --1
+5 % | 5%
+2 ^ 3 ^ 2 | 2^3^2
+ROUND( 2.675 , 2 ) | ROUND(2.675,2)
+$A$1+A$2+$A3 | @{c1,r1,cr}+@{c1,r2,r}+@{c1,r3,c}
+$A1+B1 | @{c1,,c}+@{c2}
+(1+2)*3 | (1+2)*3
+((1)) | ((1))
+IF(A1="  x  ","",1) | IF(@{c1}="  x  ","",1)
+IF(A1="say ""hi""","",1) | IF(@{c1}="say ""hi""","",1)
+A1<>B1 | @{c1}<>@{c2}
+A1 <= B1 | @{c1}<=@{c2}
+text("a",  "0") | TEXT("a","0")
+
+[growing]
+# name | body rows now | row of the formula | spreadsheet style | stored | drawn now | body rows later | drawn later
+# One header row (identifier h1); the body rows follow it and have no identifier of their own.
+# A "!" before the stored form means the translator must refuse with that reason.
+whole body of a column | 3 | 1 | AVERAGE(B2:B4) | AVERAGE(@{c2,*}) | AVERAGE(B2:B4) | 5 | AVERAGE(B2:B6)
+whole body at one row | 1 | 1 | SUM(A2:A2) | SUM(@{c1,*}) | SUM(A2:A2) | 4 | SUM(A2:A5)
+own row in the body | 3 | 2 | A2*2+B2 | @{c1}*2+@{c2} | A2*2+B2 | 5 | A2*2+B2
+own row at a later row | 3 | 3 | A3*2 | @{c1}*2 | A3*2 | 5 | A3*2
+own row range | 3 | 2 | SUM(A2:C2) | SUM(@{c1}:@{c3}) | SUM(A2:C2) | 5 | SUM(A2:C2)
+header cell | 3 | 1 | A1+1 | @{c1}+1 | A1+1 | 5 | A1+1
+header cell of another column | 3 | 1 | B1*2 | @{c2}*2 | B1*2 | 5 | B1*2
+partial body range | 3 | 1 | SUM(B2:B3) | !row_outside_sheet | - | - | -
+body row that is not its own | 3 | 2 | A3+1 | !row_outside_sheet | - | - | -
+absolute body row | 3 | 2 | A$2+1 | !row_outside_sheet | - | - | -
+body range over two columns | 3 | 1 | SUM(A2:B4) | !row_outside_sheet | - | - | -
+range past the body | 3 | 1 | SUM(B2:B9) | !row_outside_sheet | - | - | -
+
+[functions]
+# name | fewest arguments | most arguments. The server's table (FormulaFunctions); a test holds the table and this list to each other, and the browser takes its
+# table from this list in its tests (in the product it is told by the list of versions).
+ABS | 1 | 1
+MOD | 2 | 2
+INT | 1 | 1
+ROUND | 2 | 2
+ROUNDUP | 2 | 2
+ROUNDDOWN | 2 | 2
+SQRT | 1 | 1
+POWER | 2 | 2
+PRODUCT | 1 | 255
+IF | 2 | 3
+IFERROR | 2 | 2
+AND | 1 | 255
+OR | 1 | 255
+NOT | 1 | 1
+ISNUMBER | 1 | 1
+ISTEXT | 1 | 1
+ISBLANK | 1 | 1
+SUMIF | 2 | 3
+COUNTIF | 2 | 2
+AVERAGEIF | 2 | 3
+IFS | 2 | 254
+SWITCH | 3 | 253
+SUM | 1 | 255
+AVERAGE | 1 | 255
+MEDIAN | 1 | 255
+MODE | 1 | 255
+COUNT | 1 | 255
+COUNTA | 1 | 255
+MIN | 1 | 255
+MAX | 1 | 255
+LARGE | 2 | 2
+SMALL | 2 | 2
+VALUE | 1 | 1
+TEXT | 2 | 2
+CONCATENATE | 1 | 255
+LEFT | 1 | 2
+RIGHT | 1 | 2
+LEN | 1 | 1
+UPPER | 1 | 1
+TRIM | 1 | 1
+
+[formats]
+# The nine formats TEXT accepts, one per line, in quotes (a line that starts with a number sign is a comment).
+"0"
+"0.0"
+"0.00"
+"0.000"
+"0%"
+"0.0%"
+"0.00%"
+"#,##0"
+"#,##0.00"

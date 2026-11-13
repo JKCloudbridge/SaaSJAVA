@@ -7,6 +7,7 @@ import app.platform.sheets.internal.SheetGrid.Kind;
 import app.platform.sheets.internal.SheetGrid.Line;
 import app.platform.sheets.internal.SheetGrid.Merge;
 import app.platform.sheets.internal.SheetGrid.RowsMode;
+import app.platform.sheets.internal.formula.FormulaLimits;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -122,10 +123,20 @@ final class SheetGridValidator {
      *        the switch off such a document is refused before anything else is looked at
      */
     SheetGridValidator(SheetProperties.Limits limits, SheetSchemas schemas, boolean formatTwoEnabled) {
+        this(limits, schemas, formatTwoEnabled, FormulaLimits.DEFAULTS);
+    }
+
+    /**
+     * A validator for both formats with the bounds of the formulas stated (SH2, ADR-0252).
+     *
+     * @param formulas the bounds of the formulas of a sheet in format version 2
+     */
+    SheetGridValidator(SheetProperties.Limits limits, SheetSchemas schemas, boolean formatTwoEnabled,
+            FormulaLimits formulas) {
         this.limits = limits;
         this.schemas = schemas;
         this.formatTwoEnabled = formatTwoEnabled;
-        this.two = new SheetDocumentValidator(limits, schemas);
+        this.two = new SheetDocumentValidator(limits, schemas, formulas);
     }
 
     /**

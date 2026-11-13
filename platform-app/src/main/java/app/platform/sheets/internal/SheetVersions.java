@@ -6,9 +6,17 @@ import app.platform.sharedkernel.solution.SheetDraftRules;
 import app.platform.sheets.Revisions;
 import app.platform.sheets.SheetStatus;
 import app.platform.sheets.internal.SheetGrid.RowsMode;
+import app.platform.sheets.internal.formula.FormulaFunctions;
+import app.platform.sheets.internal.formula.FormulaLimits;
 import app.platformapi.ApiException;
 import app.platformapi.ErrorCode;
 import app.platformapi.NewSheetVersionRequest;
+import app.platformapi.SheetCalculatedAnswerView;
+import app.platformapi.SheetCalculatedCellView;
+import app.platformapi.SheetCalculatedColumnView;
+import app.platformapi.SheetCalculationView;
+import app.platformapi.SheetFormulaFunctionView;
+import app.platformapi.SheetFormulaLimitsView;
 import app.platformapi.SheetLimitsView;
 import app.platformapi.SheetVersionSummaryView;
 import app.platformapi.SheetVersionView;
@@ -63,12 +71,15 @@ class SheetVersions {
     private final RecordLocks locks;
     private final List<ReferenceLabels> directories;
     private final ObjectProvider<SheetDraftRules> draftRules;
+    private final FormulaProperties formulas;
     private final JsonMapper json = JsonMapper.builder().build();
 
     SheetVersions(SheetOwners owners, SheetVersionStore store, SheetGridValidator validator, SheetChanges changes,
             SheetProperties properties, ImportProperties importProperties, RecordLocks locks,
-            List<ReferenceLabels> directories, ObjectProvider<SheetDraftRules> draftRules) {
+            List<ReferenceLabels> directories, ObjectProvider<SheetDraftRules> draftRules,
+            FormulaProperties formulas) {
         this.draftRules = draftRules;
+        this.formulas = formulas;
         this.owners = owners;
         this.store = store;
         this.validator = validator;
@@ -120,7 +131,45 @@ class SheetVersions {
                 limits.maxLabelChars(), limits.maxPicklistValues(), limits.maxMerges(),
                 importProperties.maxFileBytes(), limits.maxFixedTextChars(), limits.minColumnWidth(),
                 limits.maxColumnWidth(), limits.minRowHeight(), limits.maxRowHeight(), limits.maxSheets(),
-                limits.maxFilesPerCell(), limits.maxLinkChars(), properties.formatTwo().enabled()), canChangeHeld);
+                limits.maxFilesPerCell(), limits.maxLinkChars(), properties.formatTwo().enabled(),
+                formulaLimits()), canChangeHeld);
+    }
+
+    /** What the formulas of a sheet may be, and the functions they may call, from the server's own table. */
+    private SheetFormulaLimitsView formulaLimits() {
+        FormulaLimits limits = formulas.limits();
+        return new SheetFormulaLimitsView(limits.maxChars(), limits.maxDepth(), limits.maxNodes(), limits.maxSteps(),
+                limits.maxTextChars(), limits.maxChainDepth(), limits.maxFormulas(),
+                FormulaFunctions.all().stream().map(function -> new SheetFormulaFunctionView(function.name(),
+                        function.least(), function.most())).toList(), FormulaFunctions.TEXT_FORMAT_LIST);
+    }
+
+    /**
+     * The answers of the formulas of a version, calculated from the sheet alone (SH2, ADR-0252): every input cell is
+     * empty, and a sheet where the filler adds all the rows is calculated for one row. Who may read the version is the
+     * one rule of {@link #readable}. Nothing is stored and nothing is logged.
+     */
+    @Transactional(readOnly = true)
+    SheetCalculationView calculation(String ownerObject, UUID ownerId, int versionNo) {
+        SheetVersionStore.WithGrid found = readable(ownerObject, ownerId, versionNo);
+        tools.jackson.databind.JsonNode stored = json.readTree(found.grid());
+        if (!SheetGridValidator.isFormatTwo(stored)) {
+            return new SheetCalculationView(0, List.of(), List.of());
+        }
+        SheetDocument.Tab tab = SheetDocumentReader.read(stored).sheets().get(0);
+        int rows = tab.body().dimension() == 1 ? 1 : 0;
+        SheetCalculator.Outcome outcome = SheetCalculator.calculate(tab, SheetCalculator.Inputs.emptyRows(rows),
+                formulas.limits());
+        List<SheetCalculatedCellView> cells = new ArrayList<>();
+        outcome.cells().forEach((cell, answer) -> cells.add(new SheetCalculatedCellView(cell, view(answer))));
+        List<SheetCalculatedColumnView> columns = new ArrayList<>();
+        outcome.columns().forEach((column, answers) -> columns.add(new SheetCalculatedColumnView(column,
+                answers.stream().map(SheetVersions::view).toList())));
+        return new SheetCalculationView(rows, cells, columns);
+    }
+
+    private static SheetCalculatedAnswerView view(SheetCalculator.Answer answer) {
+        return new SheetCalculatedAnswerView(answer.kind().json(), answer.value());
     }
 
     /** One version with its grid. */

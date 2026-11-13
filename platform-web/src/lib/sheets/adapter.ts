@@ -149,11 +149,22 @@ function fromTwo(source: Record<string, unknown>): GridDoc {
     if (typeof cell.link === "string") {
       extra.link = cell.link;
     }
-    if (extra.look || extra.link) {
+    if (typeof cell.formula === "string" && cell.formula !== "") {
+      extra.formula = cell.formula;
+    }
+    if (extra.look || extra.link || extra.formula) {
       extras[key] = extra;
     }
   }
+  const columnFormulas: Record<string, string> = {};
+  for (const item of asList(first.columns)) {
+    const column = asRecord(item);
+    if (typeof column.id === "string" && typeof column.formula === "string" && column.formula !== "") {
+      columnFormulas[column.id] = column.formula;
+    }
+  }
   const sheet: SheetExtras = { key: text(first.key) ?? "main", cells: extras };
+  if (Object.keys(columnFormulas).length > 0) sheet.columnFormulas = columnFormulas;
   const title = text(first.title);
   if (title !== undefined) sheet.title = title;
   if (first.fillable === false) sheet.fillable = false;
@@ -247,6 +258,12 @@ function toTwo(body: GridDoc, sheet: SheetExtras): TwoDocument {
     const fixedText =
       typeof body.cells[key]?.value === "string" && (headerIds.has(splitKey(key)[0]) || body.cells[key]?.kind !== "input");
     if (extra.link && fixedText) cell.link = extra.link;
+    // A cell that holds a formula is a fixed cell with no text of its own (the server refuses anything else).
+    if (extra.formula && body.cells[key]?.kind !== "input" && body.cells[key]?.value === undefined) {
+      cell.formula = extra.formula;
+      delete cell.value;
+      if (!headerIds.has(splitKey(key)[0])) cell.kind = "fixed";
+    }
     if (Object.keys(cell).length > 0) cells[key] = cell;
   }
   const inputs: Record<string, unknown> = {};
@@ -267,10 +284,14 @@ function toTwo(body: GridDoc, sheet: SheetExtras): TwoDocument {
   if (sheet.print) out.print = sheet.print;
   if (Object.keys(inputs).length > 0) out.inputs = inputs;
   if (conditions.length > 0) out.conditions = conditions;
+  const columns = body.columns.map((column) => {
+    const formula = body.dimension === 1 ? sheet.columnFormulas?.[column.id] : undefined;
+    return formula ? { ...column, formula } : column;
+  });
   Object.assign(out, {
     dimension: body.dimension,
     rowsMode: body.rowsMode,
-    columns: body.columns,
+    columns,
     headerRows: body.headerRows,
     rows: body.rows,
     cells,

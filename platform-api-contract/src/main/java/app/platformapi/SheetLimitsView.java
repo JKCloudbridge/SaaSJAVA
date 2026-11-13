@@ -26,11 +26,13 @@ import jakarta.validation.constraints.NotNull;
  * @param maxLinkChars the characters of the address of a link
  * @param formatTwoEnabled whether a sheet may be stored in format version 2 here; when false every save of such a
  *        document is refused
+ * @param formulas what the formulas of a sheet may be (SH2)
  */
 public record SheetLimitsView(@NotNull Integer maxBytes, @NotNull Integer maxRows, @NotNull Integer maxColumns,
         @NotNull Integer maxHeaderRows, @NotNull Integer maxCellChars, @NotNull Integer maxLabelChars,
         @NotNull Integer maxPicklistValues, @NotNull Integer maxMerges, @NotNull Integer maxImportBytes,
         @NotNull Integer maxFixedTextChars, @NotNull Integer minColumnWidth, @NotNull Integer maxColumnWidth,
         @NotNull Integer minRowHeight, @NotNull Integer maxRowHeight, @NotNull Integer maxSheets,
-        @NotNull Integer maxFilesPerCell, @NotNull Integer maxLinkChars, @NotNull Boolean formatTwoEnabled) {
+        @NotNull Integer maxFilesPerCell, @NotNull Integer maxLinkChars, @NotNull Boolean formatTwoEnabled,
+        @NotNull SheetFormulaLimitsView formulas) {
 }

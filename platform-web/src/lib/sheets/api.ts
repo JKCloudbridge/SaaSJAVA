@@ -20,6 +20,7 @@ export type ImportReport = components["schemas"]["SheetImportReportView"];
 export type ImportNote = components["schemas"]["SheetImportNoteView"];
 export type ImportWorksheet = components["schemas"]["SheetImportWorksheetView"];
 export type ImportPlace = components["schemas"]["SheetImportPlaceView"];
+export type Calculation = components["schemas"]["SheetCalculationView"];
 
 /** The record a sheet belongs to. */
 export interface SheetOwner {
@@ -56,6 +57,20 @@ export function getVersion(owner: SheetOwner, versionNo: number): Promise<Outcom
   return unwrap(
     call(() =>
       api.GET("/api/v1/sheets/{ownerObject}/{ownerId}/versions/{versionNo}", {
+        params: { path: { ownerObject: owner.object, ownerId: owner.id, versionNo } },
+      }),
+    ),
+  );
+}
+
+/**
+ * The server's answers of the formulas of a version, calculated from the sheet alone (SH2, ADR-0252). Computed when asked
+ * and not stored; an error is its code. The author's grid shows these while the document is the saved one.
+ */
+export function calculateVersion(owner: SheetOwner, versionNo: number): Promise<Outcome<Calculation>> {
+  return unwrap(
+    call(() =>
+      api.GET("/api/v1/sheets/{ownerObject}/{ownerId}/versions/{versionNo}/calculation", {
         params: { path: { ownerObject: owner.object, ownerId: owner.id, versionNo } },
       }),
     ),

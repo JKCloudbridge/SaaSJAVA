@@ -2,7 +2,9 @@
 
 import { TextStyleControls } from "./TextStyleControls";
 
+import { useMemo } from "react";
 import type { FontSize } from "@/lib/sheets/types";
+import { FormulaBar } from "./FormulaBar";
 import { SheetGrid } from "./SheetGrid";
 import type { SheetEditor } from "./useSheetEditor";
 
@@ -22,6 +24,11 @@ export interface GridViewProps {
   label: string;
   /** The footer row (FA7): the text at its right, empty for a blank row, absent for no row. */
   footer?: string;
+  /**
+   * The server's answers of the formulas of the version shown (SH2, ADR-0252), by cell key and by calculated column. They
+   * are shown while the document is the saved one; while an author types, the browser's own answers are shown instead.
+   */
+  serverAnswers?: { cells: Record<string, string>; columns: Record<string, string> } | null;
 }
 
 /**
@@ -30,8 +37,17 @@ export interface GridViewProps {
  * model's operations on the selection, and a refusal is shown in its words under the grid. A button that the model would
  * refuse is not hidden, it is tried, so the person is told why.
  */
-export function GridView({ editor, readOnly, readOnlyReason, label, footer }: GridViewProps) {
+export function GridView({ editor, readOnly, readOnlyReason, label, footer, serverAnswers }: GridViewProps) {
   const { state, selection, rows, doc } = editor;
+  const answers = serverAnswers && !editor.dirty ? serverAnswers : editor.previews;
+  const formulaAnswers = useMemo(() => {
+    const map: Record<string, string> = { ...answers.cells };
+    for (const row of rows) {
+      if (row.zone !== "blank") continue;
+      for (const [column, answer] of Object.entries(answers.columns)) map[`${row.id}:${column}`] = answer;
+    }
+    return map;
+  }, [answers, rows]);
   const focusRow = rows[selection.fr];
   const focusColumn = doc.columns[selection.fc];
   const canAddRow = doc.dimension === 2;
@@ -123,18 +139,25 @@ export function GridView({ editor, readOnly, readOnlyReason, label, footer }: Gr
           </button>
         </div>
       )}
+      {readOnly || !editor.canWriteFormulas ? null : (
+        <FormulaBar
+          editor={editor}
+          answer={focusRow && focusColumn ? formulaAnswers[`${focusRow.id}:${focusColumn.id}`] : undefined}
+        />
+      )}
       <SheetGrid
         editor={editor}
         readOnly={readOnly}
         label={label}
         footer={footer}
+        formulaAnswers={formulaAnswers}
         onResizeColumn={readOnly ? undefined : (id, width) => editor.updateColumn(id, { width })}
         onResizeRow={readOnly ? undefined : (id, height) => editor.updateRow(id, { height })}
       />
       <p className="hint">
         {readOnly
           ? "Arrow keys move; Ctrl+C copies."
-          : "Type to write fixed text, Enter to edit, Delete to clear, Ctrl+B and Ctrl+I for bold and italic, Ctrl+Z to undo. Drag the right edge of a column label to change its width, or the bottom edge of a row to change its height. Cells with no text are cells the filler types into."}
+          : "Type to write fixed text (start with an equals sign for a formula), Enter to edit, Delete to clear, Ctrl+B and Ctrl+I for bold and italic, Ctrl+Z to undo. Drag the right edge of a column label to change its width, or the bottom edge of a row to change its height. Cells with no text are cells the filler types into."}
       </p>
     </div>
   );

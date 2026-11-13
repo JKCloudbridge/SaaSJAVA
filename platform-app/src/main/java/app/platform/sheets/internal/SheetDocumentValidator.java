@@ -10,6 +10,7 @@ import app.platform.sheets.internal.SheetGrid.Line;
 import app.platform.sheets.internal.SheetGridValidator.Checked;
 import app.platform.sheets.internal.SheetGridValidator.Problem;
 import app.platform.sheets.internal.SheetGridValidator.Result;
+import app.platform.sheets.internal.formula.FormulaLimits;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -54,10 +55,16 @@ final class SheetDocumentValidator {
     /** The limits of the shared stages: the text of a fixed cell may be as long as format version 2 allows. */
     private final SheetProperties.Limits bodyLimits;
     private final SheetSchemas schemas;
+    private final FormulaChecks formulas;
 
     SheetDocumentValidator(SheetProperties.Limits limits, SheetSchemas schemas) {
+        this(limits, schemas, FormulaLimits.DEFAULTS);
+    }
+
+    SheetDocumentValidator(SheetProperties.Limits limits, SheetSchemas schemas, FormulaLimits formulaLimits) {
         this.limits = limits;
         this.schemas = schemas;
+        this.formulas = new FormulaChecks(formulaLimits);
         this.bodyLimits = new SheetProperties.Limits(limits.maxBytes(), limits.maxRows(), limits.maxColumns(),
                 limits.maxHeaderRows(), Math.max(limits.maxCellChars(), limits.maxFixedTextChars()),
                 limits.maxLabelChars(), limits.maxPicklistValues(), limits.maxMerges(), limits.maxDepth(),
@@ -77,7 +84,8 @@ final class SheetDocumentValidator {
         }
         SheetDocument model = SheetDocumentReader.read(document);
         List<Supplier<List<Problem>>> stages = List.of(() -> sheetProblems(model), () -> bodyProblems(model),
-                () -> limitProblems(model), () -> cellProblems(model), () -> sheetExtraProblems(model));
+                () -> limitProblems(model), () -> cellProblems(model), () -> formulaProblems(model),
+                () -> sheetExtraProblems(model));
         for (Supplier<List<Problem>> next : stages) {
             List<Problem> stage = next.get();
             if (!stage.isEmpty()) {
@@ -238,6 +246,16 @@ final class SheetDocumentValidator {
             // The exception's text quotes the address: say nothing of it.
             return false;
         }
+    }
+
+    // ---- formulas ----
+
+    private List<Problem> formulaProblems(SheetDocument document) {
+        List<Problem> out = new ArrayList<>();
+        for (int i = 0; i < document.sheets().size(); i++) {
+            out.addAll(formulas.check(document.sheets().get(i), place(i)));
+        }
+        return out;
     }
 
     // ---- the sheet: panes and stated input cells ----

@@ -62,6 +62,8 @@ export interface GridMerge {
 export interface CellExtras {
   look?: Record<string, unknown>;
   link?: string;
+  /** The formula of the cell in its stored form (SH2, ADR-0252): references by identifier, never positions. */
+  formula?: string;
 }
 
 /**
@@ -81,8 +83,10 @@ export interface SheetExtras {
   inputs?: Record<string, unknown>;
   /** The conditional colours (SH1B), in the order they are applied, each pointing at a range by two cell keys. */
   conditions?: Record<string, unknown>[];
-  /** The look and the link of cells, by cell key. */
+  /** The look, the link and the formula of cells, by cell key. */
   cells: Record<string, CellExtras>;
+  /** The one formula of each calculated column, by column identifier, in its stored form (SH2). */
+  columnFormulas?: Record<string, string>;
   /** The sheets after the first, untouched: a template holds one for now. */
   otherSheets?: unknown[];
 }
@@ -110,6 +114,19 @@ export interface SheetLimits {
   maxLabelChars: number;
   maxPicklistValues: number;
   maxMerges: number;
+  /** What formulas may be here and which functions they may call; absent when the server does not say (SH2). */
+  formulas?: FormulaLimitsWire;
+}
+
+/** The formula limits as the list of versions sends them. */
+export interface FormulaLimitsWire {
+  maxChars: number;
+  maxDepth: number;
+  maxNodes: number;
+  maxSteps: number;
+  maxTextChars: number;
+  functions: { name: string; least: number; most: number }[];
+  textFormats: string[];
 }
 
 export type Zone = "header" | "body" | "blank";

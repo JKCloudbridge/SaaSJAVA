@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import app.platform.sheets.internal.SheetGridValidator.Problem;
 import app.platform.sheets.internal.SheetGridValidator.Result;
+import app.platform.sheets.internal.formula.FormulaLimits;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,6 +47,10 @@ class SheetHostileCorpusTest {
     private static final SheetGridValidator NARROWED = new SheetGridValidator(limits(5_000, 40, 1_000, 16, 400, 1),
             SCHEMAS, true);
 
+    /** Settings that narrow the bounds of the formulas (SH2). */
+    private static final SheetGridValidator NARROW_FORMULAS = new SheetGridValidator(LIMITS, SCHEMAS, true,
+            new FormulaLimits(100, 32, 8, 1000, 1000, 2000, 2, 3));
+
     private static SheetProperties.Limits limits(int fixedText, int minWidth, int maxWidth, int minHeight,
             int maxHeight, int sheets) {
         return new SheetProperties.Limits(LIMITS.maxBytes(), LIMITS.maxRows(), LIMITS.maxColumns(),
@@ -67,7 +72,16 @@ class SheetHostileCorpusTest {
             "inputs_on_info_sheet", "input_unknown_cell", "input_not_an_input_cell", "input_picklist",
             "input_max_files", "input_preset",
             // Conditional colours (SH1B, ADR-0255):
-            "condition_unknown_cell", "condition_range", "condition_operand", "condition_paint"));
+            "condition_unknown_cell", "condition_range", "condition_operand", "condition_paint",
+            // Formulas (SH2, ADR-0252): every reason of FormulaWords that the validator can answer with.
+            "formula_function_not_allowed", "formula_character_not_allowed", "formula_name_not_allowed",
+            "formula_unclosed_text", "formula_bad_reference_token", "formula_unknown_column", "formula_unknown_row",
+            "formula_wrong_argument_count", "formula_count_needs_cells", "formula_text_format_not_allowed",
+            "formula_bad_range", "formula_unexpected_token", "formula_unexpected_end", "formula_missing_bracket",
+            "formula_empty_argument", "formula_number_range", "formula_unsafe_text", "formula_empty_formula",
+            "formula_too_deep", "formula_growing_not_allowed", "formula_circular", "formula_not_a_fixed_cell",
+            "formula_column_not_allowed", "formula_too_long", "formula_too_complex", "formula_too_many_formulas",
+            "formula_chain_too_deep"));
 
     /** The validator a line is judged by: the platform's, except where the line is about a setting or the switch. */
     private static SheetGridValidator validatorFor(Construct construct) {
@@ -75,6 +89,8 @@ class SheetHostileCorpusTest {
             case "format_two_off" -> SWITCH_OFF;
             case "duplicate_sheet_key" -> TWO_SHEETS;
             case "width_range", "height_range" -> NARROWED;
+            case "formula_too_long", "formula_too_complex", "formula_too_many_formulas", "formula_chain_too_deep" ->
+                NARROW_FORMULAS;
             default -> VALIDATOR;
         };
     }

@@ -4,6 +4,8 @@ import app.platform.sheets.internal.SheetDocument.Freeze;
 import app.platform.sheets.internal.SheetDocument.Input;
 import app.platform.sheets.internal.SheetDocument.InputClass;
 import app.platform.sheets.internal.SheetDocument.Tab;
+import app.platform.sheets.internal.formula.FormulaLimits;
+import app.platform.sheets.internal.formula.FormulaPrinter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,6 +26,12 @@ import java.util.TreeMap;
  * version 1 code, so a sheet has one canonical body whichever format holds it.
  */
 final class SheetDocumentWriter {
+
+    /**
+     * The bounds the canonical printing parses with. The formulas of a document that reaches the writer were checked
+     * against the real settings; printing must never refuse one that was accepted, so it parses with the ceilings.
+     */
+    private static final FormulaLimits CANON = new FormulaLimits(4000, 32, 5000, 1, 1, 1, 1, 1);
 
     private SheetDocumentWriter() {
     }
@@ -52,8 +60,14 @@ final class SheetDocumentWriter {
                 conditions.add(new SheetDocument.Condition(one.from(), one.to(), one.operator(), one.value(),
                         one.value2(), lower(one.fill()), lower(one.colour())));
             }
+            Map<String, String> formulas = new TreeMap<>();
+            tab.formulas().forEach((key, formula) -> formulas.put(key, FormulaPrinter.canonical(formula, CANON)));
+            Map<String, String> columnFormulas = new TreeMap<>();
+            tab.columnFormulas().forEach((id, formula) -> columnFormulas.put(id,
+                    FormulaPrinter.canonical(formula, CANON)));
             sheets.add(new Tab(tab.key(), tab.title(), tab.fillable(), freeze, tab.print(), inputs,
-                    SheetGridNormalizer.normalize(tab.body()), looks, new TreeMap<>(tab.links()), conditions));
+                    SheetGridNormalizer.normalize(tab.body()), looks, new TreeMap<>(tab.links()), conditions, formulas,
+                    columnFormulas));
         }
         return new SheetDocument(sheets);
     }
@@ -143,6 +157,17 @@ final class SheetDocumentWriter {
         Map<String, Object> cells = (Map<String, Object>) sheet.get("cells");
         tab.looks().forEach((key, look) -> cell(cells, key).put("look", look(look)));
         tab.links().forEach((key, link) -> cell(cells, key).put("link", link));
+        tab.formulas().forEach((key, formula) -> cell(cells, key).put("formula", formula));
+        if (!tab.columnFormulas().isEmpty()) {
+            @SuppressWarnings("unchecked") // the columns are maps built by SheetGridWriter
+            List<Map<String, Object>> columns = (List<Map<String, Object>>) sheet.get("columns");
+            for (Map<String, Object> column : columns) {
+                String formula = tab.columnFormulas().get((String) column.get("id"));
+                if (formula != null) {
+                    column.put("formula", formula);
+                }
+            }
+        }
     }
 
     @SuppressWarnings("unchecked") // the cells map holds maps, see above

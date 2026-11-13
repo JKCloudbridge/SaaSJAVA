@@ -2,6 +2,18 @@
 
 import { useCallback, useMemo, useReducer } from "react";
 import { sameDocument } from "@/lib/sheets/adapter";
+import {
+  answers,
+  barText,
+  check,
+  clearCellFormula,
+  clearColumnFormula,
+  columnBarText,
+  layoutOf,
+  setCellFormula,
+  setColumnFormula,
+  specOf,
+} from "@/lib/sheets/formula/edit";
 import { displayRows, normalized } from "@/lib/sheets/geometry";
 import {
   addColumn,
@@ -114,8 +126,24 @@ export interface SheetEditor {
   say(text: string, error?: boolean): void;
   undo(): void;
   redo(): void;
-  /** Types fixed text into a cell. Returns the reason in words when the text is refused, otherwise null. */
+  /**
+   * Types fixed text into a cell. A text that starts with an equals sign is a formula, as in a spreadsheet (to type text
+   * that starts with one, put an apostrophe before it). Returns the reason in words when the text is refused, otherwise
+   * null.
+   */
   setText(rowId: string, columnId: string, text: string): string | null;
+  /** Whether formulas can be written here: the sheet is in the new format and the server said what formulas may be. */
+  canWriteFormulas: boolean;
+  /** The text a cell is edited as: its formula with the equals sign, or an empty text when it holds none. */
+  formulaText(rowId: string, columnId: string): string;
+  /** The formula of a calculated column as the bar shows it, or an empty text. */
+  columnFormulaText(columnId: string): string;
+  /** The reason, in the server's words, that a formula typed at a row would be refused, or null when it passes the gate. */
+  checkFormula(rowId: string, text: string): string | null;
+  /** Gives a column of a sheet where the filler adds the rows its formula; an empty text takes it off. */
+  setColumnFormula(columnId: string, text: string): string | null;
+  /** What the browser works out for every formula while a person types (the server's answer is the one that counts). */
+  previews: { cells: Record<string, string>; columns: Record<string, string> };
   clear(rect: Rect): void;
   paste(row: number, column: number, matrix: string[][]): void;
   bold(): void;
@@ -147,7 +175,10 @@ export interface SheetEditor {
  * edits a key or a paste can make. The author's editor offers all of it; the editor of a fill-in (FF1) offers it over the
  * cells a filler types, so one grid draws both.
  */
-export type SheetGridEditor = Pick<
+export type SheetGridEditor = {
+  /** Present when the grid can edit a cell as a formula (the author's editor). */
+  formulaText?: (rowId: string, columnId: string) => string;
+} & Pick<
   SheetEditor,
   | "doc"
   | "rows"
@@ -194,6 +225,8 @@ export function useSheetEditor(initial: GridDoc, limits: SheetLimits): SheetEdit
   const rect = useMemo(() => normalized(selection), [selection]);
   const selected = useMemo(() => selectionState(doc, rows, rect), [doc, rows, rect]);
   const dirty = useMemo(() => !sameDocument(doc, state.saved), [doc, state.saved]);
+  const spec = useMemo(() => specOf(limits.formulas), [limits.formulas]);
+  const previews = useMemo(() => answers(doc, spec), [doc, spec]);
 
   const run = useCallback((op: (d: GridDoc) => OpResult, success?: string) => dispatch({ type: "run", op, success }), []);
 
@@ -216,11 +249,53 @@ export function useSheetEditor(initial: GridDoc, limits: SheetLimits): SheetEdit
     undo: () => dispatch({ type: "undo" }),
     redo: () => dispatch({ type: "redo" }),
     setText: (rowId, columnId, text) => {
-      const result = setCellText(doc, rowId, columnId, text, limits);
-      dispatch({ type: "run", op: (d) => setCellText(d, rowId, columnId, text, limits) });
+      const op = (d: GridDoc): OpResult => {
+        if (text.length > 1 && text.startsWith("=")) {
+          return setCellFormula(d, rowId, columnId, text, spec);
+        }
+        const typed = text.startsWith("'=") ? text.slice(1) : text;
+        const result = setCellText(d, rowId, columnId, typed, limits);
+        return result.ok ? { ...result, doc: clearCellFormula(result.doc, rowId, columnId) } : result;
+      };
+      const result = op(doc);
+      dispatch({ type: "run", op });
       return result.ok ? null : result.error;
     },
-    clear: (target) => run((d) => clearCells(d, displayRows(d), target)),
+    canWriteFormulas: doc.formatVersion === 2 && spec !== null,
+    formulaText: (rowId, columnId) => barText(doc, rowId, columnId),
+    columnFormulaText: (columnId) => columnBarText(doc, columnId),
+    checkFormula: (rowId, text) => {
+      if (!(text.length > 1 && text.startsWith("="))) return null;
+      if (spec === null || doc.formatVersion !== 2) return "Formulas need the new sheet format, which is not switched on here.";
+      const layout = layoutOf(doc, 1);
+      const position = layout.rowIds.indexOf(rowId) + 1;
+      if (position === 0) return "A formula belongs to a row of the sheet, not to a row the filler adds.";
+      const result = check(text, position, layout, spec);
+      return result.ok ? null : result.error;
+    },
+    setColumnFormula: (columnId, text) => {
+      const op = (d: GridDoc): OpResult =>
+        text.trim() === "" ? { ok: true, doc: clearColumnFormula(d, columnId) } : setColumnFormula(d, columnId, text, spec);
+      const result = op(doc);
+      dispatch({ type: "run", op });
+      return result.ok ? null : result.error;
+    },
+    previews,
+    clear: (target) =>
+      run((d) => {
+        const cleared = clearCells(d, displayRows(d), target);
+        if (!cleared.ok) return cleared;
+        const rowsNow = displayRows(cleared.doc);
+        let next = cleared.doc;
+        for (let r = target.r0; r <= target.r1; r++) {
+          for (let c = target.c0; c <= target.c1; c++) {
+            const row = rowsNow[r];
+            const column = next.columns[c];
+            if (row && column) next = clearCellFormula(next, row.id, column.id);
+          }
+        }
+        return { ...cleared, doc: next };
+      }),
     paste: (row, column, matrix) => dispatch({ type: "paste", row, column, matrix, limits }),
     bold: () => run((d) => toggleStyle(d, keys, "bold")),
     italic: () => run((d) => toggleStyle(d, keys, "italic")),

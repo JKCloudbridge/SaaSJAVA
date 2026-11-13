@@ -2527,6 +2527,25 @@ form + .detail-section {
   width: var(--space-2);
 }
 
+/* The formula bar of the author's grid (SH2): the text of the selected cell, its answer and the reason it is refused. */
+.sheet-formula-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.sheet-formula-bar input {
+  flex: 1 1 20rem;
+  min-width: 0;
+}
+
+.sheet-formula-bar .field-error {
+  flex-basis: 100%;
+  margin: 0;
+}
+
 .sheet-toolbar-field select {
   min-height: var(--size-control);
 }

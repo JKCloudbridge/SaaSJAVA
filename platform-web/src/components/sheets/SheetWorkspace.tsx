@@ -12,7 +12,7 @@ import {
   type VersionSummary,
 } from "@/lib/sheets/api";
 import { explainPlace, hintsFor, problemsFromFields } from "@/lib/sheets/hints";
-import { defaultVersion, useVersion, useVersions } from "@/lib/sheets/hooks";
+import { defaultVersion, useServerAnswers, useVersion, useVersions } from "@/lib/sheets/hooks";
 import { revisionWords, versionTitle } from "@/lib/sheets/revision";
 import { isDraft } from "@/lib/sheets/tags";
 import type { GridDoc, Problem, SheetLimits } from "@/lib/sheets/types";
@@ -395,6 +395,9 @@ function VersionEditor({
   const editor = useSheetEditor(initial, limits);
   const narrow = useNarrowScreen();
   const [summary, setSummary] = useState(first);
+  // The server's answers of the formulas (SH2): asked for when the sheet has any and again after every save.
+  const hasFormulas = editor.doc.formatVersion === 2 && editor.canWriteFormulas;
+  const serverAnswers = useServerAnswers(owner, summary.versionNo, summary.version, hasFormulas);
   const [tab, setTab] = useState<"form" | "grid">(narrow ? "form" : "grid");
   const [saving, setSaving] = useState(false);
   const [refused, setRefused] = useState<{ doc: GridDoc; problems: Problem[]; message: string; stale: boolean } | null>(null);
@@ -591,6 +594,7 @@ function VersionEditor({
             readOnlyReason={!readOnly && narrow ? readOnlyReason : undefined}
             label={`${label}, ${versionTitle(summary).toLowerCase()}`}
             footer={footerText}
+            serverAnswers={serverAnswers}
           />
         </div>
       )}

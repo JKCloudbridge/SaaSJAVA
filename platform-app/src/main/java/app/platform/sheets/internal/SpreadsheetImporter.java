@@ -1,9 +1,11 @@
 package app.platform.sheets.internal;
 
+import app.platform.sheets.internal.formula.FormulaLimits;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.Semaphore;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -48,12 +50,25 @@ final class SpreadsheetImporter {
     private final SheetProperties.Limits limits;
     private final SheetGridValidator validator;
     private final Semaphore places;
+    private final FormulaLimits formulaLimits;
 
     SpreadsheetImporter(ImportProperties settings, SheetProperties properties, SheetGridValidator validator) {
+        this(settings, properties, validator, FormulaLimits.DEFAULTS);
+    }
+
+    @Autowired
+    SpreadsheetImporter(ImportProperties settings, SheetProperties properties, SheetGridValidator validator,
+            FormulaProperties formulas) {
+        this(settings, properties, validator, formulas.limits());
+    }
+
+    SpreadsheetImporter(ImportProperties settings, SheetProperties properties, SheetGridValidator validator,
+            FormulaLimits formulaLimits) {
         this.settings = settings;
         this.limits = properties.limits();
         this.validator = validator;
         this.places = new Semaphore(settings.maxConcurrent());
+        this.formulaLimits = formulaLimits;
     }
 
     /** The places that bound the files read at once; a test takes them all to see the answer for one more. */
@@ -90,7 +105,7 @@ final class SpreadsheetImporter {
             // A text file holds nothing that format version 2 adds, so it is always made as it always was.
             SheetImportBuilder.Options used = format == Format.XLSX ? options : new SheetImportBuilder.Options(
                     options.firstRowLabels(), options.dimension(), options.rowsMode(), options.worksheet(), false);
-            SheetImportBuilder.Built built = new SheetImportBuilder(limits).build(raw, used);
+            SheetImportBuilder.Built built = new SheetImportBuilder(limits, formulaLimits).build(raw, used);
             // A document of format version 2 goes through the validator as its text, the way a stored one does, so the
             // switch and every rule of the format are asked in the one place.
             SheetGridValidator.Result result = built.document() == null ? validator.check(built.grid())
