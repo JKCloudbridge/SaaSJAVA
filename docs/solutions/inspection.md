@@ -18,7 +18,7 @@ its own. This table lists every application that exists.
 | CAPA | `capa` | `solutions/capa/` | `capa` | Tile only (Home). [Page](capa.md) |
 | Audit Management | `audit-management` | `solutions/audit-management/` | `audit-management` | Tile only (Home). [Page](audit-management.md) |
 | Supplier Management | `supplier-management` | `solutions/supplier-management/` | `supplier-management` | Announced tabs. [Page](supplier-management.md) |
-| Management Core | `management-core` | `solutions/management-core/` | `management-core` | Announced tabs. [Page](management-core.md) |
+| Management Core | `management-core` | `solutions/management-core/` (files only; code and pages are those of `inspection`) | `management-core` | Real since MC1: forms, numbering over the Document counter, publishing to plants, the footer day. [Page](management-core.md) |
 | Quality Management System | `inspection` | `solutions/inspection/`, `platform-app/.../app/platform/inspection/`, `platform-web/src/solutions/inspection/` | `inspection` | Real: the whole of this page. It brings the four objects and the seven access policies |
 | Environment Management | `environment-management` | `solutions/environment-management/` (bundle, three objects, numbering; no code) | `environment-management` | Real: the same functions over records of its own. [Page](environment-management.md) |
 | the fifteen process applications | `marketing`, `qa`, ... | `solutions/processes/` | `process-applications` | Announced tabs. [Page](processes.md) |

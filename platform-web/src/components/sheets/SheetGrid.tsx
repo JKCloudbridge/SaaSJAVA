@@ -175,7 +175,9 @@ export function SheetGrid({
     return [...doc.columns.map((column) => { const left = x; x += live && live.id === column.id ? live.width : (column.width ?? DEFAULT_COLUMN_WIDTH); return left; }), x];
   }, [doc.columns, live]);
   const totalHeight = at(rowTop, rows.length);
-  const footerHeight = footer === undefined ? 0 : FOOTER_HEIGHT;
+  // A footer of two lines (the number and the Revision, then the day) is two rows (MC1, ADR-0257).
+  const footerLines = footer === undefined ? [] : footer.split("\n");
+  const footerHeight = footerLines.length * FOOTER_HEIGHT;
   const totalWidth = at(colLeft, doc.columns.length);
 
   // The look (SH4): a sheet in format version 2 is drawn from what it states. A sheet in version 1 takes none of this.
@@ -728,7 +730,7 @@ export function SheetGrid({
         role="grid"
         tabIndex={0}
         aria-label={label}
-        aria-rowcount={rows.length + 1 + (footer === undefined ? 0 : 1)}
+        aria-rowcount={rows.length + 1 + footerLines.length}
         aria-colcount={doc.columns.length}
         aria-multiselectable="true"
         aria-readonly={readOnly}
@@ -762,19 +764,24 @@ export function SheetGrid({
           </div>
           {fixedRows.map((i) => renderRow(i, true))}
           {scrollingRows.map((i) => renderRow(i, false))}
-          {footer === undefined ? null : (
+          {footerLines.map((line, index) => (
             <div
+              key={index}
               role="row"
-              aria-rowindex={rows.length + 2}
+              aria-rowindex={rows.length + 2 + index}
               className="sheet-footer"
-              style={{ top: LABEL_BAND_HEIGHT + totalHeight, height: FOOTER_HEIGHT, width: totalWidth }}
-              data-testid="sheet-footer"
+              style={{
+                top: LABEL_BAND_HEIGHT + totalHeight + index * FOOTER_HEIGHT,
+                height: FOOTER_HEIGHT,
+                width: totalWidth,
+              }}
+              data-testid={index === 0 ? "sheet-footer" : `sheet-footer-${index + 1}`}
             >
               <span role="gridcell" aria-readonly="true" aria-colindex={doc.columns.length}>
-                {footer}
+                {line}
               </span>
             </div>
-          )}
+          ))}
         </div>
       </div>
       <p

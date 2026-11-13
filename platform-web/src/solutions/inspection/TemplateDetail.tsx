@@ -43,7 +43,7 @@ import { useRecordObjects } from "./objects";
 import { PartField, NumberField } from "./TemplateNumberFields";
 import { detailDisplay, templateSections } from "./templateDetails";
 import { hiddenIdentityFields, identityOf, sameIdentity, useNumberingInfo, type IdentityValues } from "./numbering";
-import { downloadNameFor, footerTextFor, revisionNumber, revisionWords } from "@/lib/sheets/revision";
+import { downloadNameFor, footerTextWithDay, revisionNumber, revisionWords } from "@/lib/sheets/revision";
 
 const TONES = { active: "ok", draft: "on", review: "on", done: "quiet", stopped: "error" } as const;
 const FORM_ID = "template-details-form";
@@ -202,7 +202,16 @@ export function TemplateDetail({ id, onBack }: { id: string; onBack: () => void 
   // The revision in use is the platform's saved one (gapless, FA8); before any is in use, the revision of the sheet shown.
   const footerRevision = (shown: number) =>
     view && view.lifecycle.activeVersion > 0 && view.revision ? view.revision : revisionNumber(shown);
-  const footerFor = (shown: number) => footerTextFor(view?.number, footerRevision(shown));
+  // The day of the publish (MC1, ADR-0257) is written only for the revision in use, and only where the application's
+  // footer carries it; the server decides which (the flag), the browser only draws.
+  const footerFor = (shown: number) =>
+    footerTextWithDay(
+      view?.number,
+      footerRevision(shown),
+      view?.footerDate && view.lifecycle.activeVersion > 0 && shown === view.lifecycle.activeVersion
+        ? view.lastRevisedAt
+        : undefined,
+    );
 
   // Download of the revision that is open: the server decides again whether it is allowed and whether it may be read.
   const download = async (shown: number) => {

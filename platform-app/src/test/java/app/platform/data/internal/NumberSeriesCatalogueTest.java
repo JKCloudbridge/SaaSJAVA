@@ -179,4 +179,33 @@ class NumberSeriesCatalogueTest {
                 "Doc", "number", "", Map.of("", "D-{seq:2}"))))).isInstanceOf(IllegalStateException.class)
                 .satisfies(refusal -> assertThat(refusal.getMessage()).doesNotContain("Bad Key"));
     }
+
+    // ---- series that share counters (MC1, ADR-0257) ----
+
+    private static NumberSeriesDeclaration sharing(String key, String of) {
+        return new NumberSeriesDeclaration(key, "Doc", "number", "", Map.of("", "D-{seq:2}"), Map.of(), of);
+    }
+
+    @Test
+    void aSeriesMaySharePlainCountersWithAnotherSeriesAndSaysWhichKeyTheCountersAreUnder() {
+        NumberSeriesDeclaration base = new NumberSeriesDeclaration("base", "Doc", "number", "",
+                Map.of("", "D-{seq:2}"));
+        NumberSeriesCatalogue catalogue = new NumberSeriesCatalogue(usual(), List.of(base, sharing("copy", "base")));
+
+        assertThat(catalogue.series("copy").orElseThrow().counterKey()).isEqualTo("base");
+        assertThat(catalogue.series("base").orElseThrow().counterKey()).isEqualTo("base");
+    }
+
+    @Test
+    void sharingWithAMissingSeriesWithItselfOrWithAChainIsRefused() {
+        NumberSeriesDeclaration base = new NumberSeriesDeclaration("base", "Doc", "number", "",
+                Map.of("", "D-{seq:2}"));
+        assertThatThrownBy(() -> new NumberSeriesCatalogue(usual(), List.of(sharing("copy", "nothing"))))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("copy");
+        assertThatThrownBy(() -> new NumberSeriesCatalogue(usual(), List.of(base, sharing("base2", "base2"))))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("base2");
+        assertThatThrownBy(() -> new NumberSeriesCatalogue(usual(),
+                List.of(base, sharing("middle", "base"), sharing("last", "middle"))))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("last");
+    }
 }

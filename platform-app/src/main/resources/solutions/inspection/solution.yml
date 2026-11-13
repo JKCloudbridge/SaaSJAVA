@@ -164,7 +164,7 @@ accessPolicies:
   - key: departments
     name: Department setup
     description: Says which group of people belongs to which department of which location. Comes with the Quality Management System application and cannot be changed.
-    alsoAvailableWith: [document-management, environment-management]
+    alsoAvailableWith: [document-management, environment-management, management-core]
     objects:
       DepartmentGroup: [create, read, update, delete]
     fields:

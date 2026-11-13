@@ -53,4 +53,18 @@ class SheetPropertiesTest {
                 new SheetProperties.FormatTwo(false)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void theOwnersListLetsOneApplicationMakeTheNewFormatWhileTheOthersKeepTheEarlierOne() {
+        SheetProperties.FormatTwo everyOwner = new SheetProperties.FormatTwo(true);
+        SheetProperties.FormatTwo oneOwner = new SheetProperties.FormatTwo(true,
+                java.util.List.of("ManagementTemplate"));
+        SheetProperties.FormatTwo off = new SheetProperties.FormatTwo(false,
+                java.util.List.of("ManagementTemplate"));
+
+        assertThat(everyOwner.makesFor("InspectionTemplate")).isTrue();
+        assertThat(oneOwner.makesFor("ManagementTemplate")).isTrue();
+        assertThat(oneOwner.makesFor("InspectionTemplate")).isFalse();
+        assertThat(off.makesFor("ManagementTemplate")).as("the switch is the master").isFalse();
+    }
 }

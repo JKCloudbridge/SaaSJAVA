@@ -84,10 +84,10 @@ class NumberingManagement {
     @Transactional(readOnly = true)
     NumberingCountersView counters(String key, String cursor) {
         require();
-        available(key);
+        NumberSeriesCatalogue.Series series = available(key);
         store.lock(key, false);
         int offset = offset(cursor);
-        List<NumberingStore.Counter> found = store.counters(key, offset, COUNTER_PAGE + 1);
+        List<NumberingStore.Counter> found = store.counters(series.counterKey(), offset, COUNTER_PAGE + 1);
         boolean more = found.size() > COUNTER_PAGE;
         List<NumberingStore.Counter> page = more ? found.subList(0, COUNTER_PAGE) : found;
         List<NumberingCountersView.Counter> rows = page.stream().map(counter -> new NumberingCountersView.Counter(
@@ -195,7 +195,7 @@ class NumberingManagement {
             throw ApiException.validation("nextValue", "The next count can only go up, never down.");
         }
         if (wanted > before.nextValue()) {
-            store.advance(key, NumberingFormats.scope(series, format, values), wanted, caller.userId());
+            store.advance(series.counterKey(), NumberingFormats.scope(series, format, values), wanted, caller.userId());
             changed("counter.raised", caller, series, "COUNTER", format.parts().size());
         }
         return preview(series, format, values);
@@ -278,8 +278,8 @@ class NumberingManagement {
                     format.fields().stream().distinct().toList(), missing,
                     "Choose the parts of the number to see an example.");
         }
-        long next = format.hasCounter() ? store.nextValue(series.key(), NumberingFormats.scope(series, format, values))
-                : 0;
+        long next = format.hasCounter()
+                ? store.nextValue(series.counterKey(), NumberingFormats.scope(series, format, values)) : 0;
         if (next > MAX_COUNT) {
             throw ApiException.validation("nextValue", "This count has reached its limit. Ask your administrator.");
         }

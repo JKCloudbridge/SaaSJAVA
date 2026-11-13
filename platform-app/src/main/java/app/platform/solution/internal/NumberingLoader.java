@@ -34,7 +34,7 @@ final class NumberingLoader {
     private static final Pattern NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_]{0,59}");
     private static final Set<String> FILE_KEYS = Set.of("series");
     private static final Set<String> SERIES_KEYS = Set.of("key", "object", "field", "selector", "format", "formats",
-            "defaults");
+            "defaults", "counterSeries");
 
     /**
      * A declaration with the solution whose folder it came from.
@@ -89,9 +89,21 @@ final class NumberingLoader {
                 throw new IllegalStateException(part + ": 'object' and 'field' are API names");
             }
             loaded.add(new Loaded(solution, new NumberSeriesDeclaration(key, object, field, selector(one, part),
-                    formats(one, part), defaults(one, part))));
+                    formats(one, part), defaults(one, part), counterSeries(one, part))));
         }
         return loaded;
+    }
+
+    /** The series this one draws its counters from, or an empty text (MC1, ADR-0257). */
+    private static String counterSeries(Map<?, ?> one, String part) {
+        Object other = one.get("counterSeries");
+        if (other == null) {
+            return "";
+        }
+        if (!(other instanceof String text) || !KEY.matcher(text).matches()) {
+            throw new IllegalStateException(part + ": 'counterSeries' is the lower case key of another series");
+        }
+        return text;
     }
 
     private static String selector(Map<?, ?> one, String part) {

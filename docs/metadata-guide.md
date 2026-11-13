@@ -1339,6 +1339,8 @@ run the same code over records of their own. **To add another application of thi
 
 What you do **not** write: Java, web code, a page, an endpoint, a hook. The proof is `ThirdApplicationIT`.
 
+**Three optional lines (MC1, ADR-0257; the example is `solutions/management-core/`).** In `numbering.yml` a series may say `counterSeries: <key of another series>` to draw its counters from that series (one number space for the same combination; the patterns stay its own). In `solution.yml`, `options:` may say `footerDate: "true"` (a second footer line with the day of the Revision in use) and `publishTo: places` with `publishDepartment: <department code>` (the Publish dialog lists places and sends that department). Nothing else changes; section 49 says how an administrator sets plants up.
+
 **What is separate between two applications:** templates, fill-ins, change requests, number series and counters, approval processes (set up per object in
 Setup), access policies, sharing, record locks, the lists, counts, search, report, dashboard, downloads, notices and the audit trail. **What is shared:**
 the department setup and the organization's groups.
@@ -1408,3 +1410,28 @@ For an author of a template (see section 27 for the sheet, 45 to 47 for the form
 - **Frozen rows and columns** stay in view while you scroll. If a merged area would be cut by the line, the line moves up (or left) to the nearest place that cuts nothing, and the fixed part never takes more than three fifths of the window.
 - **What it does not draw yet:** setting a font, a fill or a border by hand (the author editor, SH6); the controls a filler uses for Yes/No, lists and files (SH5); several worksheets and their tab bar (SH7). Text does not run into empty neighbouring cells; it is clipped at the cell. A number whose alignment was stated as left is shown at the right.
 - **Print** draws the same look with only the borders you stated (plus thin lines round the boxes a filler types into), the repeat-header and fit-to-width choices of the sheet, and the paper and orientation as before. The browser's own page breaks can differ from the spreadsheet program's.
+
+## 49. Management Core, and how plants are set up (MC1)
+
+Decision: [ADR-0257](adr/0257-management-core-shared-counters-places-only-publishing-the-footer-day-and-the-owners-of-the-new-format.md). The page of the application is [solutions/management-core.md](solutions/management-core.md).
+
+**What an administrator does, in order**
+
+1. **Give the feature.** In the console give the plan feature Management Core to a plan or to one organization. The tile appears for people who hold one of its access policies.
+2. **Assign the access policies** (Setup, Access policies, or to a group): Management Author (writes forms), Management Approver (top management), Management Publisher (the group with the last word), Management Reader, Management Filler (plant heads) and Management Reviewer. They are not the same policies as Document Management's.
+3. **Set up the approval process** for the object Management Template (Setup, Approvals). None is shipped. A simple one: step 1 the group that approves, step 2 the Publisher group.
+4. **Set up the numbers** (Setup, Numbering, the series Management document). The counters shown are those of the Document series, which Management Core shares: a form and a document of the same combination never get the same number. Raising a counter raises it for both.
+5. **Set up the plants** (below), then publish.
+
+**Plants: where they live and how to manage them.** A plant is a value of the list **Location** of the object **Department group** (Setup, Objects, Department group, Fields, Location). Management Core publishes a form to a plant by the group of the people there (the plant heads). So for every plant:
+
+1. Make sure the list **Department** (same object) has the value **Plant head** (`PLANTHEAD`) and that it is allowed under that plant (the list is dependent on Location). The starting lists have it under Plant 1 and Plant 2; for a new plant add the location, then allow Plant head under it.
+2. Make a **Group** of the plant heads of that plant (Setup, Groups) and put the people in it.
+3. Add one **Department group** record (the Department group entry in the Management Core strip, or Setup): Location = the plant, Department = Plant head, Group = that group. One record for each plant.
+
+A plant without that record is shown in the Publish dialog as "no group set up yet" and the publish says no for it. A group with nobody in it also says no. Removing a plant means setting its Location value inactive; a form already published keeps its shares.
+
+**The footer.** Below the number and Revision, the sheet shows `Date: dd-Mon-yyyy`, the day the Revision in use was published. On the screen and in print it is the reader's day; in the downloaded file it is the day in the zone `platform.inspection.footer.zone` (default UTC), so near midnight the two can differ by a day. A Revision from the history has no stored day and shows the first line only.
+
+**Uploading the workbook.** On the Sheet tab of a form choose Upload, pick the worksheet (Plant activity and Action plan are two forms, one worksheet each) and save. With `platform.sheets.format-two.enabled` on, an upload for a form makes a sheet in the new format. On a developer machine the `local` profile lists the Management Core form in `platform.sheets.format-two.owners`, so only its uploads do.
+

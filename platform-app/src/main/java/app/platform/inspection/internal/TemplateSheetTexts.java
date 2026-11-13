@@ -7,6 +7,10 @@ package app.platform.inspection.internal;
  */
 final class TemplateSheetTexts {
 
+    private static final String DATE_LABEL = "Date: ";
+    private static final java.time.format.DateTimeFormatter DAY = java.time.format.DateTimeFormatter
+            .ofPattern("dd-MMM-yyyy", java.util.Locale.ENGLISH);
+
     private TemplateSheetTexts() {
     }
 
@@ -21,6 +25,27 @@ final class TemplateSheetTexts {
             return "";
         }
         return number.strip() + "  Rev No.'" + TemplateRevisions.show(revision) + "'";
+    }
+
+    /**
+     * The footer of an application whose footer carries the day (MC1, ADR-0257): the first line is that of
+     * {@link #footer(String, int)}, the second, below it, is {@code Date: 13-Nov-2026}. Blank until the template has
+     * a number; without a day (the Revision is not the one in use, or none was ever published) it is the first line
+     * alone.
+     * Written the same way in the browser ({@code lib/sheets/revision.ts}) with the cases of
+     * {@code footer-cases.txt}.
+     */
+    static String footer(String number, int revision, java.time.LocalDate day) {
+        String first = footer(number, revision);
+        if (first.isEmpty() || day == null) {
+            return first;
+        }
+        return first + "\n" + DATE_LABEL + day(day);
+    }
+
+    /** The day as the footer writes it: two digits, the English month in three letters, the year. */
+    static String day(java.time.LocalDate day) {
+        return DAY.format(day);
     }
 
     /**

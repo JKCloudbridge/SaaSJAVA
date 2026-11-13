@@ -65,10 +65,12 @@ class TemplateDownloads {
     private final TenantContexts contexts;
     private final MeterRegistry meters;
     private final TemplateRevisions revisions;
+    private final FooterProperties footer;
 
     TemplateDownloads(TemplateAccess access, TemplateOptionStore options, SheetLifecycle lifecycle,
             SheetExports exports, BackgroundRecords records, AuditRecorder audit, TenantContexts contexts,
-            MeterRegistry meters, TemplateRevisions revisions) {
+            MeterRegistry meters, TemplateRevisions revisions, FooterProperties footer) {
+        this.footer = footer;
         this.revisions = revisions;
         this.access = access;
         this.options = options;
@@ -111,8 +113,12 @@ class TemplateDownloads {
         Object number = header.fields().get(Templates.NUMBER);
         String numberText = number == null ? null : number.toString();
         int shown = revisions.of(set, templateId, summary.active() > 0 ? summary.active() : wanted);
+        // The day of the publish is only known for the Revision in use (the template carries one day, MC1, ADR-0257).
+        java.time.Instant revised = Templates.lastRevisedAt(header.fields());
+        java.time.LocalDate day = set.footerDate() && revised != null && wanted == summary.active()
+                ? revised.atZone(footer.zoneId()).toLocalDate() : null;
         byte[] bytes = exports.xlsx(set.template(), templateId, wanted,
-                TemplateSheetTexts.footer(numberText, shown));
+                TemplateSheetTexts.footer(numberText, shown, day));
         audit.record(AuditRecord.of("inspection.template.downloaded", AuditOutcome.SUCCESS).forUser(caller.userId())
                 .inTenant(contexts.require().tenantId()).onObject(set.template(), templateId.toString())
                 .with("version_no", Integer.toString(wanted)).with("bytes", Integer.toString(bytes.length)));

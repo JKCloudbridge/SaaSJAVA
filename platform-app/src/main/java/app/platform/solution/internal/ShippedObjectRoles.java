@@ -26,7 +26,8 @@ final class ShippedObjectRoles implements ObjectRoleDeclarations {
         for (SolutionBundle bundle : solutions.bundles()) {
             if (!bundle.roles().isEmpty()) {
                 bundle.applications().forEach(application -> found.add(
-                        new ObjectRoles(application.apiName(), bundle.feature(), bundle.roles())));
+                        new ObjectRoles(application.apiName(), bundle.feature(), bundle.roles(),
+                        bundle.options())));
             }
         }
         this.declared = List.copyOf(found);

@@ -166,11 +166,17 @@ export function SheetPrintView({
                 ))}
               </tr>
             ))}
-            <tr className="sheet-print-footer-row" data-testid="sheet-print-footer">
-              <td colSpan={Math.max(1, count)} className="sheet-print-cell sheet-print-right sheet-print-footer">
-                {footer}
-              </td>
-            </tr>
+            {footer.split("\n").map((line, index) => (
+              <tr
+                key={index}
+                className="sheet-print-footer-row"
+                data-testid={index === 0 ? "sheet-print-footer" : `sheet-print-footer-${index + 1}`}
+              >
+                <td colSpan={Math.max(1, count)} className="sheet-print-cell sheet-print-right sheet-print-footer">
+                  {line}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

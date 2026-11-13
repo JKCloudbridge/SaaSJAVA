@@ -1,0 +1,14 @@
+# The footer of a sheet whose application shows the day of the Revision (MC1, ADR-0257). One case a line:
+#   number | revision | instant of the publish (UTC) | time zone | expected text (\n is the line break)
+# The server (TemplateSheetTextsTest) and the browser (revision.test.ts) both read this file, so the screen, the print and
+# the file always write the same words. An empty instant means no day is known; an empty expected text means no footer.
+F/MR/16 | 0 | 2026-11-13T10:15:00Z | UTC | F/MR/16  Rev No.'00'\nDate: 13-Nov-2026
+F/MR/16 | 1 | 2026-01-02T00:00:00Z | UTC | F/MR/16  Rev No.'01'\nDate: 02-Jan-2026
+  F/MR/16  | 0 | 2026-11-13T10:15:00Z | UTC | F/MR/16  Rev No.'00'\nDate: 13-Nov-2026
+F/MR/16 | 0 | 2026-11-13T23:30:00Z | Asia/Kolkata | F/MR/16  Rev No.'00'\nDate: 14-Nov-2026
+F/MR/16 | 0 | 2026-11-13T23:30:00Z | America/New_York | F/MR/16  Rev No.'00'\nDate: 13-Nov-2026
+F/MR/16 | 2 | 2026-12-31T22:59:59Z | Europe/Paris | F/MR/16  Rev No.'02'\nDate: 31-Dec-2026
+F/MR/16 | 2 | 2026-12-31T23:00:00Z | Europe/Paris | F/MR/16  Rev No.'02'\nDate: 01-Jan-2027
+F/MR/16 | 0 |  | UTC | F/MR/16  Rev No.'00'
+ | 0 | 2026-11-13T10:15:00Z | UTC |
+   | 3 | 2026-11-13T10:15:00Z | UTC |

@@ -1,0 +1,45 @@
+# Shipped object: ManagementChangeRequest, the record that gives a change request of the Management Core
+# application to the approval engine (FA13B, ADR-0226). It plays the part "changeRequest" in the solution file, exactly as
+# InspectionChangeRequest does for the Quality Management System application. The request itself, its places and its
+# comments stay in the cluster's own tables; this record exists only so that the engine has a record to review, to lock
+# and to show in the approval inbox.
+#
+# Every field is one only the platform writes: a member never creates or changes one (no shipped policy gives a create
+# right or a field to edit). The fields are a copy of those of the other application on purpose (see
+# ManagementTemplate).
+#
+# requiresFeature: an organization without the plan feature does not have this object at all.
+# retainRecords:   no record of this object is ever deleted, restored over or purged, by anyone.
+# extensible:      an organization cannot add fields of its own to a shipped object.
+# sharingDefault:  PRIVATE, fixed by the platform (ADR-0189).
+apiName: ManagementChangeRequest
+label: Change request
+pluralLabel: Change requests
+description: The record that sends a change request of the Management Core application through its approval. Its records are kept for good.
+extensible: false
+requiresFeature: management-core
+retainRecords: true
+sharingDefault: PRIVATE
+fields:
+  - apiName: name
+    label: Change request name
+    description: "The name the request is shown by in the approval inbox: that of the template when it was asked."
+    type: TEXT
+    platformWritten: true
+    settings: { maxLength: 160 }
+
+  - apiName: templateId
+    label: Template
+    description: The template the request is about, as the text of its identifier. It never changes.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 36 }
+
+  - apiName: status
+    label: Status
+    description: Open, declined or done (published). A copy that follows the request; the request itself decides.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 20 }

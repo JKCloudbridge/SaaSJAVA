@@ -89,3 +89,37 @@ export function footerTextFor(number: string | null | undefined, revision: strin
   }
   return `${number.trim()}  Rev No.'${revision}'`;
 }
+
+/**
+ * The day a Revision was published as the footer writes it: two digits, the English month in three letters and the year
+ * (`13-Nov-2026`), in the reader's own time zone unless one is given. The server writes the same words for the file with
+ * its own zone setting; both read the cases of `footer-cases.txt` (MC1, ADR-0257).
+ */
+export function footerDay(instant: string, timeZone?: string): string | undefined {
+  const at = new Date(instant);
+  if (Number.isNaN(at.getTime())) {
+    return undefined;
+  }
+  const parts = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone })
+    .formatToParts(at);
+  const pick = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${pick("day")}-${pick("month")}-${pick("year")}`;
+}
+
+/**
+ * The footer of an application whose footer carries the day (MC1): the line of {@link footerTextFor}, then below it
+ * `Date: 13-Nov-2026`. Without a day, or before the template has a number, it is the first line alone (or nothing).
+ */
+export function footerTextWithDay(
+  number: string | null | undefined,
+  revision: string,
+  publishedAt: string | null | undefined,
+  timeZone?: string,
+): string {
+  const first = footerTextFor(number, revision);
+  if (first === "" || !publishedAt) {
+    return first;
+  }
+  const day = footerDay(publishedAt, timeZone);
+  return day === undefined ? first : `${first}\nDate: ${day}`;
+}

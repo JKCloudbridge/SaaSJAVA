@@ -539,15 +539,19 @@ final class WorkbookWriter {
             }
         }
 
+        /** The footer: one row, or one row for each line of the text (a second line is the day, MC1, ADR-0257). */
         private void footer() {
-            int index = first + rows.size();
-            XSSFRow row = sheet.createRow(index);
-            row.setHeightInPoints(points(DEFAULT_ROW_HEIGHT));
+            String[] lines = page.footer() == null || page.footer().isEmpty() ? new String[] {""}
+                    : page.footer().split("\n", -1);
             StyleKey style = plainKey(false, Alignment.RIGHT, false);
             int last = grid.columns().size() - 1;
-            for (int c = 0; c <= last; c++) {
-                String text = c == last && page.footer() != null && !page.footer().isEmpty() ? page.footer() : null;
-                put(row, c, text, build.style(withQuote(style, text)), null);
+            for (int line = 0; line < lines.length; line++) {
+                XSSFRow row = sheet.createRow(first + rows.size() + line);
+                row.setHeightInPoints(points(DEFAULT_ROW_HEIGHT));
+                for (int c = 0; c <= last; c++) {
+                    String text = c == last && !lines[line].isEmpty() ? lines[line] : null;
+                    put(row, c, text, build.style(withQuote(style, text)), null);
+                }
             }
         }
 

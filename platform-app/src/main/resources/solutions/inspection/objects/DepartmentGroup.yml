@@ -17,9 +17,9 @@ pluralLabel: Department groups
 description: Says which group of people belongs to a department of a location, for publishing templates to them.
 extensible: false
 requiresFeature: inspection
-# The Document Management and Environment Management applications use the same department setup (FA13A, ADR-0225;
+# The Document Management, Environment Management and Management Core applications use the same department setup (FA13A, ADR-0225;
 # FA13B, ADR-0226): the object exists when any of their plan features is on, and nothing is stored twice.
-alsoAvailableWith: [document-management, environment-management]
+alsoAvailableWith: [document-management, environment-management, management-core]
 fields:
   - apiName: name
     label: Name
@@ -56,11 +56,12 @@ fields:
         - { value: STR, label: "STR - Stores" }
         - { value: HR, label: "HR - Human resources" }
         - { value: FIN, label: "FIN - Finance" }
+        - { value: PLANTHEAD, label: "PLANTHEAD - Plant head" }
       dependency:
         controllingField: location
         allowed:
-          PLANT1: [PRD, QLT, MNT, STR]
-          PLANT2: [PRD, QLT, MNT]
+          PLANT1: [PRD, QLT, MNT, STR, PLANTHEAD]
+          PLANT2: [PRD, QLT, MNT, PLANTHEAD]
           HEAD: [HR, FIN]
 
   - apiName: groupId

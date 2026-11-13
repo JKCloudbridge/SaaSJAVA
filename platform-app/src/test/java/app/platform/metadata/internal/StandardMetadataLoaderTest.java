@@ -39,8 +39,8 @@ class StandardMetadataLoaderTest {
         assertThat(standard.objects()).extracting(ObjectDefinition::apiName).containsExactlyInAnyOrder(
                 "Account", "AccessPolicy", "AccessPolicyAssignment", "Case", "Contact", "DepartmentGroup",
                 "EnvironmentChangeRequest", "EnvironmentFill", "EnvironmentTemplate", "Group",
-                "InspectionChangeRequest", "InspectionFill", "InspectionTemplate", "LicenceType", "Opportunity",
-                "Profile",
+                "InspectionChangeRequest", "InspectionFill", "InspectionTemplate", "LicenceType",
+                "ManagementChangeRequest", "ManagementFill", "ManagementTemplate", "Opportunity", "Profile",
                 "RecordType", "Role", "User")
                 .doesNotHaveDuplicates();
         assertThat(standard.objects()).allSatisfy(object -> {
@@ -298,7 +298,7 @@ class StandardMetadataLoaderTest {
         // The department setup is shared by the three applications that publish to departments (FA13B, ADR-0226).
         ObjectDefinition shared = standard.object("DepartmentGroup").orElseThrow();
         assertThat(shared.alsoAvailableWith()).containsExactlyInAnyOrder("document-management",
-                "environment-management");
+                "environment-management", "management-core");
         assertThat(shared.availableWith("environment-management"::equals)).isTrue();
         // Environment Management has records of its own: its objects need its feature alone and nothing else makes
         // them available (FA13B, ADR-0226).
@@ -309,6 +309,16 @@ class StandardMetadataLoaderTest {
             assertThat(own.retainRecords()).as(name).isTrue();
             assertThat(own.sharingDefault()).as(name).isEqualTo("PRIVATE");
             assertThat(own.availableWith("inspection"::equals)).as(name).isFalse();
+        }
+        // Management Core has records of its own too (MC1, ADR-0257).
+        for (String name : List.of("ManagementTemplate", "ManagementFill", "ManagementChangeRequest")) {
+            ObjectDefinition own = standard.object(name).orElseThrow();
+            assertThat(own.requiresFeature()).as(name).isEqualTo("management-core");
+            assertThat(own.alsoAvailableWith()).as(name).isEmpty();
+            assertThat(own.retainRecords()).as(name).isTrue();
+            assertThat(own.sharingDefault()).as(name).isEqualTo("PRIVATE");
+            assertThat(own.availableWith("inspection"::equals)).as(name).isFalse();
+            assertThat(own.availableWith("environment-management"::equals)).as(name).isFalse();
         }
         ObjectDefinition departments = standard.object("DepartmentGroup").orElseThrow();
         assertThat(departments.requiresFeature()).isEqualTo("inspection");
@@ -321,7 +331,8 @@ class StandardMetadataLoaderTest {
         StandardMetadata standard = StandardMetadataLoader.load();
 
         Set<String> shipped = Set.of("InspectionTemplate", "InspectionFill", "InspectionChangeRequest",
-                "EnvironmentTemplate", "EnvironmentFill", "EnvironmentChangeRequest", "DepartmentGroup");
+                "EnvironmentTemplate", "EnvironmentFill", "EnvironmentChangeRequest", "ManagementTemplate",
+                "ManagementFill", "ManagementChangeRequest", "DepartmentGroup");
         assertThat(standard.objects().stream().filter(object -> !shipped
                 .contains(object.apiName()))).allSatisfy(object -> {
                     assertThat(object.requiresFeature()).isNull();

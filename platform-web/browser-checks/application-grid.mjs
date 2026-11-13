@@ -89,7 +89,7 @@ try {
   check("placeholder applications carry the tag", soon >= 1, `${soon} tags`);
 
   // ---- the announced new tiles open on Home and say they are being prepared ----
-  for (const name of ["capa", "audit-management", "supplier-management", "management-core"]) {
+  for (const name of ["capa", "audit-management", "supplier-management"]) {
     await page.goto(`${BASE}/apps/${name}`);
     await page.getByTestId("application-overview").waitFor({ timeout: 20000 });
     const stripSideways = await page.evaluate(
@@ -102,6 +102,19 @@ try {
   await page.locator(".control-tabs a", { hasText: "Supplier Portal" }).first().click();
   await page.getByTestId("placeholder-page").waitFor({ timeout: 20000 });
   check("an announced tab of Supplier Management says it is being prepared", (await page.getByText(/being prepared/i).count()) >= 1);
+
+  // ---- Management Core is a real application since MC1 (ADR-0257): its tile is not "coming soon" and its tabs open ----
+  await page.goto(`${BASE}/`);
+  await page.getByTestId("application-grid").waitFor({ timeout: 20000 });
+  const coreTile = page.locator('a[href="/apps/management-core"]').first();
+  check("the Management Core tile is there", (await coreTile.count()) === 1);
+  check("the Management Core tile no longer says coming soon", (await coreTile.getByText("Coming soon").count()) === 0);
+  await page.goto(`${BASE}/apps/management-core`);
+  await page.locator(".control-tabs a", { hasText: "Document Control" }).first().waitFor({ timeout: 20000 });
+  check("Management Core has the Document Control tab", true);
+  await page.locator(".control-tabs a", { hasText: "KPI management" }).first().click();
+  await page.getByTestId("placeholder-page").waitFor({ timeout: 20000 });
+  check("KPI management in Management Core says it is being prepared", (await page.getByText(/being prepared/i).count()) >= 1);
 
   // ---- Document Management shows the same screens under its own name ----
   await page.goto(`${BASE}/`);

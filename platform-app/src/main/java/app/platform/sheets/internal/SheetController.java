@@ -153,7 +153,7 @@ class SheetController {
         SpreadsheetImporter.Imported imported;
         try {
             imported = importer.read(file, kind, new SheetImportBuilder.Options(firstRowLabels, plan.dimension(),
-                    plan.rowsMode(), worksheet, properties.formatTwo().enabled()));
+                    plan.rowsMode(), worksheet, properties.formatTwo().makesFor(ownerObject)));
         } catch (ImportRefusal e) {
             imports.refused(e.code());
             throw refusal(e);

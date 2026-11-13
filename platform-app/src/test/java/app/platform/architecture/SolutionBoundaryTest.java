@@ -49,6 +49,7 @@ class SolutionBoundaryTest {
             "platform-app/src/main/resources/solutions/inspection/",
             "platform-app/src/main/resources/solutions/document-management/",
             "platform-app/src/main/resources/solutions/environment-management/",
+            "platform-app/src/main/resources/solutions/management-core/",
             "platform-app/src/main/resources/db/migration/V058__add_inspection_feature.sql",
             "platform-app/src/main/resources/db/migration/V066__create_inspection_publication.sql",
             "platform-app/src/main/resources/db/migration/V067__create_inspection_change_requests.sql",

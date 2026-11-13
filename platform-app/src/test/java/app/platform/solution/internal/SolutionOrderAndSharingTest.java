@@ -113,9 +113,17 @@ class SolutionOrderAndSharingTest {
         assertThat(real("audit-management").application().entries()).hasSize(1);
         assertThat(supplier.application().entries()).extracting(SolutionBundle.Entry::label)
                 .containsExactly("Home", "Supplier Performance Monitoring", "Supplier Portal");
-        assertThat(core.application().entries()).extracting(SolutionBundle.Entry::label)
-                .containsExactly("Home", "KPI management", "Management Review", "Plantwise Review");
-        for (SolutionBundle bundle : List.of(capa, supplier, core, real("audit-management"))) {
+        // Management Core is a real application since MC1 (ADR-0257): five working tabs, three announced ones.
+        assertThat(core.application().entries().stream()
+                .filter(entry -> entry.kind() == ShippedEntryView.Kind.PLATFORM))
+                .extracting(SolutionBundle.Entry::label).containsExactly("Home",
+                        "Document Control", "Change requests", "Record Control", "Report", "KPI management",
+                        "Management Review", "Plantwise Review");
+        assertThat(core.application().entries().stream().filter(SolutionBundle.Entry::placeholder))
+                .extracting(SolutionBundle.Entry::label)
+                .containsExactly("KPI management", "Management Review", "Plantwise Review");
+        assertThat(core.objects()).containsExactly("ManagementTemplate", "ManagementFill", "ManagementChangeRequest");
+        for (SolutionBundle bundle : List.of(capa, supplier, real("audit-management"))) {
             assertThat(bundle.objects()).isEmpty();
             assertThat(bundle.policies()).isEmpty();
             assertThat(bundle.application().entries().stream().skip(1))

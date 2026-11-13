@@ -177,7 +177,7 @@ class InspectionArchitectureTest {
 
     /** A text that is the API name of one of the objects the shipped applications of the kind declare. */
     private static final Pattern A_DECLARED_OBJECT = Pattern.compile(
-            "\"(Inspection|Environment)(Template|Fill|ChangeRequest)\"");
+            "\"(Inspection|Environment|Management)(Template|Fill|ChangeRequest)\"");
 
     @Test
     void noClassOfTheClusterNamesTheObjectOfAnApplicationAsAConstant() throws IOException {

@@ -172,4 +172,40 @@ class RecordSetsTest {
         assertThatThrownBy(() -> new RecordSets(declaring(one, two), series("ATemplate", "BTemplate"), contexts))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("'AFill' belongs to two sets");
     }
+
+    // ---- options of an application (MC1, ADR-0257) ----
+
+    private static ObjectRoles withOptions(Map<String, String> options) {
+        return new ObjectRoles("odd", "odd", Map.of(RecordSets.TEMPLATE, "OddTemplate", RecordSets.FILL, "OddFill",
+                RecordSets.REQUEST, "OddRequest"), options);
+    }
+
+    @Test
+    void theOptionsOfAnApplicationReachItsSetAndNameTheWayItPublishesAndWhatItsFooterCarries() {
+        RecordSets sets = new RecordSets(declaring(withOptions(Map.of(RecordSets.FOOTER_DATE, "true",
+                RecordSets.PUBLISH_TO, RecordSets.PLACES, RecordSets.PUBLISH_DEPARTMENT, "PLANTHEAD"))),
+                series("OddTemplate"), contexts);
+
+        RecordSet set = sets.ofTemplate("OddTemplate").orElseThrow();
+        assertThat(set.footerDate()).isTrue();
+        assertThat(set.placesOnly()).isTrue();
+        assertThat(set.placeDepartment()).isEqualTo("PLANTHEAD");
+        RecordSet plain = RecordSetsFixture.QMS;
+        assertThat(plain.footerDate()).isFalse();
+        assertThat(plain.placesOnly()).isFalse();
+        assertThat(plain.placeDepartment()).isNull();
+    }
+
+    @Test
+    void anOptionTheFunctionsDoNotKnowOrPlacesWithoutADepartmentStopTheStart() {
+        assertThatThrownBy(() -> new RecordSets(declaring(withOptions(Map.of("surprise", "yes"))),
+                series("OddTemplate"), contexts)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("application 'odd'").hasMessageContaining("surprise");
+        assertThatThrownBy(() -> new RecordSets(declaring(withOptions(Map.of(RecordSets.PUBLISH_TO,
+                RecordSets.PLACES))), series("OddTemplate"), contexts)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("go together");
+        assertThatThrownBy(() -> new RecordSets(declaring(withOptions(Map.of(RecordSets.PUBLISH_TO, "everywhere",
+                RecordSets.PUBLISH_DEPARTMENT, "X"))), series("OddTemplate"), contexts))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("publishTo");
+    }
 }

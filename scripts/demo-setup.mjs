@@ -163,7 +163,32 @@ const DEPARTMENT_GROUPS = [
   { name: "Plant 2 HR", location: "PLANT2", department: "HR" },
   { name: "Plant 2 Accounts", location: "PLANT2", department: "ACC" },
 ];
-const LICENCES_WANTED = 30;
+const LICENCES_WANTED = 40;
+
+// ---- Management Core (MC1, ADR-0257): the same kind of setup, only when the organization has the application ----
+// Plant heads receive the forms; they are one group for each plant, named by the Department group record of the plant
+// ("Plant head" department). Top management approves; the Publisher group has the last word and publishes to the plants.
+const MANAGEMENT_PEOPLE = [
+  { email: "management-user-1@example.test", name: "Management user 1", groups: ["Management users"] },
+  { email: "management-user-2@example.test", name: "Management user 2", groups: ["Management users"] },
+  { email: "top-management-1@example.test", name: "Top management 1", groups: ["Top management"] },
+  { email: "management-publisher-1@example.test", name: "Management publisher 1", groups: ["Management publishers"] },
+  { email: "plant-head-1@example.test", name: "Plant head 1", groups: ["Plant 1 heads"] },
+  { email: "plant-head-2@example.test", name: "Plant head 2", groups: ["Plant 2 heads"] },
+  { email: "reviewer-1@example.test", name: "Reviewer 1", groups: ["Management reviewers"] },
+];
+const MANAGEMENT_GROUP_POLICIES = {
+  "Management users": ["Management Author", "Management Reader", "List editor"],
+  "Top management": ["Management Approver", "Management Reader"],
+  "Management publishers": ["Management Publisher", "Management Reader"],
+  "Plant 1 heads": ["Management Reader", "Management Filler"],
+  "Plant 2 heads": ["Management Reader", "Management Filler"],
+  "Management reviewers": ["Management Reader", "Management Reviewer"],
+};
+const MANAGEMENT_DEPARTMENT_GROUPS = [
+  { name: "Plant 1 heads", location: "PLANT1", department: "PLANTHEAD" },
+  { name: "Plant 2 heads", location: "PLANT2", department: "PLANTHEAD" },
+];
 
 async function ensureLicences(platform, orgId) {
   const org = must(await platform.get(`/api/v1/platform/organizations/${orgId}`), "reading the organization");
@@ -373,6 +398,52 @@ async function ensureRequestProcess(admin, groupIds) {
   say("made", "approval process Change request review (step 1 Plant QMS, step 2 Corporate QMS asks for a location, step 3 Plant QMS publishes)");
 }
 
+/** The department "Plant head" must be part of the Department list under both plants (Management Core publishes to it). */
+async function ensurePlantHeadList(admin) {
+  const object = must(await admin.get("/api/v1/metadata/objects/DepartmentGroup"), "reading the Department group object");
+  const department = object.fields.find((f) => f.apiName === "department");
+  const allowed = department.settings.dependency.allowed;
+  const hasValue = department.settings.values.some((v) => v.value === "PLANTHEAD");
+  const missingPair = (plant) => !(allowed[plant] ?? []).includes("PLANTHEAD");
+  if (hasValue && !missingPair("PLANT1") && !missingPair("PLANT2")) return say("ok", "the Department list has Plant head under Plant 1 and Plant 2");
+  if (checkOnly) return say("missing", "the Department list needs Plant head (PLANTHEAD) under Plant 1 and Plant 2");
+  const values = hasValue ? department.settings.values : [...department.settings.values, { value: "PLANTHEAD", label: "PLANTHEAD - Plant head", active: true }];
+  const withHead = (list = []) => [...new Set([...list, "PLANTHEAD"])];
+  must(
+    await admin.put("/api/v1/metadata/objects/DepartmentGroup/fields/department", {
+      label: department.label,
+      description: department.description,
+      required: department.required,
+      version: department.version,
+      settings: { values, dependency: { controllingField: "location", allowed: { ...allowed, PLANT1: withHead(allowed.PLANT1), PLANT2: withHead(allowed.PLANT2) } } },
+    }),
+    "saving the Department list",
+  );
+  say("made", "the Department list: Plant head (PLANTHEAD) under Plant 1 and Plant 2");
+}
+
+/** A process for one Management Core object: the approvers of Top management, then the Publisher group publishes. */
+async function ensureManagementProcess(admin, groupIds, object, name, label, description) {
+  const existing = must(await admin.get(`/api/v1/metadata/approvals?object=${object}`), "reading approval processes");
+  if (existing.length > 0) return say("ok", `approval process for ${object}: ${existing.map((p) => p.label).join(", ")} (left as it is)`);
+  if (checkOnly || !groupIds["Top management"] || !groupIds["Management publishers"]) return say("missing", `the approval process for ${object}`);
+  must(
+    await admin.post(`/api/v1/metadata/approvals/${object}`, {
+      name,
+      label,
+      description,
+      active: true,
+      allowSelfApproval: false,
+      steps: [
+        { name: "TopManagement", label: "Top management", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "GROUP", value: groupIds["Top management"] }] },
+        { name: "Publish", label: "Publish", completion: "ANY", skipWhenNobody: false, asksForChoice: false, approvers: [{ kind: "GROUP", value: groupIds["Management publishers"] }] },
+      ],
+    }),
+    `making the approval process for ${object}`,
+  );
+  say("made", `approval process ${label} (step 1 Top management, step 2 the Publisher group, who then publish to the plants)`);
+}
+
 async function main() {
   const seed = seedPassword();
   // The password rules of a new account ask for a symbol, which the seed password has none of: the demo people sign in
@@ -384,14 +455,30 @@ async function main() {
   const org = orgs.find((o) => o.slug === "tenant-a");
   if (!org) throw new Error("the organization tenant-a was not found");
   const admin = await signIn(ORG_HOST, "admin-a@example.test", seed);
-  await admin.get("/api/v1/applications"); // opening the application makes the shipped access policies on first use
+  const applications = must(await admin.get("/api/v1/applications"), "reading the applications"); // opening them makes the shipped access policies on first use
+  // Management Core is set up only for an organization that has it (give the plan feature in the console first).
+  const hasManagementCore = applications.some((a) => a.apiName === "management-core");
+  if (hasManagementCore) {
+    PEOPLE.push(...MANAGEMENT_PEOPLE);
+    Object.assign(GROUP_POLICIES, MANAGEMENT_GROUP_POLICIES);
+    DEPARTMENT_GROUPS.push(...MANAGEMENT_DEPARTMENT_GROUPS);
+  } else {
+    say("skipped", "Management Core: the organization does not have the feature (give it in the console, then run again)");
+  }
   await ensureLicences(platform, org.id);
   const members = await ensurePeople(admin, password);
   const groupIds = await ensureGroups(admin, members);
   await ensureLists(admin);
+  if (hasManagementCore) await ensurePlantHeadList(admin);
   await ensureDepartmentGroups(admin, groupIds);
   await ensureProcess(admin, groupIds);
   await ensureRequestProcess(admin, groupIds);
+  if (hasManagementCore) {
+    await ensureManagementProcess(admin, groupIds, "ManagementTemplate", "FormReview", "Form review",
+      "Top management approves the form (and numbers it at the first approval); the Publisher group publishes it to the plants.");
+    await ensureManagementProcess(admin, groupIds, "ManagementChangeRequest", "FormChangeReview", "Form change review",
+      "Top management reviews the change request; the Publisher group confirms the last step, which publishes the revised form.");
+  }
   const counts = {};
   for (const kind of log) counts[kind] = (counts[kind] ?? 0) + 1;
   console.log(`\nDone: ${JSON.stringify(counts)}`);

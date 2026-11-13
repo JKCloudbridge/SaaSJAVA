@@ -35,6 +35,13 @@ describe("the print view", () => {
     expect(screen.queryByText("typed by a filler")).toBeNull();
   });
 
+  it("ends with a second footer row, the day, when the footer carries it (MC1)", () => {
+    draw(sampleDoc(), "F/MR/16  Rev No.'00'\nDate: 13-Nov-2026");
+
+    expect(screen.getByTestId("sheet-print-footer").textContent).toBe("F/MR/16  Rev No.'00'");
+    expect(screen.getByTestId("sheet-print-footer-2").textContent).toBe("Date: 13-Nov-2026");
+  });
+
   it("ends with one footer row across the full width with the number and the revision at its right", () => {
     draw();
 

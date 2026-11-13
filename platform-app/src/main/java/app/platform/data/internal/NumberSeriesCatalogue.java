@@ -49,9 +49,17 @@ final class NumberSeriesCatalogue {
      * @param field the field that holds the number
      * @param selector the picklist whose value chooses the format, or an empty text
      * @param formats the formats by value of the selector (the empty text for a series with one format)
+     * @param counterKey the key whose counters this series draws from: its own, or that of the series it shares
+     *        numbers with (MC1, ADR-0257)
      */
     record Series(String key, String object, String field, String selector, Map<String, NumberFormat> formats,
-            Map<String, NumberFormat> defaults, String optionalField) {
+            Map<String, NumberFormat> defaults, String optionalField, String counterKey) {
+
+        /** A series with counters of its own. */
+        Series(String key, String object, String field, String selector, Map<String, NumberFormat> formats,
+                Map<String, NumberFormat> defaults, String optionalField) {
+            this(key, object, field, selector, formats, defaults, optionalField, key);
+        }
 
         Series {
             formats = Map.copyOf(formats);
@@ -78,6 +86,15 @@ final class NumberSeriesCatalogue {
             Series one = check(platform, declaration);
             if (checked.put(one.key(), one) != null) {
                 throw new IllegalStateException("number series '" + one.key() + "' is declared twice");
+            }
+        }
+        for (Series one : checked.values()) {
+            if (!one.counterKey().equals(one.key())) {
+                Series shared = checked.get(one.counterKey());
+                if (shared == null || !shared.counterKey().equals(shared.key())) {
+                    throw new IllegalStateException("number series '" + one.key() + "': the series it shares "
+                            + "counters with is declared and has counters of its own");
+                }
             }
         }
         this.series = Map.copyOf(checked);
@@ -137,7 +154,20 @@ final class NumberSeriesCatalogue {
             validateFormat(object, declaration.field(), format);
         }
         return new Series(declaration.key(), declaration.object(), declaration.field(), declaration.selector(),
-                formats, defaults, optional);
+                formats, defaults, optional, counterKey(declaration));
+    }
+
+    /** The key whose counters the series uses; a series that shares must name another, plain, series. */
+    private static String counterKey(NumberSeriesDeclaration declaration) {
+        String other = declaration.counterSeries();
+        if (other.isEmpty()) {
+            return declaration.key();
+        }
+        if (other.equals(declaration.key()) || !KEY.matcher(other).matches()) {
+            throw new IllegalStateException("number series '" + declaration.key()
+                    + "': the series it shares counters with is another series with a plain key");
+        }
+        return other;
     }
 
     /** The same field and length rules for shipped and organization-owned formats. */

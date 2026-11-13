@@ -38,6 +38,17 @@ final class RecordSets {
     static final String FILL = "fill";
     static final String REQUEST = "changeRequest";
 
+    /** Option: the footer carries the day of the Revision's publish ({@code true}). */
+    static final String FOOTER_DATE = "footerDate";
+    /** Option: where a template is published to; {@link #PLACES} publishes to the places alone. */
+    static final String PUBLISH_TO = "publishTo";
+    /** Option: the code of the one department that receives a template published to a place. */
+    static final String PUBLISH_DEPARTMENT = "publishDepartment";
+    /** The value of {@link #PUBLISH_TO} that means the places alone. */
+    static final String PLACES = "places";
+    private static final Set<String> OPTION_NAMES = Set.of(FOOTER_DATE, PUBLISH_TO,
+            PUBLISH_DEPARTMENT);
+
     private static final String NO_APPLICATION = "This application does not exist.";
 
     private final ObjectRoleDeclarations declarations;
@@ -72,7 +83,20 @@ final class RecordSets {
             throw new IllegalStateException(where + ": the template object must have exactly one number series, "
                     + "found " + series.size());
         }
-        return new RecordSet(template, fill, request, series.get(0).key());
+        for (Map.Entry<String, String> option : roles.options().entrySet()) {
+            if (!OPTION_NAMES.contains(option.getKey())) {
+                throw new IllegalStateException(where + ": 'options' names '" + option.getKey()
+                        + "', which the functions do not know");
+            }
+        }
+        String publishTo = roles.options().get(PUBLISH_TO);
+        if (publishTo != null && !PLACES.equals(publishTo)) {
+            throw new IllegalStateException(where + ": 'publishTo' is 'places' or absent");
+        }
+        if (PLACES.equals(publishTo) != roles.options().containsKey(PUBLISH_DEPARTMENT)) {
+            throw new IllegalStateException(where + ": 'publishTo: places' and 'publishDepartment' go together");
+        }
+        return new RecordSet(template, fill, request, series.get(0).key(), roles.options());
     }
 
     /** No object may belong to two sets: that would let two applications claim one object. */

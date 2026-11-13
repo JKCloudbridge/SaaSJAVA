@@ -7008,6 +7008,8 @@ export interface components {
         };
         AudienceOptionsView: {
             locations: components["schemas"]["AudienceLocation"][];
+            placeDepartment?: string;
+            placesOnly: boolean;
         };
         AudiencePick: {
             department: string;
@@ -10072,6 +10074,7 @@ export interface components {
             canSetOptions: boolean;
             canSubmit: boolean;
             canUnpublish: boolean;
+            footerDate: boolean;
             /** Format: uuid */
             id: string;
             /** Format: date-time */

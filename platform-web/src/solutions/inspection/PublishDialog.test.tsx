@@ -51,6 +51,7 @@ function view(extra: Partial<TemplateLifecycleView> = {}): TemplateLifecycleView
     canDownload: false,
     canSubmit: true,
     canSetOptions: true,
+    footerDate: false,
     ...extra,
   };
 }
@@ -373,5 +374,61 @@ describe("the publish dialog when departments were suggested", () => {
     expect(location.value).toBe("PLANT1");
     expect(screen.getByRole("checkbox", { name: /^Production/ })).toBeChecked();
     expect(screen.getByRole("button", { name: "Publish" })).toBeEnabled();
+  });
+});
+
+// An application that publishes to places alone (MC1, ADR-0257).
+describe("the publish dialog of an application that publishes to places alone", () => {
+  const PLACES = {
+    data: {
+      placesOnly: true,
+      placeDepartment: "PLANTHEAD",
+      locations: [
+        { value: "PLANT1", label: "Plant 1", departments: [{ value: "PLANTHEAD", label: "Plant head", configured: true }] },
+        { value: "PLANT2", label: "Plant 2", departments: [{ value: "PLANTHEAD", label: "Plant head", configured: false }] },
+      ],
+    },
+  };
+
+  it("lists the places, asks for no department and sends the one the server named", async () => {
+    const calls = fakeApi({
+      "GET /api/v1/templates/audience-options": () => json(PLACES),
+      [`POST /api/v1/templates/${ID}/publish`]: () => json({ data: view({ audience: [] }) }),
+    });
+    const { onDone } = draw();
+
+    const places = await screen.findByTestId("publish-places");
+    expect(screen.queryByLabelText("Location")).toBeNull();
+    expect(screen.queryByRole("group", { name: "Departments" })).toBeNull();
+    expect(within(places).getAllByRole("checkbox").map((box) => box.parentElement?.textContent?.trim())).toEqual([
+      "Plant 1",
+      "Plant 2 (no group set up yet)",
+    ]);
+
+    fireEvent.click(within(places).getByRole("checkbox", { name: /^Plant 1/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    const sent = JSON.parse(calls.filter((call) => call.key.endsWith("/publish")).at(-1)?.body ?? "null") as unknown;
+    expect(sent).toEqual({
+      versionNo: 2,
+      viewOnly: false,
+      allowDownload: false,
+      audiences: [{ location: "PLANT1", department: "PLANTHEAD" }],
+    });
+  });
+
+  it("keeps Publish off until a place is ticked, and takes a place back off", async () => {
+    fakeApi({ "GET /api/v1/templates/audience-options": () => json(PLACES) });
+    draw();
+
+    const places = await screen.findByTestId("publish-places");
+    const publish = screen.getByRole("button", { name: "Publish" });
+    expect(publish).toBeDisabled();
+    const one = within(places).getByRole("checkbox", { name: /^Plant 1/ });
+    fireEvent.click(one);
+    expect(publish).toBeEnabled();
+    fireEvent.click(one);
+    expect(publish).toBeDisabled();
   });
 });

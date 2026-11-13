@@ -86,10 +86,24 @@ export function PublishDialog({
     () => locations.find((place) => place.value === location)?.departments ?? [],
     [locations, location],
   );
+  // An application that publishes to places alone (MC1, ADR-0257): the server names the one department that receives a
+  // template at each place, and the dialog asks for places only.
+  const placesOnly = options.status === "ready" && options.options.placesOnly === true;
+  const placeDepartment = options.status === "ready" ? options.options.placeDepartment ?? "" : "";
   const labelOf = (pick: AudiencePick) => {
     const place = locations.find((entry) => entry.value === pick.location);
     const part = place?.departments.find((entry) => entry.value === pick.department);
-    return `${place?.label ?? pick.location} · ${part?.label ?? pick.department}`;
+    return placesOnly ? (place?.label ?? pick.location) : `${place?.label ?? pick.location} · ${part?.label ?? pick.department}`;
+  };
+  const isPlaceChosen = (code: string) =>
+    chosen.some((pick) => pick.location === code && pick.department === placeDepartment);
+  const togglePlace = (code: string) => {
+    setRefusal(undefined);
+    setChosen(
+      isPlaceChosen(code)
+        ? chosen.filter((pick) => !(pick.location === code && pick.department === placeDepartment))
+        : [...chosen, { location: code, department: placeDepartment }],
+    );
   };
   const isChosen = (code: string) => chosen.some((pick) => pick.location === location && pick.department === code);
 
@@ -138,7 +152,9 @@ export function PublishDialog({
         {changesVersion
           ? `${revisionWords(versionNo)} becomes the one in use and replaces ${numbers.activeVersion > 0 ? revisionWords(numbers.activeVersion).toLowerCase() : "nothing yet"}.`
           : `${revisionWords(versionNo)} stays in use. Only who it is published to changes.`}{" "}
-        The people of the departments you choose will see it in the Templates list, and nobody else will.
+        {placesOnly
+          ? "The people of the places you choose will see it in the Templates list, and nobody else will."
+          : "The people of the departments you choose will see it in the Templates list, and nobody else will."}
       </p>
 
       {suggested.length > 0 ? (
@@ -166,7 +182,23 @@ export function PublishDialog({
         </p>
       ) : null}
 
-      {options.status === "ready" ? (
+      {options.status === "ready" && placesOnly ? (
+        <fieldset className="stack" data-testid="publish-places">
+          <legend>Places</legend>
+          {locations.length === 0 ? <p className="hint">No place is set up to receive templates yet.</p> : null}
+          {locations.map((place) => {
+            const part = place.departments[0];
+            return (
+              <label key={place.value}>
+                <input type="checkbox" checked={isPlaceChosen(place.value)} onChange={() => togglePlace(place.value)} />{" "}
+                {part?.configured === false ? `${place.label} (no group set up yet)` : place.label}
+              </label>
+            );
+          })}
+        </fieldset>
+      ) : null}
+
+      {options.status === "ready" && !placesOnly ? (
         <>
           <div className="filters">
             <label>

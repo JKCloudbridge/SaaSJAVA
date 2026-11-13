@@ -19038,9 +19038,15 @@
             "items" : {
               "$ref" : "#/components/schemas/AudienceLocation"
             }
+          },
+          "placeDepartment" : {
+            "type" : "string"
+          },
+          "placesOnly" : {
+            "type" : "boolean"
           }
         },
-        "required" : [ "locations" ]
+        "required" : [ "locations", "placesOnly" ]
       },
       "AudiencePick" : {
         "type" : "object",
@@ -28396,6 +28402,9 @@
           "canUnpublish" : {
             "type" : "boolean"
           },
+          "footerDate" : {
+            "type" : "boolean"
+          },
           "id" : {
             "type" : "string",
             "format" : "uuid"
@@ -28449,7 +28458,7 @@
             "type" : "boolean"
           }
         },
-        "required" : [ "allowDownload", "audience", "canDownload", "canPublish", "canRetire", "canSetOptions", "canSubmit", "canUnpublish", "id", "lifecycle", "numberPreviewComplete", "openChangeRequests", "retired", "suggestedAudience", "suggestionDropped", "versionReviews", "viewOnly" ]
+        "required" : [ "allowDownload", "audience", "canDownload", "canPublish", "canRetire", "canSetOptions", "canSubmit", "canUnpublish", "footerDate", "id", "lifecycle", "numberPreviewComplete", "openChangeRequests", "retired", "suggestedAudience", "suggestionDropped", "versionReviews", "viewOnly" ]
       },
       "TemplatePage" : {
         "type" : "object",
