@@ -34,7 +34,25 @@ class SheetHostileCorpusTest {
 
     private static final String CORPUS = "/sheets/hostile-grids.txt";
     private static final SheetProperties.Limits LIMITS = SheetProperties.Limits.standard();
-    private static final SheetGridValidator VALIDATOR = new SheetGridValidator(LIMITS, new SheetSchemas());
+    private static final SheetSchemas SCHEMAS = new SheetSchemas();
+    /** The validator of the platform with format version 2 on: it dispatches, so it answers for both formats. */
+    private static final SheetGridValidator VALIDATOR = new SheetGridValidator(LIMITS, SCHEMAS, true);
+    /** The switch off: a document of format version 2 is refused before anything else is looked at. */
+    private static final SheetGridValidator SWITCH_OFF = new SheetGridValidator(LIMITS, SCHEMAS, false);
+    /** A template of two sheets, for the rules about several sheets. */
+    private static final SheetGridValidator TWO_SHEETS = new SheetGridValidator(limits(5_000, 8, 1_000, 4, 600, 2),
+            SCHEMAS, true);
+    /** Settings that narrow the widths and heights the schema allows. */
+    private static final SheetGridValidator NARROWED = new SheetGridValidator(limits(5_000, 40, 1_000, 16, 400, 1),
+            SCHEMAS, true);
+
+    private static SheetProperties.Limits limits(int fixedText, int minWidth, int maxWidth, int minHeight,
+            int maxHeight, int sheets) {
+        return new SheetProperties.Limits(LIMITS.maxBytes(), LIMITS.maxRows(), LIMITS.maxColumns(),
+                LIMITS.maxHeaderRows(), LIMITS.maxCellChars(), LIMITS.maxLabelChars(), LIMITS.maxPicklistValues(),
+                LIMITS.maxMerges(), LIMITS.maxDepth(), LIMITS.maxVersionsPerOwner(), fixedText, minWidth, maxWidth,
+                minHeight, maxHeight, sheets, LIMITS.maxFilesPerCell(), LIMITS.maxLinkChars());
+    }
 
     /** Every code the validator answers with; each must have at least one line in the corpus. */
     private static final Set<String> CODES = new TreeSet<>(Set.of("too_large", "too_deep", "not_json", "shape",
@@ -42,7 +60,24 @@ class SheetHostileCorpusTest {
             "label_too_long", "text_too_long", "unsafe_text", "duplicate_id", "picklist_missing", "picklist_duplicate",
             "picklist_blank", "picklist_unexpected", "rows_mode", "default_type", "cell_unknown", "header_input",
             "fixed_value", "value_type", "style_on_input", "merge_unknown", "merge_zones", "merge_order",
-            "merge_single", "merge_overlap", "merge_covered", "too_many_reportable"));
+            "merge_single", "merge_overlap", "merge_covered", "too_many_reportable",
+            // Format version 2 (SH1A, ADR-0251):
+            "format_two_off", "too_many_sheets", "duplicate_sheet_key", "title_invalid", "width_range",
+            "height_range", "look_conflict", "link_invalid", "link_target", "freeze_range", "inputs_need_named_rows",
+            "inputs_on_info_sheet", "input_unknown_cell", "input_not_an_input_cell", "input_picklist",
+            "input_max_files", "input_preset",
+            // Conditional colours (SH1B, ADR-0255):
+            "condition_unknown_cell", "condition_range", "condition_operand", "condition_paint"));
+
+    /** The validator a line is judged by: the platform's, except where the line is about a setting or the switch. */
+    private static SheetGridValidator validatorFor(Construct construct) {
+        return switch (construct.expected()) {
+            case "format_two_off" -> SWITCH_OFF;
+            case "duplicate_sheet_key" -> TWO_SHEETS;
+            case "width_range", "height_range" -> NARROWED;
+            default -> VALIDATOR;
+        };
+    }
 
     /** One line of the corpus. */
     record Construct(int line, String expected, String kind, String payload, String reason) {
@@ -69,7 +104,7 @@ class SheetHostileCorpusTest {
                 assertThat(parts).as("line " + number + " must be: code, kind, payload, reason, separated by TABs")
                         .hasSize(4);
                 assertThat(parts[3]).as("the reason on line " + number).isNotBlank();
-                assertThat(parts[1]).as("the kind on line " + number).isIn("merge", "raw", "gen");
+                assertThat(parts[1]).as("the kind on line " + number).isIn("merge", "raw", "gen", "two");
                 constructs.add(new Construct(number, parts[0], parts[1], parts[2], parts[3]));
             }
         }
@@ -83,7 +118,7 @@ class SheetHostileCorpusTest {
     @ParameterizedTest(name = "{1}")
     @MethodSource("corpus")
     void everyHostileConstructIsRefusedWithItsCodeAndRepeatsNothing(Construct construct, String reason) {
-        Result result = VALIDATOR.check(documentOf(construct));
+        Result result = validatorFor(construct).check(documentOf(construct));
 
         assertThat(result.accepted()).as("accepted: " + reason).isFalse();
         assertThat(result.problems().get(0).code()).as(construct + " answered with " + result.problems())
@@ -112,14 +147,53 @@ class SheetHostileCorpusTest {
         assertThat(constructs()).hasSizeGreaterThanOrEqualTo(100);
     }
 
+    /**
+     * The dispatching validator answers a hostile document of format version 1 exactly as the version 1 path alone
+     * does: the same problems with the same codes, places and words (SH1A: version 1 is not touched).
+     */
+    @Test
+    void theDispatchingValidatorAnswersEveryVersionOneLineAsTheVersionOnePathDoes() throws IOException {
+        int compared = 0;
+        for (Construct construct : constructs()) {
+            if ("two".equals(construct.kind()) || construct.expected().equals("format_two_off")
+                    || construct.expected().endsWith("sheets") || construct.expected().equals("duplicate_sheet_key")) {
+                continue;
+            }
+            byte[] document = documentOf(construct);
+            if (claimsFormatTwo(document)) {
+                continue;
+            }
+            assertThat(VALIDATOR.check(document).problems()).as(construct.toString())
+                    .isEqualTo(VALIDATOR.checkVersionOne(document).problems());
+            compared++;
+        }
+        assertThat(compared).as("lines compared").isGreaterThanOrEqualTo(100);
+    }
+
+    private static boolean claimsFormatTwo(byte[] document) {
+        try {
+            return SheetGridValidator.isFormatTwo(GridDocs.JSON.readTree(document));
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
     // ---- making the documents ----
 
     private static byte[] documentOf(Construct construct) {
         return switch (construct.kind()) {
             case "raw" -> construct.payload().getBytes(StandardCharsets.UTF_8);
             case "merge" -> patched(construct.payload());
+            case "two" -> patchedTwo(construct.payload());
             default -> generated(construct.payload());
         };
+    }
+
+    /** The smallest valid document of format version 2 with the merge patch applied to its first sheet. */
+    private static byte[] patchedTwo(String patch) {
+        JsonNode base = GridDocs.JSON.valueToTree(TwoDocs.minimal());
+        merge((ObjectNode) base.path("sheets").get(0), GridDocs.JSON.readTree(patch));
+        return GridDocs.JSON.writeValueAsBytes(base);
     }
 
     /** The smallest valid document with the merge patch applied (RFC 7386). */
@@ -161,8 +235,31 @@ class SheetHostileCorpusTest {
             case "cell-1001" -> withCell("HOSTILEMARK" + "x".repeat(1001 - "HOSTILEMARK".length()));
             case "default-1001" -> defaultOf("HOSTILEMARK" + "x".repeat(1001 - "HOSTILEMARK".length()));
             case "label-201" -> labelOf("HOSTILEMARK" + "x".repeat(201 - "HOSTILEMARK".length()));
+            case "fixed-5001" -> twoWithCell("h1:c1", GridDocs.map("value", "HOSTILEMARK"
+                    + "x".repeat(5001 - "HOSTILEMARK".length())));
+            case "input-1001" -> twoWithCell("r1:c1", GridDocs.map("value", "HOSTILEMARK"
+                    + "x".repeat(1001 - "HOSTILEMARK".length()), "kind", "input"));
+            case "switch-off" -> TwoDocs.bytes(TwoDocs.minimal());
+            case "two-sheets" -> twoSheets("second");
+            case "same-key" -> twoSheets("main");
             default -> throw new IllegalArgumentException("The corpus names a generator the test does not have");
         };
+    }
+
+    private static byte[] twoWithCell(String key, java.util.Map<String, Object> cell) {
+        var doc = TwoDocs.minimal();
+        TwoDocs.cells(doc).put(key, cell);
+        return TwoDocs.bytes(doc);
+    }
+
+    /** A document of two sheets: the smallest one twice, the second under the key given. */
+    private static byte[] twoSheets(String secondKey) {
+        var doc = TwoDocs.minimal();
+        java.util.Map<String, Object> second = GridDocs.map();
+        second.putAll(TwoDocs.sheet(TwoDocs.minimal()));
+        second.put("key", secondKey);
+        TwoDocs.sheets(doc).add(second);
+        return TwoDocs.bytes(doc);
     }
 
     private static byte[] withCell(String text) {

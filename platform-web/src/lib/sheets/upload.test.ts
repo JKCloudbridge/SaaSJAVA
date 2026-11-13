@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { ImportReport } from "./api";
-import { changedOnTheWay, kindOfFile, leftOut, limitWords, refusalBeforeSending, reportSummary } from "./upload";
+import {
+  changedOnTheWay,
+  hasWorksheetChoice,
+  kindOfFile,
+  leftOut,
+  limitWords,
+  placesWords,
+  refusalBeforeSending,
+  reportSummary,
+  worksheetWords,
+} from "./upload";
 
 const REPORT: ImportReport = {
   columns: 12,
@@ -77,5 +87,36 @@ describe("the words for what a file gives", () => {
     expect(changedOnTheWay(report).map((note) => note.code)).toEqual(["bordered_blanks", "title_row"]);
     expect(leftOut(report).map((note) => note.code)).toEqual(["images"]);
     expect(reportSummary(report)).toBe("12 columns, 80 rows, 3 merged areas");
+  });
+});
+
+describe("the choice of a worksheet", () => {
+  it("is offered only when the workbook has more than one visible worksheet", () => {
+    expect(hasWorksheetChoice(REPORT)).toBe(false);
+    expect(hasWorksheetChoice({ ...REPORT, worksheets: [{ index: 0, title: "A", rows: 1, columns: 1 }] })).toBe(false);
+    expect(
+      hasWorksheetChoice({
+        ...REPORT,
+        worksheets: [
+          { index: 0, title: "A", rows: 1, columns: 1 },
+          { index: 1, title: "B", rows: 1, columns: 1 },
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it("names a worksheet by its title and the size the file says, or by its number when it has no usable title", () => {
+    expect(worksheetWords({ index: 1, title: "Data", rows: 60, columns: 22 })).toBe("Data (about 60 rows, 22 columns)");
+    expect(worksheetWords({ index: 1, rows: 1, columns: 1 })).toBe("Worksheet 2 (about 1 row, 1 column)");
+    expect(worksheetWords({ index: 0, title: "Empty", rows: 0, columns: 0 })).toBe("Empty");
+  });
+
+  it("writes the cells where embedded files stood as a person reads them in the program", () => {
+    expect(
+      placesWords([
+        { row: 12, column: "B" },
+        { row: 14, column: "AA" },
+      ]),
+    ).toBe("B12, AA14");
   });
 });

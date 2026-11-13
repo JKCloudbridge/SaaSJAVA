@@ -5,13 +5,16 @@ import {
   FONT_SIZES,
   ALIGNMENTS,
   TEXT_COLOURS,
+  type CellExtras,
   type CellStyle,
   type FontSize,
   type GridCell,
   type GridColumn,
   type GridDoc,
   type GridLine,
+  type GridMerge,
   type RowsMode,
+  type SheetExtras,
 } from "./types";
 
 /**
@@ -115,9 +118,55 @@ function style(raw: unknown): CellStyle | undefined {
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
-/** Reads an answer of the API into a document, in the one form the editor and the server agree on. */
+/**
+ * Reads an answer of the API into a document, in the one form the editor and the server agree on. A sheet in format
+ * version 2 is read as the editor's document plus `sheet`: the parts the editor does not know, kept exactly as they were
+ * (SH1A, ADR-0251). A document the editor itself made (it has `dimension`, not `sheets`) is only tidied.
+ */
 export function fromApi(raw: unknown): GridDoc {
   const source = asRecord(raw);
+  if (source.formatVersion === 2 && Array.isArray(source.sheets)) {
+    return fromTwo(source);
+  }
+  const doc = fromBody(source);
+  const carried = asRecord(source.sheet);
+  return source.formatVersion === 2 && typeof carried.key === "string"
+    ? { ...doc, formatVersion: 2, sheet: source.sheet as SheetExtras }
+    : doc;
+}
+
+/** The first sheet of a document of format version 2, with what the editor does not know kept beside it. */
+function fromTwo(source: Record<string, unknown>): GridDoc {
+  const sheets = asList(source.sheets);
+  const first = asRecord(sheets[0]);
+  const extras: Record<string, CellExtras> = {};
+  for (const [key, item] of Object.entries(asRecord(first.cells))) {
+    const cell = asRecord(item);
+    const extra: CellExtras = {};
+    if (Object.keys(asRecord(cell.look)).length > 0) {
+      extra.look = asRecord(cell.look);
+    }
+    if (typeof cell.link === "string") {
+      extra.link = cell.link;
+    }
+    if (extra.look || extra.link) {
+      extras[key] = extra;
+    }
+  }
+  const sheet: SheetExtras = { key: text(first.key) ?? "main", cells: extras };
+  const title = text(first.title);
+  if (title !== undefined) sheet.title = title;
+  if (first.fillable === false) sheet.fillable = false;
+  if (Object.keys(asRecord(first.freeze)).length > 0) sheet.freeze = asRecord(first.freeze);
+  if (Object.keys(asRecord(first.print)).length > 0) sheet.print = asRecord(first.print);
+  if (Object.keys(asRecord(first.inputs)).length > 0) sheet.inputs = asRecord(first.inputs);
+  const conditions = asList(first.conditions).map(asRecord).filter((one) => Object.keys(one).length > 0);
+  if (conditions.length > 0) sheet.conditions = conditions;
+  if (sheets.length > 1) sheet.otherSheets = sheets.slice(1);
+  return { ...fromBody(first), formatVersion: 2, sheet };
+}
+
+function fromBody(source: Record<string, unknown>): GridDoc {
   const dimension: 1 | 2 = source.dimension === 1 ? 1 : 2;
   const rowsMode = ROWS_MODES.find((candidate) => candidate === source.rowsMode) ?? (dimension === 1 ? "REPEATABLE" : "FIXED");
   const columns = asList(source.columns).map(column).filter((c): c is GridColumn => c !== null);
@@ -152,9 +201,82 @@ export function fromApi(raw: unknown): GridDoc {
   return { ...doc, cells, merges };
 }
 
-/** The document as it is sent: the same form `fromApi` reads, with every part present. */
-export function toApi(doc: GridDoc): GridDoc {
-  return fromApi(doc);
+/**
+ * The document as it is sent: the form `fromApi` reads, with every part present. A sheet that came from format
+ * version 2 is sent as format version 2, with the parts the editor does not know put back.
+ */
+export function toApi(doc: GridDoc): GridDoc | TwoDocument {
+  const body = fromApi({ ...doc, formatVersion: 1, sheet: undefined });
+  return doc.sheet ? toTwo(body, doc.sheet) : body;
+}
+
+/** A document of format version 2 as it is sent. */
+export interface TwoDocument {
+  formatVersion: 2;
+  sheets: Record<string, unknown>[];
+}
+
+/**
+ * Puts the parts the editor does not know back into the sheet it changed. A part that belongs to a row or a column
+ * that no longer exists is dropped, as is a link on a cell that no longer holds fixed text, a stated input cell that is
+ * no longer an input cell, and a text colour or size of the look that the author has now stated by a name in the style
+ * (the server refuses a cell that states one twice, and the author's own choice is the newer).
+ */
+function toTwo(body: GridDoc, sheet: SheetExtras): TwoDocument {
+  const rowIds = new Set([...body.headerRows, ...body.rows].map((line) => line.id));
+  const headerIds = new Set(body.headerRows.map((line) => line.id));
+  const bodyRowIds = new Set(body.rows.map((line) => line.id));
+  const columnIds = new Set(body.columns.map((column) => column.id));
+  const exists = (key: string): boolean => {
+    const [rowId, columnId] = splitKey(key);
+    return rowIds.has(rowId) && columnIds.has(columnId);
+  };
+  const cells: Record<string, Record<string, unknown>> = {};
+  for (const [key, cell] of Object.entries(body.cells)) {
+    cells[key] = { ...cell };
+  }
+  for (const [key, extra] of Object.entries(sheet.cells)) {
+    if (!exists(key)) continue;
+    const cell = cells[key] ?? {};
+    if (extra.look) {
+      const look = { ...extra.look };
+      if (body.cells[key]?.style?.colour) delete look.colour;
+      if (body.cells[key]?.style?.fontSize) delete look.size;
+      if (Object.keys(look).length > 0) cell.look = look;
+    }
+    const fixedText =
+      typeof body.cells[key]?.value === "string" && (headerIds.has(splitKey(key)[0]) || body.cells[key]?.kind !== "input");
+    if (extra.link && fixedText) cell.link = extra.link;
+    if (Object.keys(cell).length > 0) cells[key] = cell;
+  }
+  const inputs: Record<string, unknown> = {};
+  for (const [key, spec] of Object.entries(sheet.inputs ?? {})) {
+    const [rowId] = splitKey(key);
+    const held = body.cells[key];
+    const typedInto = held === undefined || held.kind === "input" || (held.kind === undefined && held.value === undefined);
+    if (exists(key) && bodyRowIds.has(rowId) && typedInto) inputs[key] = spec;
+  }
+  // A conditional colour whose range lost a row or a column would be refused by the server, so it is dropped with it.
+  const conditions = (sheet.conditions ?? []).filter(
+    (one) => typeof one.from === "string" && typeof one.to === "string" && exists(one.from) && exists(one.to),
+  );
+  const out: Record<string, unknown> = { key: sheet.key };
+  if (sheet.title !== undefined) out.title = sheet.title;
+  if (sheet.fillable === false) out.fillable = false;
+  if (sheet.freeze) out.freeze = sheet.freeze;
+  if (sheet.print) out.print = sheet.print;
+  if (Object.keys(inputs).length > 0) out.inputs = inputs;
+  if (conditions.length > 0) out.conditions = conditions;
+  Object.assign(out, {
+    dimension: body.dimension,
+    rowsMode: body.rowsMode,
+    columns: body.columns,
+    headerRows: body.headerRows,
+    rows: body.rows,
+    cells,
+    merges: body.merges,
+  });
+  return { formatVersion: 2, sheets: [out, ...(sheet.otherSheets ?? []).map(asRecord)] };
 }
 
 function sortedValue(value: unknown): unknown {
@@ -178,8 +300,17 @@ function sortedValue(value: unknown): unknown {
  */
 export function canonicalText(doc: GridDoc): string {
   const sent = toApi(doc);
-  const merges = [...sent.merges].sort((a, b) => (a.from + a.to < b.from + b.to ? -1 : 1));
-  return JSON.stringify(sortedValue({ ...sent, merges }));
+  if ("sheets" in sent) {
+    const sheets = sent.sheets.map((sheet, index) =>
+      index === 0 ? { ...sheet, merges: sortedMerges(sheet.merges as GridMerge[]) } : sheet,
+    );
+    return JSON.stringify(sortedValue({ ...sent, sheets }));
+  }
+  return JSON.stringify(sortedValue({ ...sent, merges: sortedMerges(sent.merges) }));
+}
+
+function sortedMerges(merges: GridMerge[]): GridMerge[] {
+  return [...merges].sort((a, b) => (a.from + a.to < b.from + b.to ? -1 : 1));
 }
 
 /** Whether two documents mean the same thing. */

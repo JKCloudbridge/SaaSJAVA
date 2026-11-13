@@ -18,6 +18,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.context.TestPropertySource;
 
 /**
  * The upload of a spreadsheet file into a sheet (UI3B, ADR-0195), through the real application on a real PostgreSQL:
@@ -27,6 +28,9 @@ import org.junit.jupiter.api.Test;
  * race of two uploads in which one draft wins.
  */
 @PlatformIntegrationTest
+// This class holds the behaviour of the upload with format version 2 switched off (SH1B): nothing changes for a
+// deployment that has not switched it on. The upload with the switch on is in SheetImportFormatTwoIT.
+@TestPropertySource(properties = "platform.sheets.format-two.enabled=false")
 class SheetImportIT extends SheetSupport {
 
     private static final String OCTET = "application/octet-stream";

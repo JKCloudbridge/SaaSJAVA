@@ -59,6 +59,10 @@ logging:
     correlation: "[trace=%X{traceId:-} request=%X{requestId:-} tenant=%X{tenantId:-}] "
 
 platform:
+  sheets:
+    # Try the new sheet format on this machine (SH1A, ADR-0251). Production keeps it off.
+    format-two:
+      enabled: true
   secrets:
     kek:
       # The key of infra/local/.env (made by init-env.ps1). It must stay the same between starts, or the credentials

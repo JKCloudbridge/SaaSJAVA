@@ -141,6 +141,16 @@
       <artifactId>jsch</artifactId>
     </dependency>
 
+    <!-- Workbook styles for the upload of a spreadsheet (SH1B, ADR-0253): referenced by the sheets module only. -->
+    <dependency>
+      <groupId>org.apache.poi</groupId>
+      <artifactId>poi-ooxml</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.poi</groupId>
+      <artifactId>poi-ooxml-lite</artifactId>
+    </dependency>
+
     <!-- A real in-process SSH and file transfer server for the tests of the file flows; never shipped. -->
     <dependency>
       <groupId>org.apache.sshd</groupId>

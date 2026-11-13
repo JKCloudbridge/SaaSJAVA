@@ -135,6 +135,9 @@ class DefaultSheetLifecycle implements SheetLifecycle {
         if (state.count() >= properties.limits().maxVersionsPerOwner()) {
             throw refused("start", Reason.TOO_MANY_VERSIONS);
         }
+        if (SheetFormats.copyRefused(properties, store, json, ownerObject, ownerId, basedOn)) {
+            throw refused("start", Reason.EARLIER_FORMAT);
+        }
         int versionNo = state.highest() + 1;
         SheetVersionStore.Row row = store.insertCopy(ownerObject, ownerId, versionNo, basedOn, actor)
                 .orElseThrow(() -> refused("start", Reason.NO_VERSION));
@@ -151,6 +154,9 @@ class DefaultSheetLifecycle implements SheetLifecycle {
         }
         if (state.count() >= properties.limits().maxVersionsPerOwner()) {
             throw refused("start_held", Reason.TOO_MANY_VERSIONS);
+        }
+        if (SheetFormats.copyRefused(properties, store, json, ownerObject, ownerId, basedOn)) {
+            throw refused("start_held", Reason.EARLIER_FORMAT);
         }
         SheetVersionStore.Row row = store.insertHeldCopy(ownerObject, ownerId, state.highest() + 1, basedOn, requestId,
                 actor).orElseThrow(() -> refused("start_held", Reason.NO_VERSION));

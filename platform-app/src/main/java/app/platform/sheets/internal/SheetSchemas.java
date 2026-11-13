@@ -32,13 +32,17 @@ final class SheetSchemas {
 
     private static final String SCHEMAS_POINTER = "#/components/schemas/";
     private static final String ROOT = "SheetGrid";
+    /** The root of format version 2 (SH1A, ADR-0251). */
+    private static final String ROOT_TWO = "SheetDocument";
     private static final int MOST_ISSUES = 20;
 
     /** The property names of the schema: the only words, besides positions and identifiers, a place may contain. */
     private static final Set<String> NAMES = Set.of("formatVersion", "dimension", "rowsMode", "columns", "headerRows",
             "rows", "cells", "merges", "id", "label", "type", "required", "default", "picklist", "values", "width",
             "height", "value", "style", "kind", "bold", "italic", "fontSize", "underline", "alignment", "colour",
-            "from", "to");
+            "from", "to", "sheets", "key", "title", "fillable", "freeze", "print", "inputs", "look", "link", "font",
+            "size", "fill", "wrap", "verticalAlignment", "borders", "numberFormat", "top", "right", "bottom", "left",
+            "paper", "orientation", "fitToWidth", "repeatHeaderRows", "class", "maxFiles");
     private static final Pattern CELL = Pattern.compile("[A-Za-z0-9_-]{1,40}:[A-Za-z0-9_-]{1,40}");
 
     /**
@@ -52,6 +56,7 @@ final class SheetSchemas {
 
     private final JsonNode schemas;
     private final Schema compiled;
+    private final Schema compiledTwo;
 
     SheetSchemas() {
         JsonMapper json = JsonMapper.builder().build();
@@ -68,6 +73,9 @@ final class SheetSchemas {
         root.put("$ref", SCHEMAS_POINTER + ROOT);
         root.putObject("components").set("schemas", schemas.deepCopy());
         this.compiled = SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12).getSchema(root);
+        ObjectNode rootTwo = root.deepCopy();
+        rootTwo.put("$ref", SCHEMAS_POINTER + ROOT_TWO);
+        this.compiledTwo = SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12).getSchema(rootTwo);
     }
 
     /** The schemas by name, as published in the OpenAPI document. A copy: callers may change it. */
@@ -77,8 +85,17 @@ final class SheetSchemas {
 
     /** Every place where the document does not fit the shape, at most twenty; empty when it fits. */
     List<Issue> validate(JsonNode document, String prefix) {
+        return validate(compiled, document, prefix);
+    }
+
+    /** The same for a document of format version 2. */
+    List<Issue> validateTwo(JsonNode document, String prefix) {
+        return validate(compiledTwo, document, prefix);
+    }
+
+    private static List<Issue> validate(Schema schema, JsonNode document, String prefix) {
         Set<Issue> issues = new LinkedHashSet<>();
-        for (Error error : compiled.validate(document)) {
+        for (Error error : schema.validate(document)) {
             issues.add(new Issue(placeOf(prefix, error), plain(error)));
             if (issues.size() >= MOST_ISSUES) {
                 break;
@@ -120,7 +137,7 @@ final class SheetSchemas {
             place.append('[').append(part).append(']');
         } else if (NAMES.contains(part)) {
             place.append('.').append(part);
-        } else if ("cells".equals(previous) && CELL.matcher(part).matches()) {
+        } else if (("cells".equals(previous) || "inputs".equals(previous)) && CELL.matcher(part).matches()) {
             place.append('.').append(part);
         } else {
             place.append(".…");

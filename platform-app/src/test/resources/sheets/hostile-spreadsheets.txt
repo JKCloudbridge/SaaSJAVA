@@ -44,6 +44,17 @@ too_many_columns	xlsx	bordered-blank-column-101	a bordered blank cell in column 
 too_many_rows	xlsx	bordered-blank-rows-501	501 bordered blank rows under the first
 cells	xlsx	bordered-all-over	a sheet bordered all over: more cells than can be read
 styles	xlsx	too-many-borders	a styles part with one border more than a workbook can have
+@@ ---- the archive and the library (SH1B, ADR-0253): our guards come first ----
+duplicate_part	xlsx	duplicate-part-exact	a part name that appears twice, so a reader and a library could pick different parts
+duplicate_part	xlsx	duplicate-part-case	two part names that differ only by case
+unsafe_part_name	xlsx	part-name-dotdot	a part name that climbs out of its folder
+unsafe_part_name	xlsx	part-name-backslash	a part name written with a back slash
+formula_too_long	xlsx	formula-4001	a formula one character over the longest allowed
+formula_too_long	xlsx	formula-flat-sum	a flat sum of 50,000 terms, the kind that overflows the stack of a recursive parser
+formula_too_deep	xlsx	formula-nested-33	a formula nested one level over the deepest allowed
+too_many_merges	xlsx	merges-300000	three hundred thousand merged areas, which the library alone accepts
+too_many_columns	xlsx	far-away-cell	a text in the very last column of a sheet, which the library alone accepts
+doctype	xlsx	doctype-in-sheet	a sheet that declares a document type with an entity
 @@ ---- what a person typed ----
 text_too_long	csv	cell-1001	a text of 1,001 characters
 text_too_long	csv	label-201	a column name of 201 characters

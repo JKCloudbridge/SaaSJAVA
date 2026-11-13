@@ -24,7 +24,8 @@ class SheetPropertiesTest {
 
     @Test
     void aSizeAboveTheCeilingOfTheDatabaseIsRefused() {
-        assertThatThrownBy(() -> new SheetProperties.Limits(5_000_001, 500, 100, 10, 1_000, 200, 100, 2_000, 12, 1_000))
+        assertThatThrownBy(() -> SheetProperties.Limits.ofOne(5_000_001, 500, 100, 10, 1_000, 200, 100, 2_000, 12,
+                1_000))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("max-bytes");
     }
 
@@ -38,16 +39,18 @@ class SheetPropertiesTest {
             {1_000_000, 500, 100, 10, 1_000, 200, 100, -1, 12, 1_000}, {1_000_000, 500, 100, 10, 1_000, 200, 100,
                 2_000, 3, 1_000}, {1_000_000, 500, 100, 10, 1_000, 200, 100, 2_000, 12, 0}};
         for (int[] values : bad) {
-            assertThatThrownBy(() -> new SheetProperties.Limits(values[0], values[1], values[2], values[3], values[4],
-                    values[5], values[6], values[7], values[8], values[9]))
+            assertThatThrownBy(() -> SheetProperties.Limits.ofOne(values[0], values[1], values[2], values[3],
+                    values[4], values[5], values[6], values[7], values[8], values[9]))
                     .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("platform.sheets.limits.");
         }
     }
 
     @Test
     void theBodyOfARequestThatCarriesNoGridIsBounded() {
-        assertThat(new SheetProperties(SheetProperties.Limits.standard(), 4096).smallBodyBytes()).isEqualTo(4096);
-        assertThatThrownBy(() -> new SheetProperties(SheetProperties.Limits.standard(), 10))
+        assertThat(new SheetProperties(SheetProperties.Limits.standard(), 4096, new SheetProperties.FormatTwo(false))
+                .smallBodyBytes()).isEqualTo(4096);
+        assertThatThrownBy(() -> new SheetProperties(SheetProperties.Limits.standard(), 10,
+                new SheetProperties.FormatTwo(false)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

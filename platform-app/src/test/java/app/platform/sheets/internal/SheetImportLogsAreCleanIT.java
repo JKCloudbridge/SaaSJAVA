@@ -133,4 +133,54 @@ class SheetImportLogsAreCleanIT extends SheetSupport {
             }
         }
     }
+
+    /**
+     * SH1B: the name of a worksheet, the family of a font and the address of a link are the organization's own text. 
+     */
+    @Test
+    void theNameOfAWorksheetAFontFamilyAndALinkAreNeverLoggedOrWrittenToTheTrail() throws IOException {
+        Setting setting = setting();
+        String owner = template(setting.admin());
+        String worksheet = typed("worksheet-name");
+        String family = typed("FontFamily");
+        String address = typed("link-address");
+        String cell = typed("cell-text");
+
+        byte[] file = new XlsxFile().styles(RichWorkbook.STYLES.replace("Zorbian Script", family))
+                .row(1, XlsxFile.text("A1", "first"))
+                .extraSheet(worksheet, null, XlsxFile.sheetXml("<row r=\"1\">"
+                        + XlsxFile.text("A1", cell, RichWorkbook.UNKNOWN_FONT) + "</row>"
+                        + "<hyperlinks><hyperlink ref=\"A1\" r:id=\"rId1\"/></hyperlinks>"))
+                .part("xl/worksheets/_rels/sheet2.xml.rels",
+                        ("<Relationships xmlns=\"http://schemas.openxmlformats.org/"
+                        + "package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas."
+                        + "openxmlformats.org/officeDocument/2006/relationships/hyperlink\" "
+                                + "Target=\"https://example.test/"
+                        + address + "\" TargetMode=\"External\"/></Relationships>").getBytes(StandardCharsets.UTF_8))
+                .bytes();
+        BytesResponse preview = setting.admin().bytes("POST", versions(owner) + "/import?format=xlsx&preview=true",
+                file, "Content-Type", "application/octet-stream");
+        BytesResponse refused = setting.admin().bytes("POST", versions(owner) + "/import?format=xlsx&worksheet=9",
+                file, "Content-Type", "application/octet-stream");
+        BytesResponse made = setting.admin().bytes("POST", versions(owner) + "/import?format=xlsx&worksheet=1", file,
+                "Content-Type", "application/octet-stream");
+        var listed = setting.admin().get(versions(owner));
+        String trail = setting.admin().get("/api/v1/audit-events?limit=200").body();
+
+        String log = Files.readString(Path.of(LOG_FILE));
+        assertThat(preview.status()).as(preview.text()).isEqualTo(200);
+        assertThat(refused.status()).as(refused.text()).isEqualTo(400);
+        assertThat(made.status()).as(made.text()).isEqualTo(201);
+        assertThat(preview.text()).as("the name of a worksheet is shown to the person who chooses").contains(worksheet);
+        for (String text : List.of(worksheet, family, address, cell)) {
+            assertThat(log).as("typed text is not logged: " + text).doesNotContain(text);
+            assertThat(trail).as("typed text is not in the audit trail: " + text).doesNotContain(text);
+            assertThat(refused.text()).as("a refusal does not echo it").doesNotContain(text);
+            if (!text.equals(worksheet)) {
+                assertThat(made.text()).as("the answer that saves carries no text but the tab names")
+                        .doesNotContain(text);
+            }
+            assertThat(listed.body()).as("the list of versions carries no name").doesNotContain(text);
+        }
+    }
 }

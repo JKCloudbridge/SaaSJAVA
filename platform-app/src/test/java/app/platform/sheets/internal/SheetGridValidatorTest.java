@@ -43,7 +43,7 @@ class SheetGridValidatorTest {
 
     private static SheetProperties.Limits limits(int maxBytes, int rows, int columns, int headers, int cellChars,
             int labelChars, int values, int merges, int depth) {
-        return new SheetProperties.Limits(maxBytes, rows, columns, headers, cellChars, labelChars, values, merges,
+        return SheetProperties.Limits.ofOne(maxBytes, rows, columns, headers, cellChars, labelChars, values, merges,
                 depth, 1000);
     }
 

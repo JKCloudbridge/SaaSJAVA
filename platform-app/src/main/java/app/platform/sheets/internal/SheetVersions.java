@@ -118,7 +118,9 @@ class SheetVersions {
         return new SheetVersionsView(versions, canChange, new SheetLimitsView(limits.maxBytes(),
                 limits.maxRows(), limits.maxColumns(), limits.maxHeaderRows(), limits.maxCellChars(),
                 limits.maxLabelChars(), limits.maxPicklistValues(), limits.maxMerges(),
-                importProperties.maxFileBytes()), canChangeHeld);
+                importProperties.maxFileBytes(), limits.maxFixedTextChars(), limits.minColumnWidth(),
+                limits.maxColumnWidth(), limits.minRowHeight(), limits.maxRowHeight(), limits.maxSheets(),
+                limits.maxFilesPerCell(), limits.maxLinkChars(), properties.formatTwo().enabled()), canChangeHeld);
     }
 
     /** One version with its grid. */
@@ -177,6 +179,10 @@ class SheetVersions {
                 row = firstVersion(reach, request, versionNo);
             } else {
                 basedOn = baseOf(reach, request);
+                if (SheetFormats.copyRefused(properties, store, json, reach.object(), reach.id(), basedOn)) {
+                    changes.refused("create", "format_two_off");
+                    throw new ApiException(ErrorCode.CONFLICT, SheetFormats.EARLIER_FORMAT);
+                }
                 row = store.insertCopy(reach.object(), reach.id(), versionNo, basedOn, reach.userId())
                         .orElseThrow(() -> ApiException.validation("basedOn", "There is no such revision to copy."));
             }

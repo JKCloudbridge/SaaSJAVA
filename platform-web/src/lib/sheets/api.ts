@@ -18,6 +18,8 @@ export type VersionView = components["schemas"]["SheetVersionView"];
 export type ImportResult = components["schemas"]["SheetImportResultView"];
 export type ImportReport = components["schemas"]["SheetImportReportView"];
 export type ImportNote = components["schemas"]["SheetImportNoteView"];
+export type ImportWorksheet = components["schemas"]["SheetImportWorksheetView"];
+export type ImportPlace = components["schemas"]["SheetImportPlaceView"];
 
 /** The record a sheet belongs to. */
 export interface SheetOwner {
@@ -89,7 +91,8 @@ export function saveGrid(
     call(() =>
       api.PUT("/api/v1/sheets/{ownerObject}/{ownerId}/versions/{versionNo}/grid", {
         params: { path: { ownerObject: owner.object, ownerId: owner.id, versionNo }, query: { version } },
-        body: toApi(doc),
+        // Either format: the server tells them apart by formatVersion and checks every part again.
+        body: toApi(doc) as never,
       }),
     ),
   );
@@ -111,6 +114,11 @@ export interface ImportOptions {
    * (FA8): only the people asked to decide that request may.
    */
   replace?: boolean;
+  /**
+   * The worksheet of a workbook to read, as its number among the visible worksheets counted from zero (SH1B). Left out,
+   * the server reads the first visible worksheet that holds anything and its answer says which.
+   */
+  worksheet?: number;
 }
 
 /**
@@ -124,7 +132,8 @@ export function importSpreadsheet(owner: SheetOwner, file: Blob, options: Import
     `?format=${options.format}` +
     (options.firstRowLabels === undefined ? "" : `&firstRowLabels=${options.firstRowLabels}`) +
     `&preview=${options.preview}` +
-    (options.replace ? "&replace=true" : "");
+    (options.replace ? "&replace=true" : "") +
+    (options.worksheet === undefined ? "" : `&worksheet=${options.worksheet}`);
   return unwrap(
     call(async () => {
       const token = readCookie(FORGERY_COOKIE);

@@ -130,3 +130,81 @@ merge_order	merge	{"merges":[{"from":"h1:c2","to":"h1:c1"}]}	a merged area writt
 merge_single	merge	{"merges":[{"from":"r1:c1","to":"r1:c1"}]}	a merged area of one cell
 merge_unknown	merge	{"merges":[{"from":"r1:c1","to":"nope:c2"}]}	a merged area to a cell that does not exist
 merge_covered	merge	{"merges":[{"from":"h1:c1","to":"h1:c2"}],"cells":{"h1:c2":{"value":"HOSTILEMARK"}}}	a cell under a merged area that holds text, which no spreadsheet would show
+@@
+@@ ---- format version 2 (SH1A, ADR-0251) ----
+@@ Kind "two": the payload is a merge patch applied to the FIRST SHEET of the smallest valid document of format version 2
+@@ (the smallest version 1 grid as one sheet called main). A document of two sheets, the switch and the settings that a
+@@ line needs are made by the generators and validators named in SheetHostileCorpusTest. Places are made of sheet
+@@ positions, sheet keys and identifiers: an answer never repeats a title, a link or a text.
+shape	two	{"surprise":1}	an unknown part of a sheet
+shape	two	{"cells":{"h1:c1":{"look":{"fill":"red"}}}}	a fill that is a colour name, not #rrggbb
+shape	two	{"cells":{"h1:c1":{"look":{"fill":"#12345"}}}}	a colour of five digits
+shape	two	{"cells":{"h1:c1":{"look":{"colour":"url(javascript:HOSTILEMARK)"}}}}	a colour that is a piece of style text
+shape	two	{"cells":{"h1:c1":{"look":{"font":"HOSTILEMARK Sans"}}}}	a font name taken as typed instead of a key of the list
+shape	two	{"cells":{"h1:c1":{"look":{"borders":{"top":"WAVY"}}}}}	a border style that is not on the list
+shape	two	{"cells":{"h1:c1":{"look":{"borders":{"diagonal":"THIN"}}}}}	a border side that does not exist
+shape	two	{"cells":{"h1:c1":{"look":{"numberFormat":"CUSTOM"}}}}	a number format that is not on the list
+shape	two	{"cells":{"h1:c1":{"look":{"size":29}}}}	a size above 28 points
+shape	two	{"cells":{"h1:c1":{"look":{"size":"12"}}}}	a size written as text
+shape	two	{"cells":{"h1:c1":{"link":""}}}	an empty link
+shape	two	{"key":"Main Sheet"}	a sheet key with a capital letter and a space
+shape	two	{"title":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}	a title of 32 characters, one more than a tab can hold
+shape	two	{"columns":[{"id":"c1","label":"A","type":"text","width":7},{"id":"c2","label":"B","type":"number"}]}	a column 7 pixels wide, below the widest allowance of the schema
+shape	two	{"rows":[{"id":"r1","label":"First","height":3}]}	a row 3 pixels high, below the schema
+shape	two	{"inputs":{"r1:c1":{"type":"attachment","maxFiles":6}}}	six files in an attachment cell
+shape	two	{"inputs":{"r1:c1":{"class":"boss"}}}	a class that does not exist
+shape	two	{"inputs":{"HOSTILEMARK":{"required":true}}}	a stated input cell whose key is not a cell reference
+shape	two	{"freeze":{"rows":-1,"columns":0}}	a negative frozen pane
+shape	two	{"print":{"paper":"A0","orientation":"PORTRAIT","fitToWidth":true,"repeatHeaderRows":true}}	a paper size that is not offered
+unsafe_text	two	{"title":"<b>HOSTILEMARK</b>"}	a tab title with markup
+title_invalid	two	{"title":"HOSTILEMARK:x"}	a tab title with a colon, which a workbook cannot hold
+title_invalid	two	{"title":"'quoted"}	a tab title that starts with an apostrophe
+title_invalid	two	{"title":"   "}	a tab title of white space
+unsafe_text	two	{"cells":{"h1:c1":{"value":"<script>HOSTILEMARK"}}}	markup in a fixed cell of a sheet: the rules both formats share still hold
+duplicate_id	two	{"columns":[{"id":"c1","label":"A","type":"text"},{"id":"c1","label":"B","type":"number"}]}	a repeated column identifier inside a sheet
+cell_unknown	two	{"cells":{"zz:c1":{"look":{"fill":"#ffffff"}}}}	a look on a cell that is not in the sheet
+merge_covered	two	{"merges":[{"from":"h1:c1","to":"h1:c2"}],"cells":{"h1:c2":{"value":"HOSTILEMARK"}}}	text under a merged area, which a sheet would not show
+style_on_input	two	{"cells":{"r1:c1":{"value":"A","kind":"input","style":{"bold":true}}}}	a style on a cell the filler types into (a look is allowed, a style is not)
+text_too_long	gen	fixed-5001	a fixed text of 5,001 characters
+text_too_long	gen	input-1001	a text of 1,001 characters typed into an input cell
+width_range	two	{"columns":[{"id":"c1","label":"A","type":"text","width":8},{"id":"c2","label":"B","type":"number"}]}	a column narrower than a setting that narrows the range (validator with a narrower range)
+height_range	two	{"rows":[{"id":"r1","label":"First","height":4}]}	a row shorter than a setting that narrows the range (validator with a narrower range)
+look_conflict	two	{"cells":{"h1:c1":{"value":"A","style":{"colour":"DANGER"},"look":{"colour":"#112233"}}}}	a text colour stated by a name and by a value
+look_conflict	two	{"cells":{"h1:c1":{"value":"A","style":{"fontSize":"LARGE"},"look":{"size":14}}}}	a size stated by a name and by points
+link_invalid	two	{"cells":{"h1:c1":{"value":"A","link":"http://example.test/"}}}	a link that is not https
+link_invalid	two	{"cells":{"h1:c1":{"value":"A","link":"javascript:alert(HOSTILEMARK)"}}}	a link that runs script
+link_invalid	two	{"cells":{"h1:c1":{"value":"A","link":"https://user:HOSTILEMARK@example.test/"}}}	a link with a user name and a password in it
+link_invalid	two	{"cells":{"h1:c1":{"value":"A","link":"https:///nohost"}}}	a link with no host
+link_invalid	two	{"cells":{"h1:c1":{"value":"A","link":"https://example.test/a b"}}}	a link with a space in it
+link_invalid	two	{"cells":{"h1:c1":{"value":"A","link":"HTTPS://example.test/"}}}	a link whose scheme is not written in lower case (two spellings, two hashes)
+link_target	two	{"cells":{"r1:c1":{"value":"A","kind":"input","link":"https://example.test/"}}}	a link on a cell the filler types into
+link_target	two	{"cells":{"h1:c1":{"link":"https://example.test/"}}}	a link on a cell with no text
+freeze_range	two	{"freeze":{"rows":3,"columns":0}}	frozen rows beyond the rows of the sheet
+freeze_range	two	{"freeze":{"rows":0,"columns":3}}	frozen columns beyond the columns of the sheet
+inputs_need_named_rows	two	{"dimension":1,"rowsMode":"REPEATABLE","rows":[],"inputs":{"r1:c1":{"required":true}}}	a stated input cell in a sheet whose filler adds the rows
+inputs_on_info_sheet	two	{"fillable":false,"inputs":{"r1:c1":{"required":true}}}	a stated input cell in an information sheet
+input_unknown_cell	two	{"inputs":{"zz:c1":{"required":true}}}	a stated input cell on a row that does not exist
+input_unknown_cell	two	{"inputs":{"h1:c1":{"required":true}}}	a stated input cell in a header row
+input_not_an_input_cell	two	{"cells":{"r1:c1":{"value":"Fixed"}},"inputs":{"r1:c1":{"required":true}}}	a stated input cell that holds fixed text
+input_not_an_input_cell	two	{"merges":[{"from":"r1:c1","to":"r1:c2"}],"inputs":{"r1:c2":{"required":true}}}	a stated input cell covered by a merged area
+input_picklist	two	{"inputs":{"r1:c1":{"type":"picklist"}}}	a list cell with no values
+input_picklist	two	{"inputs":{"r1:c1":{"type":"text","picklist":{"values":["a"]}}}}	values on a cell that is not a list
+input_picklist	two	{"inputs":{"r1:c1":{"type":"picklist","picklist":{"values":["a","a"]}}}}	a list with the same value twice
+input_picklist	two	{"inputs":{"r1:c1":{"type":"picklist","picklist":{"values":["<b>HOSTILEMARK"]}}}}	markup in a value of a list cell
+input_max_files	two	{"inputs":{"r1:c1":{"type":"text","maxFiles":2}}}	a file limit on a cell that is not an attachment cell
+input_preset	two	{"cells":{"r1:c2":{"value":"12","kind":"input"}},"inputs":{"r1:c2":{"type":"text"}}}	a stated type on a cell that holds a preset value
+format_two_off	gen	switch-off	a document of format version 2 while the switch is off (validator with the switch off)
+too_many_sheets	gen	two-sheets	two sheets while a template holds one
+duplicate_sheet_key	gen	same-key	two sheets with the same key (validator that allows two sheets)
+@@ ---- conditional colours (SH1B, ADR-0255) ----
+condition_unknown_cell	two	{"conditions":[{"from":"r1:cZ","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"}]}	a conditional colour that starts in a column that does not exist
+condition_unknown_cell	two	{"conditions":[{"from":"r1:c1","to":"r9:c2","operator":"GT","value":"1","fill":"#ff0000"}]}	a conditional colour that ends in a row that does not exist
+condition_range	two	{"conditions":[{"from":"r1:c2","to":"r1:c1","operator":"GT","value":"1","fill":"#ff0000"}]}	a range that ends before it starts
+condition_operand	two	{"conditions":[{"from":"r1:c1","to":"r1:c2","operator":"BETWEEN","value":"1","fill":"#ff0000"}]}	a comparison between two numbers with only one number
+condition_operand	two	{"conditions":[{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000","value2":"2"}]}	a second number on a comparison that takes one
+condition_paint	two	{"conditions":[{"from":"r1:c1","to":"r1:c2","operator":"EQ","value":"1"}]}	a rule that paints nothing
+shape	two	{"conditions":[{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1 OR 1=1","fill":"#ff0000"}]}	a value that is not a plain number: text that looks like something to run
+shape	two	{"conditions":[{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"=A1","fill":"#ff0000"}]}	a value that is a reference
+shape	two	{"conditions":[{"from":"r1:c1","to":"r1:c2","operator":"MATCHES","value":"1","fill":"#ff0000"}]}	a comparison the format does not have
+shape	two	{"conditions":[{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"red"}]}	a colour that is not #rrggbb
+shape	two	{"conditions":[{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"},{"from":"r1:c1","to":"r1:c2","operator":"GT","value":"1","fill":"#ff0000"}]}	fifty-one conditional colours, one over the most

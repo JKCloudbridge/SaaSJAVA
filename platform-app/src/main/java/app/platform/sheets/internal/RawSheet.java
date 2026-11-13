@@ -22,8 +22,14 @@ final class RawSheet {
      * @param bold whether the file shows it bold
      * @param italic whether the file shows it italic
      * @param points the font size in points, or 0 when the file does not say
+     * @param format everything else the file says about how the cell looks, or null when the reader did not read it
+     *        (a text file has none)
      */
-    record Cell(String text, boolean bold, boolean italic, int points) {
+    record Cell(String text, boolean bold, boolean italic, int points, StyleBook.Format format) {
+
+        Cell(String text, boolean bold, boolean italic, int points) {
+            this(text, bold, italic, points, null);
+        }
 
         @Override
         public String toString() {
@@ -37,6 +43,83 @@ final class RawSheet {
 
     /** A width stated for the columns {@code first} to {@code last}, in pixels. */
     record Width(int first, int last, int pixels) {
+    }
+
+    /**
+     * A column definition as the file states it, for the sheet of format version 2 and for placing drawn objects.
+     *
+     * @param first the first column
+     * @param last the last column
+     * @param chars the width in characters of the default digit
+     * @param hidden whether the columns are hidden
+     * @param custom whether the width was set by hand (otherwise it is the default the program chose)
+     */
+    record ColumnSpec(int first, int last, double chars, boolean hidden, boolean custom) {
+    }
+
+    /**
+     * A row as the file states it.
+     *
+     * @param points the height in points
+     * @param hidden whether the row is hidden
+     * @param custom whether the height was set by hand
+     */
+    record RowSpec(double points, boolean hidden, boolean custom) {
+    }
+
+    /**
+     * A conditional colour that compares the value of a cell with a number. Positions are zero based and both ends
+     * are included.
+     *
+     * @param operator LT, LTE, EQ, NEQ, GTE, GT, BETWEEN or NOT_BETWEEN
+     * @param first the number compared with (a plain decimal text)
+     * @param second the second number of BETWEEN and NOT_BETWEEN, otherwise null
+     * @param fill the background to paint as {@code #rrggbb}, or null
+     * @param colour the text colour to paint as {@code #rrggbb}, or null
+     */
+    record Rule(int top, int left, int bottom, int right, String operator, String first, String second, String fill,
+            String colour) {
+    }
+
+    /**
+     * The page set-up the file states.
+     *
+     * @param paper A4, A3 or LETTER
+     * @param orientation PORTRAIT or LANDSCAPE
+     * @param fitToWidth whether the sheet is scaled to the width of the page
+     * @param repeatHeaderRows whether rows at the top are repeated on every page
+     */
+    record Print(String paper, String orientation, boolean fitToWidth, boolean repeatHeaderRows) {
+    }
+
+    /**
+     * A visible worksheet of the workbook.
+     *
+     * @param index the number among the visible worksheets, from zero
+     * @param title the name of the tab, or null when it cannot be used as a title (markup or too long)
+     * @param rows the rows the file says the worksheet covers (declared, for choosing)
+     * @param columns the columns the file says it covers (declared, for choosing)
+     */
+    record Worksheet(int index, String title, int rows, int columns) {
+
+        @Override
+        public String toString() {
+            return "Worksheet[redacted]";
+        }
+    }
+
+    /** A position in the file, zero based. */
+    record Place(int row, int column) {
+    }
+
+    /**
+     * A cell that becomes a yes/no cell because of check boxes.
+     *
+     * @param row the row, zero based
+     * @param column the column, zero based
+     * @param boxes the check boxes that made it: 2 for a Yes box with its No box, otherwise 1
+     */
+    record YesNo(int row, int column, int boxes) {
     }
 
     private static final java.util.regex.Pattern FOOTER = java.util.regex.Pattern.compile(
@@ -60,8 +143,51 @@ final class RawSheet {
     final List<Area> merges = new ArrayList<>();
     final ImportNote.Counts notes = new ImportNote.Counts();
 
+    // ---- what the reader of format version 2 adds (SH1B) ----
+
+    /** The cells with no text that show something of themselves (a fill, a border), by position. */
+    final TreeMap<Integer, TreeMap<Integer, StyleBook.Format>> blankLooks = new TreeMap<>();
+    final List<ColumnSpec> columnSpecs = new ArrayList<>();
+    final TreeMap<Integer, RowSpec> rowSpecs = new TreeMap<>();
+    double defaultColumnChars = 9.140625;
+    double defaultRowPoints = 15;
+    /** Rows and columns frozen, counted from the top left of the worksheet as the file counts them. */
+    int freezeRows;
+    int freezeColumns;
+    Print print;
+    final List<Rule> rules = new ArrayList<>();
+    /** The https address of the cell at a position (row shifted left by 32 bits, then column). */
+    final Map<Long, String> links = new HashMap<>();
+    /**
+     * The longest formula and the deepest nesting met in the worksheet, so a person can see the margin to the limits.
+     */
+    int longestFormula;
+    int deepestFormula;
+    /** How many check boxes were placed in a cell, and how many of them were a Yes box and a No box in a pair. */
+    int boxesPlaced;
+    int boxPairs;
+    /** The cells that become yes/no cells from check boxes. */
+    final List<YesNo> yesNo = new ArrayList<>();
+    /** The cells where an embedded file stood. */
+    final List<Place> embeddedAt = new ArrayList<>();
+    /** The check boxes that could not be placed in a cell. */
+    final List<Place> unplacedBoxes = new ArrayList<>();
+    /** The visible worksheets of the workbook; empty for a text file. */
+    List<Worksheet> worksheets = List.of();
+    /** The worksheet this was read from, among the visible ones, or -1 for a text file. */
+    int worksheet = -1;
+    /** The name of the tab the sheet was read from, or null when it cannot be used. */
+    String title;
+
     void put(int row, int column, Cell cell) {
         rows.computeIfAbsent(row, key -> new TreeMap<>()).put(column, cell);
+    }
+
+    /** Keeps how a cell with no text looks when it shows something (a fill or a border). */
+    void look(int row, int column, StyleBook.Format format) {
+        if (format != null && format.visible()) {
+            blankLooks.computeIfAbsent(row, key -> new TreeMap<>()).put(column, format);
+        }
     }
 
     /** Notes that a cell with a border holds no text; it is part of the table all the same. */
@@ -128,6 +254,7 @@ final class RawSheet {
         if (text != null && FOOTER.matcher(text.strip()).find()) {
             rows.remove(last);
             bordered.remove(last);
+            blankLooks.remove(last);
             heights.remove(last);
             notes.add(ImportNote.FOOTER_ROW);
         }

@@ -60,6 +60,12 @@
     <ssh-client.version>2.28.8</ssh-client.version>
     <!-- Sprint 29A: a small in-process SSH and file transfer server, test scope only, so tests meet a real server. -->
     <ssh-test-server.version>2.20.1</ssh-test-server.version>
+    <!-- SH1B: the library that reads the styles of an uploaded workbook (ADR-0253). Only poi, poi-ooxml and poi-ooxml-lite
+         are used: never the scratchpad module and never the full schema bundle. Apache 2.0; named by the sheets module
+         only (an architecture test). 6.0.0 has no open advisory at the time of writing (the zip-part flaw of the 5.x
+         line is fixed from 5.4.0). -->
+    <poi.version>6.0.0</poi.version>
+    <commons-io.version>2.22.0</commons-io.version>
 
     <!-- Build plugin versions. -->
     <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
@@ -131,6 +137,25 @@
         <groupId>com.github.mwiede</groupId>
         <artifactId>jsch</artifactId>
         <version>${ssh-client.version}</version>
+      </dependency>
+      <dependency>
+        <!-- Reads the styles, colours and number formats of a workbook, from bytes, behind the guards of the sheets
+             module (ADR-0253). The full schema bundle and the scratchpad module are deliberately not used. -->
+        <groupId>org.apache.poi</groupId>
+        <artifactId>poi-ooxml</artifactId>
+        <version>${poi.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.poi</groupId>
+        <artifactId>poi-ooxml-lite</artifactId>
+        <version>${poi.version}</version>
+      </dependency>
+      <dependency>
+        <!-- The library and its archive helper ask for different patch versions of this one; the newer is chosen so the
+             build's convergence rule holds (SH1B). -->
+        <groupId>commons-io</groupId>
+        <artifactId>commons-io</artifactId>
+        <version>${commons-io.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.sshd</groupId>

@@ -31,7 +31,9 @@ public final class SheetMoveRefusal extends RuntimeException {
         /** The sheet has the most versions it can have. */
         TOO_MANY_VERSIONS("This sheet has the most revisions it can have."),
         /** A draft already exists, so another cannot be made beside it. */
-        DRAFT_EXISTS("A draft of this sheet already exists.");
+        DRAFT_EXISTS("A draft of this sheet already exists."),
+        /** The version to copy is in format version 2 and that format is switched off here (SH1A, ADR-0251). */
+        EARLIER_FORMAT("This sheet is still in the earlier format.");
 
         private final String words;
 

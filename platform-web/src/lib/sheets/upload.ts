@@ -1,4 +1,4 @@
-import type { ImportNote, ImportReport } from "./api";
+import type { ImportNote, ImportPlace, ImportReport, ImportWorksheet } from "./api";
 
 /**
  * What the upload of a spreadsheet file needs that is not a request (UI3B, ADR-0195): the kind of file from its name, the
@@ -55,6 +55,26 @@ export function reportSummary(report: ImportReport): string {
     parts.push(count(report.mergedAreas, "merged area", "merged areas"));
   }
   return parts.join(", ");
+}
+
+/** True when the workbook has more than one visible worksheet, so the person has a choice to make (SH1B). */
+export function hasWorksheetChoice(report: ImportReport): boolean {
+  return (report.worksheets?.length ?? 0) > 1;
+}
+
+/** "Plant activity (about 60 rows, 22 columns)": a worksheet by its title and the size the file says it has. */
+export function worksheetWords(worksheet: ImportWorksheet): string {
+  const name = worksheet.title ?? `Worksheet ${worksheet.index + 1}`;
+  const size =
+    worksheet.rows > 0 && worksheet.columns > 0
+      ? ` (about ${count(worksheet.rows, "row", "rows")}, ${count(worksheet.columns, "column", "columns")})`
+      : "";
+  return name + size;
+}
+
+/** "B12, C14": cells of the file by their row number and column letters, as a person reads them in the program. */
+export function placesWords(places: ImportPlace[]): string {
+  return places.map((place) => `${place.column}${place.row}`).join(", ");
 }
 
 /** What the file held that did not come in, in the server's own words. */

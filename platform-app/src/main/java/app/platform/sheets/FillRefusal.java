@@ -31,7 +31,9 @@ public final class FillRefusal extends RuntimeException {
         /** The cells no longer fit the sheet version they were made for. */
         INVALID("The fill-in is not valid."),
         /** The sheet version the fill-in is pinned to has been retired. */
-        VERSION_RETIRED("The sheet this fill-in was made for is retired, so the fill-in can no longer be sent.");
+        VERSION_RETIRED("The sheet this fill-in was made for is retired, so the fill-in can no longer be sent."),
+        /** The sheet is in format version 2, whose fill-ins are built in a later release (SH5, ADR-0251). */
+        FORMAT_NOT_FILLABLE("This template uses the new sheet format, which cannot be filled in yet.");
 
         private final String words;
 

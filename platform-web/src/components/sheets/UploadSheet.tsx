@@ -5,10 +5,13 @@ import { Modal } from "@/components/ui/Modal";
 import { importSpreadsheet, type ImportReport, type SheetOwner, type VersionSummary } from "@/lib/sheets/api";
 import {
   changedOnTheWay,
+  hasWorksheetChoice,
   kindOfFile,
   leftOut,
+  placesWords,
   refusalBeforeSending,
   reportSummary,
+  worksheetWords,
   type FileKind,
 } from "@/lib/sheets/upload";
 import { sizeWords } from "./VersionList";
@@ -59,18 +62,31 @@ export function UploadSheet({
   const latest = useRef(0);
   const [file, setFile] = useState<{ blob: File; kind: FileKind } | null>(null);
   const [firstRowLabels, setFirstRowLabels] = useState(true);
+  const [worksheet, setWorksheet] = useState<number | undefined>(undefined);
   const [phase, setPhase] = useState<Phase>({ step: "reading" });
 
-  /** `labels` undefined is the first look at a file: the server says whether the first row names the columns. */
-  const preview = async (blob: File, kind: FileKind, labels: boolean | undefined) => {
+  /**
+   * `labels` undefined is the first look at a file, or a new worksheet: the server says whether the first row names the
+   * columns. `sheet` undefined lets the server choose the first worksheet that holds anything (SH1B).
+   */
+  const preview = async (blob: File, kind: FileKind, labels: boolean | undefined, sheet: number | undefined) => {
     const ticket = ++latest.current;
     setPhase({ step: "reading" });
-    const outcome = await importSpreadsheet(owner, blob, { format: kind, firstRowLabels: labels, preview: true, replace });
+    const outcome = await importSpreadsheet(owner, blob, {
+      format: kind,
+      firstRowLabels: labels,
+      preview: true,
+      replace,
+      worksheet: sheet,
+    });
     if (ticket !== latest.current) {
       return;
     }
     if (outcome.ok && labels === undefined) {
       setFirstRowLabels(outcome.data.report.firstRowLabels ?? true);
+    }
+    if (outcome.ok && sheet === undefined) {
+      setWorksheet(outcome.data.report.worksheet ?? undefined);
     }
     setPhase(
       outcome.ok
@@ -89,13 +105,23 @@ export function UploadSheet({
     const problem = refusalBeforeSending(blob, maxBytes);
     const kind = kindOfFile(blob.name);
     setFirstRowLabels(true);
+    setWorksheet(undefined);
     if (problem || kind === null) {
       setFile({ blob, kind: kind ?? "csv" });
       setPhase({ step: "failed", message: problem ?? "Choose a spreadsheet saved as .xlsx, or a text file saved as .csv." });
       return;
     }
     setFile({ blob, kind });
-    void preview(blob, kind, undefined);
+    void preview(blob, kind, undefined, undefined);
+  };
+
+  /** A different worksheet is a different table: the server decides again whether its first row names the columns. */
+  const chooseWorksheet = (index: number) => {
+    if (!file) {
+      return;
+    }
+    setWorksheet(index);
+    void preview(file.blob, file.kind, undefined, index);
   };
 
   const close = () => {
@@ -109,7 +135,13 @@ export function UploadSheet({
     }
     const ticket = ++latest.current;
     setPhase({ step: "saving", report: phase.report });
-    const outcome = await importSpreadsheet(owner, file.blob, { format: file.kind, firstRowLabels, preview: false, replace });
+    const outcome = await importSpreadsheet(owner, file.blob, {
+      format: file.kind,
+      firstRowLabels,
+      preview: false,
+      replace,
+      worksheet,
+    });
     if (ticket !== latest.current) {
       return;
     }
@@ -158,12 +190,29 @@ export function UploadSheet({
                 onChange={(event) => {
                   setFirstRowLabels(event.target.checked);
                   if (phase.step !== "failed" || refusalBeforeSending(file.blob, maxBytes) === null) {
-                    void preview(file.blob, file.kind, event.target.checked);
+                    void preview(file.blob, file.kind, event.target.checked, worksheet);
                   }
                 }}
               />
               <span>The first row holds the names of the columns</span>
             </label>
+            {report && hasWorksheetChoice(report) ? (
+              <label className="field" data-testid="upload-worksheet">
+                <span>Worksheet to make the sheet from</span>
+                <select
+                  value={worksheet ?? report.worksheet ?? 0}
+                  disabled={busy}
+                  onChange={(event) => chooseWorksheet(Number(event.target.value))}
+                >
+                  {(report.worksheets ?? []).map((one) => (
+                    <option key={one.index} value={one.index}>
+                      {worksheetWords(one)}
+                    </option>
+                  ))}
+                </select>
+                <span className="hint">A template holds one sheet. Upload each of the other worksheets into its own template.</span>
+              </label>
+            ) : null}
             {report?.firstRowIsTitle ? (
               <p className="hint" data-testid="upload-title-note">
                 The first row looks like a title.{" "}
@@ -213,6 +262,12 @@ export function UploadSheet({
                       ))}
                     </ul>
                   </div>
+                ) : null}
+                {(report.embeddedFilePlaces?.length ?? 0) > 0 ? (
+                  <p data-testid="upload-embedded-places">
+                    Embedded files stood in these cells of the worksheet: {placesWords(report.embeddedFilePlaces ?? [])}. Set
+                    the type of those cells to an attachment when you edit the sheet.
+                  </p>
                 ) : null}
                 <p className="hint">Nothing is saved until you choose Save. The file itself is not kept.</p>
               </div>

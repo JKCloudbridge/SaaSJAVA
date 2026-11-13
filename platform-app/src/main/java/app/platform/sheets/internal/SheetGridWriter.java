@@ -33,8 +33,23 @@ final class SheetGridWriter {
 
     /** The canonical text of the grid. */
     static String write(SheetGrid grid) {
-        Map<String, Object> root = new TreeMap<>();
+        Map<String, Object> root = body(grid);
         root.put("formatVersion", SheetGrid.FORMAT_VERSION);
+        return JSON.writeValueAsString(root);
+    }
+
+    /** Any value as compact JSON text: the one writer both formats use. */
+    static String json(Object value) {
+        return JSON.writeValueAsString(value);
+    }
+
+    /**
+     * The parts of a grid that both formats have (dimension, rows mode, columns, header rows, rows, cells, merges),
+     * with their keys in order. Format version 2 writes this for every sheet and adds its own parts around it, so a
+     * sheet has one canonical body whichever format holds it.
+     */
+    static Map<String, Object> body(SheetGrid grid) {
+        Map<String, Object> root = new TreeMap<>();
         root.put("dimension", grid.dimension());
         root.put("rowsMode", grid.rowsMode().name());
         root.put("columns", grid.columns().stream().map(SheetGridWriter::column).toList());
@@ -51,7 +66,7 @@ final class SheetGridWriter {
             merges.add(one);
         }
         root.put("merges", merges);
-        return JSON.writeValueAsString(root);
+        return root;
     }
 
     /** The SHA-256 of the bytes. */
@@ -111,7 +126,7 @@ final class SheetGridWriter {
         return out;
     }
 
-    private static Map<String, Object> cell(Cell cell) {
+    static Map<String, Object> cell(Cell cell) {
         Map<String, Object> out = new TreeMap<>();
         if (cell.value() != null) {
             out.put("value", cell.value());

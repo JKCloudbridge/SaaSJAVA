@@ -30,7 +30,8 @@ class SpreadsheetImporterTest {
     static final SheetImportBuilder.Options NAMED_ROWS = new SheetImportBuilder.Options(true, 2, RowsMode.FIXED);
 
     static SpreadsheetImporter importer(ImportProperties settings) {
-        return new SpreadsheetImporter(settings, new SheetProperties(LIMITS, 4096),
+        return new SpreadsheetImporter(settings,
+                new SheetProperties(LIMITS, 4096, new SheetProperties.FormatTwo(false)),
                 new SheetGridValidator(LIMITS, new SheetSchemas()));
     }
 
@@ -180,28 +181,28 @@ class SpreadsheetImporterTest {
 
     @Test
     void dateSerialsAreWrittenYearMonthDay() {
-        assertThat(XlsxReader.date(45000, false)).isEqualTo("2023-03-15");
-        assertThat(XlsxReader.date(45000.5, false)).isEqualTo("2023-03-15 12:00");
-        assertThat(XlsxReader.date(0.25, false)).isEqualTo("06:00");
-        assertThat(XlsxReader.date(1, false)).isEqualTo("1900-01-01");
-        assertThat(XlsxReader.date(61, false)).isEqualTo("1900-03-01");
-        assertThat(XlsxReader.date(0, true)).isEqualTo("1904-01-01");
-        assertThat(XlsxReader.date(-1, false)).isNull();
-        assertThat(XlsxReader.isDateFormat("yyyy-mm-dd")).isTrue();
-        assertThat(XlsxReader.isDateFormat("0.00 \"days\"")).isFalse();
-        assertThat(XlsxReader.isDateFormat("#,##0")).isFalse();
+        assertThat(WorkbookReader.date(45000, false)).isEqualTo("2023-03-15");
+        assertThat(WorkbookReader.date(45000.5, false)).isEqualTo("2023-03-15 12:00");
+        assertThat(WorkbookReader.date(0.25, false)).isEqualTo("06:00");
+        assertThat(WorkbookReader.date(1, false)).isEqualTo("1900-01-01");
+        assertThat(WorkbookReader.date(61, false)).isEqualTo("1900-03-01");
+        assertThat(WorkbookReader.date(0, true)).isEqualTo("1904-01-01");
+        assertThat(WorkbookReader.date(-1, false)).isNull();
+        assertThat(NumberFormats.isDateFormat("yyyy-mm-dd")).isTrue();
+        assertThat(NumberFormats.isDateFormat("0.00 \"days\"")).isFalse();
+        assertThat(NumberFormats.isDateFormat("#,##0")).isFalse();
     }
 
     @Test
     void aCellReferenceIsParsedAndAnythingElseIsNot() {
-        assertThat(XlsxReader.reference("A1")).containsExactly(0, 0);
-        assertThat(XlsxReader.reference("AA10")).containsExactly(9, 26);
-        assertThat(XlsxReader.reference("XFD1048576")).containsExactly(1_048_575, 16_383);
-        assertThat(XlsxReader.reference("XFE1")).isNull();
-        assertThat(XlsxReader.reference("A0")).isNull();
-        assertThat(XlsxReader.reference("A1048577")).isNull();
-        assertThat(XlsxReader.reference("1A")).isNull();
-        assertThat(XlsxReader.reference("")).isNull();
+        assertThat(WorkbookReader.reference("A1")).containsExactly(0, 0);
+        assertThat(WorkbookReader.reference("AA10")).containsExactly(9, 26);
+        assertThat(WorkbookReader.reference("XFD1048576")).containsExactly(1_048_575, 16_383);
+        assertThat(WorkbookReader.reference("XFE1")).isNull();
+        assertThat(WorkbookReader.reference("A0")).isNull();
+        assertThat(WorkbookReader.reference("A1048577")).isNull();
+        assertThat(WorkbookReader.reference("1A")).isNull();
+        assertThat(WorkbookReader.reference("")).isNull();
         assertThat(SheetImportBuilder.letters(0)).isEqualTo("A");
         assertThat(SheetImportBuilder.letters(25)).isEqualTo("Z");
         assertThat(SheetImportBuilder.letters(26)).isEqualTo("AA");

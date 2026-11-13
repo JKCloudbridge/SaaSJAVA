@@ -4,6 +4,7 @@ import app.platform.sheets.SheetExports;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -15,6 +16,10 @@ import tools.jackson.databind.json.JsonMapper;
 @Transactional(readOnly = true)
 class DefaultSheetExports implements SheetExports {
 
+    /** What the information of a file written from a sheet in format version 2 says (plain words, no markup). */
+    static final String LOOK_NOT_YET = "Made from a sheet in the new format. Its colours, fonts, borders and number "
+            + "formats are not in this file yet.";
+
     private final SheetVersions versions;
     private final JsonMapper json = JsonMapper.builder().build();
 
@@ -25,7 +30,11 @@ class DefaultSheetExports implements SheetExports {
     @Override
     public byte[] xlsx(String ownerObject, UUID ownerId, int versionNo, String footerRight) {
         SheetVersionStore.WithGrid found = versions.readable(ownerObject, ownerId, versionNo);
-        SheetGrid grid = SheetGridReader.read(json.readTree(found.grid()));
-        return new XlsxWriter().write(grid, footerRight);
+        JsonNode stored = json.readTree(found.grid());
+        SheetGrid grid = SheetGridReader.read(stored);
+        // A sheet in format version 2 is written as far as format version 1 goes: its text, widths, heights, merges and
+        // the footer. Its look is drawn by a later release (SH3), and the file says so.
+        String note = SheetFormats.isFormatTwo(stored) ? LOOK_NOT_YET : null;
+        return new XlsxWriter().write(grid, footerRight, false, note);
     }
 }
