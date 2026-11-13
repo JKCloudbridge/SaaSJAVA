@@ -441,6 +441,12 @@
           "minimum": 8,
           "maximum": 1000,
           "description": "In pixels. Version 2 allows narrower columns than version 1 (the real forms have them); the platform setting may narrow the range further."
+        },
+        "formula": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000,
+          "description": "SH2, ADR-0252. The one formula of a calculated column, in its stored form (a spreadsheet formula without the equals sign whose references are tokens that name a column and a row by their identifiers). It is drawn and calculated at every body row. Only a sheet where the filler adds all the rows (dimension 1) has calculated columns."
         }
       }
     },
@@ -485,6 +491,12 @@
           "minLength": 1,
           "maxLength": 2000,
           "description": "An https address the text of a fixed cell opens. A property of the cell, never its value: the cell's text is what a person reads. Every other kind of address is refused."
+        },
+        "formula": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000,
+          "description": "SH2, ADR-0252. The formula of a fixed cell, in its stored form (a spreadsheet formula without the equals sign whose references are tokens that name a column and a row by their identifiers). A cell with a formula holds no value of its own and is not an input cell. The answer is calculated by the server and is not stored."
         }
       }
     },

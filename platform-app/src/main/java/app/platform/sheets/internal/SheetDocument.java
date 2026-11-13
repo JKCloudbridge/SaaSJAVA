@@ -40,21 +40,38 @@ record SheetDocument(List<Tab> sheets) {
      * @param looks the look of the cells that have one, by cell key
      * @param links the https address of the cells that have a link, by cell key
      * @param conditions the conditional colours, in the order they are applied
+     * @param formulas the formulas of cells, by cell key, each in its stored form (SH2, ADR-0252)
+     * @param columnFormulas the one formula of each calculated column, by column identifier, drawn at every body row
      */
     record Tab(String key, String title, boolean fillable, Freeze freeze, Print print, Map<String, Input> inputs,
-            SheetGrid body, Map<String, SheetLook> looks, Map<String, String> links, List<Condition> conditions) {
+            SheetGrid body, Map<String, SheetLook> looks, Map<String, String> links, List<Condition> conditions,
+            Map<String, String> formulas, Map<String, String> columnFormulas) {
 
         Tab {
             inputs = Collections.unmodifiableMap(new LinkedHashMap<>(inputs));
             looks = Collections.unmodifiableMap(new LinkedHashMap<>(looks));
             links = Collections.unmodifiableMap(new LinkedHashMap<>(links));
             conditions = List.copyOf(conditions);
+            formulas = Collections.unmodifiableMap(new LinkedHashMap<>(formulas));
+            columnFormulas = Collections.unmodifiableMap(new LinkedHashMap<>(columnFormulas));
         }
 
-        /** A sheet with no conditional colours. */
+        /** A sheet with conditional colours and no formulas. */
+        Tab(String key, String title, boolean fillable, Freeze freeze, Print print, Map<String, Input> inputs,
+                SheetGrid body, Map<String, SheetLook> looks, Map<String, String> links, List<Condition> conditions) {
+            this(key, title, fillable, freeze, print, inputs, body, looks, links, conditions, Map.of(), Map.of());
+        }
+
+        /** A sheet with no conditional colours and no formulas. */
         Tab(String key, String title, boolean fillable, Freeze freeze, Print print, Map<String, Input> inputs,
                 SheetGrid body, Map<String, SheetLook> looks, Map<String, String> links) {
             this(key, title, fillable, freeze, print, inputs, body, looks, links, List.of());
+        }
+
+        /** The same sheet with other formulas. */
+        Tab withFormulas(Map<String, String> cellFormulas, Map<String, String> columns) {
+            return new Tab(key, title, fillable, freeze, print, inputs, body, looks, links, conditions, cellFormulas,
+                    columns);
         }
 
         @Override

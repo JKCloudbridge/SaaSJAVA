@@ -15,8 +15,8 @@ import tools.jackson.databind.JsonNode;
  * enforces are one text.
  */
 @Configuration
-@EnableConfigurationProperties({SheetProperties.class, FillProperties.class, FillArchiveProperties.class,
-        ImportProperties.class})
+@EnableConfigurationProperties({SheetProperties.class, FormulaProperties.class, FillProperties.class,
+        FillArchiveProperties.class, ImportProperties.class})
 class SheetModuleConfiguration {
 
     @Bean
@@ -25,8 +25,10 @@ class SheetModuleConfiguration {
     }
 
     @Bean
-    SheetGridValidator sheetGridValidator(SheetProperties properties, SheetSchemas schemas) {
-        return new SheetGridValidator(properties.limits(), schemas, properties.formatTwo().enabled());
+    SheetGridValidator sheetGridValidator(SheetProperties properties, FormulaProperties formulas,
+            SheetSchemas schemas) {
+        return new SheetGridValidator(properties.limits(), schemas, properties.formatTwo().enabled(),
+                formulas.limits());
     }
 
     @Bean

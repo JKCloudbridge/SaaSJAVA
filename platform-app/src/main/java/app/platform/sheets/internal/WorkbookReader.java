@@ -1,5 +1,8 @@
 package app.platform.sheets.internal;
 
+import app.platform.sheets.internal.formula.FormulaRefused;
+import app.platform.sheets.internal.formula.FormulaTranslator;
+import app.platform.sheets.internal.formula.XlError;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -11,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.regex.Pattern;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
@@ -360,6 +364,9 @@ final class WorkbookReader {
         boolean inInlineText;
         boolean inFormula;
         boolean formula;
+        String formulaType;
+        String formulaShare;
+        final StringBuilder formulaText = new StringBuilder();
         int phonetic;
         String type;
         int style = -1;
@@ -372,6 +379,9 @@ final class WorkbookReader {
             inCell = true;
             formula = false;
             inFormula = false;
+            formulaType = null;
+            formulaShare = null;
+            formulaText.setLength(0);
             value.setLength(0);
             inline.setLength(0);
             type = cellType;
@@ -450,6 +460,9 @@ final class WorkbookReader {
                                 if (cell.inCell) {
                                     cell.formula = true;
                                     cell.inFormula = true;
+                                    cell.formulaType = r.getAttributeValue(null, "t");
+                                    cell.formulaShare = r.getAttributeValue(null, "si");
+                                    cell.formulaText.setLength(0);
                                     scan.reset();
                                 }
                             }
@@ -521,6 +534,7 @@ final class WorkbookReader {
                             append(cell.inline, r.getText());
                         } else if (cell.inFormula) {
                             scan.add(r.getText(), cell.row, cell.column);
+                            cell.formulaText.append(r.getText());
                         } else if (rule != null && rule.inFormula && rule.formula.length() < 64) {
                             rule.formula.append(r.getText(), 0, Math.min(64, r.getText().length()));
                         }
@@ -732,9 +746,76 @@ final class WorkbookReader {
 
         // ---- a cell ----
 
+        /** The first cell of a shared formula: only it holds the text, the others are moved copies of it. */
+        private record Master(int row, int column, String text) {
+        }
+
+        private final Map<String, Master> masters = new HashMap<>();
+
+        /** What the file stores in the cell, as a value, or null when it stores nothing. */
+        private Object typedValue(Pending cell, String type, String value) {
+            if ("s".equals(type)) {
+                Integer at = Xml.integer(value);
+                return at == null || at < 0 || at >= strings.size() ? null : strings.get(at);
+            }
+            if ("inlineStr".equals(type)) {
+                return cell.inline.toString();
+            }
+            if ("e".equals(type)) {
+                return new XlError(value.strip());
+            }
+            if ("b".equals(type)) {
+                return value.isBlank() ? null : (Object) "1".equals(value.strip());
+            }
+            if ("str".equals(type) || "d".equals(type)) {
+                return value.isEmpty() && !cell.formula ? null : value;
+            }
+            Double number = Xml.number(value.strip());
+            return number == null ? null : (Object) number;
+        }
+
+        /** Keeps the formula of the cell (SH2): the text, with a shared group's text given to each member. */
+        private void keepFormula(Pending cell) {
+            String text = cell.formulaText.toString().strip();
+            String kind = cell.formulaType;
+            RawSheet.Formula formula;
+            if ("array".equals(kind) || "dataTable".equals(kind)) {
+                formula = new RawSheet.Formula(null, "array");
+            } else if ("shared".equals(kind) && cell.formulaShare != null) {
+                if (!text.isEmpty()) {
+                    masters.put(cell.formulaShare, new Master(cell.row, cell.column, text));
+                    formula = new RawSheet.Formula(text, null);
+                } else {
+                    Master master = masters.get(cell.formulaShare);
+                    formula = master == null ? new RawSheet.Formula(null, "shared") : moved(master, cell);
+                }
+            } else if (text.isEmpty()) {
+                formula = new RawSheet.Formula(null, "empty");
+            } else {
+                formula = new RawSheet.Formula(text, null);
+            }
+            sheet.formulas.computeIfAbsent(cell.row, key -> new TreeMap<>()).put(cell.column, formula);
+        }
+
+        private RawSheet.Formula moved(Master master, Pending cell) {
+            try {
+                return new RawSheet.Formula(FormulaTranslator.shift(master.text(), cell.row - master.row(),
+                        cell.column - master.column()), null);
+            } catch (FormulaRefused refused) {
+                return new RawSheet.Formula(null, "shared");
+            }
+        }
+
         private void finish(Pending cell) {
             String value = cell.value.toString();
             String type = cell.type;
+            if (cell.formula) {
+                keepFormula(cell);
+            }
+            Object typed = typedValue(cell, type, value);
+            if (typed != null) {
+                sheet.typed.computeIfAbsent(cell.row, key -> new TreeMap<>()).put(cell.column, typed);
+            }
             StyleBook.Format format = styles.at(Math.max(cell.style, 0));
             String text;
             if ("s".equals(type)) {

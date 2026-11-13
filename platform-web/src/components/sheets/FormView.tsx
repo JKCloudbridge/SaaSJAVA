@@ -239,6 +239,7 @@ function ColumnEditor({
     (message) => ![...labelErrors, ...listErrors, ...defaultErrors].includes(message),
   );
   const values = column.picklist?.values ?? [];
+  const [formulaError, setFormulaError] = useState<string | null>(null);
 
   return (
     <li className="sheet-form-item" aria-label={`Column ${number}`}>
@@ -291,6 +292,24 @@ function ColumnEditor({
             }}
           />
         </div>
+        {editor.canWriteFormulas && editor.doc.dimension === 1 ? (
+          <div className="field">
+            <label htmlFor={`${id}-formula`}>Formula of column {number}, drawn at every row (starts with =)</label>
+            <DraftInput
+              id={`${id}-formula`}
+              value={editor.columnFormulaText(column.id)}
+              label={`Formula of column ${number}`}
+              disabled={readOnly}
+              invalid={formulaError !== null}
+              describedBy={formulaError !== null ? `${id}-formula-error` : undefined}
+              onCommit={(text) => setFormulaError(editor.setColumnFormula(column.id, text))}
+            />
+            <Errors messages={formulaError === null ? [] : [formulaError]} id={`${id}-formula-error`} />
+            {editor.previews.columns[column.id] !== undefined ? (
+              <p className="hint">Answer for an empty row: {editor.previews.columns[column.id] || "(empty)"}</p>
+            ) : null}
+          </div>
+        ) : null}
         <label className="sheet-check">
           <input
             type="checkbox"

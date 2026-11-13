@@ -5,6 +5,7 @@ import app.platformapi.ApiPaths;
 import app.platformapi.ApiResponse;
 import app.platformapi.ErrorCode;
 import app.platformapi.NewSheetVersionRequest;
+import app.platformapi.SheetCalculationView;
 import app.platformapi.SheetImportNoteView;
 import app.platformapi.SheetImportPlaceView;
 import app.platformapi.SheetImportReportView;
@@ -108,8 +109,13 @@ class SheetController {
                     + "the file comes too: fonts mapped to a closed list, sizes, text and fill colours, borders, "
                     + "number formats, wrapping, frozen panes, the page set-up, conditional colours that compare a "
                     + "value with a number, links to secure web addresses and check boxes turned into yes/no cells; "
-                    + "otherwise the four sizes of format version 1 come. Formulas come in as their last values and "
-                    + "dates as text written year-month-day. Images, charts, other worksheets, embedded files, "
+                    + "otherwise the four sizes of format version 1 come. When format version 2 is on, a formula "
+                    + "comes in as a formula when its functions are supported and every cell it points at can be "
+                    + "named (in a sheet where the filler adds the rows, a formula in the first row that points "
+                    + "only at cells of its own row becomes the formula of its column); any other formula, and "
+                    + "every formula when format version 2 is off, comes in as its last value and is counted in the "
+                    + "report. Dates come in as text written year-month-day. Images, charts, other worksheets, "
+                    + "embedded files, "
                     + "shapes and links to other files are left out and counted in the report, which says what was "
                     + "left out in plain words and where embedded files stood. "
                     + "firstRowLabels makes the first row of the table the names of the columns; when it is left "
@@ -192,6 +198,23 @@ class SheetController {
             @PathVariable int versionNo) {
         return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .body(ApiResponse.of(versions.get(ownerObject, ownerId, versionNo)));
+    }
+
+    @GetMapping(VERSIONS + "/{versionNo}/calculation")
+    @Operation(
+            operationId = "calculateSheetVersion",
+            summary = "The answers of the formulas of one version of a sheet",
+            description = "The server calculates every formula of the version from the sheet alone: every input cell "
+                    + "is empty, and a sheet where the filler adds all the rows is calculated for one row. The answer "
+                    + "of each formula is its kind (number, text, boolean or error) and its value as text; an error "
+                    + "is its code, such as #DIV/0!, and is never hidden. Answers are computed when asked and are "
+                    + "not stored. A version in the earlier format has no formulas and answers with none. Who may "
+                    + "read it is the rule of getSheetVersion: NOT_FOUND for a version the caller may not see. "
+                    + UNKNOWN)
+    ResponseEntity<ApiResponse<SheetCalculationView>> calculate(@PathVariable String ownerObject,
+            @PathVariable UUID ownerId, @PathVariable int versionNo) {
+        return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(ApiResponse.of(versions.calculation(ownerObject, ownerId, versionNo)));
     }
 
     @PutMapping(value = VERSIONS + "/{versionNo}/grid", consumes = MediaType.APPLICATION_JSON_VALUE)

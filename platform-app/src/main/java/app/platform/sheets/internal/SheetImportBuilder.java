@@ -11,10 +11,12 @@ import app.platform.sheets.internal.SheetGrid.Cell;
 import app.platform.sheets.internal.SheetGrid.Column;
 import app.platform.sheets.internal.SheetGrid.ColumnType;
 import app.platform.sheets.internal.SheetGrid.FontSize;
+import app.platform.sheets.internal.SheetGrid.Kind;
 import app.platform.sheets.internal.SheetGrid.Line;
 import app.platform.sheets.internal.SheetGrid.Merge;
 import app.platform.sheets.internal.SheetGrid.RowsMode;
 import app.platform.sheets.internal.SheetGrid.Style;
+import app.platform.sheets.internal.formula.FormulaLimits;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -104,20 +106,26 @@ final class SheetImportBuilder {
     private static final String SHEET_KEY = "main";
 
     private final SheetProperties.Limits limits;
+    private final FormulaLimits formulaLimits;
 
     SheetImportBuilder(SheetProperties.Limits limits) {
+        this(limits, FormulaLimits.DEFAULTS);
+    }
+
+    SheetImportBuilder(SheetProperties.Limits limits, FormulaLimits formulaLimits) {
         this.limits = limits;
+        this.formulaLimits = formulaLimits;
     }
 
     Built build(RawSheet raw, Options options) {
-        if (raw.isEmpty()) {
+        if (options.formatTwo() ? raw.holdsNothing() : raw.isEmpty()) {
             throw new ImportRefusal("empty_file", "The file holds no text, so there is nothing to make a sheet "
                     + "from.");
         }
         boolean two = options.formatTwo();
         // The table is every cell with text or a border (FA14, ADR-0250): a bordered blank cell extends it, a blank
         // cell with no border does not.
-        RawSheet.Extent extent = raw.extent();
+        RawSheet.Extent extent = raw.extent(two);
         int minRow = extent.top();
         int maxRow = extent.bottom();
         int maxColumn = extent.right();
@@ -166,17 +174,31 @@ final class SheetImportBuilder {
         }
         Map<String, Cell> cells = new LinkedHashMap<>();
         Set<Long> captions = two ? captionCells(raw) : Set.of();
+        FormulaImport.Result formulas = two ? FormulaImport.convert(raw, dimension2, bodyStart, maxRow, columns, rowIds,
+                covered, formulaLimits) : FormulaImport.Result.none();
         if (dimension2) {
             for (Map.Entry<Integer, TreeMap<Integer, RawSheet.Cell>> row : raw.rows.tailMap(bodyStart).entrySet()) {
                 for (Map.Entry<Integer, RawSheet.Cell> cell : row.getValue().entrySet()) {
                     if (covered.contains(key(row.getKey(), cell.getKey()))
-                            || captions.contains(key(row.getKey(), cell.getKey()))) {
+                            || captions.contains(key(row.getKey(), cell.getKey()))
+                            || formulas.positions().contains(key(row.getKey(), cell.getKey()))) {
                         continue;
                     }
                     RawSheet.Cell found = cell.getValue();
                     String id = rowIds.get(row.getKey() - bodyStart) + ":" + columns.get(cell.getKey()).id();
                     cells.put(id, new Cell(found.text(), two ? styleTwo(found) : style(found), null));
                 }
+            }
+        }
+        for (long position : formulas.positions()) {
+            // A cell that holds a formula is a fixed cell with no text of its own; its answer is calculated.
+            if (dimension2) {
+                int row = (int) (position >> 32);
+                int column = (int) (position & 0xffffffffL);
+                var held = raw.rows.get(row);
+                RawSheet.Cell found = held == null ? null : held.get(column);
+                cells.put(rowIds.get(row - bodyStart) + ":" + columns.get(column).id(),
+                        new Cell(null, found == null ? null : styleTwo(found), Kind.FIXED));
             }
         }
         if (dimension2) {
@@ -189,7 +211,8 @@ final class SheetImportBuilder {
                 merges);
         SheetDocument document = null;
         if (two) {
-            Context context = new Context(raw, bodyStart, maxRow, maxColumn, rowIds, columns, cells, dimension2);
+            Context context = new Context(raw, bodyStart, maxRow, maxColumn, rowIds, columns, cells, dimension2,
+                    formulas);
             document = new SheetDocument(List.of(sheet(context, grid)));
         }
         List<RawSheet.Place> places = raw.embeddedAt.size() > MOST_PLACES ? raw.embeddedAt.subList(0, MOST_PLACES)
@@ -416,7 +439,7 @@ final class SheetImportBuilder {
 
     /** What the version 2 part of the build needs to know about the grid that was made. */
     private record Context(RawSheet raw, int bodyStart, int maxRow, int maxColumn, List<String> rowIds,
-            List<Column> columns, Map<String, Cell> cells, boolean named) {
+            List<Column> columns, Map<String, Cell> cells, boolean named, FormulaImport.Result formulas) {
 
         String key(int row, int column) {
             return rowIds.get(row - bodyStart) + ":" + columns.get(column).id();
@@ -463,7 +486,8 @@ final class SheetImportBuilder {
         Freeze freeze = freeze(context, grid);
         Print print = raw.print == null ? null : new Print(raw.print.paper(), raw.print.orientation(),
                 raw.print.fitToWidth(), raw.print.repeatHeaderRows());
-        return new Tab(SHEET_KEY, raw.title, true, freeze, print, inputs, grid, looks, links, conditions);
+        return new Tab(SHEET_KEY, raw.title, true, freeze, print, inputs, grid, looks, links, conditions)
+                .withFormulas(context.formulas().cells(), context.formulas().columns());
     }
 
     private static int boxesIn(List<RawSheet.YesNo> cells) {

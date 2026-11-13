@@ -5295,7 +5295,7 @@ export interface paths {
         put?: never;
         /**
          * Make a new draft version from an uploaded spreadsheet file
-         * @description The body is the file itself (an .xlsx workbook or a UTF-8 text file with comma, semicolon or tab separated values) and nothing else; format says which. The file is read on the server and kept nowhere. One worksheet of a workbook is read: worksheet is its number among the visible worksheets counted from zero, and when it is left out the first visible worksheet that holds anything is read (hidden worksheets are skipped and counted; the report lists the visible ones by title so a person can choose). Text becomes fixed text of the sheet, a cell with no text is left to be typed into, and column widths, row heights, bold, italic, underline, alignment and merged areas come with it. When format version 2 is on, the look of the file comes too: fonts mapped to a closed list, sizes, text and fill colours, borders, number formats, wrapping, frozen panes, the page set-up, conditional colours that compare a value with a number, links to secure web addresses and check boxes turned into yes/no cells; otherwise the four sizes of format version 1 come. Formulas come in as their last values and dates as text written year-month-day. Images, charts, other worksheets, embedded files, shapes and links to other files are left out and counted in the report, which says what was left out in plain words and where embedded files stood. firstRowLabels makes the first row of the table the names of the columns; when it is left out the server decides: no when that row is a title (one merged area across the whole width of the table), yes otherwise, and the report says which it applied. A cell with a border on any side is part of the table even when it holds no text, and becomes a cell to be filled in; a blank cell with no border does not extend the table. A sheet that has no version yet is made in the shape where the sheet names its rows; a sheet that has versions keeps its shape (where the filler adds the rows, only the names of the columns come in). preview=true answers with the report and saves nothing. The size is checked before anything is read, from the announced length and again on the bytes read: PAYLOAD_TOO_LARGE (also for a file that unpacks to more than is allowed). VALIDATION_ERROR for a file that is not what its format says, a workbook with macros, a limit of the sheet that the file goes over (it is named, with the row and column when a cell is the reason) or a text that holds markup; nothing is cut. CONFLICT names the number of the draft when one exists, or when the sheet has the most versions it can have. RATE_LIMITED when other files are being read at the same moment. FORBIDDEN for a caller who may read the record but not update it. replace=true puts the grid in the draft that is held for a change request, in place, instead of making a draft: only for the people asked to decide that request. Audited by the format, the sizes and the counts, never by what the file held. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record.
+         * @description The body is the file itself (an .xlsx workbook or a UTF-8 text file with comma, semicolon or tab separated values) and nothing else; format says which. The file is read on the server and kept nowhere. One worksheet of a workbook is read: worksheet is its number among the visible worksheets counted from zero, and when it is left out the first visible worksheet that holds anything is read (hidden worksheets are skipped and counted; the report lists the visible ones by title so a person can choose). Text becomes fixed text of the sheet, a cell with no text is left to be typed into, and column widths, row heights, bold, italic, underline, alignment and merged areas come with it. When format version 2 is on, the look of the file comes too: fonts mapped to a closed list, sizes, text and fill colours, borders, number formats, wrapping, frozen panes, the page set-up, conditional colours that compare a value with a number, links to secure web addresses and check boxes turned into yes/no cells; otherwise the four sizes of format version 1 come. When format version 2 is on, a formula comes in as a formula when its functions are supported and every cell it points at can be named (in a sheet where the filler adds the rows, a formula in the first row that points only at cells of its own row becomes the formula of its column); any other formula, and every formula when format version 2 is off, comes in as its last value and is counted in the report. Dates come in as text written year-month-day. Images, charts, other worksheets, embedded files, shapes and links to other files are left out and counted in the report, which says what was left out in plain words and where embedded files stood. firstRowLabels makes the first row of the table the names of the columns; when it is left out the server decides: no when that row is a title (one merged area across the whole width of the table), yes otherwise, and the report says which it applied. A cell with a border on any side is part of the table even when it holds no text, and becomes a cell to be filled in; a blank cell with no border does not extend the table. A sheet that has no version yet is made in the shape where the sheet names its rows; a sheet that has versions keeps its shape (where the filler adds the rows, only the names of the columns come in). preview=true answers with the report and saves nothing. The size is checked before anything is read, from the announced length and again on the bytes read: PAYLOAD_TOO_LARGE (also for a file that unpacks to more than is allowed). VALIDATION_ERROR for a file that is not what its format says, a workbook with macros, a limit of the sheet that the file goes over (it is named, with the row and column when a cell is the reason) or a text that holds markup; nothing is cut. CONFLICT names the number of the draft when one exists, or when the sheet has the most versions it can have. RATE_LIMITED when other files are being read at the same moment. FORBIDDEN for a caller who may read the record but not update it. replace=true puts the grid in the draft that is held for a change request, in place, instead of making a draft: only for the people asked to decide that request. Audited by the format, the sizes and the counts, never by what the file held. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record.
          */
         post: operations["importSheetVersion"];
         delete?: never;
@@ -5316,6 +5316,26 @@ export interface paths {
          * @description The only call that reads a grid. NOT_FOUND also for a version that does not exist and for a version the caller may not see (a caller who may only read the record sees ACTIVE, SUPERSEDED and RETIRED versions; a draft or a version in review answers like a version that does not exist). NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record.
          */
         get: operations["getSheetVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sheets/{ownerObject}/{ownerId}/versions/{versionNo}/calculation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The answers of the formulas of one version of a sheet
+         * @description The server calculates every formula of the version from the sheet alone: every input cell is empty, and a sheet where the filler adds all the rows is calculated for one row. The answer of each formula is its kind (number, text, boolean or error) and its value as text; an error is its code, such as #DIV/0!, and is never hidden. Answers are computed when asked and are not stored. A version in the earlier format has no formulas and answers with none. Who may read it is the rule of getSheetVersion: NOT_FOUND for a version the caller may not see. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record.
+         */
+        get: operations["calculateSheetVersion"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6635,6 +6655,9 @@ export interface components {
         };
         ApiResponseSharingRuleView: {
             data: components["schemas"]["SharingRuleView"];
+        };
+        ApiResponseSheetCalculationView: {
+            data: components["schemas"]["SheetCalculationView"];
         };
         ApiResponseSheetFillSummaryView: {
             data: components["schemas"]["SheetFillSummaryView"];
@@ -9422,6 +9445,24 @@ export interface components {
             right?: components["schemas"]["SheetBorderStyle"];
             top?: components["schemas"]["SheetBorderStyle"];
         };
+        SheetCalculatedAnswerView: {
+            kind: string;
+            value: string;
+        };
+        SheetCalculatedCellView: {
+            answer: components["schemas"]["SheetCalculatedAnswerView"];
+            cell: string;
+        };
+        SheetCalculatedColumnView: {
+            column: string;
+            rows: components["schemas"]["SheetCalculatedAnswerView"][];
+        };
+        SheetCalculationView: {
+            /** Format: int32 */
+            bodyRows: number;
+            cells: components["schemas"]["SheetCalculatedCellView"][];
+            columns: components["schemas"]["SheetCalculatedColumnView"][];
+        };
         SheetCell: {
             /**
              * @description A header cell is always fixed. A body cell that holds a value and has no kind is fixed text; otherwise it is an input cell.
@@ -9538,6 +9579,31 @@ export interface components {
             grid: components["schemas"]["SheetGrid"];
             limits: components["schemas"]["SheetFillLimitsView"];
         };
+        SheetFormulaFunctionView: {
+            /** Format: int32 */
+            least: number;
+            /** Format: int32 */
+            most: number;
+            name: string;
+        };
+        SheetFormulaLimitsView: {
+            functions: components["schemas"]["SheetFormulaFunctionView"][];
+            /** Format: int32 */
+            maxChainDepth: number;
+            /** Format: int32 */
+            maxChars: number;
+            /** Format: int32 */
+            maxDepth: number;
+            /** Format: int32 */
+            maxFormulas: number;
+            /** Format: int32 */
+            maxNodes: number;
+            /** Format: int32 */
+            maxSteps: number;
+            /** Format: int32 */
+            maxTextChars: number;
+            textFormats: string[];
+        };
         SheetFreeze: {
             /** @description Columns kept in view, counted from the left. */
             columns: number;
@@ -9638,6 +9704,7 @@ export interface components {
         };
         SheetLimitsView: {
             formatTwoEnabled: boolean;
+            formulas: components["schemas"]["SheetFormulaLimitsView"];
             /** Format: int32 */
             maxBytes: number;
             /** Format: int32 */
@@ -9750,6 +9817,8 @@ export interface components {
             title?: string;
         };
         SheetTabCell: {
+            /** @description SH2, ADR-0252. The formula of a fixed cell, in its stored form (a spreadsheet formula without the equals sign whose references are tokens that name a column and a row by their identifiers). A cell with a formula holds no value of its own and is not an input cell. The answer is calculated by the server and is not stored. */
+            formula?: string;
             /** @enum {string} */
             kind?: "fixed" | "input";
             /** @description An https address the text of a fixed cell opens. A property of the cell, never its value: the cell's text is what a person reads. Every other kind of address is refused. */
@@ -9760,6 +9829,8 @@ export interface components {
         };
         SheetTabColumn: {
             default?: string | boolean | null;
+            /** @description SH2, ADR-0252. The one formula of a calculated column, in its stored form (a spreadsheet formula without the equals sign whose references are tokens that name a column and a row by their identifiers). It is drawn and calculated at every body row. Only a sheet where the filler adds all the rows (dimension 1) has calculated columns. */
+            formula?: string;
             id: components["schemas"]["SheetId"];
             label: string;
             picklist?: {
@@ -21201,6 +21272,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponseSheetVersionView"];
+                };
+            };
+            /** @description Error. The code says what went wrong; the message is safe to show. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    calculateSheetVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ownerObject: string;
+                ownerId: string;
+                versionNo: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponseSheetCalculationView"];
                 };
             };
             /** @description Error. The code says what went wrong; the message is safe to show. */

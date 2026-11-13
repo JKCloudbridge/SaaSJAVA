@@ -75,6 +75,11 @@ export interface SheetGridProps {
    * into it.
    */
   footer?: string;
+  /**
+   * The answers of the formulas, by cell key (SH2, ADR-0252): a cell that holds a formula shows its answer as plain text,
+   * and an error as its code. The server's answer when the document is the saved one, the browser's while an author types.
+   */
+  formulaAnswers?: Record<string, string>;
 }
 
 /** The narrowest and the widest a column may be: the same bounds as the schema of the sheet. */
@@ -105,6 +110,7 @@ export function SheetGrid({
   onResizeColumn,
   onResizeRow,
   footer,
+  formulaAnswers,
 }: SheetGridProps) {
   const { doc, rows, selection, rect } = editor;
   const gridId = useId();
@@ -254,8 +260,10 @@ export function SheetGrid({
       return;
     }
     const cell = doc.cells[cellKey(target.id, at(doc.columns, column).id)];
-    // Typing into a cell replaces its text; opening it (Enter, F2, double click) edits the text that is there.
-    flushSync(() => setEditing({ row, column, initial: seed ?? shown(cell?.value) }));
+    const formula = editor.formulaText?.(target.id, at(doc.columns, column).id) ?? "";
+    // Typing into a cell replaces its text; opening it (Enter, F2, double click) edits the text that is there, which
+    // for a cell that holds a formula is the formula.
+    flushSync(() => setEditing({ row, column, initial: seed ?? (formula !== "" ? formula : shown(cell?.value)) }));
   };
 
   const finishEdit = (save: boolean, dr = 0, dc = 0) => {
@@ -549,7 +557,8 @@ export function SheetGrid({
                     .filter(Boolean)
                     .join(" ");
                   const editingHere = editing !== null && editing.row === i && editing.column === j;
-                  const text = shown(cell?.value);
+                  const answer = formulaAnswers?.[key];
+                  const text = answer !== undefined ? answer : shown(cell?.value);
                   return (
                     <div
                       key={column.id}

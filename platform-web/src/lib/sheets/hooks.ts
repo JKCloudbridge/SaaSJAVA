@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ApiFailure } from "@/lib/api/errors";
-import { getVersion, listVersions, type SheetOwner, type VersionSummary, type VersionsView, type VersionView } from "./api";
+import {
+  calculateVersion,
+  getVersion,
+  listVersions,
+  type SheetOwner,
+  type VersionSummary,
+  type VersionsView,
+  type VersionView,
+} from "./api";
 
 /** What the versions of a sheet came to, with a way to ask again. */
 export type VersionsState =
@@ -78,6 +86,48 @@ export function useVersion(owner: SheetOwner, versionNo: number, refresh: number
     return { status: "idle" };
   }
   return loaded?.key === key ? loaded.state : { status: "loading" };
+}
+
+/** The server's answers of the formulas of a version, by cell key and by calculated column. */
+export interface ServerAnswers {
+  cells: Record<string, string>;
+  columns: Record<string, string>;
+}
+
+/**
+ * The answers the server calculates for the formulas of a version (SH2), asked for again whenever the version saved
+ * changes (`stamp`). Nothing is asked for a version that has no formulas to show (`wanted` false), and a failure shows
+ * nothing: the browser's own answers are only a preview and the page never claims more than it has.
+ */
+export function useServerAnswers(owner: SheetOwner, versionNo: number, stamp: number, wanted: boolean): ServerAnswers | null {
+  const [loaded, setLoaded] = useState<{ key: string; answers: ServerAnswers | null } | null>(null);
+  const key = `${owner.object}|${owner.id}|${versionNo}|${stamp}`;
+
+  useEffect(() => {
+    if (!wanted || versionNo <= 0) {
+      return;
+    }
+    let live = true;
+    void calculateVersion(owner, versionNo).then((outcome) => {
+      if (!live) {
+        return;
+      }
+      if (!outcome.ok) {
+        setLoaded({ key, answers: null });
+        return;
+      }
+      const cells: Record<string, string> = {};
+      for (const one of outcome.data.cells) cells[one.cell] = one.answer.value;
+      const columns: Record<string, string> = {};
+      for (const one of outcome.data.columns) columns[one.column] = one.rows[0]?.value ?? "";
+      setLoaded({ key, answers: { cells, columns } });
+    });
+    return () => {
+      live = false;
+    };
+  }, [key, owner, versionNo, wanted]);
+
+  return wanted && loaded?.key === key ? loaded.answers : null;
 }
 
 /** The version a person should be shown first: the draft if there is one, else the active one, else the newest. */

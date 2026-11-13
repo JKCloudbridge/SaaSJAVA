@@ -122,6 +122,23 @@ final class RawSheet {
     record YesNo(int row, int column, int boxes) {
     }
 
+    /**
+     * A formula as the file holds it (SH2).
+     *
+     * @param text the formula in spreadsheet text without the equals sign, with a shared formula already given to
+     *        every cell of its group; null when the formula cannot be used (see {@code reason})
+     * @param reason why there is no text: {@code array} for an array formula or a data table, {@code shared} for a
+     *        member of a shared group whose first cell was not met or whose text cannot move, {@code empty} for a
+     *        formula element with no text; null when there is a text
+     */
+    record Formula(String text, String reason) {
+
+        @Override
+        public String toString() {
+            return "Formula[redacted]";
+        }
+    }
+
     private static final java.util.regex.Pattern FOOTER = java.util.regex.Pattern.compile(
             "Rev No\\.'[0-9]{2,}'$");
 
@@ -156,6 +173,14 @@ final class RawSheet {
     int freezeColumns;
     Print print;
     final List<Rule> rules = new ArrayList<>();
+    /** The formulas of the worksheet by position (SH2): the cell may or may not also hold its last value as text. */
+    final TreeMap<Integer, TreeMap<Integer, Formula>> formulas = new TreeMap<>();
+    /**
+     * The value of every cell the file gives one, by position, as the file stores it (SH2): a Double, a String, a
+     * Boolean or an XlError. For a formula this is the last value the spreadsheet program calculated. It is kept for
+     * the check of the platform's own calculation against the program's, never stored in a sheet.
+     */
+    final TreeMap<Integer, TreeMap<Integer, Object>> typed = new TreeMap<>();
     /** The https address of the cell at a position (row shifted left by 32 bits, then column). */
     final Map<Long, String> links = new HashMap<>();
     /**
@@ -212,8 +237,30 @@ final class RawSheet {
      * area around a table does not make the grid larger. Call it only when {@link #isEmpty()} is false.
      */
     Extent extent() {
-        int top = rows.firstKey();
-        int bottom = rows.lastKey();
+        return extent(false);
+    }
+
+    /**
+     * The same, and, when asked, the cells that hold a formula count as cells of the table even when their last value
+     * is empty (SH2: a calculated column's formula shows an empty text on a blank row).
+     */
+    Extent extent(boolean withFormulas) {
+        Extent base = extentOfText();
+        if (!withFormulas || formulas.isEmpty()) {
+            return base;
+        }
+        int top = Math.min(base.top(), formulas.firstKey());
+        int bottom = Math.max(base.bottom(), formulas.lastKey());
+        int right = base.right();
+        for (NavigableMap<Integer, Formula> row : formulas.values()) {
+            right = Math.max(right, row.lastKey());
+        }
+        return new Extent(top, bottom, right);
+    }
+
+    private Extent extentOfText() {
+        int top = rows.isEmpty() ? Integer.MAX_VALUE : rows.firstKey();
+        int bottom = rows.isEmpty() ? 0 : rows.lastKey();
         int right = 0;
         for (NavigableMap<Integer, Cell> row : rows.values()) {
             right = Math.max(right, row.lastKey());
@@ -262,6 +309,11 @@ final class RawSheet {
 
     boolean isEmpty() {
         return rows.isEmpty();
+    }
+
+    /** Whether the worksheet holds neither text nor a formula (SH2: a sheet of formulas alone is not empty). */
+    boolean holdsNothing() {
+        return rows.isEmpty() && formulas.isEmpty();
     }
 
     @Override

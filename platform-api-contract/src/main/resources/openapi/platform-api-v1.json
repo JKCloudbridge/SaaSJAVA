@@ -13913,7 +13913,7 @@
     },
     "/api/v1/sheets/{ownerObject}/{ownerId}/versions/import" : {
       "post" : {
-        "description" : "The body is the file itself (an .xlsx workbook or a UTF-8 text file with comma, semicolon or tab separated values) and nothing else; format says which. The file is read on the server and kept nowhere. One worksheet of a workbook is read: worksheet is its number among the visible worksheets counted from zero, and when it is left out the first visible worksheet that holds anything is read (hidden worksheets are skipped and counted; the report lists the visible ones by title so a person can choose). Text becomes fixed text of the sheet, a cell with no text is left to be typed into, and column widths, row heights, bold, italic, underline, alignment and merged areas come with it. When format version 2 is on, the look of the file comes too: fonts mapped to a closed list, sizes, text and fill colours, borders, number formats, wrapping, frozen panes, the page set-up, conditional colours that compare a value with a number, links to secure web addresses and check boxes turned into yes/no cells; otherwise the four sizes of format version 1 come. Formulas come in as their last values and dates as text written year-month-day. Images, charts, other worksheets, embedded files, shapes and links to other files are left out and counted in the report, which says what was left out in plain words and where embedded files stood. firstRowLabels makes the first row of the table the names of the columns; when it is left out the server decides: no when that row is a title (one merged area across the whole width of the table), yes otherwise, and the report says which it applied. A cell with a border on any side is part of the table even when it holds no text, and becomes a cell to be filled in; a blank cell with no border does not extend the table. A sheet that has no version yet is made in the shape where the sheet names its rows; a sheet that has versions keeps its shape (where the filler adds the rows, only the names of the columns come in). preview=true answers with the report and saves nothing. The size is checked before anything is read, from the announced length and again on the bytes read: PAYLOAD_TOO_LARGE (also for a file that unpacks to more than is allowed). VALIDATION_ERROR for a file that is not what its format says, a workbook with macros, a limit of the sheet that the file goes over (it is named, with the row and column when a cell is the reason) or a text that holds markup; nothing is cut. CONFLICT names the number of the draft when one exists, or when the sheet has the most versions it can have. RATE_LIMITED when other files are being read at the same moment. FORBIDDEN for a caller who may read the record but not update it. replace=true puts the grid in the draft that is held for a change request, in place, instead of making a draft: only for the people asked to decide that request. Audited by the format, the sizes and the counts, never by what the file held. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record. ",
+        "description" : "The body is the file itself (an .xlsx workbook or a UTF-8 text file with comma, semicolon or tab separated values) and nothing else; format says which. The file is read on the server and kept nowhere. One worksheet of a workbook is read: worksheet is its number among the visible worksheets counted from zero, and when it is left out the first visible worksheet that holds anything is read (hidden worksheets are skipped and counted; the report lists the visible ones by title so a person can choose). Text becomes fixed text of the sheet, a cell with no text is left to be typed into, and column widths, row heights, bold, italic, underline, alignment and merged areas come with it. When format version 2 is on, the look of the file comes too: fonts mapped to a closed list, sizes, text and fill colours, borders, number formats, wrapping, frozen panes, the page set-up, conditional colours that compare a value with a number, links to secure web addresses and check boxes turned into yes/no cells; otherwise the four sizes of format version 1 come. When format version 2 is on, a formula comes in as a formula when its functions are supported and every cell it points at can be named (in a sheet where the filler adds the rows, a formula in the first row that points only at cells of its own row becomes the formula of its column); any other formula, and every formula when format version 2 is off, comes in as its last value and is counted in the report. Dates come in as text written year-month-day. Images, charts, other worksheets, embedded files, shapes and links to other files are left out and counted in the report, which says what was left out in plain words and where embedded files stood. firstRowLabels makes the first row of the table the names of the columns; when it is left out the server decides: no when that row is a title (one merged area across the whole width of the table), yes otherwise, and the report says which it applied. A cell with a border on any side is part of the table even when it holds no text, and becomes a cell to be filled in; a blank cell with no border does not extend the table. A sheet that has no version yet is made in the shape where the sheet names its rows; a sheet that has versions keeps its shape (where the filler adds the rows, only the names of the columns come in). preview=true answers with the report and saves nothing. The size is checked before anything is read, from the announced length and again on the bytes read: PAYLOAD_TOO_LARGE (also for a file that unpacks to more than is allowed). VALIDATION_ERROR for a file that is not what its format says, a workbook with macros, a limit of the sheet that the file goes over (it is named, with the row and column when a cell is the reason) or a text that holds markup; nothing is cut. CONFLICT names the number of the draft when one exists, or when the sheet has the most versions it can have. RATE_LIMITED when other files are being read at the same moment. FORBIDDEN for a caller who may read the record but not update it. replace=true puts the grid in the draft that is held for a change request, in place, instead of making a draft: only for the people asked to decide that request. Audited by the format, the sizes and the counts, never by what the file held. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record. ",
         "operationId" : "importSheetVersion",
         "parameters" : [ {
           "in" : "path",
@@ -14056,6 +14056,60 @@
           }
         },
         "summary" : "One version of a sheet with its grid",
+        "tags" : [ "Sheets" ]
+      }
+    },
+    "/api/v1/sheets/{ownerObject}/{ownerId}/versions/{versionNo}/calculation" : {
+      "get" : {
+        "description" : "The server calculates every formula of the version from the sheet alone: every input cell is empty, and a sheet where the filler adds all the rows is calculated for one row. The answer of each formula is its kind (number, text, boolean or error) and its value as text; an error is its code, such as #DIV/0!, and is never hidden. Answers are computed when asked and are not stored. A version in the earlier format has no formulas and answers with none. Who may read it is the rule of getSheetVersion: NOT_FOUND for a version the caller may not see. NOT_FOUND for an object that cannot own a sheet, for a record that does not exist and for a record the caller may not read (all three answer alike). A sheet has no permission of its own: reading it needs the right to read the record and changing it the right to update the record. ",
+        "operationId" : "calculateSheetVersion",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ownerObject",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "ownerId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "versionNo",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSheetCalculationView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description" : "Error. The code says what went wrong; the message is safe to show."
+          }
+        },
+        "summary" : "The answers of the formulas of one version of a sheet",
         "tags" : [ "Sheets" ]
       }
     },
@@ -17914,6 +17968,15 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/SharingRuleView"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiResponseSheetCalculationView" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/SheetCalculationView"
           }
         },
         "required" : [ "data" ]
@@ -26628,6 +26691,67 @@
           }
         }
       },
+      "SheetCalculatedAnswerView" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "kind", "value" ]
+      },
+      "SheetCalculatedCellView" : {
+        "type" : "object",
+        "properties" : {
+          "answer" : {
+            "$ref" : "#/components/schemas/SheetCalculatedAnswerView"
+          },
+          "cell" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "answer", "cell" ]
+      },
+      "SheetCalculatedColumnView" : {
+        "type" : "object",
+        "properties" : {
+          "column" : {
+            "type" : "string"
+          },
+          "rows" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetCalculatedAnswerView"
+            }
+          }
+        },
+        "required" : [ "column", "rows" ]
+      },
+      "SheetCalculationView" : {
+        "type" : "object",
+        "properties" : {
+          "bodyRows" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "cells" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetCalculatedCellView"
+            }
+          },
+          "columns" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetCalculatedColumnView"
+            }
+          }
+        },
+        "required" : [ "bodyRows", "cells", "columns" ]
+      },
       "SheetCell" : {
         "type" : "object",
         "additionalProperties" : false,
@@ -26896,6 +27020,69 @@
         },
         "required" : [ "canEdit", "cells", "correction", "fill", "grid", "limits" ]
       },
+      "SheetFormulaFunctionView" : {
+        "type" : "object",
+        "properties" : {
+          "least" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "most" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "least", "most", "name" ]
+      },
+      "SheetFormulaLimitsView" : {
+        "type" : "object",
+        "properties" : {
+          "functions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SheetFormulaFunctionView"
+            }
+          },
+          "maxChainDepth" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxChars" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxDepth" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxFormulas" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxNodes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxSteps" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxTextChars" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "textFormats" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        },
+        "required" : [ "functions", "maxChainDepth", "maxChars", "maxDepth", "maxFormulas", "maxNodes", "maxSteps", "maxTextChars", "textFormats" ]
+      },
       "SheetFreeze" : {
         "type" : "object",
         "additionalProperties" : false,
@@ -27145,6 +27332,9 @@
           "formatTwoEnabled" : {
             "type" : "boolean"
           },
+          "formulas" : {
+            "$ref" : "#/components/schemas/SheetFormulaLimitsView"
+          },
           "maxBytes" : {
             "type" : "integer",
             "format" : "int32"
@@ -27214,7 +27404,7 @@
             "format" : "int32"
           }
         },
-        "required" : [ "formatTwoEnabled", "maxBytes", "maxCellChars", "maxColumnWidth", "maxColumns", "maxFilesPerCell", "maxFixedTextChars", "maxHeaderRows", "maxImportBytes", "maxLabelChars", "maxLinkChars", "maxMerges", "maxPicklistValues", "maxRowHeight", "maxRows", "maxSheets", "minColumnWidth", "minRowHeight" ]
+        "required" : [ "formatTwoEnabled", "formulas", "maxBytes", "maxCellChars", "maxColumnWidth", "maxColumns", "maxFilesPerCell", "maxFixedTextChars", "maxHeaderRows", "maxImportBytes", "maxLabelChars", "maxLinkChars", "maxMerges", "maxPicklistValues", "maxRowHeight", "maxRows", "maxSheets", "minColumnWidth", "minRowHeight" ]
       },
       "SheetLook" : {
         "type" : "object",
@@ -27418,6 +27608,12 @@
         "type" : "object",
         "additionalProperties" : false,
         "properties" : {
+          "formula" : {
+            "type" : "string",
+            "description" : "SH2, ADR-0252. The formula of a fixed cell, in its stored form (a spreadsheet formula without the equals sign whose references are tokens that name a column and a row by their identifiers). A cell with a formula holds no value of its own and is not an input cell. The answer is calculated by the server and is not stored.",
+            "maxLength" : 4000,
+            "minLength" : 1
+          },
           "kind" : {
             "type" : "string",
             "enum" : [ "fixed", "input" ]
@@ -27445,6 +27641,12 @@
         "properties" : {
           "default" : {
             "type" : [ "string", "boolean", "null" ]
+          },
+          "formula" : {
+            "type" : "string",
+            "description" : "SH2, ADR-0252. The one formula of a calculated column, in its stored form (a spreadsheet formula without the equals sign whose references are tokens that name a column and a row by their identifiers). It is drawn and calculated at every body row. Only a sheet where the filler adds all the rows (dimension 1) has calculated columns.",
+            "maxLength" : 4000,
+            "minLength" : 1
           },
           "id" : {
             "$ref" : "#/components/schemas/SheetId"

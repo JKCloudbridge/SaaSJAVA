@@ -48,6 +48,18 @@ final class SheetDocumentReader {
                 links.put(entry.getKey(), entry.getValue().path("link").asString());
             }
         }
+        Map<String, String> formulas = new LinkedHashMap<>();
+        for (Map.Entry<String, JsonNode> entry : node.path("cells").properties()) {
+            if (entry.getValue().has("formula")) {
+                formulas.put(entry.getKey(), entry.getValue().path("formula").asString());
+            }
+        }
+        Map<String, String> columnFormulas = new LinkedHashMap<>();
+        for (JsonNode column : node.path("columns")) {
+            if (column.has("formula")) {
+                columnFormulas.put(column.path("id").asString(), column.path("formula").asString());
+            }
+        }
         Map<String, Input> inputs = new LinkedHashMap<>();
         for (Map.Entry<String, JsonNode> entry : node.path("inputs").properties()) {
             inputs.put(entry.getKey(), input(entry.getValue()));
@@ -68,7 +80,28 @@ final class SheetDocumentReader {
                 freeze.isObject() ? new Freeze(freeze.path("rows").asInt(), freeze.path("columns").asInt()) : null,
                 print.isObject() ? new Print(print.path("paper").asString(), print.path("orientation").asString(),
                         print.path("fitToWidth").asBoolean(), print.path("repeatHeaderRows").asBoolean()) : null,
-                inputs, SheetGridReader.readBody(node), looks, links, conditions);
+                inputs, fixedFormulaCells(SheetGridReader.readBody(node), formulas), looks, links, conditions,
+                formulas, columnFormulas);
+    }
+
+    /**
+     * A cell that holds a formula is a fixed cell (SH2): it is not typed into. A cell that states nothing else gets
+     * that kind here, so that the one form of a formula cell does not depend on whether the kind was written; a cell
+     * that states it is an input, or holds a text of its own, is left as it came and the validator refuses it.
+     */
+    private static SheetGrid fixedFormulaCells(SheetGrid body, Map<String, String> formulas) {
+        if (formulas.isEmpty()) {
+            return body;
+        }
+        Map<String, SheetGrid.Cell> cells = new LinkedHashMap<>(body.cells());
+        for (String key : formulas.keySet()) {
+            SheetGrid.Cell cell = cells.get(key);
+            if (cell != null && cell.kind() == null && cell.value() == null) {
+                cells.put(key, new SheetGrid.Cell(null, cell.style(), SheetGrid.Kind.FIXED));
+            }
+        }
+        return new SheetGrid(body.dimension(), body.rowsMode(), body.columns(), body.headerRows(), body.rows(), cells,
+                body.merges());
     }
 
     private static Input input(JsonNode node) {

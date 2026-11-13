@@ -1361,3 +1361,32 @@ For the person who sets sheets up, and for whoever builds a bundle with sheets. 
 **The limits** (`platform.sheets.limits.*`, new keys): `max-fixed-text-chars` 5,000, `min-column-width` 8, `max-column-width` 1,000, `min-row-height` 4, `max-row-height` 600, `max-sheets` 1, `max-files-per-cell` 5, `max-link-chars` 2,000. A setting can only narrow what the format allows. The screen reads them from the list of versions of a sheet.
 
 **What a refusal looks like.** Every problem has a stable code (`look_conflict`, `link_invalid`, `link_target`, `input_picklist`, `freeze_range`, ...), a place made of the sheet's position, its key and identifiers, and fixed words. Nothing you typed is repeated in a refusal.
+
+## 46. Formulas in a sheet (SH2)
+
+**What it is.** In a sheet in format version 2 a cell can hold a **formula**, written the way a spreadsheet program writes it, and the platform works out the answer. The answer is calculated by the server when it is asked for; it is never stored with the sheet. A formula does not move when you add, move or remove a row or a column: it points at rows and columns by their permanent names, and only the text you read changes.
+
+**How to write one.** In the author's grid select a cell and type `=` and the formula (in the cell or in the formula bar above the grid), then Enter. To type text that starts with an equals sign, put an apostrophe in front of it. For a sheet where the filler adds the rows, a column can hold **one formula for the whole column** (the form view, "Formula of column"): it is drawn at every row the filler adds, written for the first row as if that row were the only one (`=IF(A2="","",A2*2)`). A formula cell is a fixed cell: nobody types into it.
+
+**Where the answer shows.** In the grid, as plain text (an error as its code, such as `#DIV/0!`). While you type the browser shows its own answer; once the sheet is saved the grid shows the server's, which is the one that counts. The look of the answer (colours, number formats) comes later. The download writes the answer as text, not as a formula, and says so in the file's information.
+
+**The forty functions**, with one example each:
+
+| Kind | Function | Example |
+|---|---|---|
+| Arithmetic | `ABS` `MOD` `INT` `ROUND` `ROUNDUP` `ROUNDDOWN` `SQRT` `POWER` `PRODUCT` | `=ROUND(A2/B2*100,1)` |
+| Logic | `IF` `IFERROR` `AND` `OR` `NOT` `IFS` `SWITCH` | `=IF(B2="","",IF(B2>=85,"Pass","Fail"))` |
+| Tests | `ISNUMBER` `ISTEXT` `ISBLANK` | `=IF(ISBLANK(A2),"",A2)` |
+| Conditional totals | `SUMIF` `COUNTIF` `AVERAGEIF` | `=COUNTIF(C2:C20,"Fail")` |
+| Statistics | `SUM` `AVERAGE` `MEDIAN` `MODE` `COUNT` `COUNTA` `MIN` `MAX` `LARGE` `SMALL` | `=MIN(100,SUM(B2:B9))` |
+| Text | `VALUE` `TEXT` `CONCATENATE` `LEFT` `RIGHT` `LEN` `UPPER` `TRIM` | `=CONCATENATE(A2," - ",TEXT(B2,"0.0%"))` |
+
+`COUNT` takes only cells and ranges. `TEXT` takes one of nine formats as a text in quotes: `0`, `0.0`, `0.00`, `0.000`, `0%`, `0.0%`, `0.00%`, `#,##0`, `#,##0.00`. A dot is always the decimal point, whatever the language of the browser. Rounding follows the spreadsheet program (`ROUND(2.675,2)` is 2.68). A blank cell counts as nothing in a total and as 0 in arithmetic.
+
+**What is refused, and why.** Anything that could read the clock, the network, another file or run text (`INDIRECT`, `TODAY`, `NOW`, `RAND`, `OFFSET`, `HYPERLINK`, `WEBSERVICE` and the like); another sheet or another workbook; names; joining with `&` (use `CONCATENATE`); array formulas; `STDEV`, `VAR`, `RANK` and `N` (left out until their edge cases agree in both engines). A formula that depends on itself, directly or through other formulas, is refused (`A formula depends on itself`), and so is a chain of more than 10 formulas that need each other. Every refusal has fixed words that never repeat what you typed.
+
+**The limits** (`platform.sheets.formulas.*`): 4,000 characters, 32 levels of brackets, 1,000 parts, 100,000 steps, 100,000 characters of text, 2 seconds per sheet, 10 formulas in a chain, 500 formulas per sheet. A bound reached while calculating gives the answer `#LIMIT!`.
+
+**From a workbook.** With format version 2 on, an uploaded formula comes in as a formula when it uses only these functions and points only at cells the sheet can name; the report counts the ones that did not ("3 formulas used a function the sheet does not support were kept as their last value"). A group of cells sharing one formula each gets its own. In a sheet where the filler adds the rows, a formula in the first row that points only at its own row (or at the whole of a column) becomes that column's formula. The file is never refused because of a formula.
+
+**The whole body of a column** (`=AVERAGE(B2:B6)` over every row) grows by itself with the rows the filler adds, and only in a sheet where the filler adds all the rows. In a sheet that names its rows, name the rows you mean.

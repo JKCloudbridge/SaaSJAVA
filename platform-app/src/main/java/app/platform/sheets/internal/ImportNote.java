@@ -54,6 +54,12 @@ enum ImportNote {
     FONT_FALLBACK(false, "font the sheet does not have", "fonts the sheet does not have",
             "drawn in a similar standard font"),
     FORMULAS(false, "formula", "formulas", "read as its last value"),
+    FORMULAS_KEPT(false, "formula", "formulas", "kept as a formula (the platform calculates the answer)"),
+    FORMULAS_FUNCTION(false, "formula that uses a function the sheet does not support",
+            "formulas that use a function the sheet does not support", "kept as its last value"),
+    FORMULAS_REFERENCE(false, "formula that points at another sheet, another file, a name or a place the sheet cannot "
+            + "name", "formulas that point at another sheet, another file, a name or a place the sheet cannot name",
+            "kept as its last value"),
     DATES(false, "date", "dates", "written year-month-day"),
     BORDERED_BLANKS(false, "blank cell with a border", "blank cells with a border",
             "kept as cells to be filled in (a blank cell with no border is not part of the table)"),
@@ -99,6 +105,11 @@ enum ImportNote {
 
         void add(ImportNote note) {
             add(note, 1);
+        }
+
+        /** Forgets the count of a note (a build that counts it again in another way). */
+        void remove(ImportNote note) {
+            counts.remove(note);
         }
 
         int of(ImportNote note) {

@@ -42,6 +42,47 @@ class SheetsLogsAreCleanIT extends SheetSupport {
     }
 
     @Test
+    void noFormulaNoTextInAFormulaAndNoAnswerIsLoggedOrWrittenToTheTrailOrEchoedByARefusal() throws IOException {
+        Setting setting = setting();
+        String owner = template(setting.admin());
+        String constant = typed("constant");
+        String refusedConstant = typed("refused-constant");
+        String name = typed("name");
+
+        firstVersion(setting.admin(), owner, 2);
+        Map<String, Object> document = FormulaDocs.withCell(FormulaDocs.named(), "r3:c1",
+                "IF(@{c1,r1}=\"\",\"" + constant + "\",1)");
+        Response saved = save(setting.admin(), owner, 1, 0, json(document));
+        Response answers = setting.admin().get(versions(owner) + "/1/calculation");
+        Response listed = setting.admin().get(versions(owner));
+        Response refusedAmpersand = save(setting.admin(), owner, 1, rowVersion(saved), json(FormulaDocs.withCell(
+                FormulaDocs.named(), "r3:c1", "\"" + refusedConstant + "\"&@{c1,r1}")));
+        Response refusedName = save(setting.admin(), owner, 1, rowVersion(saved), json(FormulaDocs.withCell(
+                FormulaDocs.named(), "r3:c1", name + "*2")));
+        Response refusedCycle = save(setting.admin(), owner, 1, rowVersion(saved), json(FormulaDocs.withCell(
+                FormulaDocs.named(), "r3:c1", "@{c1}+\"" + refusedConstant + "\"")));
+        String trail = setting.admin().get("/api/v1/audit-events?limit=200").body();
+
+        String log = Files.readString(Path.of(LOG_FILE));
+
+        assertThat(saved.status()).as(saved.body()).isEqualTo(200);
+        assertThat(answers.status()).as(answers.body()).isEqualTo(200);
+        assertThat(JsonPath.<String>read(answers.body(), "$.data.cells[0].answer.value")).isEqualTo(constant);
+        for (String text : List.of(constant, refusedConstant, name)) {
+            assertThat(log).as("a formula or a text in it is not logged: " + text).doesNotContain(text);
+            assertThat(trail).as("a formula is not in the audit trail: " + text).doesNotContain(text);
+            assertThat(listed.body()).as("the list of versions reads no grid").doesNotContain(text);
+            assertThat(saved.body()).as("a save answers with a summary, not the grid").doesNotContain(text);
+        }
+        for (Response refused : List.of(refusedAmpersand, refusedName, refusedCycle)) {
+            assertThat(refused.status()).as(refused.body()).isEqualTo(400);
+            for (String text : List.of(refusedConstant, name)) {
+                assertThat(refused.body()).as("a refusal does not echo a formula").doesNotContain(text);
+            }
+        }
+    }
+
+    @Test
     void nothingTypedInAGridIsLoggedOrWrittenToTheTrailOrEchoedByARefusal() throws IOException {
         Setting setting = setting();
         String owner = template(setting.admin());
