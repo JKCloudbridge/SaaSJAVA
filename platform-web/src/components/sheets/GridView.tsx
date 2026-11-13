@@ -5,6 +5,7 @@ import { TextStyleControls } from "./TextStyleControls";
 import { useMemo } from "react";
 import type { FontSize } from "@/lib/sheets/types";
 import { FormulaBar } from "./FormulaBar";
+import { answerMaps } from "@/lib/sheets/look/sheetLook";
 import { SheetGrid } from "./SheetGrid";
 import type { SheetEditor } from "./useSheetEditor";
 
@@ -28,7 +29,11 @@ export interface GridViewProps {
    * The server's answers of the formulas of the version shown (SH2, ADR-0252), by cell key and by calculated column. They
    * are shown while the document is the saved one; while an author types, the browser's own answers are shown instead.
    */
-  serverAnswers?: { cells: Record<string, string>; columns: Record<string, string> } | null;
+  serverAnswers?: {
+    cells: Record<string, string>;
+    columns: Record<string, string>;
+    kinds: { cells: Record<string, string>; columns: Record<string, string> };
+  } | null;
 }
 
 /**
@@ -40,14 +45,8 @@ export interface GridViewProps {
 export function GridView({ editor, readOnly, readOnlyReason, label, footer, serverAnswers }: GridViewProps) {
   const { state, selection, rows, doc } = editor;
   const answers = serverAnswers && !editor.dirty ? serverAnswers : editor.previews;
-  const formulaAnswers = useMemo(() => {
-    const map: Record<string, string> = { ...answers.cells };
-    for (const row of rows) {
-      if (row.zone !== "blank") continue;
-      for (const [column, answer] of Object.entries(answers.columns)) map[`${row.id}:${column}`] = answer;
-    }
-    return map;
-  }, [answers, rows]);
+  const maps = useMemo(() => answerMaps(answers, rows), [answers, rows]);
+  const formulaAnswers = maps.text;
   const focusRow = rows[selection.fr];
   const focusColumn = doc.columns[selection.fc];
   const canAddRow = doc.dimension === 2;
@@ -151,6 +150,7 @@ export function GridView({ editor, readOnly, readOnlyReason, label, footer, serv
         label={label}
         footer={footer}
         formulaAnswers={formulaAnswers}
+        formulaKinds={maps.kinds}
         onResizeColumn={readOnly ? undefined : (id, width) => editor.updateColumn(id, { width })}
         onResizeRow={readOnly ? undefined : (id, height) => editor.updateRow(id, { height })}
       />

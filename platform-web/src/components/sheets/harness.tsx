@@ -13,6 +13,8 @@ export function GridHost({
   toolbar = false,
   limits = LIMITS,
   footer,
+  answers,
+  kinds,
   onEditor,
 }: {
   initial?: GridDoc;
@@ -20,6 +22,9 @@ export function GridHost({
   toolbar?: boolean;
   limits?: SheetLimits;
   footer?: string;
+  /** The answers of formulas by cell key, and their kinds, handed straight to the grid (SH4). */
+  answers?: Record<string, string>;
+  kinds?: Record<string, string>;
   onEditor?: (editor: SheetEditor) => void;
 }) {
   const editor = useSheetEditor(initial, limits);
@@ -29,6 +34,6 @@ export function GridHost({
   return toolbar ? (
     <GridView editor={editor} readOnly={readOnly} label="Test sheet" footer={footer} />
   ) : (
-    <SheetGrid editor={editor} readOnly={readOnly} label="Test sheet" footer={footer} />
+    <SheetGrid editor={editor} readOnly={readOnly} label="Test sheet" footer={footer} formulaAnswers={answers} formulaKinds={kinds} />
   );
 }

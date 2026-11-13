@@ -1,0 +1,149 @@
+# SH4, ADR-0251 (note "Built in SH4"). The one file of look cases that BOTH sides read: the Java tests (server) and the TypeScript
+# tests (browser). It holds no text of a real form. The expected values are the DOCUMENTED behaviour of a spreadsheet program for the
+# format code the file out writes (NumberFormats.codeOf), written before the browser's formatter existed. A new key, operator or
+# format needs cases here, in the browser's code, and a line in the Java test.
+#
+# [number]     key | kind | value | expected
+#              kind: number | text | boolean | error | blank. A value is shown as the server gives it (plain digits, at most fifteen
+#              significant, possibly with an exponent). Locale: a dot for decimals and a comma for thousands, whatever the browser says.
+#              Only the rows of kind "number" are also held to the library's formatter by the Java test (accounting excepted: the
+#              library does not draw the padding and the dash of that format; see the test).
+# [condition]  operator | value | value2 | cell | expected      (expected: yes or no; cell is the displayed number, "text" for text)
+# [words]      operator | value | value2 | the fixed words a screen reader gets
+# [ink]        fill (six hex digits, no hash sign) | the ink chosen for a cell with that fill and no text colour (dark or light)
+
+[number]
+# ---- general: the digits as they are
+GENERAL | number | 1234.5 | 1234.5
+GENERAL | number | 0 | 0
+GENERAL | number | -0.25 | -0.25
+# ---- whole numbers: rounding is half away from zero, on the decimal digits (not on the binary value)
+WHOLE | number | 0 | 0
+WHOLE | number | 2.5 | 3
+WHOLE | number | -2.5 | -3
+WHOLE | number | 0.49 | 0
+WHOLE | number | 1234.5 | 1235
+WHOLE | number | 999999999999999 | 999999999999999
+# a number that rounds to zero keeps its minus sign (to confirm in the spreadsheet program: the manual steps ask for it)
+WHOLE | number | -0.4 | -0
+# ---- two decimals: 2.675 is 2.68 (the fifteen digits of the number are 2.67500000000000, not the binary 2.67499999999999982)
+TWO_DECIMALS | number | 0 | 0.00
+TWO_DECIMALS | number | 2.675 | 2.68
+TWO_DECIMALS | number | 2.665 | 2.67
+TWO_DECIMALS | number | 1.005 | 1.01
+TWO_DECIMALS | number | -2.675 | -2.68
+TWO_DECIMALS | number | 1234.5 | 1234.50
+TWO_DECIMALS | number | 0.001 | 0.00
+TWO_DECIMALS | number | -0.001 | -0.00
+TWO_DECIMALS | number | 7 | 7.00
+# ---- percent
+PERCENT | number | 0.256 | 26%
+PERCENT | number | 0 | 0%
+PERCENT | number | 1 | 100%
+PERCENT | number | -0.5 | -50%
+PERCENT | number | 0.005 | 1%
+PERCENT | number | 12 | 1200%
+PERCENT_TWO_DECIMALS | number | 0.256 | 25.60%
+PERCENT_TWO_DECIMALS | number | 0.12345 | 12.35%
+PERCENT_TWO_DECIMALS | number | 0 | 0.00%
+PERCENT_TWO_DECIMALS | number | -0.0005 | -0.05%
+# ---- thousands
+THOUSANDS | number | 0 | 0
+THOUSANDS | number | 999 | 999
+THOUSANDS | number | 1000 | 1,000
+THOUSANDS | number | 1234567.5 | 1,234,568
+THOUSANDS | number | -1234.4 | -1,234
+THOUSANDS | number | 123456789012345 | 123,456,789,012,345
+THOUSANDS_TWO_DECIMALS | number | 0.5 | 0.50
+THOUSANDS_TWO_DECIMALS | number | 1234567.891 | 1,234,567.89
+THOUSANDS_TWO_DECIMALS | number | -1000 | -1,000.00
+THOUSANDS_TWO_DECIMALS | number | 999.995 | 1,000.00
+# ---- accounting: a negative number in brackets, zero as a dash
+ACCOUNTING | number | 1234.5 | 1,234.50
+ACCOUNTING | number | -1234.5 | (1,234.50)
+ACCOUNTING | number | 0 | -
+ACCOUNTING | number | 0.004 | 0.00
+ACCOUNTING | number | -0.004 | (0.00)
+# ---- very large and very small, and a number written with an exponent
+WHOLE | number | 1e21 | 1000000000000000000000
+THOUSANDS | number | 1e21 | 1,000,000,000,000,000,000,000
+THOUSANDS | number | 1.5E+3 | 1,500
+TWO_DECIMALS | number | 1.5e-7 | 0.00
+WHOLE | number | 1.5e-7 | 0
+PERCENT_TWO_DECIMALS | number | 1e-7 | 0.00%
+TWO_DECIMALS | number | 1e-2 | 0.01
+# ---- the two date keys: a date is text in a sheet, so a number is shown as it is
+MONTH_YEAR | number | 45000 | 45000
+SHORT_DATE | number | 45000 | 45000
+MONTH_YEAR | text | 2025-12-01 | 2025-12-01
+# ---- what is not a number is shown as it is
+WHOLE | text | hello | hello
+TWO_DECIMALS | text | 12.5 kg | 12.5 kg
+PERCENT | error | #DIV/0! | #DIV/0!
+ACCOUNTING | error | #VALUE! | #VALUE!
+THOUSANDS | error | #LIMIT! | #LIMIT!
+WHOLE | blank | |
+TWO_DECIMALS | boolean | TRUE | TRUE
+# a text that only looks like a number is not formatted when its kind is text
+WHOLE | text | 12.5 | 12.5
+
+[condition]
+# operator | value | value2 | cell | expected
+LT | 5 | | 4 | yes
+LT | 5 | | 5 | no
+LTE | 5 | | 5 | yes
+LTE | 5 | | 5.01 | no
+EQ | 5 | | 5 | yes
+EQ | 5 | | 5.0 | yes
+EQ | 5 | | 4.999 | no
+NEQ | 5 | | 4 | yes
+NEQ | 5 | | 5 | no
+GTE | 5 | | 5 | yes
+GTE | 5 | | 4.99 | no
+GT | 5 | | 5.01 | yes
+GT | 5 | | 5 | no
+BETWEEN | 1 | 5 | 1 | yes
+BETWEEN | 1 | 5 | 5 | yes
+BETWEEN | 1 | 5 | 3 | yes
+BETWEEN | 1 | 5 | 0.99 | no
+BETWEEN | 1 | 5 | 5.01 | no
+BETWEEN | 5 | 1 | 3 | yes
+NOT_BETWEEN | 1 | 5 | 0 | yes
+NOT_BETWEEN | 1 | 5 | 6 | yes
+NOT_BETWEEN | 1 | 5 | 1 | no
+NOT_BETWEEN | 1 | 5 | 3 | no
+LT | -2.5 | | -3 | yes
+GT | 0 | | -0.0 | no
+GT | 0.1 | | 0.2 | yes
+# only a number meets a comparison: text, a blank and an error never do
+GT | 0 | | text | no
+LT | 5 | | text | no
+NEQ | 5 | | text | no
+NOT_BETWEEN | 1 | 5 | text | no
+LT | 5 | | #DIV/0! | no
+NEQ | 5 | | #DIV/0! | no
+LT | 5 | | | no
+
+[words]
+LT | 5 | | highlighted: below 5
+LTE | 5 | | highlighted: at most 5
+EQ | 5 | | highlighted: equal to 5
+NEQ | 5 | | highlighted: not equal to 5
+GTE | 5 | | highlighted: at least 5
+GT | 5 | | highlighted: above 5
+BETWEEN | 1 | 5 | highlighted: between 1 and 5
+NOT_BETWEEN | 1 | 5 | highlighted: outside 1 to 5
+LT | -2.5 | | highlighted: below -2.5
+
+[ink]
+# a fill with no stated text colour gets the ink that reads better on it (the brightness of the fill decides)
+ffffff | dark
+000000 | light
+ffff00 | dark
+93418b | light
+1f4d7a | light
+cfe6fc | dark
+7a1f1f | light
+e8e8e8 | dark
+808080 | dark
+6e6e6e | light

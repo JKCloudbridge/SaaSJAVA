@@ -14,6 +14,7 @@ import {
 } from "@/lib/sheets/api";
 import { explainPlace, hintsFor, problemsFromFields } from "@/lib/sheets/hints";
 import { defaultVersion, useServerAnswers, useVersion, useVersions } from "@/lib/sheets/hooks";
+import { answerMaps } from "@/lib/sheets/look/sheetLook";
 import { revisionWords, versionTitle } from "@/lib/sheets/revision";
 import { isDraft } from "@/lib/sheets/tags";
 import type { GridDoc, Problem, SheetLimits } from "@/lib/sheets/types";
@@ -403,6 +404,11 @@ function VersionEditor({
   // The server's answers of the formulas (SH2): asked for when the sheet has any and again after every save.
   const hasFormulas = editor.doc.formatVersion === 2 && editor.canWriteFormulas;
   const serverAnswers = useServerAnswers(owner, summary.versionNo, summary.version, hasFormulas);
+  // The print view shows the same answers the grid shows: the server's when the document is the saved one, else the browser's.
+  const printAnswers = useMemo(
+    () => answerMaps(serverAnswers && !editor.dirty ? serverAnswers : editor.previews, editor.rows),
+    [serverAnswers, editor.dirty, editor.previews, editor.rows],
+  );
   const [tab, setTab] = useState<"form" | "grid">(narrow ? "form" : "grid");
   const [saving, setSaving] = useState(false);
   const [refused, setRefused] = useState<{ doc: GridDoc; problems: Problem[]; message: string; stale: boolean } | null>(null);
@@ -607,6 +613,7 @@ function VersionEditor({
         <SheetPrintView
           doc={editor.doc}
           print={print}
+          answers={printAnswers}
           footer={footerText ?? ""}
           label={`${label}, ${versionTitle(summary).toLowerCase()}`}
           onClose={() => setViewing(false)}

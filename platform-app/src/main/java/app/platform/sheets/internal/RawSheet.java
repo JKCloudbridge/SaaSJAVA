@@ -191,6 +191,11 @@ final class RawSheet {
     /** How many check boxes were placed in a cell, and how many of them were a Yes box and a No box in a pair. */
     int boxesPlaced;
     int boxPairs;
+
+    /** The number of check boxes placed in a cell (what the report and the tests read). */
+    int boxesPlaced() {
+        return boxesPlaced;
+    }
     /** The cells that become yes/no cells from check boxes. */
     final List<YesNo> yesNo = new ArrayList<>();
     /** The cells where an embedded file stood. */

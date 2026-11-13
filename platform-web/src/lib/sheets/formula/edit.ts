@@ -183,7 +183,29 @@ export function clearColumnFormula(doc: GridDoc, columnId: string): GridDoc {
  * counts. An error is its code.
  */
 export function answers(doc: GridDoc, spec: FormulaSpec | null): { cells: Record<string, string>; columns: Record<string, string> } {
-  const out = { cells: {} as Record<string, string>, columns: {} as Record<string, string> };
+  const { cells, columns } = answerSet(doc, spec);
+  return { cells, columns };
+}
+
+/** The kind of an answer, as the server names it. */
+export type AnswerKindName = "number" | "text" | "boolean" | "error" | "blank";
+
+function kindOf(value: Value): AnswerKindName {
+  if (value === null) return "blank";
+  if (value instanceof XlError) return "error";
+  if (typeof value === "boolean") return "boolean";
+  return typeof value === "number" ? "number" : "text";
+}
+
+/** The answers with the kind of each (SH4): a number is formatted and judged by the conditional colours, anything else is shown as it is. */
+export interface AnswerSet {
+  cells: Record<string, string>;
+  columns: Record<string, string>;
+  kinds: { cells: Record<string, AnswerKindName>; columns: Record<string, AnswerKindName> };
+}
+
+export function answerSet(doc: GridDoc, spec: FormulaSpec | null): AnswerSet {
+  const out: AnswerSet = { cells: {}, columns: {}, kinds: { cells: {}, columns: {} } };
   const extras = extrasOf(doc);
   if (extras === null || spec === null) return out;
   const bounds = { maxSteps: spec.maxSteps, maxTextChars: spec.maxTextChars };
@@ -245,12 +267,16 @@ export function answers(doc: GridDoc, spec: FormulaSpec | null): { cells: Record
   };
   for (const [key, extra] of Object.entries(extras.cells)) {
     if (extra.formula !== undefined) {
-      out.cells[key] = show(calculate(`c:${key}`, key.slice(0, key.indexOf(":")), extra.formula));
+      const value = calculate(`c:${key}`, key.slice(0, key.indexOf(":")), extra.formula);
+      out.cells[key] = show(value);
+      out.kinds.cells[key] = kindOf(value);
     }
   }
   if (doc.dimension === 1) {
     for (const [column, stored] of Object.entries(extras.columnFormulas ?? {})) {
-      out.columns[column] = show(calculate(`k:${column}`, "#0", stored));
+      const value = calculate(`k:${column}`, "#0", stored);
+      out.columns[column] = show(value);
+      out.kinds.columns[column] = kindOf(value);
     }
   }
   return out;

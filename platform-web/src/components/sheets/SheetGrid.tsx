@@ -1,7 +1,7 @@
 "use client";
 
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useEffect, useId, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type MouseEvent } from "react";
+import { memo, useEffect, useId, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { flushSync } from "react-dom";
 import {
   at,
@@ -16,6 +16,14 @@ import {
   type MergeRect,
 } from "@/lib/sheets/geometry";
 import { parseClipboard } from "@/lib/sheets/gridModel";
+import { edgesOf, type Edges } from "@/lib/sheets/look/borders";
+import { describe, type CellStyleDescription } from "@/lib/sheets/look/cellStyle";
+import { judge, readConditions } from "@/lib/sheets/look/conditions";
+import { displayOf, type Answer } from "@/lib/sheets/look/display";
+import { effectiveFreeze, readFreeze } from "@/lib/sheets/look/freeze";
+import { readLook } from "@/lib/sheets/look/look";
+import { isLooked, lookSource } from "@/lib/sheets/look/sheetLook";
+import type { AnswerKind } from "@/lib/sheets/look/numberFormat";
 import type { GridCell } from "@/lib/sheets/types";
 import type { SheetGridEditor } from "./useSheetEditor";
 
@@ -80,7 +88,20 @@ export interface SheetGridProps {
    * and an error as its code. The server's answer when the document is the saved one, the browser's while an author types.
    */
   formulaAnswers?: Record<string, string>;
+  /**
+   * The kind of each answer, by cell key (SH4): only a number is written in its number format and judged by the conditional
+   * colours; an answer with no kind is shown as the text it is.
+   */
+  formulaKinds?: Record<string, string>;
 }
+
+/** The kinds an answer may have; anything else is shown as text. */
+function answerKind(kind: string | undefined): AnswerKind {
+  return kind === "number" || kind === "boolean" || kind === "error" || kind === "blank" ? kind : "text";
+}
+
+/** The positions 0 to count - 1. */
+const range = (count: number): number[] => Array.from({ length: Math.max(0, count) }, (_, i) => i);
 
 /** The narrowest and the widest a column may be: the same bounds as the schema of the sheet. */
 const MIN_COLUMN_WIDTH = 40;
@@ -111,6 +132,7 @@ export function SheetGrid({
   onResizeRow,
   footer,
   formulaAnswers,
+  formulaKinds,
 }: SheetGridProps) {
   const { doc, rows, selection, rect } = editor;
   const gridId = useId();
@@ -156,14 +178,34 @@ export function SheetGrid({
   const footerHeight = footer === undefined ? 0 : FOOTER_HEIGHT;
   const totalWidth = at(colLeft, doc.columns.length);
 
+  // The look (SH4): a sheet in format version 2 is drawn from what it states. A sheet in version 1 takes none of this.
+  const looked = isLooked(doc);
+  const borderSource = useMemo(() => lookSource(doc, rows), [doc, rows]);
+  const rules = useMemo(
+    () => (looked ? readConditions(doc.sheet?.conditions, (id) => indexes.rowPos.get(id), (id) => indexes.colPos.get(id)) : []),
+    [looked, doc.sheet?.conditions, indexes],
+  );
+  // What the view measured, so the fixed part never takes more than a share of it. Until it is measured, a plain size.
+  const [view, setView] = useState({ width: 800, height: 400 });
+  const freeze = looked
+    ? effectiveFreeze(readFreeze(doc.sheet?.freeze), rects, {
+        rowHeights: rows.map(heightOf),
+        columnWidths: doc.columns.map(widthOf),
+        viewHeight: Math.max(0, view.height - LABEL_BAND_HEIGHT),
+        viewWidth: view.width,
+      })
+    : { rows: 0, columns: 0 };
+  const frozenHeight = at(rowTop, freeze.rows);
+  const frozenWidth = at(colLeft, freeze.columns);
+
   // eslint-disable-next-line react-hooks/incompatible-library -- the compiler skips this component; nothing here is memoized by hand
   const rowVirtual = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: (i) => heightOf(at(rows, i)),
-    overscan: 6,
+    overscan: 3,
     paddingStart: LABEL_BAND_HEIGHT,
-    scrollPaddingStart: LABEL_BAND_HEIGHT,
+    scrollPaddingStart: LABEL_BAND_HEIGHT + frozenHeight,
     initialRect: { width: 800, height: 400 },
   });
   const columnVirtual = useVirtualizer({
@@ -171,7 +213,8 @@ export function SheetGrid({
     count: doc.columns.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: (j) => widthOf(at(doc.columns, j)),
-    overscan: 2,
+    overscan: 1,
+    scrollPaddingStart: frozenWidth,
     initialRect: { width: 800, height: 400 },
   });
 
@@ -184,7 +227,9 @@ export function SheetGrid({
       const [rMin, rMax] = [Math.min(...set), Math.max(...set)];
       const [cMin, cMax] = [Math.min(...columnsShown), Math.max(...columnsShown)];
       for (const m of rects) {
-        if (m.r0 <= rMax && m.r1 >= rMin && m.c0 <= cMax && m.c1 >= cMin) {
+        // an area in the fixed columns is always on the screen, whatever the columns that scrolled into view
+        const across = m.c1 < freeze.columns || (m.c0 <= cMax && m.c1 >= cMin);
+        if (m.r0 <= rMax && m.r1 >= rMin && across) {
           set.add(m.r0);
         }
       }
@@ -199,7 +244,9 @@ export function SheetGrid({
       const [cMin, cMax] = [Math.min(...set), Math.max(...set)];
       const [rMin, rMax] = [Math.min(...rowsShown), Math.max(...rowsShown)];
       for (const m of rects) {
-        if (m.r0 <= rMax && m.r1 >= rMin && m.c0 <= cMax && m.c1 >= cMin) {
+        // an area in the fixed rows is always on the screen too
+        const down = m.r1 < freeze.rows || (m.r0 <= rMax && m.r1 >= rMin);
+        if (down && m.c0 <= cMax && m.c1 >= cMin) {
           set.add(m.c0);
         }
       }
@@ -207,6 +254,22 @@ export function SheetGrid({
     set.add(selection.fc);
     return [...set].filter((j) => j < doc.columns.length).sort((a, b) => a - b);
   })();
+  // The fixed rows and columns are always drawn, in their own layer; the rest is what the virtual window holds.
+  const fixedRows = range(freeze.rows);
+  const fixedColumns = range(freeze.columns);
+  const scrollingRows = visibleRows.filter((i) => i >= freeze.rows);
+  const scrollingColumns = visibleColumns.filter((j) => j >= freeze.columns);
+
+  const measured = rowVirtual.scrollRect;
+  useEffect(() => {
+    if (measured && measured.height > 1 && measured.width > 1) {
+      setView((now) =>
+        Math.abs(now.height - measured.height) > 1 || Math.abs(now.width - measured.width) > 1
+          ? { width: measured.width, height: measured.height }
+          : now,
+      );
+    }
+  }, [measured]);
 
   useEffect(() => {
     if (editing && inputRef.current) {
@@ -241,8 +304,9 @@ export function SheetGrid({
   const moveTo = (row: number, column: number, extend: boolean) => {
     const [r, c] = anchorOf(Math.max(0, Math.min(lastRow, row)), Math.max(0, Math.min(lastColumn, column)));
     editor.select(extend ? { ...selection, fr: r, fc: c } : { ar: r, ac: c, fr: r, fc: c });
-    rowVirtual.scrollToIndex(r);
-    columnVirtual.scrollToIndex(c);
+    // a fixed row or column is always in view: moving onto it scrolls nothing
+    if (r >= freeze.rows) rowVirtual.scrollToIndex(r);
+    if (c >= freeze.columns) columnVirtual.scrollToIndex(c);
   };
 
   const startEdit = (row: number, column: number, seed?: string) => {
@@ -453,11 +517,214 @@ export function SheetGrid({
 
   const activeId = rows.length > 0 && doc.columns.length > 0 ? cellId(selection.fr, selection.fc) : undefined;
 
+  /** One cell of the grid, drawn at its display position (the top left cell of a merged area is its anchor). */
+  const renderCell = (i: number, j: number) => {
+    const row = at(rows, i);
+    const column = at(doc.columns, j);
+    const key = cellKey(row.id, column.id);
+    const cell = doc.cells[key];
+    const area = anchors.get(`${i}:${j}`);
+    const width = (area ? at(colLeft, area.c1 + 1) : at(colLeft, j + 1)) - at(colLeft, j);
+    const height = (area ? at(rowTop, area.r1 + 1) : at(rowTop, i + 1)) - at(rowTop, i);
+    const fixed = cellKind(row.zone, cell) === "fixed";
+    const inRect = i >= rect.r0 && i <= rect.r1 && j >= rect.c0 && j <= rect.c1;
+    const active = i === selection.fr && j === selection.fc;
+    const answer = formulaAnswers?.[key];
+    let described: CellStyleDescription | null = null;
+    let words: string | null = null;
+    let quiet = false;
+    let list: string | null = null;
+    let alignment = cell?.style?.alignment ?? "LEFT";
+    let text = answer !== undefined ? answer : shown(cell?.value);
+    if (looked) {
+      const own = readLook(doc.sheet?.cells[key]?.look);
+      const shownAnswer: Answer | undefined =
+        answer === undefined ? undefined : { text: answer, kind: answerKind(formulaKinds?.[key]) };
+      const display = displayOf(doc, row.id, column.id, row.zone, cell, own, shownAnswer, onResizeColumn !== undefined);
+      text = display.text;
+      quiet = display.quiet;
+      list = display.list;
+      if (cell?.style?.alignment === undefined && display.number !== null) alignment = "RIGHT";
+      const edges: Edges = edgesOf(borderSource, i, j, area);
+      const hit = judge(rules, i, j, display.number);
+      described = describe(own, edges, hit ?? undefined);
+      words = hit ? hit.words : null;
+    }
+    const classes = [
+      "sheet-cell",
+      fixed ? "sheet-cell-fixed" : "sheet-cell-input",
+      row.zone === "header" ? "sheet-cell-header" : "",
+      row.zone === "blank" ? "sheet-cell-blank" : "",
+      cell?.style?.bold ? "sheet-bold" : "",
+      cell?.style?.italic ? "sheet-italic" : "",
+      cell?.style?.underline ? "sheet-underline" : "",
+      ALIGN_CLASS[alignment],
+      COLOUR_CLASS[cell?.style?.colour ?? "DEFAULT"],
+      SIZE_CLASS[cell?.style?.fontSize ?? "NORMAL"],
+      inRect ? "sheet-selected" : "",
+      active ? "sheet-active" : "",
+      area ? "sheet-merged" : "",
+      quiet ? "sheet-quiet" : "",
+      list ? "sheet-list" : "",
+      // a text colour named in the style is the cell's own ink: the automatic one is only for a cell that states none
+      ...(described ? described.classes.filter((name) => !(cell?.style?.colour && name.startsWith("sheet-ink-"))) : []),
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const editingHere = editing !== null && editing.row === i && editing.column === j;
+    if (!editingHere) {
+      return (
+        <CellView
+          key={column.id}
+          id={cellId(i, j)}
+          r={i}
+          c={j}
+          className={classes}
+          left={at(colLeft, j)}
+          width={width}
+          height={height}
+          props={described ? described.props : undefined}
+          selected={inRect}
+          readOnlyCell={readOnly || row.zone === "blank"}
+          rowSpan={area ? area.r1 - area.r0 + 1 : undefined}
+          colSpan={area ? area.c1 - area.c0 + 1 : undefined}
+          text={text}
+          hint={text === "" && row.zone !== "header" && !fixed}
+          list={list}
+          words={words}
+        />
+      );
+    }
+    return (
+      <div
+        key={column.id}
+        id={cellId(i, j)}
+        role="gridcell"
+        data-r={i}
+        data-c={j}
+        className={classes}
+        aria-colindex={j + 1}
+        aria-selected={inRect}
+        aria-readonly={readOnly || row.zone === "blank"}
+        aria-rowspan={area ? area.r1 - area.r0 + 1 : undefined}
+        aria-colspan={area ? area.c1 - area.c0 + 1 : undefined}
+        style={{ left: at(colLeft, j), width, height, ...(described ? described.props : {}) }}
+      >
+        {editingHere ? (
+          <input
+            ref={inputRef}
+            type="text"
+            className="sheet-input"
+            autoComplete="off"
+            spellCheck={false}
+            aria-label={`${column.label}, ${row.label || `row ${i + 1}`}`}
+            defaultValue={editing.initial}
+            onChange={liveInput ? (event) => {
+              const problem = editor.setText(row.id, column.id, event.target.value);
+              if (problem) editor.say(problem, true);
+            } : undefined}
+            onKeyDown={(event) => {
+              if (event.nativeEvent.isComposing) {
+                return;
+              }
+              if (event.key === "Enter") {
+                event.preventDefault();
+                finishEdit(true, event.shiftKey ? -1 : 1, 0);
+              } else if (event.key === "Tab") {
+                event.preventDefault();
+                finishEdit(true, 0, event.shiftKey ? -1 : 1);
+              } else if (event.key === "Escape") {
+                event.preventDefault();
+                finishEdit(false);
+              }
+            }}
+            onBlur={(event) => {
+              if (event.relatedTarget === scrollRef.current) {
+                return;
+              }
+              finishEdit(true);
+            }}
+          />
+        ) : (
+          <>
+            {text}
+            {text === "" && row.zone !== "header" && !fixed ? <span className="visually-hidden">Input cell</span> : null}
+            {list ? <span className="sheet-list-mark" aria-hidden="true">{"\u25BE"}</span> : null}
+            {list ? <span className="visually-hidden"> ({list})</span> : null}
+            {words ? <span className="visually-hidden"> ({words})</span> : null}
+          </>
+        )}
+      </div>
+    );
+  };
+
+  /** The cells of one row: those in the fixed columns ride in a layer that stays at the left edge; the rest scroll. */
+  const renderRow = (i: number, fixedRow: boolean) => {
+    const row = at(rows, i);
+    const drawn = (j: number) => !covered.has(`${i}:${j}`);
+    return (
+      <div
+        key={row.id}
+        role="row"
+        aria-rowindex={i + 2}
+        aria-label={row.label || undefined}
+        className={fixedRow ? (i === freeze.rows - 1 ? "sheet-row sheet-row-fixed sheet-row-fixed-last" : "sheet-row sheet-row-fixed") : "sheet-row"}
+        style={{ top: LABEL_BAND_HEIGHT + at(rowTop, i), height: heightOf(row), width: totalWidth }}
+      >
+        {fixedColumns.length > 0 ? (
+          <div role="presentation" className="sheet-pane-left">
+            {fixedColumns.filter(drawn).map((j) => renderCell(i, j))}
+          </div>
+        ) : null}
+        {scrollingColumns.filter(drawn).map((j) => renderCell(i, j))}
+        {onResizeRow && row.zone !== "blank" ? (
+          <RowEdge
+            label={row.label || `row ${i + 1}`}
+            height={heightOf(row)}
+            onLive={(height) => setLiveRow(height === undefined ? null : { id: row.id, height })}
+            onDone={(height) => {
+              setLiveRow(null);
+              onResizeRow(row.id, height);
+            }}
+          />
+        ) : null}
+      </div>
+    );
+  };
+
+  const renderLabel = (j: number) => {
+    const column = at(doc.columns, j);
+    return (
+      <div
+        key={column.id}
+        role="columnheader"
+        aria-colindex={j + 1}
+        className="sheet-label"
+        style={{ left: at(colLeft, j), width: widthOf(column), height: LABEL_BAND_HEIGHT }}
+      >
+        {column.label}
+        {column.required ? <span aria-hidden="true"> *</span> : null}
+        {column.required ? <span className="visually-hidden"> (required)</span> : null}
+        {onResizeColumn ? (
+          <ColumnEdge
+            label={column.label}
+            width={widthOf(column)}
+            onLive={(width) => setLive(width === undefined ? null : { id: column.id, width })}
+            onDone={(width) => {
+              setLive(null);
+              onResizeColumn(column.id, width);
+            }}
+          />
+        ) : null}
+      </div>
+    );
+  };
+
   return (
     <div className="sheet-grid-wrap">
       <div
         ref={scrollRef}
-        className="sheet-grid"
+        className={looked ? "sheet-grid sheet-paper" : "sheet-grid"}
         role="grid"
         tabIndex={0}
         aria-label={label}
@@ -486,152 +753,15 @@ export function SheetGrid({
       >
         <div className="sheet-canvas" style={{ width: totalWidth, height: LABEL_BAND_HEIGHT + totalHeight + footerHeight }}>
           <div role="row" aria-rowindex={1} className="sheet-labels" style={{ height: LABEL_BAND_HEIGHT, width: totalWidth }}>
-            {visibleColumns.map((j) => {
-              const column = at(doc.columns, j);
-              return (
-                <div
-                  key={column.id}
-                  role="columnheader"
-                  aria-colindex={j + 1}
-                  className="sheet-label"
-                  style={{ left: at(colLeft, j), width: widthOf(column), height: LABEL_BAND_HEIGHT }}
-                >
-                  {column.label}
-                  {column.required ? <span aria-hidden="true"> *</span> : null}
-                  {column.required ? <span className="visually-hidden"> (required)</span> : null}
-                  {onResizeColumn ? (
-                    <ColumnEdge
-                      label={column.label}
-                      width={widthOf(column)}
-                      onLive={(width) => setLive(width === undefined ? null : { id: column.id, width })}
-                      onDone={(width) => {
-                        setLive(null);
-                        onResizeColumn(column.id, width);
-                      }}
-                    />
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-          {visibleRows.map((i) => {
-            const row = at(rows, i);
-
-            return (
-              <div
-                key={row.id}
-                role="row"
-                aria-rowindex={i + 2}
-                aria-label={row.label || undefined}
-                className="sheet-row"
-                style={{ top: LABEL_BAND_HEIGHT + at(rowTop, i), height: heightOf(row), width: totalWidth }}
-              >
-                {visibleColumns.map((j) => {
-                  if (covered.has(`${i}:${j}`)) {
-                    return null;
-                  }
-                  const column = at(doc.columns, j);
-                  const key = cellKey(row.id, column.id);
-                  const cell = doc.cells[key];
-                  const area = anchors.get(`${i}:${j}`);
-                  const width = (area ? at(colLeft, area.c1 + 1) : at(colLeft, j + 1)) - at(colLeft, j);
-                  const height = (area ? at(rowTop, area.r1 + 1) : at(rowTop, i + 1)) - at(rowTop, i);
-                  const fixed = cellKind(row.zone, cell) === "fixed";
-                  const inRect = i >= rect.r0 && i <= rect.r1 && j >= rect.c0 && j <= rect.c1;
-                  const active = i === selection.fr && j === selection.fc;
-                  const classes = [
-                    "sheet-cell",
-                    fixed ? "sheet-cell-fixed" : "sheet-cell-input",
-                    row.zone === "header" ? "sheet-cell-header" : "",
-                    row.zone === "blank" ? "sheet-cell-blank" : "",
-                    cell?.style?.bold ? "sheet-bold" : "",
-                    cell?.style?.italic ? "sheet-italic" : "",
-                    cell?.style?.underline ? "sheet-underline" : "",
-                    ALIGN_CLASS[cell?.style?.alignment ?? "LEFT"],
-                    COLOUR_CLASS[cell?.style?.colour ?? "DEFAULT"],
-                    SIZE_CLASS[cell?.style?.fontSize ?? "NORMAL"],
-                    inRect ? "sheet-selected" : "",
-                    active ? "sheet-active" : "",
-                    area ? "sheet-merged" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ");
-                  const editingHere = editing !== null && editing.row === i && editing.column === j;
-                  const answer = formulaAnswers?.[key];
-                  const text = answer !== undefined ? answer : shown(cell?.value);
-                  return (
-                    <div
-                      key={column.id}
-                      id={cellId(i, j)}
-                      role="gridcell"
-                      data-r={i}
-                      data-c={j}
-                      className={classes}
-                      aria-colindex={j + 1}
-                      aria-selected={inRect}
-                      aria-readonly={readOnly || row.zone === "blank"}
-                      aria-rowspan={area ? area.r1 - area.r0 + 1 : undefined}
-                      aria-colspan={area ? area.c1 - area.c0 + 1 : undefined}
-                      style={{ left: at(colLeft, j), width, height }}
-                    >
-                      {editingHere ? (
-                        <input
-                          ref={inputRef}
-                          type="text"
-                          className="sheet-input"
-                          autoComplete="off"
-                          spellCheck={false}
-                          aria-label={`${column.label}, ${row.label || `row ${i + 1}`}`}
-                          defaultValue={editing.initial}
-                          onChange={liveInput ? (event) => {
-                            const problem = editor.setText(row.id, column.id, event.target.value);
-                            if (problem) editor.say(problem, true);
-                          } : undefined}
-                          onKeyDown={(event) => {
-                            if (event.nativeEvent.isComposing) {
-                              return;
-                            }
-                            if (event.key === "Enter") {
-                              event.preventDefault();
-                              finishEdit(true, event.shiftKey ? -1 : 1, 0);
-                            } else if (event.key === "Tab") {
-                              event.preventDefault();
-                              finishEdit(true, 0, event.shiftKey ? -1 : 1);
-                            } else if (event.key === "Escape") {
-                              event.preventDefault();
-                              finishEdit(false);
-                            }
-                          }}
-                          onBlur={(event) => {
-                            if (event.relatedTarget === scrollRef.current) {
-                              return;
-                            }
-                            finishEdit(true);
-                          }}
-                        />
-                      ) : (
-                        <>
-                          {text}
-                          {text === "" && row.zone !== "header" && !fixed ? <span className="visually-hidden">Input cell</span> : null}
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-                {onResizeRow && row.zone !== "blank" ? (
-                  <RowEdge
-                    label={row.label || `row ${i + 1}`}
-                    height={heightOf(row)}
-                    onLive={(height) => setLiveRow(height === undefined ? null : { id: row.id, height })}
-                    onDone={(height) => {
-                      setLiveRow(null);
-                      onResizeRow(row.id, height);
-                    }}
-                  />
-                ) : null}
+            {fixedColumns.length > 0 ? (
+              <div role="presentation" className="sheet-pane-left">
+                {fixedColumns.map(renderLabel)}
               </div>
-            );
-          })}
+            ) : null}
+            {scrollingColumns.map(renderLabel)}
+          </div>
+          {fixedRows.map((i) => renderRow(i, true))}
+          {scrollingRows.map((i) => renderRow(i, false))}
           {footer === undefined ? null : (
             <div
               role="row"
@@ -775,3 +905,53 @@ function RowEdge({
     />
   );
 }
+
+interface CellViewProps {
+  id: string;
+  r: number;
+  c: number;
+  className: string;
+  left: number;
+  width: number;
+  height: number;
+  /** The custom properties of the cell's look; the same object for the same look, so an unchanged cell is not drawn again. */
+  props: Readonly<Record<string, string>> | undefined;
+  selected: boolean;
+  readOnlyCell: boolean;
+  rowSpan: number | undefined;
+  colSpan: number | undefined;
+  text: string;
+  /** Whether to say "Input cell" to a screen reader (an input cell with nothing in it). */
+  hint: boolean;
+  list: string | null;
+  words: string | null;
+}
+
+/**
+ * One cell that is not being edited. Everything it draws comes in as plain values, so React skips it when none changed:
+ * scrolling or moving the selection redraws only the cells that entered, left or changed, not every cell on the screen.
+ */
+const CellView = memo(function CellView(p: CellViewProps) {
+  const style = useMemo(() => ({ left: p.left, width: p.width, height: p.height, ...(p.props ?? {}) }), [p.left, p.width, p.height, p.props]);
+  return (
+    <div
+      id={p.id}
+      role="gridcell"
+      data-r={p.r}
+      data-c={p.c}
+      className={p.className}
+      aria-colindex={p.c + 1}
+      aria-selected={p.selected}
+      aria-readonly={p.readOnlyCell}
+      aria-rowspan={p.rowSpan}
+      aria-colspan={p.colSpan}
+      style={style}
+    >
+      {p.text}
+      {p.hint ? <span className="visually-hidden">Input cell</span> : null}
+      {p.list ? <span className="sheet-list-mark" aria-hidden="true">{"\u25BE"}</span> : null}
+      {p.list ? <span className="visually-hidden"> ({p.list})</span> : null}
+      {p.words ? <span className="visually-hidden"> ({p.words})</span> : null}
+    </div>
+  );
+});

@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "sheet-grid": "node sheet-grid.mjs",
+    "sheet-look": "node sheet-look.mjs",
     "application-grid": "node application-grid.mjs"
   },
   "devDependencies": {

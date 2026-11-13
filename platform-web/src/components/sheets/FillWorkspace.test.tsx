@@ -341,3 +341,36 @@ describe("a fill-in that cannot be opened", () => {
     expect(reads).toBe(2);
   });
 });
+
+// A fill-in pinned to a sheet in format version 2 (SH4): the platform still refuses to start one until SH5, so the view is
+// proved here with a fixture, and SH5 inherits it. The grid draws the look, the frozen rows and the thin lines of the boxes.
+describe("a fill-in pinned to a sheet in format version 2", () => {
+  const twoGrid = () => {
+    const body = Object.fromEntries(Object.entries(sampleDoc()).filter(([name]) => name !== "formatVersion"));
+    return {
+      formatVersion: 2,
+      sheets: [
+        {
+          key: "main",
+          ...body,
+          freeze: { rows: 2, columns: 0 },
+          cells: { ...sampleDoc().cells, "h1:c1": { value: "Inspection", look: { fill: "#112233", size: 16 } } },
+        },
+      ],
+    };
+  };
+
+  it("is drawn on paper with the sheet's own look, its fixed rows and its input cells marked", async () => {
+    fakeApi({ [`GET ${URL_OF}`]: view({}, {}, twoGrid()) });
+    draw();
+
+    const grid = await screen.findByRole("grid", { name: "Fire checks, revision 02" });
+    const title = document.querySelector('[data-r="0"][data-c="0"]') as HTMLElement;
+
+    expect(grid).toHaveClass("sheet-paper");
+    expect(title.style.getPropertyValue("--sheet-fill")).toBe("#112233");
+    expect(title).toHaveClass("sheet-ink-light");
+    expect(document.querySelectorAll(".sheet-row-fixed")).toHaveLength(2);
+    expect(document.querySelector('[data-r="2"][data-c="1"]')).toHaveClass("sheet-br-thin");
+  });
+});

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import type { PrintDescription } from "@/lib/sheets/api";
+import type { AnswerMaps } from "@/lib/sheets/look/sheetLook";
 import { ALIGN_CLASS, COLOUR_CLASS, printModel, SIZE_CLASS, type PrintCell } from "@/lib/sheets/print";
 import type { GridDoc } from "@/lib/sheets/types";
 
@@ -15,9 +16,11 @@ function classesOf(cell: PrintCell): string {
     style.bold ? "sheet-bold" : "",
     style.italic ? "sheet-italic" : "",
     style.underline ? "sheet-underline" : "",
-    ALIGN_CLASS[style.alignment ?? "LEFT"],
+    ALIGN_CLASS[cell.look ? cell.look.alignment : (style.alignment ?? "LEFT")],
     COLOUR_CLASS[style.colour ?? "DEFAULT"],
     SIZE_CLASS[style.fontSize ?? "NORMAL"],
+    // a text colour named in the style is the cell's own ink: the automatic one is only for a cell that states none
+    ...(cell.look ? cell.look.classes.filter((name) => !(style.colour && name.startsWith("sheet-ink-"))) : []),
   ]
     .filter(Boolean)
     .join(" ");
@@ -39,6 +42,7 @@ export function SheetPrintView({
   footer,
   label,
   showInput = false,
+  answers,
   onClose,
 }: {
   doc: GridDoc;
@@ -50,19 +54,36 @@ export function SheetPrintView({
   print?: PrintDescription;
   /** A fill-in shows what was typed into the input cells; a template shows them empty (the default). */
   showInput?: boolean;
+  /** The answers of the formulas by cell key with their kinds (SH4): written in their number formats and judged by the colour rules. */
+  answers?: AnswerMaps;
   /** The text at the right of the footer row; empty leaves the row blank (the row is always there). */
   footer: string;
   /** What the sheet is called for a screen reader. */
   label: string;
   onClose: () => void;
 }) {
-  const model = useMemo(() => printModel(doc, { showInput }), [doc, showInput]);
+  const model = useMemo(() => printModel(doc, { showInput, answers }), [doc, showInput, answers]);
   const orientation = print ? print.orientation : model.orientation;
   const paper = print ? print.paper : "A4";
   // A paper other than A4 is the server's own size in millimetres; the A4 widths are the tokens'.
   const pageStyle = print && print.paper !== "A4" ? ({ width: `${print.pageWidthMm}mm` } as CSSProperties) : undefined;
   const printButton = useRef<HTMLButtonElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
+
+  // The paper size is the one thing a style rule cannot get from a class: a fixed sentence of two possible values. It goes in
+  // as a stylesheet made by script (a style element would break a strict content policy); a browser that cannot do that
+  // (and a test) gets the element below instead.
+  const pageRule = `@page { size: ${paper} ${orientation}; margin: 12mm; }`;
+  const byScript = typeof CSSStyleSheet !== "undefined" && "adoptedStyleSheets" in document;
+  useEffect(() => {
+    if (!byScript) return;
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(pageRule);
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+    return () => {
+      document.adoptedStyleSheets = document.adoptedStyleSheets.filter((one) => one !== sheet);
+    };
+  }, [byScript, pageRule]);
 
   useEffect(() => {
     const before = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -96,10 +117,21 @@ export function SheetPrintView({
   }, [onClose]);
 
   const count = model.columns.length;
+  const headRow = (row: (typeof model.head)[number]) => (
+    <tr key={row.id} style={{ height: row.height }}>
+      {row.cells.map((cell) => (
+        <th key={cell.key} scope={row.zone === "labels" ? "col" : undefined} rowSpan={cell.rowSpan}
+          colSpan={cell.colSpan} className={classesOf(cell)}
+          style={cell.look ? (cell.look.props as CSSProperties) : undefined}>
+          {cell.text}
+          {cell.look?.words ? <span className="visually-hidden"> ({cell.look.words})</span> : null}
+        </th>
+      ))}
+    </tr>
+  );
   const page = (
     <div className="sheet-print-root" role="dialog" aria-modal="true" aria-label={`View of ${label}`} data-testid="sheet-print-view">
-      {/* The paper size is the one thing a style rule cannot get from a class: a fixed sentence of two possible values. */}
-      <style>{`@page { size: ${paper} ${orientation}; margin: 12mm; }`}</style>
+      {byScript ? null : <style>{pageRule}</style>}
       <div className="sheet-print-bar">
         <button type="button" className="button" ref={printButton} onClick={() => window.print()}>
           Print
@@ -113,30 +145,23 @@ export function SheetPrintView({
         </span>
       </div>
       <div className={`sheet-print-page sheet-print-${orientation}`} style={pageStyle}>
-        <table className="sheet-print-table" aria-label={label}>
+        <table className={model.looked ? "sheet-print-table sheet-print-looked" : "sheet-print-table"} aria-label={label}>
           <colgroup>
             {model.columns.map((column) => (
-              <col key={column.id} style={{ width: `${column.percent}%` } as CSSProperties} />
+              <col key={column.id} style={(model.fitToWidth ? { width: `${column.percent}%` } : { width: column.width }) as CSSProperties} />
             ))}
           </colgroup>
-          <thead>
-            {model.head.map((row) => (
-              <tr key={row.id} style={{ height: row.height }}>
-                {row.cells.map((cell) => (
-                  <th key={cell.key} scope={row.zone === "labels" ? "col" : undefined} rowSpan={cell.rowSpan}
-                    colSpan={cell.colSpan} className={classesOf(cell)}>
-                    {cell.text}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
+          {/* A sheet whose header rows do not repeat shows them once, at the top of the first page. */}
+          <thead>{model.repeatHeaderRows ? model.head.map(headRow) : null}</thead>
           <tbody>
+            {model.repeatHeaderRows ? null : model.head.map(headRow)}
             {model.body.map((row) => (
               <tr key={row.id} style={{ height: row.height }}>
                 {row.cells.map((cell) => (
-                  <td key={cell.key} rowSpan={cell.rowSpan} colSpan={cell.colSpan} className={classesOf(cell)}>
+                  <td key={cell.key} rowSpan={cell.rowSpan} colSpan={cell.colSpan} className={classesOf(cell)}
+                    style={cell.look ? (cell.look.props as CSSProperties) : undefined}>
                     {cell.text}
+                    {cell.look?.words ? <span className="visually-hidden"> ({cell.look.words})</span> : null}
                   </td>
                 ))}
               </tr>
