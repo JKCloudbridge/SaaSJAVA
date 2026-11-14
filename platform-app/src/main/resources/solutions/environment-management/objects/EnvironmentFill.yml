@@ -44,3 +44,12 @@ fields:
     platformWritten: true
     indexed: true
     settings: { maxLength: 20 }
+
+  # MC1.1, ADR-0259: the same field as its counterpart (EnvironmentParityTest). Not used by this application; always empty.
+  - apiName: application
+    label: Application
+    description: Not used by this application; kept so the two applications have the same fields. Always empty.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 60 }

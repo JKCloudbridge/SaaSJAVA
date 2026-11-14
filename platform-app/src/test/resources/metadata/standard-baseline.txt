@@ -71,10 +71,12 @@ EnvironmentChangeRequest managedBy=none requiresFeature=environment-management r
 EnvironmentChangeRequest.name TEXT platformWritten
 EnvironmentChangeRequest.templateId TEXT indexed platformWritten
 EnvironmentChangeRequest.status TEXT indexed platformWritten
+EnvironmentChangeRequest.application TEXT indexed platformWritten
 EnvironmentFill managedBy=none requiresFeature=environment-management retainRecords sharingDefault=PRIVATE
 EnvironmentFill.name TEXT platformWritten
 EnvironmentFill.templateId TEXT indexed platformWritten
 EnvironmentFill.status TEXT indexed platformWritten
+EnvironmentFill.application TEXT indexed platformWritten
 EnvironmentTemplate managedBy=none requiresFeature=environment-management retainRecords sharingDefault=PRIVATE
 EnvironmentTemplate.name TEXT
 EnvironmentTemplate.level PICKLIST codeValues organizationValues

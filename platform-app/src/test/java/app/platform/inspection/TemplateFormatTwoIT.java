@@ -8,7 +8,6 @@ import app.platform.testsupport.TestHttp.Response;
 import com.jayway.jsonpath.JsonPath;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;

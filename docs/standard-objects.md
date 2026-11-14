@@ -150,6 +150,7 @@ The record that sends a change request of the Environment Management application
 | `name` | Change request name | TEXT |  |  | up to 160 characters; written by the platform only |
 | `templateId` | Template | TEXT |  |  | up to 36 characters; written by the platform only |
 | `status` | Status | TEXT |  |  | up to 20 characters; written by the platform only |
+| `application` | Application | TEXT |  |  | up to 60 characters; written by the platform only |
 
 ## EnvironmentFill
 
@@ -164,6 +165,7 @@ A fill-in of a template of the Environment Management application. Its records a
 | `name` | Fill-in name | TEXT |  |  | up to 160 characters; written by the platform only |
 | `templateId` | Template | TEXT |  |  | up to 36 characters; written by the platform only |
 | `status` | Status | TEXT |  |  | up to 20 characters; written by the platform only |
+| `application` | Application | TEXT |  |  | up to 60 characters; written by the platform only |
 
 ## EnvironmentTemplate
 
