@@ -166,6 +166,8 @@ A fill-in of a template of the Environment Management application. Its records a
 | `templateId` | Template | TEXT |  |  | up to 36 characters; written by the platform only |
 | `status` | Status | TEXT |  |  | up to 20 characters; written by the platform only |
 | `application` | Application | TEXT |  |  | up to 60 characters; written by the platform only |
+| `plant` | Plant | TEXT |  |  | up to 10 characters; written by the platform only |
+| `period` | Month | TEXT |  |  | up to 7 characters; written by the platform only |
 
 ## EnvironmentTemplate
 
@@ -231,6 +233,8 @@ A fill-in of a template of the Quality Management System application. Its record
 | `templateId` | Template | TEXT |  |  | up to 36 characters; written by the platform only |
 | `status` | Status | TEXT |  |  | up to 20 characters; written by the platform only |
 | `application` | Application | TEXT |  |  | up to 60 characters; written by the platform only |
+| `plant` | Plant | TEXT |  |  | up to 10 characters; written by the platform only |
+| `period` | Month | TEXT |  |  | up to 7 characters; written by the platform only |
 
 ## InspectionTemplate
 

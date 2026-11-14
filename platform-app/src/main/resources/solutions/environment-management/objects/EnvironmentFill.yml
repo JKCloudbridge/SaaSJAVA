@@ -53,3 +53,20 @@ fields:
     platformWritten: true
     indexed: true
     settings: { maxLength: 60 }
+
+  # MC2A, ADR-0260: the same fields as its counterpart (EnvironmentParityTest). Not used by this application; always empty.
+  - apiName: plant
+    label: Plant
+    description: Not used by this application; kept so the two applications have the same fields. Always empty.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 10 }
+
+  - apiName: period
+    label: Month
+    description: Not used by this application; kept so the two applications have the same fields. Always empty.
+    type: TEXT
+    platformWritten: true
+    indexed: true
+    settings: { maxLength: 7 }
